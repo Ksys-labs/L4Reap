@@ -1,0 +1,4 @@
+# PF: IMX
+# PFDESCR: Freescale i.MX
+# PFDEPENDS: ARM
+# PFCAN: CAN_ARM_CPU_926

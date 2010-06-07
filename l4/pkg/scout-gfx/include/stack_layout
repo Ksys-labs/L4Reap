@@ -1,0 +1,17 @@
+// vi:ft=cpp
+
+#pragma once
+
+#include <l4/scout-gfx/layout>
+
+namespace Scout_gfx {
+
+class Stack_layout : public Layout
+{
+public:
+  virtual ~Stack_layout() {}
+
+  static Stack_layout *create();
+};
+
+}

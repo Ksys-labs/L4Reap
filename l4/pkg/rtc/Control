@@ -1,0 +1,3 @@
+provides: rtc rtc_libc_be
+requires: l4util libc l4re l4re_c lxfuxlibc libio stdlibs
+Maintainer: adam@os.inf.tu-dresden.de

@@ -1,0 +1,18 @@
+// vi:ft=cpp
+
+#pragma once
+
+#include <l4/scout-gfx/layout>
+
+namespace Scout_gfx {
+
+class Box_layout : public Layout
+{
+public:
+  virtual ~Box_layout() {}
+
+  static Box_layout *create_horz();
+  static Box_layout *create_vert();
+};
+
+}

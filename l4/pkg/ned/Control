@@ -1,0 +1,2 @@
+requires: stdlibs libc_r libsupc++ libloader l4util l4re-util lua++
+maintainer: warg@os.inf.tu-dresden.de

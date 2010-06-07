@@ -1,0 +1,13 @@
+PKGDIR ?= ../..
+L4DIR  ?= $(PKGDIR)/../..
+
+DDE_SYSTEMS      = arm x86
+TARGET           = dde_inputtst
+L4_MULTITHREADED = y
+REQUIRES_LIBS    = ddekit dde-linux26 dde-linux26_char dde-libinput
+MODE_USE_C       = y
+SRC_C            = main.c
+
+include $(PKGDIR)/../dde/linux26/Makeconf
+
+include $(L4DIR)/mk/prog.mk

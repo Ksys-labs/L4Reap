@@ -1,0 +1,23 @@
+# PF: OMAP3
+# PFDESCR: OMAP3
+# PFDEPENDS: ARM
+
+choice
+	prompt "OMAP3 Platform"
+	default PF_OMAP3_EVM
+
+config PF_OMAP3_EVM
+	bool "TI OMAP3EVM"
+	depends on PF_OMAP3
+	select CAN_ARM_CPU_CORTEX_A8
+	help
+	  Choose for OMAP3EVM.
+
+config PF_OMAP3_BEAGLEBOARD
+	bool "Beagle Board"
+	depends on PF_OMAP3
+	select CAN_ARM_CPU_CORTEX_A8
+	help
+	  Choose for Beagleboard.
+
+endchoice

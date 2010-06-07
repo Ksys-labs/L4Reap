@@ -1,0 +1,27 @@
+// vi:ft=cpp
+
+#pragma once
+
+#include <l4/mag-gfx/geometry>
+
+namespace Scout_gfx {
+
+class Parent_widget;
+class View;
+
+class Platform
+{
+public:
+  virtual void process_redraws() = 0;
+  virtual unsigned long timer_ticks() = 0;
+  virtual int event_pending() = 0;
+  virtual int get_event(Scout_gfx::Event *out_e) = 0;
+  virtual Parent_widget *root() = 0;
+
+  virtual int max_num_views() = 0;
+  virtual View *create_view(Mag_gfx::Rect const &r) = 0;
+  virtual ~Platform() {}
+};
+
+
+}

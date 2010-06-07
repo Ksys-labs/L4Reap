@@ -1,0 +1,238 @@
+// -*- Mode: C++ -*-
+// vim:ft=cpp
+/**
+ * \file
+ * \brief   Data space interface.
+ */
+/*
+ * (c) 2008-2009 Technische Universität Dresden
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ *
+ * As a special exception, you may use this file as part of a free software
+ * library without restriction.  Specifically, if other files instantiate
+ * templates or use macros or inline functions from this file, or you compile
+ * this file and link it with other files to produce an executable, this
+ * file does not by itself cause the resulting executable to be covered by
+ * the GNU General Public License.  This exception does not however
+ * invalidate any other reasons why the executable file might be covered by
+ * the GNU General Public License.
+ */
+
+#pragma once
+
+#include <l4/sys/types.h>
+#include <l4/sys/l4int.h>
+#include <l4/sys/capability>
+#include <l4/re/protocols>
+
+namespace L4Re
+{
+
+  // MISSING:
+  // * size support in map, mapped size in reply
+  // * looping map function to map in a whole data space
+
+/**
+ * \defgroup api_l4re_dataspace Data-Space API
+ * \ingroup api_l4re
+ * \brief Data-Space API.
+ *
+ * Data spaces are a central abstraction provided by L4Re. A data space is
+ * an abstraction for any thing that is available via usual memory access
+ * instructions. A data space can be a file, as well as the memory-mapped
+ * registers of a device, or anonymous memory, such as a heap.
+ *
+ * The data space interface defines a set of methods that allow any kind
+ * of data space to be attached (mapped) to the virtual address space of
+ * an L4 task and then be accessed via memory-access instructions.
+ * The \link api_l4re_rm region-map interface \endlink (L4Re::Rm) can be
+ * used to attach a data space to a virtual address space of a task paged by
+ * a certain instance of a region map (L4Re::Rm).
+ *
+ */
+
+/**
+ * \brief This class represents a data space.
+ * \ingroup api_l4re_dataspace
+ *
+ * For more details, see \link api_l4re_dataspace Data-Space API. \endlink
+ */
+class L4_EXPORT Dataspace :
+  public L4::Kobject_t<Dataspace, L4::Kobject, L4Re::Protocol::Dataspace>
+{
+  L4_KOBJECT(Dataspace)
+
+public:
+
+  /**
+   * \brief Flags for map operations.
+   */
+  enum Map_flags
+  {
+    /**
+     * \brief Request read-only mapping.
+     */
+    Map_ro = 0,
+    /**
+     * \brief Request writable mapping.
+     */
+    Map_rw = 1,
+  };
+
+  /**
+   * \brief Information about the data space.
+   * \ingroup api_l4re_dataspace
+   */
+  struct Stats {
+    unsigned long size;   ///< size
+    unsigned long flags;  ///< flags
+  };
+
+
+  /**
+   * \brief Request a flex-page mapping from the data space.
+   *
+   * \param offset      Offset to start within data space
+   * \param flags       map flags, see #Map_flags.
+   * \param local_addr  Local address to map to.
+   * \param min_addr    Defines start of receive window.
+   * \param max_addr    Defines end of receive window.
+   *
+   * \return 0 on success, <0 on error
+   *         - -#L4_ERANGE
+   *         - -#L4_EPERM
+   *         - IPC errors
+   */
+  long map(l4_addr_t offset, unsigned long flags, l4_addr_t local_addr,
+           l4_addr_t min_addr, l4_addr_t max_addr) const throw();
+
+  /**
+   * \brief Map a part of a data space completely.
+   *
+   * \param offset      Offset to start within data space
+   * \param flags       map flags, see #Map_flags.
+   * \param min_addr    Defines start of receive window.
+   * \param max_addr    Defines end of receive window.
+   *
+   * \return 0 on success, <0 on error
+   *         - -#L4_ERANGE
+   *         - -#L4_EPERM
+   *         - IPC errors
+   */
+  long map_region(l4_addr_t offset, unsigned long flags,
+                  l4_addr_t min_addr, l4_addr_t max_addr) const throw();
+
+  /**
+   * \brief Clear parts of a data space.
+   *
+   * \param offset    Offset within data space.
+   * \param size      Size to clear (in bytes).
+   * \return >0 on sucess, <0 on error.
+   *         - -#L4_EACCESS
+   *         - IPC errors
+   *
+   * Clears memory. Depending on the type of memory the memory could also be
+   * deallocated and replaced by shared zero-page.
+   */
+  long clear(l4_addr_t offset, unsigned long size) const throw();
+
+  /**
+   * \brief Allocate a range in the dataspace
+   *
+   * \param offset  Offset in the dataspace, in bytes.
+   * \param size    Size of the range, in bytes.
+   *
+   * \return 0 on success, <0 on error
+   */
+  long allocate(l4_addr_t offset, l4_size_t size) throw();
+
+  /**
+   * \brief Copy data space contents.
+   *
+   * \param dst_offs    Offset in destination data space.
+   * \param src         Source data space.
+   * \param src_offs    Offset in the source data space.
+   * \param size        Size to copy (in bytes).
+   *
+   * \return 0 on success, <0 on error
+   *         - -#L4_EACCESS
+   *         - -#L4_EINVAL
+   *         - IPC errors
+   *
+   * The copy operation may use copy-on-write mechanisms. The operation may
+   * also fail if both data spaces are not from the same data space manager
+   * or the data space managers do not cooperate.
+   */
+  long copy_in(l4_addr_t dst_offs, L4::Cap<Dataspace> src,
+               l4_addr_t src_offs, unsigned long size) const throw();
+
+  /**
+   * \brief Get the physical addresses of a data space.
+   *
+   * \param  offset     Offset in data space
+   * \retval phys_addr  Physical address.
+   * \retval phys_size  Size of largest physically contiguous region in the
+   *                    data space (in bytes).
+   *
+   * \return 0 on success, <0 on error
+   *         - -#L4_EINVAL
+   *         - IPC errors
+   *
+   * Get the physical address(es) of a data space. This call will only
+   * succeed on pinned memory data spaces.
+   */
+  long phys(l4_addr_t offset, l4_addr_t &phys_addr, l4_size_t &phys_size) const throw();
+
+  /**
+   * \brief Get size of a data space.
+   *
+   * \return Size of the data space (in bytes), <0 on errors
+   *         - IPC errors
+   */
+  long size() const throw();
+
+  /**
+   * \brief Get flags of the data space.
+   *
+   * \return Flags of the data space, <0 on errors
+   *         - IPC errors
+   *
+   * \see L4Re::Dataspace::Map_flags
+   */
+  long flags() const throw();
+
+  /**
+   * \brief Get information on the data space.
+   *
+   * \retval info  Data space information, \see L4Re::Dataspace::Stats
+   * \return 0 on success, < 0 on errors
+   */
+   int info(Stats *stats) const throw();
+
+  /**
+   * \internal
+   * \brief take operation.
+   * \return 0 on success, <0 on errors
+   *         - IPC errors
+   */
+  long take() const throw();
+
+  /**
+   * \internal
+   * \brief release operation.
+   * \return 0 on success, <0 on errors
+   *         - IPC errors
+   */
+  long release() const throw();
+
+private:
+  long __map(l4_addr_t offset, unsigned char *size, unsigned long flags,
+             l4_addr_t local_addr) const throw();
+
+};
+
+
+}
+

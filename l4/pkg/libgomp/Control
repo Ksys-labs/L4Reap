@@ -1,0 +1,3 @@
+provides: libgomp
+requires: libc_r
+maintainer: adam@os.inf.tu-dresden.de

@@ -1,0 +1,15 @@
+// vi:ft=cpp
+
+#pragma once
+
+#include <l4/sys/meta>
+#include <l4/sys/typeinfo_svr>
+#include <l4/cxx/ipc_stream>
+
+namespace L4Re { namespace Util {
+
+template<typename KO>
+long handle_meta_request(L4::Ipc_iostream &ios)
+{ return L4::Util::handle_meta_request<KO>(ios); }
+
+}}

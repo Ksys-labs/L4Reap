@@ -1,0 +1,195 @@
+# -*- Makefile -*-
+# Fiasco make configuration file
+#
+# created 1996/04/20 by hohmuth
+#
+
+CHECKCC         = $(shell if $(CC)  $(1) -S -o /dev/null -xc   /dev/null \
+		    > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi ;)
+
+CHECKCXX        = $(shell if $(CXX) $(1) -S -o /dev/null -xc++ /dev/null \
+		    > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi ;)
+
+eval_impl	= $(if $($(1)_IMPL),$($(1)_IMPL),$(1))
+
+include $(objbase)/globalconfig.out
+# use patsubst here to prevent confusion of syntax highlighting editors :-)
+CONFIG_XARCH	:= $(patsubst "%",%,$(CONFIG_XARCH))
+CONFIG_ABI	:= $(patsubst "%",%,$(CONFIG_ABI))
+
+SYSTEM		:= $(shell uname)
+CC		:= $(patsubst "%",%,$(CONFIG_CC))
+CXX		:= $(patsubst "%",%,$(CONFIG_CXX))
+HOST_CC		:= $(patsubst "%",%,$(CONFIG_HOST_CC))
+HOST_CXX	:= $(patsubst "%",%,$(CONFIG_HOST_CXX))
+RM		:= rm -f
+RM_R		:= rm -rf
+ECHO		:= echo
+ECHO_E		:= bash --norc -c 'echo -e "$$0" "$$@"'
+CP		:= cp
+GREP		:= GREP_OPTIONS= grep
+AWKP		?= gawk --posix
+CFLAGS		:=
+CXXFLAGS	:=
+OPT_CFLAGS	:= -O2
+OPT_CXXFLAGS	:= -O2
+NOOPT_CFLAGS	:= -Os
+NOOPT_CXXFLAGS	:= -Os
+ARFLAGS		:= crs
+srcdir		?= .
+L4DIR		?= $(srcdir)/../../../l4
+tooldir		:= $(srcdir)/../tool
+MOVE_IF_CHANGE	:= $(srcdir)/../tool/move-if-change
+SHOWDEPS	:= $(srcdir)/../tool/showdeps
+PREPROCESSDEPS	:= $(srcdir)/../tool/parsedeps
+CIRCULAR	:= $(srcdir)/../tool/circular
+
+ifeq ($(SYSTEM),FreeBSD)
+  MD5SUM	:= /sbin/md5
+else
+  MD5SUM	:= md5sum
+endif
+
+# The name of this file can be overridden from the command line or in
+# objdir/Makeconf.local.
+MODULES_FILE	= $(srcdir)/Modules.$(CONFIG_XARCH)
+
+PREPROCESS = \
+  $(word 1, $(wildcard $(shell cd $(srcdir)/../../../tools/preprocess/src 2>/dev/null; \
+                               pwd)/preprocess \
+   $(shell cd $(srcdir)/../../tools/preprocess/src 2>/dev/null; \
+                               pwd)/preprocess \
+		       $(DROPS_STDDIR)/tool/bin/preprocess) preprocess)
+
+ifeq ($(CONFIG_INLINE),y)
+  PREPROCESS_FLAGS = -i -t
+else
+  PREPROCESS_FLAGS = -t
+endif
+
+AS			= $(SYSTEM_TARGET)as
+LD			= $(SYSTEM_TARGET)ld
+AR			= $(SYSTEM_TARGET)ar
+NM			= $(SYSTEM_TARGET)nm
+RANLIB			= $(SYSTEM_TARGET)ranlib
+SIZE			= $(SYSTEM_TARGET)size
+STRIP			= $(SYSTEM_TARGET)strip
+OBJCOPY			= $(SYSTEM_TARGET)objcopy
+OBJDUMP			= $(SYSTEM_TARGET)objdump
+
+# Include architecture-specific rules. These may overwrite anything above
+include $(srcdir)/Makeconf.$(CONFIG_XARCH)
+
+# Include user-specific rules. These may overwrite anything above
+-include $(srcdir)/Makeconf.local
+-include $(objbase)/Makeconf.local
+
+ifneq ($(CCXX_VERSION),)
+  CCXX_SUFFIX		:= -$(CCXX_VERSION)
+endif
+
+CC			:= $(CCXX_WRAP) $(SYSTEM_TARGET)$(CC)$(CCXX_SUFFIX)
+CXX			:= $(CCXX_WRAP) $(SYSTEM_TARGET)$(CXX)$(CCXX_SUFFIX)
+
+CCVER_MAJOR		:= $(shell $(CXX) -dumpversion | cut -d . -f 1)
+CCVER_MINOR		:= $(shell $(CXX) -dumpversion | cut -d . -f 2)
+LIBGCC			:= $(shell $(CXX) -print-libgcc-file-name)
+
+L4ALL_INCDIR     	?= $(addprefix -I, $(PRIVATE_INCDIR))
+L4STD_INCDIR    	?= -nostdinc
+L4STD_INCDIR_LAST	?= -I$(wildcard $(dir $(LIBGCC))/include \
+			                $(dir $(LIBGCC))/../include)
+KERNEL_LDFLAGS		+= -gc-sections
+SHARED_FLAGS		+= -fno-defer-pop -freg-struct-return -g -Wall -W
+SHARED_FLAGS		+= -Wno-parentheses
+SHARED_FLAGS		+= $(call CHECKCC,-Wformat=2,)
+SHARED_FLAGS		+= $(call CHECKCC,-fno-stack-protector,)
+SHARED_FLAGS		+= $(call CHECKCC,-Wframe-larger-than=512)
+OPT_CXXFLAGS		+= $(call CHECKCXX,-fweb,)
+OPT_CFLAGS		+= $(call CHECKCC,-fweb,)
+OPT_SHARED_FLAGS	+= $(call CHECKCC,-frename-registers,)
+OPT_SHARED_FLAGS	+= $(call CHECKCC,-fgcse-after-reload,)
+CXXFLAGS		+= -fno-implement-inlines
+
+LD_EMULATION		:= $(if $(LD_EMULATION-SYSTEM-$(SYSTEM)),\
+			        $(LD_EMULATION-SYSTEM-$(SYSTEM)),\
+			        $(LD_EMULATION-SYSTEM-default))
+
+# Configuration dependent compile flags
+ifneq ($(CONFIG_PROFILE),y)
+  SHARED_FLAGS		+= -ffunction-sections
+endif
+ifeq ($(CONFIG_NDEBUG),y)
+  SHARED_FLAGS		+= -DNDEBUG
+endif
+ifeq ($(CONFIG_NO_FRAME_PTR),y)
+  SHARED_FLAGS		+= -fomit-frame-pointer
+endif
+ifeq ($(CONFIG_GSTABS),y)
+  SHARED_FLAGS		+= -gstabs+
+endif
+ifeq ($(CONFIG_PROFILE),y)
+  PROF_FLAGS		+= -pg
+endif
+ifeq ($(CONFIG_UNREACHABLE_CODE),y)
+  SHARED_FLAGS		+= $(call CHECKCC,-Wunreachable-code,)
+endif
+
+# Eagerly compute SHARED_FLAGS to avoid calling CHECKCC over and over again.
+SHARED_FLAGS	:= $(SHARED_FLAGS) $(SHARED_FLAGS-y)
+
+# Standard compile flags
+ASFLAGS		+= $(SHARED_FLAGS) -DASSEMBLER
+CFLAGS		+= $(SHARED_FLAGS)
+CXXFLAGS	+= $(SHARED_FLAGS) -fno-rtti -fno-exceptions
+OPT_CFLAGS	+= $(OPT_SHARED_FLAGS)
+OPT_CXXFLAGS	+= $(OPT_SHARED_FLAGS)
+NOOPT_CFLAGS	+= $(NOOPT_SHARED_FLAGS)
+NOOPT_CXXFLAGS	+= $(NOOPT_SHARED_FLAGS)
+CPPFLAGS	+= $(L4STD_INCDIR) $(L4ALL_INCDIR) $(L4STD_INCDIR_LAST)
+CXXFLAGS	+= $(call CHECKCXX,-fno-threadsafe-statics,)
+CXXFLAGS	+= $(call CHECKCXX,-Wno-non-virtual-dtor,)
+
+ifneq ($(CONFIG_VERBOSE),y)
+VERBOSE		= @
+PREP_MESSAGE	?= @$(ECHO) "  ... Preprocessing $*"
+endif
+
+# Output formatting, set V=1 to see command line, V=0 to prevent printing them
+VERBOSE		?=
+ifeq ($(V),1)
+  VERBOSE :=
+endif
+ifeq ($(V),0)
+  VERBOSE := @
+endif
+AR_MESSAGE	?= @$(ECHO) "  ==> Archiving into $@"
+COMP_MESSAGE	?= @$(ECHO) "  ... Making $@"
+LINK_MESSAGE	?= @$(ECHO) "  ==> Linking $@"
+DEP_MESSAGE	?= @$(ECHO) "  ... Building dependencies for $<"
+PREP_MESSAGE    ?= @$(ECHO) "  ... Preprocessing $(filter %.cpp,$^)"
+CHKSUM_MESSAGE  ?= @$(ECHO) "  ... Generating checksum for "
+PATCH_MESSAGE   ?= @$(ECHO) "  ... Writing checksum into "
+STRIP_MESSAGE	?= @$(ECHO) "  ... Stripping $@"
+GENVER_MESSAGE	?= @$(ECHO) "  ... Generating version information" 
+CLEAN_MESSAGE	?= @$(ECHO) "Removing created files"
+CLEANALL_MESSAGE?= @$(ECHO) "Removing all created files"
+INST_MESSAGE	?= @$(ECHO) "Installing $(^F)"
+OK_MESSAGE      ?= 
+
+COMP_MESSAGE_NOOPT ?= $(COMP_MESSAGE)
+
+ifneq ($(VERBOSE),)
+MOVE_IF_CHANGE += -q
+endif
+
+SRC_ALL = $(SRC_S) $(SRC_CPP) $(SRC_C) $(SRC_CC)
+ifeq ($(filter clean cleanall mrproper,$(MAKECMDGOALS)),)
+DEPS	= $(foreach file,$(SRC_ALL), $(dir $(file)).$(notdir $(file)).d)
+else
+DEPS    = /dev/null
+endif
+
+ifeq ("$(CONFIG_ALLOW_RO_TEXT)","y")
+  PREPROCESS_PARTS += rotext
+endif

@@ -1,0 +1,35 @@
+#
+# Never ignore these
+#
+!.gitignore
+
+#
+# Generated files
+#
+*.os
+*.oS
+*.a
+*.i
+*.o
+*.depend
+lib/
+install_dir/
+.config*
+.*.dep
+/*.log
+
+#
+# Debugging files
+#
+.gdb_history
+.gdbinit
+core
+
+#
+# Backups / patches
+#
+*~
+*.orig
+*.rej
+/*.patch
+/*.diff

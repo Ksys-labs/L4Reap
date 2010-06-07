@@ -1,0 +1,26 @@
+PKGDIR  ?= ../..
+L4DIR   ?= $(PKGDIR)/../..
+
+
+INSTALL_TARGET = liblua++.a
+PC_LIBS       := -llua++
+CONTRIB_INCDIR = lua
+REQUIRES_LIBS  = l4re_c-util
+PC_FILENAME = lua++
+
+all::
+
+liblua.a: $(SRC_DIR)/Makefile $(SRC_DIR)/Makefile.lua FORCE
+	$(MAKE) -f $(SRC_DIR)/Makefile.lua SRC_DIR=$(SRC_DIR) \
+	  L4_INCLUDES="$(LIBCINCDIR) $(addprefix -I, $(L4INCDIR))" \
+	  CC="$(CXX)" AR="$(AR) rcu" RANLIB="$(RANLIB)" liblua.a
+
+liblua++.a: liblua.a
+	$(LN) -sf $< $@
+
+clean::
+	$(MAKE) -f $(SRC_DIR)/Makefile.lua SRC_DIR=$(SRC_DIR) clean
+
+include $(L4DIR)/mk/lib.mk
+
+all:: $(PC_FILES)

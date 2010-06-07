@@ -1,0 +1,27 @@
+// vi:ft=cpp
+
+#pragma once
+
+#include <l4/mag-gfx/canvas>
+
+namespace Mag_gfx {
+
+class Clip_guard
+{
+private:
+  Canvas *_c;
+  Rect _o;
+
+  Clip_guard(Clip_guard const &);
+  void operator = (Clip_guard const &);
+
+public:
+  Clip_guard(Canvas *canvas, Rect const &n)
+  : _c(canvas), _o(_c->clip())
+  { _c->set_clipping(_o & n); }
+
+  ~Clip_guard() { _c->set_clipping(_o); }
+
+};
+
+}

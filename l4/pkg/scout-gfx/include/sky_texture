@@ -1,0 +1,15 @@
+// vi:ft=cpp
+
+#pragma once
+
+#include <l4/scout-gfx/widget>
+
+namespace Scout_gfx {
+
+class Sky_texture : public Widget
+{
+public:
+  virtual void generate(Mag_gfx::Area const &size, bool detailed = true) = 0;
+};
+
+}

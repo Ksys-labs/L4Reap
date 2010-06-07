@@ -1,0 +1,58 @@
+#pragma once
+
+#include <l4/sys/compiler.h>
+
+EXTERN_C_BEGIN
+
+struct ddekit_lock;
+typedef struct ddekit_lock *ddekit_lock_t;
+
+/** Initialize a DDEKit lock. 
+ *
+ * \ingroup DDEKit_synchronization
+ */
+void ddekit_lock_init    (ddekit_lock_t *mtx);
+
+L4_INLINE void ddekit_lock_init_unlocked(ddekit_lock_t *mtx);
+
+/** Uninitialize a DDEKit lock.
+ *
+ * \ingroup DDEKit_synchronization
+ */
+void ddekit_lock_deinit  (ddekit_lock_t *mtx);
+
+/** Acquire a lock.
+ *
+ * \ingroup DDEKit_synchronization
+ */
+void ddekit_lock_lock    (ddekit_lock_t *mtx);
+
+/** Acquire a lock, non-blocking.
+ *
+ * \return 0 on success
+ *         <0 error code
+ *
+ * \ingroup DDEKit_synchronization
+ */
+int  ddekit_lock_try_lock(ddekit_lock_t *mtx);
+
+/** Unlock function.
+ *
+ * \ingroup DDEKit_synchronization
+ */
+void ddekit_lock_unlock  (ddekit_lock_t *mtx);
+
+/** Get lock owner.
+ *
+ *  \return 0 unlocked
+ *          !=0 owner
+ * \ingroup DDEKit_synchronization
+ */
+int ddekit_lock_owner(ddekit_lock_t *mtx);
+
+L4_INLINE void ddekit_lock_init_unlocked(ddekit_lock_t *mtx)
+{
+	ddekit_lock_init(mtx);
+}
+
+EXTERN_C_END

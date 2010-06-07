@@ -1,0 +1,22 @@
+// vim: ft=cpp
+#pragma once
+
+namespace Ankh
+{
+	namespace Opcode
+	{
+		enum Opcodes
+		{
+			Activate,
+			Deactivate
+		};
+	}
+
+	namespace Protocol
+	{
+		enum Protocols
+		{
+			Ankh
+		};
+	}
+}

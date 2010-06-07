@@ -1,0 +1,74 @@
+// vi:ft=cpp
+
+#pragma once
+
+#include <l4/sys/capability>
+
+namespace L4 {
+
+/**
+ * \brief Operations on the IPC-gate.
+ * \ingroup l4_kernel_object_gate_api
+ * \hideinitializer
+ * \internal
+ */
+enum L4_ipc_gate_ops {
+  L4_IPC_GATE_OP_BIND     = 0x10, /**< Bind operation */
+  L4_IPC_GATE_OP_GET_INFO = 0x11, /**< Info operation */
+};
+
+class Thread;
+
+/**
+ * \ingroup l4_kernel_object_gate_api
+ * \brief L4 IPC gate.
+ *
+ * <c>\#include <l4/sys/ipc_gate></c>
+ */
+class L4_EXPORT Ipc_gate
+  : public Kobject_t<Ipc_gate, Kobject, L4_PROTO_KOBJECT>
+{
+  L4_KOBJECT_DISABLE_COPY(Ipc_gate)
+public:
+
+  /**
+   * \brief Bind the IPC-gate to the thread.
+   *
+   * \param t     Thread to bind the IPC-gate to
+   * \param label Label to use
+   * \param utcb  UTCB to use.
+   *
+   * \return System call return tag.
+   */
+  l4_msgtag_t bind_thread(Cap<Thread> t, l4_umword_t label,
+                          l4_utcb_t *utcb = l4_utcb()) throw()
+  {
+    l4_msg_regs_t *m = l4_utcb_mr_u(utcb);
+    m->mr[0] = L4_IPC_GATE_OP_BIND;
+    m->mr[1] = label;
+    m->mr[2] = l4_map_obj_control(0,0);
+    m->mr[3] = t.fpage().raw;
+    return l4_ipc_call(cap(), utcb, l4_msgtag(L4_PROTO_KOBJECT, 2, 1, 0), L4_IPC_NEVER);
+  }
+
+  /**
+   * \brief Get information on the IPC-gate.
+   *
+   * \retval label   Label of the gate.
+   * \param  utcb    UTCb to use.
+   *
+   * \return System call return tag.
+   */
+  l4_msgtag_t get_infos(l4_umword_t *label, l4_utcb_t *utcb = l4_utcb()) throw()
+  {
+    l4_msg_regs_t *m = l4_utcb_mr_u(utcb);
+    m->mr[0] = L4_IPC_GATE_OP_GET_INFO;
+    l4_msgtag_t tag =l4_ipc_call(cap(), utcb, l4_msgtag(L4_PROTO_KOBJECT, 1, 0, 0), L4_IPC_NEVER);
+    if (!tag.has_error() && tag.label() >= 0)
+      *label = m->mr[0];
+
+    return tag;
+  }
+};
+
+}

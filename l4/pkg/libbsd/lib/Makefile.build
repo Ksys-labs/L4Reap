@@ -1,0 +1,18 @@
+vpath %.c $(PKGDIR)/../libbsd/lib/contrib/src
+
+CONTRIB_INCDIR = libbsd
+
+CPPFLAGS = -include stdarg.h -include bsd/bsd.h -D_GNU_SOURCE -D__REENTRANT
+
+SRC_C = vis.c unvis.c strlcpy.c strlcat.c setmode.c progname.c \
+	inet_net_pton.c humanize_number.c heapsort.c hash/md5.c \
+	fmtcheck.c fgetln.c err.c bsd_getopt.c
+
+SRC_C += $(if $(BUILD_LIBBSD_FULL),arc4random.c hash/md5hl.c)
+
+include $(L4DIR)/mk/lib.mk
+
+$(GENERAL_D_LOC): $(PKGDIR)/../libbsd/lib/Makefile.build
+
+# contrib code is funny sometimes
+CFLAGS := $(filter-out -Wextra -Wmissing-prototypes -Wstrict-prototypes,$(CFLAGS))

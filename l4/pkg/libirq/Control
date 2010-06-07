@@ -1,0 +1,3 @@
+provides: libirq
+requires: l4re libc_r libio
+maintainer: adam@os.inf.tu-dresden.de

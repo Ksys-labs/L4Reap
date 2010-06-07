@@ -1,0 +1,29 @@
+
+# Virtual bus for the fb-drv server
+fb_drv_bus => new System_bus()
+{
+  # The BIOS memory regions to execute the VESA BIOS
+  bios => wrap(hw-root.BIOS);
+
+  # PIT (accessd by various VESA BIOSes)
+  pit  => wrap(hw-root.match("PNP0100"));
+
+  # used for IO delay on various VESA BIOSes
+  p80  => wrap(hw-root.match("P80"));
+
+  # Legacy VGA MMIO and I/O Ports
+  vga  => wrap(hw-root.match("PNP0900"));
+
+  # Use virtual PCI bus that keeps the physical bus structure
+  # because the VESA BIOS may store the physical PCI address
+  # when initialized by the host BIOS
+  PCI0 => new PCI_bus_ident()
+  {
+    # Dummy device 0 on PCI bus 0 makes cirrus VESA BIOS happy
+    host_bridge_dummy => new PCI_dummy_device();
+
+    # Put all display devices on our virtual PCI bus PCI class code 0x03
+    gfx[] => wrap(hw-root.match("PCI/CC_03"));
+  }
+}
+

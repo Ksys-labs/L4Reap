@@ -1,0 +1,61 @@
+// vi:ft=cpp
+/*
+ * (c) 2010 Technische Universität Dresden
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+#pragma once
+
+#include <l4/mag-gfx/geometry>
+#include <l4/mag/server/view_stack>
+
+#include <l4/re/event>
+
+namespace Mag_server {
+
+using namespace Mag_gfx;
+
+class User_state
+{
+private:
+  View_stack _vstack;
+  Point _mouse_pos;
+  View *_mouse_cursor;
+  View *_pointed_view;
+
+  Point _next_mouse_pos;
+  int _pressed_keys;
+
+public:
+  User_state(Canvas *screen, View *cursor, View *bg)
+  : _vstack(screen, bg), _mouse_pos(0,0),
+    _mouse_cursor(cursor), _pointed_view(0), _next_mouse_pos(0,0),
+    _pressed_keys(0)
+  {
+    if (_mouse_cursor)
+      vstack()->push_top(_mouse_cursor, true);
+
+    vstack()->update_all_views();
+  }
+
+  void forget_view(View *v)
+  {
+    _vstack.forget_view(v);
+    if (_pointed_view == v)
+      _pointed_view = _vstack.find(_next_mouse_pos);
+
+  }
+
+
+  View_stack *vstack() { return &_vstack; }
+  View_stack const *vstack() const { return &_vstack; }
+
+
+  typedef L4Re::Event_buffer::Event Event;
+
+  virtual void handle_event(Event const &e);
+  virtual ~User_state() {}
+};
+
+}

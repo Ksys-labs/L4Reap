@@ -1,0 +1,14 @@
+// vim:set ft=cpp:
+#pragma once
+
+#include <l4/mag-gfx/font>
+
+namespace Scout_gfx { namespace Fonts {
+extern Mag_gfx::Font verabi10;
+extern Mag_gfx::Font vera16;
+extern Mag_gfx::Font verai16;
+extern Mag_gfx::Font mono16;
+extern Mag_gfx::Font vera24;
+extern Mag_gfx::Font vera20;
+extern Mag_gfx::Font vera18;
+}}

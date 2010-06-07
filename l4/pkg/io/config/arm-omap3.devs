@@ -1,0 +1,49 @@
+#
+# (c) 2008-2009 Technische Universität Dresden
+# This file is part of TUD:OS and distributed under the terms of the
+# GNU General Public License 2.
+# Please see the COPYING-GPL-2 file for details.
+#
+
+# OMAP3 (OMAP3EVM, Beagleboard)
+
+hw-root
+{
+  sys => new Device()
+  {
+    .hid = "System Control";
+    new-res Mmio(0x48002000 .. 0x48002fff);
+    new-res Mmio(0x48004000 .. 0x48004fff);
+  }
+
+  prcm => new Device()
+  {
+    .hid = "OMAP PRCM";
+    new-res Mmio(0x48004000 .. 0x48004fff);
+    new-res Mmio(0x48005000 .. 0x48005fff);
+  }
+
+  gpio => new Device()
+  {
+    .hid = "GPIO";
+    new-res Mmio(0x48004000 .. 0x48004fff);
+    new-res Mmio(0x48310000 .. 0x48310fff);
+    new-res Mmio(0x49050000 .. 0x49050fff);
+    new-res Mmio(0x49052000 .. 0x49052fff);
+    new-res Mmio(0x49054000 .. 0x49054fff);
+    new-res Mmio(0x49056000 .. 0x49056fff);
+    new-res Mmio(0x49058000 .. 0x49058fff);
+  }
+
+  lcd => new Device()
+  {
+    .hid = "OMAP_LCD";
+    new-res Mmio(0x48050000 .. 0x48050fff);
+  }
+
+  i2c1 => new Device()
+  {
+    .hid = "I2C";
+    new-res Mmio(0x48070000 .. 0x48070fff);
+  }
+}

@@ -1,0 +1,174 @@
+// vi:ft=cpp:
+/*
+ * (c) 2008-2009 Technische Universität Dresden
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ *
+ * As a special exception, you may use this file as part of a free software
+ * library without restriction.  Specifically, if other files instantiate
+ * templates or use macros or inline functions from this file, or you compile
+ * this file and link it with other files to produce an executable, this
+ * file does not by itself cause the resulting executable to be covered by
+ * the GNU General Public License.  This exception does not however
+ * invalidate any other reasons why the executable file might be covered by
+ * the GNU General Public License.
+ */
+#pragma once
+
+#include <l4/sys/capability>
+#include <l4/re/dataspace>
+#include <l4/re/video/colors>
+
+namespace L4Re { namespace Video {
+
+class Goos;
+
+/**
+ * \brief View.
+ * \ingroup api_l4re_goos
+ */
+class L4_EXPORT View
+{
+private:
+  friend class Goos;
+
+  L4::Cap<Goos> _goos;
+  unsigned _view_idx;
+
+  View(l4_cap_idx_t goos, unsigned idx) : _goos(goos), _view_idx(idx) {}
+
+  unsigned view_index() const throw()
+  { return _goos.is_valid() ? _view_idx : ~0U; }
+
+public:
+  View() : _goos(L4::Cap<Goos>::Invalid) {}
+
+  /**
+   * \brief Flags on a view.
+   */
+  enum Flags
+  {
+    F_none               = 0x00, ///< everything for this view is static (the VESA-FB case)
+    F_set_buffer         = 0x01, ///< buffer object for this view can be changed
+    F_set_buffer_offset  = 0x02, ///< buffer offset can be set
+    F_set_bytes_per_line = 0x04, ///< bytes per line can be set
+    F_set_pixel          = 0x08, ///< pixel type can be set
+    F_set_position       = 0x10, ///< position on screen can be set
+    F_dyn_allocated      = 0x20, ///< View is dynamically allocated
+
+    /** Flags for a fully dynamic view */
+    F_fully_dynamic      =   F_set_buffer | F_set_buffer_offset | F_set_bytes_per_line
+                           | F_set_pixel | F_set_position | F_dyn_allocated,
+  };
+
+  /**
+   * \brief Information structure of a view.
+   */
+  struct Info
+  {
+    unsigned flags;                 ///< Flags, see \a Flags
+    unsigned view_index;            ///< Index of the view
+
+    unsigned long xpos;             ///< X position in pixels of the view in the goos
+    unsigned long ypos;             ///< Y position in pixels of the view in the goos
+    unsigned long width;            ///< Width of the view in pixels
+    unsigned long height;           ///< Height of the view in pixels
+    unsigned long buffer_offset;    ///< Offset in the memory buffer in bytes
+    unsigned long bytes_per_line;   ///< Bytes per line
+    Pixel_info pixel_info;          ///< Pixel information
+    unsigned buffer_index;          ///< Number of the buffer used for this view
+
+    /** Return whether the view has a static buffer */
+    bool has_static_buffer() const { return !(flags & F_set_buffer); }
+    /** Return whether the static buffer offset is available */
+    bool has_static_buffer_offset() const { return !(flags & F_set_buffer_offset); }
+
+    /** Return whether a buffer is set */
+    bool has_set_buffer() const { return flags & F_set_buffer; }
+    /** Return whether the given buffer offset is valid */
+    bool has_set_buffer_offset() const { return flags & F_set_buffer_offset; }
+    /** Return whether the given bytes-per-line value is valid */
+    bool has_set_bytes_per_line() const { return flags & F_set_bytes_per_line; }
+    /** Return whether the given pixel information is valid */
+    bool has_set_pixel() const { return flags & F_set_pixel; }
+    /** Return whether the position information given is valid */
+    bool has_set_position() const { return flags & F_set_position; }
+
+    /** Dump information on the view information to a stream */
+    template< typename STREAM >
+    STREAM &dump(STREAM &s) const
+    {
+      s << "View::Info:" << '\n'
+        << "  flags: " << flags << '\n'
+        << "  size:  " << (int)width << 'x' << (int)height
+        << "  pos: " << (int)xpos << ", " << (int)ypos << '\n'
+        << "  bytes_per_line: " << bytes_per_line << '\n'
+        << "  buffer_offset:  " << buffer_offset << '\n'
+        << "  ";
+      pixel_info.dump(s) << '\n';
+      return s;
+    }
+  };
+
+  /**
+   * \brief Return the view information of the view.
+   * \retval info   Information structure pointer.
+   * \return 0 on success, error otherwise
+   */
+  int info(Info *info) const throw();
+
+  /**
+   * \brief Set the information structure for this view.
+   * \param info  Information structure.
+   * \return 0 on success, error otherwise
+   *
+   * The function will also set the view port according to the values given
+   * in the information structure.
+   */
+  int set_info(Info const &info) const throw();
+
+  /**
+   * \brief Set the position of the view in the goos.
+   * \param scr_x      X position
+   * \param scr_y      Y position
+   * \param w          Width
+   * \param h          Height
+   * \param buf_offset Offset in the buffer in bytes
+   * \return 0 on success, error otherwise
+   */
+  int set_viewport(int scr_x, int scr_y, int w, int h, unsigned long buf_offset) const throw();
+
+  /**
+   * \brief Move this view in the view stack.
+   * \param pivot   View to move relative to
+   * \param behind  When true move the view behind the pivit view, if false
+   *                move the view before the pivot view.
+   * \return 0 on success, error otherwise
+   */
+  int stack(View const &pivot, bool behind = true) const throw();
+
+  /** Make this view the top-most view */
+  int push_top() const throw()
+  { return stack(View(), false); }
+
+  /** Push this view the back */
+  int push_bottom() const throw()
+  { return stack(View(), true); }
+
+  /**
+   * \brief Refresh/Redraw the view.
+   * \param x  X position.
+   * \param y  Y position.
+   * \param w  Width.
+   * \param h  Height.
+   * \return 0 on success, error otherwise
+   */
+  int refresh(int x, int y, int w, int h) const throw();
+
+  /** \brief Return whether this view is valid */
+  bool valid() const { return _goos.is_valid(); }
+};
+
+}}
+

@@ -1,0 +1,71 @@
+// vi:ft=cpp
+/*
+ * (c) 2010 Technische Universität Dresden
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+#pragma once
+
+#include <l4/mag-gfx/geometry>
+#include <l4/mag-gfx/gfx_colors>
+#include <l4/mag/server/mode>
+#include <l4/re/event>
+
+namespace Mag_gfx {
+class Canvas;
+}
+
+
+namespace Mag_server {
+
+using namespace Mag_gfx;
+
+class View_stack;
+
+class View : public Rect
+{
+private:
+  friend class View_stack;
+
+  unsigned _flags;
+
+  View *_n;
+  View **_pn;
+
+  View(View const &);
+  void operator = (View const &);
+
+protected:
+  explicit View(Rect const &size, unsigned flags = 0)
+  : Rect(size), _flags(flags), _n(0), _pn(0)
+  {}
+
+  View *next() const { return _n; }
+
+public:
+  static Rgb32::Color frame_color() { return Rgb32::Color(255, 200, 127); }
+  static Rgb32::Color kill_color() { return Rgb32::Color(255, 0, 0); }
+  enum
+  {
+    F_transparent = 1,
+    F_need_frame  = 2,
+    F_ignore = 4,
+  };
+
+  void set_geometry(Rect const &p)
+  { this->Rect::operator = (p); }
+
+  Area size() const { return Area(w(), h()); }
+
+  bool transparent() const { return _flags & F_transparent; }
+  bool need_frame() const { return _flags & F_need_frame; }
+  bool ignore() const { return _flags & F_ignore; }
+
+  virtual void draw(Canvas *, View_stack const *, Mode, bool) const = 0;
+  virtual void handle_event(L4Re::Event_buffer::Event const &, Point const &) {}
+  virtual ~View() {}
+
+};
+
+}

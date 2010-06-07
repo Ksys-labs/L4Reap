@@ -1,0 +1,139 @@
+// vi:ft=cpp
+/*
+ * (c) 2008-2009 Technische Universität Dresden
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ *
+ * As a special exception, you may use this file as part of a free software
+ * library without restriction.  Specifically, if other files instantiate
+ * templates or use macros or inline functions from this file, or you compile
+ * this file and link it with other files to produce an executable, this
+ * file does not by itself cause the resulting executable to be covered by
+ * the GNU General Public License.  This exception does not however
+ * invalidate any other reasons why the executable file might be covered by
+ * the GNU General Public License.
+ */
+
+#pragma once
+
+#include <l4/re/util/cap_alloc>
+#include <l4/re/consts>
+#include <l4/re/env>
+
+#include <l4/cxx/ipc_server>
+#include <l4/sys/factory>
+#include <l4/sys/task>
+#include <l4/sys/thread>
+#include <l4/sys/ipc_gate>
+
+namespace L4Re { namespace Util {
+
+class Object_registry : public L4::Basic_registry
+{
+protected:
+  L4::Cap<L4::Thread> _server;
+  L4::Cap<L4::Factory> _factory;
+
+public:
+  Object_registry()
+  : _server(L4Re::Env::env()->main_thread()),
+    _factory(L4Re::Env::env()->factory())
+  {}
+
+  Object_registry(L4::Cap<L4::Thread> server, L4::Cap<L4::Factory> factory)
+  : _server(server), _factory(factory)
+  {}
+
+  L4::Cap<void> register_obj(L4::Server_object *o, char const *service)
+  {
+    L4::Cap<L4::Ipc_gate> cap = L4Re::Env::env()->get_cap<L4::Ipc_gate>(service);
+    if (!cap.is_valid())
+      return cap;
+
+    l4_umword_t id = l4_umword_t(o);
+    int err = l4_error(cap->bind_thread(_server, id));
+    if (err < 0)
+      return L4::Cap<void>::Invalid;
+
+    o->obj_cap(cap);
+    return cap;
+  }
+
+  L4::Cap<void> register_obj(L4::Server_object *o)
+  {
+    Auto_cap<L4::Kobject>::Cap cap
+      = cap_alloc.alloc<L4::Kobject>();
+
+    if (!cap.is_valid())
+      return cap.get();
+
+    l4_umword_t id = l4_umword_t(o);
+    int err = l4_error(_factory->create_gate(cap.get(), _server, id));
+    if (err < 0)
+      return L4::Cap<void>::Invalid;
+
+    o->obj_cap(cap.get());
+    return cap.release();
+  }
+
+  L4::Cap<L4::Irq> register_irq_obj(L4::Server_object *o)
+  {
+    Auto_cap<L4::Irq>::Cap cap
+      = cap_alloc.alloc<L4::Irq>();
+
+    if (!cap.is_valid())
+      return cap.get();
+
+    l4_umword_t id = l4_umword_t(o);
+    int err = l4_error(_factory->create_irq(cap.get()));
+    if (err < 0)
+      return L4::Cap<L4::Irq>(err | L4_INVALID_CAP_BIT);
+
+    err = l4_error(cap->attach(id, _server));
+
+    if (err < 0)
+      return L4::Cap<L4::Irq>(err | L4_INVALID_CAP_BIT);
+
+    o->obj_cap(cap.get());
+    return cap.release();
+  }
+
+
+  bool unregister_obj(L4::Server_object *o)
+  {
+    if (!o || !o->obj_cap().is_valid())
+      return false;
+
+    L4::Cap<L4::Task>(L4Re::This_task)->unmap(o->obj_cap().fpage(),
+                      L4_FP_ALL_SPACES);
+    o->obj_cap(L4::Cap<void>::Invalid);
+    return true;
+  }
+};
+
+
+template< typename LOOP_HOOKS = L4::Ipc_svr::Default_loop_hooks >
+class Registry_server : public L4::Server<LOOP_HOOKS>
+{
+private:
+  typedef L4::Server<LOOP_HOOKS> Base;
+  Object_registry _registry;
+
+public:
+  Registry_server() : Base(l4_utcb()), _registry()
+  {}
+
+  Registry_server(l4_utcb_t *utcb, L4::Cap<L4::Thread> server,
+                  L4::Cap<L4::Factory> factory)
+  : Base(utcb), _registry(server, factory)
+  {}
+
+  Object_registry const *registry() const { return &_registry; }
+  Object_registry *registry() { return &_registry; }
+
+  void loop()
+  { Base::loop(_registry); }
+};
+
+}}

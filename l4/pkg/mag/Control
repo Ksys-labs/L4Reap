@@ -1,0 +1,3 @@
+provides: libmag
+requires: l4re libc_r libsupc++_r stdlibs-sh input l4util mag-gfx libstdc++
+Maintainer: warg@os.inf.tu-dresden.de

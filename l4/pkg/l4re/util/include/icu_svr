@@ -1,0 +1,174 @@
+// vi:ft=cpp
+
+#pragma once
+
+
+#include <l4/sys/types.h>
+#include <l4/cxx/ipc_stream>
+#include <l4/sys/icu>
+#include <l4/sys/task>
+#include <l4/re/error_helper>
+#include <l4/re/env>
+#include <l4/re/util/cap_alloc>
+
+namespace L4Re { namespace Util {
+
+template< typename ICU >
+class Icu_svr
+{
+private:
+  ICU const *this_icu() const { return static_cast<ICU const *>(this); }
+  ICU *this_icu() { return static_cast<ICU*>(this); }
+
+public:
+  int dispatch(l4_umword_t obj, L4::Ipc_iostream &iso);
+};
+
+
+template<typename ICU>
+int
+Icu_svr<ICU>::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+{
+  typedef typename ICU::Irq Irq;
+  l4_msgtag_t tag;
+  ios >> tag;
+  if (tag.label() != L4_PROTO_IRQ)
+    return -L4_EBADPROTO;
+
+  L4::Opcode op;
+  ios >> op;
+  switch (op)
+    {
+    case L4_ICU_OP_BIND:
+      {
+	l4_umword_t irqnum;
+	L4::Snd_fpage irq_fp;
+	ios >> irqnum >> irq_fp;
+	Irq *irq = this_icu()->icu_get_irq(irqnum);
+	if (!irq)
+	  return -L4_EINVAL;
+
+	return irq->bind(this_icu(), irq_fp);
+      }
+    case L4_ICU_OP_UNBIND:
+      {
+	l4_umword_t irqnum;
+	L4::Snd_fpage irq_fp;
+	ios >> irqnum >> irq_fp;
+	Irq *irq = this_icu()->icu_get_irq(irqnum);
+	if (!irq)
+	  return -L4_EINVAL;
+
+	return irq->unbind(this_icu(), irq_fp);
+      }
+    case L4_ICU_OP_INFO:
+      {
+        l4_icu_info_t i;
+        this_icu()->icu_get_info(&i);
+        ios << (l4_umword_t)i.features << (l4_umword_t)i.nr_irqs
+            << (l4_umword_t)i.nr_msis;
+        return 0;
+      }
+    case L4_ICU_OP_MSI_INFO:
+      {
+        l4_umword_t msi;
+        ios >> msi;
+	Irq *irq = this_icu()->icu_get_irq(msi);
+	if (!irq)
+	  return -L4_EINVAL;
+	return irq->msi_info(ios);
+      }
+    case L4_ICU_OP_UNMASK:
+    case L4_ICU_OP_MASK:
+      {
+	l4_umword_t irqnum;
+	ios >> irqnum;
+	Irq *irq = this_icu()->icu_get_irq(irqnum);
+	if (irq)
+	  irq->mask(op == L4_ICU_OP_MASK);
+	return -L4_ENOREPLY;
+      }
+    default:
+      return -L4_ENOSYS;
+    }
+}
+
+
+template< typename ICU >
+class Icu_cap_array_svr : public Icu_svr<ICU>
+{
+public:
+  class Irq
+  {
+    public:
+    Irq() {}
+
+    explicit Irq(L4Re::Util::Auto_cap<L4::Irq>::Cap const &cap)
+    : _cap(cap) {}
+
+    void trigger() const
+    { _cap->trigger(); }
+
+    int bind(ICU *, L4::Snd_fpage const &irq_fp);
+    int unbind(ICU *, L4::Snd_fpage const &irq_fp);
+    void mask(bool mask) const
+    { (void)mask; }
+
+    int msi_info(L4::Ipc_ostream &) const
+    { return -L4_EINVAL; }
+
+    L4::Cap<L4::Irq> cap() const { return _cap.get(); }
+
+  private:
+    L4Re::Util::Auto_cap<L4::Irq>::Cap _cap;
+  };
+
+private:
+  Irq *_irqs;
+  unsigned _nr_irqs;
+
+public:
+
+  Icu_cap_array_svr(unsigned nr_irqs, Irq *irqs)
+  : _irqs(irqs), _nr_irqs(nr_irqs)
+  {}
+
+  Irq *icu_get_irq(l4_umword_t irqnum)
+  {
+    if (irqnum >= _nr_irqs)
+      return 0;
+
+    return _irqs + irqnum;
+  }
+
+  void icu_get_info(l4_icu_info_t *inf)
+  {
+    inf->features = 0;
+    inf->nr_irqs = _nr_irqs;
+    inf->nr_msis = 0;
+  }
+};
+
+template< typename ICU >
+int
+Icu_cap_array_svr<ICU>::Irq::bind(ICU *cfb, L4::Snd_fpage const &irq_fp)
+{
+  if (!irq_fp.cap_received())
+    return -L4_EINVAL;
+
+  _cap = L4Re::chkcap(L4Re::Util::cap_alloc.alloc<L4::Irq>());
+  _cap.get().move(L4::cap_cast<L4::Irq>(cfb->rcv_cap()));
+  return 0;
+}
+
+template< typename ICU >
+int
+Icu_cap_array_svr<ICU>::Irq::unbind(ICU *, L4::Snd_fpage const &/*irq_fp*/)
+{
+  L4Re::Env::env()->task()->unmap(_cap.fpage(L4_FPAGE_RWX), L4_FP_ALL_SPACES);
+  _cap = L4::Cap<L4::Irq>::Invalid;
+  return 0;
+}
+
+
+}}

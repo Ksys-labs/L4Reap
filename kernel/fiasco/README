@@ -1,0 +1,82 @@
+
+Welcome to Fiasco 1.2!
+----------------------
+
+Fiasco is a microkernel intended to be compatible with the L4 microkernel
+for x86. It implements the L4 ABI as defined in the L4/x86 Reference Manual,
+which can be found at: http://os.inf.tu-dresden.de/L4/bib.html
+
+The Fiasco kernel can be used to construct flexible systems. We at TU Dresden
+use it as a base for our DROPS system which supports running real-time
+and time-sharing applications concurrently on one system. However, Fiasco
+is not only suitable for big and complex systems, but also for small,
+embedded applications.
+
+This distribution contains the Fiasco 1.2 microkernel and tools to build
+it. User level applications are not included in this package.
+
+Licensing
+---------
+
+Fiasco is freely redistributable under the GPL (see l4/kernel/fiasco/COPYING).
+For different licensing schemes please contact us at:
+  fiasco-core@os.inf.tu-dresden.de
+This is a closed list, proper mails will be let through by the moderator.
+
+For more details, see our webpage at: http://os.inf.tu-dresden.de/fiasco/
+
+Supported architectures and ABIs
+--------------------------------
+
+  * IA32 (Intel, AMD and compatible CPUs, i486 and above)
+  * ARM  (SA1110 and PXA)
+  * UX   (Linux usermode emulation of Fiasco/L4)
+
+  The following L4 ABIs are supported by the IA32 and UX variants:
+
+  * L4/v2 (stable version 2)
+  * L4/x0 (experimental version 0)
+
+  The ARM variant of Fiasco supports the L4/x0 L4 ABI.
+
+A list of changes since the last release can be found in the CHANGES file.
+
+Building the Fiasco kernel
+--------------------------
+
+To compile Fiasco you need gcc 3.3, 3.4 or 4.0, a recent version of GNU
+binutils, GNU make and Perl version 5.6 or later. For the configuration tool
+you also need Python version 2.
+
+Change to the directory fiasco-1.2/l4/kernel/fiasco/ and
+create a build directory with "make BUILDDIR=build" and change to the
+'build' directory. Optionally modify the default configuration using
+"make menuconfig". Then compile the kernel by typing "make".
+
+The kernel image can then be found in fiasco-1.2/l4/kernel/fiasco/build/ as
+'fiasco'.
+
+For further information refer to: http://os.inf.tu-dresden.de/fiasco/use.html
+
+Mailing List
+------------
+
+For problem reports and suggestions regarding the Fiasco microkernel,
+please subscribe and send mail to the l4-hackers mailing list:
+   http://os.inf.tu-dresden.de/mailman/listinfo/l4-hackers/
+
+Remote CVS
+----------
+
+The latest development versions are available from our Remote-CVS server.
+The truly bleeding edge will want to check out daily snapshots from there.
+However, be aware that these may not always run correctly.
+You can also get user land programs for L4 from this Remote-CVS.
+
+For information how to use Remote-CVS see:
+http://os.inf.tu-dresden.de/drops/download.html
+
+
+Enjoy!
+
+The Fiasco Team

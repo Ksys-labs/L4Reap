@@ -1,0 +1,16 @@
+/* -*- c -*- */
+
+/**
+\mainpage Fiasco/L4 System Call C-Bindings Reference Manual
+
+\section content Contents
+
+- \ref intro
+- \htmlonly<a href="modules.html">\endhtmlonly Modules
+  \htmlonly</a>\endhtmlonly
+
+\section intro Introduction
+
+This manual describes the C-Bindings for the Fiasco/L4 system calls. 
+
+*/

@@ -1,0 +1,23 @@
+// vim: ft=cpp et
+
+namespace Vcap
+{
+class Loop_hooks :
+    public L4::Ipc_svr::Ignore_errors,
+    public L4::Ipc_svr::Default_timeout,
+    public L4::Ipc_svr::Compound_reply
+{
+    public:
+        static L4::Cap<void> rcv_cap;
+
+        static void setup_wait(L4::Ipc_istream &istr, bool before_reply)
+        {
+            (void)before_reply;
+            istr.reset();
+            istr << L4::Small_buf(Vcap::Loop_hooks::rcv_cap.cap(),
+                                  L4_RCV_ITEM_LOCAL_ID);
+            l4_utcb_br()->bdr = 0;
+        }
+
+};
+}

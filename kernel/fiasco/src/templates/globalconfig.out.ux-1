@@ -1,0 +1,97 @@
+#
+# Automatically generated make config: don't edit
+#
+
+#
+# Target configuration
+#
+CONFIG_IA32=y
+# CONFIG_AMD64 is not set
+# CONFIG_ARM is not set
+# CONFIG_PPC32 is not set
+# CONFIG_PF_PC is not set
+CONFIG_PF_UX=y
+# CONFIG_PF_REALVIEW is not set
+# CONFIG_PF_IMX is not set
+# CONFIG_PF_S3C2410 is not set
+# CONFIG_PF_TEGRA2 is not set
+# CONFIG_PF_OMAP3 is not set
+# CONFIG_PF_MPC52XX is not set
+# CONFIG_PF_XSCALE is not set
+# CONFIG_PF_SA1100 is not set
+# CONFIG_PF_INTEGRATOR is not set
+# CONFIG_PF_QEMU is not set
+CONFIG_ABI_VF=y
+# CONFIG_ARM_PXA is not set
+# CONFIG_ARM_SA is not set
+# CONFIG_ARM_920T is not set
+# CONFIG_ARM_926 is not set
+# CONFIG_ARM_1176 is not set
+# CONFIG_ARM_MPCORE is not set
+# CONFIG_ARM_CORTEX_A8 is not set
+# CONFIG_ARM_CORTEX_A9 is not set
+# CONFIG_IA32_486 is not set
+CONFIG_IA32_586=y
+# CONFIG_IA32_686 is not set
+# CONFIG_IA32_P2 is not set
+# CONFIG_IA32_P3 is not set
+# CONFIG_IA32_P4 is not set
+# CONFIG_IA32_PM is not set
+# CONFIG_IA32_K6 is not set
+# CONFIG_IA32_K7 is not set
+# CONFIG_IA32_K8 is not set
+# CONFIG_AMD64_K8 is not set
+# CONFIG_PPC32_603e is not set
+CONFIG_SCHED_PIT=y
+# CONFIG_SCHED_RTC is not set
+# CONFIG_SCHED_APIC is not set
+# CONFIG_SCHED_HPET is not set
+
+#
+# Kernel options
+#
+# CONFIG_HANDLE_SEGMENTS is not set
+CONFIG_CONTEXT_4K=y
+# CONFIG_FINE_GRAINED_CPUTIME is not set
+# CONFIG_UX_CON is not set
+# CONFIG_UX_NET is not set
+CONFIG_SCHED_FIXED_PRIO=y
+# CONFIG_SCHED_WFQ is not set
+# CONFIG_SCHED_FP_WFQ is not set
+
+#
+# Debugging
+#
+CONFIG_INLINE=y
+# CONFIG_NDEBUG is not set
+# CONFIG_NO_FRAME_PTR is not set
+# CONFIG_STACK_DEPTH is not set
+# CONFIG_ALLOW_RO_TEXT is not set
+# CONFIG_LIST_ALLOC_SANITY is not set
+CONFIG_JDB=y
+# CONFIG_JDB_LOGGING is not set
+CONFIG_JDB_DISASM=y
+# CONFIG_JDB_GZIP is not set
+# CONFIG_JDB_ACCOUNTING is not set
+# CONFIG_JDB_MISC is not set
+# CONFIG_WARN_NONE is not set
+CONFIG_WARN_WARNING=y
+# CONFIG_WARN_ANY is not set
+
+#
+# Compiling
+#
+CONFIG_CC="gcc"
+CONFIG_CXX="g++"
+CONFIG_HOST_CC="gcc"
+CONFIG_HOST_CXX="g++"
+# CONFIG_VERBOSE is not set
+# CONFIG_MAINTAINER_MODE is not set
+CONFIG_LABEL=""
+# CONFIG_EXPERIMENTAL is not set
+CONFIG_PERF_CNT=y
+CONFIG_BIT32=y
+CONFIG_WARN_LEVEL=1
+CONFIG_XARCH="ux"
+CONFIG_IA32_TARGET="Intel Pentium"
+CONFIG_ABI="vf"

@@ -1,0 +1,5 @@
+Provides: libc_be_mem libc_be_file_ns libc_be_socket_noop libc_be_l4re
+          libc_support_misc libc_be_fs_noop libc_be_math libc_be_l4refile
+	  libc_be_minimal_log_io
+Requires: l4re libsupc++ libl4re-vfs
+Maintainer: adam@os.inf.tu-dresden.de

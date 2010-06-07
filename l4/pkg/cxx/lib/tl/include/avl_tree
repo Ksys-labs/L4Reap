@@ -1,0 +1,952 @@
+// vi:ft=cpp
+/**
+ * \file
+ * \brief AVL tree
+ */
+/*
+ * (c) 2008-2009 Technische Universität Dresden
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ *
+ * As a special exception, you may use this file as part of a free software
+ * library without restriction.  Specifically, if other files instantiate
+ * templates or use macros or inline functions from this file, or you compile
+ * this file and link it with other files to produce an executable, this
+ * file does not by itself cause the resulting executable to be covered by
+ * the GNU General Public License.  This exception does not however
+ * invalidate any other reasons why the executable file might be covered by
+ * the GNU General Public License.
+ */
+
+#pragma once
+
+#include <l4/cxx/std_ops>
+#include <l4/cxx/pair>
+#include <l4/cxx/type_traits>
+
+namespace cxx {
+
+/**
+ * \internal
+ * \ingroup cxx_api
+ * \brief Generic iterator for the AVL-tree based set.
+ * \param Cmp the type of the comparison functor.
+ * \param Node the type of a node.
+ * \param Node_op the type used to determine the direction of the iterator.
+ */
+template< typename Node, typename Node_op >
+class __Avl_tree_iter_b
+{
+protected:
+  Node const *_n;   ///< Current node
+  Node const *_r;   ///< Root node of current subtree
+
+  /// Create an invalid iterator, used as end marker.
+  __Avl_tree_iter_b() : _n(0), _r(0) {}
+
+  /**
+   * \brief Create an iterator for the given AVL tree.
+   * \param t the root node of the tree to iterate.
+   * \param cmp the comparison functor for tree elements.
+   */
+  __Avl_tree_iter_b(Node const *t)
+    : _n(t), _r(_n)
+  { _downmost(); }
+
+  __Avl_tree_iter_b(Node const *t, Node const *r)
+    : _n(t), _r(r)
+  {}
+
+  /// traverse the subtree down to the leftmost/rightmost leave.
+  inline void _downmost();
+
+  /// Increment to the next element.
+  inline void inc();
+
+public:
+  /// Check two iterators for equality.
+  bool operator == (__Avl_tree_iter_b const &o) const { return _n == o._n; }
+  /// Check two iterators for non equality.
+  bool operator != (__Avl_tree_iter_b const &o) const { return _n != o._n; }
+};
+
+/**
+ * \internal
+ * \ingroup cxx_api
+ * \brief Generic iterator for the AVL-tree based set.
+ * \param Node the type of a node.
+ * \param Node_type the type of the node to return stored in a node.
+ * \param Node_op the type used to determine the direction of the iterator.
+ */
+template< typename Node, typename Node_type, typename Node_op >
+class __Avl_tree_iter : public __Avl_tree_iter_b<Node, Node_op>
+{
+private:
+  /// Super-class type
+  typedef __Avl_tree_iter_b<Node, Node_op> Base;
+
+  using Base::_n;
+  using Base::_r;
+  using Base::inc;
+
+public:
+  /// Create an invalid iterator (end marker)
+  __Avl_tree_iter() {}
+
+  /**
+   * \brief Create an iterator for the given tree.
+   * \param t the root node of the tree to iterate.
+   * \param cmp the conmparison functor for tree elements.
+   */
+  __Avl_tree_iter(Node const *t) : Base(t) {}
+  __Avl_tree_iter(Node const *t, Node const *r) : Base(t, r) {}
+
+//  template<typename Key2>
+  __Avl_tree_iter(Base const &o) : Base(o) {}
+
+  /**
+   * \brief Dereference the iterator and get the item out of the tree.
+   * \return A reference to the data stored in the AVL tree.
+   */
+  Node_type &operator * () const { return *const_cast<Node *>(_n); }
+  /**
+   * \brief Member access to the item the iterator points to.
+   * \return A pointer to the item in the node.
+   */
+  Node_type *operator -> () const { return const_cast<Node *>(_n); }
+  /**
+   * \brief Set the iterator to the next element (pre increment).
+   */
+  __Avl_tree_iter &operator ++ () { inc(); return *this; }
+  /**
+   * \brief Set the iterator to the next element (post increment).
+   */
+  __Avl_tree_iter &operator ++ (int)
+  { __Avl_tree_iter tmp = *this; inc(); return tmp; }
+
+};
+
+class Avl_tree_node
+{
+private:
+  template< typename Node, typename Get_key, typename Compare, bool Const_nodes >
+  friend class Avl_tree;
+  struct Md
+  {
+    Avl_tree_node *left;
+    Avl_tree_node *right;
+    unsigned short flags;
+    short balance;
+    Md() : left(0), right(0), flags(0), balance(0) {}
+  } _md;
+
+protected:
+  Avl_tree_node() : _md() {}
+
+  void operator = (Avl_tree_node const &)
+  {}
+
+
+private:
+  Avl_tree_node(Avl_tree_node const &o);
+
+  /// Adjust balance value
+  inline void adj_balance(Avl_tree_node *b, Avl_tree_node *c, int v = -1);
+  /// Replace the child \a c with \a repl.
+  inline void replace_child(Avl_tree_node *c, Avl_tree_node *repl);
+
+  /// Right rotation of this node.
+  void r_rotate(Avl_tree_node *r)
+  { _md.left = r->_md.right; r->_md.right = this; }
+
+  /// Left rotation of this node.
+  void l_rotate(Avl_tree_node *r)
+  { _md.right = r->_md.left; r->_md.left = this; }
+
+  static void swap(Avl_tree_node *a, Avl_tree_node *b)
+  { Md tmp = a->_md; a->_md = b->_md; b->_md = tmp; }
+
+};
+
+template< typename Node, typename Get_key,
+          typename Compare = Lt_functor<typename Get_key::Key_type>,
+          bool Const_nodes = true >
+class Avl_tree
+{
+public:
+  enum
+  {
+    E_noent =  2,
+    E_exist = 17,
+    E_nomem = 12,
+    E_inval = 22
+  };
+
+private:
+  /// Current height of the tree.
+  unsigned long _height;
+  /// Head node of the tree, the root is \a _head.right.
+  Avl_tree_node _head;
+
+  /// Ops for forward iterators
+  struct Fwd
+  {
+    static Node *child1(Node const *n) { return N(n->_md.left); }
+    static Node *child2(Node const *n) { return N(n->_md.right); }
+    static bool cmp(Node const *l, Node const *r)
+    { return Compare()(Get_key::key_of(l), Get_key::key_of(r)); }
+  };
+
+  /// Ops for Reverse iterators
+  struct Rev
+  {
+    static Node *child1(Node const *n) { return N(n->_md.right); }
+    static Node *child2(Node const *n) { return N(n->_md.left); }
+    static bool cmp(Node const *l, Node const *r)
+    { return Compare()(Get_key::key_of(r), Get_key::key_of(l)); }
+  };
+
+  Avl_tree(Avl_tree const &o);
+
+public:
+  typedef typename Get_key::Key_type Key_type;
+  typedef typename Type_traits<Key_type>::Param_type Key_param_type;
+
+  typedef Rev Rev_iter_ops;
+  typedef Fwd Fwd_iter_ops;
+  /// Forward iterator for the set.
+  typedef __Avl_tree_iter<Node, Node, Fwd> Iterator;
+  typedef Iterator iterator;
+  /// Constant forward iterator for the set.
+  typedef __Avl_tree_iter<Node, Node const, Fwd> Const_iterator;
+  typedef Const_iterator const_iterator;
+  /// Backward iterator for the set.
+  typedef __Avl_tree_iter<Node, Node, Rev> Rev_iterator;
+  typedef Rev_iterator reverse_iterator;
+  /// Constant backward iterator for the set.
+  typedef __Avl_tree_iter<Node, Node const, Rev> Const_rev_iterator;
+  typedef Const_rev_iterator const_reverse_iterator;
+
+  Avl_tree() : _height(0) {}
+  cxx::Pair<Iterator, int> insert(Node *new_node);
+
+  /**
+   * \brief Remove an item from the set.
+   * \param key The item to remove.
+   * \return 0 on success, -3 if the item does not exist, and
+   *         -4 on internal error. 
+   */
+  Node *remove(Key_param_type key);
+  Node *erase(Key_param_type key) { return remove(key); }
+
+  /**
+   * \brief Lookup a node equal to \a key.
+   * \param key The value to search for.
+   * \return A smart pointer to the element found, if no element found the
+   *         pointer is NULL.
+   */
+  Node *find_node(Key_param_type key) const;
+
+  /// Destroy, and free the set.
+  ~Avl_tree()
+  {
+    Avl_tree_node const *n;
+    while ((n = _head._md.right))
+      remove(Get_key::key_of(N(n)));
+  }
+
+  /**
+   * \brief Get the constant forward iterator for the first element in the set.
+   * \return Constant forward iterator for the first element in the set.
+   */
+  Const_iterator begin() const { return Const_iterator(N(_head._md.right)); }
+  /**
+   * \brief Get the end marker for the constant forward iterator.
+   * \return The end marker for the constant forward iterator.
+   */
+  Const_iterator end() const   { return Const_iterator(); }
+
+  /**
+   * \brief Get the mutable forward iterator for the first element of the set.
+   * \return The mutable forward iterator for the first element of the set.
+   */
+  Iterator begin() { return Iterator(N(_head._md.right)); }
+  /**
+   * \brief Get the end marker for the mutable forward iterator.
+   * \return The end marker for mutable forward iterator.
+   */
+  Iterator end()   { return Iterator(); }
+
+  /**
+   * \brief Get the constant backward iterator for the last element in the set.
+   * \return The constant backward iterator for the last element in the set.
+   */
+  Const_rev_iterator rbegin() const { return Const_rev_iterator(N(_head._md.right)); }
+  /**
+   * \brief Get the end marker for the constant backward iterator.
+   * \return The end marker for the constant backward iterator.
+   */
+  Const_rev_iterator rend() const   { return Const_rev_iterator(); }
+
+  /**
+   * \brief Get the mutable backward iterator for the last element of the set.
+   * \return The mutable backward iterator for the last element of the set.
+   */
+  Rev_iterator rbegin() { return Rev_iterator(N(_head._md.right)); }
+  /**
+   * \brief Get the end marker for the mutable backward iterator.
+   * \return The end marker for mutable backward iterator.
+   */
+  Rev_iterator rend()   { return Rev_iterator(); }
+
+  Const_iterator find(Key_param_type key) const;
+
+private:
+  static Node *N(Avl_tree_node *n) { return static_cast<Node*>(n); }
+  static Node const *N(Avl_tree_node const *n) { return static_cast<Node const *>(n); }
+
+};
+
+
+//----------------------------------------------------------------------------
+/* IMPLEMENTATION: __Avl_tree_iter_b */
+
+template< typename Node, typename Node_op>
+inline
+void __Avl_tree_iter_b<Node, Node_op>::_downmost()
+{
+  while (_n)
+    {
+      if (Node_op::child1(_n))
+	_n = Node_op::child1(_n);
+      else
+	return;
+    }
+}
+
+template< typename Node, typename Node_op>
+void __Avl_tree_iter_b<Node, Node_op>::inc()
+{
+  if (!_n)
+    return;
+
+  if (_n == _r)
+    {
+      _r = _n = Node_op::child2(_r);
+      _downmost();
+      return;
+    }
+
+  if (Node_op::child2(_n))
+    {
+      _n = Node_op::child2(_n);
+      _downmost();
+      return;
+    }
+
+  Node const *q = _r;
+  Node const *p = _r;
+  while (1)
+    {
+      if (Node_op::cmp(_n, q))
+	{
+	  p = q;
+	  q = Node_op::child1(q);
+	}
+      else if (_n == q || Node_op::child2(q) == _n)
+	{
+	  _n = p;
+	  return;
+	}
+      else
+	q = Node_op::child2(q);
+    }
+}
+
+
+
+
+
+//----------------------------------------------------------------------------
+/* Implementation of Avl_tree_node */
+inline
+void Avl_tree_node::adj_balance(Avl_tree_node *b, Avl_tree_node *c, int v)
+{
+  if (_md.balance == 0)
+    {
+      b->_md.balance = 0;
+      c->_md.balance = 0;
+    }
+  else if (_md.balance == v)
+    {
+      b->_md.balance = 0;
+      c->_md.balance = -v;
+    }
+  else
+    {
+      b->_md.balance = v;
+      c->_md.balance = 0;
+    }
+  _md.balance = 0;
+}
+
+/* Replace left or right child dependent on comparison. */
+inline
+void Avl_tree_node::replace_child(Avl_tree_node *c, Avl_tree_node *repl)
+{
+  if (_md.right == c)
+    _md.right = repl;
+  else
+    _md.left = repl;
+}
+
+
+//----------------------------------------------------------------------------
+/* Implementation of AVL Tree */
+
+/* Insert new _Node. */
+template< typename Node, typename Get_key, class Compare, bool Const_nodes>
+cxx::Pair<typename Avl_tree<Node, Get_key, Compare, Const_nodes>::Iterator, int>
+Avl_tree<Node, Get_key, Compare, Const_nodes>::insert(Node *new_node)
+{
+  if (!_head._md.right)
+    {
+      /* empty tree */
+      _head._md.right = new_node;
+      _height = 1;
+    }
+  else
+    {
+      /* non-empty tree */
+      Avl_tree_node *p = _head._md.right; /* search variable */
+      Avl_tree_node *q = 0;           /* new node */
+      Avl_tree_node *r;               /* search variable (balancing) */
+      Avl_tree_node *s = _head._md.right; /* node where rebalancing may occur */
+      Avl_tree_node *t = &_head;      /* parent of s */
+      Compare cmp;
+      int a;                   /* which subtree of s has grown -1 left ... */
+      while (p)
+	{
+	  if (cmp(Get_key::key_of(new_node), Get_key::key_of(N(p))))
+	    {
+	      /* move left */
+	      q = p->_md.left;
+	      if (!q)
+		{
+		  /* found insert position */
+		  q = new_node;
+		  p->_md.left = new_node;
+		  break;
+		}
+	    }
+	  else if (cmp(Get_key::key_of(N(p)), Get_key::key_of(new_node)))
+	    {
+	      /* move right */
+	      q = p->_md.right;
+	      if (!q)
+		{
+		  /* found insert position */
+		  q = new_node;
+		  p->_md.right = new_node;
+		  break;
+		}
+	    }
+	  else
+	    /* item already exists */
+	    return cxx::pair(end(), -E_exist);
+
+	  /* insert position not yet found, move on */
+	  if (q->_md.balance)
+	    {
+	      t = p;
+	      s = q;
+	    }
+
+	  p = q;
+	}
+
+      /* adj balanc factors */
+      if (s != &_head && cmp(Get_key::key_of(new_node), Get_key::key_of(N(s))))
+	{
+	  a = -1;
+	  r = p = s->_md.left;
+	}
+      else
+	{
+	  a = +1;
+	  r = p = s->_md.right;
+	}
+
+      /* adj balance factors down to the new node */
+      while (p != q)
+	{
+	  if (cmp(Get_key::key_of(new_node), Get_key::key_of(N(p))))
+	    {
+	      p->_md.balance = -1;
+	      p = p->_md.left;
+	    }
+	  else
+	    {
+	      p->_md.balance = +1;
+	      p = p->_md.right;
+	    }
+	}
+
+      /* balancing */
+      if (!s->_md.balance)
+	{
+	  /* tree has grown higher */
+	  s->_md.balance = a;
+	  ++_height;
+	  return cxx::pair(Iterator(N(new_node), N(new_node)), 0);
+	}
+
+      if (s->_md.balance == -a)
+	{
+	  /* node s got balanced (shorter subtree of s has grown) */
+	  s->_md.balance = 0;
+	  return cxx::pair(Iterator(N(new_node), N(new_node)), 0);
+	}
+
+      /* tree got out of balance */
+      if (r->_md.balance == a)
+	{
+	  /* single rotation */
+	  p = r;
+	  if (a == -1)
+	    s->r_rotate(r);
+	  else
+	    s->l_rotate(r);
+
+	  /* set new balance factors */
+	  s->_md.balance = 0;
+	  r->_md.balance = 0;
+	}
+      else
+	{
+	  /* double rotation */
+	  if (a == -1)
+	    {
+	      p = r->_md.right;
+	      r->l_rotate(p);
+	      s->r_rotate(p);
+	    }
+	  else
+	    {
+	      p = r->_md.left;
+	      r->r_rotate(p);
+	      s->l_rotate(p);
+	    }
+
+	  /* set new balance factors */
+	  p->adj_balance(r, s, a);
+	}
+
+      /* set new subtree head */
+      if (s == t->_md.left)
+	t->_md.left = p;
+      else
+	t->_md.right = p;
+    }
+
+  return cxx::pair(Iterator(N(new_node), N(new_node)), 0);
+}
+
+/* find an element */
+template< typename Node, typename Get_key, class Compare, bool Const_nodes>
+inline
+Node *Avl_tree<Node, Get_key, Compare, Const_nodes>::find_node(Key_param_type key) const
+{
+  Avl_tree_node *q = _head._md.right;
+  Compare cmp;
+
+  while (q)
+    {
+      if (cmp(key, Get_key::key_of(N(q))))
+	q = q->_md.left;
+      else if (cmp(Get_key::key_of(N(q)), key))
+	q = q->_md.right;
+      else
+	return N(q);
+    }
+  return 0;
+}
+
+/* find an element */
+template< typename Node, typename Get_key, class Compare, bool Const_nodes>
+inline
+typename Avl_tree<Node, Get_key, Compare, Const_nodes>::Const_iterator
+Avl_tree<Node, Get_key, Compare, Const_nodes>::find(Key_param_type key) const
+{
+  Avl_tree_node *q = _head._md.right;
+  Avl_tree_node *r = q;
+  Compare cmp;
+
+  while (q)
+    {
+      if (cmp(key, Get_key::key_of(N(q))))
+	q = q->_md.left;
+      else if (cmp(Get_key::key_of(N(q)), key))
+	{
+	  bool qr = (q == r);
+	  q = q->_md.right;
+	  if (qr)
+	    r = q;
+	}
+      else
+	return Iterator(N(q), N(r));
+    }
+  return Iterator();
+}
+
+
+/* remove an element */
+template< typename Node, typename Get_key, class Compare, bool Const_nodes>
+inline
+Node *Avl_tree<Node, Get_key, Compare, Const_nodes>::remove(Key_param_type key)
+{
+  Avl_tree_node *q = _head._md.right; /* search variable */
+  Avl_tree_node *p = &_head;      /* parent node of q */
+  Avl_tree_node *r;               /* 'symetric predecessor' of q, subtree to rotate 
+			    * while rebalancing */
+  Avl_tree_node *s = &_head;      /* last ('deepest') node on the search path to q
+			    * with balance 0, at this place the rebalancing
+			    * stops in any case */
+  Avl_tree_node *t = 0;           /* parent node of p */
+
+  Compare cmp;
+  Node *removed = 0;
+
+  /***************************************************************************
+   * search node with item == k, on the way down also search for the last
+   * ('deepest') node with balance zero, this is the last node where
+   * rebalancing might be necessary.
+   ***************************************************************************/
+  while (q)
+    {
+      if (!cmp(key, Get_key::key_of(N(q))) && !cmp(Get_key::key_of(N(q)), key))
+	break; /* found */
+
+      if (!q->_md.balance)
+	s = q;
+
+      t = p;
+      p = q;
+
+      if (cmp(key, Get_key::key_of(N(p))))
+	q = q->_md.left;
+      else if (cmp(Get_key::key_of(N(p)), key))
+	q = q->_md.right;
+      else
+	return 0;
+    }
+
+  if (!q)
+    return 0;
+
+  /***************************************************************************
+   * remove node
+   ***************************************************************************/
+  if (q->_md.left && q->_md.right)
+    {
+      /* replace q with its 'symetric predecessor' (the node with the largest
+       * item in the left subtree of q, its the rightmost item in this subtree) */     
+      if (!q->_md.balance)
+	s = q;
+  
+      Avl_tree_node *p2 = p;
+      t = p;
+      p = q;
+      r = q->_md.left;
+
+      while (r->_md.right)
+	{
+	  if (r->_md.balance == 0)
+	    s = r;
+
+	  t = p;
+	  p = r;
+	  r = r->_md.right;
+	}
+
+      /* found, replace q */
+      if (Const_nodes)
+	{
+	  Avl_tree_node::swap(q,r);
+	  p2->replace_child(q, r);
+	  if (s == q) s = r;
+	  if (p == q) p = r;
+	  if (t == q) t = r;
+	  p->replace_child(r, q);
+	}
+      else
+	{
+	  *N(q) = *N(r);
+	  q = r;
+	}
+#if 0
+      if (!(t->_md.left == p || t->_md.right == p))
+	enter_kdebug("dumb 1");
+
+      if (!(p->_md.left == q || p->_md.right == q))
+	enter_kdebug("dumb 2");
+#endif
+    }
+
+  if (q == _head._md.right)
+    {
+      /* remove tree head */
+      if (!q->_md.left && !q->_md.right)
+	{
+	  /* got empty tree */
+	  _head._md.right = 0;
+	  _height = 0;
+	}
+      else
+	{
+	  if (q->_md.right)
+	    _head._md.right = q->_md.right;
+	  else
+	    _head._md.right = q->_md.left;
+
+	  --_height;
+	}
+      removed = N(q);
+    }
+  else
+    {
+      /* q is not the tree head */
+      int a;  /* changes of the balance factor, -1 right subtree got
+               * shorter, +1 left subtree got shorter */
+
+      if (q == p->_md.right)
+	{
+	  if (q->_md.left)
+	    p->_md.right = q->_md.left;
+	  else if (q->_md.right)
+	    p->_md.right = q->_md.right;
+	  else
+	    p->_md.right = 0;
+
+	  /* right subtree of p got shorter */
+	  a = -1;
+	}
+      else
+	{
+	  if (q->_md.left)
+	    p->_md.left = q->_md.left;
+	  else if (q->_md.right)
+	    p->_md.left = q->_md.right;
+	  else
+	    p->_md.left = 0;
+
+	  /* left subtree of p got shorter */
+	  a = +1;
+	}
+      removed = N(q);
+
+      /***********************************************************************
+       * Rebalancing 
+       * q is the removed node
+       * p points to the node which must be rebalanced,
+       * t points to the parent node of p
+       * s points to the last node with balance 0 on the way down to p
+       ***********************************************************************/
+
+      Avl_tree_node *o;          /* subtree while rebalancing */
+      bool done = false;  /* done with rebalancing */
+
+      do 
+	{
+	  if (a == +1)
+	    {
+	      /***************************************************************
+               * left subtree of p got shorter
+               ***************************************************************/
+	      if (p->_md.balance == -1)
+		/* p got balanced => the whole tree with head p got shorter,
+		 * must rebalance parent node of p (a.1.) */
+		p->_md.balance = 0;
+	      else if (p->_md.balance == 0)
+		{
+		  /* p got out of balance, but kept its overall height
+		   * => done (a.2.) */
+		  p->_md.balance = +1;
+	          done = true;
+		}
+	      else
+		{
+		  /* left subtree of p was already shorter than right, 
+		   * need to rotate */
+		  r = p->_md.right;
+		  
+		  if (!r->_md.balance)
+		    {
+		      /* single rotation left and done (a.3.1) */
+		      p->l_rotate(r);
+		      p->_md.balance = +1;
+		      r->_md.balance = -1;
+
+		      t->replace_child(p, r);
+
+		      done = 1;
+		    }
+		  else if (r->_md.balance == +1)
+		    {
+		      /* single rotation left and rebalance parent node 
+		       * (a.3.2) */
+		      p->l_rotate(r);
+		      p->_md.balance = 0;
+		      r->_md.balance = 0;
+
+		      t->replace_child(p, r);
+
+		      p = r;
+		    }
+		  else
+		    {
+		      /* double rotation right - left and rebalance parent 
+		       * node (a.3.3) */
+		      o = r->_md.left;
+		      r->r_rotate(o);
+		      p->l_rotate(o);
+		      t->replace_child(p, o);
+		      o->adj_balance(p, r);
+		      p = o;
+		    }
+		}
+		      
+	    }
+	  else /* a == -1 */
+	    {
+	      /***************************************************************
+               * right subtree of p got shorter
+               ***************************************************************/
+	      if (p->_md.balance == +1)
+		/* p got balanced,  => the whole tree with head p got 
+		 * shorter, must rebalance parent node of p (b.1.) */
+		p->_md.balance = 0;
+	      else if (p->_md.balance == 0)
+		{
+		  /* p got out of balance, but kept its overall height 
+		   * => done (b.2.) */
+		  p->_md.balance = -1;
+		  done = true;
+		}
+	      else
+		{
+		  /* the right subtree of p already was shorter than the left, 
+		   * need to rotate to rebuild the AVL tree */
+		  r = p->_md.left;
+
+		  if (r->_md.balance == 0)
+		    {
+		      /* single rotation right and done (b.3.1) */
+		      p->r_rotate(r);
+		      r->_md.balance = +1;
+		      p->_md.balance = -1;
+
+		      t->replace_child(p, r);
+
+		      done = true;
+		    }
+		  else if (r->_md.balance == -1)
+		    {
+		      /* single rotation right and rebalance parent
+		       * node (b.3.2) */
+		      p->r_rotate(r);
+		      r->_md.balance = 0;
+		      p->_md.balance = 0;
+
+		      t->replace_child(p, r);
+		      p = r;
+		    }
+		  else
+		    {
+		      /* double rotation left - right and rebalance parent
+		       * node (b.3.3) */
+		      o = r->_md.right;
+		      r->l_rotate(o);
+		      p->r_rotate(o);
+		      t->replace_child(p, o);
+		      o->adj_balance(r, p);
+		      p = o;
+		    }
+		}
+	    }
+
+	  if (!done)
+	    {
+	      /* need to rebalance parent node, go one level up in the tree.
+	       * Actually, we go down the tree until we find p and store its 
+	       * parent and the parent of the parent. We start at the last 
+	       * node with balance 0, because the rebalancing definitely 
+	       * stops there. 
+	       * Current situation: 
+	       * t points to the node which must be rebalanced, p to the 
+	       * subtree of t which got shorter */
+	      q = p;
+	      r = t;
+	      if (t == s)
+		{
+		  if (s == &_head)
+		    {
+		      /* whole tree got shorter */
+		      --_height;
+		      done = true;
+		    }
+		  else
+		    {
+		      /* reached the last node which needs to be rebalanced */
+		      p = s;
+		      if (p->_md.left == q)
+			/* left subtree got shorter */
+			a = +1;
+		      else if (p->_md.right == q)
+			/* right subtree got shorter */
+			a = -1;
+		      else
+			return (Node*)-E_inval;
+		    }
+		}
+	      else
+		{
+		  /* search node q */
+
+		  t = p = s;
+
+		  if (s == &_head)
+		    p = s->_md.right;
+
+		  while (p && (p != r))
+		    {
+		      t = p;
+		      if (cmp(Get_key::key_of(N(q)), Get_key::key_of(N(p))))
+			p = p->_md.left;
+		      else
+			p = p->_md.right;
+		    }
+#if 0
+		  if (!p) enter_kdebug("dd");
+#endif
+		  if (p->_md.left == q)
+		    /* left subtree got shorter */
+		    a = +1;
+		  else if (p->_md.right == q)
+		    /* right subtree got shorter */
+		    a = -1;
+		  else
+		    return (Node*)-E_inval;
+		}
+	    }
+	}
+      while (!done);
+    }
+
+  /* done */
+  return removed;
+}
+
+}
+

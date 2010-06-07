@@ -1,0 +1,1 @@
+- contrib is http://www.libsdl.org/release/SDL-1.2.14.tar.gz

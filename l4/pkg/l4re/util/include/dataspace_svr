@@ -1,0 +1,190 @@
+// vi:ft=cpp
+/*
+ * (c) 2008-2009 Technische Universität Dresden
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ *
+ * As a special exception, you may use this file as part of a free software
+ * library without restriction.  Specifically, if other files instantiate
+ * templates or use macros or inline functions from this file, or you compile
+ * this file and link it with other files to produce an executable, this
+ * file does not by itself cause the resulting executable to be covered by
+ * the GNU General Public License.  This exception does not however
+ * invalidate any other reasons why the executable file might be covered by
+ * the GNU General Public License.
+ */
+#pragma once
+
+#include <cstring>
+#include <cstddef>
+#include <l4/sys/types.h>
+#include <l4/cxx/list>
+#include <l4/cxx/ipc_server>
+#include <l4/cxx/ipc_stream>
+#include <l4/cxx/minmax>
+#include <l4/re/dataspace>
+#include <l4/re/dataspace-sys.h>
+#include <l4/re/protocols>
+
+inline
+L4::Ipc::Ostream &operator << (L4::Ipc::Ostream &s,
+                               L4Re::Dataspace::Stats const &st)
+{ s.put(st); return s; }
+
+namespace L4Re { namespace Util {
+
+/**
+ * \brief Dataspace server class.
+ * \ingroup api_l4re_util
+ *
+ * The default implementation of the interface provides a continiously
+ * mapped dataspace.
+ */
+class Dataspace_svr
+{
+private:
+  typedef L4::Ipc::Gen_fpage<L4::Ipc::Snd_item> Snd_fpage;
+public:
+
+  typedef Snd_fpage::Map_type Map_type;
+  typedef Snd_fpage::Cacheopt Cache_type;
+  enum Rw_type {
+      Read_only = 0,
+      Writable = 1,
+  };
+
+
+  Dataspace_svr() throw()
+  : _ds_start(0), _ds_size(0), _map_flags(Snd_fpage::Map),
+  _cache_flags(Snd_fpage::Cached)
+  {}
+
+  virtual ~Dataspace_svr() throw() {}
+
+  /**
+   * \brief Map a region of the dataspace
+   *
+   * \param offset      Offset to start within data space
+   * \param flags       map flags, see #Map_flags.
+   * \param local_addr  Local address to map to.
+   * \param min_addr    Defines start of receive window.
+   * \param max_addr    Defines end of receive window.
+   * \retval memory     Send fpage to map
+   *
+   * \return 0 on success, <0 on error
+   */
+  int map(l4_addr_t offs, l4_addr_t spot, unsigned long flags,
+          l4_addr_t min, l4_addr_t max, L4::Snd_fpage &memory);
+
+  /**
+   * \brief A hook that is called as the first operation in each map
+   *        request.
+   * \param offs  Offs param to map
+   * \param flags Flags param to map
+   * \param min   Min param to map
+   * \param max   Max param to map
+   * \return < 0 on error and the map request will be aborted with that
+   *         error
+   *         >= 0: ok
+   *
+   * \see map
+   */
+  virtual int map_hook(l4_addr_t offs, unsigned long flags,
+                       l4_addr_t min, l4_addr_t max)
+  {
+    (void)offs; (void)flags; (void)min; (void)max;
+    return 0;
+  }
+
+  /**
+   * \brief Return physical address for a virtual address
+   *
+   * \param  offset    Offset into the dataspace
+   * \retval phys_addr Physical address
+   * \retval phys_size Size of continious physical region
+   *
+   * \return Zero on success, else failure
+   */
+  virtual int phys(l4_addr_t offset, l4_addr_t &phys_addr, l4_size_t &phys_size) throw();
+  
+  /**
+   * \brief Take a reference to this dataspace
+   *
+   * Default does nothing.
+   */
+  virtual void take() throw()
+  {}
+
+  /**
+   * \brief Release a reference to this dataspace
+   *
+   * \return Number of references to the dataspace
+   *
+   * Default does nothing and returns always zero.
+   */
+  virtual unsigned long release() throw()
+  { return 0; }
+
+  /**
+   * \brief Copy from src dataspace to this destination dataspace
+   *
+   * \param dst_offs Offset into the destination dataspace
+   * \param src_id   Local id of the source dataspace
+   * \param src_offs Offset into the source dataspace
+   * \param size     Number of bytes to copy
+   *
+   * \return Number of bytes copied
+   */
+  virtual unsigned long copy(unsigned long dst_offs, l4_umword_t src_id,
+                             unsigned long src_offs, unsigned long size) throw()
+    { (void)dst_offs; (void)src_id; (void)src_offs; (void)size; return 0; }
+  
+  /**
+   * \brief Clear a region in the dataspace
+   *
+   * \param offs Start of the region
+   * \param size Size of the region
+   */
+  virtual long clear(unsigned long offs, unsigned long size) const throw();
+  
+  /**
+   * \brief Define the size of the flexpage to map
+   *
+   * \return flexpage size
+   */
+  virtual unsigned long page_shift() const throw()
+  { return L4_LOG2_PAGESIZE; }
+
+  virtual bool is_static() const throw()
+  { return true; }
+
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
+
+protected:
+  unsigned long size() const throw()
+  { return _ds_size; }
+  unsigned long map_flags() const throw()
+  { return _map_flags; }
+  unsigned long rw_flags() const throw()
+  { return _rw_flags; }
+  unsigned long is_writable() const throw()
+  { return _rw_flags & Writable; }
+  unsigned long page_size() const throw()
+  { return 1UL << page_shift(); }
+  unsigned long round_size() const throw()
+  { return l4_round_size(size(), page_shift()); }
+  bool check_limit(l4_addr_t offset) const throw()
+  { return offset < round_size(); }
+
+protected:
+  void size(unsigned long size) throw() { _ds_size = size; }
+
+  l4_addr_t _ds_start;
+  l4_size_t _ds_size;
+  Map_type _map_flags;
+  Cache_type _cache_flags;
+  Rw_type  _rw_flags;
+};
+
+}}

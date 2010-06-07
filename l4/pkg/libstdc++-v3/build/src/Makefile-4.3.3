@@ -1,0 +1,13 @@
+
+SRC_CC += hash_c++0x.cc \
+  hashtable_c++0x.cc \
+  parallel_list.cc \
+  parallel_settings.cc \
+
+SRC_CC_arm   += atomicity.cc
+SRC_CC_ppc32 += atomicity.cc
+SRC_CC       += $(SRC_CC_$(ARCH))
+
+$(OBJ_DIR)/atomicity.cc: $(call CPU_file,atomicity_mutex/atomicity.h)
+	$(LN) -sf $< $@
+

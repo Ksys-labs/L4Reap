@@ -1,0 +1,3 @@
+provides: libpng libl4png_wrap
+requires: zlib libc
+Maintainer: weinhold@os.inf.tu-dresden.de

@@ -1,0 +1,25 @@
+# -*- makefile -*-
+# Boot Makefile
+
+# Add future prerequisites somewhere among the list of libraries.
+# You really should not have to add anything in the $(LD) line.
+
+boot_img.o:	$(OBJ_BOOT) $(DRIVERS) $(MINILIBC) 
+		$(LINK_MESSAGE)
+		$(VERBOSE)$(LD) -m elf_x86_64 -r -s -o $@_x.o \
+		-T $(srcdir)/boot/amd64/bootstrap.ld $^ $(LIBGCC)
+		$(VERBOSE)$(OBJCOPY) -G _boot_start $@_x.o $@
+		$(VERBOSE)$(RM) $@_x.o
+
+kernel.amd64.lds: linking.h
+
+$(KERNEL):	kernel.amd64.lds boot_img.o $(CRT0) $(OBJ_KERNEL) $(LIBK) $(LIBAMM) $(KERNEL_EXTRA_LIBS) $(ABI) $(JABI) libdrivers.a $(CXXLIB) $(LIBKERN) $(MINILIBC) libgluedriverslibc.a
+		$(LINK_MESSAGE)
+		$(VERBOSE)$(LD) -m elf_x86_64 -N -T $< -gc-sections \
+		-o $@ $(filter-out $<,$+) $(LIBGCC) $(KERNEL_UNRES_SYMS)
+
+$(BOOT): $(KERNEL)
+		$(LINK_MESSAGE)
+		$(VERBOSE)$(STRIP) -o $@ $<
+		$(VERBOSE)chmod 755 $@
+		$(VERBOSE)ln -sf $@ fiasco

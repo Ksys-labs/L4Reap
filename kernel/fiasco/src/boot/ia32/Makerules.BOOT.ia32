@@ -1,0 +1,31 @@
+# -*- makefile -*-
+# Boot Makefile
+
+# Add future prerequisites somewhere among the list of libraries.
+# You really should not have to add anything in the $(LD) line.
+#
+# Don't link against libgcc because of -mregparm=3. The library
+# would only be necessary for 64-bit arithmetics. These functions
+# can be replaced by using div32/mod32 from lib/libk (and should
+# for efficency reasons).
+
+boot_img.o:	$(OBJ_BOOT) $(DRIVERS) $(MINILIBC) 
+		$(LINK_MESSAGE)
+		$(VERBOSE)$(LD) -m $(LD_EMULATION) -r -s -o $@_x.o \
+		   -T $(srcdir)/boot/ia32/bootstrap.ld $^
+		$(VERBOSE)$(OBJCOPY) -G _boot_start $@_x.o $@
+		$(VERBOSE)$(RM) $@_x.o
+
+kernel.ia32.lds: linking.h
+
+$(KERNEL):	kernel.ia32.lds boot_img.o $(CRT0) $(OBJ_KERNEL) $(LIBK) $(LIBAMM) $(KERNEL_EXTRA_LIBS) $(ABI) $(JABI) libdrivers.a $(CXXLIB) $(LIBKERN) $(MINILIBC) libgluedriverslibc.a
+		$(LINK_MESSAGE)
+		$(VERBOSE)$(LD)	-m $(LD_EMULATION) -N -o $@ \
+		   -T $< -gc-sections $(filter-out $<,$+) \
+		   $(KERNEL_UNRES_SYMS)
+
+$(BOOT): $(KERNEL)
+		$(LINK_MESSAGE)
+		$(VERBOSE)$(STRIP) -o $@ $<
+		$(VERBOSE)chmod 755 $@
+		$(VERBOSE)ln -sf $@ fiasco

@@ -1,0 +1,10 @@
+#pragma once
+
+namespace Mag_gfx { namespace Blit {
+
+void blit(void const *src, unsigned src_w,
+          void *dst, unsigned dst_w,
+          int w, int h);
+
+}}
+

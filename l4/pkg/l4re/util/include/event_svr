@@ -1,0 +1,65 @@
+// vi:ft=cpp
+/*
+ * (c) 2008-2009 Technische Universität Dresden
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ *
+ * As a special exception, you may use this file as part of a free software
+ * library without restriction.  Specifically, if other files instantiate
+ * templates or use macros or inline functions from this file, or you compile
+ * this file and link it with other files to produce an executable, this
+ * file does not by itself cause the resulting executable to be covered by
+ * the GNU General Public License.  This exception does not however
+ * invalidate any other reasons why the executable file might be covered by
+ * the GNU General Public License.
+ */
+
+#pragma once
+
+#include <l4/re/event-sys.h>
+#include <l4/re/util/icu_svr>
+
+namespace L4Re { namespace Util {
+
+template< typename SVR >
+class Event_svr : public Icu_cap_array_svr<SVR>
+{
+private:
+  typedef Icu_cap_array_svr<SVR> Icu_svr;
+
+protected:
+  L4::Cap<L4Re::Dataspace> _ds;
+  typename Icu_svr::Irq _irq;
+
+public:
+  Event_svr() : Icu_svr(1, &_irq) {}
+  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+};
+
+template<typename SVR>
+inline
+int
+Event_svr<SVR>::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+{
+  l4_msgtag_t tag;
+  ios >> tag;
+
+  if (tag.label() == L4_PROTO_IRQ)
+    return Icu_svr::dispatch(obj, ios);
+  else if (tag.label() != L4Re::Protocol::Event)
+    return -L4_EBADPROTO;
+
+  L4::Opcode op;
+  ios >> op;
+  switch (op)
+    {
+    case L4Re::Event_::Get:
+      ios << _ds;
+      return L4_EOK;
+    default:
+      return -L4_ENOSYS;
+    }
+}
+
+}}

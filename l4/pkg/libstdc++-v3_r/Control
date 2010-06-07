@@ -1,0 +1,4 @@
+provides: libstdc++_r
+requires: libsupc++_r libpthread libstdc++-headers libsupc++_r libstdc++
+source-pkg: libstdc++-v3
+maintainer: warg@os.inf.tu-dresden.de

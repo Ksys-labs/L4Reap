@@ -1,0 +1,50 @@
+// vi:ft=c
+/**
+ * \page io Io, the Io Server
+ *
+ * The Io server handles all platform devices and resources such as I/O
+ * memory, ports (on x86) and interrupts, and grants access to those to
+ * clients.
+ *
+ * Upon startup Io discovers all platform devices using available means on
+ * the system, e.g. on x86 the PCI bus is scanned and the ACPI subsystem
+ * initialised. Available I/O resource can also be configured statically.
+ *
+ * Each Io server client is provided with its own virtual bus which
+ * it can iterate to find devices. A virtual PCI bus may be a part
+ * of this virtual bus.
+ *
+ * \image html io-overview.png "IO Service Architecture Overview"
+ * \image latex io-overview.pdf "IO Service Architecture Overview"
+ *
+ * The Io server must be configured to create virtual buses for its
+ * clients. This is done with at least one configuration file
+ * specifying static resources as well as virtual buses for clients. The
+ * configuration may be split across several configuration files passed
+ * to Io through the command line.
+ *
+ * The platform configuration is stored in the structure called
+ * <tt>hw-root</tt>. It lists devices that are available on the platform.  For
+ * the x86 architecture a basic set of platform devices is defined in the file
+ * <tt>x86-legacy.devs</tt>. There are configuration files for various ARM
+ * platforms available, as well. If the system contains a PCI bus, it is
+ * scanned automatically and the devices found on it are added automatically to
+ * the pool of available devices.
+ *
+ * To allow clients access to a available devices, a virtual system bus needs
+ * to be created that lists the devices that should be available to that
+ * client.  These buses have a name that Io uses to register a vbus object in
+ * its name space.
+ *
+ * A very simple configuration for Io could look like this:
+ *
+ * \include io/doc/example.io
+ *
+ * Assigning clients PCI devices could look like this:
+ *
+ * \include io/doc/example_pci.io
+ *
+ * The CC numbers are PCI class codes. You can also use <tt>REV_</tt>,
+ * <tt>VEN_</tt>, <tt>DEV_</tt> and <tt>SUBSYS_</tt> to specify revision,
+ * vendor, device and subsystem with a hex number.
+ */

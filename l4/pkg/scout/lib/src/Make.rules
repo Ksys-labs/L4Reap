@@ -1,0 +1,37 @@
+# vi:ft=make
+
+TARGET		= libscout.a libscout.so
+LINK_INCR       := libscout.a
+SRC_CC		= factory.cc main.cc platform.cc \
+		  platform_fb.cc \
+		  about.cc browser_window.cc
+
+
+SRC_RGBA  =     sizer.rgba \
+             titlebar.rgba \
+            kill_icon.rgba \
+          opened_icon.rgba \
+          closed_icon.rgba
+
+SRC_BIN += $(SRC_RGBA)
+
+SRC_BIN +=    cover.rgba \
+            forward.rgba \
+           backward.rgba \
+               home.rgba \
+              index.rgba \
+              about.rgba \
+            pointer.rgba
+
+SRC_BIN += ior.map
+
+OBJS += $(addsuffix .bin.o, $(notdir $(SRC_BIN)))
+
+REQUIRES_LIBS := mag-gfx scout-gfx libpng
+L4_MULTITHREADED=y
+
+%.bin.o: $(SRC_DIR)/../data/% $(SRC_DIR)/Make.rules
+	@$(GEN_MESSAGE)
+	$(VERBOSE)(TARGETDIR=$$PWD && cd $(SRC_DIR)/../data/ && $(OBJCOPY) -I binary -B $(BFD_ARCH_$(ARCH)) -O $(OFORMAT) $(notdir $<) $$TARGETDIR/$@)
+
+

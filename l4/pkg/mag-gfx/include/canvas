@@ -1,0 +1,49 @@
+// vi:ft=cpp
+
+#pragma once
+
+#include <l4/mag-gfx/geometry>
+#include <l4/mag-gfx/gfx_colors>
+
+namespace Mag_gfx {
+
+class Font;
+class Pixel_info;
+class Texture;
+
+class Canvas
+{
+protected:
+  Rect _clip;
+  Area _size;
+
+  Canvas(Area const &sz) : _clip(Point(0,0), sz), _size(sz) {}
+  virtual void flush_pixels(Rect const &) {}
+
+public:
+  enum Mix_mode { Solid, Mixed, Masked, Alpha };
+
+  void set_clipping(Rect const &c)
+  { _clip = Rect(Point(0,0), _size) & c; }
+
+  Rect const &clip() const { return _clip; }
+  bool clip_valid() const { return _clip.valid(); }
+
+  Area const &size() const { return _size; }
+
+  virtual ~Canvas() {}
+
+  virtual Pixel_info const *type() const = 0;
+  virtual void draw_box(Rect const &rect, Rgba32::Color color) = 0;
+  virtual void draw_string(Point const &pos, Font const *f, Rgba32::Color color, char const *str, unsigned len = -1) = 0;
+  virtual void draw_texture(Texture const *src, Rgb32::Color mix_color, Point const &pos, Mix_mode mode) = 0;
+
+  virtual void *buffer() const = 0;
+  virtual void buffer(void *buffer) = 0;
+  virtual int bytes_per_line() const = 0;
+
+  void draw_rect(Rect const &r, Rgba32::Color color);
+
+};
+
+}

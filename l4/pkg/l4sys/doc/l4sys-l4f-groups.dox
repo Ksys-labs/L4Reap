@@ -1,0 +1,151 @@
+// vi:ft=c
+/* -*- c -*- */
+
+/**
+ * \defgroup l4_api Base API
+ * \brief Interfaces for all kinds of base functionality.
+ * 
+ * Some notes on Inter Process Communication (IPC)
+ *
+ * IPC in L4 is always synchronous and unbuffered: a message is
+ * transferred from the sender to the recipient if and only if the
+ * recipient has invoked a corresponding IPC operation. The sender blocks
+ * until this happens or a timeout specified by the sender elapsed
+ * without the destination becoming ready to receive.
+ */
+
+/**
+ * \defgroup l4_kernel_object_gate_api IPC-Gate API
+ * \ingroup l4_kernel_object_api
+ *
+ * \brief Secure comminication object.
+ *
+ * IPC-Gate objects provide a means to establish secure communication channels
+ * to L4 Threads (\ref l4_thread_api). An IPC-Gate object can be created using
+ * a \ref l4_factory_api (l4_factory_create_gate()) and get assigned a specific
+ * L4 thread and a \em label as protected payload. The \em label has the size
+ * of one machine word and can only be seen by the Task running the thread that
+ * is assigned of the IPC-gate. The \em label is received as part of the IPC
+ * message.  The \em label can thus be used to securely identify the IPC-gate
+ * that was used to send a message.
+ *
+ * An IPC-gate is usually used to represent an user-level object and may be
+ * the address of the data structure for the object in the server task.
+ *
+ * With client privileges an IPC-gate does not provide any direct API and
+ * thus an IPC-gate kernel object cannot be modified by invocations. Each
+ * invocation of an IPC-gate kernel object is translated into an IPC message
+ * to the assigned thread.
+ *
+ * \see \ref l4_ipc_api
+ */
+
+
+/*
+ * IPC can be used to copy data as well as to map or grant flexpages from
+ * the sender to the recipient. There are two major flavors of IPC messages:
+ * 
+ * \anchor short_ipc
+ * <b>Short or register IPC</b>
+ * 
+ * With short IPC only two dwords or a single flexpage can be transfered. 
+ * The data is transfered using CPU registers, no memory reference is 
+ * necessary.
+ *
+ * \anchor long_ipc
+ * <b>Long or memory IPC</b>
+ *
+ * With long IPC up to 524288 (2^19) dwords and 32 memory buffers 
+ * ("indirect strings") can be transfered. A valid message buffer 
+ * looks as follows:
+ *
+ * \code
+ * struct msg_buffer
+ * {
+ *   l4_fpage_t     rcv_fpage;   // flexpage receive window
+ *   l4_msgdope_t   size;        // message size dope
+ *   l4_msgdope_t   send;        // message send dope
+ *   
+ *   // message send flexpages (optional)
+ *   l4_snd_fpage_t snd_fpage0;  
+ *   ...
+ * 
+ *   // message dwords (optional)
+ *   l4_umword_t    dword0;
+ *   ...
+ *
+ *   // message send/receive string descriptors (optional)
+ *   l4_strdope_t   str0;
+ *   ...
+ * }
+ * \endcode
+ *
+ * The same message buffer can be used for both send and receive operations.
+ * Note that the first two dwords of the message (either the first send
+ * flexpage or the first two message dwords) are still transfered using
+ * CPU registers.
+ * <dl>
+ * <dt>\a rcv_fpage </dt>
+ *     <dd> The flexpage describes the window to receive flexpages into. If 
+ *          no flexpage is specified (0), no flexpages can be received.
+ *     </dd>
+ * <dt>\a size </dt>
+ *     <dd> The \a size message dope describes the size of the entire 
+ *          message buffer. The number of dwords includes also the dwords 
+ *          used to describe send flexpages (two dwords per send flexpage).
+ *     </dd>
+ * <dt>\a send </dt>
+ *     <dd> The \a send message dope describes the part of the message
+ *          buffer which should be transfered in a send operation. It can 
+ *          contain only a subset of the message buffer described by \a size.
+ *          Note that the string dopes of the indirect strings to be transfered
+ *          must still begin at the position described by the message size
+ *          dope.
+ *     </dd>
+ * <dt>\a snd_fpage </dt>
+ *     <dd> Send flexpage descriptors to be transfered in a send operation.
+ *          If flexpages should be transfered in a send operation (Bit 1 
+ *          of the message descriptor address set to 1), L4 treats the
+ *          first dwords of the message buffer as send flexpage descriptors
+ *          until it finds an invalid descriptor (flexpage descriptor set to 
+ *          0).
+ *     </dd>
+ * <dt>\a dword </dt>
+ *     <dd> Message dwords to send/receive. </dd> 
+ * <dt>\a str </dt>
+ *     <dd> Indirect strings to send/receive. A string dope describes both
+ *          the source and receive address of the strings to send resp. to 
+ *          receive.
+ *     </dd>
+ * </dl> 
+ */
+
+/**
+ * \defgroup l4sys_defines Basic Macros
+ * \ingroup l4_api
+ * \brief L4 standard macros for header files, function definitions,
+ *        and public APIs etc.
+ */
+
+
+/*****************************************************************************
+ *** System calls
+ *****************************************************************************/
+
+/**
+ * \brief L4 low-level kernel interface.
+ */
+namespace L4 { };
+
+
+/**
+ * \defgroup api_calls_fiasco Fiasco extensions
+ * \ingroup  l4_api
+ * \brief    Kernel debugger extensions of the Fiasco L4 implementation
+ */
+
+/**
+ * \defgroup api_calls_rt_sched Fiasco real time scheduling extensions
+ * \ingroup  api_calls_fiasco
+ * \brief    Real time scheduling extension for the Fiasco L4 implementation
+ */

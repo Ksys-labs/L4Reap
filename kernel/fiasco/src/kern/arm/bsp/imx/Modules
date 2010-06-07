@@ -1,0 +1,17 @@
+# vim:set ft=make:
+
+SUBSYSTEMS              += LIBUART
+OBJECTS_LIBUART         += uart_imx.o
+PREPROCESS_PARTS        += imx libuart kern_start_0xd
+CONFIG_KERNEL_LOAD_ADDR := 0xc0000000
+
+
+uart_IMPL             += uart-imx
+config_IMPL           += config-arm-imx
+mem_layout_IMPL       += mem_layout-arm-imx
+pic_IMPL              += pic-arm-imx
+bootstrap_IMPL        += bootstrap-arm-imx
+timer_IMPL            += timer-arm-imx
+kernel_uart_IMPL      += kernel_uart-arm-imx
+reset_IMPL            += reset-arm-imx
+clock_IMPL            += clock-generic

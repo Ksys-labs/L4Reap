@@ -1,0 +1,76 @@
+// vi:ft=cpp
+/*
+ * (c) 2010 Technische Universität Dresden
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+#pragma once
+
+#include <l4/mag/server/object>
+
+namespace Mag_server {
+
+class User_state;
+class Input_driver;
+
+class Core_api
+{
+private:
+  Input_driver *_input;
+  Registry *_reg;
+  User_state *_ust;
+  L4::Cap<void> _rcv_cap;
+
+  // not instanziatable
+  Core_api(Core_api const &);
+  void operator = (Core_api const &);
+
+public:
+  Core_api(Registry *r, User_state *u, L4::Cap<void> rcvc)
+  : _reg(r), _ust(u), _rcv_cap(rcvc)
+  {}
+
+  Registry *registry() const { return _reg; }
+  User_state *user_state() const { return _ust; }
+  Input_driver *input_drivers() const { return _input; }
+  void add_input_driver(Input_driver *i) { _input = i; }
+  L4::Cap<void> rcv_cap() const { return _rcv_cap; }
+};
+
+class Plugin
+{
+private:
+  friend class Plugin_manager;
+
+  char const *const _name;
+  unsigned _flags;
+  Plugin *_next;
+
+  static Plugin *_first;
+
+  Plugin(Plugin const &);
+  void operator = (Plugin const &);
+
+protected:
+  unsigned &get_flags() { return _flags; }
+  Plugin(char const *name) : _name(name), _flags(0), _next(_first)
+  { _first = this; }
+
+public:
+  enum Flag
+  {
+    F_started = 1
+  };
+
+  virtual char const *type() const { return "generic"; }
+  char const *name() const { return _name; }
+
+  bool started() const { return _flags & F_started; }
+
+  virtual void start(Core_api *) = 0;
+  virtual void stop() {}
+  virtual ~Plugin() {}
+};
+
+}

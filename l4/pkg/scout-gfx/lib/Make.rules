@@ -1,0 +1,49 @@
+# vi:ft=make
+
+TARGET		= libscout-gfx.a libscout-gfx.so
+SRC_CC		= tick.cc png_image.cc \
+		  user_state.cc scrollbar.cc layout.cc layout_item.cc \
+		  layout_engine.cc box_layout.cc stack_layout.cc \
+		  scroll_pane.cc document.cc widget.cc fonts.cc \
+		  doc/block.cc \
+		  doc/link.cc \
+		  doc/item.cc \
+		  doc/navbar.cc \
+		  doc/token.cc \
+		  doc/verbatim.cc \
+		  loadbar.cc \
+		  redraw_manager.cc \
+		  grid_layout.cc
+
+SRC_BIN =   vera16.tff \
+            verai16.tff \
+	    vera18.tff \
+	    vera20.tff \
+	    vera24.tff \
+	    verabi10.tff \
+	    mono16.tff
+
+SRC_RGBA  =   uparrow.rgba \
+            downarrow.rgba \
+            leftarrow.rgba \
+           rightarrow.rgba \
+               slider.rgba \
+             nav_next.rgba \
+             nav_prev.rgba \
+	      loadbar.rgba \
+	       redbar.rgba \
+	     whitebar.rgba
+
+SRC_BIN += $(SRC_RGBA)
+
+OBJS += $(addsuffix .bin.o, $(notdir $(SRC_BIN)))
+
+REQUIRES_LIBS := mag-gfx libpng libstdc++
+L4_MULTITHREADED=y
+
+%.bin.o: $(SRC_DIR)/data/% $(SRC_DIR)/Make.rules $(ELF_PATCHER)
+	@$(GEN_MESSAGE)
+	$(VERBOSE)(TARGETDIR=$$PWD && cd $(SRC_DIR)/data/ && $(OBJCOPY) -I binary -B $(BFD_ARCH) -O $(OFORMAT) $(notdir $<) $$TARGETDIR/$@ )
+	$(VERBOSE)$(ELF_PATCHER) $@ --min-section-align=4
+
+

@@ -1,0 +1,47 @@
+PKGDIR		?= .
+L4DIR		?= $(PKGDIR)/../..
+
+SYSTEMS		= x86 arm amd64 ppc32
+
+# Page sizes for linker
+MAXPAGESIZE_amd64    := 0x200000
+COMMONPAGESIZE_amd64 := 0x1000
+
+MAXPAGESIZE_x86      := 0x1000
+COMMONPAGESIZE_x86   := 0x1000
+
+MAXPAGESIZE_arm      := 0x1000
+COMMONPAGESIZE_arm   := 0x1000
+
+MAXPAGESIZE_ppc32    := 0x1000
+COMMONPAGESIZE_ppc32 := 0x1000
+
+LD_SCRIPTS      = main_stat.ld main_rel.ld main_dyn.ld
+
+# Create the wrapper binaries for programs and shared libs from uclibc
+# source files (assemply).
+# This is done here bacause l4sys.so already depends on the wrappers and must
+# not depend on the whole libc package,
+#
+# to find the uclibc files
+UCLIBC_ARCH_x86   := i386
+UCLIBC_ARCH_arm   := arm
+UCLIBC_ARCH_amd64 := x86_64
+UCLIBC_ARCH_ppc32 := powerpc
+UCLIBC_BASE       = $(PKGDIR)/../uclibc
+UCLIBC_SYSDEPS    = $(UCLIBC_BASE)/lib/contrib/uclibc/libc/sysdeps/linux/$(UCLIBC_ARCH_$(ARCH))
+
+PRIVATE_INCDIR    = $(PKGDIR) $(PKGDIR)/ARCH-$(ARCH)
+
+vpath %.S $(UCLIBC_SYSDEPS)
+
+INSTALL_TARGET	= $(LD_SCRIPTS) crti.o crtn.o crt1.o crti.s.o crtn.s.o crt1.s.o
+
+include $(L4DIR)/mk/lib.mk
+
+%.ld: $(PKGDIR)/ARCH-$(ARCH)/%.ld $(SRC_DIR)/Makefile $(SRC_DIR)/generic.h
+	@$(GEN_MESSAGE)
+	$(VERBOSE)[ "$(LDVERSION)" -lt "218" ] && \
+	  CPP_ARGS="-DMAXPAGESIZE=$(MAXPAGESIZE_$(ARCH)) -DCOMMONPAGESIZE=$(COMMONPAGESIZE_$(ARCH)) -DCONSTANT(x)=x"; \
+	  cpp -nostdinc -include $(SRC_DIR)/generic.h \
+	      -Wno-trigraphs -Ui386 -P $$CPP_ARGS $< $@

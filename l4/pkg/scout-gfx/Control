@@ -1,0 +1,3 @@
+Provides: scout-gfx
+Requires: mag-gfx libpng libc_r libstdc++_r
+Maintainer: warg@os.inf.tu-dresden.de

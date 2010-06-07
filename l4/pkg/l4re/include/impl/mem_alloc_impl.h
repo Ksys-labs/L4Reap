@@ -1,0 +1,52 @@
+/**
+ * \file
+ * \brief  Memory allocator client stub implementation
+ */
+/*
+ * (c) 2008-2009 Technische Universität Dresden
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ *
+ * As a special exception, you may use this file as part of a free software
+ * library without restriction.  Specifically, if other files instantiate
+ * templates or use macros or inline functions from this file, or you compile
+ * this file and link it with other files to produce an executable, this
+ * file does not by itself cause the resulting executable to be covered by
+ * the GNU General Public License.  This exception does not however
+ * invalidate any other reasons why the executable file might be covered by
+ * the GNU General Public License.
+ */
+#include <l4/re/mem_alloc>
+#include <l4/re/mem_alloc-sys.h>
+#include <l4/re/dataspace>
+#include <l4/re/protocols>
+#include <l4/re/error_helper>
+
+#include <l4/cxx/ipc_helper>
+#include <l4/cxx/ipc_stream>
+#include <l4/sys/factory>
+
+
+namespace L4Re
+{
+
+long
+Mem_alloc::alloc(unsigned long size,
+                 L4::Cap<Dataspace> mem, unsigned long flags) const throw()
+{
+  L4::Cap<L4::Factory> f(cap());
+  return l4_error(f->create(mem, L4Re::Dataspace::Protocol)
+                  << l4_umword_t(size)
+                  << l4_umword_t(flags));
+}
+
+long
+Mem_alloc::free(L4::Cap<Dataspace> mem) const throw()
+{
+  L4::Ipc_iostream io(l4_utcb());
+  io << L4::Opcode(Mem_alloc_::Free) << mem;
+  return l4_error(io.call(cap(), L4Re::Protocol::Mem_alloc));
+}
+
+};

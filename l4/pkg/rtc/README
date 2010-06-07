@@ -1,0 +1,6 @@
+This is a small server removing the following tasks from L4Linux:
+- reading the RTC
+- calibrating the delay loop
+
+Therefore L4Linux (and other applications using this service) don't need
+to have access to the appropriate device I/O ports anymore.

@@ -1,0 +1,8 @@
+TARGET             = libmoe_gc.a
+NOTARGETSTOINSTALL = 1
+
+PRIVATE_INCDIR     = $(SRC_DIR)/include
+BOEHM_GC_SRCDIR    = $(L4DIR)/pkg/boehm_gc
+
+include $(BOEHM_GC_SRCDIR)/mk/build.inc
+

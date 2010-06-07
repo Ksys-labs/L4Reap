@@ -1,0 +1,155 @@
+// -*- Mode: C++ -*-
+// vim:ft=cpp
+/**
+ * \file
+ * \brief   Namespace interface
+ */
+/*
+ * (c) 2008-2009 Technische Universität Dresden
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ *
+ * As a special exception, you may use this file as part of a free software
+ * library without restriction.  Specifically, if other files instantiate
+ * templates or use macros or inline functions from this file, or you compile
+ * this file and link it with other files to produce an executable, this
+ * file does not by itself cause the resulting executable to be covered by
+ * the GNU General Public License.  This exception does not however
+ * invalidate any other reasons why the executable file might be covered by
+ * the GNU General Public License.
+ */
+#pragma once
+
+#include <l4/sys/capability>
+#include <l4/re/protocols>
+
+namespace L4Re {
+
+/**
+ * \defgroup api_l4re_namespace Name-space API
+ * \ingroup api_l4re
+ * \brief API for name spaces that store capabilities.
+ *
+ * This is a basic abstraction for managing a mapping from
+ * human-readable names to capabilities. In particular, a name
+ * can also be mapped to a capability that refers to another name space
+ * object. By this means name spaces can be constructed hierarchically.
+ *
+ * Name spaces play a central role in L4Re, because the implementation of the
+ * name space objects determine the policy which capabilities (which objects)
+ * are accessible to a client of a name space.
+ */
+/**
+ * \brief Name-space interface.
+ * \ingroup api_l4re_namespace
+ *
+ * All name space objects must provide this interface. However, it is not
+ * mandatory that a name space object allows to register new capabilities.
+ *
+ * The name lookup is done iteratively, this means the hierarchical names
+ * are resolved component wise by the client itself.
+ */
+class L4_EXPORT Namespace :
+  public L4::Kobject_t<Namespace, L4::Kobject, L4Re::Protocol::Namespace> 
+{
+  L4_KOBJECT(Namespace)
+
+public:
+  /**
+   * \brief Flags for registering name spaces.
+   */
+  enum Register_flags
+  {
+    Ro        = L4_CAP_FPAGE_RO,   /**< Read-only */
+    Rw        = L4_CAP_FPAGE_RW,   /**< Read-write */
+    Rs        = L4_CAP_FPAGE_RS,
+    Rws       = L4_CAP_FPAGE_RWS,
+    Strong    = L4_CAP_FPAGE_S,    /**< Strong */
+    Trusted   = 0x008,
+
+    Cap_flags = Ro | Rw | Strong | Trusted,
+
+    Partly_resolved = 0x020,
+    Link      = 0x100,
+    Overwrite = 0x200,
+  };
+
+  enum Query_timeout
+  {
+    To_default      = 3600000,
+    To_non_blocking = 0,
+    To_forever      = ~0,
+  };
+
+  /**
+   * \brief Query a name.
+   *
+   * \param name      String to query
+   * \param cap       Capability slot to put object into.
+   * \param timeout   Timeout of query in milliseconds.
+   * \retval local_id Local id.
+   *
+   * \return <0 on failure,
+   *         see \ref l4_error_code_t.
+   *         - -#L4_ENOENT
+   *         - IPC errors
+   *         == 0 if name could be fully resolved
+   *          > 0 if name could not be fully resolved
+   */
+  long query(char const *name, L4::Cap<void> const &cap,
+             int timeout = To_default,
+             l4_umword_t *local_id = 0, bool iterate = true) const throw();
+
+  /**
+   * \brief Query a name.
+   *
+   * \param name      String to query
+   * \param len       Length of the string to query.
+   * \param cap       Capability slot to put object into.
+   * \param timeout   Timeout of query in milliseconds.
+   * \retval local_id Local id.
+   *
+   * \return <0 on failure,
+   *         see \ref l4_error_code_t.
+   *         - -#L4_ENOENT
+   *         - IPC errors
+   *         == if name could be fully resolved
+   *          > 0 if name could not be fully resolved
+   */
+  long query(char const *name, unsigned len, L4::Cap<void> const &cap,
+             int timeout = To_default,
+             l4_umword_t *local_id = 0, bool iterate = true) const throw();
+
+  /**
+   * \brief Register an object with a name.
+   *
+   * \param name    String to register.
+   * \param obj     Object to register.
+   * \param flags   Flags to use, see #Register_flags, default is rw.
+   *
+   * \return 0 on success, <0 on failure, see \ref l4_error_code_t.
+   *         - -#L4_EEXIST
+   *         - -#L4_EPERM
+   *         - -#L4_ENOMEM
+   *         - -#L4_EINVAL
+   *         - IPC errors
+   */
+  long register_obj(char const *name, L4::Cap<void> const &obj,
+                    unsigned flags = Rw) const throw();
+
+  long unlink(char const *name) throw();
+  long link(char const *name, unsigned len,
+            L4::Cap<L4Re::Namespace> src_dir,
+            char const *src_name, unsigned src_len,
+            unsigned flags = Rw) throw();
+
+private:
+  long _query(char const *name, unsigned len,
+              L4::Cap<void> const &target, l4_umword_t *local_id,
+              bool iterate) const throw();
+
+};
+
+};
+

@@ -1,0 +1,212 @@
+#! /usr/bin/perl -W
+#
+# Automatically check some L4 applications using Fiasco-UX
+#
+#
+#  Adam Lackorzynski <adam@os.inf.tu-dresden.de>
+#
+
+use strict;
+use Getopt::Long;
+
+my $FIASCOUX;
+my $L4DIR;
+my $OBJDIR = 'OBJ-x86_586-l4v2';
+
+my $ALARM_TIMEOUT = 60; # in seconds
+
+my %templs = (
+  rmgr     => '%s/pkg/rmgr/server/fiasco_ux_src/%s/rmgr-ux',
+  roottask => '%s/pkg/roottask/server/src/%s/roottask',
+  sigma0   => '%s/pkg/sigma0/server/fiasco_ux_src/%s/sigma0-ux',
+  ktest    => '%s/pkg/ktest/server/src/%s/ktest',
+  pingpong => '%s/pkg/pingpong/server/src/%s/pingpong',
+);
+
+my $Verbose = 0;
+my $Quiet   = 0;
+
+my %progs;
+my %results;
+my %output;
+
+my $exit_code = 0;
+
+sub usage() {
+  print <<EOU;
+$0 [options]
+
+ --l4dir, -l path         Path to an L4 directory
+ --fiascoux, -f file      Path to the Fiasco-UX binary
+ --objdir, -O objdir      Object dir, currently: $OBJDIR
+ --verbose, -v            Be verbose (e.g. show output of L4 apps)
+ --quiet, -q              Tell nothing, just set the exit code
+
+ Environment variables:
+  L4DIR                   Path to an L4 directory
+  FIASCOUX                Path to the Fiasco-UX binary
+EOU
+}
+
+##
+# Check if L4DIR looks like an L4 directory
+sub check_for_l4dir() {
+  unless (-d "$L4DIR/pkg/l4sys/include" ||
+          -d "$L4DIR/kernel/fiasco/src/kern/ux") {
+    die "$L4DIR doesn't look like an L4 directory!";
+  }
+}
+
+##
+# Just check if the supplied binary in $FIASCOUX is really
+# a Fiasco UX version. Native versions will just segfault.
+sub check_for_fiasco_ux() {
+
+  unless ((-x $FIASCOUX && -f $FIASCOUX) ||
+          (-l $FIASCOUX && -x readlink $FIASCOUX && -f readlink $FIASCOUX)) {
+    die "$FIASCOUX: Does not exist or isn't an executable file";
+  }
+  
+  system("$FIASCOUX -h >/dev/null 2>&1");
+  die "$FIASCOUX doesn't seem to be a UX version." if $?;
+
+
+}
+
+##
+# Check for userland (rmgr-ux, sigma0-ux, ...)
+sub check_for_userland() {
+  foreach my $t (keys %templs) {
+    my $p = sprintf $templs{$t}, $L4DIR, $OBJDIR;
+    die "There's no $p!" unless -x $p;
+    $progs{$t} = $p;
+  }
+}
+
+##
+# Called if alarm signal received
+sub got_sig_alarm {
+  print "Fiasco-UX timed out after $ALARM_TIMEOUT seconds!\n";
+  exit 1;
+}
+
+##
+# Set alarm so that we abort if something hangs
+sub set_alarm() {
+  $SIG{ALRM} = \&got_sig_alarm;
+  alarm $ALARM_TIMEOUT;
+}
+
+sub fiascoux_cmdline() {
+  (my $p = $FIASCOUX) =~ s/\/[^\/]+$//;
+  "cd $p && $FIASCOUX -R $progs{rmgr} -S $progs{sigma0}";
+}
+
+
+##
+# call_text
+sub call_test($) {
+  my ($name) = @_;
+
+  # default
+  $results{$name} = '';
+
+  my $cmdline = fiascoux_cmdline()." -l $progs{$name}";
+  print "Calling: $cmdline" if $Verbose;
+
+  open(F, "$cmdline 2>&1|")
+    || die "Can't start Fiasco with $progs{$name}: $!";
+  while (<F>) {
+    $output{$name} .= $_;
+    print if $Verbose;
+  }
+  close F;
+
+  eval "test_$name()";
+  if ($@) {
+    print "Internal error: $@\n";
+    $results{$name} = 'Internal error';
+  } else {
+    print_result($name);
+  }
+}
+
+##
+# ktest - gives nice output so it's easy to scan
+sub test_ktest() {
+  $_ = $output{ktest};
+  $results{ktest} = 'Failed results' if /failed/ || /\(TIMEOUT\)/;
+}
+
+##
+# pingpong - is a benchmark, so a bit hard to scan
+# for now, we'll just see that all 9 tests are run and that there are
+# a certain number of lines
+sub test_pingpong() {
+  $_ = $output{pingpong};
+  unless (/Kernel\sversion\s\d.*/sm) {
+    $results{pingpong} = 'Unknown output';
+    return;
+  }
+  $_ = $&;
+  my @lines = split /\n/;
+  my $linecount = scalar @lines;
+  for my $n (0 .. 9) {
+    unless (/>>\s+$n:\s/m) {
+      $results{pingpong} = 'Not all tests did run';
+      return;
+    }
+  }
+  if ($linecount != 88) {
+    $results{pingpong} = 'Wrong line count of output';
+    return;
+  }
+}
+
+##
+# print test results
+sub print_result($) {
+  my $p = shift;
+  if (!$Quiet) {
+    printf "%-15s: %s\n", $p,
+         ($results{$p} eq '') ? "Passed" : "failed ($results{$p})";
+  }
+}
+
+##
+# Get the exit code of our little program
+sub get_exit_code() {
+  for my $t (keys %results) {
+    return 1 if $results{$t} ne '';
+  }
+  0;
+}
+
+
+# -------------------------------------------------------------
+
+unless (GetOptions("help|h", sub { usage(); exit(0); },
+                   "l4dir|l=s", \$L4DIR,
+		   "fiascoux|f=s", \$FIASCOUX,
+		   "objdir|O=s", \$OBJDIR,
+		   "verbose|v!", \$Verbose,
+		   "quiet|q!", \$Quiet,
+		   "roottask!", sub { $templs{rmgr} = $templs{roottask}; },
+		   )) {
+  usage();
+  exit(1);
+}
+
+$L4DIR = $ENV{L4DIR}       || die "Need an L4DIR set!" unless $L4DIR;
+$FIASCOUX = $ENV{FIASCOUX} || die "Need a Fiasco-UX path!" unless $FIASCOUX;
+
+check_for_l4dir();
+check_for_fiasco_ux();
+check_for_userland();
+
+set_alarm();
+
+call_test("ktest");
+call_test("pingpong");
+
+exit get_exit_code();

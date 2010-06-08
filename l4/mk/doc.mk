@@ -118,6 +118,7 @@ $(OBJ_DIR)/% $(OBJ_DIR)/%/html:$(SRC_DIR)/%.cfg
 	            $(ECHO) GENERATE_TESTLIST=NO; \
 	            $(ECHO) GENERATE_BUGLIST=NO; \
 	            $(ECHO) HIDE_UNDOC_CLASSES=YES; \
+	            $(ECHO) HIDE_UNDOC_MEMBERS=YES; \
 	          fi   >> $@.flags
 	$(VERBOSE)cd $(L4DIR)/pkg && \
 	  for f in $(addsuffix /doc/files.cfg,*); \

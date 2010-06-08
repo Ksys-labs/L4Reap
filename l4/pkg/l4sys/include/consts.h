@@ -187,7 +187,6 @@ enum l4_unmap_flags_t
  */
 enum l4_msg_item_consts_t
 {
-  L4_ITEM_STR       = 0, ///< \deprecated
   L4_ITEM_MAP       = 8, ///< Identify a message item as \em map \em item.
 
   /**

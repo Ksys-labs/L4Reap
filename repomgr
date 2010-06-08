@@ -4,7 +4,7 @@ use strict;
 
 my %modules =
  (
-   repomgr => { paths => [ qw(repomgr conf/repomgr) ] },
+   repomgr => { paths => [ qw(repomgr) ] },
 
    bid => { paths => [ qw(l4/Makefile
                           l4/BENCHMARKING

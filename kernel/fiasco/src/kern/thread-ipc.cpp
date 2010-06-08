@@ -1092,7 +1092,6 @@ Thread::transfer_msg_items(L4_msg_tag const &tag, Thread* snd, Utcb *snd_utcb,
   L4_buf_iter mem_buffer(rcv_utcb, rcv_utcb->buf_desc.mem());
   L4_buf_iter io_buffer(rcv_utcb, rcv_utcb->buf_desc.io());
   L4_buf_iter obj_buffer(rcv_utcb, rcv_utcb->buf_desc.obj());
-  L4_buf_iter str_buffer(rcv_utcb, rcv_utcb->buf_desc.str());
   L4_snd_item_iter snd_item(snd_utcb, tag.words());
   register int items = tag.items();
   Mword *rcv_word = rcv_utcb->values + tag.words();
@@ -1131,8 +1130,6 @@ Thread::transfer_msg_items(L4_msg_tag const &tag, Thread* snd, Utcb *snd_utcb,
 	    default: break;
 	    }
 	  break;
-	case L4_msg_item::String:
-	  buf_iter = &str_buffer; break;
 	default:
 	  break;
 	}

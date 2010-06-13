@@ -146,6 +146,7 @@ Pin_io_apic_level::do_mask()
 {
   assert (cpu_lock.test());
   Io_apic::mask(irq());
+  Io_apic::sync();
 }
 
 
@@ -165,6 +166,7 @@ Pin_io_apic_level::do_mask_and_ack()
   assert (cpu_lock.test());
   __mask();
   Io_apic::mask(irq());
+  Io_apic::sync();
   Apic::irq_ack();
 }
 

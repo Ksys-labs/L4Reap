@@ -58,9 +58,6 @@ public:
   void	page_protect	(Address virt, Address size,
                          unsigned page_attribs);
 
-  void switch_ldt();
-
-
 protected:
   // DATA
   Dir_type *_dir;

@@ -12,7 +12,6 @@ public:
 
   enum Type
   {
-    String = 0,
     Map    = 8,
   };
 

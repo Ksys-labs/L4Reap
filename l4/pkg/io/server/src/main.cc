@@ -114,6 +114,8 @@ void dump(Device *d)
 Hw_icu::Hw_icu()
 {
   icu = L4Re::Env::env()->get_cap<L4::Icu>("icu");
+  if (icu.is_valid())
+    icu->info(&info);
 }
 
 
@@ -215,6 +217,7 @@ arg_init(int argc, char * const *argv, Io_config_x *cfg)
           _my_cfg.inc_verbosity();
           break;
         case 1:
+	  printf("Enabling transparent MSIs\n");
           cfg->set_transparent_msi(true);
           break;
         }

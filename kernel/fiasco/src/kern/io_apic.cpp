@@ -80,6 +80,20 @@ Io_apic::read(int reg)
 
 PRIVATE inline NEEDS["lock_guard.h"]
 void
+Io_apic::modify(int reg, Mword set_bits, Mword del_bits)
+{
+  register Mword tmp;
+  Lock_guard<Spin_lock> g(&_l);
+  adr = reg;
+  asm volatile ("": : :"memory");
+  tmp = data;
+  tmp &= ~del_bits;
+  tmp |= set_bits;
+  data = tmp;
+}
+
+PRIVATE inline NEEDS["lock_guard.h"]
+void
 Io_apic::write(int reg, Mword value)
 {
   Lock_guard<Spin_lock> g(&_l);
@@ -107,7 +121,7 @@ Io_apic::read_entry(unsigned i)
 }
 
 
-PUBLIC inline NEEDS["kdb_ke.h"]
+PUBLIC inline NEEDS["kdb_ke.h", Io_apic::write]
 void
 Io_apic::write_entry(unsigned i, Io_apic_entry const &e)
 {
@@ -224,20 +238,20 @@ bool
 Io_apic::active()
 { return _apic; }
 
-PUBLIC static inline NEEDS["kdb_ke.h", Io_apic::read,Io_apic::write]
+PUBLIC static inline NEEDS["kdb_ke.h", Io_apic::modify]
 void
 Io_apic::mask(unsigned irq)
 {
   //assert_kdb(irq <= _apic->num_entries());
-  _apic->write(0x10 + irq * 2, _apic->read(0x10 + irq * 2) | (1UL << 16));
+  _apic->modify(0x10 + irq * 2, 1UL << 16, 0);
 }
 
-PUBLIC static inline NEEDS["kdb_ke.h", Io_apic::read,Io_apic::write]
+PUBLIC static inline NEEDS["kdb_ke.h", Io_apic::modify]
 void
 Io_apic::unmask(unsigned irq)
 {
   //assert_kdb(irq <= _apic->num_entries());
-  _apic->write(0x10 + irq * 2, _apic->read(0x10 + irq * 2) & ~(1UL << 16));
+  _apic->modify(0x10 + irq * 2, 0, 1UL << 16);
 }
 
 PUBLIC static inline NEEDS["kdb_ke.h", Io_apic::read]
@@ -248,12 +262,19 @@ Io_apic::masked(unsigned irq)
   return _apic->read(0x10 + irq * 2) & (1UL << 16);
 }
 
-PUBLIC static inline NEEDS["kdb_ke.h", Io_apic::read,Io_apic::write]
+PUBLIC static inline NEEDS[Io_apic::read]
+void
+Io_apic::sync()
+{
+  (void)_apic->data;
+}
+
+PUBLIC static inline NEEDS["kdb_ke.h", Io_apic::modify]
 void
 Io_apic::set_dest(unsigned irq, Mword dst)
 {
   //assert_kdb(irq <= _apic->num_entries());
-  _apic->write(0x11 + irq * 2, (_apic->read(0x11 + irq * 2) & ~(~0UL << 24)) | (dst & (~0UL << 24)));
+  _apic->modify(0x11 + irq * 2, dst & (~0UL << 24), ~0UL << 24);
 }
 
 PUBLIC static inline NEEDS[Io_apic::num_entries]

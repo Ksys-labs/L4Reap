@@ -392,7 +392,7 @@ Perf_cnt::get_perf_event(Mword nr, unsigned *evntsel,
   _name[sizeof(_name) - 1] = 0;
 
   snprintf(_desc, sizeof(_desc), "Check manual for description of event %lx", nr);
-  _name[sizeof(_desc) - 1] = 0;
+  _desc[sizeof(_desc) - 1] = 0;
 
   *name = (const char *)&_name;
   *desc = (const char *)&_desc;

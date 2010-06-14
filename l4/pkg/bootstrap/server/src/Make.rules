@@ -74,6 +74,7 @@ SUPPORT_CC_arm-omap3evm   := support_omap3evm.cc
 SUPPORT_CC_arm-beagleboard:= support_beagleboard.cc
 SUPPORT_CC_arm-tegra2     := support_tegra2.cc
 SUPPORT_CC_arm-imx21      := support_imx.cc
+SUPPORT_CC_arm-imx51      := support_imx.cc
 SUPPORT_CC_arm-om         := support_om.cc
 DEFAULT_RELOC_arm-imx21   := 0x00200000  # because of blob
 
@@ -106,6 +107,7 @@ OPTS		 = -g -Os $(CARCHFLAGS_$(ARCH)) $(CARCHFLAGS_$(ARCH)_$(CPU))
 DEFINES         += -DRAM_BASE=$(RAM_BASE)
 DEFINES         += -DCMDLINE="\"$(BOOTSTRAP_CMDLINE)\""
 DEFINES         += -DPLATFORM_TYPE=\"$(PLATFORM_TYPE)\"
+DEFINES         += -DPLATFORM_TYPE_$(PLATFORM_TYPE)
 
 MOD_ADDR         = 0x02000000
 
@@ -151,7 +153,7 @@ ENTRY_FN := $(shell echo "$(ENTRY)" | tr '[ ]' '[_]' )
 # we need to re-do if some things change
 # we do not need to track BOOTSTRACE_CMDLINE as it's only used in startup.cc
 # and that is regenerated every time
-REDO_TEXT_CMD = echo "$(ENTRY) '$(COMPRESS)' '$(PLATFORM_TYPE)'"
+REDO_TEXT_CMD = echo "$(ENTRY) '$(COMPRESS)' '$(RAM_SIZE_MB)' '$(PLATFORM_TYPE)'"
 .redo-change-tracker: FORCE
 	$(VERBOSE)if  test ! -r "$@" ||                    \
 	            ! $(REDO_TEXT_CMD) | cmp -s "$@"; then \

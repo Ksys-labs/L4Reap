@@ -23,6 +23,10 @@ private:
     DIST_CONFIG       = 0xc00,
     DIST_SOFTINT      = 0xf00,
 
+    MXC_TZIC_PRIOMASK = 0x00c,
+    MXC_TZIC_SYNCCTRL = 0x010,
+    MXC_TZIC_PND      = 0xd00,
+
     CPU_CTRL          = 0x00,
     CPU_PRIMASK       = 0x04,
     CPU_BPR           = 0x08,
@@ -31,10 +35,39 @@ private:
     CPU_RUNINT        = 0x14,
     CPU_PENDING       = 0x18,
 
+    DIST_CTRL_ENABLE         = 1,
+
+    MXC_TZIC_CTRL_NSEN       = 1 << 16,
+    MXC_TZIC_CTRL_NSENMASK   = 1 << 31,
+
     CPU_CTRL_ENABLE          = 1,
     CPU_CTRL_USE_FIQ_FOR_SEC = 8,
   };
+
 };
+
+// ------------------------------------------------------------------------
+INTERFACE [arm && pic_gic && pic_gic_mxc_tzic]:
+
+EXTENSION class Gic { enum { Config_mxc_tzic = 1 }; };
+
+// ------------------------------------------------------------------------
+INTERFACE [arm && pic_gic && !pic_gic_mxc_tzic]:
+
+EXTENSION class Gic { enum { Config_mxc_tzic = 0 }; };
+
+// ------------------------------------------------------------------------
+INTERFACE [arm && tz]:
+
+EXTENSION class Gic { enum { Config_tz = 1 }; };
+
+// ------------------------------------------------------------------------
+INTERFACE [arm && !tz]:
+
+EXTENSION class Gic { enum { Config_tz = 0 }; };
+
+// ------------------------------------------------------------------------
+INTERFACE [arm && pic_gic]:
 
 class Gic_pin : public Irq_pin
 {
@@ -124,19 +157,38 @@ Gic::init(Address cpu_base, Address dist_base)
   intmask |= intmask << 8;
   intmask |= intmask << 16;
 
-  for (unsigned i = 32; i < num; i += 16)
-    Io::write<Mword>(0, _dist_base + DIST_CONFIG + i * 4 / 16);
-  for (unsigned i = 32; i < num; i += 4)
-    Io::write<Mword>(intmask, _dist_base + DIST_TARGET + i);
+  if (!Config_mxc_tzic)
+    {
+      for (unsigned i = 32; i < num; i += 16)
+        Io::write<Mword>(0, _dist_base + DIST_CONFIG + i * 4 / 16);
+      for (unsigned i = 32; i < num; i += 4)
+        Io::write<Mword>(intmask, _dist_base + DIST_TARGET + i);
+    }
   for (unsigned i = 0; i < num; i += 4)
     Io::write<Mword>(0xa0a0a0a0, _dist_base + DIST_PRI + i);
   for (unsigned i = 0; i < num; i += 32)
     Io::write<Mword>(0xffffffff, _dist_base + DIST_ENABLE_CLEAR + i * 4 / 32);
 
-  Io::write<Mword>(1, _dist_base + DIST_CTRL);
+  if (Config_mxc_tzic && !Config_tz)
+    for (unsigned i = 0; i < num; i += 32)
+      Io::write<Mword>(0xffffffff, _dist_base + DIST_IRQ_SEC + i * 4 / 32);
 
-  Io::write<Mword>(CPU_CTRL_ENABLE, _cpu_base + CPU_CTRL);
-  Io::write<Mword>(0xf0, _cpu_base + CPU_PRIMASK);
+  Mword dist_enable = DIST_CTRL_ENABLE;
+  if (Config_mxc_tzic && !Config_tz)
+    dist_enable |= MXC_TZIC_CTRL_NSEN | MXC_TZIC_CTRL_NSENMASK;
+
+  Io::write<Mword>(dist_enable, _dist_base + DIST_CTRL);
+
+  if (Config_mxc_tzic)
+    {
+      Io::write<Mword>(0x0, _dist_base + MXC_TZIC_SYNCCTRL);
+      Io::write<Mword>(0xf0, _dist_base + MXC_TZIC_PRIOMASK);
+    }
+  else
+    {
+      Io::write<Mword>(CPU_CTRL_ENABLE, _cpu_base + CPU_CTRL);
+      Io::write<Mword>(0xf0, _cpu_base + CPU_PRIMASK);
+    }
 
   //enable_tz_support();
 }
@@ -151,7 +203,10 @@ void Gic::enable_locked(unsigned irq, unsigned /*prio*/)
 
 PUBLIC inline NEEDS [Gic::enable_locked]
 void Gic::acknowledge_locked( unsigned irq )
-{ Io::write<Mword>(irq, _cpu_base + CPU_EOI); }
+{
+  if (!Config_mxc_tzic)
+    Io::write<Mword>(irq, _cpu_base + CPU_EOI);
+}
 
 PUBLIC
 void
@@ -251,7 +306,21 @@ Gic_pin::set_cpu(unsigned)
 
 PUBLIC inline NEEDS["io.h"]
 Unsigned32 Gic::pending()
-{ return Io::read<Mword>(_cpu_base + CPU_INTACK) & 0x3ff; }
+{
+  if (Config_mxc_tzic)
+    {
+      Address a = _dist_base + MXC_TZIC_PND;
+      for (unsigned g = 0; g < 128; g += 32, a += 4)
+        {
+          Mword v = Io::read<Mword>(a);
+          if (v)
+            return g + 31 - __builtin_clz(v);
+        }
+      return 0;
+    }
+
+  return Io::read<Mword>(_cpu_base + CPU_INTACK) & 0x3ff;
+}
 
 //-------------------------------------------------------------------
 IMPLEMENTATION [arm && mp && pic_gic]:

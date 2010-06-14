@@ -90,8 +90,17 @@ namespace L4
     _base = base;
 
     // 115200Baud, 8n1
-    wr(UBIR, 0x0344);
-    wr(UBMR, 0x270f);
+    switch (_type)
+      {
+      case Type_imx21:
+        wr(UBIR, 0x0344);
+        wr(UBMR, 0x270f);
+        break;
+      case Type_imx51:
+        wr(UBIR, 0xf);
+        wr(UBMR, 0x120);
+        break;
+      }
 
     wr(UCR1, UCR1_EN);
     wr(UCR2, UCR2_SRST | UCR2_RXEN | UCR2_TXEN | UCR2_WS | UCR2_IRTS); // note: no IRQs enabled

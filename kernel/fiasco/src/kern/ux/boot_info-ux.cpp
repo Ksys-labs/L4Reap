@@ -44,6 +44,9 @@ private:
 
 IMPLEMENTATION[ux]:
 
+// for our init code we do not care about the stack size
+#pragma GCC diagnostic ignored "-Wframe-larger-than="
+
 #include <cassert>                      // for assert
 #include <cerrno>                       // for errno
 #include <climits>                      // for CHAR_BIT

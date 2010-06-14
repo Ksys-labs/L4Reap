@@ -1,3 +1,7 @@
+// base_init() puts those Mem_region_map's on the stack which is slightly
+// larger than our warning limit, it's init code only, so it's ok
+#pragma GCC diagnostic ignored "-Wframe-larger-than="
+
 IMPLEMENTATION [ia32,ux,amd64]:
 
 #include <cstdio>

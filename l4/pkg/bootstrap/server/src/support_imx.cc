@@ -23,8 +23,15 @@ class Platform_arm_imx : public Platform_single_region_ram
 
   void init()
   {
-    static L4::Uart_imx _uart(20, 20);
+#ifdef PLATFORM_TYPE_imx21
+    static L4::Uart_imx21 _uart(0, 0);
     _uart.startup(0x1000A000);
+#elif defined(PLATFORM_TYPE_imx51)
+    static L4::Uart_imx51 _uart(0, 0);
+    _uart.startup(0x73fbc000);
+#else
+#error Which platform type?
+#endif
     set_stdio_uart(&_uart);
   }
 };

@@ -6,10 +6,19 @@ enum {
 };
 
 //-----------------------------------------------------------------------------
-IMPLEMENTATION [arm && imx]:
+IMPLEMENTATION [arm && imx21]:
 void
 map_hw(void *pd)
 {
   // map devices
   map_1mb(pd, Mem_layout::Device_map_base, Mem_layout::Device_phys_base, false, false);
+}
+
+//-----------------------------------------------------------------------------
+IMPLEMENTATION [arm && imx51]:
+void
+map_hw(void *pd)
+{
+  map_1mb(pd, Mem_layout::Device_map_base,   Mem_layout::Device_phys_base_1, false, false);
+  map_1mb(pd, Mem_layout::Device_map_base_2, Mem_layout::Device_phys_base_2, false, false);
 }

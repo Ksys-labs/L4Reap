@@ -13,15 +13,10 @@ namespace L4
 {
   class Uart_imx : public Uart
   {
-  private:
-    unsigned long _base;
-
-    inline unsigned long rd(unsigned long reg) const;
-    inline void wr(unsigned long reg, unsigned long val) const;
-
   public:
-    Uart_imx(int rx_irq, int tx_irq)
-       : Uart(rx_irq, tx_irq), _base(~0UL) {}
+    enum platform_type { Type_imx21, Type_imx51 };
+    Uart_imx(int rx_irq, int tx_irq, enum platform_type type)
+       : Uart(rx_irq, tx_irq), _base(~0UL), _type(type) {}
     bool startup(unsigned long base);
     void shutdown();
     bool enable_rx_irq(bool enable = true);
@@ -31,6 +26,27 @@ namespace L4
     int char_avail() const;
     inline void out_char(char c) const;
     int write(char const *s, unsigned long count) const;
+
+  private:
+    unsigned long _base;
+    enum platform_type _type;
+
+    inline unsigned long rd(unsigned long reg) const;
+    inline void wr(unsigned long reg, unsigned long val) const;
+  };
+
+  class Uart_imx21 : public Uart_imx
+  {
+  public:
+    Uart_imx21(int rx_irq, int tx_irq)
+       : Uart_imx(rx_irq, tx_irq, Type_imx21) {}
+  };
+
+  class Uart_imx51 : public Uart_imx
+  {
+  public:
+    Uart_imx51(int rx_irq, int tx_irq)
+       : Uart_imx(rx_irq, tx_irq, Type_imx51) {}
   };
 };
 

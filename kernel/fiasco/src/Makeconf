@@ -105,6 +105,7 @@ SHARED_FLAGS		+= -Wno-parentheses
 SHARED_FLAGS		+= $(call CHECKCC,-Wformat=2,)
 SHARED_FLAGS		+= $(call CHECKCC,-fno-stack-protector,)
 SHARED_FLAGS		+= $(call CHECKCC,-Wframe-larger-than=512)
+SHARED_FLAGS		+= $(call CHECKCC,-fdiagnostics-show-option)
 OPT_CXXFLAGS		+= $(call CHECKCXX,-fweb,)
 OPT_CFLAGS		+= $(call CHECKCC,-fweb,)
 OPT_SHARED_FLAGS	+= $(call CHECKCC,-frename-registers,)

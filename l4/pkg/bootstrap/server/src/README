@@ -47,8 +47,12 @@ Generating bootstrap in single-image-mode:
 
 Local customization:
 
- You can put a Makeconf.local file right into this directory where you
- can specify your own search paths etc. Something like this:
+ You can put a Makeconf.local file right into this directory
+ (bootstrap/server/src) where you can specify your own search paths etc.
+ Note that it is encouraged to have your local configuration in src/conf
+ rather than in this bootstrap directory.
+
+ Makeconf.local could look like this:
 
   BOOTSTRAP_SEARCH_PATH_x86 := ../stuff:/home/joe/dev/l4/kernel/fiasco/build-ia32
 

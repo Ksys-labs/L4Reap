@@ -2,6 +2,7 @@
    Common functionality for linker scripts in bootstrap */
 
 #define CTORS                             \
+    . = ALIGN(8);                         \
     PROVIDE (__CTORS_BEGIN = .);          \
     KEEP (*(SORT(.ctors.*)))              \
     KEEP (*(.ctors))                      \

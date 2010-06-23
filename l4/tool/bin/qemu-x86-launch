@@ -28,23 +28,10 @@ sub get_file($$)
   my $command = shift;
   my $cmdline = shift;
 
-  my $fp = L4::ModList::search_file_or_die($command, $module_path);
+  my $fp = L4::ModList::get_file_uncompressed_or_die($command, $module_path,
+                                                     $unzip_tmp);
 
   $cmdline =~ s/^\S+\s*//;
-
-  open F, $fp || die "connot open '$fp': $!";
-  my $buf;
-  read F, $buf, 2;
-  close F;
-
-  if (unpack("n", $buf) == 0x1f8b) {
-    (my $tf = $fp) =~ s|.*/||;
-    $tf = $unzip_tmp.'/'.$tf;
-    print "'$fp' is a zipped file, uncompressing to '$tf'\n";
-    system("zcat $fp >$tf");
-    $fp = $tf;
-  }
-
   $fp.' '.$cmdline;
 }
 

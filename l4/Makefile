@@ -336,6 +336,12 @@ qemu:
 	  SEARCHPATH="$(MODULE_SEARCH_PATH):$(BUILDDIR_SEARCHPATH)"   \
 	  $(L4DIR)/tool/bin/qemu-x86-launch $$ml "$$e" $(QEMU_OPTIONS)
 
+kexec:
+	$(VERBOSE)$(entryselection);                                  \
+	 L4DIR=$(L4DIR)                                   \
+	  SEARCHPATH="$(MODULE_SEARCH_PATH):$(BUILDDIR_SEARCHPATH)"   \
+	  $(L4DIR)/tool/bin/kexec-launch $$ml "$$e"
+
 ux:
 	$(VERBOSE)if [ "$(ARCH)" != "x86" ]; then                   \
 	  echo "This mode can only be used with architecture x86."; \
@@ -373,7 +379,7 @@ grub2iso:
 	  SEARCHPATH="$(MODULE_SEARCH_PATH):$(BUILDDIR_SEARCHPATH)"    \
 	  $(L4DIR)/tool/bin/gengrub2iso --timeout=0 $$ml               \
 	     $(OBJ_BASE)/images/$$(echo $$e | tr '[ ]' '[_]').iso "$$e"
-	
+
 .PHONY: image qemu ux switch_ram_base grub1iso grub2iso
 
 switch_ram_base:

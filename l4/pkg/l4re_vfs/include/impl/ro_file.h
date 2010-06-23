@@ -44,6 +44,8 @@ public:
   off64_t lseek64(off64_t, int) throw();
   int fstat64(struct stat64 *buf) const throw();
 
+  int ioctl(unsigned long, va_list) throw();
+
   int get_status_flags() const throw()
   { return O_RDONLY; }
 

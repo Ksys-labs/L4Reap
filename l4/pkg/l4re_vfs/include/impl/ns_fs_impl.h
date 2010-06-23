@@ -19,7 +19,7 @@
 
 #include <l4/re/dataspace>
 #include <l4/re/util/env_ns>
-#include <cstring>
+#include <dirent.h>
 
 namespace L4Re { namespace Core {
 
@@ -109,6 +109,25 @@ Ns_dir::faccessat(const char *path, int mode, int flags) throw()
   if (mode & W_OK)
     return -EACCES;
 
+  return 0;
+}
+
+int Ns_dir::
+fstat64(struct stat64 *b) const throw()
+{
+  b->st_dev = 1;
+  b->st_ino = 1;
+  b->st_mode = S_IRWXU | S_IFDIR;
+  b->st_nlink = 0;
+  b->st_uid = 0;
+  b->st_gid = 0;
+  b->st_rdev = 0;
+  b->st_size = 0;
+  b->st_blksize = 0;
+  b->st_blocks = 0;
+  b->st_atime = 0;
+  b->st_mtime = 0;
+  b->st_ctime = 0;
   return 0;
 }
 
@@ -219,6 +238,64 @@ Env_dir::faccessat(const char *path, int mode, int flags) throw()
     return -EACCES;
 
   return 0;
+}
+
+int
+Env_dir::fstat64(struct stat64 *b) const throw()
+{
+  b->st_dev = 1;
+  b->st_ino = 1;
+  b->st_mode = S_IRWXU | S_IFDIR;
+  b->st_nlink = 0;
+  b->st_uid = 0;
+  b->st_gid = 0;
+  b->st_rdev = 0;
+  b->st_size = 0;
+  b->st_blksize = 0;
+  b->st_blocks = 0;
+  b->st_atime = 0;
+  b->st_mtime = 0;
+  b->st_ctime = 0;
+  return 0;
+}
+
+ssize_t
+Env_dir::getdents(char *buf, size_t sz) throw()
+{
+  struct dirent64 *d = (struct dirent64 *)buf;
+  ssize_t ret = 0;
+
+  while (d
+         && _current_cap_entry
+         && _current_cap_entry->flags != ~0UL)
+    {
+      unsigned l = strlen(_current_cap_entry->name) + 1;
+      if (l > sizeof(d->d_name))
+        l = sizeof(d->d_name);
+
+      unsigned n = offsetof (struct dirent64, d_name) + l;
+
+      if (n <= sz)
+        {
+          d->d_ino = 1;
+          d->d_off = 0;
+          memcpy(d->d_name, _current_cap_entry->name, l);
+          d->d_name[l - 1] = 0;
+          d->d_reclen = n;
+          ret += n;
+          sz  -= n;
+          d    = (struct dirent64 *)((unsigned long)d + n);
+          _current_cap_entry++;
+        }
+      else
+        return ret;
+    }
+
+  // bit of a hack because we should only (re)set this when opening the dir
+  if (!ret)
+    _current_cap_entry = _env->initial_caps();
+
+  return ret;
 }
 
 }}

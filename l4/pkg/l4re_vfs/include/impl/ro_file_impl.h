@@ -17,6 +17,8 @@
 #include "ds_util.h"
 #include "ro_file.h"
 
+#include <sys/ioctl.h>
+
 #include <l4/re/env>
 
 namespace L4Re { namespace Core {
@@ -137,6 +139,19 @@ Ro_file::lseek64(off64_t offset, int whence) throw()
   _f_pos = r;
 
   return _f_pos;
+}
+
+int
+Ro_file::ioctl(unsigned long v, va_list args) throw()
+{
+  switch (v)
+    {
+    case FIONREAD: // return amount of data still available
+      int *available = va_arg(args, int *);
+      *available = _size - _f_pos;
+      return 0;
+    };
+  return -EINVAL;
 }
 
 }}

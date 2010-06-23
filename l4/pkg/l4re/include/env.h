@@ -35,8 +35,9 @@ typedef struct l4re_env_cap_entry_t
    * \brief The capability selector for the obeject.
    */
   l4_cap_idx_t cap;
+
   /**
-   * \brief Some falgs for the object.
+   * \brief Some flags for the object.
    * \note Currently unused.
    */
   l4_umword_t flags;

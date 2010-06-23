@@ -272,6 +272,33 @@ sub search_file_or_die($$)
   $f;
 }
 
+sub get_file_uncompressed_or_die($$$)
+{
+  my $command = shift;
+  my $paths   = shift;
+  my $tmpdir  = shift;
+
+  my $fp = L4::ModList::search_file_or_die($command, $paths);
+
+  open F, $fp || die "connot open '$fp': $!";
+  my $buf;
+  read F, $buf, 2;
+  close F;
+
+  if (unpack("n", $buf) == 0x1f8b) {
+    (my $tf = $fp) =~ s|.*/||;
+    $tf = $tmpdir.'/'.$tf;
+    print "'$fp' is a zipped file, uncompressing to '$tf'\n";
+    system("zcat $fp >$tf");
+    $fp = $tf;
+  }
+
+  $fp;
+}
+
+
+
+
 sub generate_grub1_entry($$%)
 {
   my $entryname = shift;

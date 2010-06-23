@@ -12,6 +12,7 @@
 #include <l4/cxx/avl_tree>
 
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <errno.h>
 
 #include <cstdio>
@@ -177,6 +178,7 @@ public:
   ssize_t writev(const struct iovec*, int iovcnt) throw();
   off64_t lseek64(off64_t, int) throw();
   int fstat64(struct stat64 *buf) const throw();
+  int ioctl(unsigned long, va_list) throw();
 
 private:
   Ref_ptr<Pers_file> _file;
@@ -218,7 +220,6 @@ int Tmpfs_file::fstat64(struct stat64 *buf) const throw()
   return 0;
 }
 
-
 off64_t Tmpfs_file::lseek64(off64_t offset, int whence) throw()
 {
   switch (whence)
@@ -234,6 +235,21 @@ off64_t Tmpfs_file::lseek64(off64_t offset, int whence) throw()
 
   return _pos;
 }
+
+int
+Tmpfs_file::ioctl(unsigned long v, va_list args) throw()
+{
+  switch (v)
+    {
+    case FIONREAD: // return amount of data still available
+      int *available = va_arg(args, int *);
+      *available = _file->data().size() - _pos;
+      return 0;
+    };
+  return -EINVAL;
+}
+
+
 
 
 int

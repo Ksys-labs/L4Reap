@@ -39,14 +39,16 @@ protected:
 class Env_dir : public Ns_base_dir
 {
 public:
-  explicit Env_dir(L4Re::Env const *env) : _env(env) {}
+  explicit Env_dir(L4Re::Env const *env)
+  : _env(env), _current_cap_entry(env->initial_caps()) {}
 
   ssize_t readv(const struct iovec*, int) throw() { return -EISDIR; }
   ssize_t writev(const struct iovec*, int) throw() { return -EISDIR; }
-  int fstat64(struct stat64 *) const throw() { return -EINVAL; }
+  int fstat64(struct stat64 *) const throw();
   int faccessat(const char *path, int mode, int flags) throw();
   int get_entry(const char *path, int flags, mode_t mode,
                 Ref_ptr<L4Re::Vfs::File> *) throw();
+  ssize_t getdents(char *, size_t) throw();
 
   ~Env_dir() throw() {}
 
@@ -55,7 +57,7 @@ private:
   int get_ds(const char *path, L4Re::Auto_cap<L4Re::Dataspace>::Cap *ds) throw();
 
   L4Re::Env const *_env;
-
+  Env::Cap_entry const *_current_cap_entry;
 };
 
 class Ns_dir : public Ns_base_dir
@@ -65,7 +67,7 @@ public:
 
   ssize_t readv(const struct iovec*, int) throw() { return -EISDIR; }
   ssize_t writev(const struct iovec*, int) throw() { return -EISDIR; }
-  int fstat64(struct stat64 *) const throw() { return -EINVAL; }
+  int fstat64(struct stat64 *) const throw();
   int faccessat(const char *path, int mode, int flags) throw();
   int get_entry(const char *path, int flags, mode_t mode,
                 Ref_ptr<L4Re::Vfs::File> *) throw();

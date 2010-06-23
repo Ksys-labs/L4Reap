@@ -19,7 +19,7 @@ Thread::fast_return_to_user(Mword ip, Mword sp, bool = true)
 }
 
 IMPLEMENT inline
-Mword 
+Mword
 Thread::user_sp() const
 { return regs()->sp(); }
 
@@ -102,7 +102,7 @@ Thread::copy_utcb_to_ts(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
   if (EXPECT_FALSE(rcv->exception_triggered()))
     {
       // triggered exception pending
-      Mem::memcpy_mwords (&ts->_gs, snd_utcb->values, s > 12 ? 12 : s);
+      Mem::memcpy_mwords(&ts->_gs, snd_utcb->values, s > 12 ? 12 : s);
       if (EXPECT_TRUE(s > 15))
 	{
 	  Continuation::User_return_frame const *s
@@ -178,57 +178,57 @@ Thread::user_ip(Mword ip)
 
 PRIVATE inline
 int
-Thread::check_trap13_kernel (Trap_state *ts)
+Thread::check_trap13_kernel(Trap_state *ts)
 {
-  if (EXPECT_FALSE (ts->_trapno == 13 && (ts->_err & 3) == 0))
+  if (EXPECT_FALSE(ts->_trapno == 13 && (ts->_err & 3) == 0))
     {
       // First check if user loaded a segment register with 0 because the
       // resulting exception #13 can be raised from user _and_ kernel. If
       // the user tried to load another segment selector, the thread gets
       // killed.
       // XXX Should we emulate this too? Michael Hohmuth: Yes, we should.
-      if (EXPECT_FALSE (!(ts->_ds & 0xffff)))
+      if (EXPECT_FALSE(!(ts->_ds & 0xffff)))
 	{
-	  Cpu::set_ds (Gdt::data_segment ());
+	  Cpu::set_ds(Gdt::data_segment());
 	  return 0;
 	}
-      if (EXPECT_FALSE (!(ts->_es & 0xffff)))
+      if (EXPECT_FALSE(!(ts->_es & 0xffff)))
 	{
-	  Cpu::set_es (Gdt::data_segment ());
+	  Cpu::set_es(Gdt::data_segment());
 	  return 0;
 	}
-      if (EXPECT_FALSE (!(ts->_fs & 0xffff)))
+      if (EXPECT_FALSE(!(ts->_fs & 0xffff)))
 	{
 	  ts->_fs = Utcb_init::utcb_segment();
 	  return 0;
 	}
-      if (EXPECT_FALSE (!(ts->_gs & 0xffff)))
+      if (EXPECT_FALSE(!(ts->_gs & 0xffff)))
 	{
 	  ts->_gs = Utcb_init::utcb_segment();
 	  return 0;
 	}
-      if (EXPECT_FALSE (ts->_ds & 0xfff8) == Gdt::gdt_code_user)
+      if (EXPECT_FALSE(ts->_ds & 0xfff8) == Gdt::gdt_code_user)
 	{
 	  WARN("%p eip=%08lx: code selector ds=%04lx",
                this, ts->ip(), ts->_ds & 0xffff);
-	  Cpu::set_ds (Gdt::data_segment ());
+	  Cpu::set_ds(Gdt::data_segment());
 	  return 0;
 	}
-      if (EXPECT_FALSE (ts->_ds & 0xfff8) == Gdt::gdt_code_user)
+      if (EXPECT_FALSE(ts->_es & 0xfff8) == Gdt::gdt_code_user)
 	{
 	  WARN("%p eip=%08lx: code selector es=%04lx",
                this, ts->ip(), ts->_es & 0xffff);
-	  Cpu::set_es (Gdt::data_segment ());
+	  Cpu::set_es(Gdt::data_segment());
 	  return 0;
 	}
-      if (EXPECT_FALSE (ts->_ds & 0xfff8) == Gdt::gdt_code_user)
+      if (EXPECT_FALSE(ts->_fs & 0xfff8) == Gdt::gdt_code_user)
 	{
 	  WARN("%p eip=%08lx: code selector fs=%04lx",
                this, ts->ip(), ts->_fs & 0xffff);
 	  ts->_fs = Utcb_init::utcb_segment();
 	  return 0;
 	}
-      if (EXPECT_FALSE (ts->_ds & 0xfff8) == Gdt::gdt_code_user)
+      if (EXPECT_FALSE(ts->_gs & 0xfff8) == Gdt::gdt_code_user)
 	{
 	  WARN("%p eip=%08lx: code selector gs=%04lx",
                this, ts->ip(), ts->_gs & 0xffff);

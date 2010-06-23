@@ -103,7 +103,7 @@ Thread::user_flags() const
 
 PRIVATE inline
 int
-Thread::is_privileged_for_debug (Trap_state * /*ts*/)
+Thread::is_privileged_for_debug(Trap_state * /*ts*/)
 {
 #if 0
   return ((ts->flags() & EFLAGS_IOPL) == EFLAGS_IOPL_U);
@@ -126,7 +126,7 @@ Thread::is_privileged_for_debug (Trap_state * /*ts*/)
     @param ip pagefault address */
 IMPLEMENT inline
 bool
-Thread::pagein_tcb_request (Return_frame *regs)
+Thread::pagein_tcb_request(Return_frame *regs)
 {
   unsigned long new_ip = regs->ip();
   if (*(Unsigned8*)new_ip == 0x48) // REX.W
@@ -195,7 +195,7 @@ Thread::print_page_fault_error(Mword e)
  */
 PUBLIC
 int
-Thread::handle_slow_trap (Trap_state *ts)
+Thread::handle_slow_trap(Trap_state *ts)
 { 
   Address ip;
   int from_user = ts->cs() & 3;
@@ -230,7 +230,7 @@ Thread::handle_slow_trap (Trap_state *ts)
   if (!check_trap13_kernel (ts))
     return 0;
 
-  if (EXPECT_FALSE (!from_user))
+  if (EXPECT_FALSE(!from_user))
     {
       // get also here if a pagefault was not handled by the user level pager
       if (ts->_trapno == 14)
@@ -239,13 +239,13 @@ Thread::handle_slow_trap (Trap_state *ts)
       goto generic_debug;      // we were in kernel mode -- nothing to emulate
     }
 
-  if (EXPECT_FALSE (ts->_trapno == 2))
+  if (EXPECT_FALSE(ts->_trapno == 2))
     goto generic_debug;        // NMI always enters kernel debugger
 
-  if (EXPECT_FALSE (ts->_trapno == 0xffffffff))
+  if (EXPECT_FALSE(ts->_trapno == 0xffffffff))
     goto generic_debug;        // debugger interrupt
 
-  check_f00f_bug (ts);
+  check_f00f_bug(ts);
 
   // so we were in user mode -- look for something to emulate
   
@@ -267,7 +267,7 @@ Thread::handle_slow_trap (Trap_state *ts)
 
   _recover_jmpbuf = &pf_recovery;
 
-  switch (handle_io_page_fault (ts, from_user))
+  switch (handle_io_page_fault(ts, from_user))
     {
     case 1: goto success;
     case 2: goto fail;
@@ -290,7 +290,7 @@ Thread::handle_slow_trap (Trap_state *ts)
     }
 
   // just print out some warning, we do the normal exception handling
-  handle_sysenter_trap (ts, ip, from_user);
+  handle_sysenter_trap(ts, ip, from_user);
 
   // check for general protection exception
   if (ts->_trapno == 13 && (ts->_err & 0xffff) == 0)
@@ -330,7 +330,7 @@ Thread::handle_slow_trap (Trap_state *ts)
       if (EXPECT_FALSE
 	  (is_privileged
 	   && (ip < Kmem::mem_user_max - 2)
-	   && (mem_space()->peek ((Unsigned16*) ip, from_user)) == 0x300f
+	   && (mem_space()->peek((Unsigned16*) ip, from_user)) == 0x300f
 	   && (Cpu::cpus.cpu(cpu()).can_wrmsr())))
         {
 	  printf("Detected wrmsr at %lx\n", ip);
@@ -349,13 +349,13 @@ Thread::handle_slow_trap (Trap_state *ts)
       if (EXPECT_FALSE
 	  (is_privileged
 	   && (ip < Kmem::mem_user_max - 2)
-	   && (mem_space()->peek ((Unsigned16*) ip, from_user)) == 0x320f
+	   && (mem_space()->peek((Unsigned16*) ip, from_user)) == 0x320f
 	   && (Cpu::cpus.cpu(cpu()).can_wrmsr())))
         {
           printf("Detected rdmsr at %lx\n", ip);
           if (0)
             {
-              do_rdmsr_in_kernel (ts);
+              do_rdmsr_in_kernel(ts);
 
               // consume instruction and continue
               ts->consume_instruction(2);
@@ -375,7 +375,7 @@ check_exception:
   // let's see if we have a trampoline to invoke
   if (ts->_trapno < 0x20 && ts->_trapno < _idt_limit)
     {
-      Idt_entry e = mem_space()->peek (_idt + ts->_trapno, 1);
+      Idt_entry e = mem_space()->peek(_idt + ts->_trapno, 1);
 
       if ((e.ist() & 0xe0) == 0x00
           && (e.access() & 0x1f) == 0x0f) // gate descriptor ok?
@@ -392,7 +392,7 @@ check_exception:
                 {
                   // someone interfered and changed our state
 		  assert (state() & Thread_cancel);
-                  state_del (Thread_cancel);
+                  state_del(Thread_cancel);
                 }
 
               goto success;     // we've consumed the trap
@@ -402,7 +402,7 @@ check_exception:
 
   // backward compatibility cruft: check for those insane "int3" debug
   // messaging command sequences
-  if (ts->_trapno == 3 && is_privileged_for_debug (ts))
+  if (ts->_trapno == 3 && is_privileged_for_debug(ts))
     {
       if (int3_handler && int3_handler(ts))
 	goto success;
@@ -427,7 +427,7 @@ fail_nomsg:
     ts->dump();
 
   if (Config::conservative)
-    kdb_ke ("thread killed");
+    kdb_ke("thread killed");
 
   halt();
 
@@ -439,9 +439,9 @@ generic_debug:
   _recover_jmpbuf = 0;
 
   if (!nested_trap_handler)
-    return handle_not_nested_trap (ts);
+    return handle_not_nested_trap(ts);
 
-  return call_nested_trap_handler (ts);
+  return call_nested_trap_handler(ts);
 }
 
 /**
@@ -455,8 +455,8 @@ generic_debug:
  */
 extern "C" FIASCO_FASTCALL
 int
-thread_page_fault (Address pfa, Mword error_code, Address ip, Mword flags,
-		   Return_frame *regs)
+thread_page_fault(Address pfa, Mword error_code, Address ip, Mword flags,
+		  Return_frame *regs)
 {
 
   // XXX: need to do in a different way, if on debug stack e.g.
@@ -481,7 +481,7 @@ thread_page_fault (Address pfa, Mword error_code, Address ip, Mword flags,
   else 
     {
       // page fault in kernel memory region
-      if (Kmem::is_kmem_page_fault (pfa, error_code))
+      if (Kmem::is_kmem_page_fault(pfa, error_code))
 	{
 	  // We've interrupted a context in the kernel with disabled interrupts,
 	  // the page fault address is in the kernel region, the error code is
@@ -491,7 +491,7 @@ thread_page_fault (Address pfa, Mword error_code, Address ip, Mword flags,
 	  // Remain cli'd !!!
 	}
       else if (!Config::conservative &&
-	       !Kmem::is_kmem_page_fault (pfa, error_code))
+	       !Kmem::is_kmem_page_fault(pfa, error_code))
 	{
           // No error -- just enable interrupts.
 	  Proc::sti();
@@ -506,7 +506,7 @@ thread_page_fault (Address pfa, Mword error_code, Address ip, Mword flags,
 	}
     }
 
-  return current_thread()->handle_page_fault (pfa, error_code, ip, regs);
+  return current_thread()->handle_page_fault(pfa, error_code, ip, regs);
 }
 
 /** The catch-all trap entry point.  Called by assembly code when a 
@@ -530,7 +530,7 @@ thread_handle_trap(Trap_state *ts, unsigned)
 
 IMPLEMENT inline
 bool
-Thread::handle_sigma0_page_fault (Address pfa)
+Thread::handle_sigma0_page_fault(Address pfa)
 {
   size_t size;
 
@@ -636,7 +636,7 @@ IMPLEMENTATION [(ia32,amd64,ux) && !io]:
 
 PRIVATE inline
 int
-Thread::handle_io_page_fault (Trap_state *, bool)
+Thread::handle_io_page_fault(Trap_state *, bool)
 { return 0; }
 
 PRIVATE inline
@@ -669,7 +669,7 @@ static
 void
 int3_handler_init()
 {
-  Thread::set_int3_handler (Thread::handle_int3);
+  Thread::set_int3_handler(Thread::handle_int3);
 }
 
 IMPLEMENT static inline NEEDS ["gdt.h"]
@@ -737,7 +737,7 @@ Thread::set_int3_handler(int (*handler)(Trap_state *ts))
  */
 PUBLIC static
 int
-Thread::handle_int3 (Trap_state *ts)
+Thread::handle_int3(Trap_state *ts)
 {
   Mem_space *s   = current_mem_space();
   int from_user  = ts->cs() & 3;
@@ -854,7 +854,7 @@ Thread::handle_int3 (Trap_state *ts)
 
 PRIVATE inline
 void
-Thread::check_f00f_bug (Trap_state *ts)
+Thread::check_f00f_bug(Trap_state *ts)
 {
   // If we page fault on the IDT, it must be because of the F00F bug.
   // Figure out exception slot and raise the corresponding exception.
@@ -879,9 +879,8 @@ Thread::check_io_bitmap_delimiter_fault(Trap_state *ts)
       // page fault in the first byte following the IO bitmap
       // map in the cpu_page read_only at the place
       Mem_space::Status result =
-	mem_space()->v_insert (
-	    Mem_space::Phys_addr(mem_space()->virt_to_phys_s0
-	      ((void*)Kmem::io_bitmap_delimiter_page())),
+	mem_space()->v_insert(
+	    Mem_space::Phys_addr(mem_space()->virt_to_phys_s0((void*)Kmem::io_bitmap_delimiter_page())),
 	    Mem_space::Addr::create(Mem_layout::Io_bitmap + Mem_layout::Io_port_max / 8),
 	    Mem_space::Size::create(Config::PAGE_SIZE),
 	    Pt_entry::global());
@@ -907,25 +906,25 @@ Thread::check_io_bitmap_delimiter_fault(Trap_state *ts)
 
 PRIVATE inline
 bool
-Thread::handle_sysenter_trap (Trap_state *ts, Address eip, bool from_user)
+Thread::handle_sysenter_trap(Trap_state *ts, Address eip, bool from_user)
 {
   if (EXPECT_FALSE
       ((ts->_trapno == 6 || ts->_trapno == 13)
        && (ts->_err & 0xffff) == 0
        && (eip < Kmem::mem_user_max - 2)
-       && (mem_space()->peek ((Unsigned16*) eip, from_user)) == 0x340f))
+       && (mem_space()->peek((Unsigned16*) eip, from_user)) == 0x340f))
     {
       // somebody tried to do sysenter on a machine without support for it
-      WARN ("tcb=%p killed:\n"
-	    "\033[1;31mSYSENTER not supported on this machine\033[0m",
-	    this);
+      WARN("tcb=%p killed:\n"
+	   "\033[1;31mSYSENTER not supported on this machine\033[0m",
+	   this);
 
       if (Cpu::have_sysenter())
 	// GP exception if sysenter is not correctly set up..
-        WARN ("MSR_SYSENTER_CS: %llx", Cpu::rdmsr (MSR_SYSENTER_CS));
+        WARN("MSR_SYSENTER_CS: %llx", Cpu::rdmsr(MSR_SYSENTER_CS));
       else
 	// We get UD exception on processors without SYSENTER/SYSEXIT.
-        WARN ("SYSENTER/EXIT not available.");
+        WARN("SYSENTER/EXIT not available.");
 
       return false;
     }
@@ -935,12 +934,12 @@ Thread::handle_sysenter_trap (Trap_state *ts, Address eip, bool from_user)
 
 PRIVATE inline
 bool
-Thread::trap_is_privileged (Trap_state *)
+Thread::trap_is_privileged(Trap_state *)
 { return space()->has_io_privileges(); }
 
 PRIVATE inline
 void
-Thread::do_wrmsr_in_kernel (Trap_state *ts)
+Thread::do_wrmsr_in_kernel(Trap_state *ts)
 {
   // do "wrmsr (msr[ecx], edx:eax)" in kernel
   Cpu::wrmsr (ts->value(), ts->value3(), ts->value2());
@@ -948,26 +947,26 @@ Thread::do_wrmsr_in_kernel (Trap_state *ts)
 
 PRIVATE inline
 void
-Thread::do_rdmsr_in_kernel (Trap_state *ts)
+Thread::do_rdmsr_in_kernel(Trap_state *ts)
 {
   // do "rdmsr (msr[ecx], edx:eax)" in kernel
-  Unsigned64 msr = Cpu::rdmsr (ts->value2());
+  Unsigned64 msr = Cpu::rdmsr(ts->value2());
   ts->value((Unsigned32) msr);
   ts->value3((Unsigned32) (msr >> 32));
 }
 
 PRIVATE inline
 int
-Thread::handle_not_nested_trap (Trap_state *ts)
+Thread::handle_not_nested_trap(Trap_state *ts)
 {
   // no kernel debugger present
-  printf (" %p IP="L4_PTR_FMT" Trap=%02lx [Ret/Esc]\n",
-	  this, ts->ip(), ts->_trapno);
+  printf(" %p IP="L4_PTR_FMT" Trap=%02lx [Ret/Esc]\n",
+	 this, ts->ip(), ts->_trapno);
 
   int r;
   // cannot use normal getchar because it may block with hlt and irq's
   // are off here
-  while ((r=Kconsole::console()->getchar (false)) == -1)
+  while ((r=Kconsole::console()->getchar(false)) == -1)
     Proc::pause();
 
   if (r == '\033')

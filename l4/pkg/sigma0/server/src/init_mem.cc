@@ -45,8 +45,17 @@ init_memory(l4_kernel_info_t *info)
         continue;
 
       Mem_desc::Mem_type type = md->type();
-      unsigned long end = l4_round_page(md->end())-1;
-      unsigned long start = l4_trunc_page(md->start());
+      unsigned long start, end;
+      if (type == Mem_desc::Conventional)
+        {
+          start = l4_round_page(md->start());
+          end = l4_trunc_page(md->end() + 1) - 1;
+        }
+      else
+        {
+          start = l4_trunc_page(md->start());
+          end = l4_round_page(md->end()) - 1;
+        }
 
       switch (type)
 	{

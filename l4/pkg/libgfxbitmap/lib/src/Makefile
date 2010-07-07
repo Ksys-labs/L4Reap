@@ -4,7 +4,8 @@ L4DIR   ?= $(PKGDIR)/../..
 TARGET   = libgfxbitmap.a 
 SRC_C    = font.c bitmap.c
 
-OBJS    += fontfile.o
+FONTS    = lat0-12.psf lat0-14.psf lat0-16.psf vgafont.psf
+OBJS    += $(FONTS:.psf=.o)
 
 include $(L4DIR)/mk/lib.mk
 
@@ -12,5 +13,5 @@ include $(L4DIR)/mk/lib.mk
 	@$(COMP_MESSAGE)
 	$(VERBOSE)$(LD) -r --oformat $(OFORMAT) -o $@ -b binary $^
 
-fontfile.psf: $(SRC_DIR)/lat0-14.psf
+%.psf: $(SRC_DIR)/%.psf
 	@ln -s $? $@

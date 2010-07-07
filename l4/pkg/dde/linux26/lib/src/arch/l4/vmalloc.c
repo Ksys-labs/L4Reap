@@ -1,15 +1,17 @@
-/******************************************************************************
- * Bjoern Doebel <doebel@tudos.org>                                           *
- *                                                                            *
- * (c) 2005 - 2007 Technische Universitaet Dresden                            *
- * This file is part of DROPS, which is distributed under the terms of the    *
- * GNU General Public License 2. Please see the COPYING file for details.     *
- ******************************************************************************/
+/*
+ * This file is part of DDE/Linux2.6.
+ *
+ * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
 
 /*
  * \brief    vmalloc implementation
- * \author   Bjoern Doebel
- * \date     2007-07-30
  */
 
 /* Linux */

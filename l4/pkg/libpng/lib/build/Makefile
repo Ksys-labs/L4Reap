@@ -8,9 +8,8 @@ REQUIRES_LIBS   = zlib
 CONTRIB_INCDIR  = libpng
 
 SRC_C           = pngerror.c pngget.c pngpread.c pngrio.c pngrutil.c \
-		  pngvcrd.c pngwrite.c pngwutil.c png.c pnggccrd.c \
-		  pngmem.c pngread.c pngrtran.c pngset.c pngtrans.c \
-		  pngwio.c pngwtran.c
+		  pngwrite.c pngwutil.c png.c pngmem.c pngread.c \
+		  pngrtran.c pngset.c pngtrans.c pngwio.c pngwtran.c
 
 DEFINE		= PNG_USER_MEM_SUPPORTED
 

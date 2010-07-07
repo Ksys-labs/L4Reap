@@ -1,9 +1,16 @@
 /*
- * (c) 2009 Technische Universität Dresden
+ * This file is part of DDEKit.
+ *
+ * (c) 2009-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
+ *               Thomas Friebel <tf13@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universitaet Dresden (Germany)
+ *
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
  */
+
 #pragma once
 
 #include <l4/re/c/util/cap_alloc.h>

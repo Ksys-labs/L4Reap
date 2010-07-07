@@ -1,15 +1,25 @@
 /*
  * \brief   Memory subsystem
- * \author  Thomas Friebel <tf13@os.inf.tu-dresden.de>
- * \author  Christian Helmuth <ch12@os.inf.tu-dresden.de>
- * \author  Bjoern Doebel <doebel@tudos.org>
- * \date    2006-11-03
  *
  * The memory subsystem provides the backing store for DMA-able memory via
  * large malloc and slabs.
  *
  * FIXME check thread-safety and add locks where appropriate
  */
+
+/*
+ * This file is part of DDEKit.
+ *
+ * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
+ *               Thomas Friebel <tf13@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+
 
 #include <l4/dde/ddekit/memory.h>
 #include <l4/dde/ddekit/panic.h>
@@ -86,20 +96,22 @@ static void *ddekit_slab_allocate_new_region(long size, long mem_flags,
 
     L4::Cap<L4Re::Dataspace> ds = L4Re::Util::cap_alloc.alloc<L4Re::Dataspace>();
 #if DEBUG
-	ddekit_printf("%s - cap %lx\n", __func__, ds.cap());
+	ddekit_printf("\033[33m%s - cap %lx\033[0m\n", __func__, ds.cap());
 #endif
-	if (!ds.is_valid())
+	if (!ds.is_valid()) {
+		enter_kdebug();
 		goto out;
+	}
 
 	err =  L4Re::Env::env()->mem_alloc()->alloc(size, ds, mem_flags);
 #if DEBUG
-	ddekit_printf("mem_alloc(size = %d, flags = %lx) = %d\n", size, mem_flags, err);
+	ddekit_printf("\033[33mmem_alloc(size = %d, flags = %lx) = %d\033[0m\n", size, mem_flags, err);
 #endif
 	if (err < 0)
 		goto out;
 
 #if DEBUG
-	ddekit_printf("attach(ptr %p, size %d, flags %lx)\n", ret, size, attach_flags | L4Re::Rm::Search_addr);
+	ddekit_printf("\033[33mattach(ptr %p, size %d, flags %lx)\033[0m\n", ret, size, attach_flags | L4Re::Rm::Search_addr);
 #endif
 	err = L4Re::Env::env()->rm()->attach(&ret, size, attach_flags | L4Re::Rm::Search_addr, ds, 0,
 	                                     l4util_log2(size) + 1);
@@ -124,6 +136,7 @@ static void ddekit_slab_release_region(void *addr)
 {
 	L4::Cap<L4Re::Dataspace> ds;
 	int err = L4Re::Env::env()->rm()->detach((l4_addr_t)addr, &ds);
+//	ddekit_printf("detach %d %lx\n", err, ds.cap());
 
 	if (err < 0)
 		ddekit_panic("Detach failed!");

@@ -133,9 +133,10 @@ Jdb_ipc_trace::show()
     putstr("IPC tracing to tracebuffer enabled");
   else if (_log)
     {
-      printf("IPC logging%s%s enabled",
+      printf("IPC logging%s%s enabled%s",
 	  _log_result ? " incl. results" : "",
-	  _log_to_buf ? " to tracebuffer" : "");
+	  _log_to_buf ? " to tracebuffer" : "",
+          _log_to_buf ? "" : " (exit with 'i', proceed with other key)");
       if (_gthread != 0)
 	{
 	  printf("\n    restricted to thread%s %lx%s",

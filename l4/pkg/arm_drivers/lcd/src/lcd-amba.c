@@ -59,6 +59,8 @@ static void set_colors(l4re_video_view_info_t *vinfo,
   vinfo->pixel_info.g.size  = wg;
   vinfo->pixel_info.b.shift = sb;
   vinfo->pixel_info.b.size  = wb;
+
+  printf("Color mode: %d:%d:%d  %d:%d:%d\n", sr, sg, sb, wr, wg, wb);
 }
 
 static int get_fbinfo(l4re_video_view_info_t *vinfo)
@@ -214,8 +216,9 @@ int init(unsigned long fb_phys_addr)
 
   // Switch  power off and configure
   write_clcd_reg(Reg_clcd_cntl,
-                 ((type == PL111 && config_use_565) ? Clcd_cntl_lcdbpp16_pl111_565
-                                                    : Clcd_cntl_lcdbpp16)
+                 ((type == PL111 && config_use_565 && !is_qemu)
+                  ? Clcd_cntl_lcdbpp16_pl111_565
+                  : Clcd_cntl_lcdbpp16)
                  | Clcd_cntl_lcden | Clcd_cntl_lcdbw
                  | Clcd_cntl_lcdtft | Clcd_cntl_lcdvcomp
                  | (config_do_bgr ? Clcd_cntl_lcdbgr : 0));
@@ -267,9 +270,14 @@ static void setup_memory(void)
   setup_type();
 
   if ((read_sys_reg(Reg_sys_clcd) & Sys_clcd_idmask) == 0x1000)
-    is_qemu = 1; // remember if we run on qemu because of the different
-                 // handling of the bpp16 mode with PL110: my hardware has
-                 // 5551 mode, qemu does 565
+    {
+      is_qemu = 1; // remember if we run on qemu because of the different
+                   // handling of the bpp16 mode with PL110: my hardware has
+                   // 5551 mode, qemu does 565
+      type = PL111; // also set the type to PL111 because qemu only
+                    // announces a PL110 but can do the 1024 resolution too
+      printf("Running on QEmu (assuming PL111).\n");
+    }
 
   if (config_request_xga && type == PL111)
     use_xga = 1;
@@ -335,9 +343,6 @@ static void pl110_enable(void)
       printf("CLCD init failed!\n");
       return;
     }
-
-  if (is_qemu)
-    printf("Running on QEmu.\n");
 }
 
 static void pl110_disable(void)

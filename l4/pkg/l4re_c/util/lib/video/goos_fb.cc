@@ -3,7 +3,9 @@
  * \brief Framebuffer utility functionality.
  */
 /*
- * (c) 2009 Technische Universität Dresden
+ * (c) 2009 Adam Lackorzynski <adam@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
+ *
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
@@ -26,11 +28,6 @@
 using L4Re::Util::Video::Goos_fb;
 using L4Re::Video::Goos;
 using L4Re::Video::View;
-
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
-#define static_assert(x, y) \
-  do { (void)sizeof(char[-(!(x))]); } while (0)
-#endif
 
 static inline Goos_fb *gcast(l4re_util_video_goos_fb_t *goosfb)
 {

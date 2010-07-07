@@ -1,3 +1,10 @@
+/*
+ * This file is part of the Valgrind port to L4Re.
+ *
+ * (c) 2009-2010 Aaron Pohle <apohle@os.inf.tu-dresden.de>,
+ *               Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universitaet Dresden (Germany)
+ */
 #include <l4/re/util/cap_alloc>
 #include <l4/re/env>
 #include <l4/sys/kdebug.h>

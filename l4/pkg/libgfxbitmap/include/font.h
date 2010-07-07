@@ -3,7 +3,8 @@
  * \brief Bitmap font renderer header file.
  */
 /*
- * (c) 2009 Technische Universität Dresden
+ * (c) 2009 Adam Lackorzynski <adam@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU Lesser General Public License 2.1.
  * Please see the COPYING-LGPL-2.1 file for details.
@@ -27,7 +28,7 @@
 /**
  * \brief Constant to use for the default font.
  */
-enum { GFXBITMAP_DEFAULT_FONT = 0 };
+#define GFXBITMAP_DEFAULT_FONT (void *)0
 
 /**
  * \brief Constant for length field.
@@ -46,8 +47,19 @@ typedef void *gfxbitmap_font_t;
  *
  * This function must be called before any other font function of this
  * library.
+ *
+ * \return 0 on success, other on error
  */
 L4_CV int gfxbitmap_font_init(void);
+
+/**
+ * \brief Get a font descriptor.
+ *
+ * \param name Name of the font.
+ *
+ * \return A (opaque) font descriptor, or NULL if font could not be found.
+ */
+L4_CV gfxbitmap_font_t gfxbitmap_font_get(const char *name);
 
 /**
  * \brief Get the font width.

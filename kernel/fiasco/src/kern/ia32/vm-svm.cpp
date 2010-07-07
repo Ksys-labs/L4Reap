@@ -26,7 +26,21 @@ public:
   };
 };
 
-//----------------------------------------------------------------------------
+// ------------------------------------------------------------------------
+INTERFACE [svm && debug]:
+
+EXTENSION class Vm
+{
+protected:
+  struct Log_vm_svm_exit
+  {
+    Mword exitcode, exitinfo1, exitinfo2, rip;
+  };
+
+  static unsigned log_fmt(Tb_entry *, int max, char *buf) asm ("__fmt_vm_svm_exit");
+};
+
+// ------------------------------------------------------------------------
 IMPLEMENTATION [svm]:
 
 #include "context.h"
@@ -39,7 +53,7 @@ IMPLEMENTATION [svm]:
 #include "virt.h"
 
 
-//----------------------------------------------------------------------------
+// ------------------------------------------------------------------------
 IMPLEMENTATION [svm && ia32]:
 
 PRIVATE static inline
@@ -107,8 +121,8 @@ Vm::get_vm_cr3(Vmcb *v)
     {
       // force allocation of new secondary page-table level
       mem_space()->dir()->alloc_cast<Mem_space_q_alloc>()
-		 ->walk(Virt_addr(0), 1, Mem_space_q_alloc(ram_quota(),
-			Mapped_allocator::allocator()));
+                 ->walk(Virt_addr(0), 1, Mem_space_q_alloc(ram_quota(),
+                        Mapped_allocator::allocator()));
       vm_cr3 = mem_space()->dir()->walk(Virt_addr(0), 0).e->addr();
     }
 
@@ -149,8 +163,8 @@ slab_cache_anon*
 Vm::allocator()
 {
   static slab_cache_anon* slabs = new Kmem_slab_simple (sizeof (Vm),
-							sizeof (Mword),
-							"Vm");
+                                                        sizeof (Mword),
+                                                        "Vm");
   return slabs;
 }
 
@@ -208,7 +222,7 @@ Vm::create(Ram_quota *quota)
     {
       Vm *a = new (t) Vm(quota);
       if (a->valid())
-	return a;
+        return a;
 
       delete a;
     }
@@ -686,8 +700,8 @@ Vm::sys_vm_run(Syscall_frame *f, Utcb *utcb)
     // disable support for global pages as the vm task has
     // a divergent upper memory region from the regular tasks
     Cpu::set_cr4(cr4 & ~CR4_PGE);
-
 #endif
+
   resume_vm(kernel_vmcb_pa, &utcb->values[1]);
 
 
@@ -721,6 +735,14 @@ Vm::sys_vm_run(Syscall_frame *f, Utcb *utcb)
 
   vmcb_s->control_area.n_cr3 = orig_ncr3;
 
+  LOG_TRACE("VM-SVM", "svm", current(), __fmt_vm_svm_exit,
+            Log_vm_svm_exit *l = tbe->payload<Log_vm_svm_exit>();
+            l->exitcode = vmcb_s->control_area.exitcode;
+            l->exitinfo1 = vmcb_s->control_area.exitinfo1;
+            l->exitinfo2 = vmcb_s->control_area.exitinfo2;
+            l->rip       = vmcb_s->state_save_area.rip;
+           );
+
   return commit_result(L4_error::None);
 }
 
@@ -743,4 +765,16 @@ Vm::invoke(L4_obj_ref obj, Mword rights, Syscall_frame *f, Utcb *utcb)
       Task::invoke(obj, rights, f, utcb);
       return;
     }
+}
+
+// ------------------------------------------------------------------------
+IMPLEMENTATION [svm && debug]:
+
+IMPLEMENT
+unsigned
+Vm::log_fmt(Tb_entry *e, int max, char *buf)
+{
+  Log_vm_svm_exit *l = e->payload<Log_vm_svm_exit>();
+  return snprintf(buf, max, "ec=%lx ei1=%08lx ei2=%08lx rip=%08lx",
+                  l->exitcode, l->exitinfo1, l->exitinfo2, l->rip);
 }

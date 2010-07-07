@@ -1,6 +1,13 @@
 #include "myelf.h"
 #include "pub_core_libcassert.h"
 
+/*
+ * This file is part of the Valgrind port to L4Re.
+ *
+ * (c) 2009-2010 Aaron Pohle <apohle@os.inf.tu-dresden.de>,
+ *               Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universitaet Dresden (Germany)
+ */
 
 int melf_locate_section_string_table(melf_global_elf_info *inf)
 {

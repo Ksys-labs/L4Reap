@@ -1,5 +1,9 @@
 /*
- * (c) 2008-2010 Technische Universität Dresden
+ * (c) 2008-2010 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
+ *               Alexander Warg <warg@os.inf.tu-dresden.de>,
+ *               Torsten Frenzel <frenzel@os.inf.tu-dresden.de>,
+ *               Henning Schild <hschild@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU Lesser General Public License 2.1.
  * Please see the COPYING-LGPL-2.1 file for details.
@@ -17,7 +21,6 @@
 #include <l4/sys/factory>
 #include <l4/sys/icu>
 #include <l4/sys/irq>
-#include <l4/sys/semaphore>
 #include <l4/sys/task>
 #include <l4/sys/kdebug.h>
 #include <l4/util/splitlog2.h>
@@ -240,6 +243,9 @@ l4io_lookup_device(const char *devname,
 {
   int r;
   l4io_device_handle_t dh = 0;
+
+  if (!vbus().is_valid())
+    return -L4_ENOENT;
 
   if ((r = l4vbus_get_device_by_hid(vbus().cap(), 0,
                                     &dh, devname, L4VBUS_MAX_DEPTH, dev)))

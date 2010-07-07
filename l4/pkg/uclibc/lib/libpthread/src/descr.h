@@ -24,7 +24,9 @@
 #include <tls.h>
 #endif
 
+#ifdef L4_PTHREAD_USE_USEM
 #include <l4/sys/semaphore.h>
+#endif
 
 /* Fast thread-specific data internal to libc.  */
 enum __libc_tsd_key_t { _LIBC_TSD_KEY_MALLOC = 0,

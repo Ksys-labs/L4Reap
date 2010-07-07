@@ -1,7 +1,18 @@
 /*
  * \brief   Logging facility with printf()-like interface
- * \author  Thomas Friebel <yaron@yaron.de>
- * \date    2006-03-01
+ */
+
+/*
+ * This file is part of DDEKit.
+ *
+ * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
+ *               Thomas Friebel <tf13@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
  */
 
 #include <l4/dde/ddekit/printf.h>

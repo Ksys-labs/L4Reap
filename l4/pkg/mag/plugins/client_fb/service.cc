@@ -1,5 +1,8 @@
 /*
- * (c) 2010 Technische Universität Dresden
+ * (c) 2010 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
+ *          Alexander Warg <warg@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
+ *
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
@@ -112,7 +115,6 @@ Service::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
     default:
       return -L4_EBADPROTO;
     }
-
 }
 
 void
@@ -123,7 +125,6 @@ Service::destroy()
 
 Service::~Service()
 {
-  enter_kdebug("X");
   printf("MAG: destroy FB svc\n");
 }
 

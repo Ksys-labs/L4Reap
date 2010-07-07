@@ -1,8 +1,17 @@
 /*
+ * This file is part of DDE/Linux2.6.
+ *
+ * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+
+/*
  * \brief   Page allocation
- * \author  Christian Helmuth <ch12@tudos.org>
- *          Bjoern Doebel <doebel@tudos.org>
- * \date    2007-01-22
  *
  * In Linux 2.6 this resides in mm/page_alloc.c.
  *

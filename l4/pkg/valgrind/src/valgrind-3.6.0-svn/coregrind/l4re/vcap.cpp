@@ -1,5 +1,13 @@
 // vim: expandtab
 
+/*
+ * This file is part of the Valgrind port to L4Re.
+ *
+ * (c) 2009-2010 Aaron Pohle <apohle@os.inf.tu-dresden.de>,
+ *               Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universitaet Dresden (Germany)
+ */
+
 #include <l4/sys/compiler.h>
 // C++'s definition of NULL disagrees with Valgrind's
 #undef NULL

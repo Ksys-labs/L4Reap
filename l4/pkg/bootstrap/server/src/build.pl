@@ -28,7 +28,9 @@ my $prog_cp      = $ENV{PROG_CP}      || "cp";
 my $prog_gzip    = $ENV{PROG_GZIP}    || "gzip";
 my $compress     = $ENV{OPT_COMPRESS} || 0;
 my $strip        = $ENV{OPT_STRIP}    || 1;
-my $flags_cc     = ($arch eq 'amd64' ? "-m64" : "");
+my $flags_cc     = "";
+$flags_cc = "-m32" if $arch eq 'x86';
+$flags_cc = "-m64" if $arch eq 'amd64';
 
 my $make_inc_file = $ENV{MAKE_INC_FILE} || "mod.make.inc";
 

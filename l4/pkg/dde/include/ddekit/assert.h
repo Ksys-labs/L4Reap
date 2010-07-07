@@ -5,6 +5,19 @@
 
 /** \file ddekit/assert.h */
 
+/*
+ * This file is part of DDEKit.
+ *
+ * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
+ *               Thomas Friebel <tf13@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+
 /** Assert that an expression is true and panic if not. 
  * \ingroup DDEKit_util
  */

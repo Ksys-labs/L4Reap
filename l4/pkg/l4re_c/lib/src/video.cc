@@ -1,5 +1,7 @@
 /*
- * (c) 2008-2009 Technische Universität Dresden
+ * (c) 2008-2009 Adam Lackorzynski <adam@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
+ *
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
@@ -23,11 +25,6 @@
 
 #include <cassert>
 #include <stddef.h>
-
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
-#define static_assert(x, y) \
-    do { (void)sizeof(char[-(!(x))]); } while (0)
-#endif
 
 using L4Re::Video::Goos;
 

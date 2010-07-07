@@ -1,5 +1,8 @@
 /*
- * (c) 2010 Technische Universität Dresden
+ * (c) 2010 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
+ *          Alexander Warg <warg@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
+ *
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
@@ -112,8 +115,8 @@ Ns_dir::faccessat(const char *path, int mode, int flags) throw()
   return 0;
 }
 
-int Ns_dir::
-fstat64(struct stat64 *b) const throw()
+int
+Ns_dir::fstat64(struct stat64 *b) const throw()
 {
   b->st_dev = 1;
   b->st_ino = 1;
@@ -129,6 +132,82 @@ fstat64(struct stat64 *b) const throw()
   b->st_mtime = 0;
   b->st_ctime = 0;
   return 0;
+}
+
+ssize_t
+Ns_dir::getdents(char *buf, size_t sz) throw()
+{
+  struct dirent64 *d = (struct dirent64 *)buf;
+  ssize_t ret = 0;
+  l4_addr_t infoaddr;
+  size_t infosz;
+
+  L4Re::Auto_cap<Dataspace>::Cap dirinfofile;
+  int err = get_ds(".dirinfo", &dirinfofile);
+  if (err)
+    return 0;
+
+  infosz = dirinfofile->size();
+  if (infosz <= 0)
+    return 0;
+
+  infoaddr = L4_PAGESIZE;
+  err = L4Re::Env::env()->rm()->attach(&infoaddr, infosz,
+                                       Rm::Search_addr | Rm::Read_only,
+                                       dirinfofile.get(), 0);
+  char *p   = (char *)infoaddr + _current_dir_pos;
+  char *end = (char *)infoaddr + infosz;
+
+  while (d && p < end)
+    {
+      // parse lines of dirinfofile
+      long len;
+      for (len = 0; p < end && *p >= '0' && *p <= '9'; ++p)
+        {
+          len *= 10;
+          len += *p - '0';
+        }
+      if (len)
+        {
+          // skip colon
+          p++;
+          if (p + len >= end)
+            return 0; // error in dirinfofile
+
+          unsigned l = len + 1;
+          if (l > sizeof(d->d_name))
+            l = sizeof(d->d_name);
+
+          unsigned n = offsetof (struct dirent64, d_name) + l;
+
+          if (n > sz)
+            break;
+
+          d->d_ino = 1;
+          d->d_off = 0;
+          memcpy(d->d_name, p, len);
+          d->d_name[l - 1] = 0;
+          d->d_reclen = n;
+          ret += n;
+          sz  -= n;
+          d    = (struct dirent64 *)((unsigned long)d + n);
+        }
+
+      // next infodirfile line
+      while (p < end && *p && *p != '\n' && *p != '\r')
+        p++;
+      while (p < end && *p && (*p == '\n' || *p == '\r'))
+        p++;
+    }
+
+  _current_dir_pos += p - (char *)infoaddr;
+
+  if (!ret) // hack since we should only reset this at open times
+    _current_dir_pos = 0;
+
+  L4Re::Env::env()->rm()->detach(infoaddr, 0);
+
+  return ret;
 }
 
 int

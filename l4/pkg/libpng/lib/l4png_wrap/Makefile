@@ -1,7 +1,7 @@
 PKGDIR          ?= ../..
 L4DIR           ?= $(PKGDIR)/../..
 
-TARGET          = libl4png_wrap.a
+TARGET          = libl4png_wrap.a libl4png_wrap.so
 SYSTEMS         = arm x86 amd64 ppc32
 SRC_C           = l4png_wrap.c 
 PC_FILENAME     = libl4png_wrap

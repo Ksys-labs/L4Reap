@@ -1,8 +1,18 @@
 /*
+ * This file is part of DDEKit.
+ *
+ * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
+ *               Thomas Friebel <tf13@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+
+/*
  * \brief   Hardware-interrupt subsystem
- * \author  Thomas Friebel <tf13@os.inf.tu-dresden.de>
- * \author  Christian Helmuth <ch12@os.inf.tu-dresden.de>
- * \date    2007-01-22
  *
  * FIXME could intloop_param freed after startup?
  * FIXME use consume flag to indicate IRQ was handled

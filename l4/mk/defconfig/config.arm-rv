@@ -27,8 +27,10 @@ CONFIG_CPU_ARM_ARMV5TE=y
 # CONFIG_PLATFORM_ARM_integrator is not set
 CONFIG_PLATFORM_ARM_rv=y
 # CONFIG_PLATFORM_ARM_imx21 is not set
+# CONFIG_PLATFORM_ARM_imx51 is not set
 # CONFIG_PLATFORM_ARM_omap3evm is not set
 # CONFIG_PLATFORM_ARM_beagleboard is not set
+# CONFIG_PLATFORM_ARM_tegra2 is not set
 # CONFIG_PLATFORM_ARM_custom is not set
 CONFIG_ARM_PLATFORM_TYPE="rv"
 CONFIG_RAM_BASE=0x0

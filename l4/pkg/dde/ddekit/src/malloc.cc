@@ -1,8 +1,5 @@
 /*
  * \brief   Simple allocator implementation
- * \author  Christian Helmuth
- * \author  Bjoern Doebel
- * \date    2008-08-26
  *
  * This simple allocator provides malloc() and free() using dm_mem dataspaces
  * as backing store. The actual list-based allocator implementation is from
@@ -12,10 +9,19 @@
  * ddekit_large_malloc and ddekit_slab_*() should be used. The blocks
  * allocated via this allocator CANNOT be used for DMA or other device
  * operations, i.e., there exists no virt->phys mapping.
+ */
+
+/*
+ * This file is part of DDEKit.
  *
- * (c) 2006-2008 Technische Universität Dresden
- * This file is part of TUD:OS, which is distributed under the terms of the
- * GNU General Public License 2. Please see the COPYING file for details.
+ * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
+ *               Thomas Friebel <tf13@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
  */
 
 /*

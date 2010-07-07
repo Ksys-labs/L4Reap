@@ -1,9 +1,19 @@
+/*
+ * This file is part of DDEKit.
+ *
+ * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
+ *               Thomas Friebel <tf13@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+
 /**
  * Unchecked (no BSD invariants) condition variable implementation for
  * dde-internal use. Written from scratch.
- *
- * \author Thomas Friebel <tf13@os.inf.tu-dresden.de>
- * \author Bjoern Doebel <doebel@os.inf.tu-dresden.de>
  */
 #include <l4/dde/ddekit/condvar.h>
 #include <l4/dde/ddekit/lock.h>

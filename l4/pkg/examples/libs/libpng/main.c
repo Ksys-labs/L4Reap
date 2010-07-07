@@ -1,16 +1,18 @@
-#include <l4/re/c/namespace.h>
-#include <l4/re/c/dataspace.h>
-#include <l4/re/c/rm.h>
 #include <l4/re/c/util/cap_alloc.h>
 #include <l4/re/c/util/video/goos_fb.h>
 #include <l4/libpng/l4png_wrap.h>
 #include <l4/util/util.h>
 
+#include <sys/mman.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 int main(int argc, char **argv)
 {
-  l4_addr_t bildmem;
+  void *bildmem;
   void *vidmem;
   l4re_util_video_goos_fb_t gfb;
   l4re_video_view_info_t fbi;
@@ -36,22 +38,24 @@ int main(int argc, char **argv)
       return 1;
     }
 
-  l4re_ds_t bild = l4re_util_cap_alloc();
-  if (l4_is_invalid_cap(bild))
-    return 1;
-  if (l4re_ns_query_srv(l4re_get_env_cap("rom"), argv[1], bild))
-    return -1;
+  int bild = open(argv[1], O_RDONLY);
+  if (bild == -1)
+    {
+      printf("Could not open '%s'.\n", argv[1]);
+      perror("open");
+      return 8;
+    }
 
-  printf("Picture size: %ld\n", l4re_ds_size(bild));
+  struct stat st;
+  if (fstat(bild, &st) == -1)
+    return 9;
 
-  bildmem = 0;
-  if (l4re_rm_attach((void **)&bildmem, l4re_ds_size(bild),
-	             L4RE_RM_SEARCH_ADDR, bild, 0, L4_PAGESHIFT))
-    return 1;
-
+  bildmem = mmap(0, st.st_size, PROT_READ, MAP_SHARED, bild, 0);
+  if (bildmem == MAP_FAILED)
+    return 10;
 
   int png_w, png_h;
-  png_get_size_mem((void *)bildmem, l4re_ds_size(bild), &png_w, &png_h);
+  png_get_size_mem(bildmem, l4re_ds_size(bild), &png_w, &png_h);
 
   printf("PNG: %dx%d\n", png_w, png_h);
 
@@ -68,12 +72,12 @@ int main(int argc, char **argv)
     }
 
   if (fbi.pixel_info.bytes_per_pixel == 2)
-    png_convert_RGB16bit_mem((void *)bildmem, (void *)vidmem,
+    png_convert_RGB16bit_mem(bildmem, (void *)vidmem,
 	                     l4re_ds_size(bild),
                              png_w*png_h*fbi.pixel_info.bytes_per_pixel,
                              fbi.width);
   else
-    png_convert_ARGB_mem((void *)bildmem, (void *)vidmem, l4re_ds_size(bild),
+    png_convert_ARGB_mem(bildmem, (void *)vidmem, l4re_ds_size(bild),
                          png_w*png_h*fbi.pixel_info.bytes_per_pixel);
 
   l4re_util_video_goos_fb_refresh(&gfb, 0, 0, png_w, png_h);

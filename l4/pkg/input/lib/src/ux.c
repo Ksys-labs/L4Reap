@@ -8,7 +8,11 @@
  * Adaptions by Christian Helmuth <ch12@os.inf.tu-dresden.de>
  */
 /*
- * (c) 2007-2009 Technische Universität Dresden
+ * (c) 2007-2009 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
+ *               Alexander Warg <warg@os.inf.tu-dresden.de>,
+ *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
+ *
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
@@ -72,7 +76,7 @@ static void *map_inputmemory(l4_addr_t paddr, l4_size_t size)
 {
   l4_addr_t vaddr;
   if (l4io_request_iomem(paddr, size, L4IO_MEM_CACHED, &vaddr))
-    Panic("Mapping input memory from %p failed", (void *)paddr);
+    Panic("Mapping input memory from %p failed\n", (void *)paddr);
 
   printf("Input memory page (%lx:%zx) mapped to 0x%08lx\n", paddr, size, vaddr);
 
@@ -106,7 +110,7 @@ static int init_stuff(void)
 
 
   if (!inputmem.end)
-    Panic("No input memory found");
+    Panic("No input memory found\n");
 
   input_mem = map_inputmemory(inputmem.start,
                               inputmem.end - inputmem.start + 1);
@@ -120,7 +124,7 @@ static int init_stuff(void)
       int err;
 
       if (irq == -1)
-        Panic("Could not get IRQ number");
+        Panic("Could not get IRQ number\n");
 
       err = request_irq(irq, irq_handler, 0, "", 0);
       if (err)

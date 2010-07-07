@@ -114,6 +114,9 @@ Kernel_thread::run()
   do_idle();
 }
 
+// ------------------------------------------------------------------------
+IMPLEMENTATION [!arch_idle]:
+
 PUBLIC inline NEEDS["processor.h"]
 void
 Kernel_thread::idle_op()

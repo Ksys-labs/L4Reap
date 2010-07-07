@@ -95,3 +95,9 @@ IMPLEMENT FIASCO_INIT
 void Config::init()
 {}
 
+//---------------------------------------------------------------------------
+IMPLEMENTATION [armv6plus]:
+
+#include "feature.h"
+
+KIP_KERNEL_FEATURE("armv6plus");

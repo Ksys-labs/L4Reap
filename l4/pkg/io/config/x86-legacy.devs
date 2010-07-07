@@ -1,3 +1,4 @@
+# vim:set ft=ioconfig:
 # extend the real system bus with some platform devices
 hw-root
 {

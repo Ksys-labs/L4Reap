@@ -1,5 +1,8 @@
 /*
- * (c) 2010 Technische Universität Dresden
+ * (c) 2010 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
+ *          Alexander Warg <warg@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
+ *
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
@@ -27,7 +30,7 @@ using cxx::Ref_ptr;
 class Ns_base_dir : public L4Re::Vfs::Be_file
 {
 public:
-  enum { Size = sizeof(L4Re::Vfs::Be_file) + sizeof(l4_addr_t) };
+  enum { Size = sizeof(L4Re::Vfs::Be_file) + 2 * sizeof(l4_addr_t) };
 
   void *operator new(size_t s) throw();
   void operator delete(void *b) throw();
@@ -40,7 +43,8 @@ class Env_dir : public Ns_base_dir
 {
 public:
   explicit Env_dir(L4Re::Env const *env)
-  : _env(env), _current_cap_entry(env->initial_caps()) {}
+  : _env(env), _current_cap_entry(env->initial_caps())
+  { static_assert(Ns_base_dir::Size >= sizeof(*this), "Size too small"); }
 
   ssize_t readv(const struct iovec*, int) throw() { return -EISDIR; }
   ssize_t writev(const struct iovec*, int) throw() { return -EISDIR; }
@@ -63,7 +67,9 @@ private:
 class Ns_dir : public Ns_base_dir
 {
 public:
-  explicit Ns_dir(L4::Cap<L4Re::Namespace> ns) : _ns(ns) {}
+  explicit Ns_dir(L4::Cap<L4Re::Namespace> ns)
+  : _ns(ns), _current_dir_pos(0)
+  { static_assert(Ns_base_dir::Size >= sizeof(*this), "Size too small"); }
 
   ssize_t readv(const struct iovec*, int) throw() { return -EISDIR; }
   ssize_t writev(const struct iovec*, int) throw() { return -EISDIR; }
@@ -71,6 +77,7 @@ public:
   int faccessat(const char *path, int mode, int flags) throw();
   int get_entry(const char *path, int flags, mode_t mode,
                 Ref_ptr<L4Re::Vfs::File> *) throw();
+  ssize_t getdents(char *, size_t) throw();
 
   ~Ns_dir() throw() {}
 
@@ -78,7 +85,7 @@ private:
   int get_ds(const char *path, L4Re::Auto_cap<L4Re::Dataspace>::Cap *ds) throw();
 
   L4::Cap<L4Re::Namespace> _ns;
-
+  size_t _current_dir_pos;
 };
 
 }}

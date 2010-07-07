@@ -5,7 +5,13 @@
  * \ingroup l4_api
  */
 /*
- * (c) 2008-2009 Technische Universität Dresden
+ * (c) 2008-2009 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
+ *               Alexander Warg <warg@os.inf.tu-dresden.de>,
+ *               Frank Mehnert <fm3@os.inf.tu-dresden.de>,
+ *               Jork Löser <jork@os.inf.tu-dresden.de>,
+ *               Ronald Aigner <ra3@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
+ *
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
@@ -245,6 +251,13 @@
  * make sure that gcc doesn't warn about unused functions. */
 #define L4_STICKY(x)	__attribute__((unused)) x       ///< Mark symbol sticky (even not there).
 #define L4_DEPRECATED                                   ///< Mark symbol deprecated
+#endif
+
+#ifndef __GXX_EXPERIMENTAL_CXX0X__
+#ifndef static_assert
+#define static_assert(x, y) \
+  do { (void)sizeof(char[-(!(x))]); } while (0)
+#endif
 #endif
 
 #define L4_stringify_helper(x) #x                       ///< stringify helper. \hideinitializer

@@ -35,7 +35,7 @@ public:
   static Mword stack_pointer();
 
   static Mword program_counter();
-  
+
   static inline
   void preemption_point()
   {

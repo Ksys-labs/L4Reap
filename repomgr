@@ -55,6 +55,8 @@ my %modules =
                    Control
                    sys
                    clntsrv
+                   fb/Makefile
+                   fb/spectrum
                    misc/Makefile
                    misc/cat
                    misc/reboot

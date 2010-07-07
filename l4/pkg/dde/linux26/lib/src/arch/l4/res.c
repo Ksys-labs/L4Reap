@@ -1,3 +1,15 @@
+/*
+ * This file is part of DDE/Linux2.6.
+ *
+ * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+
 #include "local.h"
 
 #include <linux/ioport.h>
@@ -80,7 +92,7 @@ static struct resource *l4dde26_request_mem_region(resource_size_t start,
 	mreg->size = n;
 	list_add(&mreg->list, &dde_mem_regions);
 
-#if 0
+#if 1
 	ddekit_pgtab_set_region_with_size((void *)va, start, n, PTE_TYPE_OTHER);
 #endif
 

@@ -11,7 +11,9 @@
  */
 
 /*
- * (c) 2005-2009 Technische Universität Dresden
+ * (c) 2005-2009 Author(s)
+ *     economic rights: Technische Universität Dresden (Germany)
+ *
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
@@ -242,22 +244,25 @@ static
 unsigned long
 get_memory_limit(l4util_mb_info_t *mbi)
 {
-  char *c;
+  unsigned long arch_limit = ~0UL;
+#if defined(ARCH_x86)
+  /* Limit memory, we cannot really handle more right now. In fact, the
+   * problem is roottask. It maps as many superpages/pages as it gets.
+   * After that, the remaining pages are mapped using l4sigma0_map_anypage()
+   * with a receive window of L4_WHOLE_ADDRESS_SPACE. In response Sigma0
+   * could deliver pages beyond the 3GB user space limit. */
+  arch_limit = 3024UL << 20;
+#endif
 
   /* maxmem= parameter? */
-  if ((c = check_arg(mbi, "-maxmem=")))
-    return strtoul(c + 8, NULL, 10) << 20;
-  else
-#if defined(ARCH_x86)
-    /* Limit memory, we cannot really handle more right now. In fact, the
-     * problem is roottask. It maps as many superpages/pages as it gets.
-     * After that, the remaining pages are mapped using l4sigma0_map_anypage()
-     * with a receive window of L4_WHOLE_ADDRESS_SPACE. In response Sigma0
-     * could deliver pages beyond the 3GB user space limit. */
-    return 3024UL << 20;
-#else
-    return ~0UL;
-#endif
+  if (char *c = check_arg(mbi, "-maxmem="))
+    {
+      unsigned long l = strtoul(c + 8, NULL, 10) << 20;
+      if (l < arch_limit)
+	return l;
+    }
+
+  return arch_limit;
 }
 
 static int

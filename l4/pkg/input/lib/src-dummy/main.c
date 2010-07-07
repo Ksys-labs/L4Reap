@@ -4,7 +4,11 @@
  * by Adam Lackorzynski <adam@os.inf.tu-dresden.de>
  */
 /*
- * (c) 2004-2009 Technische Universität Dresden
+ * (c) 2004-2009 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
+ *               Christian Helmuth <ch12@os.inf.tu-dresden.de>,
+ *               Torsten Frenzel <frenzel@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
+ *
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.

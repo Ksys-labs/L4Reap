@@ -1,14 +1,24 @@
 /*
  * \brief   Virtual page-table facility
- * \author  Thomas Friebel <tf13@os.inf.tu-dresden.de>
- * \author  Christian Helmuth <ch12@os.inf.tu-dresden.de>
- * \date    2006-11-01
  *
  * This implementation uses l4rm (especially the AVL tree and userptr) to
  * manage virt->phys mappings. Each mapping region is represented by one
  * pgtab_object that is kept in the l4rm region userptr.
  *
  * For this to work, dataspaces must be attached to l4rm regions!
+ */
+
+/*
+ * This file is part of DDEKit.
+ *
+ * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
+ *               Thomas Friebel <tf13@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
  */
 
 #include <l4/dde/ddekit/pgtab.h>

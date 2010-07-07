@@ -3,7 +3,6 @@
  * \date    2005-11-23
  * \author  Norman Feske <norman.feske@genode-labs.com>
  */
-
 /*
  * Copyright (C) 2005-2009
  * Genode Labs, Feske & Helmuth Systementwicklung GbR

@@ -1,5 +1,8 @@
 /*
- * (c) 2010 Technische Universität Dresden
+ * (c) 2010 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
+ *          Alexander Warg <warg@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
+ *
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
@@ -174,6 +177,8 @@ void Mmio_data_space::alloc_ram(Size size, unsigned long alloc_flags)
     throw(L4::Out_of_memory("not really"));
 
   start(phys_start);
+
+  add_flags(Resource::F_fixed_size | Resource::F_fixed_addr);
 
   L4Re::chksys(L4Re::Env::env()->rm()->attach(&_r, ds_size,
                                               L4Re::Rm::Search_addr |

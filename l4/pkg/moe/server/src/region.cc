@@ -23,58 +23,16 @@
 
 #include <l4/re/util/region_mapping_svr>
 
-l4_addr_t Region_map::_s_start;
-l4_addr_t Region_map::_s_end;
-
-void
-Region_map::init_limits()
-{
-  L4::Kip::Mem_desc *md = L4::Kip::Mem_desc::first(const_cast<l4_kernel_info_t*>(kip()));
-  unsigned long cnt = L4::Kip::Mem_desc::count(const_cast<l4_kernel_info_t*>(kip()));
-
-  for (L4::Kip::Mem_desc *m = md; m < md + cnt; ++m)
-    {
-      switch (m->type())
-	{
-	case L4::Kip::Mem_desc::Conventional:
-	  break;
-	default:
-	  continue;
-	}
-
-      if (!m->is_virtual())
-	continue;
-
-      l4_addr_t start = m->start();
-      l4_addr_t end = m->end();
-
-      _s_start = start;
-      _s_end = end;
-    }
-
-  L4::cout << "MOE: virtual user address space [" << L4::n_hex(_s_start)
-           << "-" << L4::n_hex(_s_end) << "]\n";
-
-}
-
 Region_map::Region_map()
-  : Base(_s_start,_s_end)
+  : Base(Moe::Virt_limit::start, Moe::Virt_limit::end)
 {
   L4::Kip::Mem_desc *md = L4::Kip::Mem_desc::first(const_cast<l4_kernel_info_t*>(kip()));
   unsigned long cnt = L4::Kip::Mem_desc::count(const_cast<l4_kernel_info_t*>(kip()));
 
   for (L4::Kip::Mem_desc *m = md; m < md + cnt; ++m)
     {
-      switch (m->type())
-	{
-	case L4::Kip::Mem_desc::Reserved:
-	  break;
-	default:
-	  continue;
-	}
-
-      if (!m->is_virtual())
-	continue;
+      if (m->type() != L4::Kip::Mem_desc::Reserved || !m->is_virtual())
+        continue;
 
       l4_addr_t start = m->start();
       l4_addr_t end = m->end();

@@ -49,8 +49,8 @@ installscript = perl -e '                                                     \
   chomp($$srcdir="$(INCSRC_DIR)");                                            \
   $$notify=1;                                                                 \
   while(<>) {                                                                 \
-    split; while(@_) {                                                        \
-      $$_=shift @_; s|^\./||; $$src=$$_;                                      \
+    foreach (split) {                                                         \
+      s|^\./||; $$src=$$_;                                                    \
       if(s|^ARCH-([^/]*)/L4API-([^/]*)/([^ ]*)$$|\1/\2/$(INSTALL_INC_PREFIX)/\3| ||\
 	 s|^ARCH-([^/]*)/([^ ]*)$$|\1/$(INSTALL_INC_PREFIX)/\2| ||            \
 	 s|^L4API-([^/]*)/([^ ]*)$$|\1/$(INSTALL_INC_PREFIX)/\2| ||           \
@@ -64,9 +64,15 @@ installscript = perl -e '                                                     \
     }                                                                         \
   }'
 
+PC_FILENAMES ?= $(PC_FILENAME)
+PC_FILES     := $(foreach pcfile,$(PC_FILENAMES),$(OBJ_BASE)/pc/$(pcfile).pc)
+
+$(OBJ_BASE)/pc/%.pc: $(GENERAL_D_LOC)
+	$(VERBOSE)$(call generate_pcfile,$*,$@,$(PKGNAME),,$(call get_cont,REQUIRES_LIBS,$*))
+
 headers::
 
-all:: headers
+all:: headers $(PC_FILES)
 	@$(TARGET_CMD) | $(call installscript,1)
 
 install::

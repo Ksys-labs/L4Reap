@@ -1,6 +1,6 @@
 SECTIONS
 {
-  .bootstrap.text 0 : 
+  .text : 
     {
       *(.init)
       *(.text .text.* .gnu.linkonce.t.*)
@@ -10,8 +10,9 @@ SECTIONS
       *(.anno)
     } = 0x90909090
 
-  .bootstrap.bss 0 :
+  .bss :
     {
       *(.bss .gnu.linkonce.b.* COMMON)
     }
+
 }

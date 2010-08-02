@@ -40,7 +40,7 @@
 /* "%code requires" blocks.  */
 
 /* Line 35 of lalr1.cc  */
-#line 13 "cfg_parser.yy"
+#line 16 "cfg_parser.yy"
 
 
 #include "vdevice.h"
@@ -160,7 +160,7 @@ namespace cfg {
     {
 
 /* Line 35 of lalr1.cc  */
-#line 69 "cfg_parser.yy"
+#line 72 "cfg_parser.yy"
 
     l4_uint64_t num;
     struct {

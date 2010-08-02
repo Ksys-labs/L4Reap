@@ -34,7 +34,7 @@
 /* "%code top" blocks.  */
 
 /* Line 304 of lalr1.cc  */
-#line 7 "cfg_parser.yy"
+#line 10 "cfg_parser.yy"
 
 #include "vbus_factory.h"
 #include <cstring>
@@ -65,7 +65,7 @@
 /* Unqualified %code blocks.  */
 
 /* Line 318 of lalr1.cc  */
-#line 106 "cfg_parser.yy"
+#line 109 "cfg_parser.yy"
 
 
 #include <algorithm>
@@ -250,7 +250,7 @@ create_resource(cfg::Parser::location_type const &l, cxx::String const &type,
     flags = Adr_resource::Mmio_res | Adr_resource::Mmio_data_space;
   else
     {
-      std::cerr << l << ": unknown resource type '" << type << "', expected Io, Irq, or Mmio" << std::endl;
+      std::cerr << l << ": unknown resource type '" << type << "', expected Io, Irq, Mmio, or Mmio_ram" << std::endl;
 
       return 0;
     }
@@ -300,6 +300,12 @@ create_resource(cfg::Parser::location_type const &l, cxx::String const &type,
 	  if ((*args)[1].type != 0)
 	    {
 	      std::cerr << l << ": argument 2 must by of type integer in constructor of resource '" << type << "'" << std::endl;
+	      delete args;
+	      return 0;
+	    }
+	  if (s > e)
+	    {
+	      std::cerr << l << ": start of range bigger than end" << std::endl;
 	      delete args;
 	      return 0;
 	    }
@@ -362,7 +368,7 @@ hw_device_set_property(cfg::Parser::location_type const &l, Hw::Device *dev,
 
 
 /* Line 318 of lalr1.cc  */
-#line 366 "cfg_parser.tab.cc"
+#line 372 "cfg_parser.tab.cc"
 
 #ifndef YY_
 # if YYENABLE_NLS
@@ -431,7 +437,7 @@ do {					\
 namespace cfg {
 
 /* Line 380 of lalr1.cc  */
-#line 435 "cfg_parser.tab.cc"
+#line 441 "cfg_parser.tab.cc"
 #if YYERROR_VERBOSE
 
   /* Return YYSTR after stripping away unnecessary quotes and
@@ -725,14 +731,14 @@ namespace cfg {
 	  case 2:
 
 /* Line 678 of lalr1.cc  */
-#line 404 "cfg_parser.yy"
+#line 413 "cfg_parser.yy"
     { (yyval.str).s = "(noname)"; (yyval.str).e = (yyval.str).s + strlen((yyval.str).s); }
     break;
 
   case 3:
 
 /* Line 678 of lalr1.cc  */
-#line 409 "cfg_parser.yy"
+#line 418 "cfg_parser.yy"
     {
 	    (yyval.device) = _vbus_factory->create(std::string((yysemantic_stack_[(4) - (2)].str).s, (yysemantic_stack_[(4) - (2)].str).e));
 	    add_children((yyval.device), (yysemantic_stack_[(4) - (4)].device));
@@ -743,91 +749,91 @@ namespace cfg {
   case 4:
 
 /* Line 678 of lalr1.cc  */
-#line 415 "cfg_parser.yy"
+#line 424 "cfg_parser.yy"
     { (yyval.device) = wrap_hw_devices((yysemantic_stack_[(5) - (3)].dev_list)); }
     break;
 
   case 5:
 
 /* Line 678 of lalr1.cc  */
-#line 418 "cfg_parser.yy"
+#line 427 "cfg_parser.yy"
     { (yyval.device) = (yysemantic_stack_[(1) - (1)].device); }
     break;
 
   case 6:
 
 /* Line 678 of lalr1.cc  */
-#line 420 "cfg_parser.yy"
+#line 429 "cfg_parser.yy"
     { (yyval.device) = (yysemantic_stack_[(3) - (3)].device); set_device_names((yysemantic_stack_[(3) - (3)].device), cxx::String((yysemantic_stack_[(3) - (1)].str).s, (yysemantic_stack_[(3) - (1)].str).e)); }
     break;
 
   case 7:
 
 /* Line 678 of lalr1.cc  */
-#line 422 "cfg_parser.yy"
+#line 431 "cfg_parser.yy"
     { (yyval.device) = (yysemantic_stack_[(5) - (5)].device); set_device_names((yysemantic_stack_[(5) - (5)].device), cxx::String((yysemantic_stack_[(5) - (1)].str).s, (yysemantic_stack_[(5) - (1)].str).e), true); }
     break;
 
   case 9:
 
 /* Line 678 of lalr1.cc  */
-#line 427 "cfg_parser.yy"
+#line 436 "cfg_parser.yy"
     { (yyval.device) = 0; }
     break;
 
   case 10:
 
 /* Line 678 of lalr1.cc  */
-#line 429 "cfg_parser.yy"
+#line 438 "cfg_parser.yy"
     { (yyval.device) = concat((yysemantic_stack_[(2) - (1)].device), (yysemantic_stack_[(2) - (2)].device)); }
     break;
 
   case 11:
 
 /* Line 678 of lalr1.cc  */
-#line 432 "cfg_parser.yy"
+#line 441 "cfg_parser.yy"
     { (yyval.device) = 0; }
     break;
 
   case 12:
 
 /* Line 678 of lalr1.cc  */
-#line 433 "cfg_parser.yy"
+#line 442 "cfg_parser.yy"
     { (yyval.device) = (yysemantic_stack_[(3) - (2)].device); }
     break;
 
   case 13:
 
 /* Line 678 of lalr1.cc  */
-#line 436 "cfg_parser.yy"
+#line 445 "cfg_parser.yy"
     { (yyval.dev_list) = new Dev_list(); (yyval.dev_list)->push_back((yysemantic_stack_[(1) - (1)].hw_device)); }
     break;
 
   case 14:
 
 /* Line 678 of lalr1.cc  */
-#line 437 "cfg_parser.yy"
+#line 446 "cfg_parser.yy"
     { (yyval.dev_list) = (yysemantic_stack_[(3) - (3)].dev_list); (yyval.dev_list)->push_back((yysemantic_stack_[(3) - (1)].hw_device)); }
     break;
 
   case 15:
 
 /* Line 678 of lalr1.cc  */
-#line 439 "cfg_parser.yy"
+#line 448 "cfg_parser.yy"
     { (yyval.dev_list) = dev_list_from_dev<match_by_cid>((yysemantic_stack_[(6) - (1)].hw_device), cxx::String((yysemantic_stack_[(6) - (3)].str).s, (yysemantic_stack_[(6) - (3)].str).e), cxx::String((yysemantic_stack_[(6) - (5)].str).s + 1, (yysemantic_stack_[(6) - (5)].str).e - 1), (yylocation_stack_[(6) - (5)])); }
     break;
 
   case 16:
 
 /* Line 678 of lalr1.cc  */
-#line 443 "cfg_parser.yy"
+#line 452 "cfg_parser.yy"
     { (yyval.hw_device) = _hw_root; }
     break;
 
   case 17:
 
 /* Line 678 of lalr1.cc  */
-#line 445 "cfg_parser.yy"
+#line 454 "cfg_parser.yy"
     {
 	    (yyval.hw_device) = find_by_name((yysemantic_stack_[(3) - (1)].hw_device), cxx::String((yysemantic_stack_[(3) - (3)].str).s, (yysemantic_stack_[(3) - (3)].str).e));
 	    if (!(yyval.hw_device))
@@ -841,70 +847,70 @@ namespace cfg {
   case 18:
 
 /* Line 678 of lalr1.cc  */
-#line 456 "cfg_parser.yy"
+#line 465 "cfg_parser.yy"
     { (yyval.const_expression).type = 0; (yyval.const_expression).val.num = (yysemantic_stack_[(1) - (1)].num); }
     break;
 
   case 19:
 
 /* Line 678 of lalr1.cc  */
-#line 458 "cfg_parser.yy"
+#line 467 "cfg_parser.yy"
     { (yyval.const_expression).type = 1; (yyval.const_expression).val.range.s = (yysemantic_stack_[(3) - (1)].num); (yyval.const_expression).val.range.e = (yysemantic_stack_[(3) - (3)].num); }
     break;
 
   case 20:
 
 /* Line 678 of lalr1.cc  */
-#line 460 "cfg_parser.yy"
+#line 469 "cfg_parser.yy"
     { (yyval.const_expression).type = 2; (yyval.const_expression).val.str.s = (yysemantic_stack_[(1) - (1)].str).s; (yyval.const_expression).val.str.e = (yysemantic_stack_[(1) - (1)].str).e; }
     break;
 
   case 21:
 
 /* Line 678 of lalr1.cc  */
-#line 463 "cfg_parser.yy"
+#line 472 "cfg_parser.yy"
     { (yyval.const_expr_list) = 0; }
     break;
 
   case 22:
 
 /* Line 678 of lalr1.cc  */
-#line 465 "cfg_parser.yy"
+#line 474 "cfg_parser.yy"
     { (yyval.const_expr_list) = new Const_expression_list(); (yyval.const_expr_list)->push_back((yysemantic_stack_[(1) - (1)].const_expression)); }
     break;
 
   case 23:
 
 /* Line 678 of lalr1.cc  */
-#line 467 "cfg_parser.yy"
+#line 476 "cfg_parser.yy"
     { (yyval.const_expr_list) = (yysemantic_stack_[(3) - (1)].const_expr_list); (yyval.const_expr_list)->push_back((yysemantic_stack_[(3) - (3)].const_expression)); }
     break;
 
   case 24:
 
 /* Line 678 of lalr1.cc  */
-#line 471 "cfg_parser.yy"
+#line 480 "cfg_parser.yy"
     { (yyval.resource) = create_resource((yylocation_stack_[(6) - (2)]), cxx::String((yysemantic_stack_[(6) - (2)].str).s, (yysemantic_stack_[(6) - (2)].str).e), (yysemantic_stack_[(6) - (4)].const_expr_list)); }
     break;
 
   case 25:
 
 /* Line 678 of lalr1.cc  */
-#line 475 "cfg_parser.yy"
+#line 484 "cfg_parser.yy"
     { hw_device_set_property((yylocation_stack_[(5) - (2)]), (yysemantic_stack_[(5) - (0)].hw_device), cxx::String((yysemantic_stack_[(5) - (2)].str).s, (yysemantic_stack_[(5) - (2)].str).e), cxx::String((yysemantic_stack_[(5) - (4)].str).s + 1, (yysemantic_stack_[(5) - (4)].str).e - 1)); }
     break;
 
   case 26:
 
 /* Line 678 of lalr1.cc  */
-#line 477 "cfg_parser.yy"
+#line 486 "cfg_parser.yy"
     { hw_device_set_property((yylocation_stack_[(5) - (2)]), (yysemantic_stack_[(5) - (0)].hw_device), cxx::String((yysemantic_stack_[(5) - (2)].str).s, (yysemantic_stack_[(5) - (2)].str).e), (yysemantic_stack_[(5) - (4)].num)); }
     break;
 
   case 27:
 
 /* Line 678 of lalr1.cc  */
-#line 481 "cfg_parser.yy"
+#line 490 "cfg_parser.yy"
     {
 	    (yyval.hw_device) = (yysemantic_stack_[(1) - (0)].hw_device);
 	    (yyval.hw_device)->add_child((yysemantic_stack_[(1) - (1)].hw_device));
@@ -916,21 +922,21 @@ namespace cfg {
   case 28:
 
 /* Line 678 of lalr1.cc  */
-#line 487 "cfg_parser.yy"
+#line 496 "cfg_parser.yy"
     {(yyval.hw_device) = (yysemantic_stack_[(1) - (0)].hw_device); (yyval.hw_device)->add_resource((yysemantic_stack_[(1) - (1)].resource)); }
     break;
 
   case 29:
 
 /* Line 678 of lalr1.cc  */
-#line 488 "cfg_parser.yy"
+#line 497 "cfg_parser.yy"
     { (yyval.hw_device) = (yysemantic_stack_[(1) - (0)].hw_device); }
     break;
 
   case 32:
 
 /* Line 678 of lalr1.cc  */
-#line 496 "cfg_parser.yy"
+#line 505 "cfg_parser.yy"
     {
 	    Hw::Device *d = Hw::Device_factory::create(cxx::String((yysemantic_stack_[(7) - (4)].str).s, (yysemantic_stack_[(7) - (4)].str).e));
 	    if (!d)
@@ -946,49 +952,49 @@ namespace cfg {
   case 33:
 
 /* Line 678 of lalr1.cc  */
-#line 505 "cfg_parser.yy"
+#line 514 "cfg_parser.yy"
     { (yyval.hw_device) = (yysemantic_stack_[(10) - (8)].hw_device); }
     break;
 
   case 34:
 
 /* Line 678 of lalr1.cc  */
-#line 508 "cfg_parser.yy"
+#line 517 "cfg_parser.yy"
     { (yyval.hw_device) = (yysemantic_stack_[(2) - (1)].hw_device); }
     break;
 
   case 37:
 
 /* Line 678 of lalr1.cc  */
-#line 512 "cfg_parser.yy"
+#line 521 "cfg_parser.yy"
     { (yyval.device) = 0; }
     break;
 
   case 38:
 
 /* Line 678 of lalr1.cc  */
-#line 515 "cfg_parser.yy"
+#line 524 "cfg_parser.yy"
     { (yyval.device) = 0; }
     break;
 
   case 39:
 
 /* Line 678 of lalr1.cc  */
-#line 517 "cfg_parser.yy"
+#line 526 "cfg_parser.yy"
     { (yyval.device) = concat((yysemantic_stack_[(2) - (1)].device), (yysemantic_stack_[(2) - (2)].device)); }
     break;
 
   case 40:
 
 /* Line 678 of lalr1.cc  */
-#line 519 "cfg_parser.yy"
+#line 528 "cfg_parser.yy"
     { _glbl_vbus = (yysemantic_stack_[(1) - (1)].device); }
     break;
 
 
 
 /* Line 678 of lalr1.cc  */
-#line 992 "cfg_parser.tab.cc"
+#line 998 "cfg_parser.tab.cc"
 	default:
           break;
       }
@@ -1381,11 +1387,11 @@ namespace cfg {
   const unsigned short int
   Parser::yyrline_[] =
   {
-         0,   404,   404,   408,   414,   418,   419,   421,   424,   427,
-     428,   432,   433,   436,   437,   438,   443,   444,   455,   457,
-     459,   463,   464,   466,   470,   474,   476,   480,   487,   488,
-     490,   492,   496,   495,   508,   508,   511,   512,   515,   516,
-     519
+         0,   413,   413,   417,   423,   427,   428,   430,   433,   436,
+     437,   441,   442,   445,   446,   447,   452,   453,   464,   466,
+     468,   472,   473,   475,   479,   483,   485,   489,   496,   497,
+     499,   501,   505,   504,   517,   517,   520,   521,   524,   525,
+     528
   };
 
   // Print the state stack on the debug stream.
@@ -1478,11 +1484,11 @@ namespace cfg {
 } // cfg
 
 /* Line 1054 of lalr1.cc  */
-#line 1482 "cfg_parser.tab.cc"
+#line 1488 "cfg_parser.tab.cc"
 
 
 /* Line 1056 of lalr1.cc  */
-#line 521 "cfg_parser.yy"
+#line 530 "cfg_parser.yy"
 
 
 void cfg::Parser::error(const Parser::location_type& l,

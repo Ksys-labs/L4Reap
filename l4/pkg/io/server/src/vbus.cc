@@ -197,7 +197,6 @@ System_bus::request_resource(L4::Ipc_iostream &ios)
   return -L4_ENOENT;
 }
 
-
 int
 System_bus::request_iomem(L4::Ipc_iostream &ios)
 {
@@ -220,7 +219,7 @@ System_bus::request_iomem(L4::Ipc_iostream &ios)
 
 	  offset = l4_trunc_page(offset);
 
-	  l4_addr_t st = l4_trunc_page((*r)->_data().start());
+	  l4_addr_t st = l4_trunc_page((*r)->start());
 	  l4_addr_t adr = (*r)->map_iomem();
 
           if (!adr)
@@ -228,7 +227,16 @@ System_bus::request_iomem(L4::Ipc_iostream &ios)
 
           adr = l4_trunc_page(adr);
 
-	  ios << L4::Snd_fpage::mem(offset - st + adr, L4_PAGESHIFT, L4_FPAGE_RWX, l4_trunc_page(spot));
+          l4_addr_t addr = offset - st + adr;
+          unsigned char order
+            = l4_fpage_max_order(L4_PAGESHIFT,
+                                 addr, addr, addr + (*r)->size(), spot);
+
+          // we also might want to do WB instead of UNCACHED...
+          ios << L4::Snd_fpage::mem(l4_trunc_size(addr, order), order,
+                                    L4_FPAGE_RWX, l4_trunc_page(spot),
+                                    L4::Snd_fpage::Map,
+                                    L4::Snd_fpage::Uncached);
 	  return L4_EOK;
 	}
     }

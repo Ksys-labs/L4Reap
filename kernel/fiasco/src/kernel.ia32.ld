@@ -13,7 +13,7 @@ _load		= 0x1000;	/* skip page 0 to preserve BIOS data and
 /*_fiasco_image_offset = 0xf0000000;*/
 _fiasco_image_offset = FIASCO_IMAGE_PHYS_OFFSET;
 
-ENTRY(_boot_start)
+ENTRY(bootstrap__boot_start)
 
 PHDRS {
   tramp PT_LOAD;

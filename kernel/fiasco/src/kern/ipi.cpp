@@ -49,7 +49,6 @@ void
 Ipi::init(unsigned)
 {}
 
-
 PUBLIC static inline
 void
 Ipi::send(int, Message)
@@ -64,91 +63,6 @@ PUBLIC static inline
 void
 Ipi::bcast(Message)
 {}
-
-// ------------------------------------------------------------------------
-IMPLEMENTATION[mp]:
-
-#include <cstdio>
-
-#include "cpu.h"
-#include "lock_guard.h"
-
-#if 0
-PRIVATE static
-void
-Ipi::invalid_remote_func(void *)
-{
-  printf("IPI with func?\n");
-}
-
-PUBLIC static
-void
-Ipi::process_remote_call()
-{
-  if (Ipi::_remote_call_func)
-    Ipi::_remote_call_func(Ipi::_remote_call_func_data);
-
-  asm volatile("" : : : "memory");
-
-  _remote_call_done = 1;
-}
-
-PUBLIC static
-bool
-Ipi::remote_call_wait(unsigned this_cpu, unsigned to_cpu,
-                      void (*f)(void *), void *data)
-{
-  if (to_cpu == this_cpu)
-    {
-      //ipi_call_debug_arch();
-      f(data);
-      return true;
-    }
-
-  if (!Cpu::online(to_cpu))
-    return false;
-
-  Lock_guard<Spin_lock> guard(&_remote_call_lock);
-
-  _remote_call_func      = f;
-  _remote_call_func_data = data;
-  _remote_call_done      = 0;
-
-  send(to_cpu);
-
-  while (!*(volatile unsigned long *)&_remote_call_done) // XXX add timeout?
-    ;
-
-  _remote_call_func = invalid_remote_func;
-
-  return true;
-}
-
-PUBLIC static
-bool
-Ipi::remote_call_nowait(unsigned this_cpu, unsigned to_cpu,
-                        void (*f)(void *), void *data)
-{
-  if (to_cpu == this_cpu)
-    {
-      //ipi_call_debug_arch();
-      f(data);
-      return true;
-    }
-
-  if (!Cpu::online(to_cpu))
-    return false;
-
-  _remote_call_func      = f;
-  _remote_call_func_data = data;
-  _remote_call_done      = 0;
-
-  send(to_cpu);
-
-  return true;
-}
-#endif
-
 
 // ------------------------------------------------------------------------
 IMPLEMENTATION[!(mp && debug)]:

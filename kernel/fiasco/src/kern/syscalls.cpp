@@ -28,7 +28,6 @@ class Syscalls : public Thread
 {
 
 public:
-  void sys_thread_schedule();
   void sys_invoke_object();
 protected:
   Syscalls();

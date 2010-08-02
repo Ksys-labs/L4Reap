@@ -348,9 +348,8 @@ Thread::call_nested_trap_handler(Trap_state *ts)
   unsigned long &ntr = nested_trap_recover.cpu(log_cpu);
 
 #if 0
-  printf("%s: lcpu%u sp=%p t=%u nested_trap_recover=%ld\n",
-      __func__, log_cpu, (void*)Proc::stack_pointer(), ts->_trapno,
-      ntr);
+  printf("%s: lcpu%u sp=%p t=%lu nested_trap_recover=%ld\n",
+         __func__, log_cpu, (void*)Proc::stack_pointer(), ts->_trapno, ntr);
 #endif
 
   int ret;
@@ -410,4 +409,3 @@ Thread::call_nested_trap_handler(Trap_state *ts)
 
   return ret == 0 ? 0 : -1;
 }
-

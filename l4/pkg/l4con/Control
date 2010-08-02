@@ -1,3 +1,3 @@
 requires: l4re_c l4re-util libio libc_r lxfuxlibc x86emu input
-          libgfxbitmap stdlibs libdrivers-lcd
+          libgfxbitmap stdlibs libdrivers-lcd linux-26-headers
 Maintainer: adam@os.inf.tu-dresden.de

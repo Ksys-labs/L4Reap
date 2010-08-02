@@ -89,7 +89,7 @@ private:
 /**
  * \brief Create an instance of Buf_cp_out for the given values.
  * \ingroup ipc_fw
- * 
+ *
  * This function makes it more convenient to insert arrays into an
  * Ipc::Ostream (\see Buf_cp_out.)
  *
@@ -136,7 +136,7 @@ private:
 /**
  * \brief Create an Buf_cp_in for the given values.
  * \ingroup ipc_fw
- * 
+ *
  * This function makes it more convenient to extract arrays from an
  * Ipc::Istream (\see Buf_cp_in.)
  *
@@ -183,7 +183,7 @@ public:
 /**
  * \brief Create an Msg_ptr to adjust the given pointer.
  * \ingroup ipc_fw
- * 
+ *
  * This function makes it more convenient to extract pointers to data in the
  * message buffer itself from an Ipc::Istream.
  * This may be used to avoid copy out of large data structures.
@@ -211,7 +211,7 @@ template< typename T >
 class Buf_in
 {
 public:
-  /** 
+  /**
    * \brief Create an Buf_in to adjust a pointer to the array and the size
    *        of the array.
    * \param v The pointer to adjust to the first element of the array.
@@ -230,7 +230,7 @@ private:
 /**
  * \brief Create an Buf_in for the given values.
  * \ingroup ipc_fw
- * 
+ *
  * This function makes it more convenient to extract arrays from an
  * Ipc::Istream (See Buf_in.)
  *
@@ -547,6 +547,12 @@ private:
   Value _data;
 };
 
+namespace Utcb_stream_check
+{
+  static bool check_utcb_data_offset(unsigned sz)
+  { return sz > sizeof(l4_umword_t) * L4_UTCB_GENERIC_DATA_SIZE; }
+}
+
 
 /**
  * \brief Input stream for IPC unmarshalling.
@@ -568,7 +574,7 @@ class Istream
 public:
   /**
    * \brief Create an input stream for the given message buffer.
-   * 
+   *
    * The given message buffer is used for IPC operations wait()/receive()
    * and received data can be extracted using the >> operator afterwards.
    * In the case of indirect message parts a buffer of type Msg_in_buffer
@@ -626,7 +632,7 @@ public:
   {
     size *= sizeof(T);
     _pos = cxx::Type_traits<T>::align(_pos);
-    if ((_pos + size) / sizeof(l4_umword_t) > L4_UTCB_GENERIC_DATA_SIZE)
+    if (Utcb_stream_check::check_utcb_data_offset(_pos + size))
       return;
 
     __builtin_memcpy(buf, _current_msg + _pos, size);
@@ -643,13 +649,13 @@ public:
   {
     size *= sizeof(T);
     _pos = cxx::Type_traits<T>::align(_pos);
-    if ((_pos + size) / sizeof(l4_umword_t) > L4_UTCB_GENERIC_DATA_SIZE)
+    if (Utcb_stream_check::check_utcb_data_offset(_pos + size))
       return;
     _pos += size;
   }
 
   /**
-   * \brief Read one size elements of type T from the stream and return 
+   * \brief Read one size elements of type T from the stream and return
    *        a pointer.
    *
    * In contrast to a normal get, this version does actually not copy the data
@@ -666,10 +672,10 @@ public:
   {
     size *= sizeof(T);
     _pos = cxx::Type_traits<T>::align(_pos);
-    if ((_pos + size) / sizeof(l4_umword_t) > L4_UTCB_GENERIC_DATA_SIZE)
+    if (Utcb_stream_check::check_utcb_data_offset(_pos + size))
       return;
 
-    buf.set(reinterpret_cast<T*>(_current_msg + _pos)); 
+    buf.set(reinterpret_cast<T*>(_current_msg + _pos));
     _pos += size;
   }
 
@@ -683,8 +689,8 @@ public:
   template< typename T >
   void get(T &v)
   {
-    _pos = cxx::Type_traits<T>::align(_pos); 
-    if ((_pos + sizeof(T)) > L4_UTCB_GENERIC_DATA_SIZE * sizeof(l4_umword_t))
+    _pos = cxx::Type_traits<T>::align(_pos);
+    if (Utcb_stream_check::check_utcb_data_offset(_pos + sizeof(T)))
       {
 	v = T();
         return;
@@ -737,7 +743,7 @@ public:
    * \brief Put a receive item into the stream's buffer registers.
    */
   inline bool put(Buf_item const &);
-  
+
   /**
    * \internal
    * \brief Put a small receive item into the stream's buffer registers.
@@ -858,7 +864,7 @@ public:
   {
     size *= sizeof(T);
     _pos = cxx::Type_traits<T>::align(_pos);
-    if ((_pos + size) / sizeof(l4_umword_t) > L4_UTCB_GENERIC_DATA_SIZE)
+    if (Utcb_stream_check::check_utcb_data_offset(_pos + size))
       return;
 
     __builtin_memcpy(_current_msg + _pos, buf, size);
@@ -873,7 +879,7 @@ public:
   void put(T const &v)
   {
     _pos = cxx::Type_traits<T>::align(_pos);
-    if ((_pos + sizeof(T)) / sizeof(l4_umword_t) > L4_UTCB_GENERIC_DATA_SIZE)
+    if (Utcb_stream_check::check_utcb_data_offset(_pos + sizeof(T)))
       return;
 
     *(reinterpret_cast<T*>(_current_msg + _pos)) = v;
@@ -1074,7 +1080,6 @@ public:
   { return reply(L4_IPC_SEND_TIMEOUT_0, proto); }
 
   //@}
-
 };
 
 
@@ -1083,7 +1088,7 @@ Ostream::put_snd_item(Snd_item const &v)
 {
   typedef Snd_item T;
   _pos = cxx::Type_traits<Snd_item>::align(_pos);
-  if ((_pos + sizeof(T)) / sizeof(l4_umword_t) >= L4_UTCB_GENERIC_DATA_SIZE)
+  if (Utcb_stream_check::check_utcb_data_offset(_pos + sizeof(T)))
     return false;
 
   *(reinterpret_cast<T*>(_current_msg + _pos)) = v;

@@ -6,6 +6,10 @@
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
  */
+
+#include <libc-symbols.h>
+#include <fnmatch.h>
+
 #include "hw_device.h"
 #include "cfg.h"
 
@@ -166,8 +170,13 @@ Device::set_property(cxx::String const &prop, Prop_val const &val)
 bool
 Device::match_cid(cxx::String const &cid) const
 {
-  if (cid == hid())
-    return true;
+    {
+      char cid_cstr[cid.len() + 1];
+      __builtin_memcpy(cid_cstr, cid.start(), cid.len());
+      cid_cstr[cid.len()]  = 0;
+      if (!fnmatch(cid_cstr, hid(), 0))
+        return true;
+    }
 
   for (Cid_list::const_iterator i = _cid.begin(); i != _cid.end(); ++i)
     if (cid == (*i).c_str())

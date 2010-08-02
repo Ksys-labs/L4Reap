@@ -40,6 +40,11 @@ void
 Jdb::leave_trap_handler(unsigned /*cpu*/)
 {}
 
+PROTECTED static inline
+void
+Jdb::monitor_address(unsigned, void *)
+{}
+
 IMPLEMENT inline
 bool
 Jdb::handle_conditional_breakpoint(unsigned /*cpu*/)

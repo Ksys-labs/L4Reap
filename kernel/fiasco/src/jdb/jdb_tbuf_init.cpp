@@ -73,12 +73,12 @@ void Jdb_tbuf_init::init()
 	  va += Config::PAGE_SIZE;
 	}
 
-      status()->tracebuffer0 = (Address)Mem_layout::Tbuf_ubuffer_area;
-      status()->tracebuffer1 = (Address)Mem_layout::Tbuf_ubuffer_area + size/2;
-      status()->size0        =
-      status()->size1        = size / 2;
-      status()->version0     =
-      status()->version1     = 0;
+      status()->window[0].tracebuffer = (Address)Mem_layout::Tbuf_ubuffer_area;
+      status()->window[1].tracebuffer = (Address)Mem_layout::Tbuf_ubuffer_area + size/2;
+      status()->window[0].size        =
+      status()->window[1].size        = size / 2;
+      status()->window[0].version     =
+      status()->window[1].version     = 0;
 
 
       status()->scaler_tsc_to_ns = Cpu::boot_cpu()->get_scaler_tsc_to_ns();

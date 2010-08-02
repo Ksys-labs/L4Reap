@@ -132,6 +132,7 @@ my %modules =
                    sqlite
                    tlsf
                    tmpfs
+                   udis86
                    valgrind
                    x86emu
                    zlib

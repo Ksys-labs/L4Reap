@@ -15,8 +15,6 @@ SRC_C           = jaricom.c jcapimin.c jcapistd.c jcarith.c jccoefct.c jccolor.c
         jfdctint.c jidctflt.c jidctfst.c jidctint.c jquant1.c \
         jquant2.c jutils.c jmemmgr.c jmemnobs.c jdarith.c
 
-CONTRIB_INCDIR = libjpeg
-
 vpath %.c $(SRC_DIR)/../contrib
 
 include $(L4DIR)/mk/lib.mk

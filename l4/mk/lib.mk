@@ -110,24 +110,6 @@ convert_lib_list =                                  \
 	$(patsubst lib%.so,-l%,$(filter %.so,$(1))) \
 	$(filter -l%,$(1))
 
-# 1: name
-# 2: output file
-# 3: inc path (one only)
-# 4: libs
-# 5: requires_libs
-generate_pcfile =                                                            \
-	mkdir -p $(dir $(2))                                                 \
-	;echo -n                                                    > $(2)   \
-	$(if $(3),;echo "incdir=/empty_incdir"                     >> $(2))  \
-	;echo "Name: $(1)"                                         >> $(2)   \
-	;echo "Version: 0"                                         >> $(2)   \
-	;echo "Description: L4 library"                            >> $(2)   \
-	$(if $(3),;echo "Cflags: $(addprefix -I\$${incdir}/,$(3))" >> $(2))  \
-	$(if $(4),;echo "Libs: $(sort $(4))"                       >> $(2))  \
-	$(if $(5),;echo "Requires: $(5)"                           >> $(2))  \
-	$(if $(BID_GEN_CONTROL),;echo "Provides: $(1)"             >> $(PKGDIR)/Control) \
-	$(if $(BID_GEN_CONTROL),;echo "Requires: $(5)"             >> $(PKGDIR)/Control) ;
-
 $(OBJ_BASE)/pc/%.pc: $(GENERAL_D_LOC)
 	$(VERBOSE)$(call generate_pcfile,$*,$@,$(call get_cont,CONTRIB_INCDIR,$*),$(call convert_lib_list,$(call get_cont,PC_LIBS,$*)),$(call get_cont,REQUIRES_LIBS,$*))
 

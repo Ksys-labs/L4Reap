@@ -15,7 +15,7 @@ _fiasco_image_offset = FIASCO_IMAGE_PHYS_OFFSET;
 
 OUTPUT_FORMAT("elf64-x86-64")
 OUTPUT_ARCH(i386:x86-64)
-ENTRY(_boot_start)
+ENTRY(bootstrap__boot_start)
 
 PHDRS {
   tramp PT_LOAD;
@@ -37,12 +37,19 @@ SECTIONS {
 
   . = _boot_sys_start;
   .text_boot : ALIGN(0x1000) {
-    *(.bootstrap.text)
+    *(.bootstrap.init)
+    *(.bootstrap.text .bootstrap.text.* .bootstrap.gnu.linkonce.t.*)
+    *(.bootstrap.fini)
+
+    *(.bootstrap.rodata .bootstrap.rodata.* .bootstrap.gnu.linkonce.r.*)
+    *(.bootstrap.data .bootstrap.data.* .bootstrap.gnu.linkonce.d.*)
+    *(.bootstrap.anno)
+
   } : btext
   
   . = ALIGN(0x10);
   .bss_boot : {
-    *(.bootstrap.bss)
+      *(.bootstrap.bss .bootstrap.gnu.linkonce.b.*)
   . = ALIGN(0x1000);
   PROVIDE(_boot_sys_end = .);
   } : bdata
@@ -150,6 +157,7 @@ SECTIONS {
   PROVIDE (_initcall_start = .);
   .initcall.text : AT (ADDR(.initcall.text) - _fiasco_image_offset) {
     *(.initcall.text*)
+    *(.text.*)
   } : kitext = 0x90909090
 
   .initcall.data : AT (ADDR(.initcall.data) - _fiasco_image_offset) {

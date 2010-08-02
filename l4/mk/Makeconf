@@ -113,7 +113,16 @@ CARCHFLAGS_x86_athlon4    = -march=athlon-4
 CARCHFLAGS_x86_K8         = -march=k8
 CARCHFLAGS_x86_opteron    = -march=opteron
 
-CARCHFLAGS_arm            = -march=$(CPU)
+CARCHFLAGS_arm_armv4      = -march=armv4
+CARCHFLAGS_arm_armv4t     = -march=armv4t
+CARCHFLAGS_arm_armv5      = -march=armv5
+CARCHFLAGS_arm_armv5t     = -march=armv5t
+CARCHFLAGS_arm_armv5te    = -march=armv5te
+CARCHFLAGS_arm_armv6      = -march=armv6
+CARCHFLAGS_arm_armv6t2    = -march=armv6t2
+CARCHFLAGS_arm_armv6zk    = -march=armv6zk
+CARCHFLAGS_arm_armv7a     = -march=armv7-a
+CARCHFLAGS_arm_armv7r     = -march=armv7-r
 
 IDL_SYSTEMS 	= x86-l4f
 
@@ -164,7 +173,7 @@ MKDIR		= mkdir -p
 MKFLAGS		+=$(MKFLAGS_$@)
 NM		= $(SYSTEM_TARGET)nm
 OBJCOPY		= $(SYSTEM_TARGET)objcopy
-PKG_CONFIG      = pkg-config --silence-errors
+PKG_CONFIG      = PKG_CONFIG_PATH= pkg-config --silence-errors
 PWDCMD		= sh -c pwd
 RANLIB		= $(SYSTEM_TARGET)ranlib
 RM		= rm -f
@@ -560,5 +569,28 @@ addfileheader:
         
 
 .PHONY: FORCE
+
+#
+# Common functions
+#
+
+# 1: name
+# 2: output file
+# 3: inc path (one only)
+# 4: libs
+# 5: requires_libs
+generate_pcfile =                                                            \
+	mkdir -p $(dir $(2))                                                 \
+	;echo -n                                                    > $(2)   \
+	$(if $(3),;echo "incdir=/empty_incdir"                     >> $(2))  \
+	;echo "Name: $(1)"                                         >> $(2)   \
+	;echo "Version: 0"                                         >> $(2)   \
+	;echo "Description: L4 library"                            >> $(2)   \
+	$(if $(3),;echo "Cflags: $(addprefix -I\$${incdir}/,$(3))" >> $(2))  \
+	$(if $(4),;echo "Libs: $(sort $(4))"                       >> $(2))  \
+	$(if $(5),;echo "Requires: $(5)"                           >> $(2))  \
+	$(if $(BID_GEN_CONTROL),;echo "Provides: $(1)"             >> $(PKGDIR)/Control) \
+	$(if $(BID_GEN_CONTROL),;echo "Requires: $(5)"             >> $(PKGDIR)/Control) ;
+
 
 endif	# _L4DIR_MK_MAKECONF undefined

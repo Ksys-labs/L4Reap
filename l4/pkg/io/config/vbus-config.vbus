@@ -7,9 +7,9 @@
 bus => new System_bus()
 {
   # Scan the hw-root bus for devices that have a compatibility ID (CID)
-  # match for PNP0303, which is a PS/2 controller. And add them with virtual
+  # match for a keyboard or mouse. And add them with virtual
   # device wrappers to the BUS.
-  ps2 => wrap(hw-root.match("PNP0303"));
+  ps2 => wrap(hw-root.match("PNP0[3F]??"));
 }
 
 

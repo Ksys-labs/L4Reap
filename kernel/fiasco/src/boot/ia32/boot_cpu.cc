@@ -232,7 +232,7 @@ fill_gate(unsigned vector, Unsigned32 offset,
   base_idt[vector].offset_high = (offset >> 16) & 0xffff;
 }
 
-extern inline void
+inline void ALWAYS_INLINE
 paging_enable(Address pdir)
 {
   /* Load the page directory.  */

@@ -61,6 +61,9 @@ Apic::mp_send_ipi(Unsigned32 dest, Unsigned32 vect,
   assert((dest & 0x00f3ffff) == 0);
   assert(vect <= 0xff);
 
+  while (!mp_ipi_idle())
+    Proc::pause();
+
   // Set destination for no-shorthand destination type
   if ((dest & APIC_IPI_DSTMSK) == APIC_IPI_NOSHRT)
     {

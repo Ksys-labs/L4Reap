@@ -16,7 +16,7 @@ public:
   static void (*direct_log_entry)(Tb_entry*, const char*);
 
   enum
-  { 
+  {
     Event  = 1,
     Result = 2
   };
@@ -240,9 +240,9 @@ Jdb_tbuf::commit_entry()
   if (EXPECT_FALSE((_number & _count_mask2) == 0))
     {
       if (_number & _count_mask1)
-	status()->version0++; // 64-bit value!
+	status()->window[0].version++; // 64-bit value!
       else
-	status()->version1++; // 64-bit value!
+	status()->window[1].version++; // 64-bit value!
 
 #if 0 // disbale Tbuf vIRQ for the time beeing (see bug #357)
       // fire the virtual 'buffer full' irq

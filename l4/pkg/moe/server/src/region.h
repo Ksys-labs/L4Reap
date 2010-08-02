@@ -51,10 +51,5 @@ public:
   Region_map();
   int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
   virtual ~Region_map() {}
-
-  static void init_limits();
-
-private:
-  static l4_addr_t _s_start, _s_end;
 };
 

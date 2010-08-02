@@ -203,6 +203,18 @@ Jdb::connected()
   return _connected;
 }
 
+PROTECTED static inline
+void
+Jdb::monitor_address(unsigned current_cpu, void *addr)
+{
+  if (Cpu::cpus.cpu(current_cpu).has_monitor_mwait())
+    {
+      asm volatile ("monitor \n" : : "a"(addr), "c"(0), "d"(0) );
+      Mword irq_sup = Cpu::cpus.cpu(current_cpu).has_monitor_mwait_irq() ? 1 : 0;
+      asm volatile ("mwait   \n" : : "a"(0x00), "c"(irq_sup) );
+    }
+}
+
 
 #if 0
 PUBLIC static
@@ -945,8 +957,8 @@ Jdb::handle_nested_trap(Jdb_entry_frame *e)
       break;
     case 3:
       cursor(Jdb_screen::height(), 1);
-      printf("\nSoftware breakpoint inside jdb at "L4_PTR_FMT"\n", 
-	  e->ip()-1);
+      printf("\nSoftware breakpoint inside jdb at "L4_PTR_FMT"\n",
+             e->ip()-1);
       break;
     case 13:
       switch (msr_test)

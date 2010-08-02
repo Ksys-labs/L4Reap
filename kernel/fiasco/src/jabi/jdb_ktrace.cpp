@@ -31,17 +31,18 @@ enum {
   Kern_cnt_max
 };
 
+struct Tracebuffer_status_window
+{
+  Address    tracebuffer;
+  Address    size;
+  Unsigned64 version;
+};
 
 struct Tracebuffer_status
 {
-  Address    tracebuffer0;
-  Address    size0;
-  Unsigned64 version0;
-  Address    tracebuffer1;
-  Address    size1;
-  Unsigned64 version1;
-  Address    current;
-  Unsigned32 logevents[Log_event_max];
+  Tracebuffer_status_window window[2];
+  Address                   current;
+  Unsigned32                logevents[Log_event_max];
 
   Unsigned32 scaler_tsc_to_ns;
   Unsigned32 scaler_tsc_to_us;

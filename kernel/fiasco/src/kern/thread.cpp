@@ -1290,8 +1290,8 @@ Thread::sys_thread_switch(L4_msg_tag const &/*tag*/, Utcb *utcb)
       && ((state() & (Thread_ready | Thread_suspended)) == Thread_ready))
     {
       curr->switch_exec_schedule_locked (this, Not_Helping);
-      *(Unsigned64*)((void*)(utcb->values)) = 0; // Assume timeslice was used up
-      return commit_result(0, 2);
+      reinterpret_cast<Utcb::Time_val*>(utcb->values)->t = 0; // Assume timeslice was used up
+      return commit_result(0, Utcb::Time_val::Words);
     }
 
 #if 0 // FIXME: provide API for multiple sched contexts
@@ -1301,10 +1301,11 @@ Thread::sys_thread_switch(L4_msg_tag const &/*tag*/, Utcb *utcb)
       // Yield current global timeslice
       cs->owner()->switch_sched (cs->id() ? cs->next() : cs);
 #endif
-  *(Unsigned64*)((void*)(utcb->values)) = timeslice_timeout.cpu(current_cpu())->get_timeout(Timer::system_clock());
+  reinterpret_cast<Utcb::Time_val*>(utcb->values)->t
+    = timeslice_timeout.cpu(current_cpu())->get_timeout(Timer::system_clock());
   curr->schedule();
 
-  return commit_result(0,2);
+  return commit_result(0, Utcb::Time_val::Words);
 }
 
 
@@ -1344,9 +1345,9 @@ Thread::sys_thread_stats(L4_msg_tag const &/*tag*/, Utcb *utcb)
       value = consumed_time();
     }
 
-  *(Cpu_time *)((void*)(utcb->values)) = value;
+  reinterpret_cast<Utcb::Time_val *>(utcb->values)->t = value;
 
-  return commit_result(0, sizeof(Cpu_time) / sizeof(Mword));
+  return commit_result(0, Utcb::Time_val::Words);
 }
 
 

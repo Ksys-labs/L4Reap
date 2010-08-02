@@ -29,58 +29,36 @@
 #include <l4/sys/types.h>
 #include <l4/sys/ktrace_events.h>
 
-#define LOG_EVENT_CONTEXT_SWITCH   0  /**< Event: context switch
-				       **  \ingroup api_calls_fiasco
-				       **/
-#define LOG_EVENT_IPC_SHORTCUT     1  /**< Event: IPC shortcut
-				       **  \ingroup api_calls_fiasco
-				       **/
-#define LOG_EVENT_IRQ_RAISED       2  /**< Event: IRQ occurred
-				       **  \ingroup api_calls_fiasco
-				       **/
-#define LOG_EVENT_TIMER_IRQ        3  /**< Event: Timer IRQ occurred
-				       **  \ingroup api_calls_fiasco
-				       **/
-#define LOG_EVENT_THREAD_EX_REGS   4  /**< Event: thread_ex_regs
-				       **  \ingroup api_calls_fiasco
-				       **/
-#define LOG_EVENT_TRAP             5  /**< Event: Trap occured
-				       **  \ingroup api_calls_fiasco
-				       **/
-#define LOG_EVENT_PF_RES           6  /**< Event: Pagefpault resolved
-				       **  \ingroup api_calls_fiasco
-				       **/
-#define LOG_EVENT_SCHED            7  /**< Event: Scheduling context
-				       **  loaded, saved or invalidated
-				       **  \ingroup api_calls_fiasco
-				       **/
-#define LOG_EVENT_PREEMPTION       8  /**< Event: Preemption IPC sent
-				       **  \ingroup api_calls_fiasco
-				       **/
-
-#define LOG_EVENT_MAX_EVENTS      16  /**< Maximum number of events
-				       **  \ingroup api_calls_fiasco
-				       **/
+/**
+ * \brief Log event types
+ * \ingroup api_calls_fiasco
+ */
+enum {
+  LOG_EVENT_MAX_EVENTS = 16,
+};
 
 /**
- * Trace-buffer status.
+ * Trace-buffer status window descriptor.
  * \ingroup api_calls_fiasco
  */
 // keep in sync with fiasco/src/jabi/jdb_ktrace.cpp
 typedef struct
 {
-  /// Address of trace-buffer 0
-  l4_tracebuffer_entry_t * tracebuffer0;
-  /// Size of trace-buffer 0
-  l4_umword_t size0;
-  /// Version number of trace-buffer 0 (incremented if tb0 overruns)
-  volatile l4_uint64_t version0;
-  /// Address of trace-buffer 1 (there is no gap between tb0 and tb1)
-  l4_tracebuffer_entry_t * tracebuffer1;
-  /// Size of trace-buffer 1 (same as tb0)
-  l4_umword_t size1;
-  /// Version number of trace-buffer 1 (incremented if tb1 overruns)
-  volatile l4_uint64_t version1;
+  /// Address of trace-buffer
+  l4_tracebuffer_entry_t *tracebuffer;
+  /// Size of trace-buffer
+  l4_umword_t size;
+  /// Version number of trace-buffer  (incremented if trace-buffer overruns)
+  volatile l4_uint64_t version;
+} l4_tracebuffer_status_window_t;
+
+/**
+ * Trace-buffer status.
+ * \ingroup api_calls_fiasco
+ */
+typedef struct
+{
+  l4_tracebuffer_status_window_t window[2];
   /// Address of the most current event in trace-buffer.
   volatile l4_tracebuffer_entry_t * current_entry;
   /// Available LOG events

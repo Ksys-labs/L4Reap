@@ -64,7 +64,7 @@ static
 void
 Timer::update_one_shot(Unsigned64 wakeup)
 {
-  unsigned cpu = current_cpu();
+  //unsigned cpu = current_cpu();
   Unsigned32 apic;
   Unsigned64 now = Kip::k()->clock; //Cpu::cpus.cpu(cpu).time_us();
   if (EXPECT_FALSE (wakeup <= now))

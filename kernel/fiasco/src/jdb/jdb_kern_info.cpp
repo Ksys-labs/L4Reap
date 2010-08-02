@@ -6,7 +6,7 @@ class Jdb_kern_info_module;
 
 /**
  * 'kern info' module.
- * 
+ *
  * This module handles the 'k' command, which
  * prints out various kernel information.
  */
@@ -69,7 +69,7 @@ Jdb_kern_info::register_subcmd(Jdb_kern_info_module *m)
   Jdb_kern_info_module *kim = _first;
   Jdb_kern_info_module *kim_last = 0;
 
-  while (kim && 
+  while (kim &&
          (tolower(kim->_subcmd)  < tolower(m->_subcmd) ||
 	  (tolower(kim->_subcmd) == tolower(m->_subcmd) &&
 	   kim->_subcmd > m->_subcmd)))
@@ -88,9 +88,9 @@ PUBLIC
 Jdb_module::Action_code
 Jdb_kern_info::action(int cmd, void *&args, char const *&, int &)
 {
-  if(cmd!=0)
+  if (cmd != 0)
     return NOTHING;
-  
+
   char c = *(char*)(args);
   Jdb_kern_info_module *kim;
 
@@ -105,6 +105,7 @@ Jdb_kern_info::action(int cmd, void *&args, char const *&, int &)
 	}
     }
 
+  putchar('\n');
   for (kim=_first; kim; kim=kim->_next)
     printf("  k%c   %s\n", kim->_subcmd, kim->_descr);
 
@@ -115,7 +116,7 @@ Jdb_kern_info::action(int cmd, void *&args, char const *&, int &)
 PUBLIC
 int
 Jdb_kern_info::num_cmds() const
-{ 
+{
   return 1;
 }
 
@@ -125,7 +126,7 @@ Jdb_kern_info::cmds() const
 {
   static Cmd cs[] =
     {
-	{ 0, "k", "k", "%c", 
+	{ 0, "k", "k", "%c",
 	   "k\tshow various kernel information (kh=help)", &_subcmd }
     };
 
@@ -138,4 +139,3 @@ Jdb_kern_info::Jdb_kern_info()
 {}
 
 static Jdb_kern_info jdb_kern_info INIT_PRIORITY(JDB_MODULE_INIT_PRIO);
-

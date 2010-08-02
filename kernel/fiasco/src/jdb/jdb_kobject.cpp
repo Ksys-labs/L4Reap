@@ -324,8 +324,8 @@ Jdb_kobject_list::get_valid(void *o)
 
 IMPLEMENT
 bool
-Jdb_kobject_handler::invoke(Kobject *, Syscall_frame *f, Utcb *)
-{ f->tag(L4_msg_tag(0)); return false; }
+Jdb_kobject_handler::invoke(Kobject *, Syscall_frame *, Utcb *)
+{ return false; }
 
 PUBLIC
 Jdb_kobject_handler *
@@ -610,13 +610,18 @@ sys_invoke_debug(Kobject *o, Syscall_frame *f)
   Utcb *utcb = current_thread()->access_utcb();
   //printf("sys_invoke_debug: [%p] -> %p\n", o, f);
   Jdb_kobject_handler *h = Jdb_kobject::module()->find_handler(o);
-  if (!h || !h->invoke(o, f, utcb))
+  if (h && h->invoke(o, f, utcb))
+    return;
+
+  h = Jdb_kobject::module()->first_global_handler();
+  while (h)
     {
-      h = Jdb_kobject::module()->first_global_handler();
-      while (h && !h->invoke(o, f, utcb))
-	h = h->next_global();
+      if (h->invoke(o, f, utcb))
+	return;
+      h = h->next_global();
     }
 
+  f->tag(Kobject_iface::commit_result(-L4_err::ENoent));
 }
 
 PUBLIC

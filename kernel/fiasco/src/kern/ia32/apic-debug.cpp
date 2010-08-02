@@ -51,13 +51,13 @@ Apic::reg_show(unsigned reg)
   Unsigned32 tmp_val = reg_read(reg);
 
   printf("%-9s%-6s%-4s%-8s%-7s%02x",
-      reg_lvt_bit_str(reg, tmp_val, Mask),
-      reg_lvt_bit_str(reg, tmp_val, Trigger_mode),
-      reg_lvt_bit_str(reg, tmp_val, Remote_irr),
-      reg_lvt_bit_str(reg, tmp_val, Delivery_state),
-      reg_lvt_bit_str(reg, tmp_val, Delivery_mode),
-      reg_lvt_vector(tmp_val));
-}     
+         reg_lvt_bit_str(reg, tmp_val, Mask),
+         reg_lvt_bit_str(reg, tmp_val, Trigger_mode),
+         reg_lvt_bit_str(reg, tmp_val, Remote_irr),
+         reg_lvt_bit_str(reg, tmp_val, Delivery_state),
+         reg_lvt_bit_str(reg, tmp_val, Delivery_mode),
+         reg_lvt_vector(tmp_val));
+}
 
 PUBLIC static
 void
@@ -69,7 +69,7 @@ Apic::regs_show(void)
   putstr("\n           Error: "); reg_show(APIC_lvterr);
   if (have_pcint())
     {
-      putstr("\n         PerfCnt: "); 
+      putstr("\n         PerfCnt: ");
       reg_show(APIC_lvtpc);
     }
   if (have_tsint())

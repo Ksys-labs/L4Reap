@@ -61,7 +61,7 @@ typedef void               Context; // We don't have a class Context
 typedef void               Space;
 typedef void               Sched_context;
 typedef l4_fpage_t         L4_fpage;
-typedef void *             Address;
+typedef unsigned long      Address;
 typedef unsigned long      Mword;
 typedef Mword              L4_error;
 typedef unsigned int       L4_snd_desc;
@@ -118,14 +118,12 @@ typedef struct __attribute__((packed))
         } ipc_trace;  // traced ipc
       struct __attribute__((__packed__))
         {
-          char msg[31];
+          char msg[30];
         } ke;   // logged kernel event
       struct __attribute__((__packed__))
         {
-          char msg[19];
-          Mword eax;
-          Mword ecx;
-          Mword edx;
+          char msg[18];
+          Mword vals[3];
         } ke_reg;  // logged kernel event plus register content
       struct __attribute__((__packed__))
         {
@@ -150,17 +148,6 @@ typedef struct __attribute__((packed))
         } context_switch;  // logged context switch
       struct __attribute__((__packed__))
         {
-          char    _pad[3];
-          Mword   lthread;
-          Mword   task;
-          Address old_esp;
-          Address new_esp;
-          Address old_eip;
-          Address new_eip;
-          Mword   failed;
-        } exregs;  // logged thread_ex_regs operation
-      struct __attribute__((__packed__))
-        {
           Address     _address;       ///< breakpoint address
           int         _len;           ///< breakpoint length
           Mword       _value;         ///< value at address
@@ -172,7 +159,6 @@ typedef struct __attribute__((packed))
           char       trapno;
           Unsigned16 _errno;
           Mword      ebp;
-          Mword      edx;
           Mword      cr2;
           Mword      eax;
           Mword      eflags;
@@ -195,13 +181,13 @@ typedef struct __attribute__((packed))
           signed long  _left;
           unsigned long  _quantum;
         } sched;
-        struct __attribute__((__packed__))
+      struct __attribute__((__packed__))
         {
           Mword        _preempter;
         } preemption;
-        struct __attribute__((__packed__))
+      struct __attribute__((__packed__))
         {
-            char _pad[31];
+            char _pad[30];
         } fit;
     } m;
 } l4_tracebuffer_entry_t;

@@ -22,6 +22,8 @@
 #include "dataspace_static.h"
 #include "globals.h"
 #include "name_space.h"
+#include "page_alloc.h"
+#include "pages.h"
 #include "vesa_fb.h"
 
 #include <l4/re/util/video/goos_svr>
@@ -63,10 +65,19 @@ Vesa_fb::Vesa_fb(l4util_mb_info_t *mbi)
 
   base_offset = vbi->phys_base & (L4_SUPERPAGESIZE - 1);
   unsigned long paddr = vbi->phys_base & ~(L4_SUPERPAGESIZE - 1);
-  unsigned long vaddr = 0xa0000000;
-  unsigned long fb_size = 64*1024*vbe->total_memory;
+  unsigned long fb_size = 64 * 1024 * vbe->total_memory;
   map_size = (fb_size + base_offset + L4_SUPERPAGESIZE - 1)
-    & ~(L4_SUPERPAGESIZE - 1);
+             & ~(L4_SUPERPAGESIZE - 1);
+
+  unsigned long vaddr
+      = l4_round_size(Moe::Pages::max_addr, L4_SUPERPAGESHIFT);
+  if (vaddr >= Moe::Virt_limit::end - map_size - L4_SUPERPAGESIZE)
+    vaddr = (unsigned long)Single_page_alloc_base::_alloc(map_size);
+  if (vaddr == 0)
+    {
+      L4::cerr << "Failed to get memory for VESA video memory\n";
+      return;
+    }
 
   switch (l4sigma0_map_iomem(Sigma0_cap, paddr, vaddr, map_size, 1)) 
     {
@@ -89,7 +100,7 @@ Vesa_fb::Vesa_fb(l4util_mb_info_t *mbi)
 
   _view_info.buffer_offset = base_offset;
   _view_info.bytes_per_line = vbi->bytes_per_scanline;
-  
+
   init_infos();
 
   _fb_ds = L4::cap_cast<L4Re::Dataspace>(object_pool.cap_alloc()->alloc(fb));

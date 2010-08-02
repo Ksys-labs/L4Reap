@@ -218,41 +218,6 @@ Jdb::handle_int3_threadctx_generic(Trap_state *ts)
 				  regs->addr(), regs->size());
 		}
 	      break;
-	    case 3: // fiasco_register_thread_name
-		{
-		  Jdb_thread_name_frame *regs =
-		    reinterpret_cast<Jdb_thread_name_frame*>(ts);
-		  Jdb_thread_names::register_thread(regs->dst(), regs->name());
-		}
-	      break;
-	    case 4: // fiasco_get_cputime
-		{
-		  Jdb_get_cputime_frame *regs =
-		    reinterpret_cast<Jdb_get_cputime_frame*>(ts);
-		  if (!(t = Thread::id_to_tcb(regs->dst())))
-		    {
-		      regs->invalidate();
-		      break;
-		    }
-		  if (t == current_thread())	// Update if current thread
-		    t->update_consumed_time();
-		  regs->set(t->id(), t->consumed_time(),
-		      t->sched()->prio());
-		}
-	      break;
-	    case 0x1000: // get CPU number of a thread
-                {
-                  unsigned cpu;
-
-                  if (!(t = Thread::id_to_tcb(ts->value()))
-                      || !t->cpu_safe(cpu))
-                    {
-                      ts->value((Mword)~0UL);
-                      break;
-                    }
-                  ts->value(cpu);
-                }
-	      break;
 	    }
 #endif
 	  break;

@@ -364,7 +364,7 @@ L4_INLINE l4_fpage_t
 l4_fpage_set_rights(l4_fpage_t src, unsigned char new_rights) L4_NOTHROW;
 
 /**
- * \brief Test whether a given range is within an fpage.
+ * \brief Test whether a given range is completely within an fpage.
  * \ingroup l4_fpage_api
  *
  * \param   fpage    Flex page
@@ -373,6 +373,27 @@ l4_fpage_set_rights(l4_fpage_t src, unsigned char new_rights) L4_NOTHROW;
  */
 L4_INLINE int
 l4_fpage_contains(l4_fpage_t fpage, l4_addr_t addr, unsigned size) L4_NOTHROW;
+
+/**
+ * \brief Determine maximum flex page size of a region.
+ * \ingroup l4_fpage_api
+ *
+ * \param order    Order value to start with (e.g. for memory
+ *                 L4_LOG2_PAGESIZE would be used)
+ * \param addr     Address to be covered by the flex page.
+ * \param min_addr Start of region / minimal address (including).
+ * \param max_addr End of region / maximal address (excluding).
+ * \param hotspot  (Optional) hot spot.
+ *
+ * \return Maximum order (log2-size) possible.
+ *
+ * \note The start address of the flex-page can be determined with
+ *       l4_trunc_size(addr, returnvalue)
+ */
+L4_INLINE unsigned char
+l4_fpage_max_order(unsigned char order, l4_addr_t addr,
+                   l4_addr_t min_addr, l4_addr_t max_addr,
+                   l4_addr_t hotspot L4_DEFAULT_PARAM(0));
 
 /*************************************************************************
  * Implementations
@@ -484,4 +505,29 @@ l4_fpage_contains(l4_fpage_t fpage, l4_addr_t addr, unsigned log2size) L4_NOTHRO
   l4_addr_t fa = l4_fpage_page(fpage) << L4_FPAGE_ADDR_SHIFT;
   return (fa <= addr)
          && (fa + (1UL << l4_fpage_size(fpage)) >= addr + (1UL << log2size));
+}
+
+L4_INLINE unsigned char
+l4_fpage_max_order(unsigned char order, l4_addr_t addr,
+                   l4_addr_t min_addr, l4_addr_t max_addr,
+                   l4_addr_t hotspot)
+{
+  while (order < 30 /* limit to 1GB flexpages */)
+    {
+      l4_addr_t mask;
+      l4_addr_t base = l4_trunc_size(addr, order + 1);
+      if (base < min_addr)
+        return order;
+
+      if (base + (1UL << (order + 1)) - 1 > max_addr - 1)
+        return order;
+
+      mask = ~(~0UL << (order + 1));
+      if (hotspot == ~0UL || ((addr ^ hotspot) & mask))
+        break;
+
+      ++order;
+    }
+
+  return order;
 }

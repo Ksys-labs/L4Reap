@@ -49,7 +49,7 @@ Jdb_ipc_gate::show_kobject_short(char *buf, int max, Kobject *o)
 
   return snprintf(buf, max, " L=%s%08lx\033[0m D=%lx",
                   (g->id() & 3) ? JDB_ANSI_COLOR(lightcyan) : "",
-                  g->id(), g->thread()->dbg_id());
+                  g->id(), g->thread() ? g->thread()->dbg_id() : 0);
 }
 
 PUBLIC

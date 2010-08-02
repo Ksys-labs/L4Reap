@@ -446,6 +446,7 @@ x86emu_int10_set_vbemode(int mode, l4util_mb_vbe_ctrl_t **ctrl_info,
                 {
                   max_val = m->x_resolution;
                   mode = *mode_list;
+                  *mode_info = m;
                 }
             }
         }
@@ -473,6 +474,8 @@ x86emu_int10_set_vbemode(int mode, l4util_mb_vbe_ctrl_t **ctrl_info,
   M.x86.R_EAX  = 0x4F02;	/* int10 function number */
   M.x86.R_EBX  = mode & 0xf7ff;	/* VESA mode; use current refresh rate */
   M.x86.R_EBX |= (1<<14);	/* use flat buffer model */
+  if (0)
+    M.x86.R_EBX |= (1<<15);	/* no screen clearing */
   M.x86.R_IP   = 0;		/* address of "int10; hlt" */
   M.x86.R_SP   = L4_PAGESIZE;	/* SS:SP pointer to stack */
   M.x86.R_CS   =

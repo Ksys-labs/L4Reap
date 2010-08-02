@@ -152,14 +152,14 @@ public:
    *        exp>0: t=2^(exp)*man,
    *        man=0 & exp!=0: t=0).
    */
-  L4_timeout (Mword man, Mword exp);
-  L4_timeout (Mword man, Mword exp, bool clock);
+  L4_timeout(Mword man, Mword exp);
+  L4_timeout(Mword man, Mword exp, bool clock);
 
   /**
    * Create a timeout from it's binary representation.
    * @param t the binary timeout value.
    */
-  L4_timeout( unsigned short t = 0 );
+  L4_timeout(unsigned short t = 0);
 
   /**
    * Get the binary representation of the timeout.
@@ -179,7 +179,7 @@ public:
    * @param er the exponent for the receive timeout (see L4_timeout()).
    * @see rcv_man()
    */
-  void exp( Mword er );
+  void exp(Mword er);
 
   /**
    * Get the receive timout's mantissa.
@@ -193,21 +193,21 @@ public:
    * @param mr the mantissa of the recieve timeout (see L4_timeout()).
    * @see rcv_exp()
    */
-  void man( Mword mr );
+  void man(Mword mr);
 
   /**
    * Get the relative receive timeout in microseconds.
    * @param clock Current value of kernel clock
    * @return The receive timeout in micro seconds.
    */
-  Unsigned64 microsecs_rel (Unsigned64 clock) const;
+  Unsigned64 microsecs_rel(Unsigned64 clock) const;
 
   /**
    * Get the absolute receive timeout in microseconds.
    * @param clock Current value of kernel clock
    * @return The receive timeout in micro seconds.
    */
-  Unsigned64 microsecs_abs (Utcb *u) const;
+  Unsigned64 microsecs_abs(Utcb *u) const;
 
 private:
   enum
@@ -277,7 +277,7 @@ public:
   /**
    * Create a Preemption-IPC message
    */
-  L4_pipc (unsigned type, unsigned lost, unsigned id, Cpu_time clock);
+  L4_pipc(unsigned type, unsigned lost, unsigned id, Cpu_time clock);
 };
 
 
@@ -363,7 +363,16 @@ class Utcb
 {
   /* must be 2^n bytes */
 public:
+
+  union Time_val
+  {
+    enum { Words = sizeof(Cpu_time)/sizeof(Mword) };
+    Mword b[Words];
+    Cpu_time t;
+  };
+
   enum { Max_words = 63, Max_buffers = 58 };
+
   Mword           values[Max_words];
   Mword           reserved;
 
@@ -449,7 +458,7 @@ bool L4_msg_tag::has_error() const
 // L4_timeout implementation
 //
 
-IMPLEMENT inline L4_timeout::L4_timeout (unsigned short t)
+IMPLEMENT inline L4_timeout::L4_timeout(unsigned short t)
   : _t(t)
 {}
 
@@ -466,20 +475,22 @@ bool L4_timeout::abs_clock() const
 
 IMPLEMENT inline
 Unsigned64
-L4_timeout::microsecs_rel (Unsigned64 clock) const
+L4_timeout::microsecs_rel(Unsigned64 clock) const
 {
   if (man() == 0)
     return 0;
   else
-   return clock + ((Unsigned64)man() << exp()); 
+   return clock + ((Unsigned64)man() << exp());
 }
 
 IMPLEMENT inline NEEDS[<minmax.h>]
 Unsigned64
-L4_timeout::microsecs_abs (Utcb *u) const
+L4_timeout::microsecs_abs(Utcb *u) const
 {
   int idx = min<int>(_t & 0x3f, Utcb::Max_buffers);
-  return *(Unsigned64*)reinterpret_cast<void const *>(&u->buffers[idx]);
+  Utcb::Time_val const *top
+    = reinterpret_cast<Utcb::Time_val const *>(&u->buffers[idx]);
+  return top->t;
 }
 
 PUBLIC inline
@@ -489,7 +500,7 @@ L4_timeout::is_absolute() const
 
 PUBLIC inline
 Unsigned64
-L4_timeout::microsecs (Unsigned64 clock, Utcb *u) const
+L4_timeout::microsecs(Unsigned64 clock, Utcb *u) const
 { 
   if (is_absolute())
     return microsecs_abs(u);
@@ -515,11 +526,11 @@ unsigned short L4_timeout::is_finite() const
 //
 
 IMPLEMENT inline
-L4_pipc::L4_pipc (unsigned type, unsigned lost, unsigned id, Cpu_time clock)
-       : _raw ( (((Unsigned64) type  << Type_shift)  & Type_mask) |
-                (((Unsigned64) lost  << Lost_shift)  & Lost_mask) |
-                (((Unsigned64) id    << Id_shift)    & Id_mask)   |
-                (((Unsigned64) clock << Clock_shift) & Clock_mask))
+L4_pipc::L4_pipc(unsigned type, unsigned lost, unsigned id, Cpu_time clock)
+  : _raw ( (((Unsigned64) type  << Type_shift)  & Type_mask) |
+           (((Unsigned64) lost  << Lost_shift)  & Lost_mask) |
+           (((Unsigned64) id    << Id_shift)    & Id_mask)   |
+           (((Unsigned64) clock << Clock_shift) & Clock_mask))
 {}
 
 IMPLEMENT inline Mword L4_pipc::low() const
@@ -534,22 +545,20 @@ IMPLEMENT inline Mword L4_pipc::high() const
 //
 
 IMPLEMENT inline
-L4_timeout::L4_timeout (Mword man, Mword exp)
-          : _t (((man & Man_mask) |
-                ((exp << Exp_shift) & Exp_mask)))
+L4_timeout::L4_timeout(Mword man, Mword exp)
+: _t (((man & Man_mask) | ((exp << Exp_shift) & Exp_mask)))
 {}
 
 IMPLEMENT inline
-L4_timeout::L4_timeout (Mword man, Mword exp, bool clock)
-          : _t (((man & Man_mask) |
-                ((exp << (Exp_shift+1)) & Exp_mask) |
-		(clock ? Clock_mask : 0) | Abs_mask))
+L4_timeout::L4_timeout(Mword man, Mword exp, bool clock)
+: _t (((man & Man_mask) | ((exp << (Exp_shift+1)) & Exp_mask)
+      | (clock ? Clock_mask : 0) | Abs_mask))
 {}
 
 IMPLEMENT inline Mword L4_timeout::exp() const
 { return (_t & Exp_mask) >> Exp_shift; }
 
-IMPLEMENT inline void L4_timeout::exp (Mword w)
+IMPLEMENT inline void L4_timeout::exp(Mword w)
 { _t = (_t & ~Exp_mask) | ((w << Exp_shift) & Exp_mask); }
 
 IMPLEMENT inline Mword L4_timeout::man() const

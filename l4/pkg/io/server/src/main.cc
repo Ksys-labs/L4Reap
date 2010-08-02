@@ -109,7 +109,8 @@ void dump(Device *d)
       if (Io_config::cfg->verbose() >= 2)
         for (Resource_list::iterator r = i->resources()->begin();
              r != i->resources()->end(); ++r)
-          r->dump(i->depth() * 2 + 2);
+          if (*r)
+            r->dump(i->depth() * 2 + 2);
     }
 }
 

@@ -115,9 +115,9 @@ l4_tsc_init (int constraint, l4_kernel_info_t *kip)
       if ((tsc_end & 0xffffffffL) <= calibrate_time)
 	goto bad_ctc;
 
-      l4_scaler_tsc_linux = muldiv(1U<<30, 1U<<2, (l4_uint32_t)tsc_end);
+      l4_scaler_tsc_linux = muldiv(1U<<30, (1U<<2) * calibrate_time, (l4_uint32_t)tsc_end);
       l4_scaler_ns_to_tsc = muldiv(((1ULL<<32)/1000ULL), (l4_uint32_t)tsc_end,
-			     	   calibrate_time * (1<<5));
+                                   calibrate_time * (1<<5));
     }
 
   l4_scaler_tsc_to_ns = muldiv(l4_scaler_tsc_linux, 1000, 1<<5);

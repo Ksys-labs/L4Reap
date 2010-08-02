@@ -106,6 +106,11 @@ private:
   Unsigned32 _arch_perfmon_info_ebx;
   Unsigned32 _arch_perfmon_info_ecx;
 
+  Unsigned32 _monitor_mwait_eax;
+  Unsigned32 _monitor_mwait_ebx;
+  Unsigned32 _monitor_mwait_ecx;
+  Unsigned32 _monitor_mwait_edx;
+
   Unsigned32 scaler_tsc_to_ns;
   Unsigned32 scaler_tsc_to_us;
   Unsigned32 scaler_ns_to_tsc;
@@ -132,6 +137,8 @@ public:
   unsigned brand() const { return _brand & 0xFF; }
   unsigned features() const { return _features; }
   unsigned ext_features() const { return _ext_features; }
+  bool has_monitor_mwait() const { return _ext_features & (1 << 3); }
+  bool has_monitor_mwait_irq() const { return _monitor_mwait_ecx & 3; }
   unsigned ext_8000_0001_ecx() const { return _ext_8000_0001_ecx; }
   unsigned ext_8000_0001_edx() const { return _ext_8000_0001_edx; }
   unsigned local_features() const { return _local_features; }
@@ -237,7 +244,7 @@ public:
 
 private:
   /** Flags if lbr or bts facilities are activated, used by double-fault
-   *  handler to reset the debugging facilities 
+   *  handler to reset the debugging facilities
    */
   Unsigned32 debugctl_busy;
 
@@ -245,7 +252,7 @@ private:
   Unsigned32 debugctl_set;
 
   /** debugctl value to reset activated lr/bts facilities in the double-faukt
-   *  handler 
+   *  handler
    */
   Unsigned32 debugctl_reset;
 
@@ -277,7 +284,7 @@ public:
 
   Gdt* get_gdt() const { return gdt; }
   Tss* get_tss() const { return tss; }
-  void set_gdt() const 
+  void set_gdt() const
   {
     Pseudo_descriptor desc((Address)gdt, Gdt::gdt_max-1);
     Gdt::set (&desc);
@@ -362,7 +369,8 @@ Cpu::Vendor_table const Cpu::intel_table[] FIASCO_INITDATA_CPU =
   { 0xf0ff0, 0x106a0, 0xffff, "Core i7 / Xeon, 45nm"            },
   { 0xf0ff0, 0x106b0, 0xffff, "Xeon MP, 45nm"                   },
   { 0xf0ff0, 0x106c0, 0xffff, "Atom"                            },
-  { 0x0,   0x0,   0xFFFF, ""                                    }
+  { 0xf0ff0, 0x206c0, 0xffff, "Xeon X5680 (and others?)"        },
+  { 0x0,     0x0,     0xFFFF, ""                                }
 };
 
 Cpu::Vendor_table const Cpu::amd_table[] FIASCO_INITDATA_CPU =
@@ -418,6 +426,7 @@ Cpu::Vendor_table const Cpu::amd_table[] FIASCO_INITDATA_CPU =
   { 0xfff0ff0,  0x040f80,   0,      "Turion 64 X2 (Taylor)"        },
   { 0xfff0ff0,  0x060fb0,   0,      "Athlon 64 X2 (Brisbane)"      },
   { 0xfff0ff0,  0x100f20,   0,      "Phenom X3/Toliman / X4/Agena" },
+  { 0xfff0ff0,  0x100f40,   0,      "Opteron (Shanghai)"           },
   { 0x0,        0x0,        0,      ""                             }
 };
 
@@ -950,6 +959,10 @@ Cpu::identify()
       case 1:
         cpuid(1, &_version, &_brand, &_ext_features, &_features);
       }
+
+    if (max >= 5 && has_monitor_mwait())
+      cpuid(5, &_monitor_mwait_eax, &_monitor_mwait_ebx,
+               &_monitor_mwait_ecx, &_monitor_mwait_edx);
 
     if (_vendor == Vendor_intel)
       {
@@ -1510,7 +1523,7 @@ Cpu::print() const
 
 PUBLIC
 void
-Cpu::set_sysenter (void (*func)(void))
+Cpu::set_sysenter(void (*func)(void))
 {
   // Check for Sysenter/Sysexit Feature
   if (sysenter())
@@ -1530,7 +1543,7 @@ extern "C" void entry_sys_fast_ipc_c (void);
 
 PUBLIC FIASCO_INIT_CPU
 void
-Cpu::init_sysenter ()
+Cpu::init_sysenter()
 {
   // Check for Sysenter/Sysexit Feature
   if (sysenter())
@@ -1628,7 +1641,7 @@ Cpu::enable_ldt(Address addr, int size)
     }
   else
     {
-      get_gdt()->set_entry_byte (Gdt::gdt_ldt / 8, addr, size-1, 2/*=ldt*/, 0);
+      get_gdt()->set_entry_byte(Gdt::gdt_ldt / 8, addr, size-1, 2/*=ldt*/, 0);
       set_ldt(Gdt::gdt_ldt);
     }
 }
@@ -1641,7 +1654,7 @@ Cpu::get_gs()
 
 PUBLIC static inline
 void
-Cpu::set_gs (Unsigned32 val)
+Cpu::set_gs(Unsigned32 val)
 { asm volatile ("mov %0, %%gs" : : "rm" (val)); }
 
 IMPLEMENT inline

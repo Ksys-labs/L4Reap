@@ -16,6 +16,14 @@ EXTENSION class Svm
 public:
   static Per_cpu<Svm> cpus;
 
+  enum Msr_perms
+  {
+    Msr_intercept = 3,
+    Msr_ro        = 2,
+    Msr_wo        = 1,
+    Msr_rw        = 0,
+  };
+
 private:
   void *_vm_hsave_area;
   void *_iopm;
@@ -56,6 +64,7 @@ IMPLEMENTATION[svm]:
 #include "cpu.h"
 #include "kmem.h"
 #include "l4_types.h"
+#include "warn.h"
 #include <cstring>
 
 Per_cpu<Svm> DEFINE_PER_CPU Svm::cpus(true);
@@ -129,11 +138,42 @@ Svm::Svm(unsigned cpu)
   _msrpm_base_pa = Kmem::virt_to_phys(_msrpm);
   memset(_msrpm, ~0, Msr_pm_size);
 
+  // allow the sysenter MSRs for the guests
+  set_msr_perm(MSR_SYSENTER_CS, Msr_rw);
+  set_msr_perm(MSR_SYSENTER_EIP, Msr_rw);
+  set_msr_perm(MSR_SYSENTER_ESP, Msr_rw);
+
   /* 4kB Host state-safe area */
   check(_vm_hsave_area = Mapped_allocator::allocator()->unaligned_alloc(State_save_area_size));
   Unsigned64 vm_hsave_pa = Kmem::virt_to_phys(_vm_hsave_area);
 
   c.wrmsr(vm_hsave_pa, MSR_VM_HSAVE_PA);
+}
+
+PUBLIC
+void
+Svm::set_msr_perm(Unsigned32 msr, Msr_perms perms)
+{
+  unsigned offs;
+  if (msr <= 0x1fff)
+    offs = 0;
+  else if (0xc0000000 <= msr && msr <= 0xc0001fff)
+    offs = 0x800;
+  else if (0xc0010000 <= msr && msr <= 0xc0011fff)
+    offs = 0x1000;
+  else
+    {
+      WARN("Illegal MSR %x\n", msr);
+      return;
+    }
+
+  msr &= 0x1fff;
+  offs += msr / 4;
+
+  unsigned char *pm = (unsigned char *)_msrpm;
+
+  unsigned shift = (msr & 3) * 2;
+  pm[offs] = (pm[offs] & ~(3 << shift)) | ((unsigned char)perms << shift);
 }
 
 PUBLIC

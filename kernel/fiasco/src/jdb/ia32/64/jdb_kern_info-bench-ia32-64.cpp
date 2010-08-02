@@ -149,7 +149,7 @@ Jdb_kern_info_bench::show_arch()
     {
       // write a GDT entry, set ES segment descriptor to this gdt entry
       // and access memory through the ES segment
-      Gdt_entry orig = (*gdt)[Gdt::gdt_data_kernel/8];
+      Unsigned32 *gdt_e = (Unsigned32*)&(*gdt)[Gdt::gdt_data_kernel/8];
       time = Cpu::rdtsc();
       asm volatile ("mov  $200000,%%rbx		\n\t"
 		    ".align 16			\n\t"
@@ -161,7 +161,7 @@ Jdb_kern_info_bench::show_arch()
 		    "mov  %%es:(%c4),%%rdi	\n\t"
 		    "jnz  1b			\n\t"
 		    :
-		    : "a"((&orig)[0]), "c"((&orig)[1]), 
+		    : "a"(gdt_e[0]), "c"(gdt_e[1]),
 		      "d"(Gdt::gdt_data_kernel | Gdt::Selector_kernel),
 		      "S"(gdt->entries() + Gdt::gdt_data_kernel/8),
 		      "i"(Mem_layout::Kernel_image)
@@ -210,6 +210,22 @@ Jdb_kern_info_bench::show_arch()
 		      : "i"(Mem_layout::Jdb_bench_page));
       time = Cpu::rdtsc() - time - time_invlpg;
       show_time (time, 200000, "load data TLB (4k)");
+    }
+    {
+      // asm ("1: mov %%cr3,%%rdx; mov %%rdx, %%cr3; dec %%rax; jnz 1b; ret")
+      *(Unsigned32*)(Mem_layout::Jdb_bench_page + 0xff0) = 0x0fda200f;
+      *(Unsigned32*)(Mem_layout::Jdb_bench_page + 0xff4) = 0xff48da22;
+      *(Unsigned32*)(Mem_layout::Jdb_bench_page + 0xff8) = 0xc3f575c8;
+
+      Mem::barrier();
+      time = Cpu::rdtsc();
+      asm volatile ("call  *%%rcx"
+                    : "=a"(dummy)
+                    : "c"(Mem_layout::Jdb_bench_page + 0xff0), "a"(200000)
+                    : "rdx");
+
+      time = Cpu::rdtsc() - time - time_reload_cr3;
+      show_time (time, 200000, "load code TLB (4k)");
     }
 
   Proc::sti_restore(flags);

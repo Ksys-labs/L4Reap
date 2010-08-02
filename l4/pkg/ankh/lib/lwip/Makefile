@@ -1,12 +1,12 @@
 PKGDIR ?= ../..
 L4DIR ?= $(PKGDIR)/../..
 
-SYSTEMS = x86-l4f arm-l4f
+TARGET	         = liblwip.a liblwip.so
+PC_FILENAME      = ankh_lwip
+REQUIRES_LIBS    = ankh libpthread
+L4_MULTITHREADED = y
+SYSTEMS          = x86-l4f arm-l4f
 
-# the name of your library
-TARGET	= liblwip.a
-
-# list your .c or .cc files here
 SRC_C	= arch/sys_arch.c \
 		  arch/perf.c \
 		  arch/ankh_if.c \
@@ -53,8 +53,6 @@ SRC_C	= arch/sys_arch.c \
 PRIVATE_INCDIR += $(PKGDIR)/lib/lwip/contrib/src/include \
 				  $(PKGDIR)/lib/lwip/contrib/src/include/ipv4 \
 				  $(PKGDIR)/lib/lwip
-
-PC_FILENAME = ankh_lwip
 
 L4_MULTITHREADED = y
 

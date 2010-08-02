@@ -14,8 +14,9 @@
 
 enum
 {
-  L4_fpage_cached   = 0x30,
-  L4_fpage_uncached = 0x10,
+  L4_fpage_cached   = L4_FPAGE_CACHEABLE << 4,
+  L4_fpage_uncached = L4_FPAGE_UNCACHEABLE << 4,
+  L4_fpage_buffered = L4_FPAGE_BUFFERABLE << 4,
 };
 
 struct Answer

@@ -57,10 +57,6 @@ if BUILD_ARCH_x86 || BUILD_ARCH_amd64
 choice
 	prompt "CPU variant"
 	
-config CPU_X86_GENERIC
-	bool "generic CPU"
-	depends on BUILD_ARCH_x86
-
 config CPU_X86_586
 	bool "586 type CPU"
 	depends on BUILD_ARCH_x86
@@ -140,7 +136,6 @@ endchoice
 
 config CPU
 	string
-	default "generic"    if CPU_X86_GENERIC
 	default "586"        if CPU_X86_586
 	default "pentium"    if CPU_X86_PENTIUM
 	default "pentiummmx" if CPU_X86_PENTIUMMMX
@@ -219,8 +214,8 @@ config CPU
 	default "armv6"    if CPU_ARM_ARMV6
 	default "armv6t2"  if CPU_ARM_ARMV6T2
 	default "armv6zk"  if CPU_ARM_ARMV6ZK
-	default "armv7-a"  if CPU_ARM_ARMV7A
-	default "armv7-r"  if CPU_ARM_ARMV7R
+	default "armv7a"   if CPU_ARM_ARMV7A
+	default "armv7r"   if CPU_ARM_ARMV7R
 
 config CPU_ARMV6KPLUS
 	bool

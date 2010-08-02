@@ -188,6 +188,7 @@ Ns_dir::getdents(char *buf, size_t sz) throw()
           memcpy(d->d_name, p, len);
           d->d_name[l - 1] = 0;
           d->d_reclen = n;
+          d->d_type   = DT_REG;
           ret += n;
           sz  -= n;
           d    = (struct dirent64 *)((unsigned long)d + n);
@@ -319,6 +320,13 @@ Env_dir::faccessat(const char *path, int mode, int flags) throw()
   return 0;
 }
 
+bool
+Env_dir::check_type(Env::Cap_entry const *e, long protocol)
+{
+  L4::Cap<L4::Meta> m(e->cap);
+  return m->supports(protocol).label();
+}
+
 int
 Env_dir::fstat64(struct stat64 *b) const throw()
 {
@@ -361,6 +369,12 @@ Env_dir::getdents(char *buf, size_t sz) throw()
           memcpy(d->d_name, _current_cap_entry->name, l);
           d->d_name[l - 1] = 0;
           d->d_reclen = n;
+          if (check_type(_current_cap_entry, L4Re::Protocol::Namespace))
+            d->d_type = DT_DIR;
+          else if (check_type(_current_cap_entry, L4Re::Protocol::Dataspace))
+            d->d_type = DT_REG;
+          else
+            d->d_type = DT_UNKNOWN;
           ret += n;
           sz  -= n;
           d    = (struct dirent64 *)((unsigned long)d + n);

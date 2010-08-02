@@ -46,7 +46,7 @@ fiasco_ldt_set(l4_cap_idx_t task, void *ldt, unsigned int size,
 
 /**
  * Set GDT segment descriptors. Fiasco supports 3 consecutive entries,
- * starting at FIASCO_GDT_ENTRY_OFFSET.
+ * starting at the value returned by fiasco_gdt_get_entry_offset()
  * \ingroup api_calls_fiasco
  *
  * \param thread		Thread to set the GDT entry for.

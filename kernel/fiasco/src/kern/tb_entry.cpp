@@ -267,7 +267,7 @@ private:
 class Tb_entry_ke_bin : public Tb_entry
 {
 public:
-  enum { SIZE = 31 };
+  enum { SIZE = 30 };
 };
 
 

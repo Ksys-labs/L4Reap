@@ -35,7 +35,8 @@ hw-root
   VGA => new Device()
   {
     .hid = "PNP0900";
-    new-res Io(0x3c0 .. 0x3df);
+    new-res Io(0x3b0 .. 0x3bf); # MDA
+    new-res Io(0x3c0 .. 0x3df); # EGA/VGA
     new-res Mmio(0xa0000 .. 0xbffff, 0xc000);
   }
 

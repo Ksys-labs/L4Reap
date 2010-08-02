@@ -254,7 +254,7 @@ fill_idt_desc(struct idt_desc *desc, Unsigned64 offset,
   desc->ignored	     = 0;
 }
 
-extern inline void
+inline void ALWAYS_INLINE
 paging_enable(Address pml4)
 {
   /* Enable Physical Address Extension (PAE). */
@@ -265,7 +265,7 @@ paging_enable(Address pml4)
 
   /* Enable long mode. */
   enable_longmode();
-  
+
   /* Turn on paging and switch to long mode. */
   asm volatile("mov  %0,%%cr0 ; jmp  1f ; 1:" : : "r" (get_cr0() | CR0_PG));
 }

@@ -361,12 +361,11 @@ L4_INLINE l4_addr_t l4_round_size(l4_addr_t address, unsigned char bits) L4_NOTH
 L4_INLINE l4_addr_t l4_round_size(l4_addr_t x, unsigned char bits) L4_NOTHROW
 { return (x + (1UL << bits) - 1) & (~0UL << bits); }
 
-
 /**
  * \brief Address related constants.
  * \ingroup l4_memory_api
  */
-enum l4_addr_consts_t { 
+enum l4_addr_consts_t {
   /// Invalid address.
   L4_INVALID_ADDR = ~0UL
 };

@@ -9,12 +9,24 @@
 # can be replaced by using div32/mod32 from lib/libk (and should
 # for efficency reasons).
 
-boot_img.o:	$(OBJ_BOOT) $(DRIVERS) $(MINILIBC) 
-		$(LINK_MESSAGE)
-		$(VERBOSE)$(LD) -m $(LD_EMULATION) -r -s -o $@_x.o \
-		   -T $(srcdir)/boot/ia32/bootstrap.ld $^
-		$(VERBOSE)$(OBJCOPY) -G _boot_start $@_x.o $@
-		$(VERBOSE)$(RM) $@_x.o
+boot_img.o:	boot_img.x2 boot_img.ren_syms
+	$(LINK_MESSAGE)
+	$(VERBOSE)$(OBJCOPY) --redefine-syms=boot_img.ren_syms $< $@
+
+boot_img.ren_syms: boot_img.x2
+	$(LINK_MESSAGE)
+	$(VERBOSE)$(NM) -u $^ | perl -n -e 'if (/^\s*U\s+bootstrap_(.*)$$/) { print "bootstrap_$$1 $$1\n"; }' > $@
+
+boot_img.x1:	$(OBJ_BOOT) $(DRIVERS) $(MINILIBC) 
+	$(LINK_MESSAGE)
+	$(VERBOSE)$(LD) -m $(LD_EMULATION) -r -s -o $@ \
+	-T $(srcdir)/boot/ia32/bootstrap.ld $^ $(LIBGCC)
+
+boot_img.x2:	boot_img.x1
+	$(LINK_MESSAGE)
+	$(VERBOSE)$(OBJCOPY) --prefix-alloc-sections=.bootstrap --prefix-symbols=bootstrap_ -G bootstrap__boot_start $^ $@
+
+
 
 kernel.ia32.lds: linking.h
 

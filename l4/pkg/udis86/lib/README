@@ -1,0 +1,4 @@
+
+The contrib directory contains an unmodified copy of
+  git clone git://udis86.git.sourceforge.net/gitroot/udis86/udis86
+  commit e05c7b8c0dd2760c8ae517ff83fd974e63c42020

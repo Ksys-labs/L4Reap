@@ -465,11 +465,12 @@ Jdb_kern_info_bench::show_arch()
       show_time (time, 200000, "load data TLB (4k)");
     }
     {
-      // asm ("1: mov %%cr3,%%edx; mov %%edx, %%cr3; dec %%eax; jnz 1b")
+      // asm ("1: mov %%cr3,%%edx; mov %%edx, %%cr3; dec %%eax; jnz 1b; ret")
       *(Unsigned32*)(Mem_layout::Jdb_bench_page + 0xff0) = 0x0fda200f;
       *(Unsigned32*)(Mem_layout::Jdb_bench_page + 0xff4) = 0x7548da22;
       *(Unsigned32*)(Mem_layout::Jdb_bench_page + 0xff8) = 0xc3f7;
 
+      Mem::barrier();
       time = Cpu::rdtsc();
       asm volatile ("call  *%%ecx"
 		    : "=a"(dummy)

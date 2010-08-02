@@ -146,7 +146,7 @@ sub get_module_entry($$)
 	  $mods[1]{command}  = $file;
 	  $mods[1]{cmdline}  = $full;
         } elsif ($type eq 'initrd') {
-          $linux_initrd      = $full;
+          $linux_initrd      = $file;
           $is_mode_linux     = 1;
         } else {
 	  push @mods, {

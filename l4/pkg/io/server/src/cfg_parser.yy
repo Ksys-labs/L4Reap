@@ -290,7 +290,7 @@ create_resource(cfg::Parser::location_type const &l, cxx::String const &type,
     flags = Adr_resource::Mmio_res | Adr_resource::Mmio_data_space;
   else
     {
-      std::cerr << l << ": unknown resource type '" << type << "', expected Io, Irq, or Mmio" << std::endl;
+      std::cerr << l << ": unknown resource type '" << type << "', expected Io, Irq, Mmio, or Mmio_ram" << std::endl;
 
       return 0;
     }
@@ -340,6 +340,12 @@ create_resource(cfg::Parser::location_type const &l, cxx::String const &type,
 	  if ((*args)[1].type != 0)
 	    {
 	      std::cerr << l << ": argument 2 must by of type integer in constructor of resource '" << type << "'" << std::endl;
+	      delete args;
+	      return 0;
+	    }
+	  if (s > e)
+	    {
+	      std::cerr << l << ": start of range bigger than end" << std::endl;
 	      delete args;
 	      return 0;
 	    }

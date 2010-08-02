@@ -53,24 +53,6 @@ Dataspace::__map(unsigned long offset, unsigned char *size, unsigned long flags,
   return err;
 }
 
-static inline
-unsigned char max_order(unsigned char order, l4_addr_t addr,
-                        l4_addr_t min_addr, l4_addr_t max_addr)
-{
-  while (order < 30 /* limit to 1GB flexpages */)
-    {
-      l4_addr_t base = l4_trunc_size(addr, order + 1);
-      if (base < min_addr)
-	return order;
-
-      if (base + (1UL << (order + 1)) -1 > max_addr -1)
-	return order;
-
-      ++order;
-    }
-  return order;
-}
-
 long
 Dataspace::map_region(l4_addr_t offset, unsigned long flags,
                       l4_addr_t min_addr, l4_addr_t max_addr) const throw()
@@ -84,7 +66,8 @@ Dataspace::map_region(l4_addr_t offset, unsigned long flags,
   while (min_addr < max_addr)
     {
       unsigned char order_mapped;
-      order_mapped = order = max_order(order, min_addr, min_addr, max_addr);
+      order_mapped = order
+        = l4_fpage_max_order(order, min_addr, min_addr, max_addr);
       err = __map(offset, &order_mapped, flags, min_addr);
       if (EXPECT_FALSE(err < 0))
 	return err;
@@ -116,7 +99,7 @@ Dataspace::map(l4_addr_t offset, unsigned long flags,
   max_addr   = l4_round_page(max_addr);
   local_addr = l4_trunc_page(local_addr);
   unsigned char order
-    = max_order(L4_LOG2_PAGESIZE, local_addr, min_addr, max_addr);
+    = l4_fpage_max_order(L4_LOG2_PAGESIZE, local_addr, min_addr, max_addr);
 
   return __map(offset, &order, flags, local_addr);
 }

@@ -198,21 +198,42 @@ static void find_memory()
   Moe::Pages::base_addr = min_addr;
   Moe::Pages::max_addr  = max_addr;
 
-  info.printf("found RAM from %lx to %lx\n"
-              "allocated %ld KByte for the page array @%p\n",
-              min_addr, max_addr,
+  info.printf("found RAM from %lx to %lx\n",
+              min_addr, max_addr);
+  info.printf("allocated %ld KByte for the page array @%p\n",
               sizeof(*pages) * total_pages / 1024, pages);
 }
 
-static bool
+l4_addr_t Moe::Virt_limit::start;
+l4_addr_t Moe::Virt_limit::end;
+
+static void
+init_virt_limits()
+{
+  L4::Kip::Mem_desc *md = L4::Kip::Mem_desc::first(const_cast<l4_kernel_info_t*>(kip()));
+  unsigned long cnt = L4::Kip::Mem_desc::count(const_cast<l4_kernel_info_t*>(kip()));
+
+  for (L4::Kip::Mem_desc *m = md; m < md + cnt; ++m)
+    {
+      if (m->type() != L4::Kip::Mem_desc::Conventional || !m->is_virtual())
+        continue;
+
+      Moe::Virt_limit::start = m->start();
+      Moe::Virt_limit::end = m->end();
+    }
+
+  info.printf("virtual user address space [%lx-%lx]\n",
+              Moe::Virt_limit::start,
+              Moe::Virt_limit::end);
+}
+
+static void
 init_utcb()
 {
   l4_utcb_t *u = l4_utcb();
   boot.printf("UTCB @%p\n", u);
   if (!u)
-    return false;
-
-  return true;
+    abort();
 }
 
 static void
@@ -516,6 +537,7 @@ int main(int argc, char**argv)
       init_utcb();
       Moe::Boot_fs::init_stage1();
       find_memory();
+      init_virt_limits();
 #if 0
       extern unsigned page_alloc_debug;
       page_alloc_debug = 1;
@@ -530,7 +552,6 @@ int main(int argc, char**argv)
       root_name_space_obj = object_pool.cap_alloc()->alloc(root_name_space());
 
       init_kip_ds();
-      Region_map::init_limits();
 
       object_pool.cap_alloc()->alloc(Allocator::root_allocator());
 

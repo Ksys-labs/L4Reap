@@ -119,7 +119,7 @@ Pci_proxy_dev::Pci_proxy_dev(Hw::Pci::If *hwf)
 
 	}
 
-      // printf("%08lx: %d = %08lx\n", adr(), i, _vbars[i]);
+      //printf("  bar: %d = %08x\n", i, _vbars[i]);
     }
 
   if (_hwf->rom())
@@ -152,7 +152,7 @@ Pci_proxy_dev::irq_enable(Irq_info *irq)
 l4_uint32_t
 Pci_proxy_dev::read_bar(int bar)
 {
-  //printf("%08x:  read bar[%x]: %08x\n", _dev->adr(), bar, _vbars[bar]);
+  //printf("   read bar[%x]: %08x\n", bar, _vbars[bar]);
   return _vbars[bar];
 }
 

@@ -143,10 +143,10 @@ Scheduler::sys_idle_time(unsigned char,
   if (cpu == ~0UL)
     return commit_result(-L4_err::EInval);
 
-  *(Cpu_time *)((void*)(utcb->values))
+  reinterpret_cast<Utcb::Time_val *>(utcb->values)->t
     = Context::kernel_context(cpu)->consumed_time();
 
-  return commit_result(0, sizeof(Cpu_time) / sizeof(Mword));
+  return commit_result(0, Utcb::Time_val::Words);
 }
 
 PRIVATE

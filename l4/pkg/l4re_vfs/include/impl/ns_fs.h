@@ -56,9 +56,9 @@ public:
 
   ~Env_dir() throw() {}
 
-
 private:
   int get_ds(const char *path, L4Re::Auto_cap<L4Re::Dataspace>::Cap *ds) throw();
+  bool check_type(Env::Cap_entry const *e, long protocol) throw();
 
   L4Re::Env const *_env;
   Env::Cap_entry const *_current_cap_entry;

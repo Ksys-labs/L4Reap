@@ -106,14 +106,14 @@ long
 l4io_request_irq(int irqnum, l4_cap_idx_t irq_cap)
 {
   L4::Cap<L4::Irq> irq(irq_cap);
-  long ret = l4_ipc_error(L4Re::Env::env()->factory()->create_irq(irq), l4_utcb());
-  if (ret) {
+  long ret = l4_error(L4Re::Env::env()->factory()->create_irq(irq));
+  if (ret < 0) {
       printf("Create irq failed with %ld\n", ret);
       return ret;
   }
 
-  ret = l4_ipc_error(icu()->bind(irqnum, irq), l4_utcb());
-  if (ret) {
+  ret = l4_error(icu()->bind(irqnum, irq));
+  if (ret < 0) {
       printf("Bind irq to icu failed with %ld\n", ret);
       return ret;
   }

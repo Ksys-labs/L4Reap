@@ -28,6 +28,9 @@ Proxy_dev::Proxy_dev(Hw::Device *d)
   for (Resource_list::iterator i = d->resources()->begin();
        i != d->resources()->end(); ++i)
     {
+      if (!*i)
+        continue;
+
       if (i->disabled())
 	continue;
 

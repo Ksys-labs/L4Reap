@@ -18,6 +18,7 @@ RELOC_PHYS          := y
 LDFLAGS              = -Bstatic
 EXTRA_GENERAL_D_DEP  = .redo-change-tracker
 INCLUDE_MAKE_RULES   = $(SRC_DIR)/*/Make.rules
+BOOTSTRAP_LD_dep    := $(SRC_DIR)/ldscript.inc
 #REQUIRES_LIBS        = libbsd-lite
 
 include $(L4DIR)/mk/Makeconf
@@ -273,7 +274,7 @@ ifneq ($(ENTRY),)
 
  OBJS_$(BOOTSTRAP_ELF_NAME)   += $(MODULE_OBJECT_FILES)
  CPPFLAGS                     += -DIMAGE_MODE
- BOOTSTRAP_LD_dep             := mod.make.inc
+ BOOTSTRAP_LD_dep             += mod.make.inc
  STARTUP_C_dep                := mod.make.inc
 endif
 

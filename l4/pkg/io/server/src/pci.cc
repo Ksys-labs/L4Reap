@@ -818,10 +818,11 @@ static void
 dump_res_rec(Resource_list const *r, int indent)
 {
   for (Resource_list::iterator i = r->begin(); i!= r->end(); ++i)
-    {
-      i->dump(indent + 2);
-      //dump_res_rec(i->child(), indent + 2);
-    }
+    if (*i)
+      {
+        i->dump(indent + 2);
+        //dump_res_rec(i->child(), indent + 2);
+      }
 }
 
 void
@@ -844,6 +845,7 @@ Pci_dev::dump(int indent) const
          classname, (int)hdr_type);
 
   char buf[130];
+  printf("%*.s              0x%04x 0x%04x\n", indent, " ", vendor(), device());
   libpciids_name_device(buf, sizeof(buf), vendor(), device());
   printf("%*.s              %s\n", indent, " ", buf);
 #if 0

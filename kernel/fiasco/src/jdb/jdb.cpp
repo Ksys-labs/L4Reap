@@ -20,14 +20,14 @@ public:
   static Per_cpu<void *> remote_func_data;
   static Per_cpu<bool> remote_func_running;
 
-public:
-
   static int FIASCO_FASTCALL enter_jdb(Jdb_entry_frame *e, unsigned cpu);
   static void cursor_end_of_screen();
   static void cursor_home();
   static void printf_statline(const char *prompt, const char *help,
-	  		      const char *format, ...)
+                              const char *format, ...)
   __attribute__((format(printf, 3, 4)));
+  static void save_disable_irqs(unsigned cpu);
+  static void restore_irqs(unsigned cpu);
 
 private:
   Jdb();			// default constructors are undefined
@@ -59,8 +59,6 @@ private:
   static bool handle_user_request(unsigned cpu);
   static bool handle_debug_traps(unsigned cpu);
   static bool test_checksums();
-  static void save_disable_irqs(unsigned cpu);
-  static void restore_irqs(unsigned cpu);
 
 public:
   static Jdb_handler_queue jdb_enter;
@@ -76,7 +74,6 @@ public:
   static char  esc_symbol[];
 
 };
-
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION:
@@ -1010,8 +1007,13 @@ char Jdb::esc_symbol[]   = "\033[33;1m";
 IMPLEMENT int
 Jdb::enter_jdb(Jdb_entry_frame *e, unsigned cpu)
 {
-  if (e->debug_ipi() && !in_service)
-    return 0;
+  if (e->debug_ipi())
+    {
+      if (!remote_work_ipi_process(cpu))
+        return 0;
+      if (!in_service)
+	return 0;
+    }
 
   enter_trap_handler(cpu);
 
@@ -1034,7 +1036,7 @@ Jdb::enter_jdb(Jdb_entry_frame *e, unsigned cpu)
     {
       nested_trap_frame = *e;
 
-      // Since we entred the kernel debugger a second time, 
+      // Since we entered the kernel debugger a second time,
       // Thread::nested_trap_recover
       // has a value of 2 now. We don't leave this function so correct the
       // entry counter
@@ -1042,7 +1044,6 @@ Jdb::enter_jdb(Jdb_entry_frame *e, unsigned cpu)
 
       longjmp(recover_buf, 1);
     }
-
 
   // all following exceptions are handled by jdb itself
   running.cpu(cpu) = true;
@@ -1153,9 +1154,33 @@ bool
 Jdb::check_for_cpus(bool)
 { return true; }
 
+PRIVATE static inline
+int
+Jdb::remote_work_ipi_process(unsigned)
+{ return 1; }
+
+
+//---------------------------------------------------------------------------
+INTERFACE [mp]:
+
+#include "spin_lock.h"
+
+EXTENSION class Jdb
+{
+  // remote call
+  static Spin_lock _remote_call_lock;
+  static void (*_remote_work_ipi_func)(unsigned, void *);
+  static void *_remote_work_ipi_func_data;
+  static unsigned long _remote_work_ipi_done;
+};
 
 //--------------------------------------------------------------------------
 IMPLEMENTATION [mp]:
+
+Spin_lock Jdb::_remote_call_lock;
+void (*Jdb::_remote_work_ipi_func)(unsigned, void *);
+void *Jdb::_remote_work_ipi_func_data;
+unsigned long Jdb::_remote_work_ipi_done;
 
 PRIVATE static
 bool
@@ -1207,7 +1232,7 @@ retry:
 	  if (!running.cpu(c))
 	    {
 	      printf("JDB: CPU %d: is not responding ... %s\n",c,
-		  try_nmi ? "try NMI" : "");
+		     try_nmi ? "trying NMI" : "");
 	      if (try_nmi)
 		{
 		  do_retry = true;
@@ -1264,11 +1289,15 @@ Jdb::stop_all_cpus(unsigned current_cpu)
       while ((volatile bool)jdb_active)
 	{
 	  Mem::barrier();
-	  if (remote_func.cpu(current_cpu))
+	  void (**func)(unsigned, void *) = &remote_func.cpu(current_cpu);
+
+	  monitor_address(current_cpu, reinterpret_cast<void*>(func));
+
+	  if (*func)
 	    {
 	      // Execute functions from queued from another CPU
-	      void (*f)(unsigned, void *) = remote_func.cpu(current_cpu);
-	      remote_func.cpu(current_cpu) = 0;
+	      void (*f)(unsigned, void *) = *func;
+	      *func = 0;
 	      f(current_cpu, remote_func_data.cpu(current_cpu));
 	      Mem::barrier();
 	      remote_func_running.cpu(current_cpu) = 0;
@@ -1334,4 +1363,50 @@ Jdb::leave_wait_for_others()
 
   Mem::barrier();
   leave_barrier = 0;
+}
+
+// The remote_work_ipi* functions are for the IPI round-trip benchmark (only)
+PRIVATE static
+int
+Jdb::remote_work_ipi_process(unsigned cpu)
+{
+  if (_remote_work_ipi_func)
+    {
+      _remote_work_ipi_func(cpu, _remote_work_ipi_func_data);
+      Mem::barrier();
+      _remote_work_ipi_done = 1;
+      return 0;
+    }
+  return 1;
+}
+
+PUBLIC static
+bool
+Jdb::remote_work_ipi(unsigned this_cpu, unsigned to_cpu,
+                     void (*f)(unsigned, void *), void *data, bool wait = true)
+{
+  if (to_cpu == this_cpu)
+    {
+      f(this_cpu, data);
+      return true;
+    }
+
+  if (!Cpu::online(to_cpu))
+    return false;
+
+  Lock_guard<Spin_lock> guard(&_remote_call_lock);
+
+  _remote_work_ipi_func      = f;
+  _remote_work_ipi_func_data = data;
+  _remote_work_ipi_done      = 0;
+
+  Ipi::send(to_cpu, Ipi::Debug);
+
+  if (wait)
+    while (!*(volatile unsigned long *)&_remote_work_ipi_done)
+      Proc::pause();
+
+  _remote_work_ipi_func = 0;
+
+  return true;
 }

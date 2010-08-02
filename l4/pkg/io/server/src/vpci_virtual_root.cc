@@ -73,7 +73,7 @@ Pci_vroot::cfg_read(L4::Ipc_iostream &ios)
   ios >> bus >> devfn >> reg >> width;
   value = ~0U >> (32 - width);
 
-  // printf("cfg read: %02x:%02x.%1x: reg=%x w=%x\n", bus, devfn >> 16, devfn & 0xffff, reg, width);
+  //printf("cfg read: %02x:%02x.%1x: reg=%x w=%d\n", bus, devfn >> 16, devfn & 0xffff, reg, width);
 
   if ((devfn >> 16) >= 32 || (devfn & 0xffff) >= 8)
     {
@@ -95,7 +95,7 @@ Pci_vroot::cfg_read(L4::Ipc_iostream &ios)
   if (res < 0)
     return res;
 
-  // printf("  value=%x\n", value);
+  //printf("  value=%x\n", value);
   ios << value;
   return L4_EOK;
 }

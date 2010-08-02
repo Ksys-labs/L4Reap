@@ -18,7 +18,7 @@ void Proc::stack_pointer(Mword sp)
 }
 
 IMPLEMENT static inline
-Mword Proc::program_counter ()
+Mword Proc::program_counter()
 {
   Mword pc;
   asm volatile ("call 1f ; 1: pop %0" : "=r"(pc));

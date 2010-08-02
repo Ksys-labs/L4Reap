@@ -1,21 +1,15 @@
-#
-# $Id$
-#
-# Makefile for the Linux 2.4 header include package
-#
+PKGDIR	           = ..
+L4DIR	           ?= $(PKGDIR)/../..
 
-PKGDIR	= ..
-L4DIR	?= $(PKGDIR)/../..
-
-INSTALL_INC_PREFIX = linux-26
-
-SUFFIX_amd64 := x86
-SUFFIX_x86   := x86
-SUFFIX_arm   := arm
+CONTRIB_HEADERS     = y
+PC_FILENAME         = linux-26-headers
+SUFFIX_amd64       := x86
+SUFFIX_x86         := x86
+SUFFIX_arm         := arm
 
 include $(L4DIR)/mk/include.mk
 
-ARCH:=$(BUILD_ARCH)
+ARCH               := $(BUILD_ARCH)
 
 # macro to establish a symlink to a dir if not already existing
 MAKELINK = if [ ! $1 -ef $2 ] ; then ln -sf $3 $2 ; fi

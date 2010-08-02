@@ -2,9 +2,8 @@ PKGDIR		?= ../../..
 L4DIR		?= $(PKGDIR)/../..
 
 TARGET          = libcon_hw.a
-REQUIRES_LIBS   = libio libio-vbus
+REQUIRES_LIBS   = libio libio-vbus linux-26-headers
 NOTARGETSTOINSTALL = 1
-PRIVATE_INCDIR	= $(L4DIR)/pkg/linux-26-headers/include
 
 OPTS		= -g -Os $(CARCHFLAGS_$(ARCH)) $(CARCHFLAGS_$(ARCH)_$(CPU))
 SRC_C_amd64_libcon_hw.a = ati.c ati_vid.c \

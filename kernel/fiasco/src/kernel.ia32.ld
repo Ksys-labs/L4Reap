@@ -35,7 +35,7 @@ SECTIONS {
 
   . = _boot_sys_start;
   .text_boot : ALIGN(0x1000) {
-    *(.bootstrap.text)
+    *(.bootstrap.text .bootstrap.text.* .bootstrap.gnu.linkonce.t.*)
   } : btext
   
   . = ALIGN(0x10);

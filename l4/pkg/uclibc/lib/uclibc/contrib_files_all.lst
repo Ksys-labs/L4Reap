@@ -272,6 +272,7 @@ libc/stdio/_trans2r.c
 libc/stdio/_trans2w.c
 libc/stdio/_uintmaxtostr.c
 libc/stdio/_wcommit.c
+libc/stdio/_wfwrite.c
 libc/stdio/asprintf.c
 libc/stdio/clearerr.c
 libc/stdio/clearerr.c				clearerr__DO_UNLOCKED
@@ -302,6 +303,8 @@ libc/stdio/fputs.c
 libc/stdio/fputs.c				fputs__DO_UNLOCKED
 libc/stdio/fputc.c
 libc/stdio/fputc.c				fputc__DO_UNLOCKED
+libc/stdio/fputws.c
+libc/stdio/fputws.c				fputws__DO_UNLOCKED
 libc/stdio/fprintf.c
 libc/stdio/fread.c
 libc/stdio/fread.c				fread__DO_UNLOCKED
@@ -312,6 +315,7 @@ libc/stdio/fsetpos64.c
 libc/stdio/ftello.c
 libc/stdio/ftello64.c
 libc/stdio/funlockfile.c
+libc/stdio/fwprintf.c
 libc/stdio/fwrite.c
 libc/stdio/fwrite.c				fwrite__DO_UNLOCKED
 libc/stdio/getdelim.c
@@ -339,19 +343,25 @@ libc/stdio/setbuffer.c
 libc/stdio/setlinebuf.c
 libc/stdio/snprintf.c
 libc/stdio/sprintf.c
+libc/stdio/swprintf.c
 libc/stdio/ungetc.c
 libc/stdio/vasprintf.c
 libc/stdio/vdprintf.c
 libc/stdio/_vfprintf.c
 libc/stdio/_vfprintf_internal.c
+libc/stdio/_vfwprintf_internal.c
 libc/stdio/vfprintf.c
+libc/stdio/vfwprintf.c
 libc/stdio/_ppfs_init.c
 libc/stdio/_ppfs_prepargs.c
 libc/stdio/_ppfs_setargs.c
 libc/stdio/_ppfs_parsespec.c
 libc/stdio/vsnprintf.c
 libc/stdio/vsprintf.c
+libc/stdio/vswprintf.c
 libc/stdio/vprintf.c
+libc/stdio/vwprintf.c
+libc/stdio/wprintf.c
 libc/string/_string.h
 libc/string/_syserrmsg.h
 libc/string/basename.c
@@ -378,6 +388,9 @@ libc/string/sys_errlist.c
 libc/string/strndup.c
 libc/string/strncasecmp.c
 libc/string/strtok.c
+libc/string/wcsnlen.c
+libc/string/wcslen.c
+libc/string/wmemcpy.c
 libc/misc/assert/__assert.c
 libc/misc/ctype/ctype.c
 libc/misc/ctype/isalnum.c

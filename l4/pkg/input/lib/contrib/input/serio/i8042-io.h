@@ -68,7 +68,10 @@ static inline int i8042_platform_init(void)
  * bad things. Because of this the region is always reserved on such boxes.
  */
 #if !defined(__sh__) && !defined(__alpha__) && !defined(__mips__) && !defined(CONFIG_PPC64)
-	if (!request_region(I8042_DATA_REG, 16, "i8042"))
+	//l4/if (!request_region(I8042_DATA_REG, 16, "i8042"))
+	if (!request_region(I8042_DATA_REG, 1, "i8042"))
+		return -1;
+	if (!request_region(I8042_COMMAND_REG, 1, "i8042"))
 		return -1;
 #endif
 

@@ -11,8 +11,8 @@ CONFIG_ARM=y
 # CONFIG_PPC32 is not set
 # CONFIG_PF_PC is not set
 # CONFIG_PF_UX is not set
-CONFIG_PF_REALVIEW=y
 # CONFIG_PF_IMX is not set
+CONFIG_PF_REALVIEW=y
 # CONFIG_PF_S3C2410 is not set
 # CONFIG_PF_TEGRA2 is not set
 # CONFIG_PF_OMAP3 is not set
@@ -48,10 +48,16 @@ CONFIG_ARM_CORTEX_A9=y
 # CONFIG_IA32_P3 is not set
 # CONFIG_IA32_P4 is not set
 # CONFIG_IA32_PM is not set
+# CONFIG_IA32_CORE2 is not set
+# CONFIG_IA32_ATOM is not set
 # CONFIG_IA32_K6 is not set
 # CONFIG_IA32_K7 is not set
 # CONFIG_IA32_K8 is not set
+# CONFIG_IA32_K10 is not set
 # CONFIG_AMD64_K8 is not set
+# CONFIG_AMD64_CORE2 is not set
+# CONFIG_AMD64_ATOM is not set
+# CONFIG_AMD64_K10 is not set
 # CONFIG_PPC32_603e is not set
 # CONFIG_ARM_ALIGNMENT_CHECK is not set
 CONFIG_ARM_TZ=y

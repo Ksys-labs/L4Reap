@@ -11,8 +11,8 @@ CONFIG_AMD64=y
 # CONFIG_PPC32 is not set
 CONFIG_PF_PC=y
 # CONFIG_PF_UX is not set
-# CONFIG_PF_REALVIEW is not set
 # CONFIG_PF_IMX is not set
+# CONFIG_PF_REALVIEW is not set
 # CONFIG_PF_S3C2410 is not set
 # CONFIG_PF_TEGRA2 is not set
 # CONFIG_PF_OMAP3 is not set
@@ -37,12 +37,18 @@ CONFIG_ABI_VF=y
 # CONFIG_IA32_P3 is not set
 # CONFIG_IA32_P4 is not set
 # CONFIG_IA32_PM is not set
+# CONFIG_IA32_CORE2 is not set
+# CONFIG_IA32_ATOM is not set
 # CONFIG_IA32_K6 is not set
 # CONFIG_IA32_K7 is not set
 # CONFIG_IA32_K8 is not set
+# CONFIG_IA32_K10 is not set
 CONFIG_AMD64_K8=y
+# CONFIG_AMD64_CORE2 is not set
+# CONFIG_AMD64_ATOM is not set
+# CONFIG_AMD64_K10 is not set
 # CONFIG_PPC32_603e is not set
-# CONFIG_SVM is not set
+# CONFIG_CPU_VIRT is not set
 CONFIG_SCHED_PIT=y
 # CONFIG_SCHED_RTC is not set
 # CONFIG_SCHED_APIC is not set

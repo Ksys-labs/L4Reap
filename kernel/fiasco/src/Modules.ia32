@@ -17,6 +17,7 @@ OBJ_SPACE-  = virt
 OBJ_SPACE   = $(OBJ_SPACE-$(CONFIG_DISABLE_VIRT_OBJ_SPACE))
 
 PREPROCESS_PARTS += obj_space_$(OBJ_SPACE)
+
 PREPROCESS_PARTS-$(CONFIG_MP)                += mp
 PREPROCESS_PARTS-$(CONFIG_LIST_ALLOC_SANITY) += list_alloc_debug
 PREPROCESS_PARTS-$(CONFIG_JDB)               += debug log
@@ -31,7 +32,7 @@ PREPROCESS_PARTS-$(CONFIG_PERF_CNT)          += perf_cnt
 PREPROCESS_PARTS-$(CONFIG_HANDLE_SEGMENTS)   += segments
 PREPROCESS_PARTS-$(CONFIG_IO_PROT)           += io
 PREPROCESS_PARTS-$(CONFIG_IO_PROT_IOPL_3)    += iopl3
-PREPROCESS_PARTS-$(CONFIG_SVM)               += svm
+PREPROCESS_PARTS-$(CONFIG_CPU_VIRT)          += svm
 PREPROCESS_PARTS-$(CONFIG_SCHED_FIXED_PRIO)  += sched_fixed_prio
 PREPROCESS_PARTS-$(CONFIG_SCHED_WFQ)         += sched_wfq
 PREPROCESS_PARTS-$(CONFIG_SCHED_FP_WFQ)      += sched_fp_wfq
@@ -98,8 +99,8 @@ INTERFACES_KERNEL	:= cpu_mask rcupdate pages kobject_mapdb \
 			   mapdb region pic dirq_pic_pin dirq_io_apic \
 			   kobject_dbg kobject ready_queue_wfq ready_queue_fp \
 			   obj_space ptab_base io_space_sigma0 irq_msi \
-			   io_space ram_quota ref_ptr ref_obj     \
-			   mem_space mem_space_sigma0 space vlog        \
+			   io_space ram_quota ref_ptr ref_obj \
+			   mem_space mem_space_sigma0 space vlog \
 			   kmem kmem_alloc slab_cache_anon mem_layout        \
 			   kmem_slab_simple kmem_slab switch_lock kip_init   \
 			   thread_lock helping_lock cpu_lock timer timeout   \
@@ -114,32 +115,32 @@ INTERFACES_KERNEL	:= cpu_mask rcupdate pages kobject_mapdb \
 			   vmem_alloc paging fpu fpu_state fpu_alloc cpu     \
 			   entry_frame kernel_console boot_console profile   \
 			   ipc_gate task kernel_task irq_controller          \
-			   irq_chip terminate continuation       \
-			   sched_context utcb_init sys_call_page  \
-			   perf_cnt x86desc gdt idt tss trap_state      \
+			   irq_chip terminate continuation \
+			   sched_context utcb_init \
+			   perf_cnt x86desc gdt idt tss trap_state \
 			   buddy_alloc vkey kdb_ke prio_list ipi timer_irq \
-			   scheduler clock svm vm
+			   scheduler clock vm_factory \
+			   sys_call_page
 
+INTERFACES_KERNEL-$(CONFIG_CPU_VIRT) += svm vm vm_svm
 
-#ifeq ("$(CONFIG_USER_LOCKS)","y")
-  PREPROCESS_PARTS	+= ulock
-  INTERFACES_KERNEL	+= u_semaphore
-#endif
+PREPROCESS_PARTS	+= ulock
+INTERFACES_KERNEL	+= u_semaphore
+
 
 apic_IMPL		:= apic-ia32 apic-ia32-mp
 boot_console_IMPL	:= boot_console-ia32-amd64
 boot_info_IMPL		:= boot_info boot_info-ia32
+clock_IMPL              := clock clock-ia32
 config_IMPL		:= config config-ia32-32 config-ia32
 context_IMPL		:= context context-ia32 context-ia32-32 context-vcpu
 continuation_IMPL	:= continuation-ia32-32
-clock_IMPL              := clock clock-ia32
 cpu_IMPL		:= cpu cpu-ia32 cpu-32
 dirq_IMPL		:= dirq dirq-ia32-ux
 dirq_pic_pin_IMPL       := dirq_pic_pin dirq_pic_pin-ia32-ux
 entry_frame_IMPL	:= entry_frame entry_frame-ia32-ux \
 			   entry_frame-abs-timeout-hack
 fpu_IMPL		:= fpu fpu-ia32-ux fpu-ia32
-ioapic_IMPL		:= ioapic-ia32
 ipi_IMPL		:= ipi ipi-ia32
 kdb_ke_IMPL		:= kdb_ke kdb_ke-ia32
 kernel_thread_IMPL	:= kernel_thread kernel_thread-std kernel_thread-ia32
@@ -149,7 +150,6 @@ kmem_IMPL		:= kmem-ia32 kmem-ia32-32
 kmem_alloc_IMPL		:= kmem_alloc kmem_alloc-ia32
 main_IMPL		:= main-ia32-32 main-ia32
 mapping_IMPL		:= mapping-ia32-32 mapping
-mapdb_IMPL		:= mapdb
 map_util_IMPL		:= map_util map_util-mem map_util-io map_util-objs
 mem_layout_IMPL		:= mem_layout mem_layout-ia32-32 mem_layout-ia32
 mem_space_IMPL		:= mem_space mem_space-user mem_space-ia32
@@ -172,17 +172,15 @@ tb_entry_IMPL		:= tb_entry tb_entry-ia32-32
 timer_IMPL		:= timer timer-ia32-amd64-ux
 thread_IMPL		:= thread thread-ia32 thread-ia32-32 \
 			   thread-ipc \
-			   thread-list      \
+			   thread-list \
 			   thread-pagefault thread-log      \
 			   thread-debug thread-dbf thread-ulock thread-vcpu
 utcb_init_IMPL		:= utcb_init utcb_init-ia32
 vmem_alloc_IMPL		:= vmem_alloc vmem_alloc-ia32
-vm_IMPL			:= vm-svm
+vm_factory_IMPL         := vm_factory vm_factory-ia32
 watchdog_IMPL		:= watchdog watchdog-ia32
 
-ifeq ("$(CONFIG_SERIAL)","y")
-  INTERFACES_KERNEL	+= uart_console
-endif
+INTERFACES_KERNEL-$(CONFIG_SERIAL) += uart_console
 
 ifeq ("$(CONFIG_PROFILE)","y")
   cpu_lock_IMPL		:= cpu_lock cpu_lock-pic
@@ -251,19 +249,16 @@ jdb_screen_IMPL		:= jdb_screen jdb_screen-ia32
 jdb_tcb_IMPL		:= jdb_tcb jdb_tcb-ia32-ux
 jdb_trace_set_IMPL	:= jdb_trace_set jdb_trace_set-ia32-ux
 
-  ifeq ("$(CONFIG_JDB_MISC)","y")
-    INTERFACES_KERNEL	+= jdb_tetris
-  endif
+INTERFACES_KERNEL-$(CONFIG_JDB_MISC)	+= jdb_tetris
 endif
 
 
 CXXSRC_KERNEL		:= kernel_panic.cc libc_backend_lock.cc
-ASSRC_KERNEL		:= entry.S entry-native.S \
-                           sys_call_page-asm.S 
-ifeq ($(CONFIG_MP),y)
-ASSRC_KERNEL		+= tramp-mp.S entry-mp.S
-endif
+ASSRC_KERNEL		:= entry.S entry-native.S sys_call_page-asm.S
 
+ASSRC_KERNEL-$(CONFIG_MP)               += tramp-mp.S entry-mp.S
+ASSRC_KERNEL-$(CONFIG_CPU_VIRT)         += vm_svm_asm.S
+ASSRC_KERNEL                            += $(ASSRC_KERNEL-y)
 
 NOOPT			+= $(filter jdb%,\
 			     $(foreach in,$(INTERFACES_KERNEL), \
@@ -488,3 +483,5 @@ endif
 endif
 
 MODULES_FILES = $(MODULES_FILE) $(MODULES_FILE_BSP)
+
+INTERFACES_KERNEL       += $(INTERFACES_KERNEL-y)

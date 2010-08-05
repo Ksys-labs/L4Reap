@@ -212,6 +212,7 @@ PRIVATE static inline NOEXPORT
 Unsigned32
 Apic::get_num_errors()
 {
+  reg_write(APIC_esr, 0);
   return reg_read(APIC_esr);
 }
 
@@ -219,6 +220,7 @@ PRIVATE static inline NOEXPORT
 void
 Apic::clear_num_errors()
 {
+  reg_write(APIC_esr, 0);
   reg_write(APIC_esr, 0);
 }
 
@@ -291,7 +293,7 @@ void
 Apic::map_apic_page()
 {
   Address offs;
-  Address base = Cpu::rdmsr(APIC_base_msr) & 0xfffff000;
+  Address base = apic_page_phys();
   // We should not change the physical address of the Local APIC page if
   // possible since some versions of VMware would complain about a
   // non-implemented feature
@@ -761,13 +763,13 @@ Apic::error_interrupt(Return_frame *regs)
       if (ignore_invalid_apic_reg_access)
 	return;
 
-      printf("APIC invalid register access error at "L4_PTR_FMT"\n",
-	     regs->ip());
+      printf("cpu%d: APIC invalid register access error at "L4_PTR_FMT"\n",
+	     current_cpu(), regs->ip());
       return;
     }
 
   apic_error_cnt++;
-  printf("APIC error %08x(%08x)\n", err1, err2);
+  printf("cpu%d: APIC error %08x(%08x)\n", current_cpu(), err1, err2);
 }
 
 // deactivate APIC by writing to appropriate MSR

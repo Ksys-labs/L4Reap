@@ -42,11 +42,11 @@ endif
 
 PC_FILENAME = dde-linux26
 PC_FILENAMES                 := $(PC_FILENAME) $(PC_FILENAME)_net $(PC_FILENAME)_block $(PC_FILENAME)_char
-PC_LIBS_$(PC_FILENAME)       := $(TARGET_DDE)
-PC_LIBS_$(PC_FILENAME)_net   := $(TARGET_DDE_NET)
-PC_LIBS_$(PC_FILENAME)_block := $(TARGET_DDE_BLOCK)
-PC_LIBS_$(PC_FILENAME)_sound := $(TARGET_DDE_SOUND)
-PC_LIBS_$(PC_FILENAME)_char  := $(TARGET_DDE_CHAR)
+PC_LIBS_$(PC_FILENAME)       := $(patsubst lib%.a,-l%,$(TARGET_DDE))
+PC_LIBS_$(PC_FILENAME)_net   := $(patsubst lib%.a,-l%,$(TARGET_DDE_NET))
+PC_LIBS_$(PC_FILENAME)_block := $(patsubst lib%.a,-l%,$(TARGET_DDE_BLOCK))
+PC_LIBS_$(PC_FILENAME)_sound := $(patsubst lib%.a,-l%,$(TARGET_DDE_SOUND))
+PC_LIBS_$(PC_FILENAME)_char  := $(patsubst lib%.a,-l%,$(TARGET_DDE_CHAR))
 
 TARGET     = $(TARGET_DDE) $(TARGET_DDE_NET) $(TARGET_DDE_BLOCK) $(TARGET_DDE_SOUND) $(TARGET_DDE_CHAR)
 LINK_INCR  = $(TARGET_DDE) $(TARGET_DDE_BLOCK)

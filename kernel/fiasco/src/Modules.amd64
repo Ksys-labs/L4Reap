@@ -11,6 +11,7 @@ PREPROCESS_PARTS 	+= arch $(CONFIG_ABI) 64bit iofp         \
 			   $(CONFIG_XARCH) apic abs-timeout-hack \
 			   i8259 pc i8254 fpu                    \
 			   auto_map_kip
+
 OBJ_SPACE-y = phys
 OBJ_SPACE-  = virt
 OBJ_SPACE   = $(OBJ_SPACE-$(CONFIG_DISABLE_VIRT_OBJ_SPACE))
@@ -29,13 +30,12 @@ PREPROCESS_PARTS-$(CONFIG_SERIAL)            += serial 16550
 PREPROCESS_PARTS-$(CONFIG_WATCHDOG)          += watchdog
 PREPROCESS_PARTS-$(CONFIG_PERF_CNT)          += perf_cnt
 PREPROCESS_PARTS-$(CONFIG_IO_PROT)           += io
-PREPROCESS_PARTS-$(CONFIG_SVM)               += svm
+PREPROCESS_PARTS-$(CONFIG_CPU_VIRT)          += svm
 PREPROCESS_PARTS-$(CONFIG_SCHED_FIXED_PRIO)  += sched_fixed_prio
 PREPROCESS_PARTS-$(CONFIG_SCHED_WFQ)         += sched_wfq
 PREPROCESS_PARTS-$(CONFIG_SCHED_FP_WFQ)      += sched_fp_wfq
 
 PREPROCESS_PARTS        += $(PREPROCESS_PARTS-y)
-
 
 #
 # TYPES subsystem
@@ -45,7 +45,6 @@ PRIVATE_INCDIR		+= types/$(CONFIG_XARCH) types
 #
 # ABI Subsystem
 #
-PRIVATE_INCDIR		+= abi
 ABI			:= libabi.a
 VPATH			+= abi/$(CONFIG_XARCH) abi
 INTERFACES_ABI		:= l4_fpage l4_msg_item l4_buf_desc kip l4_types \
@@ -80,44 +79,48 @@ NOOPT			+= $(patsubst %.o, %, $(OBJ_DRIVERS))
 
 keyb_IMPL		:= keyb keyb-pc 
 io_IMPL			:= io io-amd64
-processor_IMPL		:= processor processor-amd64
 mem_IMPL		:= mem mem-amd64
+processor_IMPL		:= processor processor-amd64
 
 #
 # KERNEL subsystem
 #
 KERNEL			:= fiasco.image
 VPATH			+= kern/$(CONFIG_XARCH) kern/shared kern/ia32/64 kern/ia32 kern
-VPATH			+= jdb/ia32/64 jdb/ia32 jdb
 PRIVATE_INCDIR		+= kern/$(CONFIG_XARCH) kern/shared kern/ia32/64 kern/ia32 kern 
 
-INTERFACES_KERNEL	:= startup boot_info cmdline __main mapping mappable \
-			   mapping_tree mapdb region pic \
-			   queue_item queue l4_buf_iter cpu_mask rcupdate \
-			   bitmap acpi io_apic spin_lock mem_region mem_space \
-			   mem_space_sigma0 space factory lock irq_pin \
-			   obj_space ptab_base vlog pages kobject_mapdb \
+INTERFACES_KERNEL	:= cpu_mask rcupdate pages kobject_mapdb \
+			   mem_region per_cpu_data startup boot_info cmdline \
+			   __main queue queue_item l4_buf_iter irq_pin \
+			   bitmap acpi io_apic mapping spin_lock \
+			   mapping_tree mappable dbg_page_info  \
+			   mapdb region pic dirq_pic_pin dirq_io_apic \
+			   kobject_dbg kobject ready_queue_wfq ready_queue_fp \
+			   obj_space ptab_base io_space_sigma0 irq_msi \
+			   io_space ram_quota ref_ptr ref_obj \
+			   mem_space mem_space_sigma0 space vlog \
 			   kmem kmem_alloc slab_cache_anon mem_layout        \
 			   kmem_slab_simple kmem_slab switch_lock kip_init   \
 			   thread_lock helping_lock cpu_lock timer timeout   \
-			   ipc_timeout timeslice_timeout ipc_sender   \
-			   thread_state context mp_lock sender receiver \
-			   mem_unit kobject_dbg kobject ref_obj ref_ptr vcpu  \
-			   thread kobject_helper icu_helper \
-			   syscalls kernel_thread map_util irq banner \
-			   warn per_cpu_data per_cpu_data_alloc              \
+			   ipc_timeout timeslice_timeout    \
+			   per_cpu_data_alloc vcpu kobject_helper icu_helper \
+			   thread_state context mp_lock sender receiver      \
+			   mem_unit factory lock ipc_sender \
+			   thread syscalls kernel_thread map_util irq banner \
+			   warn app_cpu_thread                               \
 			   dirq globals apic watchdog kernel_uart pit        \
-			   dirq_pic_pin dirq_io_apic irq_msi irq_controller \
 			   checksum main config mapped_alloc      \
 			   vmem_alloc paging fpu fpu_state fpu_alloc cpu     \
 			   entry_frame kernel_console boot_console profile   \
-			   ipc_gate task irq_chip terminate \
-			   sched_context utcb_init continuation   \
-			   perf_cnt x86desc gdt idt tss trap_state           \
-			   buddy_alloc vkey kdb_ke kernel_task dbg_page_info \
-			   io_space io_space_sigma0 ram_quota scheduler \
-			   prio_list app_cpu_thread ipi timer_irq       \
-                           clock svm vm ready_queue_wfq ready_queue_fp
+			   ipc_gate task kernel_task irq_controller          \
+			   irq_chip terminate continuation \
+			   sched_context utcb_init \
+			   perf_cnt x86desc gdt idt tss trap_state \
+			   buddy_alloc vkey kdb_ke prio_list ipi timer_irq \
+			   scheduler clock vm_factory \
+
+
+INTERFACES_KERNEL-$(CONFIG_CPU_VIRT) += svm vm vm_svm
 
 PREPROCESS_PARTS	+= ulock
 INTERFACES_KERNEL	+= u_semaphore
@@ -143,7 +146,6 @@ kernel_uart_IMPL	:= kernel_uart kernel_uart-16550
 kip_init_IMPL		:= kip_init-ia32
 kmem_IMPL		:= kmem-ia32 kmem-ia32-64
 kmem_alloc_IMPL		:= kmem_alloc kmem_alloc-ia32
-
 main_IMPL		:= main-ia32-64 main-ia32
 mapping_IMPL		:= mapping-ia32-64 mapping
 map_util_IMPL		:= map_util map_util-mem map_util-io map_util-objs
@@ -174,12 +176,10 @@ trap_state_IMPL		:= trap_state-amd64
 tss_IMPL		:= tss-amd64
 utcb_init_IMPL		:= utcb_init utcb_init-ia32
 vmem_alloc_IMPL		:= vmem_alloc vmem_alloc-ia32
-vm_IMPL			:= vm-svm
+vm_factory_IMPL         := vm_factory vm_factory-ia32
 watchdog_IMPL		:= watchdog watchdog-ia32
 
-ifeq ("$(CONFIG_SERIAL)","y")
-  INTERFACES_KERNEL	+= uart_console
-endif
+INTERFACES_KERNEL-$(CONFIG_SERIAL) += uart_console
 
 ifeq ("$(CONFIG_PROFILE)","y")
   cpu_lock_IMPL		:= cpu_lock cpu_lock-pic
@@ -209,60 +209,56 @@ ifeq ("$(CONFIG_IO_PROT)","y")
 endif
 
 ifeq ("$(CONFIG_JDB)","y")
-INTERFACES_KERNEL	+= jdb_entry_frame jdb jdb_prompt_ext jdb_symbol \
-			   jdb_dbinfo jdb_bp jdb_thread_list jdb_lines \
+VPATH			+= jdb/ia32/64 jdb/ia32 jdb
+INTERFACES_KERNEL	+= jdb jdb_util jdb_prompt_ext jdb_symbol jdb_lines \
+			   jdb_dbinfo jdb_bp \
 			   jdb_tbuf jdb_module jdb_core jdb_io_ports \
 			   jdb_kern_info jdb_prompt_module jdb_tbuf_output \
 			   jdb_input jdb_dump jdb_ptab jdb_misc jdb_mapdb \
 			   jdb_tcb jdb_attach_irq jdb_tbuf_init jdb_trace \
 			   jdb_trace_set jdb_counters jdb_table kern_cnt  \
-			   jdb_bt tb_entry tb_entry_output jdb_exit_module \
+			   tb_entry tb_entry_output jdb_exit_module \
 			   jdb_tbuf_show jdb_console_buffer virq \
 			   jdb_list jdb_screen push_console jdb_timeout \
 			   jdb_handler_queue jdb_halt_thread \
 			   jdb_kern_info_kmem_alloc jdb_kern_info_region \
 			   jdb_kern_info_kip jdb_kern_info_config \
-			   loadcnt jdb_util jdb_space \
-			   jdb_kobject jdb_kobject_names jdb_ipc_gate \
-			   jdb_obj_space jdb_log jdb_factory jdb_semaphore \
-			   jdb_io_apic jdb_trap_state jdb_ipi jdb_rcupdate \
+			   loadcnt jdb_utcb jdb_thread_list \
+			   jdb_entry_frame jdb_kobject jdb_space jdb_io_apic \
+			   jdb_trap_state jdb_ipi jdb_kobject_names \
+			   jdb_rcupdate jdb_bt jdb_ipc_gate jdb_obj_space \
+			   jdb_log jdb_factory jdb_semaphore jdb_iomap \
                            jdb_thread jdb_scheduler jdb_sender_list \
-			   jdb_disasm jdb_regex
+			   jdb_regex jdb_disasm
 
 apic_IMPL		+= apic-debug
 jdb_IMPL		:= jdb jdb-ia32-amd64 jdb-ansi jdb-ia32-ux jdb-thread \
 			   jdb-int3-ia32-amd64 jdb-int3-ia32-ux
 jdb_bp_IMPL		:= jdb_bp-ia32-ux jdb_bp-ia32-amd64 jdb_bp-amd64
 jdb_bt_IMPL		:= jdb_bt-ia32-ux
+jdb_entry_frame_IMPL	:= jdb_entry_frame-ia32
 jdb_kern_info_IMPL	:= jdb_kern_info jdb_kern_info-ia32-amd64 \
 			   jdb_kern_info-ia32-ux jdb_kern_info-apic \
-			   jdb_kern_info-pci \
-			   jdb_kern_info-bench \
-			   jdb_kern_info-bench-ia32-64 jdb_kern_info-dr
+			   jdb_kern_info-pci jdb_kern_info-bench \
+			   jdb_kern_info-bench-ia32-64 \
+			   jdb_kern_info-dr
 jdb_misc_IMPL		:= jdb_misc-ia32-amd64
-jdb_screen_IMPL		:= jdb_screen jdb_screen-ia32
 jdb_ptab_IMPL		:= jdb_ptab jdb_ptab-amd64
+jdb_screen_IMPL		:= jdb_screen jdb_screen-ia32
 jdb_tcb_IMPL		:= jdb_tcb jdb_tcb-amd64
-jdb_entry_frame_IMPL	:= jdb_entry_frame-ia32
 jdb_trace_set_IMPL	:= jdb_trace_set jdb_trace_set-ia32-ux
-#jdb_utcb_IMPL		:= jdb_utcb-ia32-ux
 
-#  ifeq ("$(CONFIG_JDB_MISC)","y")
-    INTERFACES_KERNEL	+= jdb_tetris
-#  endif
+INTERFACES_KERNEL-$(CONFIG_JDB_MISC)	+= jdb_tetris
 endif
 
 
 CXXSRC_KERNEL		:= kernel_panic.cc libc_backend_lock.cc
 ASSRC_KERNEL		:= entry.S entry-native.S shortcut.S
 
-ifeq ($(CONFIG_KIP_SYSCALLS_ABS),y)
-  ASSRC_KERNEL		+= sys_call_page-asm.S
-endif
-
-ifeq ($(CONFIG_MP),y)
-  ASSRC_KERNEL		+= tramp-mp.S entry-mp.S
-endif
+ASSRC_KERNEL-$(CONFIG_KIP_SYSCALLS_ABS) += sys_call_page-asm.S
+ASSRC_KERNEL-$(CONFIG_MP)               += tramp-mp.S entry-mp.S
+ASSRC_KERNEL-$(CONFIG_CPU_VIRT)         += vm_svm_asm.S
+ASSRC_KERNEL                            += $(ASSRC_KERNEL-y)
 
 NOOPT			+= $(filter jdb%,\
 			     $(foreach in,$(INTERFACES_KERNEL), \
@@ -391,10 +387,10 @@ CSRC_LIBAMM	:= amm_alloc_entry.c amm_allocate.c amm_deallocate.c \
 #
 ifneq ($(CONFIG_JDB_GZIP),)
   LIBGZIP		:= libgzip.a
-  VPATH		+= lib/gzip
+  VPATH			+= lib/gzip
   PRIVATE_INCDIR	+= lib/gzip
-  CSRC_LIBGZIP	:= adler32.c crc32.c gzip.c trees.c deflate.c zutil.c
-  NOOPT		+= $(patsubst %.o, %, $(OBJ_LIBGZIP))
+  CSRC_LIBGZIP		:= adler32.c crc32.c gzip.c trees.c deflate.c zutil.c
+  NOOPT			+= $(patsubst %.o, %, $(OBJ_LIBGZIP))
 endif
 
 #
@@ -419,7 +415,7 @@ ifeq ("$(CONFIG_JDB_DISASM)","y")
                        lib/disasm/libiberty lib/disasm/bfd
   PRIVATE_INCDIR    += lib/disasm
   CSRC_LIBDISASM    := disasm.c dis-init.c i386-dis.c dis-buf.c
-  NOOPT	            += $(patsubst %.o, %, $(OBJ_LIBDISASM))
+  NOOPT             += $(patsubst %.o, %, $(OBJ_LIBDISASM))
 endif
 
 #
@@ -487,3 +483,5 @@ endif
 endif
 
 MODULES_FILES = $(MODULES_FILE) $(MODULES_FILE_BSP)
+
+INTERFACES_KERNEL       += $(INTERFACES_KERNEL-y)

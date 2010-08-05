@@ -10,6 +10,9 @@ INTERFACE [mp]:
 
 EXTENSION class Ipi
 {
+private:
+  Unsigned32 _phys_id;
+
 public:
   enum Message {
     Ipi_start = 1,
@@ -24,24 +27,36 @@ IMPLEMENTATION [mp]:
 
 #include "cpu.h"
 #include "gic.h"
+#include "processor.h"
+
+PUBLIC inline
+Ipi::Ipi() : _phys_id(~0)
+{}
+
+IMPLEMENT inline NEEDS["processor.h"]
+void
+Ipi::init()
+{
+  _phys_id = Proc::cpu_id();
+}
 
 PUBLIC static
 void Ipi::ipi_call_debug_arch()
 {
 }
 
-PUBLIC static inline NEEDS["gic.h"]
+PUBLIC static inline
 void Ipi::eoi(Message)
 {
   // with the ARM-GIC we have to do the EOI right after the ACK
   stat_received();
 }
 
-PUBLIC static
-void Ipi::send(int logical_cpu, Message m)
+PUBLIC inline NEEDS["gic.h"]
+void Ipi::send(Message m)
 {
-  Gic_pin::_gic[0].softint_cpu(1 << Cpu::cpus.cpu(logical_cpu).phys_id(), m);
-  stat_sent(logical_cpu);
+  Gic_pin::_gic[0].softint_cpu(1 << _phys_id, m);
+  stat_sent();
 }
 
 PUBLIC static inline

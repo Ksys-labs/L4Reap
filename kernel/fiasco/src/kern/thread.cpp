@@ -1786,7 +1786,7 @@ Thread::migration_helper(Migration_info const *inf)
   if (ipi)
     {
       //LOG_MSG_3VAL(this, "sipi", current_cpu(), cpu(), (Mword)current());
-      Ipi::send(cpu, Ipi::Request);
+      Ipi::cpu(cpu).send(Ipi::Request);
     }
 
   return  Drq::No_answer | Drq::Need_resched;
@@ -1816,7 +1816,7 @@ Thread::migrate_xcpu(unsigned cpu)
     }
 
   if (ipi)
-    Ipi::send(cpu, Ipi::Request);
+    Ipi::cpu(cpu).send(Ipi::Request);
 }
 
 //----------------------------------------------------------------------------

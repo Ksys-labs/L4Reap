@@ -45,6 +45,14 @@ struct App_model : public Ldr::Base_app_model<Stack>
     Default_max_prio  = 0xff,
   };
 
+  enum
+  {
+    Utcb_area_start        = 0xb3000000,
+    Default_max_threads    = 16,
+    Total_max_threads      = 256,
+    Kip_address            = 0xa0000000,
+  };
+
   typedef L4Re::Util::Ref_cap<L4Re::Dataspace>::Cap Const_dataspace;
   typedef L4Re::Util::Ref_cap<L4Re::Dataspace>::Cap Dataspace;
   typedef L4Re::Util::Ref_cap<L4Re::Rm>::Cap Rm;

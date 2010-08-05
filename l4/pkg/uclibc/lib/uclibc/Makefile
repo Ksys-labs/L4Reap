@@ -8,6 +8,7 @@ include $(L4DIR)/mk/Makeconf
 
 SYSTEMS		= x86 arm amd64 ppc32
 TARGET		= libuc_c.a libuc_c.so
+PC_LIBS         = -luc_c
 LDFLAGS         = -z combreloc -z relro --sort-common \
                   --sort-section alignment --warn-common \
 		  --warn-once
@@ -69,14 +70,17 @@ SRC_CC_libuc_c.so := $(BOTH_SRC_CC)
 SRC_S_libuc_c.a   := $(BOTH_SRC_S)
 SRC_S_libuc_c.so  := $(BOTH_SRC_S)
 
-IDL_PATH	=
-PRIVATE_INCDIR	= $(SRC_DIR)/ARCH-$(ARCH)/include $(SRC_DIR)/ARCH-all/include \
+private_incdirs = $(SRC_DIR)/ARCH-$(ARCH)/include $(SRC_DIR)/ARCH-all/include \
 		  $(OBJ_DIR)/ARCH-$(ARCH)/include $(OBJ_DIR)/ARCH-all/include \
 		  $(OBJ_DIR)/ARCH-all/libc/string \
 		  $(SRC_DIR)/../contrib/uclibc/libc/misc/internals \
-		  $(OBJ_BASE)/include/$(ARCH) $(OBJ_BASE)/include \
+		  $(if $(1),$(OBJ_BASE)/include/$(ARCH)/$(L4API)) \
+		  $(OBJ_BASE)/include/$(ARCH) \
+		  $(OBJ_BASE)/include \
 		  $(OBJ_BASE)/include/uclibc \
 		  $(SRC_DIR)/../contrib/uclibc/libcrypt
+
+PRIVATE_INCDIR  = $(call private_incdirs)
 LIBCINCDIR	= $(addprefix -I,$(GCCINCDIR))
 CPPFLAGS	+= -nostdinc -include \
 		  $(OBJ_DIR)/ARCH-all/include/libc-symbols.h
@@ -92,9 +96,15 @@ CPPFLAGS_dl-core.c         += -I$(SRC_DIR)/../contrib/uclibc/ldso/ldso/$(UCLIBC_
                               -I$(SRC_DIR)/../contrib/uclibc/ldso/include
 CPPFLAGS_$(OBJ_DIR)/ARCH-all/libc/inet += -DRESOLVER="\"resolv.c\""
 
+PRIVATE_INCDIR_ARCH-all/libc/string/wcslen.o    = $(SRC_DIR)/../contrib/uclibc/libc/string
+PRIVATE_INCDIR_ARCH-all/libc/string/wcslen.s.o  = $(SRC_DIR)/../contrib/uclibc/libc/string
+PRIVATE_INCDIR_ARCH-all/libc/string/wcsnlen.o   = $(SRC_DIR)/../contrib/uclibc/libc/string
+PRIVATE_INCDIR_ARCH-all/libc/string/wcsnlen.s.o = $(SRC_DIR)/../contrib/uclibc/libc/string
+PRIVATE_INCDIR_ARCH-all/libc/string/wmemcpy.o   = $(SRC_DIR)/../contrib/uclibc/libc/string
+PRIVATE_INCDIR_ARCH-all/libc/string/wmemcpy.s.o = $(SRC_DIR)/../contrib/uclibc/libc/string
+
 ifneq ($(L4API),)
 DEFINES		    += -DL4_THREAD_SAFE
-TARGET		     = r/libuc_c.a r/libuc_c.so
 LDFLAGS_r/libuc_c.so := $(LDFLAGS_libuc_c.so)
 SRC_C_r/libuc_c.a   := $(SRC_C_libuc_c.a)
 SRC_C_r/libuc_c.so  := $(SRC_C_libuc_c.so) libpthread/src/forward.c
@@ -102,15 +112,7 @@ SRC_CC_r/libuc_c.a  := $(SRC_CC_libuc_c.a)
 SRC_CC_r/libuc_c.so := $(SRC_CC_libuc_c.so)
 SRC_S_r/libuc_c.a   := $(SRC_S_libuc_c.a)
 SRC_S_r/libuc_c.so  := $(SRC_S_libuc_c.so)
-PRIVATE_INCDIR	     = $(SRC_DIR)/ARCH-$(ARCH)/include $(SRC_DIR)/ARCH-all/include \
-		       $(OBJ_DIR)/ARCH-$(ARCH)/include $(OBJ_DIR)/ARCH-all/include \
-		       $(SRC_DIR)/../contrib/uclibc/libc/misc/internals \
-		       $(OBJ_DIR)/ARCH-all/libc/string \
-		       $(OBJ_BASE)/include/$(ARCH)/$(L4API) \
-		       $(OBJ_BASE)/include/$(ARCH) $(OBJ_BASE)/include \
-		       $(OBJ_BASE)/include/uclibc_pthreads \
-		       $(OBJ_BASE)/include/uclibc \
-		       $(SRC_DIR)/../contrib/uclibc/libcrypt
+PRIVATE_INCDIR       = $(call private_incdirs,1)
 vpath libpthread/src/forward.c $(PTHLIB_DIR)/..
 PRIVATE_INCDIR_libpthread/src/forward.s.o += $(PTHLIB_DIR)/src/sysdeps/$(UCLIBC_ARCH_$(ARCH)) \
                                              $(PTHLIB_DIR)/src

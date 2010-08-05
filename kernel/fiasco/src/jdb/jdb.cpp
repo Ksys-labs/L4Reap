@@ -1190,7 +1190,7 @@ Jdb::check_for_cpus(bool try_nmi)
   for (unsigned c = 1; c < Config::Max_num_cpus; ++c)
     {
       if (Cpu::online(c) && !running.cpu(c))
-	Ipi::send(c, Ipi::Debug);
+	Ipi::cpu(c).send(Ipi::Debug);
     }
   Mem::barrier();
 retry:
@@ -1271,7 +1271,7 @@ Jdb::stop_all_cpus(unsigned current_cpu)
       // Huh, not CPU 0, so notify CPU 0 to enter JDB too
       // The notification is ignored if CPU 0 is already within JDB
       jdb_active = true;
-      Ipi::send(0, Ipi::Debug);
+      Ipi::cpu(0).send(Ipi::Debug);
 
       unsigned long wait_count = Max_wait_cnt;
       while (!running.cpu(0) && wait_count)
@@ -1400,7 +1400,7 @@ Jdb::remote_work_ipi(unsigned this_cpu, unsigned to_cpu,
   _remote_work_ipi_func_data = data;
   _remote_work_ipi_done      = 0;
 
-  Ipi::send(to_cpu, Ipi::Debug);
+  Ipi::cpu(to_cpu).send(Ipi::Debug);
 
   if (wait)
     while (!*(volatile unsigned long *)&_remote_work_ipi_done)

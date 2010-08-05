@@ -14,6 +14,7 @@ IMPLEMENTATION[ia32,amd64]:
 #include "fpu.h"
 #include "idt.h"
 #include "initcalls.h"
+#include "ipi.h"
 #include "kernel_console.h"
 #include "kernel_task.h"
 #include "kip_init.h"
@@ -94,6 +95,7 @@ Startup::stage2()
   Idt::init();
   Fpu::init(0);
   Apic::init();
+  Ipi::cpu(0).init();
   Timer::init();
   Timer::master_cpu(0);
   Apic::check_still_getting_interrupts();

@@ -127,6 +127,7 @@ int boot_ap_cpu(unsigned _cpu)
 
   Utcb_init::init_ap(cpu);
   Pic::init_ap();
+  Ipi::cpu(_cpu).init();
   Timer::init();
   Perf_cnt::init_ap();
 

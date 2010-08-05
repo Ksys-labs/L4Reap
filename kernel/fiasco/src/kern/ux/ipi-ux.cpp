@@ -2,6 +2,9 @@ INTERFACE [mp]:
 
 EXTENSION class Ipi
 {
+private:
+  Unsigned32 _lcpu;
+
 public:
   enum Message { Request = 'r', Global_request = 'g', Debug = 'd' };
 };
@@ -17,11 +20,16 @@ IMPLEMENTATION[mp]:
 #include "cpu.h"
 #include "pic.h"
 
-IMPLEMENT static
+PUBLIC inline
+Ipi::Ipi() : _lcpu(~0)
+{}
+
+IMPLEMENT
 void
-Ipi::init(unsigned lcpu)
+Ipi::init()
 {
-  Pic::setup_ipi(lcpu, Cpu::cpus.cpu(lcpu).phys_id());
+  _lcpu = current_cpu();
+  Pic::setup_ipi(_lcpu, Cpu::cpus.cpu(_lcpu).phys_id());
 }
 
 PUBLIC static inline NEEDS[<cstdio>]
@@ -30,17 +38,19 @@ Ipi::eoi(Message)
 {
 }
 
-PUBLIC static inline NEEDS[<cstdio>, "pic.h"]
+PUBLIC inline NEEDS[<cstdio>, "pic.h"]
 void
-Ipi::send(int lcpu, Message m)
+Ipi::send(Message m)
 {
-  Pic::send_ipi(lcpu, m);
+  printf("Sending IPI:%d to cpu%d\n", m, _lcpu);
+  Pic::send_ipi(_lcpu, m);
 }
 
 PUBLIC static inline NEEDS[<cstdio>, "cpu.h", "pic.h"]
 void
 Ipi::bcast(Message m)
 {
+  printf("Bcast IPI:%d\n", m);
   for (unsigned i = 0; i < Config::Max_num_cpus; ++i)
     if (Cpu::online(i))
       Pic::send_ipi(i, m);

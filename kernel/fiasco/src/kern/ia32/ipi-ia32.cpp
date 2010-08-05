@@ -5,7 +5,9 @@ INTERFACE [mp]:
 EXTENSION class Ipi
 {
 private:
-  static Per_cpu<unsigned> _count;
+  Unsigned32 _apic_id;
+  unsigned _count;
+
 public:
   enum Message
   {
@@ -19,12 +21,21 @@ public:
 //---------------------------------------------------------------------------
 IMPLEMENTATION[mp]:
 
-Per_cpu<unsigned> DEFINE_PER_CPU Ipi::_count; // debug
-
 #include <cstdio>
 #include "apic.h"
-#include "cpu.h"
 #include "kmem.h"
+
+PUBLIC inline
+Ipi::Ipi() : _apic_id(~0)
+{}
+
+IMPLEMENT inline NEEDS["apic.h"]
+void
+Ipi::init()
+{
+  _apic_id = Apic::get_id();
+}
+
 
 PUBLIC static inline
 void
@@ -41,12 +52,12 @@ Ipi::eoi(Message)
   stat_received();
 }
 
-PUBLIC static inline NEEDS["apic.h", "cpu.h"]
+PUBLIC inline NEEDS["apic.h"]
 void
-Ipi::send(int logical_cpu, Message m)
+Ipi::send(Message m)
 {
-  Apic::mp_send_ipi(Cpu::cpus.cpu(logical_cpu).phys_id(), (Unsigned8)m);
-  stat_sent(logical_cpu);
+  Apic::mp_send_ipi(_apic_id, (Unsigned8)m);
+  stat_sent();
 }
 
 PUBLIC static inline NEEDS["apic.h"]
@@ -57,16 +68,30 @@ Ipi::bcast(Message m)
 }
 
 #if defined(CONFIG_IRQ_SPINNER)
-#include "apic.h"
 
 // debug
 PRIVATE static
 void Ipi::ipi_call_spin()
 {
-  int cpu = Cpu::p2l(Apic::get_id());
-  if (cpu >= 0)
-    *(unsigned char*)(Mem_layout::Adap_vram_cga_beg + 22*160 + cpu*+2)
-      = '0' + (_count.cpu(cpu)++ % 10);
+  unsigned cpu;
+  Ipi *ipi = 0;
+  for (cpu = 0; cpu < Config::Max_num_cpus; ++cpu)
+    {
+      if (!Per_cpu_data::valid(cpu))
+	continue;
+
+      if (Ipi::cpu(cpu)._apic_id == Apic::get_id())
+	{
+	  ipi = &Ipi::cpu(cpu);
+	  break;
+	}
+    }
+
+  if (!ipi)
+    return;
+
+  *(unsigned char*)(Mem_layout::Adap_vram_cga_beg + 22*160 + cpu*+2)
+    = '0' + (ipi->_count++ % 10);
 }
 #endif
 

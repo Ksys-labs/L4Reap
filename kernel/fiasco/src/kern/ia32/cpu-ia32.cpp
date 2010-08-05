@@ -39,6 +39,7 @@ public:
     Tlb_inst_4M,
     Tlb_data_4k_4M,
     Tlb_inst_4k_4M,
+    Tlb_data_2M_4M,
   };
 
   enum
@@ -544,6 +545,8 @@ Cpu::Cache_table const Cpu::intel_cache_table[] FIASCO_INITDATA_CPU =
   { 0x52, Tlb_inst_4k_4M,    256,   0,    0 },
   { 0x56, Tlb_data_4M,        16,   4,    0 },
   { 0x57, Tlb_data_4k,        16,   4,    0 },
+  { 0x59, Tlb_data_4k,        16,   0,    0 },
+  { 0x5A, Tlb_data_2M_4M,     32,   4,    0 },
   { 0x5B, Tlb_data_4k_4M,     64,   0,    0 },
   { 0x5C, Tlb_data_4k_4M,    128,   0,    0 },
   { 0x5D, Tlb_data_4k_4M,    256,   0,    0 },
@@ -563,6 +566,7 @@ Cpu::Cache_table const Cpu::intel_cache_table[] FIASCO_INITDATA_CPU =
   { 0x7D, Cache_l2,         2048,   8,   64 },
   { 0x7E, Cache_l2,          256,   8,  128 },
   { 0x7F, Cache_l2,          512,   2,   64 },
+  { 0x80, Cache_l2,          512,  16,   64 },
   { 0x82, Cache_l2,          256,   8,   32 },
   { 0x83, Cache_l2,          512,   8,   32 },
   { 0x84, Cache_l2,         1024,   8,   32 },

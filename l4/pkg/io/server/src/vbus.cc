@@ -166,7 +166,7 @@ System_bus::request_resource(L4::Ipc_iostream &ios)
     }
 #endif
 
-  if (i == _resources.end())
+  if (i == _resources.end() || !(*i)->contains(ires))
     return -L4_ENOENT;
 
 #if 0

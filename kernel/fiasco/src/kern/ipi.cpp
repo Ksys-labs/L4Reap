@@ -3,7 +3,7 @@ INTERFACE:
 class Ipi
 {
 public:
-  static void init(unsigned _lcpu);
+  void init();
 };
 
 INTERFACE[!mp]:
@@ -27,6 +27,8 @@ private:
   static void (*_remote_call_func)(void *);
   static void *_remote_call_func_data;
   static unsigned long _remote_call_done;
+
+  static Per_cpu<Ipi> _ipi;
 };
 
 
@@ -37,21 +39,29 @@ INTERFACE[mp && debug]:
 EXTENSION class Ipi
 {
 public:
-  static Per_cpu <Mword> _stat_sent;
-  static Per_cpu <Mword> _stat_received;
+  Mword _stat_sent;
+  Mword _stat_received;
 };
 
 // ------------------------------------------------------------------------
 IMPLEMENTATION[!mp]:
 
-IMPLEMENT static inline
+PUBLIC static inline
+Ipi &
+Ipi::cpu(unsigned)
+{
+  return *reinterpret_cast<Ipi*>(0);
+}
+
+
+IMPLEMENT inline
 void
-Ipi::init(unsigned)
+Ipi::init()
 {}
 
-PUBLIC static inline
+PUBLIC inline
 void
-Ipi::send(int, Message)
+Ipi::send(Message)
 {}
 
 PUBLIC static inline
@@ -64,12 +74,23 @@ void
 Ipi::bcast(Message)
 {}
 
+
+// ------------------------------------------------------------------------
+IMPLEMENTATION[mp]:
+
+Per_cpu<Ipi> DEFINE_PER_CPU Ipi::_ipi;
+
+PUBLIC static inline
+Ipi &
+Ipi::cpu(unsigned cpu)
+{ return Ipi::_ipi.cpu(cpu); }
+
 // ------------------------------------------------------------------------
 IMPLEMENTATION[!(mp && debug)]:
 
 PUBLIC static inline
 void
-Ipi::stat_sent(unsigned)
+Ipi::stat_sent()
 {}
 
 PUBLIC static inline
@@ -82,15 +103,12 @@ IMPLEMENTATION[mp && debug]:
 
 #include "globals.h"
 
-Per_cpu <Mword> DEFINE_PER_CPU Ipi::_stat_sent;
-Per_cpu <Mword> DEFINE_PER_CPU Ipi::_stat_received;
-
-PUBLIC static inline
+PUBLIC inline
 void
-Ipi::stat_sent(unsigned to_cpu)
-{ atomic_mp_add(&_stat_sent.cpu(to_cpu), 1); }
+Ipi::stat_sent()
+{ atomic_mp_add(&_stat_sent, 1); }
 
 PUBLIC static inline NEEDS["globals.h"]
 void
 Ipi::stat_received()
-{ _stat_received.cpu(current_cpu())++; }
+{ _ipi.cpu(current_cpu())._stat_received++; }

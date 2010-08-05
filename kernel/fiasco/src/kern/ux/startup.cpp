@@ -63,7 +63,7 @@ startup_system2()
   Utcb_init::init();
   Pic::init();
   Dirq_pic_pin::init();
-  Ipi::init(0);
+  Ipi::cpu(0).init();
   Idt::init();
   Fpu::init(0);
   Timer::init();

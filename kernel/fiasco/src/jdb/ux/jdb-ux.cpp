@@ -98,6 +98,10 @@ Jdb::leave_trap_handler(unsigned)
     signal (SIGIO, SIG_IGN);		// Ignore hardware interrupts
 }
 
+PROTECTED static inline
+void
+Jdb::monitor_address(unsigned, void *)
+{}
 
 IMPLEMENT inline
 bool

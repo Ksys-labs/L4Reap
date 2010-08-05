@@ -101,19 +101,12 @@ App_model::local_detach_ds(l4_addr_t addr, unsigned long /*size*/) const
 App_model::App_model()
 : _task(0)
 {
-  enum
-  {
-    Kip_address            = 0xa0000000,
-    Utcb_area_start        = 0xb3000000,
-    Default_max_threads    = 16,
-  };
   // set default values for utcb area, values may be changed by loader
-  _info.utcbs_start = Utcb_area_start;
+  _info.utcbs_start     = Utcb_area_start;
   _info.utcbs_log2size  = l4util_log2(Default_max_threads * L4_UTCB_OFFSET);
 
   // set default values for the application stack
   _info.kip = Kip_address;
-
 }
 
 
@@ -135,14 +128,6 @@ App_model::alloc_app_stack()
 void
 App_model::init_prog()
 {
-
-  enum
-  {
-    Utcb_area_start        = 0xb3000000,
-    Default_max_threads    = 16,
-    Total_max_threads      = 256,
-  };
-
 
   push_argv_strings();
   push_env_strings();

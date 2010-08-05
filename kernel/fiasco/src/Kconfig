@@ -177,6 +177,18 @@ config IA32_PM
 	help
 	  Choose this if you have an Intel Pentium M.
 
+config IA32_CORE2
+	bool "Intel Core 2"
+	depends on IA32
+	help
+	  Choose this if you have an Intel Core 2.
+
+config IA32_ATOM
+	bool "Intel Atom"
+	depends on IA32
+	help
+	  Choose this if you have an Intel Atom.
+
 config IA32_K6
 	bool "AMD K6 / K6-II / K6-III"
 	depends on IA32
@@ -195,11 +207,37 @@ config IA32_K8
 	help
 	  Choose this if you have an AMD Opteron or Athlon64 CPU.
 
+config IA32_K10
+	bool "AMD Barcelona (K10)"
+	depends on IA32
+	help
+	  Choose this if you have an AMD Barcelona based CPU.
+
+
 config AMD64_K8
 	bool "AMD Opteron / Athlon64"
 	depends on AMD64
 	help
 	  Choose this if you have an AMD Opteron or Athlon64 CPU.
+
+config AMD64_CORE2
+	bool "Intel Core 2"
+	depends on AMD64
+	help
+	  Choose this if you have an Intel Core 2.
+
+config AMD64_ATOM
+	bool "Intel Atom"
+	depends on AMD64
+	help
+	  Choose this if you have an Intel Atom.
+
+config AMD64_K10
+	bool "AMD Barcelona (K10)"
+	depends on AMD64
+	help
+	  Choose this if you have an AMD Barcelona based CPU.
+
 
 config PPC32_603e
 	bool "PowerPC 603e"
@@ -211,13 +249,13 @@ endchoice
 
 
 
-config SVM
-	bool "Enable SVM support"
+config CPU_VIRT
+	bool "Enable CPU virtualization (SVM and VT)"
 	depends on PF_PC
 	help
-	  Support SVM virtualization extension that comes with AMD CPUs,
-	  including nested paging (NPT). This feature allows you to run a
-	  virtual machine monitor (VMM) on top of Fiasco.
+	  Support virtualization extensions that comes with x86 CPUs,
+	  including nested paging. This feature allows you to run a virtual
+	  machine monitor (VMM) on top of Fiasco.
 
 config ARM_ALIGNMENT_CHECK
 	bool "Enable alignment check"
@@ -751,7 +789,7 @@ config XARCH
 	default "ux" if PF_UX
 	default "amd64" if AMD64 && PF_PC
 	default "ia32" if IA32 && PF_PC
-	default  "ppc32" if PPC32
+	default "ppc32" if PPC32
 
 config IA32_TARGET
 	string
@@ -764,7 +802,9 @@ config IA32_TARGET
 	default "Pentium M" if IA32_PM
 	default "AMD K6" if IA32_K6
 	default "AMD Athlon" if IA32_K7
-	default "AMD Opteron" if IA32_K8 || AMD64_K8
+	default "Intel Core2" if IA32_CORE2 || AMD64_CORE2
+	default "Intel Atom" if IA32_ATOM || AMD64_ATOM
+	default "AMD Opteron" if IA32_K8 || AMD64_K8 || AMD64_K10 || IA32_K10
 
 config ABI
 	string

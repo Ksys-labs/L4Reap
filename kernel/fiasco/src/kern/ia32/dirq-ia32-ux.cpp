@@ -30,7 +30,7 @@ static inline void irq_spinners(int irqnum)
 
 /** Hardware interrupt entry point.  Calls corresponding Dirq instance's
     Dirq::hit() method.
-    @param irqobj hardware-interrupt object 
+    @param irqobj hardware-interrupt object
  */
 extern "C" FIASCO_FASTCALL
 void
@@ -73,7 +73,7 @@ thread_timer_interrupt (Address ip)
   Timer::acknowledge();
   Timer::update_system_clock();
 
-  Irq::log_irq(0, Config::scheduler_irq_vector);
+  Irq::log_timer_irq(Config::scheduler_irq_vector);
   (void)ip;
   irq_spinners(Config::scheduler_irq_vector);
 

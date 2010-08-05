@@ -20,8 +20,9 @@ PRIVATE static
 void
 Jdb_ipi_module::print_info(unsigned cpu)
 {
+  Ipi &ipi = Ipi::cpu(cpu);
   printf("CPU%02u sent/rcvd: %ld/%ld\n",
-         cpu, Ipi::_stat_sent.cpu(cpu), Ipi::_stat_received.cpu(cpu));
+         cpu, ipi._stat_sent, ipi._stat_received);
 }
 
 PUBLIC

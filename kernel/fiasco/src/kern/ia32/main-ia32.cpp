@@ -93,6 +93,7 @@ IMPLEMENTATION[(ia32,amd64) && mp]:
 #include "div32.h"
 #include "fpu.h"
 #include "globals.h"
+#include "ipi.h"
 #include "kernel_task.h"
 #include "processor.h"
 #include "per_cpu_data_alloc.h"
@@ -120,6 +121,7 @@ int boot_ap_cpu(unsigned _cpu)
   Utcb_init::init_ap(cpu);
 
   Apic::init_ap();
+  Ipi::cpu(_cpu).init();
   Timer::init();
   Apic::check_still_getting_interrupts();
 

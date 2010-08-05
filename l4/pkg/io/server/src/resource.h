@@ -279,6 +279,9 @@ public:
   Addr end() const { return _d.end(); }
   Size size() const { return _d.size(); }
 
+  bool contains(Adr_resource const &o) const
+  { return start() <= o.start() && end() >= o.end(); }
+
   bool valid() const { return flags() && _d.start() <= _d.end(); }
 
   void start(Addr start) { _d.start(start); }

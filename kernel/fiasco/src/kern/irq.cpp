@@ -640,8 +640,6 @@ Irq::obj_id() const
 // --------------------------------------------------------------------------
 IMPLEMENTATION [debug]:
 
-#include "kobject.h"
-
 PUBLIC
 char const *
 Chain_irq_pin::pin_type() const
@@ -652,7 +650,7 @@ unsigned
 Irq::irq_log_fmt(Tb_entry *e, int maxlen, char *buf)
 {
   Irq_log *l = e->payload<Irq_log>();
-  return snprintf(buf, maxlen, "0x%x/%d D:%lx", l->irq_number, l->irq_number,
+  return snprintf(buf, maxlen, "0x%x/%u D:%lx", l->irq_number, l->irq_number,
                   l->irq_obj);
 }
 
@@ -660,14 +658,23 @@ PUBLIC static inline
 void
 Irq::log_irq(Irq *irq, int nr)
 {
-  LOG_TRACE("IRQ", "irq", current(), __irq_log_fmt,
+  LOG_TRACE("IRQ-HW", "irq-hw", current(), __irq_log_fmt,
       Irq::Irq_log *l = tbe->payload<Irq::Irq_log>();
       l->irq_number = nr;
       l->irq_obj = irq ? irq->dbg_id() : ~0UL;
   );
 }
 
-
+PUBLIC static inline NEEDS["config.h"]
+void
+Irq::log_timer_irq(int nr)
+{
+  LOG_TRACE("IRQ-Timer", "irq-ti", current(), __irq_log_fmt,
+      Irq::Irq_log *l = tbe->payload<Irq::Irq_log>();
+      l->irq_number = nr;
+      l->irq_obj = ~0UL;
+  );
+}
 
 // --------------------------------------------------------------------------
 IMPLEMENTATION [!debug]:
@@ -675,4 +682,9 @@ IMPLEMENTATION [!debug]:
 PUBLIC static inline
 void
 Irq::log_irq(Irq *, int)
+{}
+
+PUBLIC static inline
+void
+Irq::log_timer_irq(int)
 {}

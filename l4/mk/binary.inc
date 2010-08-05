@@ -141,12 +141,18 @@ all:: $(foreach arch,$(TARGET_SYSTEMS), $(OBJ_DIR)/OBJ-$(arch))
 $(foreach arch,$(TARGET_SYSTEMS), $(OBJ_DIR)/OBJ-$(arch)):%:%/$(BID_OBJ_Makefile) pre-obj
 	$(VERBOSE)PWD=$@ $(MAKE) $(PL_j) -C $@ -f $(BID_OBJ_Makefile)
 
+
+foreach_objdir = $(if $(wildcard $(OBJ_DIR)/OBJ-*), $(VERBOSE)set -e ; \
+		     for d in $(wildcard $(OBJ_DIR)/OBJ-*) ; do \
+		       PWD=$$d $(MAKE) -C $$d -f $(BID_OBJ_Makefile) $(1); \
+		     done, @true)
+
 %.i %.s.i:: export DO_SHOW_RESULT_FILE=y
-clean disasm %.i %.s.i::
-	$(if $(wildcard $(OBJ_DIR)/OBJ-*), $(VERBOSE)set -e ; \
-	    for d in $(wildcard $(OBJ_DIR)/OBJ-*) ; do \
-	        PWD=$$d $(MAKE) -C $$d -f $(BID_OBJ_Makefile) $@; \
-	    done, @true)
+%.i %.s.i::
+	$(call foreach_objdir,$@)
+
+clean disasm::
+	$(call foreach_objdir,$@)
 
 cleanall::
 	$(VERBOSE)$(RM) -r $(wildcard $(OBJ_DIR))

@@ -4,6 +4,7 @@ IMPLEMENTATION [arm]:
 #include "config.h"
 #include "cpu.h"
 #include "fpu.h"
+#include "ipi.h"
 #include "kern_lib_page.h"
 #include "kernel_task.h"
 #include "kip_init.h"
@@ -40,7 +41,7 @@ Startup::stage2()
 
   // The first 4MB of phys memory are always mapped to Map_base
   Mem_layout::add_pmem(Mem_layout::Sdram_phys_base, Mem_layout::Map_base,
-      4<<20);
+                       4 << 20);
   Kip_init::init();
   Kmem_alloc::init();
 
@@ -58,6 +59,7 @@ Startup::stage2()
   Cpu::init_mmu();
   Cpu::cpus.cpu(0).init(true);
   Fpu::init(0);
+  Ipi::cpu(0).init();
   Timer::init();
   Kern_lib_page::init();
   Utcb_init::init();

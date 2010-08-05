@@ -101,10 +101,10 @@ Svm::Svm(unsigned cpu)
   Unsigned32 eax, ebx, ecx, edx;
   c.cpuid (0x8000000a, &eax, &ebx, &ecx, &edx);
   if (edx & 1)
-  {
-    printf("Nested Paging supported\n");
-    _has_npt = true;
-  }
+    {
+      printf("Nested Paging supported\n");
+      _has_npt = true;
+    }
   printf("NASID: 0x%x\n", ebx);
   _max_asid = ebx - 1;
   assert(_max_asid > 0);
@@ -133,7 +133,7 @@ Svm::Svm(unsigned cpu)
   /* clean out vmcb */
   memset(_kernel_vmcb, 0, Vmcb_size);
 
-  /* 8kB MSR permission map */ 
+  /* 8kB MSR permission map */
   check(_msrpm = Mapped_allocator::allocator()->unaligned_alloc(Msr_pm_size));
   _msrpm_base_pa = Kmem::virt_to_phys(_msrpm);
   memset(_msrpm, ~0, Msr_pm_size);

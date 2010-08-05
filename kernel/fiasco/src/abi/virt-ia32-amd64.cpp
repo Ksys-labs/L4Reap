@@ -1,4 +1,4 @@
-INTERFACE:
+INTERFACE [svm]:
 
 #include "l4_types.h"
 

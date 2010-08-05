@@ -140,8 +140,11 @@ DEPS_FILES=DEPS DEPS.a4 DEPS.tred
 #
 # Makefile.sub2: Create everything else.
 #
-all doc $(addsuffix .ps,$(DEPS_FILES)) $(addsuffix .svg,$(DEPS_FILES)) TAGS tags %.o %_t: \
+all doc $(addsuffix .ps,$(DEPS_FILES)) $(addsuffix .svg,$(DEPS_FILES)) TAGS tags: \
   $(MODULES_FILES) .Modules.deps create-sources globalconfig.h
+	$(MAKE) srcdir=$(srcdir) objbase=$(objbase) -f $(srcdir)/Makefile.sub2 $@
+
+%.o %_t: $(MODULES_FILES) .Modules.deps create-sources globalconfig.h
 	$(MAKE) srcdir=$(srcdir) objbase=$(objbase) -f $(srcdir)/Makefile.sub2 $@
 
 # Divert any target we do not explicitly mention in this Makefile to

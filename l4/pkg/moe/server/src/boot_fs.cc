@@ -14,6 +14,7 @@
 
 #include "boot_fs.h"
 #include "dataspace_static.h"
+#include "page_alloc.h"
 #include "globals.h"
 #include "name_space.h"
 #include "debug.h"
@@ -96,6 +97,10 @@ Moe::Boot_fs::init_stage2()
 
   //dump_mbi(mbi);
 
+  unsigned dirinfo_space = L4_PAGESIZE;
+  char *dirinfo = (char *)Single_page_alloc_base::_alloc(dirinfo_space, L4_PAGESHIFT);
+  unsigned dirinfo_size = 0;
+
   l4util_mb_mod_t const *modules = (l4util_mb_mod_t const *)mbi->mods_addr;
   unsigned num_modules = mbi->mods_count;
   for (unsigned mod = 3; mod < num_modules; ++mod)
@@ -115,10 +120,41 @@ Moe::Boot_fs::init_stage2()
       object = object_pool.cap_alloc()->alloc(rf);
       rom_ns.register_obj(name, Names::Obj(0, rf));
 
+      do
+        {
+          unsigned left = dirinfo_space - dirinfo_size;
+          unsigned written = snprintf(dirinfo + dirinfo_size, left, "%d:%.*s\n",
+                                      name.len(), name.len(), name.start());
+          if (written > left)
+            {
+              char *n = (char *)Single_page_alloc_base::_alloc(dirinfo_space + L4_PAGESIZE,
+                                                               L4_PAGESHIFT);
+              memcpy(n, dirinfo, dirinfo_space);
+              Single_page_alloc_base::_free(dirinfo, dirinfo_space, true);
+              dirinfo = n;
+              dirinfo_space += L4_PAGESIZE;
+            }
+          else
+            {
+              dirinfo_size += written;
+              break;
+            }
+        }
+      while (1);
+
+
       L4::cout << "  BOOTFS: [" << (void*)modules[mod].mod_start << "-"
                << (void*)end << "] " << object << " "
                << name << "\n";
     }
+
+  Moe::Dataspace_static *dirinfods;
+  dirinfods = new Moe::Dataspace_static((void *)dirinfo,
+                                        dirinfo_size,
+                                        Dataspace::Read_only);
+
+  object_pool.cap_alloc()->alloc(dirinfods);
+  rom_ns.register_obj(".dirinfo", Names::Obj(0, dirinfods));
 }
 
 

@@ -20,7 +20,11 @@ headers:: $(OBJ_DIR)/itab.h $(OBJ_DIR)/itab.c
 	$(VERBOSE)cp $(SRC_DIR)/../contrib/libudis86/types.h $(OBJ_DIR)/libudis86
 	$(VERBOSE)cp $(OBJ_DIR)/itab.h $(OBJ_DIR)/libudis86
 
+# PYTHONPATH=$(CONTRIB_PATH)/scripts python -B would be enough instead of
+# linking the contrib files but the -B option is only available from python
+# 2.6 onwards
 $(OBJ_DIR)/itab.h $(OBJ_DIR)/itab.c:
-	cd $(OBJ_DIR) && PYTHONPATH=$(CONTRIB_PATH)/scripts python \
+	for p in $(CONTRIB_PATH)/scripts/*.py; do ln -sf $$p $(OBJ_DIR); done
+	cd $(OBJ_DIR) && PYTHONPATH=$(OBJ_DIR) python \
 	  $(CONTRIB_PATH)/libudis86/itab.py \
 	  $(CONTRIB_PATH)/docs/x86/optable.xml

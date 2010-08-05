@@ -282,13 +282,13 @@ Factory::kinvoke(L4_obj_ref ref, Mword rights, Syscall_frame *f,
 //----------------------------------------------------------------------------
 IMPLEMENTATION [svm]:
 
-#include "vm.h"
+#include "vm_factory.h"
 
 PRIVATE inline NOEXPORT
 Kobject_iface *
 Factory::new_vm(Utcb const *)
 {
-  Vm *new_t = Vm::create(this);
+  Vm *new_t = Vm_factory::create(this);
 
   if (!new_t)
     return 0;

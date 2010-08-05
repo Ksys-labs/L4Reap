@@ -15,7 +15,7 @@ class Err : public L4Re::Util::Err
 {
 public:
   explicit
-  Err(Level l = Normal) : L4Re::Util::Err(l, "Ldr") {}
+  Err(Level l = Normal) : L4Re::Util::Err(l, "Ned") {}
 };
 
 class Dbg : public L4Re::Util::Dbg
@@ -37,7 +37,7 @@ public:
 
   explicit
   Dbg(unsigned long mask, char const *subs = 0)
-  : L4Re::Util::Dbg(mask, "Ldr", subs)
+  : L4Re::Util::Dbg(mask, "Ned", subs)
   {}
 };
 

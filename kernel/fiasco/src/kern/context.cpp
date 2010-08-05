@@ -1923,7 +1923,7 @@ Context::global_drq(unsigned cpu, Drq::Request_func *func, void *arg,
 
   _glbl_drq_q.cpu(cpu).enq(&_drq);
 
-  Ipi::send(cpu, Ipi::Global_request);
+  Ipi::cpu(cpu).send(Ipi::Global_request);
 
   //LOG_MSG_3VAL(src, "<drq", src->state(), Mword(this), 0);
   while (wait && (state() & Thread_drq_wait))
@@ -1976,7 +1976,7 @@ Context::enqueue_drq(Drq *rq, Drq::Exec_mode exec)
       if (ipi)
 	{
 	  //LOG_MSG_3VAL(this, "sipi", current_cpu(), cpu(), (Mword)current());
-	  Ipi::send(cpu, Ipi::Request);
+	  Ipi::cpu(cpu).send(Ipi::Request);
 	}
     }
   else

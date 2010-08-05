@@ -25,7 +25,7 @@ next_irq:
 
 	if (Pic::is_pending(irqs, Config::Scheduling_irq))
 	  {
-	    Irq::log_irq(0, Config::Scheduling_irq);
+	    Irq::log_timer_irq(Config::Scheduling_irq);
 	    Timer::acknowledge();
 	    Timer::update_system_clock();
 	    current_thread()->handle_timer_interrupt();
@@ -60,7 +60,7 @@ next_irq:
 
 	if (Pic::is_pending(irq, Config::Scheduling_irq))
 	  {
-	    Irq::log_irq(0, irq);
+	    Irq::log_timer_irq(irq);
 	    Timer::acknowledge();
 	    Timer::update_system_clock();
 	    current_thread()->handle_timer_interrupt();

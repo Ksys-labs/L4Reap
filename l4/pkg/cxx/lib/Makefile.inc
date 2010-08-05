@@ -4,8 +4,8 @@ TARGET_A 	:= $(TARGET).a
 TARGET_E_A	:= $(TARGET)_e.a
 
 PC_FILENAMES             := $(PC_FILENAME) $(PC_FILENAME)_e
-PC_LIBS_$(PC_FILENAME)   := $(TARGET_A)
-PC_LIBS_$(PC_FILENAME)_e := $(TARGET_E_A)
+PC_LIBS_$(PC_FILENAME)   := -l$(patsubst lib%,%,$(TARGET))
+PC_LIBS_$(PC_FILENAME)_e := -l$(patsubst lib%,%,$(TARGET))_e
 
 CXXFLAGS_amd64-l4f += -mcmodel=medium
 CFLAGS_amd64-l4f += -mcmodel=medium

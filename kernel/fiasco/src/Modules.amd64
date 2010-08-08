@@ -50,7 +50,7 @@ VPATH			+= abi/$(CONFIG_XARCH) abi
 INTERFACES_ABI		:= l4_fpage l4_msg_item l4_buf_desc kip l4_types \
 			   l4_error virt
 
-kip_IMPL		:= kip kip-amd64 kip-debug kip-amd64-debug
+kip_IMPL		:= kip kip-debug kip-amd64 kip-amd64-debug
 l4_types_IMPL		:= l4_types l4_types-debug
 virt_IMPL		:= virt-ia32-amd64
 
@@ -86,8 +86,8 @@ processor_IMPL		:= processor processor-amd64
 # KERNEL subsystem
 #
 KERNEL			:= fiasco.image
-VPATH			+= kern/$(CONFIG_XARCH) kern/shared kern/ia32/64 kern/ia32 kern
-PRIVATE_INCDIR		+= kern/$(CONFIG_XARCH) kern/shared kern/ia32/64 kern/ia32 kern 
+VPATH			+= kern/$(CONFIG_XARCH) kern/ia32/64 kern/ia32 kern
+PRIVATE_INCDIR		+= kern/$(CONFIG_XARCH) kern/ia32/64 kern/ia32 kern
 
 INTERFACES_KERNEL	:= cpu_mask rcupdate pages kobject_mapdb \
 			   mem_region per_cpu_data startup boot_info cmdline \
@@ -167,7 +167,7 @@ startup_IMPL		:= startup startup-ia32
 task_IMPL		:= task task-ia32-amd64
 tb_entry_IMPL		:= tb_entry tb_entry-ia32-64
 timer_IMPL		:= timer timer-ia32-amd64-ux
-thread_IMPL		:= thread thread-ia32-64 thread-ia32 \
+thread_IMPL		:= thread thread-ia32 thread-ia32-64 \
 			   thread-ipc \
 			   thread-list \
 			   thread-pagefault thread-log      \
@@ -241,7 +241,7 @@ jdb_kern_info_IMPL	:= jdb_kern_info jdb_kern_info-ia32-amd64 \
 			   jdb_kern_info-ia32-ux jdb_kern_info-apic \
 			   jdb_kern_info-pci jdb_kern_info-bench \
 			   jdb_kern_info-bench-ia32-64 \
-			   jdb_kern_info-dr
+			   jdb_kern_info-dr jdb_kern_info-mtrr
 jdb_misc_IMPL		:= jdb_misc-ia32-amd64
 jdb_ptab_IMPL		:= jdb_ptab jdb_ptab-amd64
 jdb_screen_IMPL		:= jdb_screen jdb_screen-ia32

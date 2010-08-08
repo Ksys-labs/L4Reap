@@ -50,7 +50,8 @@ static irqreturn_t ux_interrupt(int irq, void *dev_id)
 		dev_kfree_skb(skb);
 		return IRQ_HANDLED;
 	}
-	skb->len = ret;
+
+	skb_put(skb, ret);
 
 	/* ACK interrupt */
 	lx_kill(priv->prov_pid, SIGUSR1);

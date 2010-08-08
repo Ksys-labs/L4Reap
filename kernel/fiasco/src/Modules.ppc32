@@ -89,9 +89,9 @@ CSRC_LIBAMM	:= amm_alloc_entry.c amm_allocate.c amm_deallocate.c amm_destroy.c \
 #
 # JABI Subsystem
 #
-JABI			:= libjabi.a
-VPATH			+= jabi/$(CONFIG_XARCH) jabi
-INTERFACES_JABI		:= jdb_ktrace
+JABI		:= libjabi.a
+VPATH		+= jabi/$(CONFIG_XARCH) jabi
+INTERFACES_JABI	:= jdb_ktrace
 
 
 #
@@ -99,23 +99,19 @@ INTERFACES_JABI		:= jdb_ktrace
 #
 ABI 		:= libabi.a
 VPATH 		+= abi/$(CONFIG_XARCH) abi
-#
-INTERFACES_ABI  	:= kip l4_types l4_fpage l4_msg_item \
-			   l4_buf_desc l4_error
-#
-l4_types_IMPL	:= l4_types l4_types-debug
+INTERFACES_ABI 	:= kip l4_types l4_fpage l4_msg_item l4_buf_desc l4_error
 
-## x0!=32Bit UIDs
 kip_IMPL	:= kip kip-debug kip-ppc32
+l4_types_IMPL	:= l4_types l4_types-debug
 
 #
 # KERNEL subsystem
 #
 KERNEL 		:= fiasco
 KERNEL_EXTRA 	:= Symbols
-VPATH 		+= kern/$(CONFIG_XARCH) kern kern/shared
+VPATH 		+= kern/$(CONFIG_XARCH) kern
 VPATH		+= jdb/$(CONFIG_XARCH) jdb
-PRIVATE_INCDIR 	+= kern/$(CONFIG_XARCH) kern kern/shared kern/ia32
+PRIVATE_INCDIR 	+= kern/$(CONFIG_XARCH) kern kern/ia32
 
 INTERFACES_KERNEL :=	banner bitmap boot_info boot_uart_init bootstrap       \
 			buddy_alloc cmdline config context cpu scheduler      \

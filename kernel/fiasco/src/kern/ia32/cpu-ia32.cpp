@@ -845,6 +845,19 @@ Cpu::addr_size_info()
   _virt_bits = (eax & 0xff00) >> 8;
 }
 
+PUBLIC static
+unsigned
+Cpu::amd_cpuid_mnc()
+{
+  Unsigned32 eax, ebx, ecx, edx;
+  cpuid(0x80000008, &eax, &ebx, &ecx, &edx);
+
+  unsigned apicidcoreidsize = (ecx >> 12) & 0xf;
+  if (apicidcoreidsize == 0)
+    return (ecx & 0xf) + 1; // NC
+  return 1 << apicidcoreidsize;
+}
+
 PRIVATE FIASCO_INIT_CPU
 void
 Cpu::set_model_str()
@@ -1519,9 +1532,9 @@ PUBLIC
 void
 Cpu::print() const
 {
-  printf ("CPU[%u:%u]: %s (%X:%X:%X:%X) Model: %s at %llu MHz\n\n",
+  printf ("CPU[%u:%u]: %s (%X:%X:%X:%X)[%08x] Model: %s at %llu MHz\n\n",
           id(), phys_id() >> 24,
-          vendor_str(), family(), model(), stepping(), brand(), model_str(),
+          vendor_str(), family(), model(), stepping(), brand(), _version, model_str(),
           div32(frequency(), 1000000));
 }
 

@@ -65,3 +65,8 @@ Timer::update_system_clock()
   Kip::k()->clock += Config::scheduler_granularity;
 }
 
+IMPLEMENT inline
+void
+Timer::update_timer(Unsigned64)
+{
+}

@@ -31,7 +31,7 @@ Kobject *
 Jdb_ipc_gate::follow_link(Kobject *o)
 {
   Ipc_gate_obj *g = Kobject::dcast<Ipc_gate_obj *>(o);
-  return static_cast<Kobject*>(g->thread());
+  return g->thread() ? static_cast<Kobject*>(g->thread()) : o;
 }
 
 PUBLIC

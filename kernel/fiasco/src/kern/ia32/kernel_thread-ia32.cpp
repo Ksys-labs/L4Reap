@@ -111,6 +111,11 @@ IMPLEMENTATION [mp]:
 static void
 Kernel_thread::boot_app_cpus()
 {
+  // sending (INIT-)IPIs on non-MP systems might not work
+  if (   Cpu::boot_cpu()->vendor() == Cpu::Vendor_amd
+      && Cpu::amd_cpuid_mnc() < 2)
+    return;
+
   // where to start the APs for detection of the APIC-IDs
   extern char _tramp_mp_entry[];
 
@@ -144,5 +149,4 @@ Kernel_thread::boot_app_cpus()
 
   // Send IPI-Sequency to startup the APs
   Apic::mp_startup(Cpu::boot_cpu(), Apic::APIC_IPI_OTHERS, tramp_page);
-
 }

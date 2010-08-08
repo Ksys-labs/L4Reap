@@ -48,7 +48,7 @@ kconfig_call = $(MAKE) -C $(L4DIR)/tool/kconfig O=$(OBJ_BASE) \
 	       KCONFIG_AUTOCONFIG=.kconfig.auto \
 	       KCONFIG_TRISTATE=.kconfig.tristate \
 	       KERNELVERSION=SVN \
-	       fiasco_srcdir=$(L4DIR_ABS)
+	       l4re_srcdir=$(L4DIR_ABS)
 
 
 DROPSCONF		?=

@@ -179,7 +179,7 @@ void *find_kip()
 
 const char *get_cmdline(l4util_mb_info_t *mbi)
 {
-  if (mbi->flags & L4UTIL_MB_CMDLINE)
+  if (mbi && mbi->flags & L4UTIL_MB_CMDLINE)
     return L4_CHAR_PTR(mbi->cmdline);
 
   if (*builtin_cmdline)

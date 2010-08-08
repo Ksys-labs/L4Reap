@@ -376,18 +376,18 @@ public:
 Dope_fb::Dope_fb(const char *configstr)
 {
   unsigned long val;
-  unsigned xpos = 20, ypos = 20;
+  unsigned xpos = 20, ypos = 20, w, h;
 
   dope_registry->register_obj(this);
 
   _screen_info.width     = 300;
   _screen_info.height    = 200;
 
-
-  if (get_val(configstr, "w=", &val))
-    _screen_info.width  = val;
-  if (get_val(configstr, "h=", &val))
-    _screen_info.height = val;
+  if (sscanf(configstr, "%dx%d", &w, &h) == 2)
+    {
+      _screen_info.width = w;
+      _screen_info.height = h;
+    }
 
   if (get_val(configstr, "x=", &val))
     xpos = val;

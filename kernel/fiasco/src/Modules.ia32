@@ -29,13 +29,13 @@ PREPROCESS_PARTS-$(CONFIG_SCHED_HPET)        += hpet_timer
 PREPROCESS_PARTS-$(CONFIG_SERIAL)            += serial 16550
 PREPROCESS_PARTS-$(CONFIG_WATCHDOG)          += watchdog
 PREPROCESS_PARTS-$(CONFIG_PERF_CNT)          += perf_cnt
-PREPROCESS_PARTS-$(CONFIG_HANDLE_SEGMENTS)   += segments
 PREPROCESS_PARTS-$(CONFIG_IO_PROT)           += io
-PREPROCESS_PARTS-$(CONFIG_IO_PROT_IOPL_3)    += iopl3
 PREPROCESS_PARTS-$(CONFIG_CPU_VIRT)          += svm
 PREPROCESS_PARTS-$(CONFIG_SCHED_FIXED_PRIO)  += sched_fixed_prio
 PREPROCESS_PARTS-$(CONFIG_SCHED_WFQ)         += sched_wfq
 PREPROCESS_PARTS-$(CONFIG_SCHED_FP_WFQ)      += sched_fp_wfq
+PREPROCESS_PARTS-$(CONFIG_HANDLE_SEGMENTS)   += segments
+PREPROCESS_PARTS-$(CONFIG_IO_PROT_IOPL_3)    += iopl3
 
 PREPROCESS_PARTS        += $(PREPROCESS_PARTS-y)
 
@@ -52,7 +52,7 @@ VPATH			+= abi/$(CONFIG_XARCH) abi
 INTERFACES_ABI		:= l4_fpage l4_msg_item l4_buf_desc kip l4_types \
 			   l4_error virt
 
-kip_IMPL		:= kip kip-ia32 kip-debug kip-ia32-debug
+kip_IMPL		:= kip kip-debug kip-ia32 kip-ia32-debug
 l4_types_IMPL		:= l4_types l4_types-debug
 virt_IMPL		:= virt-ia32-amd64
 
@@ -88,8 +88,8 @@ processor_IMPL		:= processor processor-ia32
 # KERNEL subsystem
 #
 KERNEL			:= fiasco.image
-VPATH			+= kern/$(CONFIG_XARCH) kern/shared kern/ia32/32 kren/ia32 kern
-PRIVATE_INCDIR		+= kern/$(CONFIG_XARCH) kern/shared kern/ia32/32 kern/ia32 kern 
+VPATH			+= kern/$(CONFIG_XARCH) kern/ia32/32 kern/ia32 kern
+PRIVATE_INCDIR		+= kern/$(CONFIG_XARCH) kern/ia32/32 kern/ia32 kern
 
 INTERFACES_KERNEL	:= cpu_mask rcupdate pages kobject_mapdb \
 			   mem_region per_cpu_data startup boot_info cmdline \
@@ -151,7 +151,7 @@ kmem_alloc_IMPL		:= kmem_alloc kmem_alloc-ia32
 main_IMPL		:= main-ia32-32 main-ia32
 mapping_IMPL		:= mapping-ia32-32 mapping
 map_util_IMPL		:= map_util map_util-mem map_util-io map_util-objs
-mem_layout_IMPL		:= mem_layout mem_layout-ia32-32 mem_layout-ia32
+mem_layout_IMPL		:= mem_layout mem_layout-ia32 mem_layout-ia32-32
 mem_space_IMPL		:= mem_space mem_space-user mem_space-ia32
 mem_unit_IMPL		:= mem_unit-ia32
 obj_space_IMPL          := obj_space obj_space-$(OBJ_SPACE)

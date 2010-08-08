@@ -148,9 +148,9 @@ kip_IMPL	:= kip kip-debug kip-arm
 #
 KERNEL 		:= fiasco
 KERNEL_EXTRA 	:= Symbols
-VPATH 		+= kern/$(CONFIG_XARCH) kern kern/shared
+VPATH 		+= kern/$(CONFIG_XARCH) kern
 VPATH		+= jdb/arm jdb
-PRIVATE_INCDIR 	+= kern/$(CONFIG_XARCH) kern kern/shared
+PRIVATE_INCDIR 	+= kern/$(CONFIG_XARCH) kern
 
 INTERFACES_KERNEL := 	kmem boot_info pages __main globals config \
 			main cache kobject_mapdb dbg_page_info \

@@ -61,14 +61,15 @@ Context::vcpu_enter_kernel_mode()
   if (EXPECT_FALSE(state() & Thread_vcpu_enabled))
     {
       vcpu_state()->_saved_state = vcpu_state()->state;
-      Mword flags =
-	  Vcpu_state::F_traps
-	| Vcpu_state::F_user_mode;
+      Mword flags = Vcpu_state::F_traps
+	            | Vcpu_state::F_user_mode;
       vcpu_state()->state &= ~flags;
       if (state() & Thread_vcpu_user_mode)
 	{
 	  vcpu_state()->_sp = vcpu_state()->_entry_sp;
-	  state_del_dirty(Thread_vcpu_user_mode | Thread_vcpu_fpu_disabled);
+	  state_del_dirty(  Thread_vcpu_user_mode
+                          | Thread_vcpu_fpu_disabled
+                          | Thread_alien);
 
 	  if (current() == this)
 	    {
@@ -186,8 +187,9 @@ Context::vcpu_log_fmt(Tb_entry *e, int maxlen, char *buf)
   switch (l->type)
     {
     case 0:
-      return snprintf(buf, maxlen, "ret pc=%lx sp=%lx state=%lx task=D:%lx",
-	  l->ip, l->sp, l->state, l->space);
+    case 4:
+      return snprintf(buf, maxlen, "%sret pc=%lx sp=%lx state=%lx task=D:%lx",
+	  l->type == 4 ? "f" : "", l->ip, l->sp, l->state, l->space);
     case 1:
       return snprintf(buf, maxlen, "ipc from D:%lx task=D:%lx sp=%lx",
 	  Kobject_dbg::pointer_to_id((Kobject*)l->ip), l->state, l->sp);

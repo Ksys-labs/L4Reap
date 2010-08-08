@@ -107,7 +107,7 @@ int lua(int argc, char const *const *argv)
 
   if (luaL_loadbuffer(L, _binary_ned_lua_start, _binary_ned_lua_end - _binary_ned_lua_start, "@ned.lua"))
     {
-      printf("script: ---\n%.*s\n---", (int)(_binary_ned_lua_end - _binary_ned_lua_start), _binary_ned_lua_start);
+      printf("Ned: script: ---\n%.*s\n---", (int)(_binary_ned_lua_end - _binary_ned_lua_start), _binary_ned_lua_start);
       fprintf(stderr, "lua error: %s.\n", lua_tostring(L, -1));
       lua_pop(L, lua_gettop(L));
       return 0;
@@ -124,12 +124,12 @@ int lua(int argc, char const *const *argv)
 
   for (int c = optind; c < argc; ++c)
     {
-      printf("loading file: '%s'\n", argv[c]);
+      printf("Ned: loading file: '%s'\n", argv[c]);
       int e = luaL_dofile(L, argv[c]);
       if (e)
 	{
 	  char const *error = lua_tostring(L, -1);
-	  printf("ERROR: %s\n", error);
+	  printf("Ned: ERROR: %s\n", error);
 	}
       lua_pop(L, lua_gettop(L));
     }

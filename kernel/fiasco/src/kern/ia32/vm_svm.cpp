@@ -51,11 +51,6 @@ IMPLEMENTATION [svm && ia32]:
 
 #include "virt.h"
 
-PRIVATE static inline
-bool
-Vm_svm::is_64bit()
-{ return false; }
-
 PRIVATE inline NEEDS["virt.h"]
 Address
 Vm_svm::get_vm_cr3(Vmcb *)
@@ -69,11 +64,6 @@ Vm_svm::get_vm_cr3(Vmcb *)
 IMPLEMENTATION [svm && amd64]:
 
 #include "virt.h"
-
-PRIVATE static inline
-bool
-Vm_svm::is_64bit()
-{ return true; }
 
 PRIVATE inline NEEDS["virt.h"]
 Address

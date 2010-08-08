@@ -104,6 +104,15 @@ Thread::sys_vcpu_resume(L4_msg_tag const &tag, Utcb *utcb)
 	  else
 	    sp = vcpu_state()->_ts.sp();
 
+	  LOG_TRACE("VCPU events", "vcpu", this, __context_vcpu_log_fmt,
+	      Vcpu_log *l = tbe->payload<Vcpu_log>();
+	      l->type = 4;
+	      l->state = vcpu_state()->state;
+	      l->ip = vcpu_state()->_entry_ip;
+	      l->sp = sp;
+	      l->space = vcpu_user_space() ? static_cast<Task*>(vcpu_user_space())->dbg_id() : ~0;
+	      );
+
 	  fast_return_to_user(vcpu_state()->_entry_ip, sp, false);
 	}
     }
@@ -126,7 +135,7 @@ Thread::sys_vcpu_resume(L4_msg_tag const &tag, Utcb *utcb)
 
       vcpu_state()->state |= Vcpu_state::F_traps | Vcpu_state::F_exceptions
                              | Vcpu_state::F_debug_exc;
-      state_add_dirty(Thread_vcpu_user_mode);
+      state_add_dirty(Thread_vcpu_user_mode | Thread_alien);
 
       if (!(vcpu_state()->state & Vcpu_state::F_fpu_enabled))
 	{

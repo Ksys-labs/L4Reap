@@ -47,7 +47,6 @@ Vm::Vm(Ram_quota *q)
 {
 }
 
-
 PUBLIC static
 template< typename VM >
 slab_cache_anon *
@@ -81,3 +80,20 @@ Vm::vm_invoke(L4_obj_ref obj, Mword rights, Syscall_frame *f, Utcb *utcb)
       return;
     }
 }
+
+
+// ------------------------------------------------------------------------
+IMPLEMENTATION [ia32]:
+
+PROTECTED static inline
+bool
+Vm::is_64bit()
+{ return false; }
+
+// ------------------------------------------------------------------------
+IMPLEMENTATION [amd64]:
+
+PROTECTED static inline
+bool
+Vm::is_64bit()
+{ return true; }

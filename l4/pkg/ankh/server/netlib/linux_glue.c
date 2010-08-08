@@ -75,7 +75,7 @@ static int net_recv_irq(struct sk_buff *skb)
 	/*
 	 * Push eth header back, so that skb->data is the raw packet.
 	 */
-	skb_push(skb, skb->dev->hard_header_len);
+	skb_push(skb, ETH_HLEN);
 
 	/*
 	 * Hand to upper layers.
@@ -164,21 +164,21 @@ int netdev_xmit(void *netdev, char *addr, unsigned len)
 {
 	// XXX could we pass 0 as length here? data netdev is set
 	//     below anyway
-    struct sk_buff *skb = alloc_skb(len, GFP_KERNEL);
-    assert(skb);
+	struct sk_buff *skb = alloc_skb(len, GFP_KERNEL);
+	assert(skb);
 
-    skb->data = addr; // XXX
-    skb->len  = len;
-    skb->dev  = ND(netdev);
+	skb->data = addr; // XXX
+	skb_put(skb, len);
+	skb->dev  = ND(netdev);
 
-    while (netif_queue_stopped(ND(netdev)))
+	while (netif_queue_stopped(ND(netdev)))
 		msleep(1);
 
-    int err;
-    if (ND(netdev)->netdev_ops)
-        err = ND(netdev)->netdev_ops->ndo_start_xmit(skb, ND(netdev));
-    else
-        err = ND(netdev)->hard_start_xmit(skb, ND(netdev));
+	int err;
+	if (ND(netdev)->netdev_ops)
+		err = ND(netdev)->netdev_ops->ndo_start_xmit(skb, ND(netdev));
+	else
+		err = ND(netdev)->hard_start_xmit(skb, ND(netdev));
 
-    return err;
+	return err;
 }

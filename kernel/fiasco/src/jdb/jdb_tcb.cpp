@@ -441,8 +441,8 @@ Jdb_tcb::vcpu_state_str(Mword state, char *s, int len)
   snprintf(s, len, "%c%c%c%c%c%c",
            (state & Vcpu_state::F_fpu_enabled) ? 'F' : 'f',
            (state & Vcpu_state::F_user_mode)   ? 'U' : 'u',
-           (state & Vcpu_state::F_exceptions)  ? 'E' : 'e',
            (state & Vcpu_state::F_debug_exc)   ? 'D' : 'd',
+           (state & Vcpu_state::F_exceptions)  ? 'E' : 'e',
            (state & Vcpu_state::F_page_faults) ? 'P' : 'p',
            (state & Vcpu_state::F_irqs)        ? 'I' : 'i');
   s[len - 1] = 0;

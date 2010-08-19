@@ -149,11 +149,23 @@ static long
 __map_iomem(l4_addr_t phys, l4_addr_t* virt, unsigned long size, int flags)
 {
   Cap<L4Re::Dataspace> iomem = L4::cap_cast<L4Re::Dataspace>(vbus());
+  unsigned char align = L4_PAGESHIFT;
 
-  int res = L4Re::Env::env()->rm()->attach(virt, size,
-				*virt
-                                ? (flags & L4IO_MEM_USE_RESERVED_AREA ? L4Re::Rm::In_area : 0)
-                                : L4Re::Rm::Search_addr, iomem, phys);
+  if (size >= L4_SUPERPAGESIZE)
+    align = L4_SUPERPAGESHIFT;
+
+  unsigned long rmflags = 0;
+
+  if (flags & L4IO_MEM_EAGER_MAP)
+    rmflags |= L4Re::Rm::Eager_map;
+
+  if (*virt && (flags & L4IO_MEM_USE_RESERVED_AREA))
+    rmflags |= L4Re::Rm::In_area;
+
+  if (!*virt)
+    rmflags |= L4Re::Rm::Search_addr;
+
+  int res = L4Re::Env::env()->rm()->attach(virt, size, rmflags, iomem, phys, align);
   if (res)
     {
       printf("Cannot attach iomem to virtual address %lx with size %lx: %s(%d).\n",

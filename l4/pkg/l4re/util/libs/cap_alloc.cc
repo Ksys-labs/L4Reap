@@ -20,19 +20,25 @@
  * invalidate any other reasons why the executable file might be covered by
  * the GNU General Public License.
  */
-#include <l4/re/util/cap_alloc>
-#include <l4/re/env>
+
 #include <l4/crtn/initpriorities.h>
+#include <l4/re/env>
+#include <l4/re/util/cap_alloc>
+
+//#define L4RE_STATIC_CAP_ALLOC
+#if defined(L4RE_STATIC_CAP_ALLOC)
+
+namespace
+{
+  L4Re::Util::Cap_alloc<4096> __attribute__((init_priority(INIT_PRIO_L4RE_UTIL_CAP_ALLOC))) __cap_alloc(L4Re::Env::env()->first_free_cap());
+};
+#else
+
 #include <l4/re/dataspace>
 #include <l4/re/mem_alloc>
 
 namespace
 {
-#if defined(L4RE_NO_COUNTING_CAP_ALLOC)
-
-  L4Re::Util::Cap_alloc<4096> __attribute__((init_priority(INIT_PRIO_L4RE_UTIL_CAP_ALLOC))) __cap_alloc(L4Re::Env::env()->first_free_cap());
-#else
-
   struct Ca : public L4Re::Util::_Cap_alloc
   {
     enum { Caps = 4096 };
@@ -51,8 +57,8 @@ namespace
   };
 
   Ca __attribute__((init_priority(INIT_PRIO_L4RE_UTIL_CAP_ALLOC))) __cap_alloc;
-#endif
 };
+#endif
 
 
 namespace L4Re { namespace Util {

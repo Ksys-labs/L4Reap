@@ -113,6 +113,7 @@ Sched_context::Sched_context()
   _sc.fp._p = Config::boot_prio;
   _sc.fp._q = Config::default_time_slice;
   _sc.fp._left = Config::default_time_slice;
+  _sc.fp._ready_next = 0;
 }
 
 IMPLEMENT inline

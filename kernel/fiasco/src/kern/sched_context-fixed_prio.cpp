@@ -60,7 +60,8 @@ IMPLEMENTATION [sched_fixed_prio]:
  */
 PUBLIC
 Sched_context::Sched_context()
-: _prio(Config::boot_prio),
+: _ready_next(0),
+  _prio(Config::boot_prio),
   _quantum(Config::default_time_slice),
   _left(Config::default_time_slice)
 {}

@@ -62,6 +62,7 @@ void
 Trap_state::sanitize_user_state()
 {
   _cs = Gdt::gdt_code_user | Gdt::Selector_user;
+  _ss = Gdt::gdt_data_user | Gdt::Selector_user;
   _flags = (_flags & ~(EFLAGS_IOPL | EFLAGS_NT)) | EFLAGS_IF;
 }
 

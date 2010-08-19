@@ -20,12 +20,15 @@ enum l4io_iomem_flags_t
     L4IO_MEM_USE_MTRR  = 2, /**< Use MTRR */
     L4IO_MEM_ATTR_MASK = 0xf,
 
-    /** Use reserved area for mapping I/O memory. Flag only valid
-     *  for l4io_request_iomem_region() */
-    L4IO_MEM_USE_RESERVED_AREA = 0x10,
-
     // combinations
     L4IO_MEM_WRITE_COMBINED = L4IO_MEM_USE_MTRR | L4IO_MEM_CACHED,
+
+
+    /** Use reserved area for mapping I/O memory. Flag only valid
+     *  for l4io_request_iomem_region() */
+    L4IO_MEM_USE_RESERVED_AREA = 0x40 << 8,
+    /** Eagerly map the I/O memory. Passthrough to the l4re-rm. */
+    L4IO_MEM_EAGER_MAP         = 0x80 << 8,
 };
 
 /**

@@ -408,7 +408,7 @@ clean cleanall::
 else
 bootstrap: $(BOOTSTRAP_ELF_NAME)
 	$(VERBOSE)$(LN) -f $^ $@
+endif
 
 bootstrap_$(ENTRY_FN): $(BOOTSTRAP_ELF_NAME)
 	$(VERBOSE)$(LN) -f $^ $@
-endif

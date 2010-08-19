@@ -27,36 +27,36 @@
 typedef struct l4_vcpu_regs_t
 {
 #if 0
-  l4_umword_t es;      /**< gs register */
-  l4_umword_t ds;      /**< fs register */
+  l4_umword_t es;      /**< es register */
+  l4_umword_t ds;      /**< ds register */
   l4_umword_t gs;      /**< gs register */
   l4_umword_t fs;      /**< fs register */
 #endif
-  l4_umword_t r15;     /**< edi register */
-  l4_umword_t r14;     /**< esi register */
-  l4_umword_t r13;     /**< ebp register */
-  l4_umword_t r12;     /**< page fault address */
-  l4_umword_t r11;     /**< edi register */
-  l4_umword_t r10;     /**< esi register */
-  l4_umword_t r9;     /**< ebp register */
-  l4_umword_t r8;     /**< page fault address */
+  l4_umword_t r15;     /**< r15 register */
+  l4_umword_t r14;     /**< r14 register */
+  l4_umword_t r13;     /**< r13 register */
+  l4_umword_t r12;     /**< r12 register */
+  l4_umword_t r11;     /**< r11 register */
+  l4_umword_t r10;     /**< r10 register */
+  l4_umword_t r9;      /**< r9 register */
+  l4_umword_t r8;      /**< r8 reigster */
 
-  l4_umword_t di;     /**< edi register */
-  l4_umword_t si;     /**< esi register */
-  l4_umword_t bp;     /**< ebp register */
+  l4_umword_t di;      /**< rdi register */
+  l4_umword_t si;      /**< rsi register */
+  l4_umword_t bp;      /**< rbp register */
   l4_umword_t pfa;     /**< page fault address */
-  l4_umword_t bx;     /**< ebx register */
-  l4_umword_t dx;     /**< edx register */
-  l4_umword_t cx;     /**< ecx register */
-  l4_umword_t ax;     /**< eax register */
+  l4_umword_t bx;      /**< rbx register */
+  l4_umword_t dx;      /**< rdx register */
+  l4_umword_t cx;      /**< rcx register */
+  l4_umword_t ax;      /**< rax register */
 
   l4_umword_t trapno;  /**< trap number */
   l4_umword_t err;     /**< error code */
 
-  l4_umword_t ip;     /**< instruction pointer */
+  l4_umword_t ip;      /**< instruction pointer */
   l4_umword_t dummy1;  /**< dummy \internal */
-  l4_umword_t flags;  /**< eflags */
-  l4_umword_t sp;     /**< stack pointer */
+  l4_umword_t flags;   /**< eflags */
+  l4_umword_t sp;      /**< stack pointer */
   l4_umword_t ss;
 } l4_vcpu_regs_t;
 

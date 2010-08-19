@@ -401,8 +401,8 @@ static void
 move_modules(l4util_mb_info_t *mbi, unsigned long modaddr)
 {
   long offset = modaddr - (L4_MB_MOD_PTR(mbi->mods_addr))[0].mod_start;
-  unsigned i;
-  unsigned dir = offset > 0 ? mbi->mods_count : 1;
+  unsigned i, i_end;
+  unsigned dir = offset > 0 ? -1 : 1;
 
   if (!offset)
     {
@@ -410,15 +410,18 @@ move_modules(l4util_mb_info_t *mbi, unsigned long modaddr)
       return;
     }
 
-  printf("  move modules to %lx with offset %lx\n", modaddr, offset);
+  printf("  Moving %d modules to %lx with offset %lx\n",
+         mbi->mods_count, modaddr, offset);
 
-  for (i = dir; i != mbi->mods_count - dir ; offset > 0 ? i-- : i++)
+  i     = dir == 1 ? 1 : mbi->mods_count;
+  i_end = dir == 1 ? mbi->mods_count + 1 : 0;
+  for (; i != i_end ; i += dir)
     {
       unsigned long start = (L4_MB_MOD_PTR(mbi->mods_addr))[i-1].mod_start;
       unsigned long end = (L4_MB_MOD_PTR(mbi->mods_addr))[i-1].mod_end;
 
       if (start == end)
-	continue;
+        continue;
 
 #ifdef VERBOSE_LOAD
       unsigned char c[5];
@@ -431,14 +434,14 @@ move_modules(l4util_mb_info_t *mbi, unsigned long modaddr)
       c[1] = c[1] < 32 ? '.' : c[1];
       c[2] = c[2] < 32 ? '.' : c[2];
       c[3] = c[3] < 32 ? '.' : c[3];
-      printf("  move module %02d { %lx, %lx } (%s) -> { %lx - %lx }\n",
+      printf("  moving module %02d { %lx, %lx } (%s) -> { %lx - %lx }\n",
              i, start, end, c, start + offset, end + offset);
 
       for (int a = 0; a < 0x100; a += 4)
 	printf("%08lx%s", *(unsigned long *)(start + a), (a % 32 == 28) ? "\n" : " ");
       printf("\n");
 #else
-      printf("  move module %02d { %lx-%lx } -> { %lx-%lx }\n",
+      printf("  moving module %02d { %lx-%lx } -> { %lx-%lx }\n",
              i, start, end, start + offset, end + offset);
 #endif
 

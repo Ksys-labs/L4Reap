@@ -15,7 +15,7 @@
 
 #include <sys/stat.h>
 #include <sys/ioctl.h>
-#include <errno.h>
+#include <dirent.h>
 
 #include <cstdio>
 
@@ -127,15 +127,19 @@ private:
 
 class Pers_dir : public Node
 {
+private:
+  typedef cxx::Avl_tree<Node, Node_get_key, Path_avl_tree_compare> Tree;
+  Tree _tree;
+
 public:
   Pers_dir(const char *name, mode_t mode)
     : Node(name, (mode & 0777) | __S_IFDIR) {}
   Ref_ptr<Node> find_path(cxx::String);
   int add_node(Ref_ptr<Node> const &);
 
-private:
-  typedef cxx::Avl_tree<Node, Node_get_key, Path_avl_tree_compare> Tree;
-  Tree _tree;
+  typedef Tree::Const_iterator Const_iterator;
+  Const_iterator begin() const { return _tree.begin(); }
+  Const_iterator end() const { return _tree.end(); }
 };
 
 Ref_ptr<Node> Pers_dir::find_path(cxx::String path)
@@ -156,8 +160,9 @@ class Tmpfs_dir : public Be_file
 {
 public:
   explicit Tmpfs_dir(Ref_ptr<Pers_dir> const &d) throw()
-    : _dir(d) {}
+    : _dir(d), _getdents_state(false) {}
   int get_entry(const char *, int, mode_t, Ref_ptr<File> *) throw();
+  ssize_t getdents(char *, size_t) throw();
   int fstat64(struct stat64 *buf) const throw();
   int mkdir(const char *, mode_t) throw();
   int unlink(const char *) throw();
@@ -168,6 +173,8 @@ private:
                 Ref_ptr<Node> *ret, cxx::String *remaining = 0);
 
   Ref_ptr<Pers_dir> _dir;
+  bool _getdents_state;
+  Pers_dir::Const_iterator _getdents_iter;
 };
 
 class Tmpfs_file : public Be_file
@@ -218,6 +225,7 @@ ssize_t Tmpfs_file::writev(const struct iovec *v, int iovcnt) throw()
 
 int Tmpfs_file::fstat64(struct stat64 *buf) const throw()
 {
+  _file->info()->st_size = _file->data().size();
   memcpy(buf, _file->info(), sizeof(*buf));
   return 0;
 }
@@ -295,6 +303,47 @@ Tmpfs_dir::get_entry(const char *name, int flags, mode_t mode,
 
 
   return 0;
+}
+
+ssize_t
+Tmpfs_dir::getdents(char *buf, size_t sz) throw()
+{
+  struct dirent64 *d = (struct dirent64 *)buf;
+  ssize_t ret = 0;
+
+  if (!_getdents_state)
+    {
+      _getdents_iter = _dir->begin();
+      _getdents_state = true;
+    }
+  else if (_getdents_iter == _dir->end())
+    {
+      _getdents_state = false;
+      return 0;
+    }
+
+  for (; _getdents_iter != _dir->end(); ++_getdents_iter)
+    {
+      unsigned l = strlen(_getdents_iter->path()) + 1;
+      if (l > sizeof(d->d_name))
+        l = sizeof(d->d_name);
+
+      unsigned n = offsetof (struct dirent64, d_name) + l;
+
+      if (n > sz)
+        break;
+
+      d->d_ino = 1;
+      d->d_off = 0;
+      memcpy(d->d_name, _getdents_iter->path(), l);
+      d->d_reclen = n;
+      d->d_type   = DT_REG;
+      ret += n;
+      sz  -= n;
+      d    = (struct dirent64 *)((unsigned long)d + n);
+    }
+
+  return ret;
 }
 
 int

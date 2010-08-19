@@ -152,7 +152,7 @@ Region_list::contains(Region const &o)
 void
 Region::print() const
 {
-  printf("  [%9llx, %9llx]", begin(), end());
+  printf("  [%9llx, %9llx] {%9llx}", begin(), end(), end() - begin() + 1);
 }
 
 void

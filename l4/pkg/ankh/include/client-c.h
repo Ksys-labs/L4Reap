@@ -63,11 +63,17 @@ L4_CV int l4ankh_prepare_recv(l4_cap_idx_t owner) L4_NOTHROW;
 //      two different versions -- FIX
 /*
  * Receive data, block if buffer empty.
+ *
+ * Note: size is an in/out parameter. Specifies the maximum space available in
+ *       the buffer upon call. Returns the used size.
  */
 L4_CV int l4ankh_recv_blocking(char *buffer, unsigned *size) L4_NOTHROW;
 
 /*
  * Receive data, return error if none available
+ *
+ * Note: size is an in/out parameter. Specifies the maximum space available in
+ *       the buffer upon call. Returns the used size.
  */
 L4_CV int l4ankh_recv_nonblocking(char *buffer, unsigned *size) L4_NOTHROW;
 

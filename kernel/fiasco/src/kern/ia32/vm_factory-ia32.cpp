@@ -1,8 +1,10 @@
-IMPLEMENTATION [svm]:
+IMPLEMENTATION [vmx && svm]:
 
 #include "ram_quota.h"
 #include "svm.h"
 #include "vm_svm.h"
+#include "vmx.h"
+#include "vm_vmx.h"
 
 PRIVATE static inline
 template< typename VM >
@@ -27,11 +29,13 @@ Vm_factory::create(Ram_quota *quota)
 {
   if (Svm::cpus.cpu(current_cpu()).svm_enabled())
     return allocate<Vm_svm>(quota);
+  if (Vmx::cpus.cpu(current_cpu()).vmx_enabled())
+    return allocate<Vm_vmx>(quota);
 
   return 0;
 }
 
-IMPLEMENTATION [!svm]:
+IMPLEMENTATION [!(vmx && svm)]:
 
 IMPLEMENT
 Vm *

@@ -50,9 +50,9 @@ DIST_COMMON = $(dist_noinst_SCRIPTS) $(srcdir)/Makefile.am \
 @BUILD_SSSE3_TESTS_TRUE@am__append_2 = insn_ssse3
 check_PROGRAMS = amd64locked$(EXEEXT) bug127521-64$(EXEEXT) \
 	bug132813-amd64$(EXEEXT) bug132918$(EXEEXT) clc$(EXEEXT) \
-	$(am__EXEEXT_3) rcl-amd64$(EXEEXT) redundantRexW$(EXEEXT) \
-	smc1$(EXEEXT) nibz_bennee_mmap$(EXEEXT) $(am__EXEEXT_4) \
-	$(am__EXEEXT_5)
+	$(am__EXEEXT_3) lzcnt64$(EXEEXT) rcl-amd64$(EXEEXT) \
+	redundantRexW$(EXEEXT) smc1$(EXEEXT) nibz_bennee_mmap$(EXEEXT) \
+	xadd$(EXEEXT) $(am__EXEEXT_4) $(am__EXEEXT_5)
 @BUILD_SSSE3_TESTS_TRUE@am__append_3 = ssse3_misaligned
 
 # DDD: these need to be made to work on Darwin like the x86/ ones were.
@@ -147,6 +147,9 @@ jrcxz_LDADD = $(LDADD)
 looper_SOURCES = looper.c
 looper_OBJECTS = looper.$(OBJEXT)
 looper_LDADD = $(LDADD)
+lzcnt64_SOURCES = lzcnt64.c
+lzcnt64_OBJECTS = lzcnt64.$(OBJEXT)
+lzcnt64_LDADD = $(LDADD)
 nibz_bennee_mmap_SOURCES = nibz_bennee_mmap.c
 nibz_bennee_mmap_OBJECTS = nibz_bennee_mmap.$(OBJEXT)
 nibz_bennee_mmap_LDADD = $(LDADD)
@@ -168,6 +171,9 @@ smc1_LDADD = $(LDADD)
 ssse3_misaligned_SOURCES = ssse3_misaligned.c
 ssse3_misaligned_OBJECTS = ssse3_misaligned.$(OBJEXT)
 ssse3_misaligned_LDADD = $(LDADD)
+xadd_SOURCES = xadd.c
+xadd_OBJECTS = xadd.$(OBJEXT)
+xadd_LDADD = $(LDADD)
 SCRIPTS = $(dist_noinst_SCRIPTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -182,16 +188,16 @@ SOURCES = amd64locked.c bug127521-64.c bug132813-amd64.c bug132918.c \
 	fcmovnu.c fxtract.c $(insn_basic_SOURCES) $(insn_fpu_SOURCES) \
 	$(insn_mmx_SOURCES) $(insn_sse_SOURCES) $(insn_sse2_SOURCES) \
 	$(insn_sse3_SOURCES) $(insn_ssse3_SOURCES) jrcxz.c looper.c \
-	nibz_bennee_mmap.c rcl-amd64.c redundantRexW.c shrld.c \
-	slahf-amd64.c smc1.c ssse3_misaligned.c
+	lzcnt64.c nibz_bennee_mmap.c rcl-amd64.c redundantRexW.c \
+	shrld.c slahf-amd64.c smc1.c ssse3_misaligned.c xadd.c
 DIST_SOURCES = amd64locked.c bug127521-64.c bug132813-amd64.c \
 	bug132918.c bug137714-amd64.c bug156404-amd64.c clc.c \
 	faultstatus.c fcmovnu.c fxtract.c $(insn_basic_SOURCES) \
 	$(insn_fpu_SOURCES) $(insn_mmx_SOURCES) $(insn_sse_SOURCES) \
 	$(insn_sse2_SOURCES) $(insn_sse3_SOURCES) \
-	$(insn_ssse3_SOURCES) jrcxz.c looper.c nibz_bennee_mmap.c \
-	rcl-amd64.c redundantRexW.c shrld.c slahf-amd64.c smc1.c \
-	ssse3_misaligned.c
+	$(insn_ssse3_SOURCES) jrcxz.c looper.c lzcnt64.c \
+	nibz_bennee_mmap.c rcl-amd64.c redundantRexW.c shrld.c \
+	slahf-amd64.c smc1.c ssse3_misaligned.c xadd.c
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -232,6 +238,7 @@ FLAG_MAIX32 = @FLAG_MAIX32@
 FLAG_MAIX64 = @FLAG_MAIX64@
 FLAG_MMMX = @FLAG_MMMX@
 FLAG_MSSE = @FLAG_MSSE@
+FLAG_NO_BUILD_ID = @FLAG_NO_BUILD_ID@
 FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
@@ -266,14 +273,18 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
 QTCORE_CFLAGS = @QTCORE_CFLAGS@
 QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
-VALT_LOAD_ADDRESS = @VALT_LOAD_ADDRESS@
+VALT_LOAD_ADDRESS_PRI = @VALT_LOAD_ADDRESS_PRI@
+VALT_LOAD_ADDRESS_SEC = @VALT_LOAD_ADDRESS_SEC@
 VERSION = @VERSION@
 VGCONF_ARCH_PRI = @VGCONF_ARCH_PRI@
 VGCONF_ARCH_SEC = @VGCONF_ARCH_SEC@
@@ -356,7 +367,9 @@ AM_CFLAGS_BASE = \
 # The aim is to give reasonable performance but also to have good
 # stack traces, since users often see stack traces extending 
 # into (and through) the preloads.
-@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing -mno-dynamic-no-pic
+@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing \
+@VGCONF_OS_IS_DARWIN_TRUE@		-mno-dynamic-no-pic -fpic -fPIC
+
 @VGCONF_OS_IS_L4RE_FALSE@AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@ = \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir) \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir)/include \
@@ -415,7 +428,7 @@ AM_CFLAGS_PPC64_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC64_LINUX = $(AM_CPPFLAGS_PPC64_LINUX) @FLAG_M64@ -g
 AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
-			 	$(AM_CFLAGS_BASE)
+			 	$(AM_CFLAGS_BASE) -marm
 
 AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
@@ -430,8 +443,8 @@ AM_CCASFLAGS_PPC64_AIX5 = $(AM_CPPFLAGS_PPC64_AIX5) \
 
 AM_FLAG_M3264_X86_DARWIN = -arch i386
 AM_CFLAGS_X86_DARWIN = $(WERROR) -arch i386 $(AM_CFLAGS_BASE) \
-			    -mmacosx-version-min=10.5 -fno-stack-protector \
-			    -mdynamic-no-pic
+				-mmacosx-version-min=10.5 \
+				-fno-stack-protector -fno-pic -fno-PIC
 
 AM_CCASFLAGS_X86_DARWIN = $(AM_CPPFLAGS_X86_DARWIN) -arch i386 -g
 AM_FLAG_M3264_AMD64_DARWIN = -arch x86_64
@@ -519,6 +532,7 @@ EXTRA_DIST = \
 	insn_ssse3.stdout.exp insn_ssse3.stderr.exp insn_ssse3.vgtest \
 	jrcxz.stderr.exp jrcxz.stdout.exp jrcxz.vgtest \
 	looper.stderr.exp looper.stdout.exp looper.vgtest \
+	lzcnt64.stderr.exp lzcnt64.stdout.exp lzcnt64.vgtest \
 	nibz_bennee_mmap.stderr.exp nibz_bennee_mmap.stdout.exp \
 	nibz_bennee_mmap.vgtest \
 	rcl-amd64.vgtest rcl-amd64.stdout.exp rcl-amd64.stderr.exp \
@@ -530,7 +544,8 @@ EXTRA_DIST = \
 	ssse3_misaligned.vgtest \
 	ssse3_misaligned.c \
 	slahf-amd64.stderr.exp slahf-amd64.stdout.exp \
-	slahf-amd64.vgtest
+	slahf-amd64.vgtest \
+	xadd.stderr.exp xadd.stdout.exp xadd.vgtest
 
 
 # generic C ones
@@ -645,6 +660,9 @@ jrcxz$(EXEEXT): $(jrcxz_OBJECTS) $(jrcxz_DEPENDENCIES)
 looper$(EXEEXT): $(looper_OBJECTS) $(looper_DEPENDENCIES) 
 	@rm -f looper$(EXEEXT)
 	$(LINK) $(looper_OBJECTS) $(looper_LDADD) $(LIBS)
+lzcnt64$(EXEEXT): $(lzcnt64_OBJECTS) $(lzcnt64_DEPENDENCIES) 
+	@rm -f lzcnt64$(EXEEXT)
+	$(LINK) $(lzcnt64_OBJECTS) $(lzcnt64_LDADD) $(LIBS)
 nibz_bennee_mmap$(EXEEXT): $(nibz_bennee_mmap_OBJECTS) $(nibz_bennee_mmap_DEPENDENCIES) 
 	@rm -f nibz_bennee_mmap$(EXEEXT)
 	$(LINK) $(nibz_bennee_mmap_OBJECTS) $(nibz_bennee_mmap_LDADD) $(LIBS)
@@ -666,6 +684,9 @@ smc1$(EXEEXT): $(smc1_OBJECTS) $(smc1_DEPENDENCIES)
 ssse3_misaligned$(EXEEXT): $(ssse3_misaligned_OBJECTS) $(ssse3_misaligned_DEPENDENCIES) 
 	@rm -f ssse3_misaligned$(EXEEXT)
 	$(LINK) $(ssse3_misaligned_OBJECTS) $(ssse3_misaligned_LDADD) $(LIBS)
+xadd$(EXEEXT): $(xadd_OBJECTS) $(xadd_DEPENDENCIES) 
+	@rm -f xadd$(EXEEXT)
+	$(LINK) $(xadd_OBJECTS) $(xadd_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -692,6 +713,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/insn_ssse3.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jrcxz.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/looper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lzcnt64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nibz_bennee_mmap.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rcl-amd64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/redundantRexW.Po@am__quote@
@@ -699,6 +721,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/slahf-amd64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/smc1.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssse3_misaligned.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xadd.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

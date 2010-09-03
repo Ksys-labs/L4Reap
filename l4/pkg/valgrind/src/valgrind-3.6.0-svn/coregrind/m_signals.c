@@ -516,10 +516,9 @@ typedef struct SigQueue {
                                                     UWord scclass ) {
       I_die_here;
    }
-   static inline Addr VG_UCONTEXT_LINK_REG( void* ucV ) {
-      return 0; /* No, really.  We have no LRs today. */
-   }
-   static inline Addr VG_UCONTEXT_FRAME_PTR( void* ucV ) {
+   static inline
+   void VG_UCONTEXT_TO_UnwindStartRegs( UnwindStartRegs* srP,
+                                        void* ucV ) {
       I_die_here;
    }
 
@@ -994,7 +993,7 @@ SysRes VG_(do_sys_sigaltstack) ( ThreadId tid, vki_stack_t* ss, vki_stack_t* oss
    m_SP  = VG_(get_SP)(tid);
 
    if (VG_(clo_trace_signals))
-      VG_(emsg)("sys_sigaltstack: tid %d, "
+      VG_(dmsg)("sys_sigaltstack: tid %d, "
                 "ss %p{%p,sz=%llu,flags=0x%llx}, oss %p (current SP %p)\n",
                 tid, (void*)ss, 
                 ss ? ss->ss_sp : 0,
@@ -1039,7 +1038,7 @@ SysRes VG_(do_sys_sigaction) ( Int signo,
                                vki_sigaction_fromK_t* old_act )
 {
    if (VG_(clo_trace_signals))
-      VG_(emsg)("sys_sigaction: sigNo %d, "
+      VG_(dmsg)("sys_sigaction: sigNo %d, "
                 "new %#lx, old %#lx, new flags 0x%llx\n",
                 signo, (UWord)new_act, (UWord)old_act,
                 (ULong)(new_act ? new_act->sa_flags : 0));
@@ -1188,7 +1187,7 @@ void do_setmask ( ThreadId tid,
 		  vki_sigset_t* oldset )
 {
    if (VG_(clo_trace_signals))
-      VG_(emsg)("do_setmask: tid = %d how = %d (%s), newset = %p (%s)\n", 
+      VG_(dmsg)("do_setmask: tid = %d how = %d (%s), newset = %p (%s)\n", 
                 tid, how,
                 how==VKI_SIG_BLOCK ? "SIG_BLOCK" : (
                    how==VKI_SIG_UNBLOCK ? "SIG_UNBLOCK" : (
@@ -1200,7 +1199,7 @@ void do_setmask ( ThreadId tid,
    if (oldset) {
       *oldset = VG_(threads)[tid].sig_mask;
       if (VG_(clo_trace_signals))
-         VG_(emsg)("\toldset=%p %s\n", oldset, format_sigset(oldset));
+         VG_(dmsg)("\toldset=%p %s\n", oldset, format_sigset(oldset));
    }
    if (newset) {
       do_sigprocmask_bitops (how, &VG_(threads)[tid].sig_mask, newset );
@@ -2599,7 +2598,7 @@ void VG_(sigstartup_actions) ( void )
       /* Get the old host action */
       ret = VG_(sigaction)(i, NULL, &sa);
 
-#     if defined(VGP_x86_darwin)
+#     if defined(VGP_x86_darwin) || defined(VGP_amd64_darwin)
       /* apparently we may not even ask about the disposition of these
          signals, let alone change them */
       if (ret != 0 && (i == VKI_SIGKILL || i == VKI_SIGSTOP))

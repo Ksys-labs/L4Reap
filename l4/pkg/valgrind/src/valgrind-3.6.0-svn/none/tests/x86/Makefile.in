@@ -56,9 +56,10 @@ check_PROGRAMS = badseg$(EXEEXT) bt_everything$(EXEEXT) \
 	cse_fail$(EXEEXT) faultstatus$(EXEEXT) fcmovnu$(EXEEXT) \
 	fpu_lazy_eflags$(EXEEXT) fxtract$(EXEEXT) getseg$(EXEEXT) \
 	incdec_alt$(EXEEXT) $(am__EXEEXT_3) int$(EXEEXT) jcxz$(EXEEXT) \
-	lahf$(EXEEXT) looper$(EXEEXT) movx$(EXEEXT) \
+	lahf$(EXEEXT) looper$(EXEEXT) lzcnt32$(EXEEXT) movx$(EXEEXT) \
 	pushpopseg$(EXEEXT) sbbmisc$(EXEEXT) smc1$(EXEEXT) \
-	x86locked$(EXEEXT) yield$(EXEEXT) $(am__EXEEXT_4)
+	x86locked$(EXEEXT) yield$(EXEEXT) xadd$(EXEEXT) \
+	$(am__EXEEXT_4)
 @BUILD_SSSE3_TESTS_TRUE@am__append_3 = ssse3_misaligned
 
 # Some of the tests (bug125959_x86, bug152818_x86, insn_*) need
@@ -178,6 +179,9 @@ lahf_LDADD = $(LDADD)
 looper_SOURCES = looper.c
 looper_OBJECTS = looper.$(OBJEXT)
 looper_LDADD = $(LDADD)
+lzcnt32_SOURCES = lzcnt32.c
+lzcnt32_OBJECTS = lzcnt32.$(OBJEXT)
+lzcnt32_LDADD = $(LDADD)
 movx_SOURCES = movx.c
 movx_OBJECTS = movx.$(OBJEXT)
 movx_LDADD = $(LDADD)
@@ -198,6 +202,9 @@ x86locked_OBJECTS = x86locked-x86locked.$(OBJEXT)
 x86locked_LDADD = $(LDADD)
 x86locked_LINK = $(CCLD) $(x86locked_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
+xadd_SOURCES = xadd.c
+xadd_OBJECTS = xadd.$(OBJEXT)
+xadd_LDADD = $(LDADD)
 yield_SOURCES = yield.c
 yield_OBJECTS = yield.$(OBJEXT)
 yield_DEPENDENCIES =
@@ -220,9 +227,9 @@ SOURCES = badseg.c bt_everything.c bt_literal.c bug125959-x86.c \
 	$(insn_cmov_SOURCES) $(insn_fpu_SOURCES) $(insn_mmx_SOURCES) \
 	$(insn_mmxext_SOURCES) $(insn_sse_SOURCES) \
 	$(insn_sse2_SOURCES) $(insn_sse3_SOURCES) \
-	$(insn_ssse3_SOURCES) int.c jcxz.c lahf.c looper.c movx.c \
-	pushpopseg.c sbbmisc.c smc1.c ssse3_misaligned.c x86locked.c \
-	yield.c
+	$(insn_ssse3_SOURCES) int.c jcxz.c lahf.c looper.c lzcnt32.c \
+	movx.c pushpopseg.c sbbmisc.c smc1.c ssse3_misaligned.c \
+	x86locked.c xadd.c yield.c
 DIST_SOURCES = badseg.c bt_everything.c bt_literal.c bug125959-x86.c \
 	bug126147-x86.c bug132813-x86.c bug135421-x86.c \
 	bug137714-x86.c bug152818-x86.c cmpxchg8b.c $(cpuid_SOURCES) \
@@ -231,9 +238,9 @@ DIST_SOURCES = badseg.c bt_everything.c bt_literal.c bug125959-x86.c \
 	$(insn_cmov_SOURCES) $(insn_fpu_SOURCES) $(insn_mmx_SOURCES) \
 	$(insn_mmxext_SOURCES) $(insn_sse_SOURCES) \
 	$(insn_sse2_SOURCES) $(insn_sse3_SOURCES) \
-	$(insn_ssse3_SOURCES) int.c jcxz.c lahf.c looper.c movx.c \
-	pushpopseg.c sbbmisc.c smc1.c ssse3_misaligned.c x86locked.c \
-	yield.c
+	$(insn_ssse3_SOURCES) int.c jcxz.c lahf.c looper.c lzcnt32.c \
+	movx.c pushpopseg.c sbbmisc.c smc1.c ssse3_misaligned.c \
+	x86locked.c xadd.c yield.c
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -274,6 +281,7 @@ FLAG_MAIX32 = @FLAG_MAIX32@
 FLAG_MAIX64 = @FLAG_MAIX64@
 FLAG_MMMX = @FLAG_MMMX@
 FLAG_MSSE = @FLAG_MSSE@
+FLAG_NO_BUILD_ID = @FLAG_NO_BUILD_ID@
 FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
@@ -308,14 +316,18 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
 QTCORE_CFLAGS = @QTCORE_CFLAGS@
 QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
-VALT_LOAD_ADDRESS = @VALT_LOAD_ADDRESS@
+VALT_LOAD_ADDRESS_PRI = @VALT_LOAD_ADDRESS_PRI@
+VALT_LOAD_ADDRESS_SEC = @VALT_LOAD_ADDRESS_SEC@
 VERSION = @VERSION@
 VGCONF_ARCH_PRI = @VGCONF_ARCH_PRI@
 VGCONF_ARCH_SEC = @VGCONF_ARCH_SEC@
@@ -398,7 +410,9 @@ AM_CFLAGS_BASE = \
 # The aim is to give reasonable performance but also to have good
 # stack traces, since users often see stack traces extending 
 # into (and through) the preloads.
-@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing -mno-dynamic-no-pic
+@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing \
+@VGCONF_OS_IS_DARWIN_TRUE@		-mno-dynamic-no-pic -fpic -fPIC
+
 @VGCONF_OS_IS_L4RE_FALSE@AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@ = \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir) \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir)/include \
@@ -457,7 +471,7 @@ AM_CFLAGS_PPC64_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC64_LINUX = $(AM_CPPFLAGS_PPC64_LINUX) @FLAG_M64@ -g
 AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
-			 	$(AM_CFLAGS_BASE)
+			 	$(AM_CFLAGS_BASE) -marm
 
 AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
@@ -472,8 +486,8 @@ AM_CCASFLAGS_PPC64_AIX5 = $(AM_CPPFLAGS_PPC64_AIX5) \
 
 AM_FLAG_M3264_X86_DARWIN = -arch i386
 AM_CFLAGS_X86_DARWIN = $(WERROR) -arch i386 $(AM_CFLAGS_BASE) \
-			    -mmacosx-version-min=10.5 -fno-stack-protector \
-			    -mdynamic-no-pic
+				-mmacosx-version-min=10.5 \
+				-fno-stack-protector -fno-pic -fno-PIC
 
 AM_CCASFLAGS_X86_DARWIN = $(AM_CPPFLAGS_X86_DARWIN) -arch i386 -g
 AM_FLAG_M3264_AMD64_DARWIN = -arch x86_64
@@ -571,6 +585,7 @@ EXTRA_DIST = \
 	jcxz.stdout.exp jcxz.stderr.exp jcxz.vgtest \
 	lahf.stdout.exp lahf.stderr.exp lahf.vgtest \
 	looper.stderr.exp looper.stdout.exp looper.vgtest \
+	lzcnt32.stderr.exp lzcnt32.stdout.exp lzcnt32.vgtest \
 	movx.stderr.exp movx.stdout.exp movx.vgtest \
 	pushpopseg.stderr.exp pushpopseg.stdout.exp pushpopseg.vgtest \
 	sbbmisc.stderr.exp sbbmisc.stdout.exp sbbmisc.vgtest \
@@ -578,7 +593,8 @@ EXTRA_DIST = \
 	ssse3_misaligned.stderr.exp ssse3_misaligned.stdout.exp \
 	ssse3_misaligned.vgtest ssse3_misaligned.c \
 	x86locked.vgtest x86locked.stdout.exp x86locked.stderr.exp \
-	yield.stderr.exp yield.stdout.exp yield.disabled
+	yield.stderr.exp yield.stdout.exp yield.disabled \
+	xadd.stdout.exp xadd.stderr.exp xadd.vgtest
 
 cpuid_SOURCES = cpuid_c.c cpuid_s.S
 # fpu_lazy_eflags must use these flags -- the bug only occurred with them.
@@ -734,6 +750,9 @@ lahf$(EXEEXT): $(lahf_OBJECTS) $(lahf_DEPENDENCIES)
 looper$(EXEEXT): $(looper_OBJECTS) $(looper_DEPENDENCIES) 
 	@rm -f looper$(EXEEXT)
 	$(LINK) $(looper_OBJECTS) $(looper_LDADD) $(LIBS)
+lzcnt32$(EXEEXT): $(lzcnt32_OBJECTS) $(lzcnt32_DEPENDENCIES) 
+	@rm -f lzcnt32$(EXEEXT)
+	$(LINK) $(lzcnt32_OBJECTS) $(lzcnt32_LDADD) $(LIBS)
 movx$(EXEEXT): $(movx_OBJECTS) $(movx_DEPENDENCIES) 
 	@rm -f movx$(EXEEXT)
 	$(LINK) $(movx_OBJECTS) $(movx_LDADD) $(LIBS)
@@ -752,6 +771,9 @@ ssse3_misaligned$(EXEEXT): $(ssse3_misaligned_OBJECTS) $(ssse3_misaligned_DEPEND
 x86locked$(EXEEXT): $(x86locked_OBJECTS) $(x86locked_DEPENDENCIES) 
 	@rm -f x86locked$(EXEEXT)
 	$(x86locked_LINK) $(x86locked_OBJECTS) $(x86locked_LDADD) $(LIBS)
+xadd$(EXEEXT): $(xadd_OBJECTS) $(xadd_DEPENDENCIES) 
+	@rm -f xadd$(EXEEXT)
+	$(LINK) $(xadd_OBJECTS) $(xadd_LDADD) $(LIBS)
 yield$(EXEEXT): $(yield_OBJECTS) $(yield_DEPENDENCIES) 
 	@rm -f yield$(EXEEXT)
 	$(LINK) $(yield_OBJECTS) $(yield_LDADD) $(LIBS)
@@ -794,12 +816,14 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jcxz.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lahf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/looper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lzcnt32.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/movx.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pushpopseg.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sbbmisc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/smc1.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssse3_misaligned.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/x86locked-x86locked.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xadd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/yield.Po@am__quote@
 
 .S.o:

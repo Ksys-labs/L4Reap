@@ -643,10 +643,14 @@ Jdb_thread_list::list_threads(Thread *t_start, char pr)
   unsigned y, y_max;
   Thread *t, *t_current = t_start;
 
-
-  // enqueue current, which may not be in the ready list due to lazy queueing
-  if (!t_current->in_ready_list())
-    t_current->ready_enqueue();
+    {
+      // Hm, we are in JDB, however we have to make the assertion in
+      // ready_enqueue happy.
+      Lock_guard<Cpu_lock> g(&cpu_lock);
+      // enqueue current, which may not be in the ready list due to lazy queueing
+      if (!t_current->in_ready_list())
+        t_current->ready_enqueue();
+    }
 
   Jdb::clear_screen();
   show_header();

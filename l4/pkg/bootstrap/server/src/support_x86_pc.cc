@@ -264,19 +264,61 @@ static void pci_enable_io(unsigned char bus, l4_uint32_t dev,
 
 #include <stdio.h>
 
-static bool pci_handle_serial_dev(unsigned char bus, l4_uint32_t dev,
-                                  l4_uint32_t subdev, bool scan_only)
+namespace {
+
+struct Resource
+{
+  enum Type { NO_BAR, IO_BAR, MEM_BAR };
+  Type type;
+  unsigned long base;
+  unsigned long len;
+  Resource() : type(NO_BAR) {}
+};
+
+enum { NUM_BARS = 6 };
+
+struct Serial_board
+{
+  int num_ports;
+  int first_bar;
+  bool port_per_bar;
+  Resource bars[NUM_BARS];
+
+  unsigned long get_port(int idx)
+  {
+    if (idx >= num_ports)
+      return 0;
+
+    if (port_per_bar)
+      return bars[first_bar + idx].base;
+
+    return bars[first_bar].base + 8 * idx;
+  }
+};
+
+
+}
+
+static
+int pci_handle_serial_dev(unsigned char bus, l4_uint32_t dev,
+                          l4_uint32_t subdev, bool scan_only,
+                          Serial_board *board)
 {
   bool dev_enabled = false;
 
+
   // read bars
-  for (int bar = 0; bar < 6; ++bar)
+  int num_iobars = 0;
+  int num_membars = 0;
+  int first_port = -1;
+  for (int bar = 0; bar < NUM_BARS; ++bar)
     {
       int a = 0x10 + bar * 4;
 
       unsigned v = pci_read(bus, dev, subdev, a, 32);
       pci_write(bus, dev, subdev, a, ~0U, 32);
       unsigned x = pci_read(bus, dev, subdev, a, 32);
+      pci_write(bus, dev, subdev, a, v, 32);
 
       if (!v)
         continue;
@@ -285,6 +327,58 @@ static bool pci_handle_serial_dev(unsigned char bus, l4_uint32_t dev,
       for (s = 2; s < 32; ++s)
         if ((x >> s) & 1)
           break;
+
+      board->bars[bar].base = v & ~3UL;
+      board->bars[bar].len = 1 << s;
+      board->bars[bar].type = (v & 1) ? Resource::IO_BAR : Resource::MEM_BAR;
+
+      if (scan_only)
+	printf("BAR%d: %04x (sz=%d)\n", bar, v & ~3, 1 << s);
+
+      switch (board->bars[bar].type)
+	{
+	case Resource::IO_BAR:
+	  ++num_iobars;
+	  if (first_port == -1)
+	    first_port = bar;
+	  break;
+	case Resource::MEM_BAR:
+	  ++num_membars;
+	  break;
+	default:
+	  break;
+	}
+    }
+
+  if (num_membars <= 1 && num_iobars == 1)
+    {
+      board->first_bar = first_port;
+      board->num_ports = board->bars[first_port].len / 8;
+      board->port_per_bar = false;
+      pci_enable_io(bus, dev, subdev);
+      return 1;
+    }
+
+
+  board->num_ports = 0;
+  board->first_bar = -1;
+
+  for (int bar = 0; bar < NUM_BARS; ++bar)
+    {
+      if (board->bars[bar].type == Resource::IO_BAR && board->bars[bar].len == 8
+	  && (board->first_bar == -1
+	      || (board->first_bar + board->num_ports) == bar))
+	{
+	  ++board->num_ports;
+	  if (board->first_bar == -1)
+	    board->first_bar = bar;
+	}
+    }
+
+  board->port_per_bar = true;
+  return board->num_ports;
+
+#if 0
 
       // for now we only take IO-BARs of size 8
       if (v & 1)
@@ -311,10 +405,11 @@ static bool pci_handle_serial_dev(unsigned char bus, l4_uint32_t dev,
         if (scan_only)
           printf("BAR%d: %08x (sz=%d)\n", bar, v & ~0xf, 1 << s);
     }
-  return false;
+  return 0;
+#endif
 }
 
-unsigned long search_pci_serial_devs(bool scan_only)
+static unsigned long _search_pci_serial_devs(Serial_board *board, bool scan_only)
 {
   l4_umword_t bus, buses, dev;
 
@@ -348,12 +443,21 @@ unsigned long search_pci_serial_devs(bool scan_only)
 
               if (classcode == 7 && subclass == 0)
                 if (unsigned long port = pci_handle_serial_dev(bus, dev,
-                                                               subdev, scan_only))
+                                                               subdev, scan_only, board))
                   return port;
             }
         }
     }
   return 0;
+}
+
+unsigned long search_pci_serial_devs(int port_idx, bool scan_only)
+{
+  Serial_board board;
+  if (!_search_pci_serial_devs(&board, scan_only))
+    return 0;
+
+  return board.get_port(port_idx);
 }
 
 namespace {

@@ -66,7 +66,6 @@
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
 #include <semaphore.h>
-#include <sys/acl.h>   /* struct kauth_filesec */
 /* --- !!! --- EXTERNAL HEADERS end --- !!! --- */
 
 #define msgh_request_port      msgh_remote_port
@@ -1240,7 +1239,9 @@ PRE(futimes)
 {
    PRINT("futimes ( %ld, %#lx )", ARG1,ARG2);
    PRE_REG_READ2(long, "futimes", int, fd, struct timeval *, tvp);
-   if (ARG2 != 0) {
+   if (!ML_(fd_allowed)(ARG1, "futimes", tid, False)) {
+      SET_STATUS_Failure( VKI_EBADF );
+   } else if (ARG2 != 0) {
       PRE_timeval_READ( "futimes(tvp[0])", ARG2 );
       PRE_timeval_READ( "futimes(tvp[1])", ARG2+sizeof(struct vki_timeval) );
    }
@@ -1635,10 +1636,12 @@ PRE(kdebug_trace)
 {
    PRINT("kdebug_trace(%ld, %ld, %ld, %ld, %ld, %ld)", 
          ARG1, ARG2, ARG3, ARG4, ARG5, ARG6);
+   /*
+     Don't check anything - some clients pass fewer arguments.
    PRE_REG_READ6(long, "kdebug_trace", 
                  int,"code", int,"arg1", int,"arg2", 
                  int,"arg3", int,"arg4", int,"arg5");
-   // GrP fixme anything else?
+   */
 }
 
 
@@ -2018,7 +2021,7 @@ PRE(fchmod_extended)
       is just way wrong.  [The trouble is with the size, which depends on a
       non-trival kernel computation] */
    PRE_MEM_READ( "fchmod_extended(xsecurity)", ARG5, 
-                 sizeof(struct kauth_filesec) );
+                 sizeof(struct vki_kauth_filesec) );
 }
 
 PRE(chmod_extended)
@@ -2038,7 +2041,7 @@ PRE(chmod_extended)
       is just way wrong.  [The trouble is with the size, which depends on a
       non-trival kernel computation] */
    PRE_MEM_READ( "chmod_extended(xsecurity)", ARG5, 
-                 sizeof(struct kauth_filesec) );
+                 sizeof(struct vki_kauth_filesec) );
 }
 
 
@@ -2241,6 +2244,9 @@ static void scan_attrlist(ThreadId tid, struct vki_attrlist *attrList,
    } attrspec;
    static const attrspec commonattr[] = {
       // This order is important.
+#if DARWIN_VERS >= DARWIN_10_6
+      { ATTR_CMN_RETURNED_ATTRS,  sizeof(attribute_set_t) }, 
+#endif
       { ATTR_CMN_NAME,            -1 }, 
       { ATTR_CMN_DEVID,           sizeof(dev_t) }, 
       { ATTR_CMN_FSID,            sizeof(fsid_t) }, 
@@ -2263,8 +2269,14 @@ static void scan_attrlist(ThreadId tid, struct vki_attrlist *attrList,
       { ATTR_CMN_NAMEDATTRLIST,   -1 }, 
       { ATTR_CMN_FLAGS,           sizeof(uint32_t) }, 
       { ATTR_CMN_USERACCESS,      sizeof(uint32_t) }, 
+      { ATTR_CMN_EXTENDED_SECURITY, -1 }, 
+      { ATTR_CMN_UUID,            sizeof(guid_t) }, 
+      { ATTR_CMN_GRPUUID,         sizeof(guid_t) }, 
       { ATTR_CMN_FILEID,          sizeof(uint64_t) }, 
       { ATTR_CMN_PARENTID,        sizeof(uint64_t) }, 
+#if DARWIN_VERS >= DARWIN_10_6
+      { ATTR_CMN_FULLPATH,        -1 }, 
+#endif
       { 0,                        0 }
    };
    static const attrspec volattr[] = {
@@ -2288,6 +2300,9 @@ static void scan_attrlist(ThreadId tid, struct vki_attrlist *attrList,
       { ATTR_VOL_MOUNTEDDEVICE,   -1 }, 
       { ATTR_VOL_ENCODINGSUSED,   sizeof(uint64_t) }, 
       { ATTR_VOL_CAPABILITIES,    sizeof(vol_capabilities_attr_t) }, 
+#if DARWIN_VERS >= DARWIN_10_6
+      { ATTR_VOL_UUID,            sizeof(uuid_t) }, 
+#endif
       { ATTR_VOL_ATTRIBUTES,      sizeof(vol_attributes_attr_t) }, 
       { 0,                        0 }
    };
@@ -2335,6 +2350,16 @@ static void scan_attrlist(ThreadId tid, struct vki_attrlist *attrList,
    VG_(memcpy)(a, &attrList->commonattr, sizeof(a));
    d = attrBuf;
    dend = d + attrBufSize;
+
+#if DARWIN_VERS >= DARWIN_10_6
+   // ATTR_CMN_RETURNED_ATTRS tells us what's really here, if set
+   if (a[0] & ATTR_CMN_RETURNED_ATTRS) {
+       // fixme range check this?
+       a[0] &= ~ATTR_CMN_RETURNED_ATTRS;
+       fn(tid, d, sizeof(attribute_set_t));
+       VG_(memcpy)(a, d, sizeof(a));
+   }
+#endif
 
    for (g = 0; g < 5; g++) {
       for (i = 0; attrdefs[g][i].attrBit; i++) {
@@ -2398,10 +2423,15 @@ PRE(getattrlist)
 POST(getattrlist) 
 {
    if (ARG4 > sizeof(vki_uint32_t)) {
-      // attrBuf is uint32_t bytes written followed by attr data
+      // attrBuf is uint32_t size followed by attr data
       vki_uint32_t *sizep = (vki_uint32_t *)ARG3;
       POST_MEM_WRITE(ARG3, sizeof(vki_uint32_t));
-      scan_attrlist(tid, (struct vki_attrlist *)ARG2, sizep+1, *sizep, &get1attr);
+      if (ARG5 & FSOPT_REPORT_FULLSIZE) {
+         // *sizep is bytes required for return value, including *sizep
+      } else {
+         // *sizep is actual bytes returned, including *sizep
+      }
+      scan_attrlist(tid, (struct vki_attrlist *)ARG2, sizep+1, MIN(*sizep, ARG4), &get1attr);
    }
 }
 
@@ -2457,9 +2487,50 @@ POST(getdirentriesattr)
 
    POST_MEM_WRITE(ARG3, p - (char *)ARG3);
 
-   PRINT("got %d records, %d/%lu bytes\n", count, p-(char *)ARG3, ARG4);
+   PRINT("got %d records, %ld/%lu bytes\n",
+         count, (Addr)p-(Addr)ARG3, ARG4);
 }
 
+
+PRE(fsgetpath)
+{
+#if VG_WORDSIZE == 4
+   PRINT("fsgetpath(%#lx, %ld, %#lx {%u,%u}, %llu)", 
+         ARG1, ARG2, ARG3,
+         ((unsigned int *)ARG3)[0], ((unsigned int *)ARG3)[1],
+         LOHI64(ARG4, ARG5));
+   PRE_REG_READ5(ssize_t, "fsgetpath", 
+                 void*,"buf", size_t,"bufsize", 
+                 fsid_t *,"fsid",
+                 vki_uint32_t, "objid_low32", vki_uint32_t, "objid_high32");
+#else
+   PRINT("fsgetpath(%#lx, %ld, %#lx {%u,%u}, %lu)", 
+         ARG1, ARG2, ARG3,
+         ((unsigned int *)ARG3)[0],
+         ((unsigned int *)ARG3)[1], ARG4);
+   PRE_REG_READ4(ssize_t, "fsgetpath", 
+                 void*,"buf", size_t,"bufsize", 
+                 fsid_t *,"fsid", uint64_t,"objid");
+#endif
+   PRE_MEM_READ("fsgetpath(fsid)", ARG3, sizeof(fsid_t));
+   PRE_MEM_WRITE("fsgetpath(buf)", ARG1, ARG2);
+}
+
+POST(fsgetpath)
+{
+   POST_MEM_WRITE(ARG1, RES);
+}
+
+PRE(audit_session_self)
+{
+  PRINT("audit_session_self()");
+}
+
+POST(audit_session_self)
+{
+  record_named_port(tid, RES, MACH_PORT_RIGHT_SEND, "audit-session-%p");
+  PRINT("audit-session %#lx", RES);
+}
 
 PRE(exchangedata)
 {
@@ -3248,6 +3319,9 @@ PRE(auditon)
    case VKI_A_SETCLASS:
    case VKI_A_SETPMASK:
    case VKI_A_SETFSIZE:
+#if DARWIN_VERS >= DARWIN_10_6
+   case VKI_A_SENDTRIGGER:
+#endif
       // kernel reads data..data+length
       PRE_MEM_READ("auditon(data)", ARG2, ARG3);
       break;
@@ -3266,6 +3340,9 @@ PRE(auditon)
    case VKI_A_GETCLASS:
    case VKI_A_GETPINFO:
    case VKI_A_GETPINFO_ADDR:
+#if DARWIN_VERS >= DARWIN_10_6
+   case VKI_A_GETSINFO_ADDR:
+#endif
       // kernel reads and writes data..data+length
       // GrP fixme be precise about what gets read and written
       PRE_MEM_READ("auditon(data)", ARG2, ARG3);
@@ -3299,6 +3376,9 @@ POST(auditon)
    case VKI_A_SETCLASS:
    case VKI_A_SETPMASK:
    case VKI_A_SETFSIZE:
+#if DARWIN_VERS >= DARWIN_10_6
+   case VKI_A_SENDTRIGGER:
+#endif
       // kernel reads data..data+length
       break;
 
@@ -3316,6 +3396,9 @@ POST(auditon)
    case VKI_A_GETCLASS:
    case VKI_A_GETPINFO:
    case VKI_A_GETPINFO_ADDR:
+#if DARWIN_VERS >= DARWIN_10_6
+   case VKI_A_GETSINFO_ADDR:
+#endif
       // kernel reads and writes data..data+length
       // GrP fixme be precise about what gets read and written
       POST_MEM_WRITE(ARG2, ARG3);
@@ -3537,6 +3620,57 @@ PRE(sigsuspend)
    PRINT("sigsuspend ( mask=0x%08lx )", ARG1 );
    PRE_REG_READ1(int, "sigsuspend", int, sigmask);
 }
+
+
+/* Be careful about the 4th arg, since that is a uint64_t.  Hence 64-
+   and 32-bit wrappers are different.
+
+   ARG5 and ARG6 (buffer, buffersize) specify a buffer start and
+   length in the usual way.  I have seen values NULL, 0 passed in some
+   cases.  I left the calls to PRE_MEM_WRITE/READ unconditional on the
+   basis that they don't do anything if the length is zero, so it's OK
+   for the buffer pointer to be NULL in that case (meaning they don't
+   complain).
+
+   int proc_info(int32_t callnum, int32_t pid,
+                 uint32_t flavor, uint64_t arg,
+                 user_addr_t buffer, int32_t buffersize)
+*/
+#if DARWIN_VERS >= DARWIN_10_6
+PRE(proc_info)
+{
+#if VG_WORDSIZE == 4
+   PRINT("proc_info(%d, %d, %u, %llu, %#lx, %d)",
+         (Int)ARG1, (Int)ARG2, (UInt)ARG3, LOHI64(ARG4,ARG5), ARG6, (Int)ARG7);
+   PRE_REG_READ7(int, "proc_info",
+                 int, callnum, int, pid, unsigned int, flavor,
+                 vki_uint32_t, arg_low32,
+                 vki_uint32_t, arg_high32,
+                 void*, buffer, int, buffersize);
+   PRE_MEM_WRITE("proc_info(buffer)", ARG6, ARG7);
+#else
+   PRINT("proc_info(%d, %d, %u, %llu, %#lx, %d)",
+         (Int)ARG1, (Int)ARG2, (UInt)ARG3, (ULong)ARG4, ARG5, (Int)ARG6);
+   PRE_REG_READ6(int, "proc_info",
+                 int, callnum, int, pid, unsigned int, flavor,
+                 unsigned long long int, arg,
+                 void*, buffer, int, buffersize);
+   PRE_MEM_WRITE("proc_info(buffer)", ARG5, ARG6);
+#endif
+}
+
+POST(proc_info)
+{
+#if VG_WORDSIZE == 4
+   vg_assert(SUCCESS);
+   POST_MEM_WRITE(ARG6, ARG7);
+#else
+   vg_assert(SUCCESS);
+   POST_MEM_WRITE(ARG5, ARG6);
+#endif
+}
+
+#endif /* DARWIN_VERS >= DARWIN_10_6 */
 
 /* ---------------------------------------------------------------------
    aio_*
@@ -3959,7 +4093,7 @@ POST(host_page_size)
    Reply *reply = (Reply *)ARG1;
 
    if (!reply->RetCode) {
-      PRINT("page size %u", reply->out_page_size);
+     PRINT("page size %llu", (ULong)reply->out_page_size);
    } else {
       PRINT("mig return %d", reply->RetCode);
    }
@@ -4384,6 +4518,51 @@ POST(mach_port_get_set_status)
 }
 
 
+PRE(mach_port_move_member)
+{
+#pragma pack(4)
+    typedef struct {
+        mach_msg_header_t Head;
+        NDR_record_t NDR;
+        mach_port_name_t member;
+        mach_port_name_t after;
+    } Request;
+#pragma pack()
+
+    Request *req = (Request *)ARG1;
+
+    PRINT("mach_port_move_member(%s, %s, %s)", 
+          name_for_port(MACH_REMOTE), 
+          name_for_port(req->member), 
+          name_for_port(req->after));
+    /*
+    MACH_ARG(mach_port_move_member.member) = req->member;
+    MACH_ARG(mach_port_move_member.after) = req->after;
+    */
+    AFTER = POST_FN(mach_port_move_member);
+}
+
+POST(mach_port_move_member)
+{
+#pragma pack(4)
+   typedef struct {
+      mach_msg_header_t Head;
+      NDR_record_t NDR;
+      kern_return_t RetCode;
+      mach_msg_trailer_t trailer;
+   } Reply;
+#pragma pack()
+
+   Reply *reply = (Reply *)ARG1;
+
+   if (!reply->RetCode) {
+      // fixme port set tracker?
+   } else {
+      PRINT("mig return %d", reply->RetCode);
+   }
+}
+
+
 PRE(mach_port_destroy)
 {
 #pragma pack(4)
@@ -4501,6 +4680,34 @@ PRE(mach_port_insert_right)
 
 POST(mach_port_insert_right)
 {
+}
+
+
+PRE(mach_port_extract_right)
+{
+#pragma pack(4)
+   typedef struct {
+      mach_msg_header_t Head;
+      NDR_record_t NDR;
+      mach_port_name_t name;
+      mach_msg_type_name_t msgt_name;
+   } Request;
+#pragma pack()
+
+   Request *req = (Request *)ARG1;
+   
+   PRINT("mach_port_extract_right(%s, %s, %d)", 
+         name_for_port(MACH_REMOTE), 
+         name_for_port(req->name), req->msgt_name);
+   
+   AFTER = POST_FN(mach_port_extract_right);
+   
+   // fixme port tracker?
+}
+
+POST(mach_port_extract_right)
+{
+   // fixme import_complex_message handles the returned result, right?
 }
 
 
@@ -4875,9 +5082,9 @@ PRE(vm_allocate)
 
    Request *req = (Request *)ARG1;
 
-   PRINT("vm_allocate (%s, at %#x, size %d, flags %#x)", 
+   PRINT("vm_allocate (%s, at %#llx, size %lld, flags %#x)", 
          name_for_port(MACH_REMOTE), 
-         req->address, req->size, req->flags);
+         (ULong)req->address, (ULong)req->size, req->flags);
 
    MACH_ARG(vm_allocate.size) = req->size;
    MACH_ARG(vm_allocate.flags) = req->flags;
@@ -4901,7 +5108,7 @@ POST(vm_allocate)
    
    if (!reply->RetCode) {
       if (MACH_REMOTE == vg_task_port) {
-         PRINT("allocated at %#x", reply->address);
+        PRINT("allocated at %#llx", (ULong)reply->address);
          // requesting 0 bytes returns address 0 with no error
          if (MACH_ARG(vm_allocate.size)) {
             ML_(notify_core_and_tool_of_mmap)(
@@ -4909,7 +5116,8 @@ POST(vm_allocate)
                   VKI_PROT_READ|VKI_PROT_WRITE, VKI_MAP_ANON, -1, 0);
          }
       } else {
-         PRINT("allocated at %#x in remote task %s", reply->address, 
+         PRINT("allocated at %#llx in remote task %s",
+               (ULong)reply->address, 
                name_for_port(MACH_REMOTE));
       }
    } else {
@@ -4931,9 +5139,9 @@ PRE(vm_deallocate)
    
    Request *req = (Request *)ARG1;
    
-   PRINT("vm_deallocate(%s, at %#x, size %d)", 
+   PRINT("vm_deallocate(%s, at %#llx, size %lld)", 
          name_for_port(MACH_REMOTE), 
-         req->address, req->size);
+         (ULong)req->address, (ULong)req->size);
    
    MACH_ARG(vm_deallocate.address) = req->address;
    MACH_ARG(vm_deallocate.size) = req->size;
@@ -4989,8 +5197,9 @@ PRE(vm_protect)
    
    Request *req = (Request *)ARG1;
    
-   PRINT("vm_protect(%s, at %#x, size %d, set_max %d, prot %d)", 
-         name_for_port(MACH_REMOTE), req->address, req->size, 
+   PRINT("vm_protect(%s, at %#llx, size %lld, set_max %d, prot %d)", 
+         name_for_port(MACH_REMOTE),
+         (ULong)req->address, (ULong)req->size, 
          req->set_maximum, req->new_protection);
    
    MACH_ARG(vm_protect.address) = req->address;
@@ -5048,9 +5257,9 @@ PRE(vm_inherit)
    
    Request *req = (Request *)ARG1;
    
-   PRINT("vm_inherit(%s, at %#x, size %d, value %d)", 
+   PRINT("vm_inherit(%s, at %#llx, size %lld, value %d)", 
          name_for_port(MACH_REMOTE), 
-         req->address, req->size, 
+         (ULong)req->address, (ULong)req->size, 
          req->new_inheritance);
    
    AFTER = POST_FN(vm_inherit);
@@ -5092,8 +5301,9 @@ PRE(vm_read)
 
    Request *req = (Request *)ARG1;
 
-   PRINT("vm_read(from %s at %#x size %u)", 
-         name_for_port(MACH_REMOTE), req->address, req->size);
+   PRINT("vm_read(from %s at %#llx size %llu)", 
+         name_for_port(MACH_REMOTE),
+         (ULong)req->address, (ULong)req->size);
    
    MACH_ARG(vm_read.addr) = req->address;
    MACH_ARG(vm_read.size) = req->size;
@@ -5184,8 +5394,9 @@ PRE(vm_read_overwrite)
 
    Request *req = (Request *)ARG1;
 
-   PRINT("vm_read_overwrite(from %s at %#x size %u to %#x)", 
-         name_for_port(MACH_REMOTE), req->address, req->size, req->data);
+   PRINT("vm_read_overwrite(from %s at %#llx size %llu to %#llx)", 
+         name_for_port(MACH_REMOTE),
+         (ULong)req->address, (ULong)req->size, (ULong)req->data);
    
    MACH_ARG(vm_read_overwrite.addr) = req->address;
    MACH_ARG(vm_read_overwrite.size) = req->size;
@@ -5239,9 +5450,10 @@ PRE(vm_copy)
    
    Request *req = (Request *)ARG1;
    
-   PRINT("vm_copy(%s, %#x, %d, %#x)", 
+   PRINT("vm_copy(%s, %#llx, %lld, %#llx)", 
          name_for_port(MACH_REMOTE), 
-         req->source_address, req->size, req->dest_address);
+         (ULong)req->source_address,
+         (ULong)req->size, (ULong)req->dest_address);
 
    MACH_ARG(vm_copy.src) = req->source_address;
    MACH_ARG(vm_copy.dst) = req->dest_address;
@@ -5299,9 +5511,9 @@ PRE(vm_map)
    Request *req = (Request *)ARG1;
 
    // GrP fixme check these
-   PRINT("vm_map(in %s, at %#x, size %d, from %s ...)", 
+   PRINT("vm_map(in %s, at %#llx, size %lld, from %s ...)", 
          name_for_port(MACH_REMOTE), 
-         req->address, req->size, 
+         (ULong)req->address, (ULong)req->size, 
          name_for_port(req->object.name));
 
    MACH_ARG(vm_map.size) = req->size;
@@ -5327,7 +5539,7 @@ POST(vm_map)
 
    if (!reply->RetCode) {
       // GrP fixme check src and dest tasks
-      PRINT("mapped at %#x", reply->address);
+     PRINT("mapped at %#llx", (ULong)reply->address);
       // GrP fixme max prot
       ML_(notify_core_and_tool_of_mmap)(
             reply->address, VG_PGROUNDUP(MACH_ARG(vm_map.size)), 
@@ -5367,13 +5579,14 @@ PRE(vm_remap)
       mach_port_name_t source_task = req->src_task.name;
       if (source_task == mach_task_self()) {
          PRINT("vm_remap(mach_task_self(), "
-               "to %#x size %d, from mach_task_self() at %#x, ...)",
-               req->target_address, req->size, req->src_address);
+               "to %#llx size %lld, from mach_task_self() at %#llx, ...)",
+               (ULong)req->target_address,
+               (ULong)req->size, (ULong)req->src_address);
       } else {
-          PRINT("vm_remap(mach_task_self(), "
-                "to %#x size %d, from task %u at %#x, ...)",
-                req->target_address, req->size, 
-                source_task,  req->src_address);
+         PRINT("vm_remap(mach_task_self(), "
+               "to %#llx size %lld, from task %u at %#llx, ...)",
+               (ULong)req->target_address, (ULong)req->size, 
+               source_task, (ULong)req->src_address);
       }
    }
 
@@ -5405,7 +5618,7 @@ POST(vm_remap)
       // GrP fixme check src and dest tasks
       UInt prot = reply->cur_protection & reply->max_protection;
       // GrP fixme max prot
-      PRINT("mapped at %#x", reply->target_address);
+      PRINT("mapped at %#llx", (ULong)reply->target_address);
       ML_(notify_core_and_tool_of_mmap)(
             reply->target_address, VG_PGROUNDUP(MACH_ARG(vm_remap.size)), 
             prot, VKI_MAP_SHARED, -1, 0);
@@ -5477,9 +5690,9 @@ PRE(vm_purgable_control)
 
    Request *req = (Request *)ARG1;
 
-   PRINT("vm_purgable_control(%s, %#x, %d, %d)", 
+   PRINT("vm_purgable_control(%s, %#llx, %d, %d)", 
          name_for_port(MACH_REMOTE), 
-         req->address, req->control, req->state);
+         (ULong)req->address, req->control, req->state);
 
    // GrP fixme verify address?
 
@@ -6092,6 +6305,7 @@ POST(bsdthread_create)
 
    // GrP fixme semaphore destroy needed when thread creation fails
    // GrP fixme probably other cleanup too
+   // GrP fixme spinlocks might be good enough?
 
    // DDD: I'm not at all sure this is the right spot for this.  It probably
    // should be in pthread_hijack instead, just before the call to
@@ -6210,10 +6424,6 @@ PRE(thread_get_state)
 }
 
 
-POST(thread_policy)
-{
-}
-
 PRE(thread_policy)
 {
    mach_msg_header_t *mh = (mach_msg_header_t *)ARG1;
@@ -6226,6 +6436,24 @@ PRE(thread_policy)
       }*/
 
    AFTER = POST_FN(thread_policy);
+}
+
+POST(thread_policy)
+{
+}
+
+
+PRE(thread_policy_set)
+{
+   mach_msg_header_t *mh = (mach_msg_header_t *)ARG1;
+
+   PRINT("thread_policy_set(%s, ...)", name_for_port(mh->msgh_request_port));
+
+   AFTER = POST_FN(thread_policy_set);
+}
+
+POST(thread_policy_set)
+{
 }
 
 
@@ -6455,11 +6683,17 @@ PRE(mach_msg_task)
    case 3211:
       CALL_PRE(mach_port_get_set_status);
       return;
+   case 3212:
+      CALL_PRE(mach_port_move_member);
+      return;
    case 3213:
       CALL_PRE(mach_port_request_notification);
       return;
    case 3214:
       CALL_PRE(mach_port_insert_right);
+      return;
+   case 3215:
+      CALL_PRE(mach_port_extract_right);
       return;
    case 3217:
       CALL_PRE(mach_port_get_attributes);
@@ -6601,6 +6835,9 @@ PRE(mach_msg_thread)
       return;
    case 3616: 
       CALL_PRE(thread_policy);
+      return;
+   case 3617: 
+      CALL_PRE(thread_policy_set);
       return;
    default:
       // unknown message to a thread
@@ -6766,7 +7003,7 @@ POST(mach_msg)
 
 POST(mach_msg_unhandled)
 {
-   ML_(sync_mappings)("after", "mach_msg_unhandled", 0);
+   ML_(sync_mappings)("after", "mach_msg_receive (unhandled)", 0);
 }
 
 
@@ -6908,9 +7145,9 @@ PRE(semaphore_timedwait_signal)
 
 PRE(__semwait_signal)
 {
-   /* args: int cond_sem, int mutex_sem,
-            int timeout, int relative,
-            time_t tv_sec, time_t tv_nsec */
+   /* 10.5 args: int cond_sem, int mutex_sem,
+                 int timeout, int relative,
+                 time_t tv_sec, time_t tv_nsec */
    PRINT("__semwait_signal(wait %s, signal %s, %ld, %ld, %lds:%ldns)", 
          name_for_port(ARG1), name_for_port(ARG2), ARG3, ARG4, ARG5, ARG6);
    PRE_REG_READ6(long, "__semwait_signal", 
@@ -6920,7 +7157,33 @@ PRE(__semwait_signal)
 
    *flags |= SfMayBlock;
 }
+// GrP provided this alternative version for 10.6, but NjN
+// reckons the 10.5 is is still correct for 10.6.  So, retaining
+// Greg's version as a comment just in case we need it later.
+//PRE(__semwait_signal)
+//{
+//   /* 10.5 args: int cond_sem, int mutex_sem,
+//                 int timeout, int relative,
+//                 const timespec *ts */
+//   PRINT("__semwait_signal(wait %s, signal %s, %ld, %ld, %#lx)", 
+//         name_for_port(ARG1), name_for_port(ARG2), ARG3, ARG4, ARG5);
+//   PRE_REG_READ5(int, "__semwait_signal", 
+//                 int,cond_sem, int,mutex_sem,
+//                 int,timeout, int,relative, 
+//                 const struct vki_timespec *,ts);
+//   
+//   if (ARG5) PRE_MEM_READ ("__semwait_signal(ts)", 
+//                           ARG5, sizeof(struct vki_timespec));
+//   
+//   *flags |= SfMayBlock;
+//}
 
+
+PRE(__thread_selfid)
+{
+   PRINT("__thread_selfid ()");
+   PRE_REG_READ0(vki_uint64_t, "__thread_selfid");
+}
 
 PRE(task_for_pid)
 {
@@ -6977,10 +7240,10 @@ POST(mach_timebase_info)
 PRE(mach_wait_until)
 {
 #if VG_WORDSIZE == 8
-   PRINT("mach_wait_until(%llu)", ARG1);
+   PRINT("mach_wait_until(%lu)", ARG1);
    PRE_REG_READ1(long, "mach_wait_until", 
                  unsigned long long,"deadline");
-#else   
+#else
    PRINT("mach_wait_until(%llu)", LOHI64(ARG1, ARG2));
    PRE_REG_READ2(long, "mach_wait_until", 
                  int,"deadline_hi", int,"deadline_lo");
@@ -7021,7 +7284,7 @@ POST(mk_timer_destroy)
 PRE(mk_timer_arm)
 {
 #if VG_WORDSIZE == 8
-   PRINT("mk_timer_arm(%s, %llu)", name_for_port(ARG1), ARG2);
+   PRINT("mk_timer_arm(%s, %lu)", name_for_port(ARG1), ARG2);
    PRE_REG_READ2(long, "mk_timer_arm", mach_port_t,"name", 
                  unsigned long,"expire_time");
 #else
@@ -7344,7 +7607,7 @@ const SyscallTableEntry ML_(syscall_table)[] = {
    MACXY(__NR_ioctl,       ioctl), 
 // _____(__NR_reboot), 
 // _____(__NR_revoke), 
-// _____(__NR_symlink), 
+   GENX_(__NR_symlink,     sys_symlink),   // 57
    GENX_(__NR_readlink,    sys_readlink), 
    GENX_(__NR_execve,      sys_execve), 
    GENX_(__NR_umask,       sys_umask),     // 60
@@ -7474,7 +7737,11 @@ const SyscallTableEntry ML_(syscall_table)[] = {
    MACX_(__NR_sigreturn,   sigreturn), 
 // _____(__NR_chud), 
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(186)),   // ??? 
+#if DARWIN_VERS >= DARWIN_10_6
+// _____(__NR_fdatasync), 
+#else
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(187)),   // ??? 
+#endif
    GENXY(__NR_stat,        sys_newstat), 
    GENXY(__NR_fstat,       sys_newfstat), 
    GENXY(__NR_lstat,       sys_newlstat), 
@@ -7501,8 +7768,13 @@ const SyscallTableEntry ML_(syscall_table)[] = {
 // _____(__NR_ATPgetreq), 
 // _____(__NR_ATPgetrsp), 
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(213)),   // Reserved for AppleTalk
+#if DARWIN_VERS >= DARWIN_10_6
+   _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(214)),   // old kqueue_from_portset_np
+   _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(215)),   // old kqueue_portset_np
+#else
 // _____(__NR_kqueue_from_portset_np), 
 // _____(__NR_kqueue_portset_np), 
+#endif
 // _____(__NR_mkcomplex), 
 // _____(__NR_statv), 
 // _____(__NR_lstatv), 
@@ -7515,8 +7787,13 @@ const SyscallTableEntry ML_(syscall_table)[] = {
 // _____(__NR_searchfs), 
    GENX_(__NR_delete,      sys_unlink), 
 // _____(__NR_copyfile), 
+#if DARWIN_VERS >= DARWIN_10_6
+// _____(__NR_fgetattrlist), 
+// _____(__NR_fsetattrlist), 
+#else
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(228)),   // ?? 
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(229)),   // ?? 
+#endif
    GENXY(__NR_poll,        sys_poll), 
    MACX_(__NR_watchevent,  watchevent), 
    MACXY(__NR_waitevent,   waitevent), 
@@ -7532,7 +7809,11 @@ const SyscallTableEntry ML_(syscall_table)[] = {
    MACXY(__NR_fsctl,       fsctl), 
    MACX_(__NR_initgroups,  initgroups), 
    MACXY(__NR_posix_spawn, posix_spawn), 
+#if DARWIN_VERS >= DARWIN_10_6
+// _____(__NR_ffsctl), 
+#else
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(245)),   // ???
+#endif
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(246)),   // ???
 // _____(__NR_nfsclnt), 
 // _____(__NR_fhopen), 
@@ -7583,23 +7864,27 @@ const SyscallTableEntry ML_(syscall_table)[] = {
 // _____(__NR_identitysvc), 
 // _____(__NR_shared_region_check_np), 
 // _____(__NR_shared_region_map_np), 
+#if DARWIN_VERS >= DARWIN_10_6
+// _____(__NR_vm_pressure_monitor), 
+#else
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(296)),   // old load_shared_file 
+#endif
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(297)),   // old reset_shared_file 
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(298)),   // old new_system_shared_regions 
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(299)),   // old shared_region_map_file_np 
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(300)),   // old shared_region_make_private_np
-// _____(__NR___pthread_mutex_destroy), 
-// _____(__NR___pthread_mutex_init), 
-// _____(__NR___pthread_mutex_lock), 
-// _____(__NR___pthread_mutex_trylock), 
-// _____(__NR___pthread_mutex_unlock), 
-// _____(__NR___pthread_cond_init), 
-// _____(__NR___pthread_cond_destroy), 
-// _____(__NR___pthread_cond_broadcast), 
-// _____(__NR___pthread_cond_signal), 
+   _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(301)),   // ???
+   _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(302)),   // ???
+   _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(303)),   // ???
+   _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(304)),   // ???
+   _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(305)),   // ???
+   _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(306)),   // ???
+   _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(307)),   // ???
+   _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(308)),   // ???
+   _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(309)),   // ???
 // _____(__NR_getsid), 
 // _____(__NR_settid_with_pid), 
-// _____(__NR___pthread_cond_timedwait), 
+   _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(312)),   // ???
 // _____(__NR_aio_fsync), 
    MACXY(__NR_aio_return,     aio_return), 
    MACX_(__NR_aio_suspend,    aio_suspend), 
@@ -7608,7 +7893,7 @@ const SyscallTableEntry ML_(syscall_table)[] = {
    MACXY(__NR_aio_read,       aio_read), 
    MACX_(__NR_aio_write,      aio_write), 
 // _____(__NR_lio_listio),   // 320
-// _____(__NR___pthread_cond_wait), 
+   _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(321)),   // ???
 // _____(__NR_iopolicysys), 
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(323)),   // ???
 // _____(__NR_mlockall), 
@@ -7623,7 +7908,9 @@ const SyscallTableEntry ML_(syscall_table)[] = {
    MACX_(__NR___pthread_canceled,      __pthread_canceled),
    MACX_(__NR___semwait_signal,        __semwait_signal), 
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(335)),   // old utrace
-// _____(__NR_proc_info), 
+#if DARWIN_VERS >= DARWIN_10_6
+   MACXY(__NR_proc_info,               proc_info),  // 336
+#endif
    MACXY(__NR_sendfile,    sendfile), 
    MACXY(__NR_stat64,      stat64), 
    MACXY(__NR_fstat64,     fstat64), 
@@ -7651,15 +7938,23 @@ const SyscallTableEntry ML_(syscall_table)[] = {
    MACX_(__NR_bsdthread_terminate,  bsdthread_terminate), 
    MACXY(__NR_kqueue,      kqueue), 
    MACXY(__NR_kevent,      kevent), 
-// _____(__NR_lchown), 
+   GENX_(__NR_lchown,      sys_lchown), 
 // _____(__NR_stack_snapshot), 
    MACX_(__NR_bsdthread_register, bsdthread_register), 
    MACX_(__NR_workq_open,  workq_open), 
    MACXY(__NR_workq_ops,   workq_ops), 
+#if DARWIN_VERS >= DARWIN_10_6
+// _____(__NR_kevent64), 
+#else
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(369)),   // ???
+#endif
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(370)),   // ???
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(371)),   // ???
+#if DARWIN_VERS >= DARWIN_10_6
+   MACX_(__NR___thread_selfid, __thread_selfid), 
+#else
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(372)),   // ???
+#endif
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(373)),   // ???
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(374)),   // ???
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(375)),   // ???
@@ -7715,6 +8010,12 @@ const SyscallTableEntry ML_(syscall_table)[] = {
 // _____(__NR___mac_mount),
 // _____(__NR___mac_get_mount),
 // _____(__NR___mac_getfsstat),
+#if DARWIN_VERS >= DARWIN_10_6
+   MACXY(__NR_fsgetpath, fsgetpath), 
+   MACXY(__NR_audit_session_self, audit_session_self),
+// _____(__NR_audit_session_join),
+#endif
+
 // _____(__NR_MAXSYSCALL)
    MACX_(__NR_DARWIN_FAKE_SIGRETURN, FAKE_SIGRETURN)
 };

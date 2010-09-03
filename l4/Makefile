@@ -227,7 +227,7 @@ Makeconf.bid.local-helper:
 		<$(CONFIG_MK_REAL).tmp >>$(CONFIG_MK_REAL).tmp2
 	$(VERBOSE)echo -e 'include $(call absfilename,$(CONFIG_MK_INDEP))' >>$(CONFIG_MK_REAL).tmp2
 	$(VERBOSE)if [ -e "$(CONFIG_MK_REAL)" ]; then                        \
-	            diff --brief $(CONFIG_MK_REAL) $(CONFIG_MK_REAL).tmp2 || \
+	            diff --brief -I ^COLOR_TERMINAL $(CONFIG_MK_REAL) $(CONFIG_MK_REAL).tmp2 || \
 		      mv $(CONFIG_MK_REAL).tmp2 $(CONFIG_MK_REAL);           \
 		  else                                                       \
 		    mv $(CONFIG_MK_REAL).tmp2 $(CONFIG_MK_REAL);             \

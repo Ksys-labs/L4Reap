@@ -126,9 +126,58 @@ STRNLEN(VG_Z_LIBC_SONAME, strnlen)
 
 STRLEN(VG_Z_LIBC_SONAME,          strlen)
 #if defined(VGO_linux)
+STRLEN(VG_Z_LIBC_SONAME,          __GI_strlen)
 STRLEN(VG_Z_LD_LINUX_SO_2,        strlen)
 STRLEN(VG_Z_LD_LINUX_X86_64_SO_2, strlen)
 STRLEN(VG_Z_LD_SO_1,              strlen)
+#endif
+
+
+#define STRCPY(soname, fnname) \
+   char* VG_REPLACE_FUNCTION_ZU(soname, fnname) ( char* dst, const char* src ); \
+   char* VG_REPLACE_FUNCTION_ZU(soname, fnname) ( char* dst, const char* src ) \
+   { \
+      Char* dst_orig = dst; \
+      \
+      while (*src) *dst++ = *src++; \
+      *dst = 0; \
+      \
+      return dst_orig; \
+   }
+
+STRCPY(VG_Z_LIBC_SONAME, strcpy)
+#if defined(VGO_linux)
+STRCPY(VG_Z_LIBC_SONAME, __GI_strcpy)
+#elif defined(VGO_darwin)
+STRCPY(VG_Z_DYLD,        strcpy)
+#endif
+
+
+#define STRNCMP(soname, fnname) \
+   int VG_REPLACE_FUNCTION_ZU(soname,fnname) \
+          ( const char* s1, const char* s2, SizeT nmax ); \
+   int VG_REPLACE_FUNCTION_ZU(soname,fnname) \
+          ( const char* s1, const char* s2, SizeT nmax ) \
+   { \
+      SizeT n = 0; \
+      while (True) { \
+         if (n >= nmax) return 0; \
+         if (*s1 == 0 && *s2 == 0) return 0; \
+         if (*s1 == 0) return -1; \
+         if (*s2 == 0) return 1; \
+         \
+         if (*(unsigned char*)s1 < *(unsigned char*)s2) return -1; \
+         if (*(unsigned char*)s1 > *(unsigned char*)s2) return 1; \
+         \
+         s1++; s2++; n++; \
+      } \
+   }
+
+STRNCMP(VG_Z_LIBC_SONAME, strncmp)
+#if defined(VGO_linux)
+STRNCMP(VG_Z_LIBC_SONAME, __GI_strncmp)
+#elif defined(VGO_darwin)
+STRNCMP(VG_Z_DYLD,        strncmp)
 #endif
 
 
@@ -154,6 +203,7 @@ STRLEN(VG_Z_LD_SO_1,              strlen)
 
 STRCMP(VG_Z_LIBC_SONAME,          strcmp)
 #if defined(VGO_linux)
+STRCMP(VG_Z_LIBC_SONAME,          __GI_strcmp)
 STRCMP(VG_Z_LD_LINUX_X86_64_SO_2, strcmp)
 STRCMP(VG_Z_LD64_SO_1,            strcmp)
 #endif
@@ -261,6 +311,85 @@ STPCPY(VG_Z_LD_LINUX_X86_64_SO_2, stpcpy)
 GLIBC232_RAWMEMCHR(VG_Z_LIBC_SONAME, rawmemchr)
 #if defined (VGO_linux)
 GLIBC232_RAWMEMCHR(VG_Z_LIBC_SONAME, __GI___rawmemchr)
+#endif
+
+
+#define STRSTR(soname, fnname) \
+   void* VG_REPLACE_FUNCTION_ZU(soname,fnname) \
+         (void* haystack, void* needle); \
+   void* VG_REPLACE_FUNCTION_ZU(soname,fnname) \
+         (void* haystack, void* needle) \
+   { \
+      UChar* h = (UChar*)haystack; \
+      UChar* n = (UChar*)needle; \
+      \
+      /* find the length of n, not including terminating zero */ \
+      UWord nlen = 0; \
+      while (n[nlen]) nlen++; \
+      \
+      /* if n is the empty string, match immediately. */ \
+      if (nlen == 0) return h; \
+      \
+      /* assert(nlen >= 1); */ \
+      UChar n0 = n[0]; \
+      \
+      while (1) { \
+         UChar hh = *h; \
+         if (hh == 0) return NULL; \
+         if (hh != n0) { h++; continue; } \
+         \
+         UWord i; \
+         for (i = 0; i < nlen; i++) { \
+            if (n[i] != h[i]) \
+               break; \
+         } \
+         /* assert(i >= 0 && i <= nlen); */ \
+         if (i == nlen) \
+            return h; \
+         \
+         h++; \
+      } \
+   }
+
+#if defined(VGO_linux)
+STRSTR(VG_Z_LIBC_SONAME,          strstr)
+#endif
+
+
+#define STRPBRK(soname, fnname) \
+   void* VG_REPLACE_FUNCTION_ZU(soname,fnname) \
+         (void* sV, void* acceptV); \
+   void* VG_REPLACE_FUNCTION_ZU(soname,fnname) \
+         (void* sV, void* acceptV) \
+   { \
+      UChar* s = (UChar*)sV; \
+      UChar* accept = (UChar*)acceptV; \
+      \
+      /*  find the length of 'accept', not including terminating zero */ \
+      UWord nacc = 0; \
+      while (accept[nacc]) nacc++; \
+      \
+      /* if n is the empty string, fail immediately. */ \
+      if (nacc == 0) return NULL; \
+      \
+      /* assert(nacc >= 1); */ \
+      while (1) { \
+         UWord i; \
+         UChar sc = *s; \
+         if (sc == 0) \
+            break; \
+         for (i = 0; i < nacc; i++) { \
+            if (sc == accept[i]) \
+               return s; \
+         } \
+         s++; \
+      } \
+      \
+      return NULL; \
+   }
+
+#if defined(VGO_linux)
+STRPBRK(VG_Z_LIBC_SONAME,          strpbrk)
 #endif
 
 

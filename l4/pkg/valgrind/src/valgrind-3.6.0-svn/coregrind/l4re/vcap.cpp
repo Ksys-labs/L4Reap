@@ -131,10 +131,9 @@ class Region_ops
             real_rm->reserve_area(&the_map_area, L4_PAGESIZE,
                                   L4Re::Rm::Reserved | L4Re::Rm::Search_addr);
             the_map_area_end = the_map_area + L4_PAGESIZE -1;
-            unsigned prot;
-            prot |= VKI_PROT_READ;
-            prot |= VKI_PROT_WRITE;
-            prot |= VKI_PROT_EXEC;
+            unsigned prot =   VKI_PROT_READ
+                            | VKI_PROT_WRITE
+                            | VKI_PROT_EXEC;
 
             unsigned flags = VKI_MAP_ANONYMOUS;
 
@@ -194,18 +193,21 @@ class Region_ops
         static void unmap(MyRegion_handler const *h, l4_addr_t vaddr,
                         l4_addr_t offs, unsigned long size)
         {
+            (void)h; (void)vaddr; (void)offs; (void)size;
             VG_(debugLog)(0, "vcap", "\n");
             enter_kdebug("Region_ops::unmap()");
         }
 
         static void take(MyRegion_handler const *h)
         {
+            (void)h;
             VG_(debugLog)(0, "vcap", "\n");
             enter_kdebug("Region_ops::take()");
         }
 
         static void release(MyRegion_handler const *h)
         {
+            (void)h;
             VG_(debugLog)(0, "vcap", "\n");
             enter_kdebug("Region_ops::release()");
         }
@@ -458,8 +460,18 @@ class rm
         void *__find_free_segment(void *start, unsigned size)
         {
             Bool ok;
-            void *ret = (void*)VG_(am_get_advisory_client_simple)((Addr)start,
-                                                                  size, &ok);
+            void *ret;
+
+            if (_id == VRMcap_client)
+                ret = (void*)VG_(am_get_advisory_client_simple)((Addr)start, size, &ok);
+            else if (_id == VRMcap_valgrind)
+                ret = (void*)VG_(am_get_advisory_valgrind_simple)((Addr)start, size, &ok);
+            else {
+                // should not happen!
+                VG_(printf)("Cannot determine the type of mapping here: %lx\n", _id);
+                enter_kdebug();
+            }
+
             if (!ok) {
                 VG_(debugLog)(0, "vcap", "Advisor has no free area for us!\n");
                 RM_ERROR;
@@ -712,7 +724,7 @@ class rm
              * If there's no node ptr, something went wrong
              */
             if (!vg_seg->dsNodePtr) {
-                VG_(debugLog)(0, "vcap", "ERROR: no node ptr found for region %p - %p\n",
+                VG_(debugLog)(0, "vcap", "ERROR: no node ptr found for region %lx - %lx\n",
                               reg.start(), reg.end());
                 RM_ERROR;
             }
@@ -725,13 +737,13 @@ class rm
         }
 
 
-        Node area_find(Region const &r) const throw()
+        Node area_find(Region const &) const throw()
         {
             enter_kdebug("area_find");
             return NULL;
         }
 
-        void get_lists( l4_addr_t addr ) const throw()
+        void get_lists( l4_addr_t) const throw()
         {
             enter_kdebug("get_lists");
         }
@@ -767,7 +779,6 @@ class Vcap_object : public L4::Server_object
         {
             if (dbg_vcap) VG_(debugLog)(4, "vcap", "dispatch\n");
 
-            int r;
             l4_msgtag_t t;
             ios >> t;
 
@@ -792,12 +803,11 @@ class Vcap_object : public L4::Server_object
                 case L4Re::Protocol::Parent:
                     if (dbg_vcap) VG_(debugLog)(2, "vcap", "parent protocol\n");
                     enter_kdebug("parent");
-                    break;
+                    return -L4_ENOSYS;
 
                 case L4_PROTO_IRQ:
                     if (dbg_vcap) VG_(debugLog)(2, "vcap", "irq protocol\n");
                     return _rm.dispatch(t, obj, ios);
-                    break;
 
                 case L4_PROTO_EXCEPTION:
                     return handle_exception();
@@ -807,7 +817,7 @@ class Vcap_object : public L4::Server_object
                                   t.label(), t.label());
                     VG_(show_sched_status)();
                     enter_kdebug("Unknown protocol");
-                    break;
+                    return -L4_ENOSYS;
             }
         }
 };
@@ -831,7 +841,7 @@ L4::Cap<void> Vcap::Loop_hooks::rcv_cap;
 /*
  * Main VRM function
  */
-static void vcap_thread_fn(void *arg) L4_NOTHROW
+static void vcap_thread_fn(void *) L4_NOTHROW
 {
     VG_(debugLog)(1, "vcap", "%s: Here, vcap_running @ %p (%d)\n", __func__,
                   &vcap_running, vcap_running);
@@ -982,7 +992,7 @@ void vrm_track_utcb_area()
     l4_fpage_t fp = L4Re::Env::env()->utcb_area();
     Addr start = l4_fpage_page(fp) << L4_PAGESHIFT;
     Addr end = start + (l4_fpage_size(fp) << L4_PAGESHIFT);
-    VG_(debugLog)(4, "vcap", "TRACK(%p, %lx, 1, 1, 0, 0)\n", start, end-start);
+    VG_(debugLog)(4, "vcap", "TRACK(%lx, %lx, 1, 1, 0, 0)\n", start, end-start);
     VG_TRACK(new_mem_startup, start, end-start, True, True, False, 0);
 }
 
@@ -1006,6 +1016,15 @@ EXTERN_C void l4re_vcap_start_thread(void)
     main_thread_modify_rm(valgrind_obj.obj_cap());
 }
 
+/* The size of an L4Re::Env object is needed in setup_client_stack() which is
+   part of a C source code file and thus cannot determine the size of a C++ class
+   itself.
+ */
+EXTERN_C size_t l4re_env_env_size()
+{
+    return sizeof(L4Re::Env);
+}
+
 
 /*
  * Currently, the client sees all init caps Valgrind sees. In future versions we might
@@ -1013,14 +1032,16 @@ EXTERN_C void l4re_vcap_start_thread(void)
  * pass the client this copy for usage. This is the place to filter out or modify these
  * caps before starting the client.
  */
-static L4Re::Env::Cap_entry* __copy_init_caps(L4Re::Env::Env const * const e)
+static L4Re::Env::Cap_entry* __copy_init_caps(L4Re::Env const * const e)
 {
     if (dbg_vcap) VG_(debugLog)(4, "vcap", "counting caps\n");
     L4Re::Env::Cap_entry const *c = e->initial_caps();
+
     unsigned cnt = 0;
     for ( ; c->flags != ~0UL; ++c, ++cnt)
         ;
-    if (dbg_vcap) VG_(debugLog)(4, "vcap", "count: %lx\n", cnt+1);
+
+    if (dbg_vcap) VG_(debugLog)(4, "vcap", "count: %x\n", cnt+1);
 
     SysRes res = VG_(am_mmap_anon_float_client)((cnt+1) * sizeof(L4Re::Env::Cap_entry),
                                                 VKI_PROT_READ | VKI_PROT_WRITE);
@@ -1038,9 +1059,9 @@ static L4Re::Env::Cap_entry* __copy_init_caps(L4Re::Env::Env const * const e)
  * Modify client environment and make VRM be the handler for all
  * interesting events.
  */
-EXTERN_C void *l4re_vcap_modify_env(struct ume_auxv *envp)
+EXTERN_C void *l4re_vcap_modify_env(struct ume_auxv *envp, Addr client_l4re_env_addr)
 {
-    L4Re::Env::Env *e = new L4Re::Env::Env(*L4Re::Env::env());
+    L4Re::Env *e = new ((void*)client_l4re_env_addr) L4Re::Env(*L4Re::Env::env());
     VG_(debugLog)(0, "vcap", "  New env @ %p\n", e);
     VG_(debugLog)(0, "vcap", "  Orig env @ %p\n", L4Re::Env::env());
 
@@ -1054,7 +1075,7 @@ EXTERN_C void *l4re_vcap_modify_env(struct ume_auxv *envp)
     e->initial_caps(__copy_init_caps(e));
 
     client_env = (void *) e;
-    client_env_size = sizeof(L4Re::Env::Env);
+    client_env_size = l4re_env_env_size();
 
     return e;
 }
@@ -1106,13 +1127,14 @@ void vrm_segment_fixup(NSegment *seg)
     unsigned flags     = 0;
     L4::Cap<L4Re::Dataspace> ds;
     int i = _rm->find(&addr, &size, &offset, &flags, &ds);
+    if (i && dbg_rm) VG_(debugLog)(2, "vcap", "vailed rm-find\n");
 
-    if (dbg_rm) VG_(debugLog)(2, "vcap", "%s: addr %p size %lx, cap %lx, offs %lx\n",
+    if (dbg_rm) VG_(debugLog)(2, "vcap", "%s: addr %lx size %lx, cap %lx, offs %lx\n",
                   __func__, addr, size, ds.cap(), offset);
 
     if (ds.is_valid())
         vrm_update_segptr(seg, ds.cap(), offset, flags);
-    if (dbg_rm) VG_(debugLog)(2, "vcap", "ds %lx node ptr @ %p\n", ds.cap(), seg->dsNodePtr);
+    if (dbg_rm) VG_(debugLog)(2, "vcap", "ds %lx node ptr @ %lx\n", ds.cap(), seg->dsNodePtr);
 }
 
 
@@ -1151,7 +1173,7 @@ void vrm_update_segptr(NSegment *seg, l4_cap_idx_t dscap, unsigned offset, unsig
 
     VG_(am_set_nodeptr)(seg, (Addr)n);
     if (dbg_rm) {
-        VG_(debugLog)(4, "vcap", "\033[32mupdate_segment %p (%p): node %p\033[0m\n",
+        VG_(debugLog)(4, "vcap", "\033[32mupdate_segment %lx (%lx): node %p\033[0m\n",
                       seg->start, seg, seg->dsNodePtr);
     }
 }

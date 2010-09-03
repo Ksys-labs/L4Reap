@@ -46,7 +46,8 @@ host_triplet = @host@
 DIST_COMMON = $(dist_noinst_SCRIPTS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(top_srcdir)/Makefile.all.am \
 	$(top_srcdir)/Makefile.tool-tests.am
-check_PROGRAMS = v6int$(EXEEXT)
+check_PROGRAMS = neon128$(EXEEXT) neon64$(EXEEXT) v6intARM$(EXEEXT) \
+	v6intThumb$(EXEEXT)
 subdir = none/tests/arm
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.in
@@ -56,10 +57,25 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-v6int_SOURCES = v6int.c
-v6int_OBJECTS = v6int-v6int.$(OBJEXT)
-v6int_LDADD = $(LDADD)
-v6int_LINK = $(CCLD) $(v6int_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+neon128_SOURCES = neon128.c
+neon128_OBJECTS = neon128-neon128.$(OBJEXT)
+neon128_LDADD = $(LDADD)
+neon128_LINK = $(CCLD) $(neon128_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
+neon64_SOURCES = neon64.c
+neon64_OBJECTS = neon64-neon64.$(OBJEXT)
+neon64_LDADD = $(LDADD)
+neon64_LINK = $(CCLD) $(neon64_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
+v6intARM_SOURCES = v6intARM.c
+v6intARM_OBJECTS = v6intARM-v6intARM.$(OBJEXT)
+v6intARM_LDADD = $(LDADD)
+v6intARM_LINK = $(CCLD) $(v6intARM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
+v6intThumb_SOURCES = v6intThumb.c
+v6intThumb_OBJECTS = v6intThumb-v6intThumb.$(OBJEXT)
+v6intThumb_LDADD = $(LDADD)
+v6intThumb_LINK = $(CCLD) $(v6intThumb_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
 SCRIPTS = $(dist_noinst_SCRIPTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
@@ -70,8 +86,8 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = v6int.c
-DIST_SOURCES = v6int.c
+SOURCES = neon128.c neon64.c v6intARM.c v6intThumb.c
+DIST_SOURCES = neon128.c neon64.c v6intARM.c v6intThumb.c
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -112,6 +128,7 @@ FLAG_MAIX32 = @FLAG_MAIX32@
 FLAG_MAIX64 = @FLAG_MAIX64@
 FLAG_MMMX = @FLAG_MMMX@
 FLAG_MSSE = @FLAG_MSSE@
+FLAG_NO_BUILD_ID = @FLAG_NO_BUILD_ID@
 FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
@@ -146,14 +163,18 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
 QTCORE_CFLAGS = @QTCORE_CFLAGS@
 QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
-VALT_LOAD_ADDRESS = @VALT_LOAD_ADDRESS@
+VALT_LOAD_ADDRESS_PRI = @VALT_LOAD_ADDRESS_PRI@
+VALT_LOAD_ADDRESS_SEC = @VALT_LOAD_ADDRESS_SEC@
 VERSION = @VERSION@
 VGCONF_ARCH_PRI = @VGCONF_ARCH_PRI@
 VGCONF_ARCH_SEC = @VGCONF_ARCH_SEC@
@@ -236,7 +257,9 @@ AM_CFLAGS_BASE = \
 # The aim is to give reasonable performance but also to have good
 # stack traces, since users often see stack traces extending 
 # into (and through) the preloads.
-@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing -mno-dynamic-no-pic
+@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing \
+@VGCONF_OS_IS_DARWIN_TRUE@		-mno-dynamic-no-pic -fpic -fPIC
+
 @VGCONF_OS_IS_L4RE_FALSE@AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@ = \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir) \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir)/include \
@@ -295,7 +318,7 @@ AM_CFLAGS_PPC64_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC64_LINUX = $(AM_CPPFLAGS_PPC64_LINUX) @FLAG_M64@ -g
 AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
-			 	$(AM_CFLAGS_BASE)
+			 	$(AM_CFLAGS_BASE) -marm
 
 AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
@@ -310,8 +333,8 @@ AM_CCASFLAGS_PPC64_AIX5 = $(AM_CPPFLAGS_PPC64_AIX5) \
 
 AM_FLAG_M3264_X86_DARWIN = -arch i386
 AM_CFLAGS_X86_DARWIN = $(WERROR) -arch i386 $(AM_CFLAGS_BASE) \
-			    -mmacosx-version-min=10.5 -fno-stack-protector \
-			    -mdynamic-no-pic
+				-mmacosx-version-min=10.5 \
+				-fno-stack-protector -fno-pic -fno-PIC
 
 AM_CCASFLAGS_X86_DARWIN = $(AM_CPPFLAGS_X86_DARWIN) -arch i386 -g
 AM_FLAG_M3264_AMD64_DARWIN = -arch x86_64
@@ -372,13 +395,29 @@ AM_CCASFLAGS = $(AM_CPPFLAGS) @FLAG_M32@
 @VGCONF_OS_IS_DARWIN_TRUE@noinst_DSYMS = $(check_PROGRAMS)
 dist_noinst_SCRIPTS = filter_stderr
 EXTRA_DIST = \
-	v6int.stdout.exp v6int.stderr.exp v6int.vgtest
+	neon128.stdout.exp neon128.stderr.exp neon128.vgtest \
+	neon64.stdout.exp neon64.stderr.exp neon64.vgtest \
+	v6intARM.stdout.exp v6intARM.stderr.exp v6intARM.vgtest \
+	v6intThumb.stdout.exp v6intThumb.stderr.exp v6intThumb.vgtest
 
 
-# need to specify cpu here because inline assembly in v6int.c
-# contains various v6 and v7 insns, which the assembler by
-# default rejects.
-v6int_CFLAGS = $(AM_CFLAGS) -g -O -mcpu=cortex-a8
+# These two are specific to their ARM/Thumb respectively and so we
+# hardwire -marm/-mthumb.  neon64 and neon128 are compilable on both,
+# however, ask for them to be compiled on thumb, as that looks
+# like that's going to be the more common use case.  They also
+# need special helping w.r.t -mfpu and -mfloat-abi, though.
+# Also force -O0 since -O takes hundreds of MB of memory 
+# for v6intThumb.c.
+v6intARM_CFLAGS = $(AM_CFLAGS) -g -O0 -mcpu=cortex-a8 -marm
+v6intThumb_CFLAGS = $(AM_CFLAGS) -g -O0 -mcpu=cortex-a8 -mthumb
+neon128_CFLAGS = $(AM_CFLAGS) -g -O0 -mcpu=cortex-a8 \
+			-mfpu=neon -mfloat-abi=softfp \
+			-mthumb
+
+neon64_CFLAGS = $(AM_CFLAGS) -g -O0 -mcpu=cortex-a8 \
+			-mfpu=neon -mfloat-abi=softfp \
+			-mthumb
+
 all: all-am
 
 .SUFFIXES:
@@ -416,9 +455,18 @@ $(am__aclocal_m4_deps):
 
 clean-checkPROGRAMS:
 	-test -z "$(check_PROGRAMS)" || rm -f $(check_PROGRAMS)
-v6int$(EXEEXT): $(v6int_OBJECTS) $(v6int_DEPENDENCIES) 
-	@rm -f v6int$(EXEEXT)
-	$(v6int_LINK) $(v6int_OBJECTS) $(v6int_LDADD) $(LIBS)
+neon128$(EXEEXT): $(neon128_OBJECTS) $(neon128_DEPENDENCIES) 
+	@rm -f neon128$(EXEEXT)
+	$(neon128_LINK) $(neon128_OBJECTS) $(neon128_LDADD) $(LIBS)
+neon64$(EXEEXT): $(neon64_OBJECTS) $(neon64_DEPENDENCIES) 
+	@rm -f neon64$(EXEEXT)
+	$(neon64_LINK) $(neon64_OBJECTS) $(neon64_LDADD) $(LIBS)
+v6intARM$(EXEEXT): $(v6intARM_OBJECTS) $(v6intARM_DEPENDENCIES) 
+	@rm -f v6intARM$(EXEEXT)
+	$(v6intARM_LINK) $(v6intARM_OBJECTS) $(v6intARM_LDADD) $(LIBS)
+v6intThumb$(EXEEXT): $(v6intThumb_OBJECTS) $(v6intThumb_DEPENDENCIES) 
+	@rm -f v6intThumb$(EXEEXT)
+	$(v6intThumb_LINK) $(v6intThumb_OBJECTS) $(v6intThumb_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -426,7 +474,10 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/v6int-v6int.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/neon128-neon128.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/neon64-neon64.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/v6intARM-v6intARM.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/v6intThumb-v6intThumb.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -442,19 +493,61 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(COMPILE) -c `$(CYGPATH_W) '$<'`
 
-v6int-v6int.o: v6int.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(v6int_CFLAGS) $(CFLAGS) -MT v6int-v6int.o -MD -MP -MF $(DEPDIR)/v6int-v6int.Tpo -c -o v6int-v6int.o `test -f 'v6int.c' || echo '$(srcdir)/'`v6int.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/v6int-v6int.Tpo $(DEPDIR)/v6int-v6int.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='v6int.c' object='v6int-v6int.o' libtool=no @AMDEPBACKSLASH@
+neon128-neon128.o: neon128.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(neon128_CFLAGS) $(CFLAGS) -MT neon128-neon128.o -MD -MP -MF $(DEPDIR)/neon128-neon128.Tpo -c -o neon128-neon128.o `test -f 'neon128.c' || echo '$(srcdir)/'`neon128.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/neon128-neon128.Tpo $(DEPDIR)/neon128-neon128.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='neon128.c' object='neon128-neon128.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(v6int_CFLAGS) $(CFLAGS) -c -o v6int-v6int.o `test -f 'v6int.c' || echo '$(srcdir)/'`v6int.c
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(neon128_CFLAGS) $(CFLAGS) -c -o neon128-neon128.o `test -f 'neon128.c' || echo '$(srcdir)/'`neon128.c
 
-v6int-v6int.obj: v6int.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(v6int_CFLAGS) $(CFLAGS) -MT v6int-v6int.obj -MD -MP -MF $(DEPDIR)/v6int-v6int.Tpo -c -o v6int-v6int.obj `if test -f 'v6int.c'; then $(CYGPATH_W) 'v6int.c'; else $(CYGPATH_W) '$(srcdir)/v6int.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/v6int-v6int.Tpo $(DEPDIR)/v6int-v6int.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='v6int.c' object='v6int-v6int.obj' libtool=no @AMDEPBACKSLASH@
+neon128-neon128.obj: neon128.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(neon128_CFLAGS) $(CFLAGS) -MT neon128-neon128.obj -MD -MP -MF $(DEPDIR)/neon128-neon128.Tpo -c -o neon128-neon128.obj `if test -f 'neon128.c'; then $(CYGPATH_W) 'neon128.c'; else $(CYGPATH_W) '$(srcdir)/neon128.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/neon128-neon128.Tpo $(DEPDIR)/neon128-neon128.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='neon128.c' object='neon128-neon128.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(v6int_CFLAGS) $(CFLAGS) -c -o v6int-v6int.obj `if test -f 'v6int.c'; then $(CYGPATH_W) 'v6int.c'; else $(CYGPATH_W) '$(srcdir)/v6int.c'; fi`
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(neon128_CFLAGS) $(CFLAGS) -c -o neon128-neon128.obj `if test -f 'neon128.c'; then $(CYGPATH_W) 'neon128.c'; else $(CYGPATH_W) '$(srcdir)/neon128.c'; fi`
+
+neon64-neon64.o: neon64.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(neon64_CFLAGS) $(CFLAGS) -MT neon64-neon64.o -MD -MP -MF $(DEPDIR)/neon64-neon64.Tpo -c -o neon64-neon64.o `test -f 'neon64.c' || echo '$(srcdir)/'`neon64.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/neon64-neon64.Tpo $(DEPDIR)/neon64-neon64.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='neon64.c' object='neon64-neon64.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(neon64_CFLAGS) $(CFLAGS) -c -o neon64-neon64.o `test -f 'neon64.c' || echo '$(srcdir)/'`neon64.c
+
+neon64-neon64.obj: neon64.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(neon64_CFLAGS) $(CFLAGS) -MT neon64-neon64.obj -MD -MP -MF $(DEPDIR)/neon64-neon64.Tpo -c -o neon64-neon64.obj `if test -f 'neon64.c'; then $(CYGPATH_W) 'neon64.c'; else $(CYGPATH_W) '$(srcdir)/neon64.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/neon64-neon64.Tpo $(DEPDIR)/neon64-neon64.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='neon64.c' object='neon64-neon64.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(neon64_CFLAGS) $(CFLAGS) -c -o neon64-neon64.obj `if test -f 'neon64.c'; then $(CYGPATH_W) 'neon64.c'; else $(CYGPATH_W) '$(srcdir)/neon64.c'; fi`
+
+v6intARM-v6intARM.o: v6intARM.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(v6intARM_CFLAGS) $(CFLAGS) -MT v6intARM-v6intARM.o -MD -MP -MF $(DEPDIR)/v6intARM-v6intARM.Tpo -c -o v6intARM-v6intARM.o `test -f 'v6intARM.c' || echo '$(srcdir)/'`v6intARM.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/v6intARM-v6intARM.Tpo $(DEPDIR)/v6intARM-v6intARM.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='v6intARM.c' object='v6intARM-v6intARM.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(v6intARM_CFLAGS) $(CFLAGS) -c -o v6intARM-v6intARM.o `test -f 'v6intARM.c' || echo '$(srcdir)/'`v6intARM.c
+
+v6intARM-v6intARM.obj: v6intARM.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(v6intARM_CFLAGS) $(CFLAGS) -MT v6intARM-v6intARM.obj -MD -MP -MF $(DEPDIR)/v6intARM-v6intARM.Tpo -c -o v6intARM-v6intARM.obj `if test -f 'v6intARM.c'; then $(CYGPATH_W) 'v6intARM.c'; else $(CYGPATH_W) '$(srcdir)/v6intARM.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/v6intARM-v6intARM.Tpo $(DEPDIR)/v6intARM-v6intARM.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='v6intARM.c' object='v6intARM-v6intARM.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(v6intARM_CFLAGS) $(CFLAGS) -c -o v6intARM-v6intARM.obj `if test -f 'v6intARM.c'; then $(CYGPATH_W) 'v6intARM.c'; else $(CYGPATH_W) '$(srcdir)/v6intARM.c'; fi`
+
+v6intThumb-v6intThumb.o: v6intThumb.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(v6intThumb_CFLAGS) $(CFLAGS) -MT v6intThumb-v6intThumb.o -MD -MP -MF $(DEPDIR)/v6intThumb-v6intThumb.Tpo -c -o v6intThumb-v6intThumb.o `test -f 'v6intThumb.c' || echo '$(srcdir)/'`v6intThumb.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/v6intThumb-v6intThumb.Tpo $(DEPDIR)/v6intThumb-v6intThumb.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='v6intThumb.c' object='v6intThumb-v6intThumb.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(v6intThumb_CFLAGS) $(CFLAGS) -c -o v6intThumb-v6intThumb.o `test -f 'v6intThumb.c' || echo '$(srcdir)/'`v6intThumb.c
+
+v6intThumb-v6intThumb.obj: v6intThumb.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(v6intThumb_CFLAGS) $(CFLAGS) -MT v6intThumb-v6intThumb.obj -MD -MP -MF $(DEPDIR)/v6intThumb-v6intThumb.Tpo -c -o v6intThumb-v6intThumb.obj `if test -f 'v6intThumb.c'; then $(CYGPATH_W) 'v6intThumb.c'; else $(CYGPATH_W) '$(srcdir)/v6intThumb.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/v6intThumb-v6intThumb.Tpo $(DEPDIR)/v6intThumb-v6intThumb.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='v6intThumb.c' object='v6intThumb-v6intThumb.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(v6intThumb_CFLAGS) $(CFLAGS) -c -o v6intThumb-v6intThumb.obj `if test -f 'v6intThumb.c'; then $(CYGPATH_W) 'v6intThumb.c'; else $(CYGPATH_W) '$(srcdir)/v6intThumb.c'; fi`
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \

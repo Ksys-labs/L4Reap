@@ -926,19 +926,31 @@ init_pc_serial(l4util_mb_info_t *mbi)
 #if defined(ARCH_x86) || defined(ARCH_amd64)
   const char *s;
   int comport = -1;
+  int pci = 0;
 
   if ((s = check_arg(mbi, "-comport")))
-    comport = strtoul(s + 9, 0, 0);
+    {
+      char const *a = s + 9;
+      if (!strncmp(a, "pci:", 4))
+	{
+	  pci = 1;
+	  a = a + 4;
+	}
+    
+      comport = strtoul(a, 0, 0);
+    }
 
   if (check_arg(mbi, "-serial"))
     {
-      if (0)
+      if (pci)
         {
-          extern unsigned long search_pci_serial_devs(bool scan_only);
-          unsigned long port;
-          if (comport == -1
-              && (port = search_pci_serial_devs(false)))
+          extern unsigned long search_pci_serial_devs(int port_idx, bool scan_only);
+          if (unsigned long port = search_pci_serial_devs(comport, true))
             comport = port;
+	  else
+	    comport = -1;
+
+	  printf("PCI IO port = %lx\n", comport);
         }
 
       if (comport == -1)

@@ -16,7 +16,7 @@
 #define Thread_delayed_deadline		0x2000
 #define Thread_delayed_ipc		0x4000
 #define Thread_fpu_owner		0x8000
-#define Thread_alien			0x10000
+#define Thread_alien_or_vcpu_user	0x810000
 #define Thread_dis_alien		0x20000
 #define Thread_transfer_in_progress     0x80000
 

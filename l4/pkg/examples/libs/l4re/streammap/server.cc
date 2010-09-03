@@ -63,7 +63,7 @@ main()
   static Smap_server smap;
 
   // Register server
-  if (!server.registry()->register_obj(&smap, "smap_server").is_valid())
+  if (!server.registry()->register_obj(&smap, "smap").is_valid())
     {
       printf("Could not register my service, read-only namespace?\n");
       return 1;

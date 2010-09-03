@@ -79,6 +79,7 @@ SECTIONS {
        are traversed from end to start, therefore the *_END__ symbols
        precede the *_LIST__ symbols. */
     . = ALIGN(8);
+
     __PER_CPU_CTORS_END__ = .;
     KEEP (*(.ctors.00010))
     KEEP (*(.ctors.00009))
@@ -91,6 +92,19 @@ SECTIONS {
     KEEP (*(.ctors.00002))
     KEEP (*(.ctors.00001))
     __PER_CPU_CTORS_LIST__ = .;
+
+    __PER_CPU_LATE_CTORS_END__ = .;
+    KEEP (*(.ctors.00020))
+    KEEP (*(.ctors.00019))
+    KEEP (*(.ctors.00018))
+    KEEP (*(.ctors.00017))
+    KEEP (*(.ctors.00016))
+    KEEP (*(.ctors.00015))
+    KEEP (*(.ctors.00014))
+    KEEP (*(.ctors.00013))
+    KEEP (*(.ctors.00012))
+    KEEP (*(.ctors.00011))
+    __PER_CPU_LATE_CTORS_LIST__ = .;
 
     __CTOR_END__ = .;
     CONSTRUCTORS

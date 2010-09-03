@@ -215,7 +215,7 @@
 	stmdb   sp!, {r0 - r12}
 	CONTEXT_OF	r1, sp
 	RESET_THREAD_CANCEL_AT r1       @ sets r0 to state 
-	tst	r0, #0x10000
+	tst	r0, #0x810000
 	bne	alien_syscall
 	ldr	r0, [sp, #RF(SVC_LR, 13*4)]     @ read exception PC from stack (km_lr)
 	adr	r1, sys_call_table

@@ -199,7 +199,7 @@ entry_sys_fast_ipc_log:
 	pushl	%ecx
 
 	ESP_TO_TCB_AT %ebx
-	testl	$Thread_alien, OFS__THREAD__STATE (%ebx)
+	testl	$Thread_alien_or_vcpu_user, OFS__THREAD__STATE (%ebx)
 	jnz	alien_sys_fast_ipc_log
 	RESET_THREAD_CANCEL_AT %ebx
 	call	*syscall_table
@@ -253,7 +253,7 @@ entry_sys_fast_ipc_c:
 	pushl	%edx
 	pushl	%ecx				/* save ecx */
 	ESP_TO_TCB_AT %ebx
-	testl	$Thread_alien, OFS__THREAD__STATE (%ebx)
+	testl	$Thread_alien_or_vcpu_user, OFS__THREAD__STATE (%ebx)
 	jnz	alien_sys_fast_ipc_c
 	RESET_THREAD_CANCEL_AT %ebx
 	call    ipc_short_cut_wrapper

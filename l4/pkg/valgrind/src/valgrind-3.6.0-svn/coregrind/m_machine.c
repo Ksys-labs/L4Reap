@@ -43,44 +43,22 @@
 #define STACK_PTR(regs)    ((regs).vex.VG_STACK_PTR)
 #define FRAME_PTR(regs)    ((regs).vex.VG_FRAME_PTR)
 
-Addr VG_(get_SP) ( ThreadId tid )
-{
-   return STACK_PTR( VG_(threads)[tid].arch );
-}
-
-Addr VG_(get_IP) ( ThreadId tid )
-{
+Addr VG_(get_IP) ( ThreadId tid ) {
    return INSTR_PTR( VG_(threads)[tid].arch );
 }
-
-Addr VG_(get_FP) ( ThreadId tid )
-{
+Addr VG_(get_SP) ( ThreadId tid ) {
+   return STACK_PTR( VG_(threads)[tid].arch );
+}
+Addr VG_(get_FP) ( ThreadId tid ) {
    return FRAME_PTR( VG_(threads)[tid].arch );
 }
 
-Addr VG_(get_LR) ( ThreadId tid )
-{
-#  if defined(VGA_ppc32) || defined(VGA_ppc64)
-   return VG_(threads)[tid].arch.vex.guest_LR;
-#  elif defined(VGA_x86) || defined(VGA_amd64)
-   return 0;
-#  elif defined(VGA_arm)
-   return VG_(threads)[tid].arch.vex.guest_R14;
-#  else
-#    error "Unknown arch"
-#  endif
-}
-
-void VG_(set_SP) ( ThreadId tid, Addr sp )
-{
-   STACK_PTR( VG_(threads)[tid].arch ) = sp;
-}
-
-void VG_(set_IP) ( ThreadId tid, Addr ip )
-{
+void VG_(set_IP) ( ThreadId tid, Addr ip ) {
    INSTR_PTR( VG_(threads)[tid].arch ) = ip;
 }
-
+void VG_(set_SP) ( ThreadId tid, Addr sp ) {
+   STACK_PTR( VG_(threads)[tid].arch ) = sp;
+}
 
 void VG_(get_UnwindStartRegs) ( /*OUT*/UnwindStartRegs* regs,
                                 ThreadId tid )
@@ -106,7 +84,7 @@ void VG_(get_UnwindStartRegs) ( /*OUT*/UnwindStartRegs* regs,
    regs->misc.PPC64.r_lr
       = VG_(threads)[tid].arch.vex.guest_LR;
 #  elif defined(VGA_arm)
-   regs->r_pc = (ULong)VG_(threads)[tid].arch.vex.guest_R15;
+   regs->r_pc = (ULong)VG_(threads)[tid].arch.vex.guest_R15T;
    regs->r_sp = (ULong)VG_(threads)[tid].arch.vex.guest_R13;
    regs->misc.ARM.r14
       = VG_(threads)[tid].arch.vex.guest_R14;
@@ -385,13 +363,16 @@ UInt VG_(machine_ppc32_has_VMX) = 0;
 #if defined(VGA_ppc64)
 ULong VG_(machine_ppc64_has_VMX) = 0;
 #endif
+#if defined(VGA_arm)
+Int VG_(machine_arm_archlevel) = 4;
+#endif
 
 
 /* Determine what insn set and insn set variant the host has, and
    record it.  To be called once at system startup.  Returns False if
    this a CPU incapable of running Valgrind. */
 
-#if defined(VGA_ppc32) || defined(VGA_ppc64)
+#if defined(VGA_ppc32) || defined(VGA_ppc64) || defined(VGA_arm)
 #include <setjmp.h> // For jmp_buf
 static jmp_buf env_unsup_insn;
 static void handler_unsup_insn ( Int x ) { __builtin_longjmp(env_unsup_insn,1); }
@@ -407,8 +388,10 @@ Bool VG_(machine_get_hwcaps)( void )
    LibVEX_default_VexArchInfo(&vai);
 
 #if defined(VGA_x86)
-   { Bool have_sse1, have_sse2, have_cx8;
-     UInt eax, ebx, ecx, edx;
+   { Bool have_sse1, have_sse2, have_cx8, have_lzcnt;
+     UInt eax, ebx, ecx, edx, max_basic, max_extended;
+     UChar vstr[13];
+     vstr[0] = 0;
 
      if (!VG_(has_cpuid)())
         /* we can't do cpuid at all.  Give up. */
@@ -418,6 +401,17 @@ Bool VG_(machine_get_hwcaps)( void )
      if (eax < 1)
         /* we can't ask for cpuid(x) for x > 0.  Give up. */
         return False;
+
+     /* Get processor ID string, and max basic/extended index
+        values. */
+     max_basic = eax;
+     VG_(memcpy)(&vstr[0], &ebx, 4);
+     VG_(memcpy)(&vstr[4], &edx, 4);
+     VG_(memcpy)(&vstr[8], &ecx, 4);
+     vstr[12] = 0;
+
+     VG_(cpuid)(0x80000000, &eax, &ebx, &ecx, &edx);
+     max_extended = eax;
 
      /* get capabilities bits into edx */
      VG_(cpuid)(1, &eax, &ebx, &ecx, &edx);
@@ -432,10 +426,20 @@ Bool VG_(machine_get_hwcaps)( void )
      if (!have_cx8)
         return False;
 
+     /* Figure out if this is an AMD that can do LZCNT. */
+     have_lzcnt = False;
+     if (0 == VG_(strcmp)(vstr, "AuthenticAMD")
+         && max_extended >= 0x80000001) {
+        VG_(cpuid)(0x80000001, &eax, &ebx, &ecx, &edx);
+        have_lzcnt = (ecx & (1<<5)) != 0; /* True => have LZCNT */
+     }
+
      if (have_sse2 && have_sse1) {
         va          = VexArchX86;
         vai.hwcaps  = VEX_HWCAPS_X86_SSE1;
         vai.hwcaps |= VEX_HWCAPS_X86_SSE2;
+        if (have_lzcnt)
+           vai.hwcaps |= VEX_HWCAPS_X86_LZCNT;
         VG_(machine_x86_have_mxcsr) = 1;
         return True;
      }
@@ -455,7 +459,10 @@ Bool VG_(machine_get_hwcaps)( void )
 
 #elif defined(VGA_amd64)
    { Bool have_sse1, have_sse2, have_sse3, have_cx8, have_cx16;
-     UInt eax, ebx, ecx, edx;
+     Bool have_lzcnt;
+     UInt eax, ebx, ecx, edx, max_basic, max_extended;
+     UChar vstr[13];
+     vstr[0] = 0;
 
      if (!VG_(has_cpuid)())
         /* we can't do cpuid at all.  Give up. */
@@ -466,12 +473,26 @@ Bool VG_(machine_get_hwcaps)( void )
         /* we can't ask for cpuid(x) for x > 0.  Give up. */
         return False;
 
+     /* Get processor ID string, and max basic/extended index
+        values. */
+      max_basic = eax;
+     VG_(memcpy)(&vstr[0], &ebx, 4);
+     VG_(memcpy)(&vstr[4], &edx, 4);
+     VG_(memcpy)(&vstr[8], &ecx, 4);
+     vstr[12] = 0;
+
+     VG_(cpuid)(0x80000000, &eax, &ebx, &ecx, &edx);
+     max_extended = eax;
+
      /* get capabilities bits into edx */
      VG_(cpuid)(1, &eax, &ebx, &ecx, &edx);
 
      have_sse1 = (edx & (1<<25)) != 0; /* True => have sse insns */
      have_sse2 = (edx & (1<<26)) != 0; /* True => have sse2 insns */
      have_sse3 = (ecx & (1<<0)) != 0;  /* True => have sse3 insns */
+     // ssse3  is ecx:9
+     // sse41  is ecx:19
+     // sse42  is ecx:20
 
      /* cmpxchg8b is a minimum requirement now; if we don't have it we
         must simply give up.  But all CPUs since Pentium-I have it, so
@@ -483,9 +504,18 @@ Bool VG_(machine_get_hwcaps)( void )
      /* on amd64 we tolerate older cpus, which don't have cmpxchg16b */
      have_cx16 = (ecx & (1<<13)) != 0; /* True => have cmpxchg16b */
 
+     /* Figure out if this is an AMD that can do LZCNT. */
+     have_lzcnt = False;
+     if (0 == VG_(strcmp)(vstr, "AuthenticAMD")
+         && max_extended >= 0x80000001) {
+        VG_(cpuid)(0x80000001, &eax, &ebx, &ecx, &edx);
+        have_lzcnt = (ecx & (1<<5)) != 0; /* True => have LZCNT */
+     }
+
      va         = VexArchAMD64;
      vai.hwcaps = (have_sse3 ? VEX_HWCAPS_AMD64_SSE3 : 0)
-                  | (have_cx16 ? VEX_HWCAPS_AMD64_CX16 : 0);
+                  | (have_cx16 ? VEX_HWCAPS_AMD64_CX16 : 0)
+                  | (have_lzcnt ? VEX_HWCAPS_AMD64_LZCNT : 0);
      return True;
    }
 
@@ -715,8 +745,110 @@ Bool VG_(machine_get_hwcaps)( void )
 
 #elif defined(VGA_arm)
    {
+     /* Same instruction set detection algorithm as for ppc32. */
+     vki_sigset_t          saved_set, tmp_set;
+     vki_sigaction_fromK_t saved_sigill_act, saved_sigfpe_act;
+     vki_sigaction_toK_t     tmp_sigill_act,   tmp_sigfpe_act;
+
+     volatile Bool have_VFP, have_VFP2, have_VFP3, have_NEON;
+     volatile Int archlevel;
+     Int r;
+
+     /* This is a kludge.  Really we ought to back-convert saved_act
+        into a toK_t using VG_(convert_sigaction_fromK_to_toK), but
+        since that's a no-op on all ppc64 platforms so far supported,
+        it's not worth the typing effort.  At least include most basic
+        sanity check: */
+     vg_assert(sizeof(vki_sigaction_fromK_t) == sizeof(vki_sigaction_toK_t));
+
+     VG_(sigemptyset)(&tmp_set);
+     VG_(sigaddset)(&tmp_set, VKI_SIGILL);
+     VG_(sigaddset)(&tmp_set, VKI_SIGFPE);
+
+     r = VG_(sigprocmask)(VKI_SIG_UNBLOCK, &tmp_set, &saved_set);
+     vg_assert(r == 0);
+
+     r = VG_(sigaction)(VKI_SIGILL, NULL, &saved_sigill_act);
+     vg_assert(r == 0);
+     tmp_sigill_act = saved_sigill_act;
+
+     VG_(sigaction)(VKI_SIGFPE, NULL, &saved_sigfpe_act);
+     tmp_sigfpe_act = saved_sigfpe_act;
+
+     /* NODEFER: signal handler does not return (from the kernel's point of
+        view), hence if it is to successfully catch a signal more than once,
+        we need the NODEFER flag. */
+     tmp_sigill_act.sa_flags &= ~VKI_SA_RESETHAND;
+     tmp_sigill_act.sa_flags &= ~VKI_SA_SIGINFO;
+     tmp_sigill_act.sa_flags |=  VKI_SA_NODEFER;
+     tmp_sigill_act.ksa_handler = handler_unsup_insn;
+     VG_(sigaction)(VKI_SIGILL, &tmp_sigill_act, NULL);
+
+     tmp_sigfpe_act.sa_flags &= ~VKI_SA_RESETHAND;
+     tmp_sigfpe_act.sa_flags &= ~VKI_SA_SIGINFO;
+     tmp_sigfpe_act.sa_flags |=  VKI_SA_NODEFER;
+     tmp_sigfpe_act.ksa_handler = handler_unsup_insn;
+     VG_(sigaction)(VKI_SIGFPE, &tmp_sigfpe_act, NULL);
+
+     /* VFP insns */
+     have_VFP = True;
+     if (__builtin_setjmp(env_unsup_insn)) {
+        have_VFP = False;
+     } else {
+        __asm__ __volatile__(".word 0xEEB02B42"); /* VMOV.F64 d2, d2 */
+     }
+     /* There are several generation of VFP extension but they differs very
+        little so for now we will not distinguish them. */
+     have_VFP2 = have_VFP;
+     have_VFP3 = have_VFP;
+
+     /* NEON insns */
+     have_NEON = True;
+     if (__builtin_setjmp(env_unsup_insn)) {
+        have_NEON = False;
+     } else {
+        __asm__ __volatile__(".word 0xF2244154"); /* VMOV q2, q2 */
+     }
+
+     /* ARM architecture level */
+     archlevel = 5; /* v5 will be base level */
+     if (archlevel < 7) {
+        archlevel = 7;
+        if (__builtin_setjmp(env_unsup_insn)) {
+           archlevel = 5;
+        } else {
+           __asm__ __volatile__(".word 0xF45FF000"); /* PLI [PC,#-0] */
+        }
+     }
+     if (archlevel < 6) {
+        archlevel = 6;
+        if (__builtin_setjmp(env_unsup_insn)) {
+           archlevel = 5;
+        } else {
+           __asm__ __volatile__(".word 0xE6822012"); /* PKHBT r2, r2, r2 */
+        }
+     }
+
+     VG_(convert_sigaction_fromK_to_toK)(&saved_sigill_act, &tmp_sigill_act);
+     VG_(convert_sigaction_fromK_to_toK)(&saved_sigfpe_act, &tmp_sigfpe_act);
+     VG_(sigaction)(VKI_SIGILL, &tmp_sigill_act, NULL);
+     VG_(sigaction)(VKI_SIGFPE, &tmp_sigfpe_act, NULL);
+     VG_(sigprocmask)(VKI_SIG_SETMASK, &saved_set, NULL);
+
+     VG_(debugLog)(1, "machine", "ARMv%d VFP %d VFP2 %d VFP3 %d NEON %d\n",
+           archlevel, (Int)have_VFP, (Int)have_VFP2, (Int)have_VFP3,
+           (Int)have_NEON);
+
+     VG_(machine_arm_archlevel) = archlevel;
+
      va = VexArchARM;
-     vai.hwcaps = 0;
+
+     vai.hwcaps = VEX_ARM_ARCHLEVEL(archlevel);
+     if (have_VFP3) vai.hwcaps |= VEX_HWCAPS_ARM_VFP3;
+     if (have_VFP2) vai.hwcaps |= VEX_HWCAPS_ARM_VFP2;
+     if (have_VFP)  vai.hwcaps |= VEX_HWCAPS_ARM_VFP;
+     if (have_NEON) vai.hwcaps |= VEX_HWCAPS_ARM_NEON;
+
      return True;
    }
 

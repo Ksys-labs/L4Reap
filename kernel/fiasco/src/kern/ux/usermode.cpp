@@ -304,7 +304,7 @@ Usermode::user_exception (unsigned _cpu, pid_t pid, struct ucontext *context,
        * instructions in the syscall page.
        */
       if (EXPECT_FALSE((t->state() & (Thread_alien | Thread_dis_alien))
-                       == Thread_alien))
+                       == Thread_alien || t->state() & Thread_vcpu_user_mode))
         regs->eip += 2;
       else
         {

@@ -83,6 +83,8 @@ Kernel_thread::bootstrap()
 
   bootstrap_arch();
 
+  Per_cpu_data::run_late_ctors(0);
+
   Proc::sti();
   printf("Calibrating timer loop... ");
   // Init delay loop, needs working timer interrupt

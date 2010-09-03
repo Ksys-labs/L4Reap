@@ -183,6 +183,17 @@ L4_INLINE l4_msgtag_t
 l4_icu_unbind_u(l4_cap_idx_t icu, unsigned irqnum, l4_cap_idx_t irq,
                 l4_utcb_t *utcb) L4_NOTHROW;
 
+/**
+ * \brief Set mode of interrupt.
+ * \ingroup l4_icu_api
+ *
+ * \param  icu     ICU to use.
+ * \param  irqnum  IRQ vector at the ICU.
+ * \param  mode    Mode, see L4_irq_flow_type.
+ * \return Syscall return tag
+ *
+ * \ingroup l4_icu_api
+ */
 L4_INLINE l4_msgtag_t
 l4_icu_set_mode(l4_cap_idx_t icu, unsigned irqnum, l4_umword_t mode) L4_NOTHROW;
 
@@ -232,13 +243,47 @@ l4_icu_msi_info_u(l4_cap_idx_t icu, unsigned irqnum, l4_umword_t *msg,
                   l4_utcb_t *utcb) L4_NOTHROW;
 
 
+/**
+ * \brief Unmask an IRQ vector.
+ * \ingroup l4_icu_api
+ *
+ * \param icu    ICU to use.
+ * \param irqnum IRQ vector at the ICU.
+ * \param label  If non-NULL the function also waits for the next message.
+ * \param to     Timeout for message to ICU, if unsure use L4_IPC_NEVER.
+ * \return Syscall return tag
+ */
 L4_INLINE l4_msgtag_t
 l4_icu_unmask(l4_cap_idx_t icu, unsigned irqnum, l4_umword_t *label,
               l4_timeout_t to) L4_NOTHROW;
 
+/**
+ * \internal
+ */
+L4_INLINE l4_msgtag_t
+l4_icu_unmask_u(l4_cap_idx_t icu, unsigned irqnum, l4_umword_t *label,
+                l4_timeout_t to, l4_utcb_t *utcb) L4_NOTHROW;
+
+/**
+ * \brief Mask an IRQ vector.
+ * \ingroup l4_icu_api
+ *
+ * \param icu    ICU to use.
+ * \param irqnum IRQ vector at the ICU.
+ * \param label  If non-NULL the function also waits for the next message.
+ * \param to     Timeout for message to ICU, if unsure use L4_IPC_NEVER.
+ * \return Syscall return tag
+ */
 L4_INLINE l4_msgtag_t
 l4_icu_mask(l4_cap_idx_t icu, unsigned irqnum, l4_umword_t *label,
             l4_timeout_t to) L4_NOTHROW;
+
+/**
+ * \internal
+ */
+L4_INLINE l4_msgtag_t
+l4_icu_mask_u(l4_cap_idx_t icu, unsigned irqnum, l4_umword_t *label,
+              l4_timeout_t to, l4_utcb_t *utcb) L4_NOTHROW;
 
 /**
  * \internal
@@ -310,6 +355,43 @@ l4_icu_msi_info_u(l4_cap_idx_t icu, unsigned irqnum, l4_umword_t *msg,
   return res;
 }
 
+L4_INLINE l4_msgtag_t
+l4_icu_set_mode_u(l4_cap_idx_t icu, unsigned irqnum, l4_umword_t mode,
+                  l4_utcb_t *utcb) L4_NOTHROW
+{
+  l4_msg_regs_t *mr = l4_utcb_mr_u(utcb);
+  mr->mr[0] = L4_ICU_OP_SET_MODE;
+  mr->mr[1] = irqnum;
+  mr->mr[2] = mode;
+  return l4_ipc_call(icu, utcb, l4_msgtag(L4_PROTO_IRQ, 3, 0, 0), L4_IPC_NEVER);
+}
+
+L4_INLINE l4_msgtag_t
+l4_icu_control_u(l4_cap_idx_t icu, unsigned irqnum, unsigned op,
+                 l4_umword_t *label, l4_timeout_t to,
+                 l4_utcb_t *utcb) L4_NOTHROW
+{
+  l4_msg_regs_t *m = l4_utcb_mr_u(utcb);
+  m->mr[0] = L4_ICU_OP_UNMASK + op;
+  m->mr[1] = irqnum;
+  if (label)
+    return l4_ipc_send_and_wait(icu, utcb, l4_msgtag(L4_PROTO_IRQ, 2, 0, 0),
+                                label, to);
+  else
+    return l4_ipc_send(icu, utcb, l4_msgtag(L4_PROTO_IRQ, 2, 0, 0), to);
+}
+
+L4_INLINE l4_msgtag_t
+l4_icu_mask_u(l4_cap_idx_t icu, unsigned irqnum, l4_umword_t *label,
+              l4_timeout_t to, l4_utcb_t *utcb) L4_NOTHROW
+{ return l4_icu_control_u(icu, irqnum, L4_ICU_CTL_MASK, label, to, utcb); }
+
+L4_INLINE l4_msgtag_t
+l4_icu_unmask_u(l4_cap_idx_t icu, unsigned irqnum, l4_umword_t *label,
+                l4_timeout_t to, l4_utcb_t *utcb) L4_NOTHROW
+{ return l4_icu_control_u(icu, irqnum, L4_ICU_CTL_UNMASK, label, to, utcb); }
+
+
 
 
 L4_INLINE l4_msgtag_t
@@ -328,24 +410,6 @@ L4_INLINE l4_msgtag_t
 l4_icu_msi_info(l4_cap_idx_t icu, unsigned irqnum, l4_umword_t *msg) L4_NOTHROW
 { return l4_icu_msi_info_u(icu, irqnum, msg, l4_utcb()); }
 
-/**
- * \internal
- */
-L4_INLINE l4_msgtag_t
-l4_icu_control_u(l4_cap_idx_t icu, unsigned irqnum, unsigned op,
-                 l4_umword_t *label, l4_timeout_t to,
-                 l4_utcb_t *utcb) L4_NOTHROW
-{
-  l4_msg_regs_t *m = l4_utcb_mr_u(utcb);
-  m->mr[0] = L4_ICU_OP_UNMASK + op;
-  m->mr[1] = irqnum;
-  if (label)
-    return l4_ipc_send_and_wait(icu, utcb, l4_msgtag(L4_PROTO_IRQ, 2, 0, 0),
-                                label, to);
-  else
-    return l4_ipc_send(icu, utcb, l4_msgtag(L4_PROTO_IRQ, 2, 0, 0), to);
-}
-
 L4_INLINE l4_msgtag_t
 l4_icu_unmask(l4_cap_idx_t icu, unsigned irqnum, l4_umword_t *label,
               l4_timeout_t to) L4_NOTHROW
@@ -357,19 +421,7 @@ l4_icu_mask(l4_cap_idx_t icu, unsigned irqnum, l4_umword_t *label,
 { return l4_icu_control_u(icu, irqnum, L4_ICU_CTL_MASK, label, to, l4_utcb()); }
 
 L4_INLINE l4_msgtag_t
-l4_icu_set_mode_u(l4_cap_idx_t icu, unsigned irqnum, l4_umword_t mode,
-                  l4_utcb_t *utcb) L4_NOTHROW
-{
-  l4_msg_regs_t *mr = l4_utcb_mr_u(utcb);
-  mr->mr[0] = L4_ICU_OP_SET_MODE;
-  mr->mr[1] = irqnum;
-  mr->mr[2] = mode;
-  return l4_ipc_call(icu, utcb, l4_msgtag(L4_PROTO_IRQ, 3, 0, 0), L4_IPC_NEVER);
-}
-
-L4_INLINE l4_msgtag_t
 l4_icu_set_mode(l4_cap_idx_t icu, unsigned irqnum, l4_umword_t mode) L4_NOTHROW
 {
   return l4_icu_set_mode_u(icu, irqnum, mode, l4_utcb());
 }
-

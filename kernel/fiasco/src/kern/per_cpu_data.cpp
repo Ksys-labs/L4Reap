@@ -4,6 +4,7 @@ INTERFACE:
 
 #define DEFINE_PER_CPU_P(p) __attribute__((section(".per_cpu.data"),init_priority(0xfffe - p)))
 #define DEFINE_PER_CPU      DEFINE_PER_CPU_P(9)
+#define DEFINE_PER_CPU_LATE DEFINE_PER_CPU_P(19)
 
 class Mapped_allocator;
 
@@ -12,6 +13,7 @@ class Per_cpu_data
 public:
   static void init_ctors(Mapped_allocator *a);
   static void run_ctors(unsigned cpu);
+  static void run_late_ctors(unsigned cpu);
   static bool valid(unsigned cpu);
 };
 
@@ -76,6 +78,12 @@ IMPLEMENT
 void
 Per_cpu_data::init_ctors(Mapped_allocator *)
 {
+}
+
+IMPLEMENT inline
+void
+Per_cpu_data::run_ctors(unsigned)
+{
   typedef void (*ctor)(void);
   extern ctor __PER_CPU_CTORS_LIST__[];
   extern ctor __PER_CPU_CTORS_END__[];
@@ -88,8 +96,17 @@ Per_cpu_data::init_ctors(Mapped_allocator *)
 
 IMPLEMENT inline
 void
-Per_cpu_data::run_ctors(unsigned)
-{}
+Per_cpu_data::run_late_ctors(unsigned)
+{
+  typedef void (*ctor)(void);
+  extern ctor __PER_CPU_LATE_CTORS_LIST__[];
+  extern ctor __PER_CPU_LATE_CTORS_END__[];
+  for (unsigned i = __PER_CPU_LATE_CTORS_LIST__ - __PER_CPU_LATE_CTORS_END__; i > 0; --i)
+    {
+      //printf("Per_cpu: init ctor %u (%p)\n", i-1, &__PER_CPU_LATE_CTORS_END__[i-1]);
+      __PER_CPU_LATE_CTORS_END__[i-1]();
+    }
+}
 
 
 //---------------------------------------------------------------------------
@@ -130,6 +147,7 @@ private:
   };
 protected:
   static long _offsets[Config::Max_num_cpus] asm ("PER_CPU_OFFSETS");
+  static unsigned late_ctor_start;
   static Ctor_vector ctors;
   static Mapped_allocator *alloc;
 };
@@ -142,6 +160,7 @@ IMPLEMENTATION [mp]:
 #include <cstring>
 
 long Per_cpu_data::_offsets[Config::Max_num_cpus];
+unsigned Per_cpu_data::late_ctor_start;
 Per_cpu_data::Ctor_vector Per_cpu_data::ctors INIT_PRIORITY(EARLY_INIT_PRIO);
 Mapped_allocator *Per_cpu_data::alloc;
 
@@ -222,15 +241,7 @@ IMPLEMENT
 void
 Per_cpu_data::init_ctors(Mapped_allocator *a)
 {
-  typedef void (*ctor)(void);
-  extern ctor __PER_CPU_CTORS_LIST__[];
-  extern ctor __PER_CPU_CTORS_END__[];
   alloc = a;
-  for (unsigned i = __PER_CPU_CTORS_LIST__ - __PER_CPU_CTORS_END__; i > 0; --i)
-    {
-      //printf("Per_cpu: init ctor %u (%p)\n", i-1, &__PER_CPU_CTORS_END__[i-1]);
-      __PER_CPU_CTORS_END__[i-1]();
-    }
 
   for (unsigned i = 0; i < Config::Max_num_cpus; ++i)
     _offsets[i] = -1;
@@ -241,10 +252,42 @@ void
 Per_cpu_data::run_ctors(unsigned cpu)
 {
   if (cpu == 0)
-    return;
+    {
+      typedef void (*ctor)(void);
+      extern ctor __PER_CPU_CTORS_LIST__[];
+      extern ctor __PER_CPU_CTORS_END__[];
+      for (unsigned i = __PER_CPU_CTORS_LIST__ - __PER_CPU_CTORS_END__; i > 0; --i)
+	{
+	  //printf("Per_cpu: init ctor %u (%p)\n", i-1, &__PER_CPU_CTORS_END__[i-1]);
+	  __PER_CPU_CTORS_END__[i-1]();
+	}
 
-  unsigned c = ctors.len();
-  for (unsigned i = 0; i < c; ++i)
+      late_ctor_start = ctors.len();
+      return;
+    }
+
+  for (unsigned i = 0; i < late_ctor_start; ++i)
     ctors[i].func(ctors[i].base, cpu);
 }
 
+IMPLEMENT inline
+void
+Per_cpu_data::run_late_ctors(unsigned cpu)
+{
+  if (cpu == 0)
+    {
+      typedef void (*ctor)(void);
+      extern ctor __PER_CPU_LATE_CTORS_LIST__[];
+      extern ctor __PER_CPU_LATE_CTORS_END__[];
+      for (unsigned i = __PER_CPU_LATE_CTORS_LIST__ - __PER_CPU_LATE_CTORS_END__; i > 0; --i)
+	{
+	  //printf("Per_cpu: init ctor %u (%p)\n", i-1, &__PER_CPU_LATE_CTORS_END__[i-1]);
+	  __PER_CPU_LATE_CTORS_END__[i-1]();
+	}
+      return;
+    }
+
+  unsigned c = ctors.len();
+  for (unsigned i = late_ctor_start; i < c; ++i)
+    ctors[i].func(ctors[i].base, cpu);
+}

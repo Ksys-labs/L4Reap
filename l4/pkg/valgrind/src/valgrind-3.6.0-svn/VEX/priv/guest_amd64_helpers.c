@@ -867,7 +867,9 @@ static Bool isU64 ( IRExpr* e, ULong n )
 }
 
 IRExpr* guest_amd64_spechelper ( HChar* function_name,
-                                 IRExpr** args )
+                                 IRExpr** args,
+                                 IRStmt** precedingStmts,
+                                 Int      n_precedingStmts )
 {
 #  define unop(_op,_a1) IRExpr_Unop((_op),(_a1))
 #  define binop(_op,_a1,_a2) IRExpr_Binop((_op),(_a1),(_a2))
@@ -2009,6 +2011,158 @@ void amd64g_dirtyhelper_CPUID_sse3_and_cx16 ( VexGuestAMD64State* st )
 }
 
 
+/* Claim to be the following CPU (4 x ...), which is sse4.2 and cx16
+   capable.
+
+   vendor_id       : GenuineIntel
+   cpu family      : 6
+   model           : 37
+   model name      : Intel(R) Core(TM) i5 CPU         670  @ 3.47GHz
+   stepping        : 2
+   cpu MHz         : 3334.000
+   cache size      : 4096 KB
+   physical id     : 0
+   siblings        : 4
+   core id         : 0
+   cpu cores       : 2
+   apicid          : 0
+   initial apicid  : 0
+   fpu             : yes
+   fpu_exception   : yes
+   cpuid level     : 11
+   wp              : yes
+   flags           : fpu vme de pse tsc msr pae mce cx8 apic sep
+                     mtrr pge mca cmov pat pse36 clflush dts acpi
+                     mmx fxsr sse sse2 ss ht tm pbe syscall nx rdtscp
+                     lm constant_tsc arch_perfmon pebs bts rep_good
+                     xtopology nonstop_tsc aperfmperf pni pclmulqdq
+                     dtes64 monitor ds_cpl vmx smx est tm2 ssse3 cx16
+                     xtpr pdcm sse4_1 sse4_2 popcnt aes lahf_lm ida
+                     arat tpr_shadow vnmi flexpriority ept vpid
+   bogomips        : 6957.57
+   clflush size    : 64
+   cache_alignment : 64
+   address sizes   : 36 bits physical, 48 bits virtual
+   power management:
+*/
+void amd64g_dirtyhelper_CPUID_sse42_and_cx16 ( VexGuestAMD64State* st )
+{
+#  define SET_ABCD(_a,_b,_c,_d)                \
+      do { st->guest_RAX = (ULong)(_a);        \
+           st->guest_RBX = (ULong)(_b);        \
+           st->guest_RCX = (ULong)(_c);        \
+           st->guest_RDX = (ULong)(_d);        \
+      } while (0)
+
+   UInt old_eax = (UInt)st->guest_RAX;
+   UInt old_ecx = (UInt)st->guest_RCX;
+
+   switch (old_eax) {
+      case 0x00000000:
+         SET_ABCD(0x0000000b, 0x756e6547, 0x6c65746e, 0x49656e69);
+         break;
+      case 0x00000001:
+         SET_ABCD(0x00020652, 0x00100800, 0x0298e3ff, 0xbfebfbff);
+         break;
+      case 0x00000002:
+         SET_ABCD(0x55035a01, 0x00f0b2e3, 0x00000000, 0x09ca212c);
+         break;
+      case 0x00000003:
+         SET_ABCD(0x00000000, 0x00000000, 0x00000000, 0x00000000);
+         break;
+      case 0x00000004:
+         switch (old_ecx) {
+            case 0x00000000: SET_ABCD(0x1c004121, 0x01c0003f,
+                                      0x0000003f, 0x00000000); break;
+            case 0x00000001: SET_ABCD(0x1c004122, 0x00c0003f,
+                                      0x0000007f, 0x00000000); break;
+            case 0x00000002: SET_ABCD(0x1c004143, 0x01c0003f,
+                                      0x000001ff, 0x00000000); break;
+            case 0x00000003: SET_ABCD(0x1c03c163, 0x03c0003f,
+                                      0x00000fff, 0x00000002); break;
+            default:         SET_ABCD(0x00000000, 0x00000000,
+                                      0x00000000, 0x00000000); break;
+         }
+         break;
+      case 0x00000005:
+         SET_ABCD(0x00000040, 0x00000040, 0x00000003, 0x00001120);
+         break;
+      case 0x00000006:
+         SET_ABCD(0x00000007, 0x00000002, 0x00000001, 0x00000000);
+         break;
+      case 0x00000007:
+         SET_ABCD(0x00000000, 0x00000000, 0x00000000, 0x00000000);
+         break;
+      case 0x00000008:
+         SET_ABCD(0x00000000, 0x00000000, 0x00000000, 0x00000000);
+         break;
+      case 0x00000009:
+         SET_ABCD(0x00000000, 0x00000000, 0x00000000, 0x00000000);
+         break;
+      case 0x0000000a:
+         SET_ABCD(0x07300403, 0x00000004, 0x00000000, 0x00000603);
+         break;
+      case 0x0000000b:
+         switch (old_ecx) {
+            case 0x00000000:
+               SET_ABCD(0x00000001, 0x00000002,
+                        0x00000100, 0x00000000); break;
+            case 0x00000001:
+               SET_ABCD(0x00000004, 0x00000004,
+                        0x00000201, 0x00000000); break;
+            default:
+               SET_ABCD(0x00000000, 0x00000000,
+                        old_ecx,    0x00000000); break;
+         }
+         break;
+      case 0x0000000c:
+         SET_ABCD(0x00000001, 0x00000002, 0x00000100, 0x00000000);
+         break;
+      case 0x0000000d:
+         switch (old_ecx) {
+            case 0x00000000: SET_ABCD(0x00000001, 0x00000002,
+                                      0x00000100, 0x00000000); break;
+            case 0x00000001: SET_ABCD(0x00000004, 0x00000004,
+                                      0x00000201, 0x00000000); break;
+            default:         SET_ABCD(0x00000000, 0x00000000,
+                                      old_ecx,    0x00000000); break;
+         }
+         break;
+      case 0x80000000:
+         SET_ABCD(0x80000008, 0x00000000, 0x00000000, 0x00000000);
+         break;
+      case 0x80000001:
+         SET_ABCD(0x00000000, 0x00000000, 0x00000001, 0x28100800);
+         break;
+      case 0x80000002:
+         SET_ABCD(0x65746e49, 0x2952286c, 0x726f4320, 0x4d542865);
+         break;
+      case 0x80000003:
+         SET_ABCD(0x35692029, 0x55504320, 0x20202020, 0x20202020);
+         break;
+      case 0x80000004:
+         SET_ABCD(0x30373620, 0x20402020, 0x37342e33, 0x007a4847);
+         break;
+      case 0x80000005:
+         SET_ABCD(0x00000000, 0x00000000, 0x00000000, 0x00000000);
+         break;
+      case 0x80000006:
+         SET_ABCD(0x00000000, 0x00000000, 0x01006040, 0x00000000);
+         break;
+      case 0x80000007:
+         SET_ABCD(0x00000000, 0x00000000, 0x00000000, 0x00000100);
+         break;
+      case 0x80000008:
+         SET_ABCD(0x00003024, 0x00000000, 0x00000000, 0x00000000);
+         break;
+      default:
+         SET_ABCD(0x00000001, 0x00000002, 0x00000100, 0x00000000);
+         break;
+   }
+#  undef SET_ABCD
+}
+
+
 ULong amd64g_calculate_RCR ( ULong arg, 
                              ULong rot_amt, 
                              ULong rflags_in, 
@@ -2218,6 +2372,31 @@ void amd64g_dirtyhelper_OUT ( ULong portno, ULong data, ULong sz/*1,2 or 4*/ )
 #  endif
 }
 
+/* CALLED FROM GENERATED CODE */
+/* DIRTY HELPER (non-referentially-transparent) */
+/* Horrible hack.  On non-amd64 platforms, do nothing. */
+/* op = 0: call the native SGDT instruction.
+   op = 1: call the native SIDT instruction.
+*/
+void amd64g_dirtyhelper_SxDT ( void *address, ULong op ) {
+#  if defined(__x86_64__)
+   switch (op) {
+      case 0:
+         __asm__ __volatile__("sgdt (%0)" : : "r" (address) : "memory");
+         break;
+      case 1:
+         __asm__ __volatile__("sidt (%0)" : : "r" (address) : "memory");
+         break;
+      default:
+         vpanic("amd64g_dirtyhelper_SxDT");
+   }
+#  else
+   /* do nothing */
+   UChar* p = (UChar*)address;
+   p[0] = p[1] = p[2] = p[3] = p[4] = p[5] = 0;
+   p[6] = p[7] = p[8] = p[9] = 0;
+#  endif
+}
 
 /*---------------------------------------------------------------*/
 /*--- Helpers for MMX/SSE/SSE2.                               ---*/
@@ -2334,6 +2513,130 @@ ULong amd64g_calculate_sse_pmovmskb ( ULong w64hi, ULong w64lo )
 
 
 /*---------------------------------------------------------------*/
+/*--- Helpers for SSE4.2 PCMP{E,I}STR{I,M}                    ---*/
+/*---------------------------------------------------------------*/
+
+static UInt zmask_from_V128 ( V128* arg )
+{
+   UInt i, res = 0;
+   for (i = 0; i < 16; i++) {
+      res |=  ((arg->w8[i] == 0) ? 1 : 0) << i;
+   }
+   return res;
+}
+
+/* Helps with PCMP{I,E}STR{I,M}.
+
+   CALLED FROM GENERATED CODE: DIRTY HELPER(s).  (But not really,
+   actually it could be a clean helper, but for the fact that we can't
+   pass by value 2 x V128 to a clean helper, nor have one returned.)
+   Reads guest state, writes to guest state for the xSTRM cases, no
+   accesses of memory, is a pure function.
+
+   opc_and_imm contains (4th byte of opcode << 8) | the-imm8-byte so
+   the callee knows which I/E and I/M variant it is dealing with and
+   what the specific operation is.  4th byte of opcode is in the range
+   0x60 to 0x63:
+       istri  66 0F 3A 63
+       istrm  66 0F 3A 62
+       estri  66 0F 3A 61
+       estrm  66 0F 3A 60
+
+   gstOffL and gstOffR are the guest state offsets for the two XMM
+   register inputs.  We never have to deal with the memory case since
+   that is handled by pre-loading the relevant value into the fake
+   XMM16 register.
+
+   For ESTRx variants, edxIN and eaxIN hold the values of those two
+   registers.
+
+   In all cases, the bottom 16 bits of the result contain the new
+   OSZACP %rflags values.  For xSTRI variants, bits[31:16] of the
+   result hold the new %ecx value.  For xSTRM variants, the helper
+   writes the result directly to the guest XMM0.
+
+   Declarable side effects: in all cases, reads guest state at
+   [gstOffL, +16) and [gstOffR, +16).  For xSTRM variants, also writes
+   guest_XMM0.
+
+   Is expected to be called with opc_and_imm combinations which have
+   actually been validated, and will assert if otherwise.  The front
+   end should ensure we're only called with verified values.
+*/
+ULong amd64g_dirtyhelper_PCMPxSTRx ( 
+          VexGuestAMD64State* gst,
+          HWord opc4_and_imm,
+          HWord gstOffL, HWord gstOffR,
+          HWord edxIN, HWord eaxIN
+       )
+{
+   HWord opc4 = (opc4_and_imm >> 8) & 0xFF;
+   HWord imm8 = opc4_and_imm & 0xFF;
+   HWord isISTRx = opc4 & 2;
+   HWord isxSTRM = (opc4 & 1) ^ 1;
+   vassert((opc4 & 0xFC) == 0x60); /* 0x60 .. 0x63 */
+   vassert((imm8 & 1) == 0); /* we support byte-size cases only */
+
+   // where the args are
+   V128* argL = (V128*)( ((UChar*)gst) + gstOffL );
+   V128* argR = (V128*)( ((UChar*)gst) + gstOffR );
+
+   /* Create the arg validity masks, either from the vectors
+      themselves or from the supplied edx/eax values. */
+   // FIXME: this is only right for the 8-bit data cases.
+   // At least that is asserted above.
+   UInt zmaskL, zmaskR;
+   if (isISTRx) {
+      zmaskL = zmask_from_V128(argL);
+      zmaskR = zmask_from_V128(argR);
+   } else {
+      Int tmp;
+      tmp = edxIN & 0xFFFFFFFF;
+      if (tmp < -16) tmp = -16;
+      if (tmp > 16)  tmp = 16;
+      if (tmp < 0)   tmp = -tmp;
+      vassert(tmp >= 0 && tmp <= 16);
+      zmaskL = (1 << tmp) & 0xFFFF;
+      tmp = eaxIN & 0xFFFFFFFF;
+      if (tmp < -16) tmp = -16;
+      if (tmp > 16)  tmp = 16;
+      if (tmp < 0)   tmp = -tmp;
+      vassert(tmp >= 0 && tmp <= 16);
+      zmaskR = (1 << tmp) & 0xFFFF;
+   }
+
+   // temp spot for the resulting flags and vector.
+   V128 resV;
+   UInt resOSZACP;
+
+   // do the meyaath
+   Bool ok = compute_PCMPxSTRx ( 
+                &resV, &resOSZACP, argL, argR, 
+                zmaskL, zmaskR, imm8, (Bool)isxSTRM
+             );
+
+   // front end shouldn't pass us any imm8 variants we can't
+   // handle.  Hence:
+   vassert(ok);
+
+   // So, finally we need to get the results back to the caller.
+   // In all cases, the new OSZACP value is the lowest 16 of
+   // the return value.
+   if (isxSTRM) {
+      /* gst->guest_XMM0 = resV; */ // gcc don't like that
+      gst->guest_XMM0[0] = resV.w32[0];
+      gst->guest_XMM0[1] = resV.w32[1];
+      gst->guest_XMM0[2] = resV.w32[2];
+      gst->guest_XMM0[3] = resV.w32[3];
+      return resOSZACP & 0x8D5;
+   } else {
+      UInt newECX = resV.w32[0] & 0xFFFF;
+      return (newECX << 16) | (resOSZACP & 0x8D5);
+   }
+}
+
+
+/*---------------------------------------------------------------*/
 /*--- Helpers for dealing with, and describing,               ---*/
 /*--- guest state as a whole.                                 ---*/
 /*---------------------------------------------------------------*/
@@ -2396,6 +2699,7 @@ void LibVEX_GuestAMD64_initialise ( /*OUT*/VexGuestAMD64State* vex_state )
    SSEZERO(vex_state->guest_XMM13);
    SSEZERO(vex_state->guest_XMM14);
    SSEZERO(vex_state->guest_XMM15);
+   SSEZERO(vex_state->guest_XMM16);
 
 #  undef SSEZERO
 

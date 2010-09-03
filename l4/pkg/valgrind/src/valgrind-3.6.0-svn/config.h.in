@@ -3,8 +3,20 @@
 /* Define to 1 if you're using AIX 5.1 or 5.2 or 5.3 */
 #undef AIX5_LIBC
 
+/* DARWIN_VERS value for Mac OS X 10.5 */
+#undef DARWIN_10_5
+
+/* DARWIN_VERS value for Mac OS X 10.6 */
+#undef DARWIN_10_6
+
+/* DARWIN_VERS value for Mac OS X 10.7 */
+#undef DARWIN_10_7
+
 /* Define to 1 if you're using Darwin */
 #undef DARWIN_LIBC
+
+/* Darwin / Mac OS X version */
+#undef DARWIN_VERS
 
 /* configured to run as an inner Valgrind */
 #undef ENABLE_INNER
@@ -17,6 +29,9 @@
 
 /* Define to 1 if you're using glibc 2.11.x */
 #undef GLIBC_2_11
+
+/* Define to 1 if you're using glibc 2.12.x */
+#undef GLIBC_2_12
 
 /* Define to 1 if you're using glibc 2.2.x */
 #undef GLIBC_2_2

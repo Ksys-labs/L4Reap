@@ -155,7 +155,7 @@ Sw_icu::dispatch(l4_umword_t /*obj*/, L4::Ipc_iostream &ios)
   l4_umword_t op, irqn;
   L4::Snd_fpage irqc;
   l4_msgtag_t tag;
-  ios >> tag >> op >> irqn >> irqc;
+  ios >> tag >> op >> irqn;
 
   if (tag.label() != L4_PROTO_IRQ)
     return -L4_EBADPROTO;
@@ -245,7 +245,7 @@ Sw_icu::Real_irq_pin::unmask()
   if (n & 0x80)
     n = (n - 0x80) | L4::Icu::F_msi;
 
-  system_icu()->icu->unmask(n, 0, L4_IPC_NEVER);
+  system_icu()->icu->unmask(n);
   return -L4_EINVAL;
 }
 

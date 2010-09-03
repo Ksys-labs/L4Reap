@@ -4,12 +4,11 @@ Tutorial lua script for Ned
 ===========================
 
 Firstly we have a set of definitions available. Some come from 'ned.lua'
-and others from the C++ bindings within Ned. The whole L4 stuff is in the
-lua module "L4" (use require("L4")).
-The L4 module classes and functions to cope with L4 capabilities and
-their invocation.  A set of constants and access to the L4Re environment of
-the running program.  And a set of classes to start L4 applications and
-composing their name spaces.
+embedded script and others from the C++ bindings within Ned. The whole L4
+functionality is in the lua module "L4" (use require("L4")).
+The L4 module classes and functions cope with L4 capabilities and
+their invocations, provice a set of constants and access to the L4Re environment of
+the running program.  Finally, of course it can also start L4 applications.
 
 L4 Capabilities
 ===============
@@ -25,9 +24,9 @@ L4.cast(type, cap)
 Returns a cap transformed to a capability of the given type, whereas type
 is either the fully qualified C++ name of the class encapsulating the object
 or the L4 protocol ID assigned to all L4Re and L4 system objects.
-If the type is unknown than nil is returned.
+If the type is unknown then nil is returned.
 
-Generic capabilities provide the methods:
+Generic capabilities provide the following methods:
 
 is_valid()
 
@@ -109,12 +108,18 @@ L4 and L4Re objects.
   Log
   Scheduler
 
+The L4.Info table contains the following functions:
+
+  Kip.str()   The banner string found in the kernel info page
+  arch()      Architecture name, such as: x86, amd64, arm, ppc32
+  platform()  Platform name, such as: pc, ux, realview, beagleboard
+
 
 Support for starting L4 programs
 ================================
 
 The L4 module defines two classes that are useful for starting l4 applications.
-The class L4.Loader that encapsulates a fairly high level policy for
+The class L4.Loader that encapsulates a fairly high level policy
 that is useful for starting a whole set of processes. And the class L4.App_env
 that encapsulates a more fine-grained policy.
 
@@ -122,16 +127,16 @@ L4.Loader
 ---------
 
 The class L4.Loader encapsulates the policy for starting programs with the
-basic building blocks for the application comming from a dedicated loader,
-such as Moe or a Loader instance.  These building blocks are a region map (Rm),
-a name space, a scheduler, a memory allocator, and a logging facility.
+basic building blocks for the application coming from a dedicated loader,
+such as Moe or a Loader instance. These building blocks are a region map (Rm),
+a scheduler, a memory allocator, and a logging facility.
 A L4.Loader object is typically used to start multiple applications. There
 is a L4.default_loader instance of L4.Loader that uses the L4.Env.mem_alloc
 factory of the current Ned instance to create the objects for a new program.
 However you may also use a more restricted factory for applications and
-instanciate a loader for them.  The L4.Loader objects can already be used
-to start a program with L4.Loader:start(app_spec, cmd, ...).  Where app_spec
-is a table containing some parameters for the new application. cmd is the
+instantiate a loader for them.  The L4.Loader objects can already be used
+to start a program with L4.Loader:start(app_spec, cmd, ...). Where app_spec
+is a table containing parameters for the new application. cmd is the
 command to run and the remaining arguments are the command-line options for
 the application.
 
@@ -142,33 +147,54 @@ L4.default_loader:start({}, "rom/hello");
 local _doc = [==[
 
 This statement does the following:
- 1. create a new name space for the application
- 2. put L4.Env.names:query("rom") into the new name space (thus shares Ned's
-    'rom' directory with the new program.
+ 1. Create a new environment for the application
+ 2. Add the rom name-space into the new environment (thus shares Ned's
+    'rom' directory with the new program).
  3. Creates all the building blocks for the new process and starts the
     'l4re' support kernel in the new process which in turn start's 'rom/hello'
     in the new process.
 
 Using the app_spec parameter you can modify the behavior in two ways. There are
-two supported options 'ns' for providing a more usefull non-empty name space
-for the application. And 'log' for modifying the logger tag and color.
+two supported options 'caps' for providing more capabilities for the
+application. And 'log' for modifying the logger tag and color.
 
 ]==]
 
-local my_ns = {
-  fb = L4.Env.names:query("vesa");
+local my_caps = {
+  fb = L4.Env.vesa;
 };
 
-L4.default_loader:start({ns = my_ns, log = {"APP", "blue"}}, "rom/hello");
+L4.default_loader:start({caps = my_caps, log = {"APP", "blue"}}, "rom/hello");
 
 local _doc = [==[
 
-This snippet creates a name-space template (my_ns) and uses it for the
+This snippet creates a caps template (my_caps) and uses it for the
 new process and also sets user-defined log tags.  The L4.Loader:start method,
-however, automatically adds the 'rom' directory to the name space if not
-already specified in the template.
+however, automatically adds the 'rom' directory to the caps environment if
+not already specified in the template.
 
-To use create a new L4.Loader instance you may use a generic factory for all
+Environment variables may be given as a table in the third argument to
+start. Argument to the program are given space separated after the program
+name within a single string.
+
+]==]
+
+L4.default_loader:start({}, "rom/program arg1 " .. arg2, { LD_DEBUG = 1 });
+
+local _doc = [==[
+
+L4.default_loader:startv is a variant of the start function that takes the
+arguments of the program as a single argument each. If the last argument to
+startv is a table it is interpreted as environment variables for the program.
+The above example would translate to:
+
+]==]
+
+L4.default_loader:startv({}, "rom/program", "arg1", arg2, { LD_DEBUG = 1 });
+
+local _doc = [==[
+
+To create a new L4.Loader instance you may use a generic factory for all
 building blocks or set individual factories.
 
 ]==]

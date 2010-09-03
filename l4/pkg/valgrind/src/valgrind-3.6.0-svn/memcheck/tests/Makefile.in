@@ -59,6 +59,7 @@ DIST_COMMON = $(dist_noinst_SCRIPTS) $(noinst_HEADERS) \
 
 # Platform-specific tests
 @VGCONF_PLATFORMS_INCLUDE_X86_LINUX_TRUE@am__append_5 = x86-linux
+@VGCONF_PLATFORMS_INCLUDE_AMD64_LINUX_TRUE@am__append_6 = amd64-linux
 check_PROGRAMS = addressable$(EXEEXT) atomic_incs$(EXEEXT) \
 	badaddrvalue$(EXEEXT) badfree$(EXEEXT) badjump$(EXEEXT) \
 	badjump2$(EXEEXT) badloop$(EXEEXT) badpoll$(EXEEXT) \
@@ -100,8 +101,8 @@ check_PROGRAMS = addressable$(EXEEXT) atomic_incs$(EXEEXT) \
 	wrap1$(EXEEXT) wrap2$(EXEEXT) wrap3$(EXEEXT) wrap4$(EXEEXT) \
 	wrap5$(EXEEXT) wrap6$(EXEEXT) wrap7$(EXEEXT) \
 	wrap7so.so$(EXEEXT) wrap8$(EXEEXT) writev$(EXEEXT)
-@VGCONF_PLATFORMS_INCLUDE_ARM_LINUX_TRUE@am__append_6 = -mfloat-abi=softfp
 @VGCONF_PLATFORMS_INCLUDE_ARM_LINUX_TRUE@am__append_7 = -mfloat-abi=softfp
+@VGCONF_PLATFORMS_INCLUDE_ARM_LINUX_TRUE@am__append_8 = -mfloat-abi=softfp
 subdir = memcheck/tests
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.in
@@ -662,6 +663,7 @@ FLAG_MAIX32 = @FLAG_MAIX32@
 FLAG_MAIX64 = @FLAG_MAIX64@
 FLAG_MMMX = @FLAG_MMMX@
 FLAG_MSSE = @FLAG_MSSE@
+FLAG_NO_BUILD_ID = @FLAG_NO_BUILD_ID@
 FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
@@ -696,14 +698,18 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
 QTCORE_CFLAGS = @QTCORE_CFLAGS@
 QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
-VALT_LOAD_ADDRESS = @VALT_LOAD_ADDRESS@
+VALT_LOAD_ADDRESS_PRI = @VALT_LOAD_ADDRESS_PRI@
+VALT_LOAD_ADDRESS_SEC = @VALT_LOAD_ADDRESS_SEC@
 VERSION = @VERSION@
 VGCONF_ARCH_PRI = @VGCONF_ARCH_PRI@
 VGCONF_ARCH_SEC = @VGCONF_ARCH_SEC@
@@ -786,7 +792,9 @@ AM_CFLAGS_BASE = \
 # The aim is to give reasonable performance but also to have good
 # stack traces, since users often see stack traces extending 
 # into (and through) the preloads.
-@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing -mno-dynamic-no-pic
+@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing \
+@VGCONF_OS_IS_DARWIN_TRUE@		-mno-dynamic-no-pic -fpic -fPIC
+
 @VGCONF_OS_IS_L4RE_FALSE@AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@ = \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir) \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir)/include \
@@ -845,7 +853,7 @@ AM_CFLAGS_PPC64_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC64_LINUX = $(AM_CPPFLAGS_PPC64_LINUX) @FLAG_M64@ -g
 AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
-			 	$(AM_CFLAGS_BASE)
+			 	$(AM_CFLAGS_BASE) -marm
 
 AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
@@ -860,8 +868,8 @@ AM_CCASFLAGS_PPC64_AIX5 = $(AM_CPPFLAGS_PPC64_AIX5) \
 
 AM_FLAG_M3264_X86_DARWIN = -arch i386
 AM_CFLAGS_X86_DARWIN = $(WERROR) -arch i386 $(AM_CFLAGS_BASE) \
-			    -mmacosx-version-min=10.5 -fno-stack-protector \
-			    -mdynamic-no-pic
+				-mmacosx-version-min=10.5 \
+				-fno-stack-protector -fno-pic -fno-PIC
 
 AM_CCASFLAGS_X86_DARWIN = $(AM_CPPFLAGS_X86_DARWIN) -arch i386 -g
 AM_FLAG_M3264_AMD64_DARWIN = -arch x86_64
@@ -915,19 +923,20 @@ AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/include \
 # Nb: Tools need to augment these flags with an arch-selection option, such
 # as $(AM_FLAG_M3264_PRI).
 AM_CFLAGS = -Winline -Wall -Wshadow -g $(AM_FLAG_M3264_PRI) \
-	$(am__append_6)
-AM_CXXFLAGS = -Winline -Wall -Wshadow -g $(AM_FLAG_M3264_PRI) \
 	$(am__append_7)
+AM_CXXFLAGS = -Winline -Wall -Wshadow -g $(AM_FLAG_M3264_PRI) \
+	$(am__append_8)
 # Include AM_CPPFLAGS in AM_CCASFLAGS to allow for older versions of
 # automake;  see comments in Makefile.all.am for more detail.
 AM_CCASFLAGS = $(AM_CPPFLAGS)
 @VGCONF_OS_IS_DARWIN_TRUE@noinst_DSYMS = $(check_PROGRAMS)
 SUBDIRS = . $(am__append_1) $(am__append_2) $(am__append_3) \
-	$(am__append_4) $(am__append_5)
-DIST_SUBDIRS = x86 amd64 linux darwin x86-linux .
+	$(am__append_4) $(am__append_5) $(am__append_6)
+DIST_SUBDIRS = x86 amd64 linux darwin x86-linux amd64-linux .
 dist_noinst_SCRIPTS = \
 	filter_addressable \
 	filter_allocs \
+	filter_leak_cases_possible \
 	filter_stderr filter_xml \
 	filter_varinfo3
 
@@ -969,6 +978,7 @@ EXTRA_DIST = \
 	inline.stderr.exp inline.stdout.exp inline.vgtest \
 	leak-0.vgtest leak-0.stderr.exp \
 	leak-cases-full.vgtest leak-cases-full.stderr.exp \
+	leak-cases-possible.vgtest leak-cases-possible.stderr.exp \
 	leak-cases-summary.vgtest leak-cases-summary.stderr.exp \
 	leak-cycle.vgtest leak-cycle.stderr.exp \
 	leak-pool-0.vgtest leak-pool-0.stderr.exp \

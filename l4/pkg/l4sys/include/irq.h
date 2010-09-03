@@ -47,15 +47,6 @@
  *
  */
 
-
-enum L4_irq_op
-{
-  L4_IRQ_OP_ATTACH    = 1,
-  L4_IRQ_OP_TRIGGER   = 2,
-  L4_IRQ_OP_CHAIN     = 3,
-  L4_IRQ_OP_EOI       = 4,
-};
-
 /**
  * \brief Attach to an interrupt source.
  * \ingroup l4_irq_api
@@ -203,6 +194,17 @@ l4_irq_unmask(l4_cap_idx_t irq) L4_NOTHROW;
  */
 L4_INLINE l4_msgtag_t
 l4_irq_unmask_u(l4_cap_idx_t irq, l4_utcb_t *utcb) L4_NOTHROW;
+
+/**
+ * \internal
+ */
+enum L4_irq_op
+{
+  L4_IRQ_OP_ATTACH    = 1,
+  L4_IRQ_OP_TRIGGER   = 2,
+  L4_IRQ_OP_CHAIN     = 3,
+  L4_IRQ_OP_EOI       = 4,
+};
 
 /**************************************************************************
  * Implementations

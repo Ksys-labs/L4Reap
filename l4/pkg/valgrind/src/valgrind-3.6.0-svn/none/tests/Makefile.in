@@ -472,6 +472,7 @@ FLAG_MAIX32 = @FLAG_MAIX32@
 FLAG_MAIX64 = @FLAG_MAIX64@
 FLAG_MMMX = @FLAG_MMMX@
 FLAG_MSSE = @FLAG_MSSE@
+FLAG_NO_BUILD_ID = @FLAG_NO_BUILD_ID@
 FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
@@ -506,14 +507,18 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
 QTCORE_CFLAGS = @QTCORE_CFLAGS@
 QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
-VALT_LOAD_ADDRESS = @VALT_LOAD_ADDRESS@
+VALT_LOAD_ADDRESS_PRI = @VALT_LOAD_ADDRESS_PRI@
+VALT_LOAD_ADDRESS_SEC = @VALT_LOAD_ADDRESS_SEC@
 VERSION = @VERSION@
 VGCONF_ARCH_PRI = @VGCONF_ARCH_PRI@
 VGCONF_ARCH_SEC = @VGCONF_ARCH_SEC@
@@ -596,7 +601,9 @@ AM_CFLAGS_BASE = \
 # The aim is to give reasonable performance but also to have good
 # stack traces, since users often see stack traces extending 
 # into (and through) the preloads.
-@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing -mno-dynamic-no-pic
+@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing \
+@VGCONF_OS_IS_DARWIN_TRUE@		-mno-dynamic-no-pic -fpic -fPIC
+
 @VGCONF_OS_IS_L4RE_FALSE@AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@ = \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir) \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir)/include \
@@ -655,7 +662,7 @@ AM_CFLAGS_PPC64_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC64_LINUX = $(AM_CPPFLAGS_PPC64_LINUX) @FLAG_M64@ -g
 AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
-			 	$(AM_CFLAGS_BASE)
+			 	$(AM_CFLAGS_BASE) -marm
 
 AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
@@ -670,8 +677,8 @@ AM_CCASFLAGS_PPC64_AIX5 = $(AM_CPPFLAGS_PPC64_AIX5) \
 
 AM_FLAG_M3264_X86_DARWIN = -arch i386
 AM_CFLAGS_X86_DARWIN = $(WERROR) -arch i386 $(AM_CFLAGS_BASE) \
-			    -mmacosx-version-min=10.5 -fno-stack-protector \
-			    -mdynamic-no-pic
+				-mmacosx-version-min=10.5 \
+				-fno-stack-protector -fno-pic -fno-PIC
 
 AM_CCASFLAGS_X86_DARWIN = $(AM_CPPFLAGS_X86_DARWIN) -arch i386 -g
 AM_FLAG_M3264_AMD64_DARWIN = -arch x86_64
@@ -812,7 +819,43 @@ EXTRA_DIST = \
 	readline1.stderr.exp readline1.stdout.exp \
 	readline1.vgtest \
 	require-text-symbol-1.vgtest \
-		require-text-symbol-1.stderr.exp
+		require-text-symbol-1.stderr.exp \
+	require-text-symbol-2.vgtest \
+		require-text-symbol-2.stderr.exp-libcso6 \
+	res_search.stderr.exp res_search.stdout.exp res_search.vgtest \
+	resolv.stderr.exp resolv.stdout.exp resolv.vgtest \
+	rlimit_nofile.stderr.exp rlimit_nofile.stdout.exp rlimit_nofile.vgtest \
+	selfrun.stderr.exp selfrun.stdout.exp selfrun.vgtest \
+	sem.stderr.exp sem.stdout.exp sem.vgtest \
+	semlimit.stderr.exp semlimit.stdout.exp semlimit.vgtest \
+	shell shell.vgtest shell.stderr.exp shell.stderr.exp-dash \
+	    shell.stdout.exp \
+	shell_badinterp shell_badinterp.vgtest shell_badinterp.stderr.exp \
+	shell_binaryfile shell_binaryfile.vgtest shell_binaryfile.stderr.exp \
+	shell_dir.vgtest shell_dir.stderr.exp \
+	shell_nonexec.vgtest shell_nonexec.stderr.exp \
+	shell_nosuchfile.vgtest shell_nosuchfile.stderr.exp \
+	shell_valid1 shell_valid1.vgtest shell_valid1.stderr.exp \
+	shell_valid2 shell_valid2.vgtest shell_valid2.stderr.exp \
+	shell_valid3 shell_valid3.vgtest shell_valid3.stderr.exp \
+	shell_zerolength shell_zerolength.vgtest shell_zerolength.stderr.exp \
+	    shell_zerolength.stderr.exp-dash \
+	sha1_test.stderr.exp sha1_test.vgtest \
+	shortpush.stderr.exp shortpush.vgtest \
+	shorts.stderr.exp shorts.vgtest \
+	sigstackgrowth.stdout.exp sigstackgrowth.stderr.exp sigstackgrowth.vgtest \
+	stackgrowth.stdout.exp stackgrowth.stderr.exp stackgrowth.vgtest \
+	syscall-restart1.vgtest syscall-restart1.stdout.exp syscall-restart1.stderr.exp \
+	syscall-restart2.vgtest syscall-restart2.stdout.exp syscall-restart2.stderr.exp \
+	syslog.vgtest syslog.stderr.exp \
+	system.stderr.exp system.vgtest \
+	thread-exits.stderr.exp thread-exits.stdout.exp thread-exits.vgtest \
+	threaded-fork.stderr.exp threaded-fork.stdout.exp threaded-fork.vgtest \
+	threadederrno.stderr.exp threadederrno.stdout.exp \
+	threadederrno.vgtest \
+	timestamp.stderr.exp timestamp.vgtest \
+	tls.vgtest tls.stderr.exp tls.stdout.exp  \
+	vgprintf.stderr.exp vgprintf.vgtest
 
 
 # Extra stuff for C tests
@@ -1667,42 +1710,6 @@ clean-noinst_DSYMS:
 check-local: build-noinst_DSYMS
 
 clean-local: clean-noinst_DSYMS
-	require-text-symbol-2.vgtest \
-		require-text-symbol-2.stderr.exp-libcso6 \
-	res_search.stderr.exp res_search.stdout.exp res_search.vgtest \
-	resolv.stderr.exp resolv.stdout.exp resolv.vgtest \
-	rlimit_nofile.stderr.exp rlimit_nofile.stdout.exp rlimit_nofile.vgtest \
-	selfrun.stderr.exp selfrun.stdout.exp selfrun.vgtest \
-	sem.stderr.exp sem.stdout.exp sem.vgtest \
-	semlimit.stderr.exp semlimit.stdout.exp semlimit.vgtest \
-	shell shell.vgtest shell.stderr.exp shell.stderr.exp-dash \
-	    shell.stdout.exp \
-	shell_badinterp shell_badinterp.vgtest shell_badinterp.stderr.exp \
-	shell_binaryfile shell_binaryfile.vgtest shell_binaryfile.stderr.exp \
-	shell_dir.vgtest shell_dir.stderr.exp \
-	shell_nonexec.vgtest shell_nonexec.stderr.exp \
-	shell_nosuchfile.vgtest shell_nosuchfile.stderr.exp \
-	shell_valid1 shell_valid1.vgtest shell_valid1.stderr.exp \
-	shell_valid2 shell_valid2.vgtest shell_valid2.stderr.exp \
-	shell_valid3 shell_valid3.vgtest shell_valid3.stderr.exp \
-	shell_zerolength shell_zerolength.vgtest shell_zerolength.stderr.exp \
-	    shell_zerolength.stderr.exp-dash \
-	sha1_test.stderr.exp sha1_test.vgtest \
-	shortpush.stderr.exp shortpush.vgtest \
-	shorts.stderr.exp shorts.vgtest \
-	sigstackgrowth.stdout.exp sigstackgrowth.stderr.exp sigstackgrowth.vgtest \
-	stackgrowth.stdout.exp stackgrowth.stderr.exp stackgrowth.vgtest \
-	syscall-restart1.vgtest syscall-restart1.stdout.exp syscall-restart1.stderr.exp \
-	syscall-restart2.vgtest syscall-restart2.stdout.exp syscall-restart2.stderr.exp \
-	syslog.vgtest syslog.stderr.exp \
-	system.stderr.exp system.vgtest \
-	thread-exits.stderr.exp thread-exits.stdout.exp thread-exits.vgtest \
-	threaded-fork.stderr.exp threaded-fork.stdout.exp threaded-fork.vgtest \
-	threadederrno.stderr.exp threadederrno.stdout.exp \
-	threadederrno.vgtest \
-	timestamp.stderr.exp timestamp.vgtest \
-	tls.vgtest tls.stderr.exp tls.stdout.exp  \
-	vgprintf.stderr.exp vgprintf.vgtest
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

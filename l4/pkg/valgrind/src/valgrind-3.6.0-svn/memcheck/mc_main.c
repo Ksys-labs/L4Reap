@@ -4747,6 +4747,7 @@ Long          MC_(clo_freelist_vol)           = 10*1000*1000LL;
 LeakCheckMode MC_(clo_leak_check)             = LC_Summary;
 VgRes         MC_(clo_leak_resolution)        = Vg_HighRes;
 Bool          MC_(clo_show_reachable)         = False;
+Bool          MC_(clo_show_possibly_lost)     = True;
 Bool          MC_(clo_workaround_gcc296_bugs) = False;
 Int           MC_(clo_malloc_fill)            = -1;
 Int           MC_(clo_free_fill)              = -1;
@@ -4755,8 +4756,6 @@ Int           MC_(clo_mc_level)               = 2;
 static Bool mc_process_cmd_line_options(Char* arg)
 {
    Char* tmp_str;
-   Char* bad_level_msg =
-      "ERROR: --track-origins=yes has no effect when --undef-value-errors=no";
 
    tl_assert( MC_(clo_mc_level) >= 1 && MC_(clo_mc_level) <= 3 );
 
@@ -4771,8 +4770,7 @@ static Bool mc_process_cmd_line_options(Char* arg)
    */
    if (0 == VG_(strcmp)(arg, "--undef-value-errors=no")) {
       if (MC_(clo_mc_level) == 3) {
-         VG_(message)(Vg_DebugMsg, "%s\n", bad_level_msg);
-         return False;
+         goto bad_level;
       } else {
          MC_(clo_mc_level) = 1;
          return True;
@@ -4790,8 +4788,7 @@ static Bool mc_process_cmd_line_options(Char* arg)
    }
    if (0 == VG_(strcmp)(arg, "--track-origins=yes")) {
       if (MC_(clo_mc_level) == 1) {
-         VG_(message)(Vg_DebugMsg, "%s\n", bad_level_msg);
-         return False;
+         goto bad_level;
       } else {
          MC_(clo_mc_level) = 3;
          return True;
@@ -4800,6 +4797,8 @@ static Bool mc_process_cmd_line_options(Char* arg)
 
 	if VG_BOOL_CLO(arg, "--partial-loads-ok", MC_(clo_partial_loads_ok)) {}
    else if VG_BOOL_CLO(arg, "--show-reachable",   MC_(clo_show_reachable))   {}
+   else if VG_BOOL_CLO(arg, "--show-possibly-lost",
+                                            MC_(clo_show_possibly_lost))     {}
    else if VG_BOOL_CLO(arg, "--workaround-gcc296-bugs",
                                             MC_(clo_workaround_gcc296_bugs)) {}
 
@@ -4857,6 +4856,11 @@ static Bool mc_process_cmd_line_options(Char* arg)
       return VG_(replacement_malloc_process_cmd_line_option)(arg);
 
    return True;
+
+
+  bad_level:
+   VG_(fmsg_bad_option)(arg,
+      "--track-origins=yes has no effect when --undef-value-errors=no.\n");
 }
 
 static void mc_print_usage(void)
@@ -4865,6 +4869,8 @@ static void mc_print_usage(void)
 "    --leak-check=no|summary|full     search for memory leaks at exit?  [summary]\n"
 "    --leak-resolution=low|med|high   differentiation of leak stack traces [high]\n"
 "    --show-reachable=no|yes          show reachable blocks in leak check? [no]\n"
+"    --show-possibly-lost=no|yes      show possibly lost blocks in leak check?\n"
+"                                     [yes]\n"
 "    --undef-value-errors=no|yes      check for undefined value errors [yes]\n"
 "    --track-origins=no|yes           show origins of undefined values? [no]\n"
 "    --partial-loads-ok=no|yes        too hard to explain here; see manual [no]\n"

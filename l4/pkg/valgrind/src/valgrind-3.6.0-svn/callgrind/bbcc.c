@@ -580,6 +580,7 @@ void CLG_(setup_bbcc)(BB* bb)
 
   if (last_bb) {
       passed = CLG_(current_state).jmps_passed;
+      CLG_ASSERT(passed <= last_bb->cjmp_count);
       if (passed == last_bb->cjmp_count) {
 	  jmpkind = last_bb->jmpkind;
 
@@ -599,9 +600,9 @@ void CLG_(setup_bbcc)(BB* bb)
 	  last_bbcc->ecounter_sum++;
 	  last_bbcc->jmp[passed].ecounter++;
 	  if (!CLG_(clo).simulate_cache) {
-	      /* update Ir cost */
-	      int instr_count = last_bb->jmp[passed].instr+1;
-	      CLG_(current_state).cost[CLG_(sets).off_full_Ir] += instr_count;
+	      /* update Ir cost */              
+              UInt instr_count = last_bb->jmp[passed].instr+1;
+              CLG_(current_state).cost[ fullOffset(EG_IR) ] += instr_count;
 	  }
       }
 
@@ -864,6 +865,9 @@ void CLG_(setup_bbcc)(BB* bb)
   }
   
   CLG_(current_state).bbcc = bbcc;
+  // needed for log_* handlers called in this BB
+  CLG_(bb_base)   = bb->obj->offset + bb->offset;
+  CLG_(cost_base) = bbcc->cost;
   
   CLG_DEBUGIF(1) {
     VG_(printf)("     ");
@@ -878,7 +882,5 @@ void CLG_(setup_bbcc)(BB* bb)
     CLG_(print_cxt)(-8, CLG_(current_state).cxt, bbcc->rec_index);
   CLG_DEBUG(3,"\n");
   
-  (*CLG_(cachesim).after_bbsetup)();
-
   CLG_(stat).bb_executions++;
 }

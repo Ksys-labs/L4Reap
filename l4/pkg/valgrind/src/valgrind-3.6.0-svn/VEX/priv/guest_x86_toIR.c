@@ -3362,6 +3362,40 @@ UInt dis_imul_I_E_G ( UChar       sorb,
 }
 
 
+/* Generate an IR sequence to do a count-leading-zeroes operation on
+   the supplied IRTemp, and return a new IRTemp holding the result.
+   'ty' may be Ity_I16 or Ity_I32 only.  In the case where the
+   argument is zero, return the number of bits in the word (the
+   natural semantics). */
+static IRTemp gen_LZCNT ( IRType ty, IRTemp src )
+{
+   vassert(ty == Ity_I32 || ty == Ity_I16);
+
+   IRTemp src32 = newTemp(Ity_I32);
+   assign(src32, widenUto32( mkexpr(src) ));
+
+   IRTemp src32x = newTemp(Ity_I32);
+   assign(src32x, 
+          binop(Iop_Shl32, mkexpr(src32),
+                           mkU8(32 - 8 * sizeofIRType(ty))));
+
+   // Clz32 has undefined semantics when its input is zero, so
+   // special-case around that.
+   IRTemp res32 = newTemp(Ity_I32);
+   assign(res32,
+          IRExpr_Mux0X(
+             unop(Iop_1Uto8,
+                  binop(Iop_CmpEQ32, mkexpr(src32x), mkU32(0))),
+             unop(Iop_Clz32, mkexpr(src32x)),
+             mkU32(8 * sizeofIRType(ty))
+   ));
+
+   IRTemp res = newTemp(ty);
+   assign(res, narrowTo(ty, mkexpr(res32)));
+   return res;
+}
+
+
 /*------------------------------------------------------------*/
 /*---                                                      ---*/
 /*--- x87 FLOATING POINT INSTRUCTIONS                      ---*/
@@ -6127,7 +6161,8 @@ static HChar* nameBtOp ( BtOp op )
 
 
 static
-UInt dis_bt_G_E ( UChar sorb, Bool locked, Int sz, Int delta, BtOp op )
+UInt dis_bt_G_E ( VexAbiInfo* vbi,
+                  UChar sorb, Bool locked, Int sz, Int delta, BtOp op )
 {
    HChar  dis_buf[50];
    UChar  modrm;
@@ -6157,7 +6192,12 @@ UInt dis_bt_G_E ( UChar sorb, Bool locked, Int sz, Int delta, BtOp op )
       t_esp = newTemp(Ity_I32);
       t_addr0 = newTemp(Ity_I32);
 
-      assign( t_esp, binop(Iop_Sub32, getIReg(4, R_ESP), mkU32(sz)) );
+      /* For the choice of the value 128, see comment in dis_bt_G_E in
+         guest_amd64_toIR.c.  We point out here only that 128 is
+         fast-cased in Memcheck and is > 0, so seems like a good
+         choice. */
+      vassert(vbi->guest_stack_redzone_size == 0);
+      assign( t_esp, binop(Iop_Sub32, getIReg(4, R_ESP), mkU32(128)) );
       putIReg(4, R_ESP, mkexpr(t_esp));
 
       storeLE( mkexpr(t_esp), getIReg(sz, eregOfRM(modrm)) );
@@ -6252,7 +6292,7 @@ UInt dis_bt_G_E ( UChar sorb, Bool locked, Int sz, Int delta, BtOp op )
    if (epartIsReg(modrm)) {
       /* t_esp still points at it. */
       putIReg(sz, eregOfRM(modrm), loadLE(szToITy(sz), mkexpr(t_esp)) );
-      putIReg(4, R_ESP, binop(Iop_Add32, mkexpr(t_esp), mkU32(sz)) );
+      putIReg(4, R_ESP, binop(Iop_Add32, mkexpr(t_esp), mkU32(128)) );
    }
 
    DIP("bt%s%c %s, %s\n",
@@ -6615,7 +6655,8 @@ UInt dis_xadd_G_E ( UChar sorb, Bool locked, Int sz, Int delta0,
 
    /* There are 3 cases to consider:
 
-      reg-reg: currently unhandled
+      reg-reg: ignore any lock prefix,
+               generate 'naive' (non-atomic) sequence
 
       reg-mem, not locked: ignore any lock prefix, generate 'naive'
                            (non-atomic) sequence
@@ -6625,9 +6666,18 @@ UInt dis_xadd_G_E ( UChar sorb, Bool locked, Int sz, Int delta0,
 
    if (epartIsReg(rm)) {
       /* case 1 */
-      *decodeOK = False;
-      return delta0;
-      /* Currently we don't handle xadd_G_E with register operand. */
+      assign( tmpd,  getIReg(sz, eregOfRM(rm)));
+      assign( tmpt0, getIReg(sz, gregOfRM(rm)) );
+      assign( tmpt1, binop(mkSizedOp(ty,Iop_Add8),
+                           mkexpr(tmpd), mkexpr(tmpt0)) );
+      setFlags_DEP1_DEP2( Iop_Add8, tmpd, tmpt0, ty );
+      putIReg(sz, eregOfRM(rm), mkexpr(tmpt1));
+      putIReg(sz, gregOfRM(rm), mkexpr(tmpd));
+      DIP("xadd%c %s, %s\n",
+          nameISize(sz), nameIReg(sz,gregOfRM(rm)), 
+          				 nameIReg(sz,eregOfRM(rm)));
+      *decodeOK = True;
+      return 1+delta0;
    }
    else if (!epartIsReg(rm) && !locked) {
       /* case 2 */
@@ -7797,7 +7847,8 @@ DisResult disInstr_X86_WRK (
              Bool         resteerCisOk,
              void*        callback_opaque,
              Long         delta64,
-             VexArchInfo* archinfo 
+             VexArchInfo* archinfo,
+             VexAbiInfo*  vbi
           )
 {
    IRType    ty;
@@ -12596,6 +12647,126 @@ DisResult disInstr_X86_WRK (
    /* --- end of the SSSE3 decoder.                    --- */
    /* ---------------------------------------------------- */
 
+   /* ---------------------------------------------------- */
+   /* --- start of the SSE4 decoder                    --- */
+   /* ---------------------------------------------------- */
+
+   /* 66 0F 3A 0B /r ib = ROUNDSD imm8, xmm2/m64, xmm1
+      (Partial implementation only -- only deal with cases where
+      the rounding mode is specified directly by the immediate byte.)
+      66 0F 3A 0A /r ib = ROUNDSS imm8, xmm2/m32, xmm1
+      (Limitations ditto)
+   */
+   if (sz == 2 
+       && insn[0] == 0x0F && insn[1] == 0x3A
+       && (/*insn[2] == 0x0B || */insn[2] == 0x0A)) {
+
+      Bool   isD = insn[2] == 0x0B;
+      IRTemp src = newTemp(isD ? Ity_F64 : Ity_F32);
+      IRTemp res = newTemp(isD ? Ity_F64 : Ity_F32);
+      Int    imm = 0;
+
+      modrm = insn[3];
+
+      if (epartIsReg(modrm)) {
+         assign( src, 
+                 isD ? getXMMRegLane64F( eregOfRM(modrm), 0 )
+                     : getXMMRegLane32F( eregOfRM(modrm), 0 ) );
+         imm = insn[3+1];
+         if (imm & ~3) goto decode_failure;
+         delta += 3+1+1;
+         DIP( "rounds%c $%d,%s,%s\n",
+              isD ? 'd' : 's',
+              imm, nameXMMReg( eregOfRM(modrm) ),
+                   nameXMMReg( gregOfRM(modrm) ) );
+      } else {
+         addr = disAMode( &alen, sorb, delta+3, dis_buf );
+         assign( src, loadLE( isD ? Ity_F64 : Ity_F32, mkexpr(addr) ));
+         imm = insn[3+alen];
+         if (imm & ~3) goto decode_failure;
+         delta += 3+alen+1;
+         DIP( "roundsd $%d,%s,%s\n",
+              imm, dis_buf, nameXMMReg( gregOfRM(modrm) ) );
+      }
+
+      /* (imm & 3) contains an Intel-encoded rounding mode.  Because
+         that encoding is the same as the encoding for IRRoundingMode,
+         we can use that value directly in the IR as a rounding
+         mode. */
+      assign(res, binop(isD ? Iop_RoundF64toInt : Iop_RoundF32toInt,
+                  mkU32(imm & 3), mkexpr(src)) );
+
+      if (isD)
+         putXMMRegLane64F( gregOfRM(modrm), 0, mkexpr(res) );
+      else
+         putXMMRegLane32F( gregOfRM(modrm), 0, mkexpr(res) );
+
+      goto decode_success;
+   }
+
+   /* F3 0F BD -- LZCNT (count leading zeroes.  An AMD extension,
+      which we can only decode if we're sure this is an AMD cpu that
+      supports LZCNT, since otherwise it's BSR, which behaves
+      differently. */
+   if (insn[0] == 0xF3 && insn[1] == 0x0F && insn[2] == 0xBD
+       && 0 != (archinfo->hwcaps & VEX_HWCAPS_X86_LZCNT)) {
+      vassert(sz == 2 || sz == 4);
+      /*IRType*/ ty  = szToITy(sz);
+      IRTemp     src = newTemp(ty);
+      modrm = insn[3];
+      if (epartIsReg(modrm)) {
+         assign(src, getIReg(sz, eregOfRM(modrm)));
+         delta += 3+1;
+         DIP("lzcnt%c %s, %s\n", nameISize(sz),
+             nameIReg(sz, eregOfRM(modrm)),
+             nameIReg(sz, gregOfRM(modrm)));
+      } else {
+         addr = disAMode( &alen, sorb, delta+3, dis_buf );
+         assign(src, loadLE(ty, mkexpr(addr)));
+         delta += 3+alen;
+         DIP("lzcnt%c %s, %s\n", nameISize(sz), dis_buf,
+             nameIReg(sz, gregOfRM(modrm)));
+      }
+
+      IRTemp res = gen_LZCNT(ty, src);
+      putIReg(sz, gregOfRM(modrm), mkexpr(res));
+
+      // Update flags.  This is pretty lame .. perhaps can do better
+      // if this turns out to be performance critical.
+      // O S A P are cleared.  Z is set if RESULT == 0.
+      // C is set if SRC is zero.
+      IRTemp src32 = newTemp(Ity_I32);
+      IRTemp res32 = newTemp(Ity_I32);
+      assign(src32, widenUto32(mkexpr(src)));
+      assign(res32, widenUto32(mkexpr(res)));
+
+      IRTemp oszacp = newTemp(Ity_I32);
+      assign(
+         oszacp,
+         binop(Iop_Or32,
+               binop(Iop_Shl32,
+                     unop(Iop_1Uto32,
+                          binop(Iop_CmpEQ32, mkexpr(res32), mkU32(0))),
+                     mkU8(X86G_CC_SHIFT_Z)),
+               binop(Iop_Shl32,
+                     unop(Iop_1Uto32,
+                          binop(Iop_CmpEQ32, mkexpr(src32), mkU32(0))),
+                     mkU8(X86G_CC_SHIFT_C))
+         )
+      );
+
+      stmt( IRStmt_Put( OFFB_CC_OP,   mkU32(X86G_CC_OP_COPY) ));
+      stmt( IRStmt_Put( OFFB_CC_DEP2, mkU32(0) ));
+      stmt( IRStmt_Put( OFFB_CC_NDEP, mkU32(0) ));
+      stmt( IRStmt_Put( OFFB_CC_DEP1, mkexpr(oszacp) ));
+
+      goto decode_success;
+   }
+
+   /* ---------------------------------------------------- */
+   /* --- end of the SSE4 decoder                      --- */
+   /* ---------------------------------------------------- */
+
    after_sse_decoders:
 
    /* ---------------------------------------------------- */
@@ -14284,16 +14455,16 @@ DisResult disInstr_X86_WRK (
       /* =-=-=-=-=-=-=-=-=- BT/BTS/BTR/BTC =-=-=-=-=-=-= */
 
       case 0xA3: /* BT Gv,Ev */
-         delta = dis_bt_G_E ( sorb, pfx_lock, sz, delta, BtOpNone );
+         delta = dis_bt_G_E ( vbi, sorb, pfx_lock, sz, delta, BtOpNone );
          break;
       case 0xB3: /* BTR Gv,Ev */
-         delta = dis_bt_G_E ( sorb, pfx_lock, sz, delta, BtOpReset );
+         delta = dis_bt_G_E ( vbi, sorb, pfx_lock, sz, delta, BtOpReset );
          break;
       case 0xAB: /* BTS Gv,Ev */
-         delta = dis_bt_G_E ( sorb, pfx_lock, sz, delta, BtOpSet );
+         delta = dis_bt_G_E ( vbi, sorb, pfx_lock, sz, delta, BtOpSet );
          break;
       case 0xBB: /* BTC Gv,Ev */
-         delta = dis_bt_G_E ( sorb, pfx_lock, sz, delta, BtOpComp );
+         delta = dis_bt_G_E ( vbi, sorb, pfx_lock, sz, delta, BtOpComp );
          break;
 
       /* =-=-=-=-=-=-=-=-=- CMOV =-=-=-=-=-=-=-=-=-=-=-= */
@@ -14880,6 +15051,41 @@ DisResult disInstr_X86_WRK (
          DIP("emms\n");
          break;
 
+      /* =-=-=-=-=-=-=-=-=- SGDT and SIDT =-=-=-=-=-=-=-=-=-=-= */
+      case 0x01: /* 0F 01 /0 -- SGDT */
+                 /* 0F 01 /1 -- SIDT */
+      {
+          /* This is really revolting, but ... since each processor
+             (core) only has one IDT and one GDT, just let the guest
+             see it (pass-through semantics).  I can't see any way to
+             construct a faked-up value, so don't bother to try. */
+         modrm = getUChar(delta);
+         addr = disAMode ( &alen, sorb, delta, dis_buf );
+         delta += alen;
+         if (epartIsReg(modrm)) goto decode_failure;
+         if (gregOfRM(modrm) != 0 && gregOfRM(modrm) != 1)
+            goto decode_failure;
+         switch (gregOfRM(modrm)) {
+            case 0: DIP("sgdt %s\n", dis_buf); break;
+            case 1: DIP("sidt %s\n", dis_buf); break;
+            default: vassert(0); /*NOTREACHED*/
+         }
+
+         IRDirty* d = unsafeIRDirty_0_N (
+                          0/*regparms*/,
+                          "x86g_dirtyhelper_SxDT",
+                          &x86g_dirtyhelper_SxDT,
+                          mkIRExprVec_2( mkexpr(addr),
+                                         mkU32(gregOfRM(modrm)) )
+                      );
+         /* declare we're writing memory */
+         d->mFx   = Ifx_Write;
+         d->mAddr = mkexpr(addr);
+         d->mSize = 6;
+         stmt( IRStmt_Dirty(d) );
+         break;
+      }
+
       /* =-=-=-=-=-=-=-=-=- unimp2 =-=-=-=-=-=-=-=-=-=-= */
 
       default:
@@ -14966,7 +15172,8 @@ DisResult disInstr_X86 ( IRSB*        irsb_IN,
    expect_CAS = False;
    dres = disInstr_X86_WRK ( &expect_CAS, put_IP, resteerOkFn,
                              resteerCisOk,
-                             callback_opaque, delta, archinfo );
+                             callback_opaque,
+                             delta, archinfo, abiinfo );
    x2 = irsb_IN->stmts_used;
    vassert(x2 >= x1);
 
@@ -14985,7 +15192,8 @@ DisResult disInstr_X86 ( IRSB*        irsb_IN,
       vex_traceflags |= VEX_TRACE_FE;
       dres = disInstr_X86_WRK ( &expect_CAS, put_IP, resteerOkFn,
                                 resteerCisOk,
-                                callback_opaque, delta, archinfo );
+                                callback_opaque,
+                                delta, archinfo, abiinfo );
       for (i = x1; i < x2; i++) {
          vex_printf("\t\t");
          ppIRStmt(irsb_IN->stmts[i]);

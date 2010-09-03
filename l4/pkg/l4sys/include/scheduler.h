@@ -194,7 +194,7 @@ l4_scheduler_is_online_u(l4_cap_idx_t scheduler, l4_umword_t cpu,
  * \hideinitializer
  * \internal
  */
-enum L4_cpu_ops
+enum L4_scheduler_ops
 {
   L4_SCHEDULER_INFO_OP       = 0UL, /**< Query infos about the scheduler */
   L4_SCHEDULER_RUN_THREAD_OP = 1UL, /**< Run a thread on this scheduler */

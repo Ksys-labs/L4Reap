@@ -30,7 +30,7 @@ PREPROCESS_PARTS-$(CONFIG_SERIAL)            += serial 16550
 PREPROCESS_PARTS-$(CONFIG_WATCHDOG)          += watchdog
 PREPROCESS_PARTS-$(CONFIG_PERF_CNT)          += perf_cnt
 PREPROCESS_PARTS-$(CONFIG_IO_PROT)           += io
-PREPROCESS_PARTS-$(CONFIG_CPU_VIRT)          += svm
+PREPROCESS_PARTS-$(CONFIG_CPU_VIRT)          += svm vmx
 PREPROCESS_PARTS-$(CONFIG_SCHED_FIXED_PRIO)  += sched_fixed_prio
 PREPROCESS_PARTS-$(CONFIG_SCHED_WFQ)         += sched_wfq
 PREPROCESS_PARTS-$(CONFIG_SCHED_FP_WFQ)      += sched_fp_wfq
@@ -122,7 +122,7 @@ INTERFACES_KERNEL	:= cpu_mask rcupdate pages kobject_mapdb \
 			   scheduler clock vm_factory \
 			   sys_call_page
 
-INTERFACES_KERNEL-$(CONFIG_CPU_VIRT) += svm vm vm_svm
+INTERFACES_KERNEL-$(CONFIG_CPU_VIRT) += svm vmx vm vm_svm vm_vmx
 
 PREPROCESS_PARTS	+= ulock
 INTERFACES_KERNEL	+= u_semaphore
@@ -257,7 +257,7 @@ CXXSRC_KERNEL		:= kernel_panic.cc libc_backend_lock.cc
 ASSRC_KERNEL		:= entry.S entry-native.S sys_call_page-asm.S
 
 ASSRC_KERNEL-$(CONFIG_MP)               += tramp-mp.S entry-mp.S
-ASSRC_KERNEL-$(CONFIG_CPU_VIRT)         += vm_svm_asm.S
+ASSRC_KERNEL-$(CONFIG_CPU_VIRT)         += vm_svm_asm.S vm_vmx_asm.S
 ASSRC_KERNEL                            += $(ASSRC_KERNEL-y)
 
 NOOPT			+= $(filter jdb%,\

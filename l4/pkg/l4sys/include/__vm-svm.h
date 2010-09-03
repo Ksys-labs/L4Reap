@@ -37,7 +37,7 @@
  * \brief VMCB structure for SVM VMs
  * \ingroup l4_vm_svm_api
  */
-struct l4_vm_svm_vmcb_control_area
+typedef struct l4_vm_svm_vmcb_control_area
 {
   l4_uint16_t intercept_rd_crX;
   l4_uint16_t intercept_wr_crX;
@@ -71,25 +71,25 @@ struct l4_vm_svm_vmcb_control_area
   l4_uint64_t lbr_virtualization_enable;
 
   l4_uint8_t _reserved2[832];
-} __attribute__((packed));
+} __attribute__((packed)) l4_vm_svm_vmcb_control_area_t;
 
 /**
  * \brief State save area segment selector struct
  * \ingroup l4_vm_svm_api
  */
-struct l4_vm_svm_vmcb_state_save_area_seg
+typedef struct l4_vm_svm_vmcb_state_save_area_seg
 {
   l4_uint16_t selector;
   l4_uint16_t attrib;
   l4_uint32_t limit;
   l4_uint64_t base;
-} __attribute__((packed));
+} __attribute__((packed)) l4_vm_svm_vmcb_state_save_area_seg_t;
 
 /**
  * \brief State save area structure for SVM VMs
  * \ingroup l4_vm_svm_api
  */
-struct l4_vm_svm_vmcb_state_save_area
+typedef struct l4_vm_svm_vmcb_state_save_area
 {
   struct l4_vm_svm_vmcb_state_save_area_seg es;
   struct l4_vm_svm_vmcb_state_save_area_seg cs;
@@ -147,80 +147,15 @@ struct l4_vm_svm_vmcb_state_save_area
   l4_uint64_t last_excpto;
 
   l4_uint8_t _reserved6[2408];
-} __attribute__((packed));
+} __attribute__((packed)) l4_vm_svm_vmcb_state_save_area_t;
 
 
 /**
  * \brief Control structure for SVM VMs
  * \ingroup l4_vm_svm_api
  */
-struct l4_vm_svm_vmcb
+typedef struct l4_vm_svm_vmcb_t
 {
-  struct l4_vm_svm_vmcb_control_area    control_area;
-  struct l4_vm_svm_vmcb_state_save_area state_save_area;
-};
-
-/**
- * \brief Run a VM
- * \ingroup l4_vm_svm_api
- *
- * \param vm         Capability selector for VM
- * \param vmcb_fpage VMCB
- * \param gpregs     General purpose registers
- *
- * \note SVM only for now
- */
-L4_INLINE l4_msgtag_t
-l4_vm_run_svm(l4_cap_idx_t vm, l4_fpage_t vmcb_fpage,
-              struct l4_vm_svm_gpregs *gpregs) L4_NOTHROW;
-
-/**
- * \internal
- * \ingroup l4_vm_svm_api
- */
-L4_INLINE l4_msgtag_t
-l4_vm_run_svm_u(l4_cap_idx_t vm_task, l4_fpage_t const vmcb_fpage,
-                struct l4_vm_svm_gpregs *gpregs, l4_utcb_t *u) L4_NOTHROW;
-
-
-/**
- * \internal
- * \brief Operations on task objects.
- * \ingroup l4_vm_svm_api
- */
-enum
-{
-  L4_VM_RUN_OP    = L4_TASK_VM_OPS + 0    /* Run a VM */
-};
-
-
-/****** Implementations ****************/
-
-L4_INLINE l4_msgtag_t
-l4_vm_run_svm_u(l4_cap_idx_t vm_task, l4_fpage_t const vmcb_fpage,
-                struct l4_vm_svm_gpregs *gpregs, l4_utcb_t *u) L4_NOTHROW
-{
-  l4_msgtag_t tag;
-  l4_msg_regs_t *v = l4_utcb_mr_u(u);
-  enum { GPREGS_WORDS = sizeof(*gpregs) / sizeof(l4_umword_t), };
-  v->mr[0]  = L4_VM_RUN_OP;
-
-  __builtin_memcpy(&v->mr[1], gpregs, sizeof(*gpregs));
-  v->mr[1 + GPREGS_WORDS] = l4_map_control(0, 0, 0);
-  v->mr[2 + GPREGS_WORDS] = vmcb_fpage.raw;
-
-  tag = l4_ipc_call(vm_task, u,
-                    l4_msgtag(L4_PROTO_TASK, 1 + GPREGS_WORDS, 1, 0),
-                    L4_IPC_NEVER);
-
-  __builtin_memcpy(gpregs, &v->mr[1], sizeof(*gpregs));
-
-  return tag;
-}
-
-L4_INLINE l4_msgtag_t
-l4_vm_run_svm(l4_cap_idx_t task, l4_fpage_t vmcb_fpage,
-              struct l4_vm_svm_gpregs *gpregs) L4_NOTHROW
-{
-  return l4_vm_run_svm_u(task, vmcb_fpage, gpregs, l4_utcb());
-}
+  l4_vm_svm_vmcb_control_area_t    control_area;
+  l4_vm_svm_vmcb_state_save_area_t state_save_area;
+} l4_vm_svm_vmcb_t;

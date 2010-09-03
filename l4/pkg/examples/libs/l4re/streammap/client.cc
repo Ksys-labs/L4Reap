@@ -48,7 +48,7 @@ int
 main()
 {
 
-  L4::Cap<void> server = L4Re::Env::env()->get_cap<void>("smap_server");
+  L4::Cap<void> server = L4Re::Env::env()->get_cap<void>("smap");
   if (!server.is_valid())
     {
       printf("Could not get capability slot!\n");

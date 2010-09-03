@@ -395,7 +395,7 @@ Vm_svm::sys_vm_run(Syscall_frame *f, Utcb *utcb)
       return commit_result(-L4_err::EInval);
     }
 
-  if (EXPECT_FALSE(tag.words() < 1 + Svm::Gpregs_words))
+  if (EXPECT_FALSE(tag.words() < 2 + Svm::Gpregs_words))
     {
       WARN("svm: Invalid message length\n");
       return commit_result(-L4_err::EInval);
@@ -652,7 +652,7 @@ Vm_svm::sys_vm_run(Syscall_frame *f, Utcb *utcb)
     Cpu::set_cr4(cr4 & ~CR4_PGE);
 #endif
 
-  resume_vm_svm(kernel_vmcb_pa, &utcb->values[1]);
+  resume_vm_svm(kernel_vmcb_pa, &utcb->values[2]);
 
 
 #if 0

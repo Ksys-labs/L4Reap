@@ -163,9 +163,18 @@ REDO_TEXT_CMD = echo "$(ENTRY) '$(COMPRESS)' '$(RAM_SIZE_MB)' '$(PLATFORM_TYPE)'
 
 ifneq ($(ENTRY),)
 
-INSTALL_TARGET	= $(BOOTSTRAP_ELF_NAME) bootstrap_$(ENTRY_FN) bootstrap_$(ENTRY_FN).elf
+INSTALL_TARGET  = $(BOOTSTRAP_ELF_NAME) bootstrap_$(ENTRY_FN) bootstrap_$(ENTRY_FN).elf
+ifeq ($(ARCH),amd64)
+INSTALL_TARGET += bootstrap32.elf
+BOOTSTRAP_LINK_SOURCE = bootstrap32.elf
+else
+BOOTSTRAP_LINK_SOURCE = $(BOOTSTRAP_ELF_NAME)
+endif
 
-bootstrap_$(ENTRY_FN).elf: $(BOOTSTRAP_ELF_NAME)
+bootstrap_$(ENTRY_FN): $(BOOTSTRAP_LINK_SOURCE)
+	$(VERBOSE)$(LN) -f $< $@
+
+bootstrap_$(ENTRY_FN).elf: $(BOOTSTRAP_LINK_SOURCE)
 	$(VERBOSE)$(LN) -f $< $@
 
 bootstrap_$(ENTRY_FN).raw: bootstrap.raw
@@ -220,7 +229,7 @@ $(IMAGES_DIR)/Makefile: $(SRC_DIR)/Make.rules
 	$(VERBOSE)$(ECHO) "	\$$(MAKE) -C .. image E=\"\$$@\"" >> $@
 else
   INSTALL_TARGET = bootstrap
-endif
+endif # ENTRY
 
 ifneq ($(REALMODE_LOADING),0)
 LOADER_MBI	 = 1
@@ -244,10 +253,6 @@ endif
 
 ifneq ($(RAM_SIZE_MB),)
 CPPFLAGS	+= -DRAM_SIZE_MB=$(RAM_SIZE_MB)
-endif
-
-ifeq ($(ARCH),amd64)
-all:: $(OBJ_DIR)/ARCH-amd64/libc32/OBJ-$(ARCH)_$(CPU)/libc32.a
 endif
 
 CXXFLAGS += -fno-rtti -fno-exceptions
@@ -379,13 +384,16 @@ CFLAGS32	:= $(filter-out -m64, $(CFLAGS)) -m32
 $(OBJ_DIR)/ARCH-amd64/libc32/OBJ-$(ARCH)_$(CPU)/libc32.a: FORCE
 	$(VERBOSE)$(MAKE) O=$(OBJ_BASE) -C $(SRC_DIR)/ARCH-amd64/libc32
 
-bootstrap: $(OBJ32) bootstrap32.bin $(OBJ_DIR)/ARCH-amd64/libc32/OBJ-$(ARCH)_$(CPU)/libc32.a
+bootstrap32.elf: $(OBJ32) bootstrap32.bin $(OBJ_DIR)/ARCH-amd64/libc32/OBJ-$(ARCH)_$(CPU)/libc32.a
 	@$(LINK_MESSAGE)
 	$(VERBOSE)$(CC32) -o $@ -nostdlib -static \
 	  -Wl,-T,$(SRC_DIR)/ARCH-amd64/boot32/bootstrap32.ld,--gc-sections $^ -lgcc
 	$(VERBOSE)chmod 755 $@
 
-bootstrap32.bin: $(TARGET)
+bootstrap: bootstrap32.elf
+	$(VERBOSE)$(LN) -f $^ $@
+
+bootstrap32.bin: $(BOOTSTRAP_ELF_NAME)
 	@$(GEN_MESSAGE)
 	$(VERBOSE)$(OBJCOPY) -S $< bootstrap64.bin
 	$(VERBOSE)chmod -x bootstrap64.bin
@@ -409,6 +417,3 @@ else
 bootstrap: $(BOOTSTRAP_ELF_NAME)
 	$(VERBOSE)$(LN) -f $^ $@
 endif
-
-bootstrap_$(ENTRY_FN): $(BOOTSTRAP_ELF_NAME)
-	$(VERBOSE)$(LN) -f $^ $@

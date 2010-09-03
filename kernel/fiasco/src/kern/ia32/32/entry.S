@@ -492,7 +492,7 @@ entry_sys_ipc_c:
 	pushl	%eax
 	SAVE_STATE
 	ESP_TO_TCB_AT %ebx
-	testl	$Thread_alien, OFS__THREAD__STATE (%ebx)
+	testl	$Thread_alien_or_vcpu_user, OFS__THREAD__STATE (%ebx)
 	jnz	alien_sys_ipc_c
 	RESET_THREAD_CANCEL_AT %ebx
 	call	sys_ipc_wrapper //ipc_short_cut_wrapper
@@ -514,7 +514,7 @@ entry_sys_ipc_log:
 	pushl	%eax
 	SAVE_STATE
 	ESP_TO_TCB_AT %ebx
-	testl	$Thread_alien, OFS__THREAD__STATE (%ebx)
+	testl	$Thread_alien_or_vcpu_user, OFS__THREAD__STATE (%ebx)
 	jnz	alien_sys_ipc_log
 	RESET_THREAD_CANCEL_AT %ebx
 	call	*syscall_table
@@ -550,7 +550,7 @@ all_syscalls:
 	SAVE_STATE						;\
 	cld
 	ESP_TO_TCB_AT %ebx
-	testl	$Thread_alien, OFS__THREAD__STATE (%ebx)
+	testl	$Thread_alien_or_vcpu_user, OFS__THREAD__STATE (%ebx)
 	jnz	alien_sys_call
 	RESET_THREAD_CANCEL_AT %ebx
 	call	*(%eax)			/* interrupts enabled in wrappers */

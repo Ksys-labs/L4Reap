@@ -772,8 +772,10 @@ static inline Bool isU32 ( IRExpr* e, UInt n )
               && e->Iex.Const.con->Ico.U32 == n );
 }
 
-IRExpr* guest_x86_spechelper ( HChar* function_name,
-                               IRExpr** args )
+IRExpr* guest_x86_spechelper ( HChar*   function_name,
+                               IRExpr** args,
+                               IRStmt** precedingStmts,
+                               Int      n_precedingStmts )
 {
 #  define unop(_op,_a1) IRExpr_Unop((_op),(_a1))
 #  define binop(_op,_a1,_a2) IRExpr_Binop((_op),(_a1),(_a2))
@@ -2353,6 +2355,30 @@ void x86g_dirtyhelper_OUT ( UInt portno, UInt data, UInt sz/*1,2 or 4*/ )
 #  endif
 }
 
+/* CALLED FROM GENERATED CODE */
+/* DIRTY HELPER (non-referentially-transparent) */
+/* Horrible hack.  On non-x86 platforms, do nothing. */
+/* op = 0: call the native SGDT instruction.
+   op = 1: call the native SIDT instruction.
+*/
+void x86g_dirtyhelper_SxDT ( void *address, UInt op ) {
+#  if defined(__i386__)
+   switch (op) {
+      case 0:
+         __asm__ __volatile__("sgdt (%0)" : : "r" (address) : "memory");
+         break;
+      case 1:
+         __asm__ __volatile__("sidt (%0)" : : "r" (address) : "memory");
+         break;
+      default:
+         vpanic("x86g_dirtyhelper_SxDT");
+   }
+#  else
+   /* do nothing */
+   UChar* p = (UChar*)address;
+   p[0] = p[1] = p[2] = p[3] = p[4] = p[5] = 0;
+#  endif
+}
 
 /*---------------------------------------------------------------*/
 /*--- Helpers for MMX/SSE/SSE2.                               ---*/

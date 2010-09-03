@@ -67,9 +67,7 @@ Context::vcpu_enter_kernel_mode()
       if (state() & Thread_vcpu_user_mode)
 	{
 	  vcpu_state()->_sp = vcpu_state()->_entry_sp;
-	  state_del_dirty(  Thread_vcpu_user_mode
-                          | Thread_vcpu_fpu_disabled
-                          | Thread_alien);
+	  state_del_dirty(Thread_vcpu_user_mode | Thread_vcpu_fpu_disabled);
 
 	  if (current() == this)
 	    {

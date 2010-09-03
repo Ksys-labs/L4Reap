@@ -59,7 +59,8 @@ check_PROGRAMS = annotate_hb_err$(EXEEXT) annotate_hb_race$(EXEEXT) \
 	pth_cond_race$(EXEEXT) pth_create_chain$(EXEEXT) \
 	pth_detached$(EXEEXT) pth_detached_sem$(EXEEXT) \
 	pth_inconsistent_cond_wait$(EXEEXT) pth_mutex_reinit$(EXEEXT) \
-	pth_process_shared_mutex$(EXEEXT) recursive_mutex$(EXEEXT) \
+	pth_process_shared_mutex$(EXEEXT) \
+	pth_uninitialized_cond$(EXEEXT) recursive_mutex$(EXEEXT) \
 	rwlock_race$(EXEEXT) rwlock_test$(EXEEXT) \
 	rwlock_type_checking$(EXEEXT) sem_as_mutex$(EXEEXT) \
 	sem_open$(EXEEXT) sigalrm$(EXEEXT) thread_name$(EXEEXT) \
@@ -279,6 +280,10 @@ pth_spinlock_SOURCES = pth_spinlock.c
 pth_spinlock_OBJECTS = pth_spinlock.$(OBJEXT)
 pth_spinlock_LDADD = $(LDADD)
 pth_spinlock_DEPENDENCIES =
+pth_uninitialized_cond_SOURCES = pth_uninitialized_cond.c
+pth_uninitialized_cond_OBJECTS = pth_uninitialized_cond.$(OBJEXT)
+pth_uninitialized_cond_LDADD = $(LDADD)
+pth_uninitialized_cond_DEPENDENCIES =
 am__qt4_atomic_SOURCES_DIST = qt4_atomic.cpp
 @HAVE_QTCORE_QATOMICINT_TRUE@am_qt4_atomic_OBJECTS =  \
 @HAVE_QTCORE_QATOMICINT_TRUE@	qt4_atomic-qt4_atomic.$(OBJEXT)
@@ -392,12 +397,12 @@ SOURCES = annotate_barrier.c annotate_hb_err.c annotate_hb_race.c \
 	pth_create_glibc_2_0.c pth_detached.c pth_detached_sem.c \
 	pth_inconsistent_cond_wait.c pth_mutex_reinit.c \
 	pth_process_shared_mutex.c pth_spinlock.c \
-	$(qt4_atomic_SOURCES) $(qt4_mutex_SOURCES) \
-	$(qt4_rwlock_SOURCES) $(qt4_semaphore_SOURCES) \
-	recursive_mutex.c rwlock_race.c rwlock_test.c \
-	rwlock_type_checking.c sem_as_mutex.c sem_open.c sigalrm.c \
-	thread_name.c trylock.c $(tsan_unittest_SOURCES) unit_bitmap.c \
-	unit_vc.c
+	pth_uninitialized_cond.c $(qt4_atomic_SOURCES) \
+	$(qt4_mutex_SOURCES) $(qt4_rwlock_SOURCES) \
+	$(qt4_semaphore_SOURCES) recursive_mutex.c rwlock_race.c \
+	rwlock_test.c rwlock_type_checking.c sem_as_mutex.c sem_open.c \
+	sigalrm.c thread_name.c trylock.c $(tsan_unittest_SOURCES) \
+	unit_bitmap.c unit_vc.c
 DIST_SOURCES = annotate_barrier.c annotate_hb_err.c annotate_hb_race.c \
 	annotate_ignore_rw.c annotate_ignore_write.c \
 	annotate_publish_hg.c annotate_rwlock.c \
@@ -413,8 +418,8 @@ DIST_SOURCES = annotate_barrier.c annotate_hb_err.c annotate_hb_race.c \
 	pth_create_glibc_2_0.c pth_detached.c pth_detached_sem.c \
 	pth_inconsistent_cond_wait.c pth_mutex_reinit.c \
 	pth_process_shared_mutex.c pth_spinlock.c \
-	$(am__qt4_atomic_SOURCES_DIST) $(am__qt4_mutex_SOURCES_DIST) \
-	$(am__qt4_rwlock_SOURCES_DIST) \
+	pth_uninitialized_cond.c $(am__qt4_atomic_SOURCES_DIST) \
+	$(am__qt4_mutex_SOURCES_DIST) $(am__qt4_rwlock_SOURCES_DIST) \
 	$(am__qt4_semaphore_SOURCES_DIST) recursive_mutex.c \
 	rwlock_race.c rwlock_test.c rwlock_type_checking.c \
 	sem_as_mutex.c sem_open.c sigalrm.c thread_name.c trylock.c \
@@ -460,6 +465,7 @@ FLAG_MAIX32 = @FLAG_MAIX32@
 FLAG_MAIX64 = @FLAG_MAIX64@
 FLAG_MMMX = @FLAG_MMMX@
 FLAG_MSSE = @FLAG_MSSE@
+FLAG_NO_BUILD_ID = @FLAG_NO_BUILD_ID@
 FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
@@ -494,14 +500,18 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
 QTCORE_CFLAGS = @QTCORE_CFLAGS@
 QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
-VALT_LOAD_ADDRESS = @VALT_LOAD_ADDRESS@
+VALT_LOAD_ADDRESS_PRI = @VALT_LOAD_ADDRESS_PRI@
+VALT_LOAD_ADDRESS_SEC = @VALT_LOAD_ADDRESS_SEC@
 VERSION = @VERSION@
 VGCONF_ARCH_PRI = @VGCONF_ARCH_PRI@
 VGCONF_ARCH_SEC = @VGCONF_ARCH_SEC@
@@ -584,7 +594,9 @@ AM_CFLAGS_BASE = \
 # The aim is to give reasonable performance but also to have good
 # stack traces, since users often see stack traces extending 
 # into (and through) the preloads.
-@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing -mno-dynamic-no-pic
+@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing \
+@VGCONF_OS_IS_DARWIN_TRUE@		-mno-dynamic-no-pic -fpic -fPIC
+
 @VGCONF_OS_IS_L4RE_FALSE@AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@ = \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir) \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir)/include \
@@ -643,7 +655,7 @@ AM_CFLAGS_PPC64_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC64_LINUX = $(AM_CPPFLAGS_PPC64_LINUX) @FLAG_M64@ -g
 AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
-			 	$(AM_CFLAGS_BASE)
+			 	$(AM_CFLAGS_BASE) -marm
 
 AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
@@ -658,8 +670,8 @@ AM_CCASFLAGS_PPC64_AIX5 = $(AM_CPPFLAGS_PPC64_AIX5) \
 
 AM_FLAG_M3264_X86_DARWIN = -arch i386
 AM_CFLAGS_X86_DARWIN = $(WERROR) -arch i386 $(AM_CFLAGS_BASE) \
-			    -mmacosx-version-min=10.5 -fno-stack-protector \
-			    -mdynamic-no-pic
+				-mmacosx-version-min=10.5 \
+				-fno-stack-protector -fno-pic -fno-PIC
 
 AM_CCASFLAGS_X86_DARWIN = $(AM_CPPFLAGS_X86_DARWIN) -arch i386 -g
 AM_FLAG_M3264_AMD64_DARWIN = -arch x86_64
@@ -730,7 +742,8 @@ dist_noinst_SCRIPTS = \
 	supported_sem_init
 
 noinst_HEADERS = \
-	tsan_thread_wrappers_pthread.h
+	tsan_thread_wrappers_pthread.h		    \
+	unified_annotations.h
 
 EXTRA_DIST = \
 	annotate_barrier.stderr.exp		    \
@@ -878,6 +891,8 @@ EXTRA_DIST = \
 	pth_process_shared_mutex.vgtest             \
 	pth_spinlock.stderr.exp                     \
 	pth_spinlock.vgtest                         \
+	pth_uninitialized_cond.stderr.exp           \
+	pth_uninitialized_cond.vgtest               \
 	qt4_atomic.stderr.exp                       \
 	qt4_atomic.vgtest                           \
 	qt4_mutex.stderr.exp                        \
@@ -1169,6 +1184,9 @@ pth_process_shared_mutex$(EXEEXT): $(pth_process_shared_mutex_OBJECTS) $(pth_pro
 pth_spinlock$(EXEEXT): $(pth_spinlock_OBJECTS) $(pth_spinlock_DEPENDENCIES) 
 	@rm -f pth_spinlock$(EXEEXT)
 	$(LINK) $(pth_spinlock_OBJECTS) $(pth_spinlock_LDADD) $(LIBS)
+pth_uninitialized_cond$(EXEEXT): $(pth_uninitialized_cond_OBJECTS) $(pth_uninitialized_cond_DEPENDENCIES) 
+	@rm -f pth_uninitialized_cond$(EXEEXT)
+	$(LINK) $(pth_uninitialized_cond_OBJECTS) $(pth_uninitialized_cond_LDADD) $(LIBS)
 qt4_atomic$(EXEEXT): $(qt4_atomic_OBJECTS) $(qt4_atomic_DEPENDENCIES) 
 	@rm -f qt4_atomic$(EXEEXT)
 	$(qt4_atomic_LINK) $(qt4_atomic_OBJECTS) $(qt4_atomic_LDADD) $(LIBS)
@@ -1263,6 +1281,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pth_mutex_reinit.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pth_process_shared_mutex.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pth_spinlock.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pth_uninitialized_cond.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qt4_atomic-qt4_atomic.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qt4_mutex-qt4_mutex.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qt4_rwlock-qt4_rwlock.Po@am__quote@

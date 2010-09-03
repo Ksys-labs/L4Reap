@@ -1,6 +1,10 @@
 #ifndef __L4PNG_WRAP_H__
 #define __L4PNG_WRAP_H__
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 #define ARGB_BUF_TO_SMALL -2
 #define ENOPNG -3;
 #define EDAMAGEDPNG -4;
@@ -23,5 +27,7 @@ int png_convert_RGB16bit_mem(void *png_data, void *argb_buf,
 int png_convert_RGB16bit_file(const char *filename, void *argb_buf,
 			      unsigned argb_max_size,
 			      int line_offset);
+
+__END_DECLS
 
 #endif /* ! __L4PNG_WRAP_H__ */

@@ -174,7 +174,7 @@ IMPLEMENT
 void
 Task::free_utcbs()
 {
-  if (!kern_utcb_area())
+  if (EXPECT_FALSE(!kern_utcb_area() || !mem_space() || !mem_space()->dir()))
     return;
 
   Mapped_allocator * const alloc = Mapped_allocator::allocator();

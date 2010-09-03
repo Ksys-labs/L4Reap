@@ -135,7 +135,7 @@ Thread::sys_vcpu_resume(L4_msg_tag const &tag, Utcb *utcb)
 
       vcpu_state()->state |= Vcpu_state::F_traps | Vcpu_state::F_exceptions
                              | Vcpu_state::F_debug_exc;
-      state_add_dirty(Thread_vcpu_user_mode | Thread_alien);
+      state_add_dirty(Thread_vcpu_user_mode);
 
       if (!(vcpu_state()->state & Vcpu_state::F_fpu_enabled))
 	{

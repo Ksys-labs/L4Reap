@@ -28,7 +28,7 @@ static unsigned long vmcb[1024] __attribute__((aligned(4096)));
 static unsigned long idt[32 * 2] __attribute__((aligned(4096)));
 static unsigned long gdt[32 * 2] __attribute__((aligned(4096)));
 
-static void init_vmcb(struct l4_vm_svm_vmcb *vmcb_s)
+static void init_vmcb(l4_vm_svm_vmcb_t *vmcb_s)
 {
 
   vmcb_s->control_area.np_enable = 1;
@@ -149,8 +149,8 @@ static void run_test(int np_available)
       exit(1);
     }
 
-  struct l4_vm_svm_vmcb *vmcb_s = (struct l4_vm_svm_vmcb *) vmcb;
-  struct l4_vm_svm_gpregs gpregs =
+  l4_vm_svm_vmcb_t *vmcb_s = (l4_vm_svm_vmcb_t *)vmcb;
+  l4_vm_gpregs_t gpregs =
     { .edx = 1,
       .ecx = 2,
       .ebx = 3,
@@ -303,10 +303,13 @@ static void run_test(int np_available)
 
       old_rip = vmcb_s->state_save_area.rip;
 
-      tag = l4_vm_run_svm(vm_task,l4_fpage((unsigned long)vmcb, 12, 0), &gpregs);
+
+      *l4_vm_gpregs() = gpregs;
+      tag = l4_vm_run(vm_task, l4_fpage((unsigned long)vmcb, 12, 0));
       if (l4_error(tag))
 	printf("vm-run failed: %s (%ld)\n",
                l4sys_errtostr(l4_error(tag)), l4_error(tag));
+      gpregs = *l4_vm_gpregs();
 
       printf("iteration=%d, exit code=%llx, rip=%llx -> %llx\n",
              i, vmcb_s->control_area.exitcode,

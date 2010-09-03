@@ -1989,6 +1989,22 @@ Addr VG_(am_get_advisory_client_simple) ( Addr start, SizeT len,
 }
 
 
+/* Convenience wrapper for VG_(am_get_advisory) for Valgrind floating or
+   fixed requests.  If start is zero, a floating request is issued; if
+   nonzero, a fixed request at that address is issued.  Same comments
+   about return values apply. */
+
+Addr VG_(am_get_advisory_valgrind_simple) ( Addr start, SizeT len, 
+											/*OUT*/Bool* ok )
+{
+	MapRequest mreq;
+	mreq.rkind = start==0 ? MAny : MFixed;
+	mreq.start = start;
+	mreq.len   = len;
+	return VG_(am_get_advisory)( &mreq, False/*Valgrind*/, ok );
+}
+
+
 /* Notifies aspacem that the client completed an mmap successfully.
    The segment array is updated accordingly.  If the returned Bool is
    True, the caller should immediately discard translations from the

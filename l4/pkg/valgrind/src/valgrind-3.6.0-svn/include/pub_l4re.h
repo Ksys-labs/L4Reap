@@ -99,7 +99,7 @@ EXTERN_C void vcap_init(void);
  * \param envp - old environment
  * \return pointer to new environment
  */
-void *l4re_vcap_modify_env(struct ume_auxv *envp);
+void *l4re_vcap_modify_env(struct ume_auxv *envp, Addr client_l4re_env_addr);
 
 extern void *client_env;
 extern unsigned int client_env_size;

@@ -43,25 +43,9 @@ build_triplet = @build@
 host_triplet = @host@
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(top_srcdir)/Makefile.all.am $(top_srcdir)/Makefile.tool.am
-@VGCONF_PLATFORMS_INCLUDE_X86_LINUX_TRUE@am__append_1 = $(top_builddir)/valt_load_address_x86_linux.lds
-@VGCONF_PLATFORMS_INCLUDE_X86_LINUX_TRUE@am__append_2 = $(top_builddir)/valt_load_address_x86_linux.lds
-@VGCONF_PLATFORMS_INCLUDE_AMD64_LINUX_TRUE@am__append_3 = $(top_builddir)/valt_load_address_amd64_linux.lds
-@VGCONF_PLATFORMS_INCLUDE_AMD64_LINUX_TRUE@am__append_4 = $(top_builddir)/valt_load_address_amd64_linux.lds
-@VGCONF_PLATFORMS_INCLUDE_PPC32_LINUX_TRUE@am__append_5 = $(top_builddir)/valt_load_address_ppc32_linux.lds
-@VGCONF_PLATFORMS_INCLUDE_PPC32_LINUX_TRUE@am__append_6 = $(top_builddir)/valt_load_address_ppc32_linux.lds
-@VGCONF_PLATFORMS_INCLUDE_PPC64_LINUX_TRUE@am__append_7 = $(top_builddir)/valt_load_address_ppc64_linux.lds
-@VGCONF_PLATFORMS_INCLUDE_PPC64_LINUX_TRUE@am__append_8 = $(top_builddir)/valt_load_address_ppc64_linux.lds
-@VGCONF_PLATFORMS_INCLUDE_ARM_LINUX_TRUE@am__append_9 = $(top_builddir)/valt_load_address_arm_linux.lds
-@VGCONF_PLATFORMS_INCLUDE_ARM_LINUX_TRUE@am__append_10 = $(top_builddir)/valt_load_address_arm_linux.lds
-# No need to generate $(top_builddir)/valt_load_address*.lds; the final
-# executables can be linked to be at any address.  They will be relocated by
-# AIX kernel when they are loaded.
-# Ditto
-@VGCONF_PLATFORMS_INCLUDE_X86_L4RE_TRUE@am__append_11 = $(top_builddir)/valt_load_address_x86_l4re.lds
-@VGCONF_PLATFORMS_INCLUDE_X86_L4RE_TRUE@am__append_12 = $(top_builddir)/valt_load_address_x86_l4re.lds
 noinst_PROGRAMS = exp-bbv-@VGCONF_ARCH_PRI@-@VGCONF_OS@$(EXEEXT) \
 	$(am__EXEEXT_1)
-@VGCONF_HAVE_PLATFORM_SEC_TRUE@am__append_13 = exp-bbv-@VGCONF_ARCH_SEC@-@VGCONF_OS@
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@am__append_1 = exp-bbv-@VGCONF_ARCH_SEC@-@VGCONF_OS@
 @VGCONF_HAVE_PLATFORM_SEC_FALSE@exp_bbv_@VGCONF_ARCH_SEC@_@VGCONF_OS@_DEPENDENCIES =
 subdir = exp-bbv
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -79,10 +63,6 @@ am__objects_1 =  \
 am_exp_bbv_@VGCONF_ARCH_PRI@_@VGCONF_OS@_OBJECTS = $(am__objects_1)
 exp_bbv_@VGCONF_ARCH_PRI@_@VGCONF_OS@_OBJECTS =  \
 	$(am_exp_bbv_@VGCONF_ARCH_PRI@_@VGCONF_OS@_OBJECTS)
-exp_bbv_@VGCONF_ARCH_PRI@_@VGCONF_OS@_LINK = $(CCLD) \
-	$(exp_bbv_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CFLAGS) $(CFLAGS) \
-	$(exp_bbv_@VGCONF_ARCH_PRI@_@VGCONF_OS@_LDFLAGS) $(LDFLAGS) -o \
-	$@
 am__exp_bbv_@VGCONF_ARCH_SEC@_@VGCONF_OS@_SOURCES_DIST = bbv_main.c
 am__objects_2 =  \
 	exp_bbv_@VGCONF_ARCH_SEC@_@VGCONF_OS@-bbv_main.$(OBJEXT)
@@ -90,10 +70,6 @@ am__objects_2 =  \
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@	$(am__objects_2)
 exp_bbv_@VGCONF_ARCH_SEC@_@VGCONF_OS@_OBJECTS =  \
 	$(am_exp_bbv_@VGCONF_ARCH_SEC@_@VGCONF_OS@_OBJECTS)
-exp_bbv_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LINK = $(CCLD) \
-	$(exp_bbv_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CFLAGS) $(CFLAGS) \
-	$(exp_bbv_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LDFLAGS) $(LDFLAGS) -o \
-	$@
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -184,6 +160,7 @@ FLAG_MAIX32 = @FLAG_MAIX32@
 FLAG_MAIX64 = @FLAG_MAIX64@
 FLAG_MMMX = @FLAG_MMMX@
 FLAG_MSSE = @FLAG_MSSE@
+FLAG_NO_BUILD_ID = @FLAG_NO_BUILD_ID@
 FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
@@ -218,14 +195,18 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
 QTCORE_CFLAGS = @QTCORE_CFLAGS@
 QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
-VALT_LOAD_ADDRESS = @VALT_LOAD_ADDRESS@
+VALT_LOAD_ADDRESS_PRI = @VALT_LOAD_ADDRESS_PRI@
+VALT_LOAD_ADDRESS_SEC = @VALT_LOAD_ADDRESS_SEC@
 VERSION = @VERSION@
 VGCONF_ARCH_PRI = @VGCONF_ARCH_PRI@
 VGCONF_ARCH_SEC = @VGCONF_ARCH_SEC@
@@ -309,7 +290,9 @@ AM_CFLAGS_BASE = \
 # The aim is to give reasonable performance but also to have good
 # stack traces, since users often see stack traces extending 
 # into (and through) the preloads.
-@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing -mno-dynamic-no-pic
+@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing \
+@VGCONF_OS_IS_DARWIN_TRUE@		-mno-dynamic-no-pic -fpic -fPIC
+
 @VGCONF_OS_IS_L4RE_FALSE@AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@ = \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir) \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir)/include \
@@ -368,7 +351,7 @@ AM_CFLAGS_PPC64_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC64_LINUX = $(AM_CPPFLAGS_PPC64_LINUX) @FLAG_M64@ -g
 AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
-			 	$(AM_CFLAGS_BASE)
+			 	$(AM_CFLAGS_BASE) -marm
 
 AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
@@ -383,8 +366,8 @@ AM_CCASFLAGS_PPC64_AIX5 = $(AM_CPPFLAGS_PPC64_AIX5) \
 
 AM_FLAG_M3264_X86_DARWIN = -arch i386
 AM_CFLAGS_X86_DARWIN = $(WERROR) -arch i386 $(AM_CFLAGS_BASE) \
-			    -mmacosx-version-min=10.5 -fno-stack-protector \
-			    -mdynamic-no-pic
+				-mmacosx-version-min=10.5 \
+				-fno-stack-protector -fno-pic -fno-PIC
 
 AM_CCASFLAGS_X86_DARWIN = $(AM_CPPFLAGS_X86_DARWIN) -arch i386 -g
 AM_FLAG_M3264_AMD64_DARWIN = -arch x86_64
@@ -447,37 +430,37 @@ TOOL_LDADD_@VGCONF_PLATFORM_PRI_CAPS@ = \
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@TOOL_LDADD_@VGCONF_PLATFORM_SEC_CAPS@ = \
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@	$(TOOL_DEPENDENCIES_@VGCONF_PLATFORM_SEC_CAPS@) $(TOOL_LDADD_COMMON)
 
-TOOL_LDFLAGS_COMMON_LINUX = -static \
-	-Wl,-defsym,valt_load_address=@VALT_LOAD_ADDRESS@ \
-	-nodefaultlibs -nostartfiles -u _start
 
-TOOL_LDFLAGS_COMMON_AIX5 = -static -Wl,-e_start_valgrind
-TOOL_LDFLAGS_COMMON_DARWIN = -nodefaultlibs -nostartfiles \
-	-Wl,-u,__start -Wl,-e,__start -Wl,-bind_at_load /usr/lib/dyld
+# -Wl,--build-id=none is needed when linking tools on Linux. Without this
+# flag newer ld versions (2.20 and later) create a .note.gnu.build-id at the
+# default text segment address, which of course means the resulting executable
+# is unusable. So we have to tell ld not to generate that, with --build-id=none.
+TOOL_LDFLAGS_COMMON_LINUX = \
+	-static -nodefaultlibs -nostartfiles -u _start @FLAG_NO_BUILD_ID@
 
-TOOL_LDFLAGS_COMMON_L4RE = -static \
-	 -Wl,-defsym,valt_load_address=@VALT_LOAD_ADDRESS@ -Ttext=@VALT_LOAD_ADDRESS@ \
-     -nodefaultlibs -nostartfiles -u _start
+TOOL_LDFLAGS_COMMON_AIX5 = \
+	-static -Wl,-e_start_valgrind
+
+TOOL_LDFLAGS_COMMON_DARWIN = \
+	-nodefaultlibs -nostartfiles -Wl,-u,__start -Wl,-e,__start
+
+TOOL_LDFLAGS_COMMON_L4RE = \
+	 -static -nodefaultlibs -nostartfiles -u _start
 
 TOOL_LDFLAGS_X86_LINUX = \
-	$(TOOL_LDFLAGS_COMMON_LINUX) @FLAG_M32@ \
-	-Wl,-T,$(top_builddir)/valt_load_address_x86_linux.lds
+	$(TOOL_LDFLAGS_COMMON_LINUX) @FLAG_M32@
 
 TOOL_LDFLAGS_AMD64_LINUX = \
-	$(TOOL_LDFLAGS_COMMON_LINUX) @FLAG_M64@ \
-	-Wl,-T,$(top_builddir)/valt_load_address_amd64_linux.lds
+	$(TOOL_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 
 TOOL_LDFLAGS_PPC32_LINUX = \
-	$(TOOL_LDFLAGS_COMMON_LINUX) @FLAG_M32@ \
-	-Wl,-T,$(top_builddir)/valt_load_address_ppc32_linux.lds
+	$(TOOL_LDFLAGS_COMMON_LINUX) @FLAG_M32@
 
 TOOL_LDFLAGS_PPC64_LINUX = \
-	$(TOOL_LDFLAGS_COMMON_LINUX) @FLAG_M64@ \
-	-Wl,-T,$(top_builddir)/valt_load_address_ppc64_linux.lds
+	$(TOOL_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 
 TOOL_LDFLAGS_ARM_LINUX = \
-	$(TOOL_LDFLAGS_COMMON_LINUX) @FLAG_M32@ \
-	-Wl,-T,$(top_builddir)/valt_load_address_arm_linux.lds
+	$(TOOL_LDFLAGS_COMMON_LINUX) @FLAG_M32@
 
 TOOL_LDFLAGS_PPC32_AIX5 = \
 	$(TOOL_LDFLAGS_COMMON_AIX5) @FLAG_MAIX32@
@@ -486,32 +469,28 @@ TOOL_LDFLAGS_PPC64_AIX5 = \
 	$(TOOL_LDFLAGS_COMMON_AIX5) @FLAG_MAIX64@ -Wl,-bbigtoc
 
 TOOL_LDFLAGS_X86_DARWIN = \
-	$(TOOL_LDFLAGS_COMMON_DARWIN) -arch i386 \
-	-Wl,-seg1addr,0xf0080000 \
-	-Wl,-stack_addr,0xf0080000 -Wl,-stack_size,0x80000 \
-	-Wl,-pagezero_size,0xf0000000
+	$(TOOL_LDFLAGS_COMMON_DARWIN) -arch i386
 
 TOOL_LDADD_X86_L4RE = \
 	$(TOOL_DEPENDENCIES_@VGCONF_PLATFORM_PRI_CAPS@) \
 	$(L4_LDFLAGS) $(L4_CRTN) $(TOOL_LDADD_COMMON)
 
 TOOL_LDFLAGS_X86_L4RE = \
-	-nostdinc -nostdlib $(L4_CRT0) $(TOOL_LDFLAGS_COMMON_L4RE) @FLAG_M32@ \
-	-Wl,-T,$(top_builddir)/valt_load_address_x86_l4re.lds
+	-nostdinc -nostdlib $(L4_CRT0) $(TOOL_LDFLAGS_COMMON_L4RE) @FLAG_M32@
 
 
 # pagezero can't be unmapped and remapped. Use stack instead.
 # GrP fixme no stack guard
 TOOL_LDFLAGS_AMD64_DARWIN = \
-	$(TOOL_LDFLAGS_COMMON_DARWIN) -arch x86_64 \
-	-Wl,-seg1addr,0x7fff55000000 \
-	-Wl,-stack_addr,0x7fff50080000 -Wl,-stack_size,0x7ffe50080000 \
-	-Wl,-pagezero_size,0x100000000
+	$(TOOL_LDFLAGS_COMMON_DARWIN) -arch x86_64
 
-BUILT_SOURCES = $(am__append_1) $(am__append_3) $(am__append_5) \
-	$(am__append_7) $(am__append_9) $(am__append_11)
-CLEANFILES = $(am__append_2) $(am__append_4) $(am__append_6) \
-	$(am__append_8) $(am__append_10) $(am__append_12)
+
+# NB for 64-bit darwin.  We may want to set -Wl,-pagezero_size to
+# something smaller than the default of 4G, so as to facilitate
+# loading clients who are also linked thusly (currently m_ume.c
+# will fail to load them).  Although such setting is probably
+# better done in link_tool_exe.c.
+#	-Wl,-pagezero_size,0x100000000
 
 #----------------------------------------------------------------------------
 # vgpreload_<tool>-<platform>.a stuff
@@ -590,7 +569,9 @@ LIBREPLACEMALLOC_LDFLAGS_X86_L4RE = \
 
 EXTRA_DIST = docs/bbv-manual.xml
 BBV_SOURCES_COMMON = bbv_main.c
-exp_bbv_@VGCONF_ARCH_PRI@_@VGCONF_OS@_SOURCES = $(BBV_SOURCES_COMMON)
+exp_bbv_@VGCONF_ARCH_PRI@_@VGCONF_OS@_SOURCES = \
+	$(BBV_SOURCES_COMMON)
+
 exp_bbv_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CPPFLAGS = \
 	$(AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@)
 
@@ -606,7 +587,16 @@ exp_bbv_@VGCONF_ARCH_PRI@_@VGCONF_OS@_LDADD = \
 exp_bbv_@VGCONF_ARCH_PRI@_@VGCONF_OS@_LDFLAGS = \
 	$(TOOL_LDFLAGS_@VGCONF_PLATFORM_PRI_CAPS@)
 
-@VGCONF_HAVE_PLATFORM_SEC_TRUE@exp_bbv_@VGCONF_ARCH_SEC@_@VGCONF_OS@_SOURCES = $(BBV_SOURCES_COMMON)
+exp_bbv_@VGCONF_ARCH_PRI@_@VGCONF_OS@_LINK = \
+	$(top_builddir)/coregrind/link_tool_exe_@VGCONF_OS@ \
+	@VALT_LOAD_ADDRESS_PRI@ \
+	$(LINK) \
+	$(exp_bbv_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CFLAGS) \
+	$(exp_bbv_@VGCONF_ARCH_PRI@_@VGCONF_OS@_LDFLAGS)
+
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@exp_bbv_@VGCONF_ARCH_SEC@_@VGCONF_OS@_SOURCES = \
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@	$(BBV_SOURCES_COMMON)
+
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@exp_bbv_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CPPFLAGS = \
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@	$(AM_CPPFLAGS_@VGCONF_PLATFORM_SEC_CAPS@)
 
@@ -622,8 +612,14 @@ exp_bbv_@VGCONF_ARCH_PRI@_@VGCONF_OS@_LDFLAGS = \
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@exp_bbv_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LDFLAGS = \
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@	$(TOOL_LDFLAGS_@VGCONF_PLATFORM_SEC_CAPS@)
 
-all: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) all-recursive
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@exp_bbv_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LINK = \
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@	$(top_builddir)/coregrind/link_tool_exe_@VGCONF_OS@ \
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@	@VALT_LOAD_ADDRESS_SEC@ \
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@	$(LINK) \
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@	$(exp_bbv_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CFLAGS) \
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@	$(exp_bbv_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LDFLAGS)
+
+all: all-recursive
 
 .SUFFIXES:
 .SUFFIXES: .c .o .obj
@@ -912,13 +908,11 @@ distdir: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
-check: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) check-recursive
+check: check-recursive
 all-am: Makefile $(PROGRAMS) all-local
 installdirs: installdirs-recursive
 installdirs-am:
-install: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) install-recursive
+install: install-recursive
 install-exec: install-exec-recursive
 install-data: install-data-recursive
 uninstall: uninstall-recursive
@@ -935,7 +929,6 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
-	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -944,7 +937,6 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
 clean: clean-recursive
 
 clean-am: clean-generic clean-local clean-noinstPROGRAMS \
@@ -1015,9 +1007,8 @@ ps-am:
 
 uninstall-am:
 
-.MAKE: $(RECURSIVE_CLEAN_TARGETS) $(RECURSIVE_TARGETS) all check \
-	ctags-recursive install install-am install-strip \
-	tags-recursive
+.MAKE: $(RECURSIVE_CLEAN_TARGETS) $(RECURSIVE_TARGETS) ctags-recursive \
+	install-am install-strip tags-recursive
 
 .PHONY: $(RECURSIVE_CLEAN_TARGETS) $(RECURSIVE_TARGETS) CTAGS GTAGS \
 	all all-am all-local check check-am clean clean-generic \
@@ -1099,65 +1090,6 @@ clean-noinst_DSYMS:
 	for f in $(noinst_DSYMS); do \
 	  rm -rf $$f.dSYM; \
 	done
-# GrP untested, possibly hopeless
-
-# Generate a linker script for linking the binaries.  This is the
-# standard gcc linker script, except hacked so that an alternative
-# load address can be specified by (1) asking gcc to use this script
-# (-Wl,-T,valt_load_address.lds) and (2) setting the symbol
-# valt_load_address to the required value
-# (-Wl,-defsym,valt_load_address=0x70000000).
-#
-# Extract ld's default linker script and hack it to our needs.
-# First we cut everything above and below the "=====..." lines at the top
-# and bottom.
-# Then we have to replace the load address with "valt_load_address".
-# The line to replace in has one of the following two forms:
-#
-#   . = 0x08048000 + SIZEOF_HEADERS;
-#
-# or
-#   PROVIDE (__executable_start = 0x08048000); . = 0x08048000 + SIZEOF_HEADERS;
-#
-# So we search for the line with a hex value "+ SIZEOF_HEADERS", and replace
-# all the hex values in that line with "valt_load_address".
-$(top_builddir)/valt_load_address_x86_linux.lds: Makefile
-	$(CC) @FLAG_M32@ -Wl,--verbose -nostdlib 2>&1 | sed \
-		-e '1,/^=====\+$$/d' \
-		-e '/^=====\+$$/,/.\*/d' \
-		-e '/\. = \(0x[0-9A-Fa-f]\+\|SEGMENT_START("[^"]\+", 0x[0-9A-Fa-f]\+)\) + SIZEOF_HEADERS/s/0x[0-9A-Fa-f]\+/valt_load_address/g' > $@ \
-	|| rm -f $@
-
-$(top_builddir)/valt_load_address_amd64_linux.lds: Makefile
-	$(CC) -m64 -Wl,--verbose -nostdlib 2>&1 | sed \
-		-e '1,/^=====\+$$/d' \
-		-e '/^=====\+$$/,/.\*/d' \
-		-e '/\. = \(0x[0-9A-Fa-f]\+\|SEGMENT_START("[^"]\+", 0x[0-9A-Fa-f]\+)\) + SIZEOF_HEADERS/s/0x[0-9A-Fa-f]\+/valt_load_address/g' > $@ \
-	|| rm -f $@
-
-$(top_builddir)/valt_load_address_ppc32_linux.lds: Makefile
-	$(CC) @FLAG_M32@ -Wl,--verbose -nostdlib 2>&1 | sed \
-		-e '1,/^=====\+$$/d' \
-		-e '/^=====\+$$/,/.\*/d' \
-		-e '/\. = \(0x[0-9A-Fa-f]\+\|SEGMENT_START("[^"]\+", 0x[0-9A-Fa-f]\+)\) + SIZEOF_HEADERS/s/0x[0-9A-Fa-f]\+/valt_load_address/g' > $@ \
-	|| rm -f $@
-
-$(top_builddir)/valt_load_address_ppc64_linux.lds: Makefile
-	$(CC) -m64 -Wl,--verbose -nostdlib 2>&1 | sed \
-		-e '1,/^=====\+$$/d' \
-		-e '/^=====\+$$/,/.\*/d' \
-		-e '/\. = \(0x[0-9A-Fa-f]\+\|SEGMENT_START("[^"]\+", 0x[0-9A-Fa-f]\+)\) + SIZEOF_HEADERS/s/0x[0-9A-Fa-f]\+/valt_load_address/g' > $@ \
-	|| rm -f $@
-
-$(top_builddir)/valt_load_address_arm_linux.lds: Makefile
-	$(CC) @FLAG_M32@ -Wl,--verbose -nostdlib 2>&1 | sed \
-		-e '1,/^=====\+$$/d' \
-		-e '/^=====\+$$/,/.\*/d' \
-		-e '/\. = \(0x[0-9A-Fa-f]\+\|SEGMENT_START("[^"]\+", 0x[0-9A-Fa-f]\+)\) + SIZEOF_HEADERS/s/0x[0-9A-Fa-f]\+/valt_load_address/g' > $@ \
-	|| rm -f $@
-
-$(top_builddir)/valt_load_address_x86_l4re.lds: Makefile $(L4_LDS_stat_bin)
-	cat $(L4_LDS_stat_bin) > $(top_builddir)/valt_load_address_x86_l4re.lds
 
 #----------------------------------------------------------------------------
 # General stuff

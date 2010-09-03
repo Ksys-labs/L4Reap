@@ -72,8 +72,8 @@ end
 
 function debug_memcheck(cmdline, ...)
 	args = {}
-	args.debuglevel = 3;
-	args.verbosity  = 3;
+	args.debuglevel = 4;
+	args.verbosity  = 4;
 	args.cmdline    = { "--leak-check=yes", "--show-reachable=yes", cmdline, ... };
 	args.tool = "memcheck";
 	valgrind(args);

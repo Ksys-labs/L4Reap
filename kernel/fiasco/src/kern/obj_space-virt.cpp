@@ -41,7 +41,9 @@ inline NEEDS["mem_space.h", "mem_layout.h", Generic_obj_space::cap_virt]
 typename Generic_obj_space<SPACE>::Entry *
 Generic_obj_space<SPACE>::alien_lookup(Address index)
 {
-  Address phys = Address(mem_space()->virt_to_phys((Address)cap_virt(index)));
+  Mem_space *ms = mem_space();
+
+  Address phys = Address(ms->virt_to_phys((Address)cap_virt(index)));
   if (EXPECT_FALSE(phys == ~0UL))
     return 0;
 
@@ -106,6 +108,10 @@ PRIVATE template< typename SPACE >
 void
 Generic_obj_space<SPACE>::caps_free()
 {
+  Mem_space *ms = mem_space();
+  if (EXPECT_FALSE(!ms || !ms->dir()))
+    return;
+
   Mapped_allocator *a = Mapped_allocator::allocator();
   for (unsigned long i = 0; i < map_max_address().value();
        i += Caps_per_page)
@@ -114,7 +120,7 @@ Generic_obj_space<SPACE>::caps_free()
       if (!c)
 	continue;
 
-      Address cp = Address(mem_space()->virt_to_phys(Address(c)));
+      Address cp = Address(ms->virt_to_phys(Address(c)));
       assert_kdb (cp != ~0UL);
       void *cv = (void*)Mem_layout::phys_to_pmem(cp);
       remove_dbg_info(cv);
@@ -122,9 +128,9 @@ Generic_obj_space<SPACE>::caps_free()
       a->q_unaligned_free(ram_quota(), Config::PAGE_SIZE, cv);
     }
 #if defined (CONFIG_ARM)
-  mem_space()->dir()->free_page_tables((void*)Mem_layout::Caps_start, (void*)Mem_layout::Caps_end);
+  ms->dir()->free_page_tables((void*)Mem_layout::Caps_start, (void*)Mem_layout::Caps_end);
 #else
-  mem_space()->dir()->Pdir::alloc_cast<Mem_space_q_alloc>()
+  ms->dir()->Pdir::alloc_cast<Mem_space_q_alloc>()
     ->destroy(Virt_addr(Mem_layout::Caps_start),
               Virt_addr(Mem_layout::Caps_end), Pdir::Depth - 1,
               Mem_space_q_alloc(ram_quota(), Mapped_allocator::allocator()));

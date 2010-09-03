@@ -41,6 +41,14 @@
 #    fun:_ZNSsC1ERKSs
 # }
 
+{
+   drd-libstdc++-cxa_guard_release
+   drd:CondErr
+   fun:pthread_cond_broadcast@*
+   fun:__cxa_guard_release
+}
+
+
 #
 # Suppression patterns for libpthread.
 #
@@ -64,10 +72,20 @@
    fun:__deallocate_stack
 }
 {
+   drd-libpthread-__free_stacks
+   drd:ConflictingAccess
+   fun:__free_stacks
+}
+{
    drd-libpthread-__free_tcb
    drd:ConflictingAccess
    ...
    fun:__free_tcb
+}
+{
+   drd-libpthread-__nptl_deallocate_tsd
+   drd:ConflictingAccess
+   fun:__nptl_deallocate_tsd
 }
 {
    drd-libpthread-pthread_detach
@@ -82,10 +100,21 @@
    fun:_Unwind_ForcedUnwind
 }
 {
+   drd-libpthread-_Unwind_GetCFA
+   drd:ConflictingAccess
+   fun:_Unwind_GetCFA
+}
+{
    drd-libpthread-_Unwind_Resume
    drd:ConflictingAccess
    ...
    fun:_Unwind_Resume
+}
+{
+   drd-libpthread-?
+   drd:ConflictingAccess
+   obj:/lib/libgcc_s.so.1
+   obj:/lib/libpthread-2.11.2.so
 }
 {
    drd-libpthread-nanosleep
@@ -146,6 +175,7 @@
 {
    drd-libglib-access-g_threads_got_initialized
    drd:ConflictingAccess
+   ...
    fun:_ZN27QEventDispatcherGlibPrivateC1EP13_GMainContext
    fun:_ZN20QEventDispatcherGlibC1EP7QObject
    obj:/usr/lib*/libQtCore.so.4.*
@@ -187,7 +217,6 @@
    drd-libQtCore-deref-that-calls-QThreadData-destructor
    drd:ConflictingAccess
    fun:_ZN11QThreadDataD1Ev
-   fun:_ZN11QThreadData5derefEv
    obj:/usr/lib*/libQtCore.so.4.*
 }
 {
@@ -220,14 +249,20 @@
    drd:ConflictingAccess
    fun:_ZN10QMutexPool3getEPKv
 }
+{
+   drd-libQtCore-qt_gettime_is_monotonic()
+   drd:ConflictingAccess
+   fun:_Z23qt_gettime_is_monotonicv
+}
 
 #
 # Suppression patterns for libboost.
 #
 
 # Suppress the races on boost::once_flag::epoch and on
-# boost::detail::once_global_epoch. See also the source file
-# boost/thread/pthread/once.hpp in the Boost source tree.
+# boost::detail::this_thread_epoch. See also the source file
+# boost/thread/pthread/once.hpp in the Boost source tree
+# (https://svn.boost.org/trac/boost/browser/trunk/boost/thread/pthread/once.hpp).
 {
    drd-libboost-boost::call_once<void (*)()>(boost::once_flag&, void (*)())
    drd:ConflictingAccess
@@ -239,9 +274,18 @@
    drd:ConflictingAccess
    fun:_ZN5boost6detail25get_once_per_thread_epochEv
 }
+# Suppress the race reports on boost::detail::current_thread_tls_key. See also
+# https://svn.boost.org/trac/boost/ticket/3526 for more information about why
+# the access pattern of current_thread_tls_key is safe.
 {
    drd-libboost-boost::detail::get_current_thread_data()
    drd:ConflictingAccess
    ...
    fun:_ZN5boost6detail23get_current_thread_dataEv
+}
+{
+   drd-libboost-boost::detail::set_current_thread_data(boost::detail::thread_data_base*)
+   drd:ConflictingAccess
+   ...
+   fun:_ZN5boost6detail23set_current_thread_dataEPNS0_16thread_data_baseE
 }

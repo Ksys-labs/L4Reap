@@ -61,6 +61,8 @@ App_cpu_thread::bootstrap()
 
   Timer::enable();
 
+  Per_cpu_data::run_late_ctors(cpu());
+
   cpu_lock.clear();
 
   printf("CPU[%u]: goes to idle loop\n", cpu());

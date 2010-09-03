@@ -2776,6 +2776,25 @@ static HReg iselFltExpr_wrk ( ISelEnv* env, IRExpr* e )
       return dst;
    }
 
+   if (e->tag == Iex_Binop && e->Iex.Binop.op == Iop_RoundF32toInt) {
+      HReg rf  = iselFltExpr(env, e->Iex.Binop.arg2);
+      HReg dst = newVRegF(env);
+
+      /* rf now holds the value to be rounded.  The first thing to do
+         is set the FPU's rounding mode accordingly. */
+
+      /* Set host rounding mode */
+      set_FPU_rounding_mode( env, e->Iex.Binop.arg1 );
+
+      /* grndint %rf, %dst */
+      addInstr(env, X86Instr_FpUnary(Xfp_ROUND, rf, dst));
+
+      /* Restore default FPU rounding. */
+      set_FPU_rounding_default( env );
+
+      return dst;
+   }
+
    ppIRExpr(e);
    vpanic("iselFltExpr_wrk");
 }
@@ -3981,9 +4000,11 @@ HInstrArray* iselSB_X86 ( IRSB* bb, VexArch      arch_host,
 
    /* sanity ... */
    vassert(arch_host == VexArchX86);
-   vassert(0 == (hwcaps_host & ~(VEX_HWCAPS_X86_SSE1
-                                 |VEX_HWCAPS_X86_SSE2
-                                 |VEX_HWCAPS_X86_SSE3)));
+   vassert(0 == (hwcaps_host
+                 & ~(VEX_HWCAPS_X86_SSE1
+                     | VEX_HWCAPS_X86_SSE2
+                     | VEX_HWCAPS_X86_SSE3
+                     | VEX_HWCAPS_X86_LZCNT)));
 
    /* Make up an initial environment to use. */
    env = LibVEX_Alloc(sizeof(ISelEnv));

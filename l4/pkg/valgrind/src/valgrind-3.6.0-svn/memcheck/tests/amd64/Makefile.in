@@ -47,16 +47,8 @@ DIST_COMMON = $(dist_noinst_SCRIPTS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(top_srcdir)/Makefile.all.am \
 	$(top_srcdir)/Makefile.tool-tests.am
 check_PROGRAMS = bt_everything$(EXEEXT) bug132146$(EXEEXT) \
-	fxsave-amd64$(EXEEXT) xor-undef-amd64$(EXEEXT) $(am__EXEEXT_1)
-
-# DDD: not sure if these ones should work on Darwin or not... if not, should
-# be moved into amd64-linux/.
-@VGCONF_OS_IS_DARWIN_FALSE@am__append_1 = \
-@VGCONF_OS_IS_DARWIN_FALSE@	defcfaexpr \
-@VGCONF_OS_IS_DARWIN_FALSE@	int3-amd64 \
-@VGCONF_OS_IS_DARWIN_FALSE@	more_x87_fp \
-@VGCONF_OS_IS_DARWIN_FALSE@	sse_memory
-
+	fxsave-amd64$(EXEEXT) more_x87_fp$(EXEEXT) sse_memory$(EXEEXT) \
+	xor-undef-amd64$(EXEEXT)
 subdir = memcheck/tests/amd64
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.in
@@ -66,25 +58,15 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-@VGCONF_OS_IS_DARWIN_FALSE@am__EXEEXT_1 = defcfaexpr$(EXEEXT) \
-@VGCONF_OS_IS_DARWIN_FALSE@	int3-amd64$(EXEEXT) \
-@VGCONF_OS_IS_DARWIN_FALSE@	more_x87_fp$(EXEEXT) \
-@VGCONF_OS_IS_DARWIN_FALSE@	sse_memory$(EXEEXT)
 bt_everything_SOURCES = bt_everything.c
 bt_everything_OBJECTS = bt_everything.$(OBJEXT)
 bt_everything_LDADD = $(LDADD)
 bug132146_SOURCES = bug132146.c
 bug132146_OBJECTS = bug132146.$(OBJEXT)
 bug132146_LDADD = $(LDADD)
-am_defcfaexpr_OBJECTS = defcfaexpr.$(OBJEXT)
-defcfaexpr_OBJECTS = $(am_defcfaexpr_OBJECTS)
-defcfaexpr_LDADD = $(LDADD)
 fxsave_amd64_SOURCES = fxsave-amd64.c
 fxsave_amd64_OBJECTS = fxsave-amd64.$(OBJEXT)
 fxsave_amd64_LDADD = $(LDADD)
-int3_amd64_SOURCES = int3-amd64.c
-int3_amd64_OBJECTS = int3-amd64.$(OBJEXT)
-int3_amd64_LDADD = $(LDADD)
 more_x87_fp_SOURCES = more_x87_fp.c
 more_x87_fp_OBJECTS = more_x87_fp-more_x87_fp.$(OBJEXT)
 more_x87_fp_DEPENDENCIES =
@@ -101,18 +83,14 @@ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
 am__mv = mv -f
-CPPASCOMPILE = $(CCAS) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
-	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CCASFLAGS) $(CCASFLAGS)
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = bt_everything.c bug132146.c $(defcfaexpr_SOURCES) \
-	fxsave-amd64.c int3-amd64.c more_x87_fp.c sse_memory.c \
-	xor-undef-amd64.c
-DIST_SOURCES = bt_everything.c bug132146.c $(defcfaexpr_SOURCES) \
-	fxsave-amd64.c int3-amd64.c more_x87_fp.c sse_memory.c \
-	xor-undef-amd64.c
+SOURCES = bt_everything.c bug132146.c fxsave-amd64.c more_x87_fp.c \
+	sse_memory.c xor-undef-amd64.c
+DIST_SOURCES = bt_everything.c bug132146.c fxsave-amd64.c \
+	more_x87_fp.c sse_memory.c xor-undef-amd64.c
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -153,6 +131,7 @@ FLAG_MAIX32 = @FLAG_MAIX32@
 FLAG_MAIX64 = @FLAG_MAIX64@
 FLAG_MMMX = @FLAG_MMMX@
 FLAG_MSSE = @FLAG_MSSE@
+FLAG_NO_BUILD_ID = @FLAG_NO_BUILD_ID@
 FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
@@ -187,14 +166,18 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
 QTCORE_CFLAGS = @QTCORE_CFLAGS@
 QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
-VALT_LOAD_ADDRESS = @VALT_LOAD_ADDRESS@
+VALT_LOAD_ADDRESS_PRI = @VALT_LOAD_ADDRESS_PRI@
+VALT_LOAD_ADDRESS_SEC = @VALT_LOAD_ADDRESS_SEC@
 VERSION = @VERSION@
 VGCONF_ARCH_PRI = @VGCONF_ARCH_PRI@
 VGCONF_ARCH_SEC = @VGCONF_ARCH_SEC@
@@ -277,7 +260,9 @@ AM_CFLAGS_BASE = \
 # The aim is to give reasonable performance but also to have good
 # stack traces, since users often see stack traces extending 
 # into (and through) the preloads.
-@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing -mno-dynamic-no-pic
+@VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing \
+@VGCONF_OS_IS_DARWIN_TRUE@		-mno-dynamic-no-pic -fpic -fPIC
+
 @VGCONF_OS_IS_L4RE_FALSE@AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@ = \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir) \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir)/include \
@@ -336,7 +321,7 @@ AM_CFLAGS_PPC64_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC64_LINUX = $(AM_CPPFLAGS_PPC64_LINUX) @FLAG_M64@ -g
 AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
-			 	$(AM_CFLAGS_BASE)
+			 	$(AM_CFLAGS_BASE) -marm
 
 AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
@@ -351,8 +336,8 @@ AM_CCASFLAGS_PPC64_AIX5 = $(AM_CPPFLAGS_PPC64_AIX5) \
 
 AM_FLAG_M3264_X86_DARWIN = -arch i386
 AM_CFLAGS_X86_DARWIN = $(WERROR) -arch i386 $(AM_CFLAGS_BASE) \
-			    -mmacosx-version-min=10.5 -fno-stack-protector \
-			    -mdynamic-no-pic
+				-mmacosx-version-min=10.5 \
+				-fno-stack-protector -fno-pic -fno-PIC
 
 AM_CCASFLAGS_X86_DARWIN = $(AM_CPPFLAGS_X86_DARWIN) -arch i386 -g
 AM_FLAG_M3264_AMD64_DARWIN = -arch x86_64
@@ -420,9 +405,7 @@ EXTRA_DIST = \
 	bt_everything.stderr.exp bt_everything.stdout.exp \
 		bt_everything.vgtest \
 	bug132146.vgtest bug132146.stderr.exp bug132146.stdout.exp \
-	defcfaexpr.vgtest defcfaexpr.stderr.exp filter_defcfaexpr \
 	fxsave-amd64.vgtest fxsave-amd64.stdout.exp fxsave-amd64.stderr.exp \
-	int3-amd64.vgtest int3-amd64.stdout.exp int3-amd64.stderr.exp \
 	more_x87_fp.stderr.exp more_x87_fp.stdout.exp more_x87_fp.vgtest \
 	sse_memory.stderr.exp sse_memory.stdout.exp sse_memory.vgtest \
 	xor-undef-amd64.stderr.exp xor-undef-amd64.stdout.exp \
@@ -432,11 +415,10 @@ more_x87_fp_CFLAGS = $(AM_CFLAGS) -O -ffast-math -mfpmath=387 \
 				-mfancy-math-387
 
 more_x87_fp_LDADD = -lm
-defcfaexpr_SOURCES = defcfaexpr.S
 all: all-am
 
 .SUFFIXES:
-.SUFFIXES: .S .c .o .obj
+.SUFFIXES: .c .o .obj
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(top_srcdir)/Makefile.tool-tests.am $(top_srcdir)/Makefile.all.am $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -476,15 +458,9 @@ bt_everything$(EXEEXT): $(bt_everything_OBJECTS) $(bt_everything_DEPENDENCIES)
 bug132146$(EXEEXT): $(bug132146_OBJECTS) $(bug132146_DEPENDENCIES) 
 	@rm -f bug132146$(EXEEXT)
 	$(LINK) $(bug132146_OBJECTS) $(bug132146_LDADD) $(LIBS)
-defcfaexpr$(EXEEXT): $(defcfaexpr_OBJECTS) $(defcfaexpr_DEPENDENCIES) 
-	@rm -f defcfaexpr$(EXEEXT)
-	$(LINK) $(defcfaexpr_OBJECTS) $(defcfaexpr_LDADD) $(LIBS)
 fxsave-amd64$(EXEEXT): $(fxsave_amd64_OBJECTS) $(fxsave_amd64_DEPENDENCIES) 
 	@rm -f fxsave-amd64$(EXEEXT)
 	$(LINK) $(fxsave_amd64_OBJECTS) $(fxsave_amd64_LDADD) $(LIBS)
-int3-amd64$(EXEEXT): $(int3_amd64_OBJECTS) $(int3_amd64_DEPENDENCIES) 
-	@rm -f int3-amd64$(EXEEXT)
-	$(LINK) $(int3_amd64_OBJECTS) $(int3_amd64_LDADD) $(LIBS)
 more_x87_fp$(EXEEXT): $(more_x87_fp_OBJECTS) $(more_x87_fp_DEPENDENCIES) 
 	@rm -f more_x87_fp$(EXEEXT)
 	$(more_x87_fp_LINK) $(more_x87_fp_OBJECTS) $(more_x87_fp_LDADD) $(LIBS)
@@ -503,26 +479,10 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bt_everything.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bug132146.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/defcfaexpr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fxsave-amd64.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/int3-amd64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/more_x87_fp-more_x87_fp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sse_memory.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xor-undef-amd64.Po@am__quote@
-
-.S.o:
-@am__fastdepCCAS_TRUE@	$(CPPASCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCCAS_TRUE@	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
-@AMDEP_TRUE@@am__fastdepCCAS_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCCAS_FALSE@	DEPDIR=$(DEPDIR) $(CCASDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCCAS_FALSE@	$(CPPASCOMPILE) -c -o $@ $<
-
-.S.obj:
-@am__fastdepCCAS_TRUE@	$(CPPASCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
-@am__fastdepCCAS_TRUE@	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
-@AMDEP_TRUE@@am__fastdepCCAS_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCCAS_FALSE@	DEPDIR=$(DEPDIR) $(CCASDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCCAS_FALSE@	$(CPPASCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

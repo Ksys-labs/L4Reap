@@ -41,7 +41,7 @@ bootstrap (l4util_mb_info_t *mbi, unsigned int flag, char *rm_pointer)
   } far_ptr;
   l4_uint64_t mem_upper;
 
-  // setup stuff for base_paging_init() 
+  // setup stuff for base_paging_init()
   base_cpu_setup();
 
 #ifdef REALMODE_LOADING
@@ -60,8 +60,8 @@ bootstrap (l4util_mb_info_t *mbi, unsigned int flag, char *rm_pointer)
   printf("Loading 64bit part...\n");
   // switch from 32 Bit compatibility mode to 64 Bit mode
   far_ptr.cs    = KERNEL_CS_64;
-  far_ptr.start = load_elf(&_binary_bootstrap64_bin_start, 
-  			   &vma_start, &vma_end);
+  far_ptr.start = load_elf(&_binary_bootstrap64_bin_start,
+                           &vma_start, &vma_end);
 
   asm volatile("ljmp *(%4)"
                 :: "D"(mbi), "S"(flag), "d"(rm_pointer),

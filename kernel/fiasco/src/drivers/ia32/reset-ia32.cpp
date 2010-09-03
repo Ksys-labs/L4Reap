@@ -1,3 +1,17 @@
+IMPLEMENTATION[ia32 && vmx]:
+
+static void
+virt_off()
+{
+  asm volatile("vmxoff");
+}
+
+IMPLEMENTATION[ia32 && !vmx]:
+
+static void
+virt_off()
+{}
+
 IMPLEMENTATION[ia32]:
 
 #include "io.h"
@@ -7,6 +21,8 @@ IMPLEMENTATION[ia32]:
 void __attribute__ ((noreturn))
 pc_reset()
 {
+  virt_off();
+
   // i8042: store the next byte at port 0x60 as command byte
   while (Io::in8 (0x64) & 0x2)
     ;

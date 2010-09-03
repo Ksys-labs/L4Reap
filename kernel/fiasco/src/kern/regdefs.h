@@ -117,6 +117,7 @@
 #define PF_ERR_USERADDR 0x80000000      // PF: In User Address Space
 
 // Model Specific Registers
+#define MSR_TSC              0x010      // Time Stamp Counter
 #define MSR_SYSENTER_CS      0x174      // Kernel Code Segment
 #define MSR_SYSENTER_ESP     0x175      // Kernel Syscall Entry
 #define MSR_SYSENTER_EIP     0x176      // Kernel Stack Pointer
@@ -132,6 +133,7 @@
 #define MSR_LASTBRANCHTOIP   0x1dc      // (P6)
 #define MSR_LASTINTFROMIP    0x1dd      // (P6)
 #define MSR_LASTINTTOIP      0x1de      // (P6)
+#define MSR_PAT              0x277      // PAT
 
 // AMD64 Model Specific Registers
 #define MSR_EFER        0xc0000080      // Extended Feature Enable Register

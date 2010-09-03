@@ -186,14 +186,37 @@ public:
                        l4_utcb_t *utcb = l4_utcb()) throw()
   { return l4_icu_msi_info_u(cap(), irqnum, msg, utcb); }
 
+  /**
+   * \internal
+   */
   l4_msgtag_t control(unsigned irqnum, unsigned op, l4_umword_t *label,
                       l4_timeout_t to, l4_utcb_t *utcb = l4_utcb()) throw()
   { return l4_icu_control_u(cap(), irqnum, op, label, to, utcb); }
 
-  l4_msgtag_t mask(unsigned irqnum, l4_umword_t *label, l4_timeout_t to,
+  /**
+   * \copydoc l4_icu_mask()
+   * \note \a the icu argument is the implicit \a this pointer.
+   */
+  l4_msgtag_t mask(unsigned irqnum,
+                   l4_umword_t *label = 0,
+                   l4_timeout_t to = L4_IPC_NEVER,
                    l4_utcb_t *utcb = l4_utcb()) throw()
-  { return l4_icu_control_u(cap(), irqnum, L4_ICU_CTL_MASK, label, to, utcb); }
+  { return l4_icu_mask_u(cap(), irqnum, label, to, utcb); }
 
+  /**
+   * \copydoc l4_icu_unmask()
+   * \note \a the icu argument is the implicit \a this pointer.
+   */
+  l4_msgtag_t unmask(unsigned irqnum,
+                     l4_umword_t *label = 0,
+                     l4_timeout_t to = L4_IPC_NEVER,
+                     l4_utcb_t *utcb = l4_utcb()) throw()
+  { return l4_icu_unmask_u(cap(), irqnum, label, to, utcb); }
+
+  /**
+   * \copydoc l4_icu_set_mode()
+   * \note \a the icu argument is the implicit \a this pointer.
+   */
   l4_msgtag_t set_mode(unsigned irqnum, l4_umword_t mode,
                        l4_utcb_t *utcb = l4_utcb()) throw()
   { return l4_icu_set_mode_u(cap(), irqnum, mode, utcb); }

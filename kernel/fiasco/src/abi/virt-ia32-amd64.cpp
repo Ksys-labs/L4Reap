@@ -145,4 +145,3 @@ struct Vmcb
   Vmcb_control_area control_area;
   Vmcb_state_save_area state_save_area;
 } __attribute__((packed));
-

@@ -415,6 +415,9 @@ Addr setup_client_stack( void*  init_sp,
    Addr clstack_start;
    Int i;
    Bool have_exename;
+#if defined(VGO_l4re)
+   Addr client_l4re_env_addr;
+#endif
 
    VG_(debugLog)(2, "initimg", "%s sp %p env %p info %p stack_end %p size %lx\n",
                  __func__, init_sp, orig_envp, info, clstack_end, clstack_max_size);
@@ -489,6 +492,9 @@ Addr setup_client_stack( void*  init_sp,
       sizeof(char **)*envc +                  /* envp */
       sizeof(char **) +                          /* terminal NULL */
       auxsize +                               /* auxv */
+#if defined(VGO_l4re)
+	  l4re_env_env_size() +                   /* L4Re Env object */
+#endif
       VG_ROUNDUP(stringsize, sizeof(Word));   /* strings (aligned) */
 
    if (0) VG_(printf)("stacksize = %d\n", stacksize);
@@ -500,6 +506,8 @@ Addr setup_client_stack( void*  init_sp,
    /* base of the string table (aligned) */
    stringbase = strtab = (char *)clstack_end 
                          - VG_ROUNDUP(stringsize, sizeof(int));
+
+   client_l4re_env_addr = stringbase - l4re_env_env_size();
 
    clstack_start = VG_PGROUNDDN(client_SP);
 
@@ -815,7 +823,7 @@ Addr setup_client_stack( void*  init_sp,
                 // install modifications to
                 // global environment
                 *auxv = *orig_auxv;
-                auxv->u.a_val = (Word) l4re_vcap_modify_env(orig_auxv);
+                auxv->u.a_val = (Word) l4re_vcap_modify_env(orig_auxv, client_l4re_env_addr);
             }
             break;
 

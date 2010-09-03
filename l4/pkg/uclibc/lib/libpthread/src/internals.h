@@ -156,9 +156,10 @@ inline static void __pthread_send_manager_rq(struct pthread_request *r, int bloc
   if (l4_is_invalid_cap(__pthread_manager_request))
     return;
   __builtin_memcpy(l4_utcb_mr()->mr, r, sizeof(struct pthread_request));
-  l4_msgtag_t tag = l4_msgtag(0, 
-      (sizeof(struct pthread_request) + sizeof(l4_umword_t) - 1) / sizeof(l4_umword_t),
-      0, 0);
+  l4_msgtag_t tag
+    = l4_msgtag(0,
+                (sizeof(struct pthread_request) + sizeof(l4_umword_t) - 1) / sizeof(l4_umword_t),
+                0, L4_MSGTAG_SCHEDULE);
   if (block)
     l4_ipc_call(__pthread_manager_request, l4_utcb(), tag, L4_IPC_NEVER);
   else

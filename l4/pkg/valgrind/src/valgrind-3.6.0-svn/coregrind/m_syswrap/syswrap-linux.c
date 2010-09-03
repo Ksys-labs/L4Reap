@@ -420,7 +420,8 @@ PRE(sys_mount)
    PRE_REG_READ5(long, "mount",
                  char *, source, char *, target, char *, type,
                  unsigned long, flags, void *, data);
-   PRE_MEM_RASCIIZ( "mount(source)", ARG1);
+   if (ARG1)
+      PRE_MEM_RASCIIZ( "mount(source)", ARG1);
    PRE_MEM_RASCIIZ( "mount(target)", ARG2);
    PRE_MEM_RASCIIZ( "mount(type)", ARG3);
 }
@@ -1726,7 +1727,7 @@ PRE(sys_mq_timedreceive)
 }
 POST(sys_mq_timedreceive)
 {
-   POST_MEM_WRITE( ARG2, ARG3 );
+   POST_MEM_WRITE( ARG2, RES );
    if (ARG4 != 0)
       POST_MEM_WRITE( ARG4, sizeof(unsigned int) );
 }
@@ -4280,7 +4281,7 @@ PRE(sys_ioctl)
       PRE_MEM_WRITE( "ioctl(FIGETBSZ)", ARG3, sizeof(unsigned long));
       break;
    case VKI_FIBMAP:
-      PRE_MEM_READ( "ioctl(FIBMAP)", ARG3, sizeof(unsigned long));
+      PRE_MEM_READ( "ioctl(FIBMAP)", ARG3, sizeof(int));
       break;
 
    case VKI_FBIOGET_VSCREENINFO: /* 0x4600 */
@@ -4842,8 +4843,7 @@ PRE(sys_ioctl)
       case VKI_EVIOCGBIT(VKI_EV_FF,0):
       case VKI_EVIOCGBIT(VKI_EV_PWR,0):
       case VKI_EVIOCGBIT(VKI_EV_FF_STATUS,0):
-         if (RES > 0)
-            PRE_MEM_WRITE("ioctl(EVIO*)", ARG3, _VKI_IOC_SIZE(ARG2));
+         PRE_MEM_WRITE("ioctl(EVIO*)", ARG3, _VKI_IOC_SIZE(ARG2));
          break;
       default:
          ML_(PRE_unknown_ioctl)(tid, ARG2, ARG3);
@@ -5244,7 +5244,7 @@ POST(sys_ioctl)
       POST_MEM_WRITE(ARG3, sizeof(unsigned long));
       break;
    case VKI_FIBMAP:
-      POST_MEM_WRITE(ARG3, sizeof(unsigned long));
+      POST_MEM_WRITE(ARG3, sizeof(int));
       break;
 
    case VKI_FBIOGET_VSCREENINFO: //0x4600

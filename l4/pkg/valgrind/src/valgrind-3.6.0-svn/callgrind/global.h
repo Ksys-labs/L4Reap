@@ -87,9 +87,12 @@ struct _CommandLineOptions {
   Bool collect_alloc;    /* Collect size of allocated memory */
   Bool collect_systime;  /* Collect time for system calls */
 
+  Bool collect_bus;      /* Collect global bus events */
+
   /* Instrument options */
   Bool instrument_atstart;  /* Instrument at start? */
   Bool simulate_cache;      /* Call into cache simulator ? */
+  Bool simulate_branch;     /* Call into branch prediction simulator ? */
 
   /* Call graph generation */
   Bool pop_on_jump;       /* Handle a jump between functions as ret+call */
@@ -650,9 +653,8 @@ struct cachesim_if
     void (*post_clo_init)(void);
     void (*clear)(void);
     void (*getdesc)(Char* buf);
-    void (*printstat)(void);  
+    void (*printstat)(Int,Int,Int);
     void (*add_icost)(SimCost, BBCC*, InstrInfo*, ULong);
-    void (*after_bbsetup)(void);
     void (*finish)(void);
     
     void (*log_1I0D)(InstrInfo*) VG_REGPARM(1);
@@ -671,6 +673,28 @@ struct cachesim_if
     Char *log_0I1Dr_name, *log_0I1Dw_name;
 };
 
+// set by setup_bbcc at start of every BB, and needed by log_* helpers
+extern Addr   CLG_(bb_base);
+extern ULong* CLG_(cost_base);
+
+// Event groups
+#define EG_USE   0
+#define EG_IR    1
+#define EG_DR    2
+#define EG_DW    3
+#define EG_BC    4
+#define EG_BI    5
+#define EG_BUS   6
+#define EG_ALLOC 7
+#define EG_SYS   8
+
+struct event_sets {
+    EventSet *base, *full;
+};
+extern struct event_sets CLG_(sets);
+
+#define fullOffset(group) (CLG_(sets).full->offset[group])
+
 
 /*------------------------------------------------------------*/
 /*--- Functions                                            ---*/
@@ -685,20 +709,8 @@ void CLG_(print_usage)(void);
 void CLG_(print_debug_usage)(void);
 
 /* from sim.c */
-struct event_sets {
-  EventSet *Use, *Ir, *Dr, *Dw;
-  EventSet *UIr, *UIrDr, *UIrDrDw, *UIrDw, *UIrDwDr;
-  EventSet *full;
-
-  /* offsets into eventsets */  
-  Int off_full_Ir, off_full_Dr, off_full_Dw;
-  Int off_full_alloc, off_full_systime;
-};
-
-extern struct event_sets CLG_(sets);
 extern struct cachesim_if CLG_(cachesim);
-
-void CLG_(init_eventsets)(Int user);
+void CLG_(init_eventsets)(void);
 
 /* from main.c */
 Bool CLG_(get_debug_info)(Addr, Char filename[FILENAME_LEN],

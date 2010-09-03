@@ -123,10 +123,10 @@ __pthread_manager(void *arg)
   __pthread_manager_adjust_prio(__pthread_main_thread->p_priority);
 
   l4_umword_t src;
-  l4_msgtag_t tag = l4_msgtag(0,0,0,0);
+  l4_msgtag_t tag = l4_msgtag(0, 0, 0, L4_MSGTAG_SCHEDULE);
   int do_reply = 0;
   /* Enter server loop */
-  while(1)
+  while (1)
     {
       if (do_reply)
 	tag = l4_ipc_reply_and_wait(l4_utcb(), tag, &src, L4_IPC_NEVER);
@@ -199,7 +199,7 @@ __pthread_manager(void *arg)
 	  do_reply = 1;
 	  break;
 	}
-      tag = l4_msgtag(0,0,0,0);
+      tag = l4_msgtag(0, 0, 0, L4_MSGTAG_SCHEDULE);
     }
 }
 

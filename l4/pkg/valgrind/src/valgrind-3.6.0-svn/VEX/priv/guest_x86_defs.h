@@ -61,8 +61,10 @@ DisResult disInstr_X86 ( IRSB*        irbb,
 
 /* Used by the optimiser to specialise calls to helpers. */
 extern
-IRExpr* guest_x86_spechelper ( HChar* function_name,
-                               IRExpr** args );
+IRExpr* guest_x86_spechelper ( HChar*   function_name,
+                               IRExpr** args,
+                               IRStmt** precedingStmts,
+                               Int      n_precedingStmts );
 
 /* Describes to the optimiser which part of the guest state require
    precise memory exceptions.  This is logically part of the guest
@@ -152,6 +154,9 @@ extern ULong x86g_dirtyhelper_RDTSC ( void );
 extern UInt x86g_dirtyhelper_IN  ( UInt portno, UInt sz/*1,2 or 4*/ );
 extern void x86g_dirtyhelper_OUT ( UInt portno, UInt data, 
                                    UInt sz/*1,2 or 4*/ );
+
+extern void x86g_dirtyhelper_SxDT ( void* address,
+                                    UInt op /* 0 or 1 */ );
 
 extern VexEmWarn
             x86g_dirtyhelper_FXRSTOR ( VexGuestX86State*, HWord );

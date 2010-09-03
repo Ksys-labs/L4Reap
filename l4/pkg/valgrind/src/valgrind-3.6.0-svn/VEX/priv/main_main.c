@@ -57,6 +57,8 @@
 #include "guest_arm_defs.h"
 #include "guest_ppc_defs.h"
 
+#include "host_generic_simd128.h"
+
 
 /* This file contains the top level interface to the library. */
 
@@ -141,6 +143,7 @@ void LibVEX_Init (
    vassert(4 == sizeof(Addr32));
    vassert(8 == sizeof(Addr64));
    vassert(16 == sizeof(U128));
+   vassert(16 == sizeof(V128));
 
    vassert(sizeof(void*) == 4 || sizeof(void*) == 8);
    vassert(sizeof(void*) == sizeof(int*));
@@ -180,7 +183,7 @@ VexTranslateResult LibVEX_Translate ( VexTranslateArgs* vta )
    HInstrArray* (*iselSB)       ( IRSB*, VexArch, VexArchInfo*, 
                                                   VexAbiInfo* );
    Int          (*emit)         ( UChar*, Int, HInstr*, Bool, void* );
-   IRExpr*      (*specHelper)   ( HChar*, IRExpr** );
+   IRExpr*      (*specHelper)   ( HChar*, IRExpr**, IRStmt**, Int );
    Bool         (*preciseMemExnsFn) ( Int, Int );
 
    DisOneInstrFn disInstrFn;
@@ -498,7 +501,8 @@ VexTranslateResult LibVEX_Translate ( VexTranslateArgs* vta )
 
    /* Clean it up, hopefully a lot. */
    irsb = do_iropt_BB ( irsb, specHelper, preciseMemExnsFn, 
-                              vta->guest_bytes_addr );
+                              vta->guest_bytes_addr,
+                              vta->arch_guest );
    sanityCheckIRSB( irsb, "after initial iropt", 
                     True/*must be flat*/, guest_word_type );
 
@@ -751,32 +755,53 @@ void LibVEX_default_VexAbiInfo ( /*OUT*/VexAbiInfo* vbi )
 static HChar* show_hwcaps_x86 ( UInt hwcaps ) 
 {
    /* Monotonic, SSE3 > SSE2 > SSE1 > baseline. */
-   if (hwcaps == 0)
-      return "x86-sse0";
-   if (hwcaps == VEX_HWCAPS_X86_SSE1)
-      return "x86-sse1";
-   if (hwcaps == (VEX_HWCAPS_X86_SSE1 | VEX_HWCAPS_X86_SSE2))
-      return "x86-sse1-sse2";
-   if (hwcaps == (VEX_HWCAPS_X86_SSE1 
-                  | VEX_HWCAPS_X86_SSE2 | VEX_HWCAPS_X86_SSE3))
-      return "x86-sse1-sse2-sse3";
-
-   return NULL;
+   switch (hwcaps) {
+      case 0:
+         return "x86-sse0";
+      case VEX_HWCAPS_X86_SSE1:
+         return "x86-sse1";
+      case VEX_HWCAPS_X86_SSE1 | VEX_HWCAPS_X86_SSE2:
+         return "x86-sse1-sse2";
+      case VEX_HWCAPS_X86_SSE1 | VEX_HWCAPS_X86_SSE2
+           | VEX_HWCAPS_X86_LZCNT:
+         return "x86-sse1-sse2-lzcnt";
+      case VEX_HWCAPS_X86_SSE1 | VEX_HWCAPS_X86_SSE2
+           | VEX_HWCAPS_X86_SSE3:
+         return "x86-sse1-sse2-sse3";
+      case VEX_HWCAPS_X86_SSE1 | VEX_HWCAPS_X86_SSE2
+           | VEX_HWCAPS_X86_SSE3 | VEX_HWCAPS_X86_LZCNT:
+         return "x86-sse1-sse2-sse3-lzcnt";
+      default:
+         return NULL;
+   }
 }
 
 static HChar* show_hwcaps_amd64 ( UInt hwcaps )
 {
    /* SSE3 and CX16 are orthogonal and > baseline, although we really
       don't expect to come across anything which can do SSE3 but can't
-      do CX16.  Still, we can handle that case. */
-   const UInt SSE3 = VEX_HWCAPS_AMD64_SSE3;
-   const UInt CX16 = VEX_HWCAPS_AMD64_CX16;
-         UInt c    = hwcaps;
-   if (c == 0)           return "amd64-sse2";
-   if (c == SSE3)        return "amd64-sse3";
-   if (c == CX16)        return "amd64-sse2-cx16";
-   if (c == (SSE3|CX16)) return "amd64-sse3-cx16";
-   return NULL;
+      do CX16.  Still, we can handle that case.  LZCNT is similarly
+      orthogonal. */
+   switch (hwcaps) {
+      case 0:
+         return "amd64-sse2";
+      case VEX_HWCAPS_AMD64_SSE3:
+         return "amd64-sse3";
+      case VEX_HWCAPS_AMD64_CX16:
+         return "amd64-sse2-cx16";
+      case VEX_HWCAPS_AMD64_SSE3 | VEX_HWCAPS_AMD64_CX16:
+         return "amd64-sse3-cx16";
+      case VEX_HWCAPS_AMD64_SSE3 | VEX_HWCAPS_AMD64_LZCNT:
+         return "amd64-sse3-lzcnt";
+      case VEX_HWCAPS_AMD64_CX16 | VEX_HWCAPS_AMD64_LZCNT:
+         return "amd64-sse2-cx16-lzcnt";
+      case VEX_HWCAPS_AMD64_SSE3 | VEX_HWCAPS_AMD64_CX16
+           | VEX_HWCAPS_AMD64_LZCNT:
+         return "amd64-sse3-cx16-lzcnt";
+
+      default:
+         return NULL;
+   }
 }
 
 static HChar* show_hwcaps_ppc32 ( UInt hwcaps )
@@ -821,7 +846,41 @@ static HChar* show_hwcaps_ppc64 ( UInt hwcaps )
 
 static HChar* show_hwcaps_arm ( UInt hwcaps )
 {
-   if (hwcaps == 0) return "arm-baseline";
+   Bool N = ((hwcaps & VEX_HWCAPS_ARM_NEON) != 0);
+   Bool vfp = ((hwcaps & (VEX_HWCAPS_ARM_VFP |
+               VEX_HWCAPS_ARM_VFP2 | VEX_HWCAPS_ARM_VFP3)) != 0);
+   switch (VEX_ARM_ARCHLEVEL(hwcaps)) {
+      case 5:
+         if (N)
+            return NULL;
+         if (vfp)
+            return "ARMv5-vfp";
+         else
+            return "ARMv5";
+         return NULL;
+      case 6:
+         if (N)
+            return NULL;
+         if (vfp)
+            return "ARMv6-vfp";
+         else
+            return "ARMv6";
+         return NULL;
+      case 7:
+         if (vfp) {
+            if (N)
+               return "ARMv7-vfp-neon";
+            else
+               return "ARMv7-vfp";
+         } else {
+            if (N)
+               return "ARMv7-neon";
+            else
+               return "ARMv7";
+         }
+      default:
+         return NULL;
+   }
    return NULL;
 }
 

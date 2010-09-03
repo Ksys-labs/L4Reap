@@ -1943,7 +1943,7 @@ Context::handle_global_requests()
 
 PUBLIC
 bool
-Context::enqueue_drq(Drq *rq, Drq::Exec_mode exec)
+Context::enqueue_drq(Drq *rq, Drq::Exec_mode /*exec*/)
 {
   assert_kdb (cpu_lock.test());
   // printf("CPU[%2u:%p]: Context::enqueue_request(this=%p, src=%p, func=%p, arg=%p)\n", current_cpu(), current(), this, src, func,arg);

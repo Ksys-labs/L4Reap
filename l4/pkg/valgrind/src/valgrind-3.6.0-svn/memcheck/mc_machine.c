@@ -536,6 +536,7 @@ static Int get_otrack_shadow_offset_wrk ( Int offset, Int szB )
    if (o >= GOF(XMM13) && o+sz <= GOF(XMM13)+SZB(XMM13)) return GOF(XMM13);
    if (o >= GOF(XMM14) && o+sz <= GOF(XMM14)+SZB(XMM14)) return GOF(XMM14);
    if (o >= GOF(XMM15) && o+sz <= GOF(XMM15)+SZB(XMM15)) return GOF(XMM15);
+   if (o >= GOF(XMM16) && o+sz <= GOF(XMM16)+SZB(XMM16)) return GOF(XMM16);
 
    /* MMX accesses to FP regs.  Need to allow for 32-bit references
       due to dirty helpers for frstor etc, which reference the entire
@@ -710,13 +711,15 @@ static Int get_otrack_shadow_offset_wrk ( Int offset, Int szB )
    if (o == GOF(R14) && sz == 4) return o;
 
    /* EAZG: These may be completely wrong. */
-   if (o == GOF(R15)   && sz == 4) return -1; /* slot unused */
+   if (o == GOF(R15T)  && sz == 4) return -1; /* slot unused */
    if (o == GOF(CC_OP) && sz == 4) return -1; /* slot unused */
 
    if (o == GOF(CC_DEP1) && sz == 4) return o;
    if (o == GOF(CC_DEP2) && sz == 4) return o;
 
    if (o == GOF(CC_NDEP) && sz == 4) return -1; /* slot unused */
+
+   if (o == GOF(QFLAG32) && sz == 4) return o;
 
    //if (o == GOF(SYSCALLNO)     && sz == 4) return -1; /* slot unused */
    //if (o == GOF(CC)     && sz == 4) return -1; /* slot unused */
@@ -726,6 +729,7 @@ static Int get_otrack_shadow_offset_wrk ( Int offset, Int szB )
 
    if (o == GOF(FPSCR)    && sz == 4) return -1;
    if (o == GOF(TPIDRURO) && sz == 4) return -1;
+   if (o == GOF(ITSTATE)  && sz == 4) return -1;
 
    if (o >= GOF(D0)  && o+sz <= GOF(D0) +SZB(D0))  return GOF(D0);
    if (o >= GOF(D1)  && o+sz <= GOF(D1) +SZB(D1))  return GOF(D1);

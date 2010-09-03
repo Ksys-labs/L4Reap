@@ -204,9 +204,11 @@ ThreadId VG_(alloc_ThreadState) ( void )
 
          VG_(threads)[i].os_state.utcb = (l4_utcb_t *)ts_utcb_copy(&VG_(threads)[i]);
 
+#if 0
          // copy current utcb as initial utcb into thread state
          l4_utcb_t *utcb = l4_utcb_wrap();
          VG_(memcpy)(ts_utcb(&VG_(threads)[i]), utcb, L4RE_UTCB_SIZE);
+#endif
 #endif
          return i;
       }
@@ -686,6 +688,16 @@ static void do_pre_run_checks ( ThreadState* tst )
    vg_assert(sz_spill == LibVEX_N_SPILL_BYTES);
    vg_assert(a_vex + 3 * sz_vex == a_spill);
 
+#  if defined(VGA_amd64)
+   /* x86/amd64 XMM regs must form an array, ie, have no
+      holes in between. */
+   vg_assert(
+      (offsetof(VexGuestAMD64State,guest_XMM16)
+       - offsetof(VexGuestAMD64State,guest_XMM0))
+      == (17/*#regs*/-1) * 16/*bytes per reg*/
+   );
+#  endif
+
 #  if defined(VGA_ppc32) || defined(VGA_ppc64)
    /* ppc guest_state vector regs must be 16 byte aligned for
       loads/stores.  This is important! */
@@ -696,7 +708,7 @@ static void do_pre_run_checks ( ThreadState* tst )
    vg_assert(VG_IS_16_ALIGNED(& tst->arch.vex.guest_VR1));
    vg_assert(VG_IS_16_ALIGNED(& tst->arch.vex_shadow1.guest_VR1));
    vg_assert(VG_IS_16_ALIGNED(& tst->arch.vex_shadow2.guest_VR1));
-#  endif   
+#  endif
 
 #  if defined(VGA_arm)
    /* arm guest_state VFP regs must be 8 byte aligned for
@@ -1670,6 +1682,35 @@ void do_client_request ( ThreadId tid )
          VG_(di_notify_pdb_debuginfo)( arg[1], arg[2], arg[3], arg[4] );
          SET_CLREQ_RETVAL( tid, 0 );     /* return value is meaningless */
          break;
+
+      case VG_USERREQ__MAP_IP_TO_SRCLOC: {
+         Addr   ip    = arg[1];
+         UChar* buf64 = (UChar*)arg[2];
+
+         VG_(memset)(buf64, 0, 64);
+         UInt linenum = 0;
+         Bool ok = VG_(get_filename_linenum)(
+                      ip, &buf64[0], 50, NULL, 0, NULL, &linenum
+                   );
+         if (ok) {
+            /* Find the terminating zero in the first 50 bytes. */
+            UInt i;
+            for (i = 0; i < 50; i++) {
+               if (buf64[i] == 0)
+                  break;
+            }
+            /* We must find a zero somewhere in 0 .. 49.  Else
+               VG_(get_filename_linenum) is not properly zero
+               terminating. */
+            vg_assert(i < 50);
+            VG_(sprintf)(&buf64[i], ":%u", linenum);
+         } else {
+            buf64[0] = 0;
+         }
+
+         SET_CLREQ_RETVAL( tid, 0 ); /* return value is meaningless */
+         break;
+      }
 
       case VG_USERREQ__MALLOCLIKE_BLOCK:
       case VG_USERREQ__FREELIKE_BLOCK:

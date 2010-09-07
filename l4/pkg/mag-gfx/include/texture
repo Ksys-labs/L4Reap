@@ -35,6 +35,7 @@ public:
   void pixels(void *pixels) { _pixels = pixels; }
 
   virtual void blit(Texture const *src, int start_line = 0) = 0;
+  virtual void blit_line(void const *src, Pixel_info const *st, int line, unsigned *offset_buffer) = 0;
   bool extra_alpha() const { return _extra_alpha; }
 
   virtual ~Texture() {}

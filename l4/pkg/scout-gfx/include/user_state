@@ -28,7 +28,6 @@ private:
 //  Widget *_dst;       /* current link destination                  */
   Widget *_active;    /* currently activated element               */
   Point _am;
-  Point    _m;   /* current mouse position                    */
   Point    _v;   /* current view offset                       */
 
   /**
@@ -48,13 +47,13 @@ public:
   /**
    * Accessor functions
    */
-  Point m() const { return _m; }
+  //Point m() const { return _m; }
   //Point v() const { return _v; }
 
   /**
    * Apply input event to mouse focus state
    */
-  void handle_event(Event const &ev);
+  Widget *handle_event(Event const &ev);
 
   /********************
    ** Parent element **

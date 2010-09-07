@@ -75,7 +75,7 @@ public:
   /**
    * Event handler interface
    */
-  void handle_event(Event const &e);
+  Widget *handle_event(Event const &e);
 
   void mfocus(int flag);
 

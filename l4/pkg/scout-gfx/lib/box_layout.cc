@@ -13,6 +13,8 @@
 #include "layout_internal.h"
 #include <vector>
 
+#include <cstdio>
+
 namespace Scout_gfx {
 
 class Box_layout_p : public Box_layout
@@ -220,12 +222,16 @@ Box_layout_p::min_height_for_width(int w) const
 void
 Box_layout_p::set_geometry(Rect const &r)
 {
+  if (_dbg)
+    printf("BL[%p] set_geometry(%d,%d - %d,%d)\n", this, r.x1(), r.y1(), r.x2(), r.y2());
   if (r == geometry() && !_d.need_refresh)
     return;
 
   if (_d.need_refresh)
     setup_geometry();
 
+  if (_dbg)
+    printf("BL[%p] set_geometry(ms=%d,%d\n", this, min_size().w(), min_size().h());
   do_set_geometry(r.grow(-margin()));
 }
 

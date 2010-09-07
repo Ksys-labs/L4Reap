@@ -56,6 +56,11 @@ public:
   Area size() const { return _size; }
   Point pos() const { return _pos; }
   Rect geometry() const { return Rect(_pos, _size); }
+  void set_geometry(Rect const &g)
+  {
+    _pos = g.p1();
+    _size = g.area();
+  }
 
   inline Point map_to_parent(Point const &po, Widget *p = 0) const;
 
@@ -120,10 +125,11 @@ public:
   /**
    * Handle user input or timer event
    */
-  virtual void handle_event(Event const &ev)
+  virtual Widget *handle_event(Event const &ev)
   {
-    if (_evh)
-      _evh->handle(ev);
+    if (_evh && _evh->handle(ev))
+      return this;
+    return 0;
   }
 };
 

@@ -6,12 +6,12 @@
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
  */
-#include <l4/scout-gfx/user_state>
-
+#include <l4/scout-gfx/window>
 
 namespace Scout_gfx {
 
-void User_state::_assign_mfocus(Widget *e, int force )
+void
+Window::_assign_mfocus(Widget *e, int force)
 {
   /* return if mouse focus did not change */
   if (!force && e == _mfocus)
@@ -45,16 +45,19 @@ void User_state::_assign_mfocus(Widget *e, int force )
 }
 
 Widget *
-User_state::handle_event(Event const &ev)
+Window::handle_event(Event const &ev)
 {
   Parent_widget::handle_event(ev);
-
   if (_active)
-    _active->handle_event(ev);
+    {
+      Event re = ev;
+      re.m -= _active_pos;
+      _active->handle_event(re);
+    }
 
   Widget *e = 0;
   if (ev.type != 4)
-    e = find_child(ev.m);
+    e = find(ev.m);
 
   if (e == this)
     e = 0;
@@ -66,8 +69,15 @@ User_state::handle_event(Event const &ev)
       if (ev.key_cnt != 1 || !e)
 	break;
 
-      _active = e;
-      _active->handle_event(ev);
+	{
+	  _active_pos = e->map_to_parent(Point(0,0));
+	  _active = e;
+
+	  Event re = ev;
+	  re.m -= _active_pos;
+	  _active->handle_event(re);
+	}
+
       _assign_mfocus(e, 1);
 
       break;
@@ -81,17 +91,33 @@ User_state::handle_event(Event const &ev)
       break;
 
     case Event::WHEEL:
+#if 0
+	if (Widget *x = find_child(m))
+	  {
+	    Event re = ev;
+	    re.m = x->map_from_parent(ev.m);
+	    x->handle_event(re);
+	  }
+	break;
+#endif
     case Event::MOTION:
       if (!_active && e)
-	e->handle_event(ev);
+	{
+	  Event re = ev;
+	  re.m = e->map_from_parent(ev.m);
+	  e->handle_event(re);
+	}
 
       if (ev.key_cnt == 0)
 	_assign_mfocus(e);
       break;
 
     default:
+
       break;
     }
+
   return this;
 }
 }
+

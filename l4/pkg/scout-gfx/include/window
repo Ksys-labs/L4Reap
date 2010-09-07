@@ -1,3 +1,4 @@
+// vi:ft=cpp
 /*
  * (c) 2010 Alexander Warg <warg@os.inf.tu-dresden.de>
  *     economic rights: Technische Universität Dresden (Germany)
@@ -6,7 +7,6 @@
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
  */
-// vi:ft=cpp
 
 #pragma once
 
@@ -41,6 +41,9 @@ private:
 
   View *_view;
   Area _max_sz;
+  Widget *_mfocus;
+  Widget *_active;
+  Point _active_pos;
 
 protected:
   Area _min_sz;
@@ -64,21 +67,22 @@ public:
     if (h > 0)
       s.h(std::max(s.h(), h));
 
-    child_layout()->set_geometry(Rect(Point(0,0), s));
+    child_layout()->set_geometry(Rect(Point(0, 0), s));
     _size = s;
   }
 
   Orientations expanding() const { return Orientations(); }
   bool empty() const { return false; }
 
-  void set_geometry(Rect const &r)
+  void set_geometry(Rect const &r, bool force)
   {
     bool need_redraw = false;
     Area s = r.area().min(max_size());
 
-    if (child_layout() && s != _size)
+    if (child_layout() && (force || s != _size))
       {
 	_size = s;
+	child_layout()->set_geometry(Rect(s));
 	child_invalidate();
         need_redraw = true;
       }
@@ -89,6 +93,9 @@ public:
     Rect ng = _view->set_geometry(Rect(r.p1(), _size), need_redraw);
     _pos = ng.p1(); _size = ng.area();
   }
+
+  void set_geometry(Rect const &r)
+  { set_geometry(r, false); }
 
   Rect geometry() const { return Rect(_pos, _size); }
 
@@ -134,6 +141,10 @@ public:
     Parent_widget::draw(c, p);
   }
 
+  Widget *handle_event(Event const &ev);
+
+private:
+  void _assign_mfocus(Widget *e, int force = 0);
 };
 
 
@@ -156,10 +167,10 @@ public:
   /**
    * Event handler interface
    */
-  void handle(Scout_gfx::Event const &ev)
+  bool handle(Scout_gfx::Event const &ev)
   {
     if (ev.key_cnt == 0)
-      return;
+      return false;
 
     /* first click starts dragging */
     if ((ev.type == Scout_gfx::Event::PRESS) && (ev.key_cnt == 1))
@@ -171,12 +182,13 @@ public:
 
     /* check if mouse was moved */
     if (ev.m == _cm)
-      return;
+      return true;
 
     /* remember current mouse position */
     _cm = ev.m;
 
     do_drag();
+    return true;
   }
 
   virtual ~Drag_event_handler() {}

@@ -20,7 +20,8 @@ private:
   int _spacing;
 
 public:
-  Layout() : _margin(0), _spacing(0) {}
+  int _dbg;
+  Layout() : _margin(0), _spacing(0), _dbg(0) {}
   virtual ~Layout() {}
 
   int margin() const { return _margin; }

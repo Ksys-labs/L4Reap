@@ -44,6 +44,7 @@ public:
   virtual void draw_box(Rect const &rect, Rgba32::Color color) = 0;
   virtual void draw_string(Point const &pos, Font const *f, Rgba32::Color color, char const *str, unsigned len = -1) = 0;
   virtual void draw_texture(Texture const *src, Rgb32::Color mix_color, Point const &pos, Mix_mode mode) = 0;
+  virtual void draw_texture_scaled(Texture const *src, Area const &size, Rgb32::Color mix_color, Point const &pos, Mix_mode mode) = 0;
 
   virtual void *buffer() const = 0;
   virtual void buffer(void *buffer) = 0;

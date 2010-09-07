@@ -13,14 +13,19 @@
 
 namespace Mag_gfx {
 
-template< typename R >
-class Vector_2d
+class Vector_2d_base
 {
 protected:
   int _x, _y;
+  Vector_2d_base(int x, int y) : _x(x), _y(y) {}
+};
 
+template< typename R >
+class Vector_2d : public Vector_2d_base
+{
 public:
-  Vector_2d(int x, int y) : _x(x), _y(y) {}
+  Vector_2d(int x, int y) : Vector_2d_base(x, y) {}
+  explicit Vector_2d(Vector_2d_base const &o) : Vector_2d_base(o) {}
   //  Point() : _x(-1), _y(-1) {}
 
   //int x() const { return _x; }
@@ -70,6 +75,8 @@ private:
 public:
   Point(int x, int y) : B(x, y) {}
   Point() : B(-1, -1) {}
+
+  explicit Point(Vector_2d_base const &o) : B(o) {}
 
   int x() const { return _x; }
   int y() const { return _y; }

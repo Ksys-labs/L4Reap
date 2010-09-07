@@ -26,7 +26,26 @@ using Mag_gfx::Orientations;
 class Widget;
 class Layout;
 
-class Layout_item
+class Layout_item_iface
+{
+public:
+  virtual Area preferred_size() const = 0;
+  virtual Area min_size() const = 0;
+  virtual Area max_size() const = 0;
+
+  virtual Orientations expanding() const = 0;
+  virtual bool empty() const = 0;
+
+  virtual bool has_height_for_width() const = 0;
+  virtual int height_for_width(int) const  = 0;
+  virtual int min_height_for_width(int) const  = 0;
+
+  virtual ~Layout_item_iface() = 0;
+};
+
+inline Layout_item_iface::~Layout_item_iface() {}
+
+class Layout_item : public virtual Layout_item_iface
 {
 private:
   Layout_item *_parent;
@@ -38,15 +57,6 @@ public:
   Layout_item *parent_layout_item() const { return _parent; }
   void set_parent_layout_item(Layout_item *p) { _parent = p; }
 
-  virtual Area preferred_size() const = 0;
-  virtual Area min_size() const = 0;
-  virtual Area max_size() const = 0;
-
-  virtual Orientations expanding() const = 0;
-  virtual bool empty() const = 0;
-  virtual bool has_height_for_width() const { return false; }
-  virtual int height_for_width(int) const { return -1; }
-  virtual int min_height_for_width(int) const { return -1; }
 
   virtual void set_geometry(Rect const &) = 0;
   virtual Rect geometry() const = 0;
@@ -65,6 +75,10 @@ public:
   Rect aligned_rect(Rect const &);
   Area aligned_max_size() const;
   void aligned_set_geometry(Rect const &);
+
+  virtual bool has_height_for_width() const { return false; }
+  virtual int height_for_width(int) const { return -1; }
+  virtual int min_height_for_width(int) const { return -1; }
 };
 
 

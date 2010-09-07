@@ -49,11 +49,13 @@ public:
   /**
    * Event handler interface
    */
-  void handle(Event const &ev)
+  bool handle(Event const &ev)
   {
     if (ev.type == Event::PRESS || ev.type == Event::MOTION)
       if (_listener && ev.key_cnt > 0)
 	_listener->loadbar_changed(_lb, ev.m.x());
+
+    return true;
   }
 };
 

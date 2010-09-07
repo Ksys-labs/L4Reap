@@ -25,16 +25,19 @@ Link_token::browser() const
 }
 
 
-void Link_token::handle_event(Event const &e)
+Widget *
+Link_token::handle_event(Event const &e)
 {
-  Token::handle_event(e);
+  Widget *r = Token::handle_event(e);
   if (e.type != Event::PRESS)
-    return;
+    return r;
 
   /* make browser to follow link */
   Browser *b = browser();
   if (b && _dst)
     b->go_to(_dst);
+
+  return this;
 }
 
 

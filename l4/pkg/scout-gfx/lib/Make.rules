@@ -13,7 +13,8 @@ SRC_CC		= tick.cc png_image.cc \
 		  doc/verbatim.cc \
 		  loadbar.cc \
 		  redraw_manager.cc \
-		  grid_layout.cc
+		  grid_layout.cc \
+		  window.cc
 
 SRC_BIN =   vera16.tff \
             verai16.tff \

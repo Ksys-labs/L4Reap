@@ -84,7 +84,7 @@ public:
   /**
    * Handle event
    */
-  virtual void handle(Event const &e) = 0;
+  virtual bool handle(Event const &e) = 0;
 };
 
 

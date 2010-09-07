@@ -118,6 +118,54 @@ public:
 	  }
       }
   }
+
+  void blit_line(void const *_src, Pixel_info const *st, int line, unsigned *offset_buffer)
+  {
+    Pixel *dst = pixels();
+
+    if (line >= size().h())
+      return;
+
+    dst += size().w() * line;
+
+    char const *src = (char const *)_src;
+
+    if (st == type())
+      {
+	for (int i = 0; i < size().w(); ++i, ++dst)
+	  *dst = *(Pixel const *)(src + offset_buffer[i]);
+
+	if (extra_alpha())
+	  memset(alpha_buffer() + size().w() * line, ~0, size().w());
+      }
+    else
+      {
+#if 0
+	printf("texture convert: %dx%d %d(%d):%d(%d):%d(%d):%d(%d) -> %dx%d %d(%d):%d(%d):%d(%d):%d(%d)\n",
+	    (int)o->size().w(), (int)o->size().h(),
+	    (int)o->type()->r.si, (int)o->type()->r.sh,
+	    (int)o->type()->g.si, (int)o->type()->g.sh,
+	    (int)o->type()->b.si, (int)o->type()->b.sh,
+	    (int)o->type()->a.si, (int)o->type()->a.sh,
+	    (int)size().w(), (int)size().h(),
+	    (int)type()->r.si, (int)type()->r.sh,
+	    (int)type()->g.si, (int)type()->g.sh,
+	    (int)type()->b.si, (int)type()->b.sh,
+	    (int)type()->a.si, (int)type()->a.sh);
+#endif
+	unsigned char *ab = alpha_buffer();
+	bool const xa = ab;
+	ab += size().w() * line;
+
+	for (int y = 0; y < size().w(); y++)
+	  {
+	    Mag_gfx::Pixel_info::Color c = st->get(src + offset_buffer[y]);
+	    dst[y] = Color(c);
+	    if (xa)
+	      ab[y] = c.a >> 8;
+	  }
+      }
+  }
 };
 
 }}

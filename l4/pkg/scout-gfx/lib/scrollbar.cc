@@ -28,7 +28,7 @@ namespace Scout_gfx {
 /**
  * Event handler interface
  */
-void
+bool
 Scrollbar::Arrow_event_handler::handle(Event const &ev)
 {
   /* start movement with zero speed */
@@ -54,6 +54,8 @@ Scrollbar::Arrow_event_handler::handle(Event const &ev)
       _accel     = 64;
       _dst_speed = 0;
     }
+
+  return true;
 }
 
 /**
@@ -101,7 +103,7 @@ Scrollbar::Arrow_event_handler::on_tick()
 /**
  * Event handler interface
  */
-void
+bool
 Scrollbar::Slider_event_handler::handle(Event const &ev)
 {
 
@@ -131,6 +133,8 @@ Scrollbar::Slider_event_handler::handle(Event const &ev)
       _sb->slider_pos(_op + _cm - _om);
       _sb->notify_listener();
     }
+
+  return true;
 }
 
 

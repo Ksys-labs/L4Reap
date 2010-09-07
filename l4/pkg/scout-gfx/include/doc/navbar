@@ -43,18 +43,19 @@ private:
     /**
      * Event handler interface
      */
-    void handle(Event const &ev)
+    bool handle(Event const &ev)
     {
       if (ev.type != Event::PRESS || !_navbar)
-	return;
+	return true;
 
       Scout_gfx::Browser *b = _navbar->browser();
       if (!b || !_dst)
-	return;
+	return true;
 
       _navbar->curr(0);
       b->go_to(_dst);
       _navbar->fade_to(100, 2);
+      return true;
     }
   };
 

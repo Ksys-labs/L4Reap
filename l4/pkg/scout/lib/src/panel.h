@@ -170,8 +170,8 @@ protected:
     /**
      * Event handler interface
      */
-    void handle(Scout_gfx::Event const &ev)
-    { b->handle_event(ev); }
+    bool handle(Scout_gfx::Event const &ev)
+    { return b->handle_event(ev); }
   };
 
   Ev_proxy _ev_proxy;
@@ -208,11 +208,11 @@ public:
   /**
    * Event handler interface
    */
-  void handle(Scout_gfx::Event const &ev)
+  bool handle(Scout_gfx::Event const &ev)
   {
     /* start movement with zero speed */
     if ((ev.type != Scout_gfx::Event::PRESS) || (ev.key_cnt != 1))
-      return;
+      return true;
 
     /* no flashing by default */
     int flash = (_b->*_f)();
@@ -225,6 +225,8 @@ public:
 	_fader->step(4);
 	_fader->curr(190);
       }
+
+    return true;
   }
 };
 

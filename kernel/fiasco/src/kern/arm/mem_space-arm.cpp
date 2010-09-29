@@ -394,7 +394,7 @@ PUBLIC
 Mem_space::Mem_space (Ram_quota *q, Dir_type* pdir)
   : _quota(q), _dir (pdir)
 {
-  asid(0);
+  asid(~0UL);
   enable_reverse_lookup ();
 }
 
@@ -470,10 +470,7 @@ Mem_space::c_asid() const
 PRIVATE inline static
 unsigned long
 Mem_space::next_asid(unsigned cpu)
-{ 
-  unsigned long ret = _next_free_asid.cpu(cpu)++;
-  return ret; 
-}
+{ return _next_free_asid.cpu(cpu)++; }
 
 PRIVATE inline NEEDS[Mem_space::next_asid]
 unsigned long

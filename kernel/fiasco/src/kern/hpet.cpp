@@ -43,18 +43,18 @@ public:
 
   int get_int() const { return (config_and_cap & Tn_INT_ROUTE_CNF_MASK) >> 9; }
 
-  bool can_periodic() { return config_and_cap & Tn_PER_INT_CAP; }
-  void set_periodic() { config_and_cap |= Tn_TYPE_CNF; }
+  bool can_periodic() const { return config_and_cap & Tn_PER_INT_CAP; }
+  void set_periodic()       { config_and_cap |= Tn_TYPE_CNF; }
 
   void set_level_irq() { config_and_cap |=  Tn_INT_TYPE_CNF; }
   void set_edge_irq()  { config_and_cap &= ~Tn_INT_TYPE_CNF; }
 
-  bool can_64bit()     { return config_and_cap & Tn_SIZE_CAP; }
-  void force_32bit()   { config_and_cap |= Tn_32MODE_CNF; }
-  void val_set()       { config_and_cap |= Tn_VAL_SET_CNF; }
+  bool can_64bit() const { return config_and_cap & Tn_SIZE_CAP; }
+  void force_32bit()     { config_and_cap |= Tn_32MODE_CNF; }
+  void val_set()         { config_and_cap |= Tn_VAL_SET_CNF; }
 
-  Unsigned32 int_route_cap() { return config_and_cap >> 32; }
-  bool       int_avail(int i) { return int_route_cap() & i; }
+  Unsigned32 int_route_cap() const { return config_and_cap >> 32; }
+  bool       int_avail(int i) const { return int_route_cap() & i; }
 
   int get_first_int()
   {

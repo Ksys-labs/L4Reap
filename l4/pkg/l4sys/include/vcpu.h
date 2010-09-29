@@ -33,19 +33,19 @@
  */
 typedef struct l4_vcpu_state_t
 {
-  l4_vcpu_regs_t       r;
-  l4_vcpu_ipc_regs_t   i;
+  l4_vcpu_regs_t       r;             ///< Register state
+  l4_vcpu_ipc_regs_t   i;             ///< IPC state
 
-  l4_umword_t          state;
-  l4_umword_t          saved_state;
+  l4_umword_t          state;         ///< Current vCPU state
+  l4_umword_t          saved_state;   ///< Saved vCPU state
 
-  l4_umword_t          sticky_flags;
+  l4_umword_t          sticky_flags;  ///< Pending flags
 
-  l4_cap_idx_t         user_task;
+  l4_cap_idx_t         user_task;     ///< User task to use
 
-  l4_umword_t          entry_sp;
-  l4_umword_t          entry_ip;
-  l4_umword_t          reserved_sp;
+  l4_umword_t          entry_sp;      ///< Stack pointer for entry
+  l4_umword_t          entry_ip;      ///< IP for entry (when coming from user task)
+  l4_umword_t          reserved_sp;   ///< \internal
 } l4_vcpu_state_t;
 
 /**
@@ -54,12 +54,12 @@ typedef struct l4_vcpu_state_t
  */
 enum L4_vcpu_state_flags
 {
-  L4_VCPU_F_IRQ         = 0x01,
-  L4_VCPU_F_PAGE_FAULTS = 0x02,
-  L4_VCPU_F_EXCEPTIONS  = 0x04,
-  L4_VCPU_F_DEBUG_EXC   = 0x08,
-  L4_VCPU_F_USER_MODE   = 0x20,
-  L4_VCPU_F_FPU_ENABLED = 0x80,
+  L4_VCPU_F_IRQ         = 0x01, ///< IRQs (events) enabled
+  L4_VCPU_F_PAGE_FAULTS = 0x02, ///< Page faults enabled
+  L4_VCPU_F_EXCEPTIONS  = 0x04, ///< Exception enabled
+  L4_VCPU_F_DEBUG_EXC   = 0x08, ///< Debug exception enabled
+  L4_VCPU_F_USER_MODE   = 0x20, ///< User task will be used
+  L4_VCPU_F_FPU_ENABLED = 0x80, ///< FPU enabled
 };
 
 /**
@@ -68,5 +68,5 @@ enum L4_vcpu_state_flags
  */
 enum L4_vcpu_sticky_flags
 {
-  L4_VCPU_SF_IRQ_PENDING = 0x01,
+  L4_VCPU_SF_IRQ_PENDING = 0x01, ///< An event (e.g. IRQ) is pending
 };

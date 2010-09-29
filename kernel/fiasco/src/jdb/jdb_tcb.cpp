@@ -611,11 +611,12 @@ whole_screen:
   putstr("vCPU  st: ");
   if (t->state() & Thread_vcpu_enabled)
     {
-      char st[7];
+      char st1[7];
+      char st2[7];
       printf("c=%s s=%s e-ip=%08lx e-sp=%08lx S=",
-	     vcpu_state_str(t->vcpu_state()->state, st, sizeof(st)),
-             vcpu_state_str(t->vcpu_state()->_saved_state, st, sizeof(st)),
-	     t->vcpu_state()->_entry_ip, t->vcpu_state()->_entry_sp);
+             vcpu_state_str(t->vcpu_state()->state, st1, sizeof(st1)),
+             vcpu_state_str(t->vcpu_state()->_saved_state, st2, sizeof(st2)),
+             t->vcpu_state()->_entry_ip, t->vcpu_state()->_entry_sp);
       print_kobject(static_cast<Task*>(t->vcpu_user_space()));
     }
   else

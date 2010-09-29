@@ -11,10 +11,9 @@ IMPLEMENTATION:
 #include "terminate.h"
 #include "types.h"
 
-
 /**
  * Private 'exit' module.
- * 
+ *
  * This module handles the 'exit' or '^' command that
  * makes a call to exit() and virtually reboots the system.
  */
@@ -43,6 +42,7 @@ Jdb_exit_module::action (int cmd, void *&, char const *&, int &)
   Jdb::screen_scroll(1, 127);
   Jdb::blink_cursor(Jdb_screen::height(), 1);
   Jdb::cursor(127, 1);
+  vmx_off();
   terminate(1);
   return LEAVE;
 }
@@ -50,7 +50,7 @@ Jdb_exit_module::action (int cmd, void *&, char const *&, int &)
 PUBLIC
 int
 Jdb_exit_module::num_cmds() const
-{ 
+{
   return 1;
 }
 
@@ -68,3 +68,40 @@ IMPLEMENT
 Jdb_exit_module::Jdb_exit_module()
   : Jdb_module("GENERAL")
 {}
+
+// ------------------------------------------------------------------------
+IMPLEMENTATION [vmx]:
+
+// VT might need some special treatment, switching VT off seems to be
+// necessary to do a (keyboard) reset
+
+#include "cpu.h"
+
+PRIVATE static
+void
+Jdb_exit_module::do_vmxoff(unsigned, void *)
+{
+  asm volatile("vmxoff");
+}
+
+PRIVATE static
+void
+Jdb_exit_module::remote_vmxoff(unsigned cpu)
+{
+  Jdb::remote_work(cpu, do_vmxoff, 0);
+}
+
+PRIVATE
+void
+Jdb_exit_module::vmx_off() const
+{
+  if (Cpu::boot_cpu()->vmx())
+    Jdb::foreach_cpu(&remote_vmxoff);
+}
+
+// ------------------------------------------------------------------------
+IMPLEMENTATION [!vmx]:
+
+PRIVATE
+void
+Jdb_exit_module::vmx_off() const {}

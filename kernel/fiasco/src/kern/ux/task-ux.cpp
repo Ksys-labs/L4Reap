@@ -39,8 +39,7 @@ Task::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
 
           unsigned entry_number  = utcb->values[1];
           unsigned idx           = 2;
-          Mword *trampoline_page = (Mword *)Kmem::phys_to_virt
-                                       (Mem_layout::Trampoline_frame);
+          Mword *trampoline_page = (Mword *)Kmem::kernel_trampoline_page;
 
           for (; idx < tag.words()
               ; idx += Utcb_values_per_ldt_entry,

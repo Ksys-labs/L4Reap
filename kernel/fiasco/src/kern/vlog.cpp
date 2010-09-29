@@ -79,6 +79,8 @@ Vlog::Vlog()
   _i_flags(F_ICRNL), _o_flags(F_ONLRET | F_OCRNL), _l_flags(F_ECHO)
 {
   Vkey::set_echo(Vkey::Echo_crnl);
+  // CAP idx 5 is the initial kernel stream
+  initial_kobjects.register_obj(this, 5);
 }
 
 PUBLIC
@@ -253,4 +255,7 @@ Vlog::kinvoke(L4_obj_ref ref, Mword rights, Syscall_frame *f,
       return get_input(rights, f, s_msg);
     }
 }
+
+
+static Vlog __vlog;
 

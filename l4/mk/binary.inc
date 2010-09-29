@@ -284,7 +284,7 @@ BID_MISSING_LIBS :=
 L4_BID_PKG_CONFIG = $(PKG_CONFIG)
 BID_PKG_CONFIG = $(if $(strip $(3)),                                     \
                    $(shell PKG_CONFIG_LIBDIR=$(1)/pc                     \
-                           $(L4_BID_PKG_CONFIG)                          \
+                           PKG_CONFIG_PATH= $(L4_BID_PKG_CONFIG)         \
                            --define-variable=incdir=$(1)/include/contrib \
 			   $(2) $(3) || echo __PKGCONFIG_FAILED__))
 

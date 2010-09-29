@@ -60,5 +60,5 @@ IMPLEMENT inline NEEDS["cpu.h", "globals.h"]
 void
 Space::switchin_ldt() const
 {
-  Cpu::cpus.cpu(current_cpu()).enable_ldt (_ldt.addr(), _ldt.size());
+  Cpu::cpus.cpu(current_cpu()).enable_ldt(_ldt.addr(), _ldt.size());
 }

@@ -198,15 +198,14 @@ PUBLIC
 void
 Gdt_entry::show() const
 {
-  static char const modes[] = {16,64,32,-1};
+  static char const modes[] = { 16, 64, 32, -1 };
   // segment descriptor
   Address b = base();
-  Address l = size();
   printf("%016lx-%016lx dpl=%d %dbit %s %02X (\033[33;1m%s\033[m)\n",
-	    b, b+l, (access & 0x60) >> 5, 
-	     modes[mode()],
-    	     access & 0x10 ? "code/data" : "system   ",
-	     access & 0x1f, type_str());
+         b, b + size(), (access & 0x60) >> 5,
+         modes[mode()],
+         access & 0x10 ? "code/data" : "system   ",
+         access & 0x1f, type_str());
 }
 
 PUBLIC inline
@@ -350,7 +349,7 @@ Mword
 Gdt_entry::size() const
 {
   Mword l = limit();
-  return (granularity()) ? ((l+1) << 12)-1 : l;
+  return granularity() ? ((l+1) << 12)-1 : l;
 }
 
 PUBLIC inline

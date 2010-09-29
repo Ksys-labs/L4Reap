@@ -16,7 +16,6 @@
 #pragma once
 
 #include <l4/scout-gfx/widget>
-#include <l4/scout-gfx/window>
 
 namespace Scout_gfx {
 

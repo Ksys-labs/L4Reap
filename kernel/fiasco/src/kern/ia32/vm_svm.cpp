@@ -165,6 +165,7 @@ PUBLIC inline
 void *
 Vm_svm::operator new (size_t size, void *p)
 {
+  (void)size;
   assert (size == sizeof (Vm_svm));
   return p;
 }

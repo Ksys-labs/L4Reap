@@ -7,7 +7,7 @@
  * Please see the COPYING-GPL-2 file for details.
  */
 
-#include <l4/arm_drivers/lcd.h>
+#include <l4/drivers/lcd.h>
 #include <l4/sys/cache.h>
 #include <cstdio>
 

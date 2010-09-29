@@ -45,7 +45,7 @@ class Pt_entry : public Pte_base
 public:
   enum { Page_shift = Config::PAGE_SHIFT };
   Mword leaf() const { return true; }
-  void set(Address p, bool intermed, bool present, unsigned long attrs = 0) 
+  void set(Address p, bool intermed, bool present, unsigned long attrs = 0)
   {
     _raw = (p & Pfn) | (present ? 1 : 0)
       | (intermed ? (Writable | User | Cacheable) : 0) | attrs;

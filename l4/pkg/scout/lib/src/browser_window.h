@@ -19,14 +19,14 @@
 #include "platform.h"
 #include <l4/scout-gfx/redraw_manager>
 #include "browser.h"
-#include <l4/scout-gfx/window>
+#include <l4/scout-gfx/basic_window>
 #include <l4/scout-gfx/titlebar>
 
 class Factory;
 
 class Browser_window
 : public Scout_browser,
-  public Scout_gfx::Window
+  public Scout_gfx::Basic_window
 {
 
 private:
@@ -106,7 +106,7 @@ public:
   void draw(Mag_gfx::Canvas *c, Point const &p)
   {
     using Scout_gfx::Color;
-    Window::draw(c, p);
+    Basic_window::draw(c, p);
 
     if (_attr & ATTR_BORDER)
       {

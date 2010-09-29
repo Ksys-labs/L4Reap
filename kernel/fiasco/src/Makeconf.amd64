@@ -5,7 +5,7 @@
 #OPT_CFLAGS		+= $(call CHECKCC,--param large-function-insns=10000)
 
 # The -Os option of gcc-4.0 sets max-inline-insns-single to 5 which prevents
-# # inlining of almost every function
+# inlining of almost every function
 NOOPT_SHARED_FLAGS	+= $(call CHECKCC,--param max-inline-insns-single=50)
 SHARED_FLAGS		+= -mpreferred-stack-boundary=4 -m64 -mcmodel=kernel \
 			   -mno-red-zone -funit-at-a-time
@@ -13,9 +13,9 @@ SHARED_FLAGS		+= -mpreferred-stack-boundary=4 -m64 -mcmodel=kernel \
 OPT_CFLAGS		+= -mno-red-zone -funit-at-a-time
 OPT_CXXFLAGS		+= -mno-red-zone -funit-at-a-time
 
-SHARED_FLAGS-$(CONFIG_AMD64_CORE2) += $(call CHECKCC,-march=core2,-march=i686)
-SHARED_FLAGS-$(CONFIG_AMD64_ATOM)  += $(call CHECKCC,-march=atom,-march=i686)
-SHARED_FLAGS-$(CONFIG_AMD64_K8)    += $(call CHECKCC,-march=k8,-march=i686)
+SHARED_FLAGS-$(CONFIG_AMD64_CORE2) += $(call CHECKCC,-march=core2,)
+SHARED_FLAGS-$(CONFIG_AMD64_ATOM)  += $(call CHECKCC,-march=atom,)
+SHARED_FLAGS-$(CONFIG_AMD64_K8)    += $(call CHECKCC,-march=k8,)
 SHARED_FLAGS                       += $(call CHECKCC,-mno-mmx,)
 SHARED_FLAGS                       += $(call CHECKCC,-mno-sse,)
 SHARED_FLAGS                       += $(call CHECKCC,-mno-sse2,)

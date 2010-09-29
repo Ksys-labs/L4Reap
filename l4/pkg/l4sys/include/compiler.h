@@ -267,6 +267,11 @@
 /**
  * \brief Memory barrier.
  */
+L4_INLINE void l4_barrier(void);
+
+/**
+ * \brief Memory barrier.
+ */
 L4_INLINE void l4_mb(void);
 
 /**
@@ -276,6 +281,11 @@ L4_INLINE void l4_wmb(void);
 
 
 /* Implementations */
+L4_INLINE void l4_barrier(void)
+{
+  __asm__ __volatile__ ("" : : : "memory");
+}
+
 L4_INLINE void l4_mb(void)
 {
   __asm__ __volatile__ ("" : : : "memory");

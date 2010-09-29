@@ -173,7 +173,7 @@ MKDIR		= mkdir -p
 MKFLAGS		+=$(MKFLAGS_$@)
 NM		= $(SYSTEM_TARGET)nm
 OBJCOPY		= $(SYSTEM_TARGET)objcopy
-PKG_CONFIG      = PKG_CONFIG_PATH= pkg-config --silence-errors
+PKG_CONFIG      = pkg-config $(if $(VERBOSE),--silence-errors)
 PWDCMD		= sh -c pwd
 RANLIB		= $(SYSTEM_TARGET)ranlib
 RM		= rm -f

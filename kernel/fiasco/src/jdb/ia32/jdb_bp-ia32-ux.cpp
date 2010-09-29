@@ -539,6 +539,12 @@ Jdb_bp::test_match(Address addr, Breakpoint::Mode mode)
   return 0;
 }
 
+PUBLIC static
+int
+Jdb_bp::instruction_bp_at_addr(Address addr)
+{ return test_match(addr, Breakpoint::INSTRUCTION); }
+
+
 PUBLIC static inline NOEXPORT
 void
 Jdb_bp::restrict_task(int num, int other, Mword task)
@@ -824,9 +830,3 @@ Jdb_set_bp::num_cmds() const
 }
 
 static Jdb_set_bp jdb_set_bp INIT_PRIORITY(JDB_MODULE_INIT_PRIO);
-
-// external callable
-int
-jdb_instruction_bp_at_addr(Address addr)
-{ return Jdb_bp::test_match(addr, Breakpoint::INSTRUCTION); }
-

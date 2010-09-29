@@ -56,6 +56,7 @@ IMPLEMENTATION [jdb_disasm]:
 #include "alloca.h"
 #include "disasm.h"
 #include "jdb.h"
+#include "jdb_bp.h"
 #include "jdb_input.h"
 #include "jdb_lines.h"
 #include "jdb_module.h"
@@ -68,10 +69,6 @@ IMPLEMENTATION [jdb_disasm]:
 
 char Jdb_disasm::show_intel_syntax;
 char Jdb_disasm::show_lines = 2;
-
-
-// available from the jdb_bp module
-extern int jdb_instruction_bp_at_addr(Address addr) __attribute__((weak));
 
 static
 bool
@@ -232,16 +229,13 @@ Jdb_disasm::show(Address virt, Space *task, int level, bool do_clear_screen = fa
 		    break;
 		}
 	    }
-	
+
 	  // show instruction breakpoint
-	  if (jdb_instruction_bp_at_addr != 0)
-	    {
-	      if (Mword i = jdb_instruction_bp_at_addr(addr))
-		{
-		  stat_str[0] = '#';
-		  stat_str[1] = '0'+i;
-		}
-	    }
+          if (Mword i = Jdb_bp::instruction_bp_at_addr(addr))
+            {
+              stat_str[0] = '#';
+              stat_str[1] = '0'+i;
+            }
 
 	  printf("%s"L4_PTR_FMT"%s%s  ", 
 	         addr == enter_addr ? Jdb::esc_emph : "", addr, stat_str,

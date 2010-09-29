@@ -109,7 +109,6 @@ IMPLEMENTATION:
 #include "mem_space.h"
 #include "thread_state.h"
 #include "timer.h"
-#include "jdb.h"
 #include "ref_ptr.h"
 
 FIASCO_DEFINE_KOBJ(Vm);
@@ -151,6 +150,7 @@ Vm::machine_state *
 Vm::state()
 { return reinterpret_cast<machine_state *>(_state); };
 
+// ------------------------------------------------------------------------
 IMPLEMENTATION [arm && tz]:
 
 #include "thread.h"
@@ -182,7 +182,7 @@ Vm::run(Syscall_frame *f, Utcb *utcb)
     }
 
   _state = (Mword *)(Virt_addr(state_fpage.mem_address()).value());
- 
+
     {
       bool resident;
       Mem_space::Phys_addr phys;
@@ -216,7 +216,7 @@ Vm::run(Syscall_frame *f, Utcb *utcb)
 	    return;
 	  WARN("tz: Receive event failed\n");
 	}
-      
+
       log_vm(this, 1);
 
       if (!get_fpu())
@@ -226,11 +226,11 @@ Vm::run(Syscall_frame *f, Utcb *utcb)
 	}
 
       Cpu::cpus.cpu(current()->cpu()).tz_switch_to_ns(_state);
-  
+
       assert(cpu_lock.test());
 
       log_vm(this, 0);
-      
+
       if ((state()->exit_reason != 1) || 
 	 ((state()->exit_reason == 1) &&
 	  ((state()->r[0] & 0xffff0000) == 0xffff0000)))
@@ -256,12 +256,13 @@ Vm::get_fpu()
       if (!current_thread()->switchin_fpu())
         {
           printf("tz: switchin_fpu failed\n");
-          return false; 
+          return false;
         }
     }
   return true;
 }
 
+// --------------------------------------------------------------------------
 IMPLEMENTATION [arm && tz && !fpu]:
 
 PUBLIC
@@ -278,6 +279,7 @@ Vm::run(Utcb *u)
   return L4_msg_tag(0, 0, 0, 0);
 }
 
+// --------------------------------------------------------------------------
 IMPLEMENTATION:
 
 PUBLIC
@@ -324,6 +326,11 @@ Vm::invoke(L4_obj_ref, Mword, Syscall_frame *f, Utcb *u)
 
   f->tag(L4_msg_tag(0,0,0,-L4_err::EInval));
 }
+
+// --------------------------------------------------------------------------
+IMPLEMENTATION [debug]:
+
+#include "jdb.h"
 
 PRIVATE
 Mword
@@ -380,9 +387,6 @@ Vm::show_short(char *buf, int max)
   return snprintf(buf, max, " utcb:%lx pc:%lx ", (Mword)_state, (Mword)jdb_get(&state()->pc));
 }
 
-// --------------------------------------------------------------------------
-IMPLEMENTATION [debug]:
-
 IMPLEMENT
 unsigned
 Vm::vm_log_fmt(Tb_entry *e, int maxlen, char *buf)
@@ -400,7 +404,7 @@ Vm::vm_entry_log_fmt(Vm_log *l, int maxlen, char *buf)
 {
   if (l->r0 == 0x1110)
     return snprintf(buf, maxlen, "entry: pc:%08lx/%03lx intack irq: %lx", l->pc, l->pending_events, l->r1);
-  
+
   return snprintf(buf, maxlen, "entry: pc:%08lx/%03lx r0:%lx", l->pc, l->pending_events, l->r0);
 }
 
@@ -418,7 +422,7 @@ Vm::vm_exit_log_fmt(Vm_log *l, int maxlen, char *buf)
     return snprintf(buf, maxlen, "exit:  pc:%08lx/%03lx intack", l->pc, l->pending_events);
   if (l->r0 == 0x1115)
     return snprintf(buf, maxlen, "exit:  pc:%08lx/%03lx send ipi:%lx", l->pc, l->pending_events, l->r1);
-  
+
   return snprintf(buf, maxlen, "exit:  pc:%08lx/%03lx r0:%lx", l->pc, l->pending_events, l->r0);
 }
 
@@ -449,5 +453,5 @@ IMPLEMENTATION [!debug]:
 
 PUBLIC static inline
 void
-Vm::log_vm(Irq *, bool)
+Vm::log_vm(Vm *, bool)
 {}

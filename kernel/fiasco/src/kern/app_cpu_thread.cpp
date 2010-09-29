@@ -42,15 +42,17 @@ App_cpu_thread::bootstrap()
 {
   extern Spin_lock _tramp_mp_spinlock;
 
-  state_change_dirty (0, Thread_ready);		// Set myself ready
+  state_change_dirty(0, Thread_ready);		// Set myself ready
 
   // Setup initial timeslice
-  set_current_sched (sched());
+  set_current_sched(sched());
 
   Fpu::init(cpu());
 
   // initialize the current_mem_space function to point to the kernel space
   Kernel_task::kernel_task()->mem_space()->make_current();
+
+  Mem_unit::tlb_flush();
 
   Cpu::cpus.cpu(current_cpu()).set_online(1);
 

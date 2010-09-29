@@ -84,6 +84,8 @@ kernel_main()
   Space *const ktask = Kernel_task::kernel_task();
   check(kernel->bind(ktask, 0));
 
+  Mem_unit::tlb_flush();
+
   // switch to stack of kernel thread and bootstrap the kernel
   asm volatile
     ("	str sp,%0	        \n"	// save stack pointer in safe register

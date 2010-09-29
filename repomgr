@@ -33,7 +33,7 @@ my %modules =
 
    l4re => { paths => [ map { "l4/pkg/$_" } qw(
                          boehm_gc bootstrap crtn cxx cxx_libc_io cxx_thread
-                         drivers hello
+                         drivers-frst hello
                          ldscripts
                          l4re l4re_c l4re_kernel l4re_vfs l4sys l4util
                          ldscripts ldso
@@ -89,6 +89,7 @@ my %modules =
                    dde
                    dde-libinput
                    dope
+                   drivers
                    expat2
                    fb-drv
                    fbterminal
@@ -114,6 +115,7 @@ my %modules =
                    libpng
                    libsdl
                    libsdl-image
+                   libvcpu
                    linux-26-headers
                    lxfuxlibc
                    mag

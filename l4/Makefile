@@ -50,7 +50,7 @@ IGNORE_MAKECONF_INCLUDE=1
 endif
 
 ifeq ($(IGNORE_MAKECONF_INCLUDE),)
-ifneq ($(filter help config txtconfig oldconfig,$(MAKECMDGOALS)),)
+ifneq ($(filter help config oldconfig,$(MAKECMDGOALS)),)
 # tweek $(L4DIR)/mk/Makeconf to use the intermediate file
 export BID_IGN_ROOT_CONF=y
 BID_ROOT_CONF=$(DROPSCONF_CONFIG_MK)
@@ -62,7 +62,7 @@ include $(L4DIR)/mk/Makeconf
 export DROPS_STDDIR
 
 # after having absfilename, we can export BID_ROOT_CONF
-ifneq ($(filter config txtconfig oldconfig gconfig qconfig xconfig, $(MAKECMDGOALS)),)
+ifneq ($(filter config oldconfig gconfig qconfig xconfig, $(MAKECMDGOALS)),)
 export BID_ROOT_CONF=$(call absfilename,$(OBJ_BASE))/.config.all
 endif
 endif
@@ -95,7 +95,6 @@ endif
 # some more dependencies
 tool: $(DROPSCONF_CONFIG_MK)
 pkg:  $(DROPSCONF_CONFIG_MK) tool
-doc:  pkgdoc
 
 ifneq ($(CONFIG_BID_BUILD_DOC),)
 install-dirs += doc
@@ -126,7 +125,7 @@ cont:
 	$(VERBOSE)$(MAKE) -C pkg cont
 
 .PHONY: all clean cleanall install hello pkgdoc up update
-.PHONY: $(BUILD_DIRS) doc/html check_build_tools cont cleanfast
+.PHONY: $(BUILD_DIRS) doc check_build_tools cont cleanfast
 
 cleanall::
 	$(VERBOSE)rm -f *~
@@ -380,6 +379,20 @@ grub2iso:
 	  $(L4DIR)/tool/bin/gengrub2iso --timeout=0 $$ml               \
 	     $(OBJ_BASE)/images/$$(echo $$e | tr '[ ]' '[_]').iso "$$e"
 
+help::
+	@echo
+	@echo "Image generation targets:"
+	@echo "  image            - Generate images containing all modules."
+	@echo "                     Supported formats include ELF, uimage and raw."
+	@echo "  grub1iso         - Generate an ISO using GRUB1 in images/name.iso [x86, amd64]" 
+	@echo "  grub2iso         - Generate an ISO using GRUB2 in images/name.iso [x86, amd64]" 
+	@echo "  qemu             - Use Qemu to run 'name'. [x86, amd64]" 
+	@echo "  ux               - Run 'name' under Fiasco/UX. [x86]" 
+	@echo "  kexec            - Issue a kexec call to start the entry." 
+	@echo " Add 'E=name' to directly select the entry without using the menu."
+	@echo " Modules are defined in conf/modules.list."
+
+
 .PHONY: image qemu ux switch_ram_base grub1iso grub2iso
 
 switch_ram_base:
@@ -525,3 +538,15 @@ report:
 	@echo -e $(EMPHSTART)" Note, this report might disclose private information"$(EMPHSTOP)
 	@echo -e $(EMPHSTART)" Please review (and edit) before sending it to public lists"$(EMPHSTOP)
 	@echo -e $(EMPHSTART)"============================================================="$(EMPHSTOP)
+
+help::
+	@echo
+	@echo "Miscellaneous targets:"
+	@echo "  switch_ram_base RAM_BASE=0xaddr"
+	@echo "                   - Switch physical RAM base of build to 'addr'." 
+	@echo "  update           - Update working copy by using SVN." 
+	@echo "  cont             - Continue building after fixing a build error." 
+	@echo "  clean            - Call 'clean' target recursively." 
+	@echo "  cleanfast        - Delete all directories created during build." 
+	@echo "  report           - Print out host configuration information." 
+	@echo "  help             - Print this help text." 

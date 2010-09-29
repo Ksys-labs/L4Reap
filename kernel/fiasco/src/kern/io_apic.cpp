@@ -200,6 +200,9 @@ PUBLIC static
 unsigned
 Io_apic::legacy_override(unsigned i)
 {
+  if (!_madt)
+    return i;
+
   unsigned tmp = 0;
   for (;;++tmp)
     {

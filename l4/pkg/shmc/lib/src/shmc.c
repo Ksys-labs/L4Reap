@@ -107,9 +107,9 @@ l4shmc_attach_to(const char *shm_name, l4_umword_t timeout_ms,
       return -L4_ENOENT;
     }
 
-  if (l4re_ns_query_to_srv(nssrv, "shm", shmarea->_shm_ds, timeout_ms))
+  if ((r = l4re_ns_query_to_srv(nssrv, "shm", shmarea->_shm_ds, timeout_ms)))
     {
-      printf("shm: did not find shm-ds 'shm'\n");
+      printf("shm: did not find shm-ds 'shm' (%ld)\n", r);
       return -L4_ENOENT;
     }
 

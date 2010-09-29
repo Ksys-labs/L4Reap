@@ -48,6 +48,14 @@ IMPLEMENTATION:
 
 FIASCO_DEFINE_KOBJ(Scheduler);
 
+static Scheduler scheduler;
+
+PUBLIC inline
+Scheduler::Scheduler()
+{
+  initial_kobjects.register_obj(this, 7);
+}
+
 PRIVATE static
 Mword
 Scheduler::first_online(Cpu_set const *cpus, Mword bm)

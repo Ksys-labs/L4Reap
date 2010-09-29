@@ -71,7 +71,7 @@ try {
 
   Scout_gfx::View *view = pf->create_view(Rect(Point(0,0), Area(Browser_width, Browser_height)));
   /* create instance of browser window */
-  Scout_gfx::Window *browser = 
+  Scout_gfx::Basic_window *browser = 
     new Browser_window(f, 
 	doc,    /* initial document       */
 	view,   /* platform               */

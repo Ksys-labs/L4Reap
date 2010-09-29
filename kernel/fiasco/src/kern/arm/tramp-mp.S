@@ -53,6 +53,9 @@ _tramp_mp_entry:
 	bl invalidate_l1_v7
 #endif
 
+	mcr p15, 0, r0, c7, c5, 0 // ICIALLU
+	mcr p15, 0, r0, c7, c5, 6 // BPIALL
+
 	mcr p15, 0, r0, c7, c10, 4 // dsb
 #ifdef CONFIG_ARM_V6
 	mcr p15, 0, r0, c7, c7, 0  // inv both
@@ -72,6 +75,10 @@ _tramp_mp_entry:
 	adr r0, _tramp_mp_start_dcr
 	ldr r0, [r0]
 	mcr p15, 0, r0, c3, c0
+
+	// init TTBCR
+	mov r0, #0
+	mcr p15, 0, r0, c2, c0, 2
 
 	adr r0, _tramp_mp_startup_pdbr
 	ldr r0, [r0]

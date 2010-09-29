@@ -25,7 +25,8 @@
 
 
 /**
- * \defgroup l4re_elf_aux_api L4Re ELF Auxiliary Information
+ * \defgroup api_l4re_elf_aux L4Re ELF Auxiliary Information
+ * \ingroup api_l4re
  * \brief API for embedding auxiliary information into
  *        binary programs.
  *

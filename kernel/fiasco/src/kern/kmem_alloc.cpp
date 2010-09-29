@@ -32,6 +32,7 @@ IMPLEMENTATION:
 #include "kip.h"
 #include "mem_region.h"
 #include "buddy_alloc.h"
+#include "panic.h"
 
 static Kmem_alloc::Alloc _a;
 Kmem_alloc::Alloc *Kmem_alloc::a = &_a;

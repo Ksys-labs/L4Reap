@@ -187,6 +187,7 @@ warn_IMPL		:= warn warn-ppc32
 #
 # JDB subsystem
 #
+ifeq ("$(CONFIG_JDB)","y")
 JDB_INTERFACES		:= jdb jdb_attach_irq jdb_core jdb_scheduler jdb_entry_frame \
 			   jdb_exit_module jdb_factory jdb_handler_queue       \
 			   jdb_input jdb_ipc_gate jdb_kobject jdb_kobject_names\
@@ -194,17 +195,15 @@ JDB_INTERFACES		:= jdb jdb_attach_irq jdb_core jdb_scheduler jdb_entry_frame \
 			   jdb_obj_space jdb_prompt_ext jdb_screen jdb_space   \
 			   jdb_symbol jdb_table jdb_tcb jdb_thread             \
 			   jdb_thread_list jdb_trace jdb_util kern_cnt         \
-			   push_console jdb_disasm jdb_regex
+			   push_console jdb_regex jdb_disasm jdb_bp
 JDB_TBUF_IFS		:= jdb_tbuf jdb_tbuf_init jdb_tbuf_output \
 			   jdb_tbuf_show tb_entry tb_entry_output
 
-
-
-ifeq ("$(CONFIG_JDB)","y")
 INTERFACES_KERNEL 	+= $(JDB_INTERFACES) $(JDB_TBUF_IFS) #$(DBG_INTERFACES)
 jdb_IMPL		:= jdb jdb-ansi jdb-ppc32 jdb-thread
 jdb_tcb_IMPL		:= jdb_tcb jdb_tcb-ppc32
 jdb_entry_frame_IMPL	:= jdb_entry_frame-ppc32
+jdb_bp			:= jdb_bp
 thread_IMPL		+= thread-debug 
 endif
 

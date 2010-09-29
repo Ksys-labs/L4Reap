@@ -235,6 +235,7 @@ utcb_support_IMPL       := utcb_support utcb_support-arm
 vmem_alloc_IMPL	  	:= vmem_alloc vmem_alloc-arch
 tb_entry_IMPL		:= tb_entry tb_entry-arm
 
+ifeq ("$(CONFIG_JDB)","y")
 JDB_INTERFACES		:= jdb_handler_queue jdb_module jdb_pic            \
 			   jdb jdb_core jdb_prompt_ext jdb_list            \
                            jdb_prompt_module jdb_exit_module jdb_kern_info \
@@ -250,14 +251,13 @@ JDB_INTERFACES		:= jdb_handler_queue jdb_module jdb_pic            \
 			   jdb_trap_state jdb_ipi jdb_rcupdate             \
 			   jdb_ipc_gate jdb_obj_space jdb_log jdb_factory  \
 			   jdb_semaphore jdb_thread jdb_scheduler jdb_sender_list\
-			   jdb_perf jdb_vm jdb_regex jdb_disasm
+			   jdb_perf jdb_vm jdb_regex jdb_disasm jdb_bp
 
 JDB_TBUF_IFS		:= jdb_tbuf jdb_tbuf_init jdb_tbuf_output          \
 			   jdb_tbuf_show                                   \
 			   tb_entry tb_entry_output
 
 
-ifeq ("$(CONFIG_JDB)","y")
 INTERFACES_KERNEL 	+= $(JDB_INTERFACES) $(JDB_TBUF_IFS) $(DBG_INTERFACES)
 jdb_IMPL		:= jdb jdb-arm jdb-ansi jdb-thread
 jdb_kern_info_IMPL	:= jdb_kern_info jdb_kern_info-arm \
@@ -268,6 +268,7 @@ jdb_tcb_IMPL		:= jdb_tcb jdb_tcb-arm
 jdb_ptab_IMPL		:= jdb_ptab jdb_ptab-ia32-ux-arm jdb_ptab-arm
 jdb_entry_frame_IMPL	:= jdb_entry_frame-arm
 jdb_trace_set_IMPL	:= jdb_trace_set jdb_trace_set-arm
+jdb_bp			:= jdb_bp
 thread_IMPL		+= thread-debug 
 
 ifneq ($(CONFIG_JDB_GZIP),)

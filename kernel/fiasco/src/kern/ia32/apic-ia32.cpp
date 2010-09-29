@@ -547,7 +547,7 @@ Apic::enable_errors()
       if (get_max_lvt() > 3)
 	clear_num_errors();
       after = get_num_errors();
-      printf("APIC ESR value before/after enabling: %08x/%08x\n", 
+      printf("APIC ESR value before/after enabling: %08x/%08x\n",
 	    before, after);
     }
 }

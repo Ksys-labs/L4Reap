@@ -157,21 +157,6 @@ slab::slab(slab_cache_anon *cache)
 }
 
 PUBLIC
-inline 
-slab::~slab()
-{
-  assert(_data._in_use == 0);
-
-  slab_entry *e = _data._first_free;
-
-  while (e)
-    {
-      _data._cache->elem_dtor(& e->_entry[0]);
-      e = e->_next_free;
-    }
-}
-
-PUBLIC
 void *
 slab::alloc()
 {
@@ -346,13 +331,14 @@ virtual
 slab_cache_anon::~slab_cache_anon()
 {
   // the derived class should call destroy() before deleting us.
-  assert(_first_slab == 0);
+  // assert(_first_slab == 0);
 }
 
-PROTECTED
-void 
+PROTECTED inline
+void
 slab_cache_anon::destroy()	// descendant should call this in destructor
 {
+#if 0
   slab *n, *s = _first_slab;
 
   while (s)
@@ -367,6 +353,7 @@ slab_cache_anon::destroy()	// descendant should call this in destructor
     }
 
   _first_slab = 0;
+#endif
 }
 
 PUBLIC

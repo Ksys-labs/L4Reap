@@ -14,7 +14,9 @@ SRC_CC		= tick.cc png_image.cc \
 		  loadbar.cc \
 		  redraw_manager.cc \
 		  grid_layout.cc \
-		  window.cc
+		  basic_window.cc \
+		  window.cc \
+		  simple_window_deco.cc
 
 SRC_BIN =   vera16.tff \
             verai16.tff \
@@ -33,7 +35,8 @@ SRC_RGBA  =   uparrow.rgba \
              nav_prev.rgba \
 	      loadbar.rgba \
 	       redbar.rgba \
-	     whitebar.rgba
+	     whitebar.rgba \
+	        sizer.rgba
 
 SRC_BIN += $(SRC_RGBA)
 

@@ -474,7 +474,7 @@ Kmem::init_cpu(Cpu &cpu)
   // entry_sys_fast_ipc/entry_sys_fast_ipc_c/entry_sys_fast_ipc_log.
   Address tss_mem  = alloc_tss(sizeof(Tss) + 256);
   assert(tss_mem + sizeof(Tss) + 256 < Mem_layout::Io_bitmap);
-  size_t  tss_size;
+  size_t tss_size;
 
   if (Config::enable_io_protection)
     // this is actually tss_size +1, including the io_bitmap_delimiter byte
@@ -484,7 +484,7 @@ Kmem::init_cpu(Cpu &cpu)
 
   assert(tss_size < 0x100000); // must fit into 20 Bits
 
-  cpu.init_tss (tss_mem, tss_size);
+  cpu.init_tss(tss_mem, tss_size);
 
   // force GDT... to memory before loading the registers
   asm volatile ( "" : : : "memory" );
@@ -493,12 +493,12 @@ Kmem::init_cpu(Cpu &cpu)
   cpu.set_gdt();
   cpu.set_ldt(0);
 
-  cpu.set_ds (Gdt::data_segment());
-  cpu.set_es (Gdt::data_segment());
-  cpu.set_ss (Gdt::gdt_data_kernel | Gdt::Selector_kernel);
-  cpu.set_fs (Gdt::gdt_data_user   | Gdt::Selector_user);
-  cpu.set_gs (Gdt::gdt_data_user   | Gdt::Selector_user);
-  cpu.set_cs ();
+  cpu.set_ds(Gdt::data_segment());
+  cpu.set_es(Gdt::data_segment());
+  cpu.set_ss(Gdt::gdt_data_kernel | Gdt::Selector_kernel);
+  cpu.set_fs(Gdt::gdt_data_user   | Gdt::Selector_user);
+  cpu.set_gs(Gdt::gdt_data_user   | Gdt::Selector_user);
+  cpu.set_cs();
 
   // and finally initialize the TSS
   cpu.set_tss();

@@ -42,6 +42,45 @@ extern unsigned boot_stack;
 extern Thread *nil_thread;
 static Thread *&kernel_thread = nil_thread;
 
+class Kobject_iface;
+
+class Initial_kobjects
+{
+public:
+  enum
+  {
+    Max = 5,
+    First_cap = 5,
+
+    End_cap = First_cap + Max,
+  };
+
+  void register_obj(Kobject_iface *o, unsigned cap)
+  {
+    assert (cap >= First_cap);
+    assert (cap < End_cap);
+
+    cap -= First_cap;
+
+    assert (!_v[cap]);
+
+    _v[cap] = o;
+  }
+
+  Kobject_iface *obj(unsigned cap) const
+  {
+    assert (cap >= First_cap);
+    assert (cap < End_cap);
+
+    cap -= First_cap;
+
+    return _v[cap];
+  }
+
+private:
+  Kobject_iface *_v[Max];
+};
+
 
 class Global_context_data
 {
@@ -51,6 +90,8 @@ public:
 protected:
   Mword _state;
 };
+
+extern Initial_kobjects initial_kobjects;
 
 
 //---------------------------------------------------------------------------
@@ -75,6 +116,7 @@ Mem_space *sigma0_space;
 Thread *nil_thread;
 bool running = true;
 unsigned boot_stack;
+Initial_kobjects initial_kobjects;
 
 inline NEEDS ["config.h"]
 Context *context_of(const void *ptr)

@@ -34,10 +34,11 @@ protected:
   Event_handler *_evh;
   struct
   {
-    int mfocus      : 1;      /* element has mouse focus             */
-    int selected    : 1;      /* element has selected state          */
-    int takes_focus : 1;      /* element highlights mouse focus      */
-    int findable    : 1;      /* regard element in find function     */
+    int mfocus      : 1; ///< Widget has mouse focus
+    int selected    : 1; ///< Widget is currently selected
+    int takes_focus : 1; ///< Widget highlights mouse focus
+    int findable    : 1; ///< Regard element in find function
+    int visible     : 1; ///< Widget is visible
   } _flags;
 
 public:
@@ -49,6 +50,7 @@ public:
     _flags.mfocus = 0;
     _flags.selected = 0;
     _flags.findable = 1;
+    _flags.visible = 1;
   }
 
   virtual ~Widget();
@@ -69,7 +71,10 @@ public:
 
 
   void findable(int flag) { _flags.findable = flag; }
-  bool findable() { return _flags.findable; }
+  bool findable() const { return _flags.findable; }
+
+  void visible(bool flag) { _flags.visible = flag; }
+  bool visible() const { return _flags.visible; }
 
   virtual void draw(Canvas *c, Point const &p) = 0;
   virtual Widget *find(Point const &p);
@@ -90,6 +95,8 @@ public:
    */
   void try_draw(Canvas *c, Point const &p)
   {
+    if (!visible())
+      return;
 #if 0
     /* check if element is completely outside the clipping area */
     if (!(c->clip() & Rect(p + _pos, _size)).valid())

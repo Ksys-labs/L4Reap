@@ -373,11 +373,6 @@ Vmx::vmwrite(Mword field, T value)
     asm volatile("vmwrite %0, %1" : : "r" ((Unsigned64)value >> 32), "r" (field + 1));
 }
 
-static void vmxoff(void)
-{
-  asm volatile("vmxoff");
-}
-
 PUBLIC
 Vmx::Vmx(unsigned cpu)
   : _vmx_enabled(false), _has_vpid(false)
@@ -460,8 +455,6 @@ Vmx::Vmx(unsigned cpu)
   // enable vmx operation
   asm volatile("vmxon %0" : :"m"(_vmxon_base_pa):);
   _vmx_enabled = true;
-
-  atexit(vmxoff);
 
   printf("VMX: initialized\n");
 

@@ -745,6 +745,14 @@ kern_kdebug_ipi_entry:
 
 #ifdef CONFIG_ARM_TZ
 
+.macro ISB_OP reg
+#ifdef CONFIG_ARM_V7
+	isb
+#else
+	mcr p15, 0, lr, c7, c5, 4	@ cp15isb
+#endif
+.endm
+
 /**********************************************************************
  * Secure and Nonsecure switching stuff
  *
@@ -813,7 +821,7 @@ kern_kdebug_ipi_entry:
 	// switch to non-secure world
 	mov	r1, #1
 	mcr	p15, 0, r1, c1, c1, 0
-	isb
+	ISB_OP	r1
 	
 	mrc	p15, 0, r1, c2, c0, 0	@ read CP15_TTB0
 	stmia	r0!, {r1}
@@ -854,7 +862,7 @@ kern_kdebug_ipi_entry:
 	// switch to secure world
 	mov	r1, #0
 	mcr	p15, 0, r1, c1, c1, 0
-	isb
+	ISB_OP	r1
 	
 	mrc	p15, 0, r1, c5, c0, 0	@ read CP15_DFSR
 	stmia	r0!, {r1}
@@ -923,7 +931,7 @@ kern_kdebug_ipi_entry:
 	// switch to non-secure world
 	mov	r1, #1
 	mcr	p15, 0, r1, c1, c1, 0
-	isb
+	ISB_OP	r1
 
 	ldmia	r0!, {r1}
 	mcr	p15, 0, r1, c2, c0, 0	@ write CP15_TTB0
@@ -964,7 +972,7 @@ kern_kdebug_ipi_entry:
 	// switch to secure world
 	mov	r1, #0
 	mcr	p15, 0, r1, c1, c1, 0
-	isb
+	ISB_OP	r1
 
 	xxx
 #endif
@@ -1023,13 +1031,13 @@ kern_kdebug_ipi_entry:
 .macro SWITCH_TO_NONSECURE_MODE
 	mov	lr, #0xf
 	mcr	p15, 0, lr, c1, c1, 0
-	isb
+	ISB_OP	lr
 .endm
 
 .macro SWITCH_TO_SECURE_MODE
 	mov	lr, #0x0
 	mcr	p15, 0, lr, c1, c1, 0
-	isb
+	ISB_OP	lr
 .endm
 
 

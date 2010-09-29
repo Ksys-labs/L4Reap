@@ -76,8 +76,10 @@ Kernel_thread::bootstrap()
   Timer::init_system_clock();
   Sched_context::rq(cpu()).set_idle(this->sched());
 
+  Kernel_task::kernel_task()->mem_space()->make_current();
+
   // Setup initial timeslice
-  set_current_sched (sched());
+  set_current_sched(sched());
 
   Timer::enable();
 

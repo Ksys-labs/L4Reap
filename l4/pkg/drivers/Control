@@ -1,0 +1,3 @@
+provides: libdrivers-lcd libdrivers-input
+requires: libc_r l4re_c libio input
+Maintainer: adam@os.inf.tu-dresden.de

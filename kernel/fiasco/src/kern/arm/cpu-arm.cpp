@@ -137,7 +137,7 @@ public:
 
     Cp15_c1_generic         = Cp15_c1_mmu
                               | (Config::Cp15_c1_use_alignment_check ?  Cp15_c1_alignment_check : 0)
-			      //| Cp15_c1_branch_predict
+			      | Cp15_c1_branch_predict
 			      | Cp15_c1_high_vector
 			      | (Config::Cp15_c1_use_a9_swp_enable ?  Cp15_c1_sw : 0),
 

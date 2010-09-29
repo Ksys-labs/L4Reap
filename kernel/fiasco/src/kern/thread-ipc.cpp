@@ -1,5 +1,6 @@
 INTERFACE:
 
+#include "l4_buf_iter.h"
 #include "l4_error.h"
 
 class Syscall_frame;
@@ -93,7 +94,6 @@ IMPLEMENTATION:
 
 #include "l4_types.h"
 #include "l4_msg_item.h"
-#include "l4_buf_iter.h"
 
 #include "config.h"
 #include "cpu_lock.h"

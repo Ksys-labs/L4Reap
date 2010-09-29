@@ -63,7 +63,7 @@ Browser_window::Browser_window(Factory *f,
     Scout_gfx::Document *initial_content,
     Scout_gfx::View *pf,
     Area const &max_sz, int attr)
-: Window(pf, max_sz),
+: Basic_window(pf, max_sz),
   _titlebar(f, &title_font), _cont(0)
 {
   using namespace Mag_gfx;

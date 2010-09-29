@@ -49,7 +49,7 @@ struct App_model : public Ldr::Base_app_model<Stack>
   {
     Utcb_area_start        = 0xb3000000,
     Default_max_threads    = 16,
-    Total_max_threads      = 256,
+    Total_max_threads      = 128,
     Kip_address            = 0xa0000000,
   };
 

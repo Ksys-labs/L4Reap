@@ -2,6 +2,7 @@ PKGDIR ?= ..
 L4DIR  ?= $(PKGDIR)/../..
 
 EXTRA_TARGET := \
+  basic_window \
   box_layout \
   doc/block \
   doc/item \
@@ -37,7 +38,8 @@ EXTRA_TARGET := \
   titlebar \
   user_state \
   widget \
-  window
+  window \
+  simple_window_deco
 
 
 include $(L4DIR)/mk/include.mk

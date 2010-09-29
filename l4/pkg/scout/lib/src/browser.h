@@ -37,6 +37,7 @@ protected:
   History   _history;
   int       _voffset;
 
+
   /**
    * Define content to present in browser window
    */
@@ -57,6 +58,8 @@ public:
   {}
 
   virtual ~Scout_browser() { }
+
+  char const *title() const { return _document->title; }
 
   void voffset(int voffset)
   { _voffset = voffset; }

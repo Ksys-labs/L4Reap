@@ -80,8 +80,9 @@ EXTENSION class Irq
 public:
   struct Irq_log
   {
-    Mword irq_obj;
-    int irq_number;
+    Mword   irq_obj;
+    Address user_ip;
+    int     irq_number;
   };
 
   static unsigned irq_log_fmt(Tb_entry *, int, char *)
@@ -650,18 +651,21 @@ unsigned
 Irq::irq_log_fmt(Tb_entry *e, int maxlen, char *buf)
 {
   Irq_log *l = e->payload<Irq_log>();
-  return snprintf(buf, maxlen, "0x%x/%u D:%lx", l->irq_number, l->irq_number,
-                  l->irq_obj);
+  return snprintf(buf, maxlen, "0x%x/%u D:%lx userip=%lx",
+                  l->irq_number, l->irq_number,
+                  l->irq_obj, l->user_ip);
 }
 
 PUBLIC static inline
 void
 Irq::log_irq(Irq *irq, int nr)
 {
-  LOG_TRACE("IRQ-HW", "irq-hw", current(), __irq_log_fmt,
+  Context *c = current();
+  LOG_TRACE("IRQ-Object triggers", "irq", c, __irq_log_fmt,
       Irq::Irq_log *l = tbe->payload<Irq::Irq_log>();
       l->irq_number = nr;
-      l->irq_obj = irq ? irq->dbg_id() : ~0UL;
+      l->user_ip    = c->regs()->ip(),
+      l->irq_obj    = irq ? irq->dbg_id() : ~0UL;
   );
 }
 
@@ -669,10 +673,12 @@ PUBLIC static inline NEEDS["config.h"]
 void
 Irq::log_timer_irq(int nr)
 {
-  LOG_TRACE("IRQ-Timer", "irq-ti", current(), __irq_log_fmt,
+  Context *c = current();
+  LOG_TRACE("Kernel Timer Events", "timer", c, __irq_log_fmt,
       Irq::Irq_log *l = tbe->payload<Irq::Irq_log>();
       l->irq_number = nr;
-      l->irq_obj = ~0UL;
+      l->user_ip    = c->regs()->ip(),
+      l->irq_obj    = ~0UL;
   );
 }
 

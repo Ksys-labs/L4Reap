@@ -34,6 +34,7 @@ namespace L4Re { namespace Util {
 
 /**
  * \defgroup l4re_cap_api L4Re Capability API
+ * \ingroup api_l4re_util
  */
 /*@{*/
 /**

@@ -104,6 +104,9 @@ Widget::find(Point const &p)
 Widget *
 Parent_widget::find(Point const &p)
 {
+  if (!findable())
+    return 0;
+
   /* check if position is outside the parent element */
   if (!geometry().contains(p))
     return 0;

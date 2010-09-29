@@ -149,11 +149,16 @@ cleanall::
 	$(VERBOSE)$(RM) $(DROPSCONF_CONFIG) $(DROPSCONF_CONFIG_H) \
 			$(DROPSCONF_CONFIG_MK) .menuconfig.log \
 			$(DROPSCONF_CONFIG).old
+
 help::
-	@echo "  config         - run the menu-driven configuration tool"
-	@echo "  txtconfig      - run the configuration tool"
-	@echo "  oldconfig      - (re)create the configuration header based on a prior"
-	@echo "                   configuration or default values"
+	@echo
+	@echo "Configuration targets:"
+	@echo "  config           - run the menu-driven configuration tool"
+	@echo "  gconfig          - run a graphical configuration tool"
+	@echo "  qconfig          - run a graphical configuration tool"
+	@echo "  xconfig          - run a graphical configuration tool"
+	@echo "  oldconfig        - (re)create the configuration header based on a prior"
+	@echo "                     configuration or default values"
 
 # special switch not to include DROPSCONF_CONFIG_MK
 ifeq ($(DROPSCONF_DONTINC_MK),)

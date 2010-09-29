@@ -222,8 +222,8 @@ screen:
 	          Jdb::cursor(crow - absr + 1, col_o);
 	        }
 	    }
-  	  goto screen; 
-	  
+          goto screen;
+
 	default:
 	  break;
 	}
@@ -300,7 +300,7 @@ screen:
 	    {
 	      crow -= drows;
 	      if (absr >= drows)
-  	        absr -= drows;
+		absr -= drows;
 	      else
 		absr = 0;
 	    }
@@ -330,7 +330,7 @@ screen:
 	  Jdb::abort_command();
 	  return false;
 	default:
-	  if (Jdb::is_toplevel_cmd(c)) 	 
+	  if (Jdb::is_toplevel_cmd(c))
 	    return false;
 	  break;
 	}

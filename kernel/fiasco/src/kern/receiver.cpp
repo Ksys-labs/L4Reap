@@ -10,6 +10,7 @@ INTERFACE:
 #include "member_offs.h"
 #include "timeout.h"
 #include "prio_list.h"
+#include "ref_obj.h"
 
 class Syscall_frame;
 class Sender;

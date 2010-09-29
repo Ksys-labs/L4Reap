@@ -43,6 +43,7 @@ PUBLIC inline
 void *
 Vm_vmx::operator new (size_t size, void *p)
 {
+  (void)size;
   assert (size == sizeof (Vm_vmx));
   return p;
 }

@@ -2,7 +2,6 @@ IMPLEMENTATION:
 
 #include "config.h"
 #include "cmdline.h"
-#include "scheduler.h"
 #include "factory.h"
 #include "initcalls.h"
 #include "ipc_gate.h"
@@ -14,12 +13,6 @@ IMPLEMENTATION:
 #include "thread.h"
 #include "types.h"
 #include "ram_quota.h"
-#include "vlog.h"
-#include "irq_controller.h"
-
-static Vlog vlog;
-static Scheduler scheduler;
-static Icu icu;
 
 enum Default_base_caps
 {
@@ -29,8 +22,7 @@ enum Default_base_caps
   C_pager     = 4,
   C_log       = 5,
   C_icu       = 6,
-  C_scheduler = 7,
-  C_log_irq,
+  C_scheduler = 7
 
 };
 
@@ -93,9 +85,13 @@ Kernel_thread::init_workload()
   check (sigma0->initialize());
   check (map(sigma0,          sigma0_task->obj_space(), sigma0_task, C_task, 0));
   check (map(Factory::root(), sigma0_task->obj_space(), sigma0_task, C_factory, 0));
-  check (map(&scheduler,      sigma0_task->obj_space(), sigma0_task, C_scheduler, 0));
-  check (map(&vlog,           sigma0_task->obj_space(), sigma0_task, C_log, 0));
-  check (map(&icu,            sigma0_task->obj_space(), sigma0_task, C_icu, 0));
+
+  for (unsigned c = Initial_kobjects::First_cap; c < Initial_kobjects::End_cap; ++c)
+    {
+      Kobject_iface *o = initial_kobjects.obj(c);
+      if (o)
+	check(map(o, sigma0_task->obj_space(), sigma0_task, c, 0));
+    }
 
   sigma0_space = sigma0_task->mem_space();
 
@@ -150,9 +146,12 @@ Kernel_thread::init_workload()
 
   sigma0_thread->activate();
   check (obj_map(sigma0_task, C_factory,   1, boot_task, C_factory, 0).error() == 0);
-  check (obj_map(sigma0_task, C_scheduler, 1, boot_task, C_scheduler, 0).error() == 0);
-  check (obj_map(sigma0_task, C_log,       1, boot_task, C_log, 0).error() == 0);
-  check (obj_map(sigma0_task, C_icu,       1, boot_task, C_icu, 0).error() == 0);
+  for (unsigned c = Initial_kobjects::First_cap; c < Initial_kobjects::End_cap; ++c)
+    {
+      Kobject_iface *o = initial_kobjects.obj(c);
+      if (o)
+	check(obj_map(sigma0_task, c, 1, boot_task, c, 0).error() == 0);
+    }
 
   boot_thread->activate();
 }

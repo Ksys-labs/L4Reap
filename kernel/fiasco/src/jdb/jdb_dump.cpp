@@ -212,14 +212,14 @@ Jdb_dump::edit_entry(unsigned long row, unsigned long col, unsigned cx, unsigned
 }
 
 PUBLIC
-unsigned 
+unsigned
 Jdb_dump::key_pressed(int c, unsigned long &row, unsigned long &col)
 {
   switch (c)
     {
     default:
       return Nothing;
-      
+
     case KEY_CURSOR_HOME: // return to previous or go home
       if (level == 0)
 	{
@@ -250,7 +250,7 @@ Jdb_dump::key_pressed(int c, unsigned long &row, unsigned long &col)
 	    }
 	}
       return Redraw;
-    
+
     case 'D':
       if (Kconsole::console()->find_console(Console::GZIP))
 	{
@@ -289,7 +289,7 @@ Jdb_dump::key_pressed(int c, unsigned long &row, unsigned long &col)
 	  return Redraw;
 	}
       return Handled;
-    
+
     case ' ': // change viewing mode
       switch (dump_type)
 	{
@@ -346,7 +346,7 @@ Jdb_dump::key_pressed(int c, unsigned long &row, unsigned long &col)
       break;
 
     case 'c': // set boundaries for highlighting memory contents
-      if (level<=7 && dump_type == D_MODE)
+      if (level <= 7 && dump_type == D_MODE)
 	{
 	  Address a;
 	  if (Jdb::peek((Address*)virt(row,col), task, a))
@@ -357,8 +357,10 @@ Jdb_dump::key_pressed(int c, unsigned long &row, unsigned long &col)
 	      return Redraw;
 	    }
 	}
-
       break;
+
+    case 'r':
+      return Redraw;
     }
 
   return Handled;

@@ -11,8 +11,6 @@ class Icu : public Icu_h<Icu>, public Kobject
   FIASCO_DECLARE_KOBJ();
 
   friend class Icu_h<Icu>;
-
-public:
 };
 
 
@@ -84,4 +82,13 @@ Icu::icu_get_msi_info(Mword msi, Utcb *out)
   out->values[0] = Irq_chip::hw_chip_msi->msg(msi);
   return commit_result(0, 1);
 }
+
+
+PUBLIC inline
+Icu::Icu()
+{
+  initial_kobjects.register_obj(this, 6);
+}
+
+static Icu icu;
 

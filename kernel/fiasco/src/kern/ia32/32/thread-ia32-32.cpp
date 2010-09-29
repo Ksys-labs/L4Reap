@@ -359,7 +359,7 @@ Thread::call_nested_trap_handler(Trap_state *ts)
   struct
   {
     Mword pdir;
-    int (*handler)(Trap_state*, unsigned int);
+    FIASCO_FASTCALL int (*handler)(Trap_state*, unsigned);
     void *stack;
   } p;
 

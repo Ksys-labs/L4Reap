@@ -1,3 +1,0 @@
-requires: libc
-provides: drivers_uart
-Maintainer: adam@os.inf.tu-dresden.de

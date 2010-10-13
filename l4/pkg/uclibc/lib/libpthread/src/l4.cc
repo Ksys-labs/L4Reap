@@ -56,6 +56,62 @@ void pthread_l4_for_each_thread(void (*fn)(pthread_t))
   __pthread_send_manager_rq(&request, 1);
 }
 
+// This is a rather temporary solution, it will go away when UTCBs can be
+// freely placed.
+l4_utcb_t *pthread_mgr_l4_reserve_consecutive_utcbs(unsigned num)
+{
+  l4_utcb_t *i = __pthread_first_free_handle;
+  l4_utcb_t *prev = 0;
+
+  while (i)
+    {
+      l4_utcb_t *s = (l4_utcb_t*)l4_utcb_tcr_u(i)->user[0];
+      unsigned cnt = 1;
+
+      while (   s
+             && cnt < num
+             && (unsigned long)i + cnt * L4_UTCB_OFFSET == (unsigned long)s)
+        {
+          s = (l4_utcb_t*)l4_utcb_tcr_u(s)->user[0];
+          cnt++;
+        }
+
+      if (cnt == num)
+        {
+          if (prev)
+            l4_utcb_tcr_u(s)->user[0] = l4_utcb_tcr_u(s)->user[0];
+          else
+            __pthread_first_free_handle = (l4_utcb_t*)l4_utcb_tcr_u(s)->user[0];
+
+          return i;
+        }
+
+      prev = i;
+      i = s;
+    }
+
+  return 0;
+}
+
+l4_utcb_t *pthread_l4_reserve_consecutive_utcbs(unsigned num)
+{
+  if (l4_is_invalid_cap(__pthread_manager_request))
+    return pthread_mgr_l4_reserve_consecutive_utcbs(num);
+
+  struct pthread_request request;
+
+  request.req_thread = thread_self();
+  request.req_kind = REQ_L4_RESERVE_CONSECUTIVE_UTCBS;
+  request.req_args.l4_reserve_consecutive_utcbs.num = num;
+
+  l4_utcb_t *u;
+  request.req_args.l4_reserve_consecutive_utcbs.retutcbp = &u;
+
+  __pthread_send_manager_rq(&request, 1);
+
+  return u;
+}
+
 int __pthread_l4_initialize_main_thread(pthread_descr th)
 {
   L4Re::Env *env = const_cast<L4Re::Env*>(L4Re::Env::env());

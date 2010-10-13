@@ -58,6 +58,34 @@ Vm::allocator()
   return slabs;
 }
 
+PUBLIC static
+int
+Vm::getpage(Utcb *utcb, L4_msg_tag tag, void **addr)
+{
+  L4_snd_item_iter item(utcb, tag.words());
+
+  if (EXPECT_FALSE(!tag.items() || !item.next()))
+    return -L4_err::EInval;
+
+  L4_fpage page(item.get()->d);
+
+  if (EXPECT_FALSE(   !page.is_mempage()
+                   || page.order() < 12))
+    return -L4_err::EInval;
+
+  unsigned int page_attribs;
+  Mem_space::Phys_addr phys;
+  Mem_space::Size size;
+
+  if (EXPECT_FALSE(!current()->space()->mem_space()
+                        ->v_lookup(Virt_addr(page.mem_address()),
+                                   &phys, &size, &page_attribs)))
+    return -L4_err::EInval;
+
+  *addr = (void *)Virt_addr(page.mem_address()).value();
+
+  return 0;
+}
 
 PUBLIC
 template< typename Vm_impl >

@@ -474,7 +474,7 @@ l4_thread_register_del_irq_u(l4_cap_idx_t thread, l4_cap_idx_t irq,
  * \ingroup l4_thread_api
  *
  * Add modification rules with l4_thread_modify_sender_add() and commit with
- * l4_thread_modify_sender_commit(). To not touch the UTCB between
+ * l4_thread_modify_sender_commit(). Do not touch the UTCB between
  * l4_thread_modify_sender_start() and l4_thread_modify_sender_commit().
  *
  * \see l4_thread_modify_sender_add
@@ -491,7 +491,7 @@ L4_INLINE l4_msgtag_t
 l4_thread_modify_sender_start_u(l4_utcb_t *u) L4_NOTHROW;
 
 /**
- * \brief Add a modifition pattern to a sender modifiction sequence.
+ * \brief Add a modification pattern to a sender modification sequence.
  * \ingroup l4_thread_api
  *
  * \param tag        Tag received from l4_thread_modify_sender_start() or
@@ -533,7 +533,7 @@ l4_thread_modify_sender_add_u(l4_umword_t match_mask,
                               l4_msgtag_t *tag, l4_utcb_t *u) L4_NOTHROW;
 
 /**
- * \brief Apply (commit) a sender modifiction sequence.
+ * \brief Apply (commit) a sender modification sequence.
  * \ingroup l4_thread_api
  *
  * \see l4_thread_modify_sender_start

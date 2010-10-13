@@ -160,6 +160,10 @@ public:
      void ux_host_syscall(int on) throw()
      { l4_thread_control_ux_host_syscall_u(_u, on); }
 
+     /**
+      * \brief Control vCPU mode of the thread.
+      * \param  on vCPU mode on or off.
+      */
      void vcpu_enable(int on) throw()
      { l4_thread_control_vcpu_enable_u(_u, on); }
    };

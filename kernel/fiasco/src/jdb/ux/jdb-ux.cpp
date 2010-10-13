@@ -45,6 +45,7 @@ IMPLEMENTATION [ux]:
 #include "jdb_dbinfo.h"
 #include "jdb_screen.h"
 #include "kernel_console.h"
+#include "kernel_task.h"
 #include "kernel_thread.h"
 #include "keycodes.h"
 #include "kmem.h"

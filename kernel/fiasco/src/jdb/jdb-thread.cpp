@@ -16,7 +16,6 @@ public:
 IMPLEMENTATION:
 
 #include "jdb_prompt_ext.h"
-//#include "jdb_kobject_names.h"
 #include "jdb.h"
 #include "thread.h"
 
@@ -43,21 +42,6 @@ Jdb_tid_ext::update()
 }
 
 //static Jdb_tid_ext jdb_tid_ext INIT_PRIORITY(JDB_MODULE_INIT_PRIO);
-
-//-
-
-
-#include "kernel_task.h"
-#if 0
-PUBLIC static
-Space*
-Jdb::lookup_space(Task_num task)
-{
-  return task == Config::kernel_taskno
-    			? Kernel_task::kernel_task()
-			: Space_index(task).lookup();
-}
-#endif
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [arm || ux || ppc32]:

@@ -231,7 +231,7 @@ Space::~Space()
   * exists, or if another thread creates an address space for the same
   * task number concurrently).  In this case, the newly-created
   * address space should be deleted again.
-  * 
+  *
   * @param number Task number of the new address space
   */
 PUBLIC template< typename SPACE_FACTORY >
@@ -300,7 +300,7 @@ Space::switchin_context(Space *from)
 
 // Mem_space utilities
 
-/// Return memory space.
+// Return memory space.
 PUBLIC inline
 Mem_space const *
 Space::mem_space () const
@@ -311,6 +311,14 @@ Mem_space*
 Space::mem_space ()
 {
   return _mem_space.get();
+}
+
+PUBLIC static inline
+bool
+Space::is_user_memory(Address address, Mword len)
+{
+  return    address < Mem_layout::User_max
+         && address + len <= Mem_layout::User_max;
 }
 
 PUBLIC inline
@@ -351,14 +359,11 @@ Spin_lock_coloc<Space::State> *
 Space::state_lock()
 { return &_state; }
 
-
-//////////////////////////////////////////////////////////////////////
-
+// ------------------------------------------------------------------------
 IMPLEMENTATION [!io && !ux]:
 
-/// Is this task a privileged one?
-PUBLIC static inline 
+// Is this task a privileged one?
+PUBLIC static inline
 bool
 Space::has_io_privileges()
 { return true; }
-

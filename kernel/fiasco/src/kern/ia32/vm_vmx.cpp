@@ -473,37 +473,12 @@ Vm_vmx::sys_vm_run(Syscall_frame *f, Utcb *utcb)
       return commit_result(-L4_err::EInval);
     }
 
-  L4_snd_item_iter vmcs_item(utcb, tag.words());
+  void *vmcs_s;
 
-  if (EXPECT_FALSE(!tag.items() || !vmcs_item.next()))
-    return commit_result(-L4_err::EInval);
-
-  L4_fpage vmcs_fpage(vmcs_item.get()->d);
-
-  if (EXPECT_FALSE(!vmcs_fpage.is_mempage()))
+  if (int r = Vm::getpage(utcb, tag, &vmcs_s))
     {
-      WARN("VMX: Fpage invalid\n");
-      return commit_error(utcb, L4_error::Overflow);
-    }
-
-  if (EXPECT_FALSE(vmcs_fpage.order() < 12))
-    return commit_result(-L4_err::EInval);
-
-
-  void *vmcs_s = (void *)(Virt_addr(vmcs_fpage.mem_address()).value());
-
-  Mem_space::Phys_addr phys_vmcs;
-  Mem_space::Size size;
-  bool resident;
-  unsigned int page_attribs;
-
-  Mem_space *const curr_mem_space = current()->space()->mem_space();
-  resident = curr_mem_space->v_lookup(Virt_addr(vmcs_s), &phys_vmcs, &size, &page_attribs);
-
-  if (EXPECT_FALSE(!resident))
-    {
-      WARN("VMX: VMCS invalid\n");
-      return commit_result(-L4_err::EInval);
+      WARN("VMX: Invalid VMCS\n");
+      return commit_result(r);
     }
 
   // XXX:

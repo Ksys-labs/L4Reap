@@ -40,8 +40,8 @@ Kobject *Jdb_bt::ko_tid;
 // determine the user level ebp and eip considering the current thread state
 static void
 Jdb_bt::get_user_eip_ebp(Address &eip, Address &ebp)
-{ 
-  if (task == Config::kernel_taskno)
+{
+  if (!task)
     {
       // kernel thread doesn't execute user code -- at least we hope so :-)
       ebp = eip = 0;
@@ -54,7 +54,7 @@ Jdb_bt::get_user_eip_ebp(Address &eip, Address &ebp)
   Jdb::Guessed_thread_state state = Jdb::guess_thread_state(t);
 
   eip = ktop[-5];
-  
+
   if (state == Jdb::s_ipc)
     {
       // If thread is in IPC, EBP lays on the stack (see C-bindings). EBP

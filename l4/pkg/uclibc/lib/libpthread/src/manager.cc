@@ -198,6 +198,11 @@ __pthread_manager(void *arg)
           restart(request.req_thread);
 	  do_reply = 1;
 	  break;
+        case REQ_L4_RESERVE_CONSECUTIVE_UTCBS:
+          *request.req_args.l4_reserve_consecutive_utcbs.retutcbp
+             = pthread_mgr_l4_reserve_consecutive_utcbs(request.req_args.l4_reserve_consecutive_utcbs.num);
+	  do_reply = 1;
+          break;
 	}
       tag = l4_msgtag(0, 0, 0, L4_MSGTAG_SCHEDULE);
     }
@@ -436,14 +441,6 @@ static int pthread_allocate_stack(const pthread_attr_t *attr,
 }
 
 static inline
-l4_utcb_t *__pthread_utcb_for_thread(int nr)
-{
-  using namespace L4Re;
-  Env const *e = Env::env();
-  return (l4_utcb_t*)((char *)e->first_free_utcb() + nr * L4_UTCB_OFFSET);
-}
-
-static inline
 int __pthread_mgr_create_thread(pthread_descr thread, char **tos,
                                 int (*f)(void*), int prio)
 {
@@ -524,7 +521,7 @@ int __pthread_start_manager(pthread_descr mgr)
   int err;
 
   mgr->p_tid = mgr_alloc_utcb();
-  
+
   err = __pthread_mgr_create_thread(mgr, &__pthread_manager_thread_tos,
                                     __pthread_manager, -1);
   if (err < 0)
@@ -585,6 +582,9 @@ static int pthread_handle_create(pthread_t *thread, const pthread_attr_t *attr,
     }
 
   l4_utcb_t *new_utcb = mgr_alloc_utcb();
+  if (!new_utcb)
+    return EAGAIN;
+
   new_thread_id = new_utcb;
 
   if (pthread_allocate_stack(attr, thread_segment(sseg),

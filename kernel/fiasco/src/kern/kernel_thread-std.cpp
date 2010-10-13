@@ -96,7 +96,6 @@ Kernel_thread::init_workload()
   sigma0_space = sigma0_task->mem_space();
 
   Thread *sigma0_thread = new (Ram_quota::root) Thread();
-  // Config::sigma0_prio
 
   assert_kdb(sigma0_thread);
   check (map(sigma0_thread, sigma0_task->obj_space(), sigma0_task, C_thread, 0));
@@ -121,7 +120,6 @@ Kernel_thread::init_workload()
   check (boot_task->initialize());
 
   Thread *boot_thread = new (Ram_quota::root) Thread();
-  // Config::boot_prio
 
   assert_kdb (boot_thread);
 
@@ -138,7 +136,6 @@ Kernel_thread::init_workload()
   check (s0_b_gate);
   check (map(s0_b_gate, boot_task->obj_space(), boot_task, C_pager, 0));
 
-  //Cpu::cpus.cpu(0).tz_switch_to_ns();
   set_cpu_of(sigma0_thread, 0);
   set_cpu_of(boot_thread, 0);
   sigma0_thread->state_del_dirty(Thread_suspended);

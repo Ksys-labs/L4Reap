@@ -600,7 +600,7 @@ sys_call_table:
 	.word sys_kdb_ke
 /*SYSCALL(ipc)*/
 	.word ipc_short_cut_wrapper
-	.word sys_arm_cache_op
+	.word sys_arm_mem_op
 SYSCALL(invoke_debug)
 	.word sys_kdb_ke
 	.word sys_kdb_ke

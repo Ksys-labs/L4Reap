@@ -51,6 +51,23 @@ Apic::disable_external_ints()
   reg_write(APIC_lvt1, 0x0001003f);
 }
 
+PUBLIC static inline
+bool
+Apic::mp_ipi_idle()
+{
+  return ((reg_read(APIC_ICR) & 0x00001000) == 0);
+}
+
+PRIVATE static inline
+bool
+Apic::mp_ipi_idle_timeout(Cpu const *c, Unsigned32 wait)
+{
+  Unsigned64 wait_till = c->time_us() + wait;
+  while (!mp_ipi_idle() && c->time_us() < wait_till)
+    Proc::pause();
+  return mp_ipi_idle();
+}
+
 PUBLIC static inline NEEDS [<cassert>]
 void
 Apic::mp_send_ipi(Unsigned32 dest, Unsigned32 vect,
@@ -81,13 +98,6 @@ Apic::mp_send_ipi(Unsigned32 dest, Unsigned32 vect,
              (mode & 0x00000700) |
              (vect & 0x000000ff);
   reg_write(APIC_ICR, tmp_val);
-}
-
-PUBLIC static inline
-bool
-Apic::mp_ipi_idle()
-{
-  return (reg_read(APIC_ICR) & 0x00001000) == 0;
 }
 
 PUBLIC static inline
@@ -122,8 +132,6 @@ PUBLIC static
 void
 Apic::mp_startup(Cpu const *current_cpu, Unsigned32 dest, Address tramp_page)
 {
-  Unsigned64 wait_till;
-
   assert((tramp_page & 0xfff00fff) == 0);
 
   // XXX: should check for the apic version what to do exactly
@@ -133,23 +141,20 @@ Apic::mp_startup(Cpu const *current_cpu, Unsigned32 dest, Address tramp_page)
   mp_send_ipi(dest, 0, APIC_IPI_INIT);
 
   // delay for 10ms (=10,000us)
-  wait_till = current_cpu->time_us() + 10000;
-  while (current_cpu->time_us() < wait_till)
-    Proc::pause();
+  if (!mp_ipi_idle_timeout(current_cpu, 10000))
+    return;
 
   // Send STARTUP IPI
   mp_send_ipi(dest, tramp_page >> 12, APIC_IPI_STRTUP);
 
   // delay for 200us
-  wait_till = current_cpu->time_us() + 200;
-  while (current_cpu->time_us() < wait_till)
-    Proc::pause();
+  if (!mp_ipi_idle_timeout(current_cpu, 200))
+    return;
 
   // Send STARTUP IPI
   mp_send_ipi(dest, tramp_page >> 12, APIC_IPI_STRTUP);
 
   // delay for 200us
-  wait_till = current_cpu->time_us() + 200;
-  while (current_cpu->time_us() < wait_till)
-    Proc::pause();
+  if (!mp_ipi_idle_timeout(current_cpu, 200))
+    return;
 }

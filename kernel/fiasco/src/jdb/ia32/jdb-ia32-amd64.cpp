@@ -495,9 +495,8 @@ Jdb::is_adapter_memory(Address virt, Space *task)
   if (!task)
     // phys requested
     phys = virt;
-  else if (task == Config::kernel_taskno
-           || (!Kmem::is_io_bitmap_page_fault(virt)
-               && Kmem::is_kmem_page_fault(virt, 0)))
+  else if (   !Kmem::is_io_bitmap_page_fault(virt)
+           &&  Kmem::is_kmem_page_fault(virt, 0))
     // kernel address
     phys = Kmem::virt_to_phys((const void*)virt);
   else

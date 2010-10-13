@@ -15,9 +15,9 @@ IMPLEMENTATION [arm]:
 #include <cassert>
 #include <cstdio>
 
-#include "cache.h"
 #include "globals.h"
 #include "kmem_space.h"
+#include "mem_op.h"
 #include "static_assert.h"
 #include "thread_state.h"
 #include "types.h"
@@ -199,7 +199,7 @@ extern "C" {
 
     // cache operations we carry out for user space might cause PFs, we just
     // ignore those
-    if (EXPECT_FALSE(t->is_cache_op_in_progress()))
+    if (EXPECT_FALSE(t->is_mem_op_in_progress()))
       {
         ret_frame->pc += 4;
         return 1;
@@ -225,8 +225,8 @@ extern "C" {
             && ts->r[7] == 0xf0002)
 	  {
             if (ts->r[2] == 0)
-              Cache_op::arm_cache_maint(Cache_op::Op_coherent,
-                                        (void *)ts->r[0], (void *)ts->r[1]);
+              Mem_op::arm_mem_cache_maint(Mem_op::Op_cache_coherent,
+                                          (void *)ts->r[0], (void *)ts->r[1]);
             return;
 	  }
       }

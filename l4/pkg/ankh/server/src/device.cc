@@ -2,6 +2,7 @@
 #include <l4/cxx/l4iostream>
 #include "device"
 #include <cstring>
+#include <cstdio>
 #include <iostream>
 #include <boost/format.hpp>
 

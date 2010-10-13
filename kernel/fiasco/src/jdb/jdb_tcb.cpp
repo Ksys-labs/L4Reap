@@ -23,6 +23,7 @@ IMPLEMENTATION:
 #include "jdb_thread.h"
 #include "jdb_util.h"
 #include "kernel_console.h"
+#include "kernel_task.h"
 #include "keycodes.h"
 #include "l4_types.h"
 #include "push_console.h"

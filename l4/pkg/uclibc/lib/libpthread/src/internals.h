@@ -87,7 +87,8 @@ typedef l4_utcb_t *pthread_handle;
 
 enum pthread_request_rq {                        /* Request kind */
     REQ_CREATE, REQ_FREE, REQ_PROCESS_EXIT, REQ_MAIN_THREAD_EXIT,
-    REQ_POST, REQ_DEBUG, REQ_KICK, REQ_FOR_EACH_THREAD
+    REQ_POST, REQ_DEBUG, REQ_KICK, REQ_FOR_EACH_THREAD,
+    REQ_L4_RESERVE_CONSECUTIVE_UTCBS
 };
 
 struct pthread_request {
@@ -110,12 +111,20 @@ struct pthread_request {
       void (*fn)(void *, pthread_descr);
       void *arg;
     } for_each;
+#ifndef L4_SPECIFIC
+    struct {
+      unsigned num;
+      l4_utcb_t **retutcbp;
+    } l4_reserve_consecutive_utcbs;
+#endif
   } req_args;
 };
 
 
 /* First free thread */
 extern l4_utcb_t *__pthread_first_free_handle attribute_hidden;
+
+l4_utcb_t *pthread_mgr_l4_reserve_consecutive_utcbs(unsigned num);
 
 /* Descriptor of the main thread */
 

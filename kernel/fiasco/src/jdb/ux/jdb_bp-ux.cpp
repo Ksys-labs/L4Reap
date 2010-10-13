@@ -87,9 +87,9 @@ int
 Jdb_bp::set_debug_address_register(int num, Mword addr, Mword len,
 				   Breakpoint::Mode mode, Task *task)
 {
-  if (task == Config::kernel_taskno)
+  if (!task)
     {
-      putstr(" => task 0 (kernel) not allowed for breakpoints");
+      putstr(" => kernel task not allowed for breakpoints");
       return 0;
     }
   if (num >= 0 && num <= 3)

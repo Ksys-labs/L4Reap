@@ -3,11 +3,11 @@ INTERFACE [arm]:
 EXTENSION class Context
 {
 public:
-  void set_cache_op_in_progress(bool val);
-  bool is_cache_op_in_progress() const { return _cache_op_in_progess; }
+  void set_mem_op_in_progress(bool val);
+  bool is_mem_op_in_progress() const { return _mem_op_in_progess; }
 
 private:
-  bool _cache_op_in_progess;
+  bool _mem_op_in_progess;
 };
 
 // ------------------------------------------------------------------------
@@ -117,8 +117,8 @@ void Context::switchin_context(Context *from)
 
 IMPLEMENT inline
 void
-Context::set_cache_op_in_progress(bool val)
+Context::set_mem_op_in_progress(bool val)
 {
-  _cache_op_in_progess = val;
+  _mem_op_in_progess = val;
   Mem::barrier();
 }

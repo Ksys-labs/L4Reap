@@ -76,23 +76,13 @@ public:
   static const int profiling_rate = 100;
   static const int profile_irq = 0;
 
-  // kernel (idle) task definitions
+  // kernel (idle) thread prio
   static const unsigned kernel_prio = 0;
-  static const unsigned kernel_mcp = 255;
 
-  // sigma0 task definitions
-  static const unsigned sigma0_prio = 0x10;
-  static const unsigned sigma0_mcp = 0;
-
-  // root (boot) task definitions
-  static const unsigned boot_prio = 0x10;
-  static const unsigned boot_mcp = 255;
+  // default prio
+  static const unsigned default_prio = 1;
 
   static const int warn_level = CONFIG_WARN_LEVEL;
-
-  static const unsigned kernel_taskno = 0;
-  static const unsigned sigma0_taskno = 2;
-  static const unsigned boot_taskno = 4;
 
   enum {
     Kip_syscalls = 1,

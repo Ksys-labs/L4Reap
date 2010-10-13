@@ -8,7 +8,6 @@ ifneq ($(SYSTEM),)
   # check whether used gcc has the omp.h file available
   OMP_H_PATH := $(shell $(CC) -print-file-name=include/omp.h)
 
-  $(info here1 $(OMP_H_PATH))
   ifeq ($(strip $(OMP_H_PATH)),include/omp.h)
     $(info [32m $(CC) does not have omp.h header file available, skipping.[0m)
   else

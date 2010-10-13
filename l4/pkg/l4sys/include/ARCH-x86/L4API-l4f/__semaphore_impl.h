@@ -29,30 +29,33 @@ L4_INLINE l4_msgtag_t
 l4_usem_down_to(l4_cap_idx_t ksem, l4_u_semaphore_t *sem, l4_timeout_s timeout) L4_NOTHROW
 {
   l4_msgtag_t res;
-  unsigned long dummy;
 
   l4_utcb_mr()->mr[0] = (l4_addr_t)sem;
 
-  __asm__ __volatile__(
-	"1: xorl %%eax, %%eax	\n\t"
-	"   decl 0(%%edi)	\n\t"
-	"   jge  2f		\n\t"
-	"   mov $1, %%eax	\n\t"
-	L4_ENTER_KERNEL
-	"   cmp $0x10000, %%eax	\n\t"
-	"   je 1b		\n\t"
-	"2:			\n\t"
+  do
+    {
+      unsigned long dummy1, dummy2, dummy3;
+      __asm__ __volatile__(
+       "   xorl %%eax, %%eax	\n\t"
+       "   decl 0(%%edi)	\n\t"
+       "   jge  1f		\n\t"
+       "   mov $1, %%eax	\n\t"
+       L4_ENTER_KERNEL
+       "1:			\n\t"
        :
-	"=D" (dummy),
-	"=c" (timeout),
-	"=a" (res.raw)
+       "=D" (dummy1),
+       "=c" (dummy2),
+       "=d" (dummy3),
+       "=a" (res.raw)
        :
-        "D" (sem),
-	"d" (ksem),
-	"c" (timeout)
+       "D" (sem),
+       "d" (ksem),
+       "c" (timeout)
        :
-	"esi", "memory" L4S_PIC_CLOBBER
-       );
+       "esi", "memory" L4S_PIC_CLOBBER
+      );
+    }
+  while (l4_msgtag_label(res) == L4_USEM_RETRY);
 
   return res;
 }
@@ -63,7 +66,7 @@ l4_usem_up(l4_cap_idx_t ksem, l4_u_semaphore_t *sem) L4_NOTHROW
   l4_msgtag_t tag;
   l4_utcb_mr()->mr[0] = (l4_addr_t)sem;
   __asm__ __volatile__(
-        "xorl %%eax, %%eax      \n\t"
+	"xorl %%eax, %%eax      \n\t"
 	"incl 0(%%edi)		\n\t"
 	"testb $1, 4(%%edi)	\n\t"
 	"jz   2f		\n\t"

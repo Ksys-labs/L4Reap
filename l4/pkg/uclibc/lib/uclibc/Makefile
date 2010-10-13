@@ -40,7 +40,7 @@ DIRS		:= libc/stdio libc/stdlib libc/stdlib/malloc libc/string \
 		   libc/misc/locale libc/misc/elf \
 		   libc/misc/time libc/pwd_grp libc/unistd libc/termios \
 		   libc/misc/wctype libc/misc/wchar libc/misc/fnmatch \
-		   libc/misc/glob libc libcrypt \
+		   libc/misc/glob libc/misc/search libc libcrypt \
 		   libc/signal $(SYSDEPS)/$(UCLIBC_ARCH) \
 		   $(SYSDEPS)/common libm libm/$(UCLIBC_ARCH)
 
@@ -102,6 +102,27 @@ PRIVATE_INCDIR_ARCH-all/libc/string/wcsnlen.o   = $(SRC_DIR)/../contrib/uclibc/l
 PRIVATE_INCDIR_ARCH-all/libc/string/wcsnlen.s.o = $(SRC_DIR)/../contrib/uclibc/libc/string
 PRIVATE_INCDIR_ARCH-all/libc/string/wmemcpy.o   = $(SRC_DIR)/../contrib/uclibc/libc/string
 PRIVATE_INCDIR_ARCH-all/libc/string/wmemcpy.s.o = $(SRC_DIR)/../contrib/uclibc/libc/string
+
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/hcreate_r.o    = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/hcreate_r.s.o  = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/hdestroy_r.o   = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/hdestroy_r.s.o = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/hsearch_r.o    = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/hsearch_r.s.o  = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/lfind.o        = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/lfind.s.o      = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/tfind.o        = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/tfind.s.o      = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/lsearch.o      = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/lsearch.s.o    = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/tdestroy.o     = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/tdestroy.s.o   = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/tdelete.o      = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/tdelete.s.o    = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/tsearch.o      = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/tsearch.s.o    = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/twalk.o        = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
+PRIVATE_INCDIR_ARCH-all/libc/misc/search/twalk.s.o      = $(SRC_DIR)/../contrib/uclibc/libc/misc/search
 
 ifneq ($(L4API),)
 DEFINES		    += -DL4_THREAD_SAFE

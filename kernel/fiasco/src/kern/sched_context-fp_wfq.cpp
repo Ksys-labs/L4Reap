@@ -110,7 +110,7 @@ PUBLIC
 Sched_context::Sched_context()
 {
   _t = Fixed_prio;
-  _sc.fp._p = Config::boot_prio;
+  _sc.fp._p = Config::default_prio;
   _sc.fp._q = Config::default_time_slice;
   _sc.fp._left = Config::default_time_slice;
   _sc.fp._ready_next = 0;

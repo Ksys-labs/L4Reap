@@ -153,7 +153,7 @@ VPATH		+= jdb/arm jdb
 PRIVATE_INCDIR 	+= kern/$(CONFIG_XARCH) kern
 
 INTERFACES_KERNEL := 	kmem boot_info pages __main globals config \
-			main cache kobject_mapdb dbg_page_info \
+			main mem_op kobject_mapdb dbg_page_info \
 			bitmap kernel_uart pagetable mem_layout \
 			mapped_alloc kmem_alloc kip_init kmem_space \
 			queue_item queue cpu_mask rcupdate irq_pin \

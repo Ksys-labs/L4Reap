@@ -402,24 +402,13 @@ Vm_svm::sys_vm_run(Syscall_frame *f, Utcb *utcb)
       return commit_result(-L4_err::EInval);
     }
 
-  L4_snd_item_iter vmcb_item(utcb, tag.words());
+  Vmcb *vmcb_s;
 
-  if (EXPECT_FALSE(!tag.items() || !vmcb_item.next()))
-    return commit_result(-L4_err::EInval);
-
-  L4_fpage vmcb_fpage(vmcb_item.get()->d);
-
-  if (EXPECT_FALSE(!vmcb_fpage.is_mempage()))
+  if (int r = Vm::getpage(utcb, tag, (void **)&vmcb_s))
     {
-      WARN("svm: Fpage invalid\n");
-      return commit_error(utcb, L4_error::Overflow);
+      WARN("svm: Invalid VMCB\n");
+      return commit_result(r);
     }
-
-  if (EXPECT_FALSE(vmcb_fpage.order() < 12))
-    return commit_result(-L4_err::EInval);
-
-  Vmcb *vmcb_s = (Vmcb *)(Virt_addr(vmcb_fpage.mem_address()).value());
-  Vmcb *kernel_vmcb_s = s.kernel_vmcb();
 
   if (EXPECT_FALSE(vmcb_s->np_enabled() && !s.has_npt()))
     {
@@ -431,27 +420,6 @@ Vm_svm::sys_vm_run(Syscall_frame *f, Utcb *utcb)
   // can only fail on 64bit, will be optimized away on 32bit
   if (EXPECT_FALSE(is_64bit() && !vm_cr3))
     return commit_result(-L4_err::ENomem);
-
-  Mem_space::Phys_addr phys_vmcb;
-  Mem_space::Size size;
-  bool resident;
-  unsigned int page_attribs;
-
-  Mem_space *const curr_mem_space = current()->space()->mem_space();
-  resident = curr_mem_space->v_lookup(Virt_addr(vmcb_s), &phys_vmcb, &size, &page_attribs);
-
-  if (!resident)
-    {
-      WARN("svm: VMCB invalid\n");
-      return commit_result(-L4_err::EInval);
-    }
-#if 0
-  // currently only support for nested pagetables
-  // if shadow page tables are to be allowed then cr0
-  // needs further scrutiny and cr3 must not be accessible
-  if((vmcb_s->control_area.np_enable & 1) != 1) 
-    return commit_result(-L4_err::EInval);
-#endif
 
   // neither EFER.LME nor EFER.LMA must be set
   if (EXPECT_FALSE(!is_64bit()
@@ -506,6 +474,8 @@ Vm_svm::sys_vm_run(Syscall_frame *f, Utcb *utcb)
 
   orig_cr3  = vmcb_s->state_save_area.cr3;
   orig_ncr3 = vmcb_s->control_area.n_cr3;
+
+  Vmcb *kernel_vmcb_s = s.kernel_vmcb();
 
   copy_control_area(kernel_vmcb_s, vmcb_s);
   copy_state_save_area(kernel_vmcb_s, vmcb_s);

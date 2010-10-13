@@ -23,7 +23,6 @@ MAKELINK = if [ ! $1 -ef $2 ] ; then ln -sf $3 $2 ; fi
 ARCH = $(BUILD_ARCH)
 
 all::
-	echo foo $(ARCH)
 	$(VERBOSE)$(call MAKELINK, \
 		$(INSTALLDIR_LOCAL)/$(ARCH)/$(INSTALL_INC_PREFIX)/asm-$(SUFFIX_$(ARCH)),\
 		$(INSTALLDIR_LOCAL)/$(ARCH)/$(INSTALL_INC_PREFIX)/asm, asm-$(SUFFIX_$(ARCH)))

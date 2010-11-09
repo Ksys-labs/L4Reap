@@ -1,8 +1,3 @@
-INTERFACE[debug]:
-
-#include "task.h"
-
-
 INTERFACE:
 
 #include "context.h"
@@ -310,25 +305,6 @@ Receiver::sender_ok(const Sender *sender) const
   return Rs_not_receiving;
 }
 
-/** Set up a receiving IPC.  
-    @param sender 0 means any sender OK, otherwise only specified sender
-                  may send
-    @param regs   register set that should be used as IPC registers
-    @return state bits that should be added to receiver's state word.
-    @post (sender == 0 || partner() == sender) && (receive_regs() == regs)
-          && (retval == Thread_receiving)
- */
-PROTECTED inline NEEDS["thread_state.h", Receiver::set_partner, 
-		       Receiver::set_rcv_regs]
-unsigned
-Receiver::setup_receiver_state(Sender* sender, Syscall_frame* regs,
-                               bool = false)
-{
-  set_rcv_regs(regs);	// message should be poked in here
-  set_partner(sender);
-  return Thread_receiving;
-}
-
 //-----------------------------------------------------------------------------
 // VCPU code:
 
@@ -336,27 +312,29 @@ PRIVATE inline
 Receiver::Rcv_state
 Receiver::vcpu_async_ipc(Sender const *sender) const
 {
-  if (EXPECT_FALSE(!vcpu_irqs_enabled()))
+  Vcpu_state *vcpu = access_vcpu();
+
+  if (EXPECT_FALSE(!vcpu_irqs_enabled(vcpu)))
     return Rs_not_receiving;
-    
+
   Receiver *self = const_cast<Receiver*>(this);
-  
+
   if (this == current())
     self->spill_user_state();
 
-  self->vcpu_enter_kernel_mode();
+  self->vcpu_enter_kernel_mode(vcpu);
 
   LOG_TRACE("VCPU events", "vcpu", this, __context_vcpu_log_fmt,
       Vcpu_log *l = tbe->payload<Vcpu_log>();
       l->type = 1;
-      l->state = vcpu_state()->_saved_state;
+      l->state = vcpu->_saved_state;
       l->ip = Mword(sender);
       l->sp = regs()->sp();
-      l->space = vcpu_user_space() ? static_cast<Task*>(vcpu_user_space())->dbg_id() : ~0;
+      l->space = ~0; //vcpu_user_space() ? static_cast<Task*>(vcpu_user_space())->dbg_id() : ~0;
       );
 
-  self->_rcv_regs = &vcpu_state()->_ipc_regs;
-  self->vcpu_state()->_ts.set_ipc_upcall();
+  self->_rcv_regs = &vcpu->_ipc_regs;
+  vcpu->_ts.set_ipc_upcall();
   self->set_partner(const_cast<Sender*>(sender));
   self->state_add_dirty(Thread_receiving | Thread_ipc_in_progress);
   self->vcpu_save_state_and_upcall();
@@ -372,5 +350,5 @@ Receiver::vcpu_update_state()
     return;
 
   if (!sender_list()->head())
-    vcpu_state()->sticky_flags &= ~Vcpu_state::Sf_irq_pending;
+    access_vcpu()->sticky_flags &= ~Vcpu_state::Sf_irq_pending;
 }

@@ -26,9 +26,19 @@ void
 Context::fill_user_state()
 {}
 
+PUBLIC inline
+Utcb *
+Context::access_utcb() const
+{ return utcb(); }
+
+PUBLIC inline
+Vcpu_state *
+Context::access_vcpu(bool = false) const
+{ return vcpu_state(); }
+
 IMPLEMENT inline
 void
-Context::switch_cpu(Context *t) 
+Context::switch_cpu(Context *t)
 {
   unsigned long dummy1, dummy2, dummy3;
 

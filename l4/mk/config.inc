@@ -92,7 +92,7 @@ menuconfig config: $(KCONFIG_FILE) $(DIRS_FOR_CONFIG)
 		! $(DROPSCONF_CONFIG) -nt $(DROPSCONF_CONFIG_MK) || \
 		$(MAKE) $(DROPSCONF_CONFIG_MK)
 
-oldconfig xconfig qconfig gconfig randconfig allyesconfig allnoconfig: $(DIRS_FOR_CONFIG)
+oldconfig xconfig gconfig nconfig randconfig allyesconfig allnoconfig: $(DIRS_FOR_CONFIG)
 	$(VERBOSE)$(kconfig_call) $@ silentoldconfig
 	@$(MAKE) $(DROPSCONF_CONFIG_MK)
 
@@ -155,7 +155,6 @@ help::
 	@echo "Configuration targets:"
 	@echo "  config           - run the menu-driven configuration tool"
 	@echo "  gconfig          - run a graphical configuration tool"
-	@echo "  qconfig          - run a graphical configuration tool"
 	@echo "  xconfig          - run a graphical configuration tool"
 	@echo "  oldconfig        - (re)create the configuration header based on a prior"
 	@echo "                     configuration or default values"

@@ -256,7 +256,7 @@ entry_sys_fast_ipc_c:
 	testl	$Thread_alien_or_vcpu_user, OFS__THREAD__STATE (%ebx)
 	jnz	alien_sys_fast_ipc_c
 	RESET_THREAD_CANCEL_AT %ebx
-	call    ipc_short_cut_wrapper
+	call    sys_ipc_wrapper
 in_sc_ipc2:
 	DO_SYSEXIT
 #endif
@@ -277,7 +277,7 @@ in_sc_ipc2:
 alien_sys_fast_ipc_c:
 	cld
 	PRE_FAST_ALIEN_IPC
-	call    ipc_short_cut_wrapper
+	call    sys_ipc_wrapper
 ret_from_fast_alien_ipc:
 	POST_FAST_ALIEN_IPC
 

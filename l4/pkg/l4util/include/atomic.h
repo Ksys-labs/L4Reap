@@ -300,146 +300,7 @@ EXTERN_C_END
  *****************************************************************************/
 #include <l4/util/atomic_arch.h>
 
-/*****************************************************************************
- *** Generic implementation
- ***    (make sure to prevent page faults between critical sections)
- ***  Do not use those functions, go implement a version for your
- ***  architecture!
- *****************************************************************************/
-
 #ifdef __GNUC__
-
-#ifndef __L4UTIL_ATOMIC_HAVE_ARCH_CMPXCHG16
-#include <l4/util/irq.h>
-
-L4_INLINE int
-l4util_cmpxchg16(volatile l4_uint16_t * dest,
-                 l4_uint16_t cmp_val, l4_uint16_t new_val)
-{
-  int ret = 0;
-
-  l4util_cli();
-
-  if (*dest == cmp_val)
-    {
-      *dest = new_val;
-      ret = 1;
-    }
-
-  l4util_sti();
-
-  return ret;
-}
-#endif
-
-#ifndef __L4UTIL_ATOMIC_HAVE_ARCH_CMPXCHG32
-#include <l4/util/irq.h>
-
-L4_INLINE int
-l4util_cmpxchg32(volatile l4_uint32_t * dest,
-                 l4_uint32_t cmp_val, l4_uint32_t new_val)
-{
-  int ret = 0;
-
-  l4util_cli();
-
-  if (*dest == cmp_val)
-    {
-      *dest = new_val;
-      ret = 1;
-    }
-
-  l4util_sti();
-
-  return ret;
-}
-#endif
-
-#ifndef __L4UTIL_ATOMIC_HAVE_ARCH_CMPXCHG
-#include <l4/util/irq.h>
-
-L4_INLINE int
-l4util_cmpxchg(volatile l4_umword_t * dest,
-               l4_umword_t cmp_val, l4_umword_t new_val)
-{
-  int ret = 0;
-
-  l4util_cli();
-
-  if (*dest == cmp_val)
-    {
-      *dest = new_val;
-      ret = 1;
-    }
-
-  l4util_sti();
-
-  return ret;
-}
-#endif
-
-#ifndef __L4UTIL_ATOMIC_HAVE_ARCH_XCHG32
-#include <l4/util/irq.h>
-
-L4_INLINE l4_uint32_t
-l4util_xchg32(volatile l4_uint32_t * dest, l4_uint32_t val)
-{
-  l4_uint32_t old_val;
-
-  l4util_cli();
-
-  old_val = *dest;
-  *dest = val;
-
-  l4util_sti();
-
-  return old_val;
-}
-#endif
-
-#ifndef __L4UTIL_ATOMIC_HAVE_ARCH_XCHG
-#include <l4/util/irq.h>
-
-L4_INLINE l4_umword_t
-l4util_xchg(volatile l4_umword_t * dest, l4_umword_t val)
-{
-  l4_umword_t old_val;
-
-  l4util_cli();
-
-  old_val = *dest;
-  *dest = val;
-
-  l4util_sti();
-
-  return old_val;
-}
-#endif
-
-#ifndef __L4UTIL_ATOMIC_HAVE_ARCH_ADD
-#include <l4/util/irq.h>
-
-L4_INLINE void
-l4util_atomic_add(volatile long *dest, long val)
-{
-  l4util_cli();
-  *dest += val;
-  l4util_sti();
-}
-#endif
-
-#ifndef __L4UTIL_ATOMIC_HAVE_ARCH_INC
-#include <l4/util/irq.h>
-
-L4_INLINE void
-l4util_atomic_inc(volatile long *dest)
-{
-  l4util_cli();
-  (*dest)++;
-  l4util_sti();
-}
-#endif
-
 
 /* Non-implemented version, catch with a linker warning */
 
@@ -509,11 +370,24 @@ l4util_cmpxchg8(volatile l4_uint8_t * dest,
 { (void)dest; (void)cmp_val; (void)new_val; __this_l4util_atomic_function_is_not_implemented_for_this_arch__sorry(); return 0; }
 #endif
 
+#ifndef __L4UTIL_ATOMIC_HAVE_ARCH_CMPXCHG16
+L4_INLINE int
+l4util_cmpxchg16(volatile l4_uint16_t * dest,
+                 l4_uint16_t cmp_val, l4_uint16_t new_val)
+{ (void)dest; (void)cmp_val; (void)new_val; __this_l4util_atomic_function_is_not_implemented_for_this_arch__sorry(); return 0; }
+#endif
+
 #ifndef __L4UTIL_ATOMIC_HAVE_ARCH_CMPXCHG
 L4_INLINE int
 l4util_cmpxchg(volatile l4_umword_t * dest,
                    l4_umword_t cmp_val, l4_umword_t new_val)
 { (void)dest; (void)cmp_val; (void)new_val; __this_l4util_atomic_function_is_not_implemented_for_this_arch__sorry(); return 0; }
+#endif
+
+#ifndef __L4UTIL_ATOMIC_HAVE_ARCH_XCHG32
+L4_INLINE l4_uint32_t
+l4util_xchg32(volatile l4_uint32_t * dest, l4_uint32_t val)
+{ (void)dest; (void)val; __this_l4util_atomic_function_is_not_implemented_for_this_arch__sorry(); return 0; }
 #endif
 
 #ifndef __L4UTIL_ATOMIC_HAVE_ARCH_XCHG16
@@ -528,6 +402,11 @@ l4util_xchg8(volatile l4_uint8_t * dest, l4_uint8_t val)
 { (void)dest; (void)val; __this_l4util_atomic_function_is_not_implemented_for_this_arch__sorry(); return 0; }
 #endif
 
+#ifndef __L4UTIL_ATOMIC_HAVE_ARCH_XCHG
+L4_INLINE l4_umword_t
+l4util_xchg(volatile l4_umword_t * dest, l4_umword_t val)
+{ (void)dest; (void)val; __this_l4util_atomic_function_is_not_implemented_for_this_arch__sorry(); return 0; }
+#endif
 
 #ifndef __L4UTIL_ATOMIC_HAVE_ARCH_ADD8
 L4_INLINE void

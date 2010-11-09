@@ -61,3 +61,13 @@ l4_atomic_cmpxchg(volatile long int* mem, long int oldval, long int newval)
                );
   return (oldval == ret);
 }
+
+long int
+l4_atomic_xchg(volatile long int* mem, long int newval)
+{
+  // someone not speaking ppc has added this...
+  unsigned long r = *mem;
+  outstring("l4_atomic_xchg is not atomic!\n");
+  *mem = newval;
+  return r;
+}

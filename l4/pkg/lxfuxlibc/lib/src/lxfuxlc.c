@@ -39,9 +39,11 @@
 #define __NR_lstat		107
 #define __NR_fstat		108
 #define __NR_ipc		117
+#define __NR_fsync		118
 #define __NR_select		142 /* new select */
 #define __NR_readv		145
 #define __NR_writev		146
+#define __NR_fdatasync		148
 #define __NR_poll		168
 #define __NR___lx_priv_ftruncate64 194
 #define __NR_ftruncate64        194
@@ -204,8 +206,10 @@ __lx_syscall2(int, stat, const char *, filename, struct lx_stat *, buf)
 __lx_syscall2(int, lstat, const char *, filename, struct lx_stat *, buf)
 __lx_syscall2(int, fstat, int, filedes, struct lx_stat *, buf)
 __lx_syscall6(int, ipc, unsigned int, call, int, first, int, second, int, third, const void *, ptr, long, fifth)
+__lx_syscall1(int, fsync, int, fd)
 __lx_syscall3(lx_ssize_t, readv, int, fd, const struct lx_iovec*, iov, int, cnt);
 __lx_syscall3(lx_ssize_t, writev, int, fd, const struct lx_iovec*, iov, int, cnt);
+__lx_syscall1(int, fdatasync, int, fd)
 __lx_syscall3(int, poll, struct lx_pollfd *, fds, lx_nfds_t, nfds, int, timeout)
 #ifdef __i386__
 int lx___lx_priv_ftruncate64(int, unsigned long, unsigned long);

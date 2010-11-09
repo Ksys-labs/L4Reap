@@ -1,33 +1,50 @@
+IMPLEMENTATION:
+
+#include "thread_object.h"
+#include "thread_state.h"
+
+extern "C"
+void
+sys_ipc_wrapper()
+{
+  // FIXME: use UTCB from user, not the kernel var (remove access utcb
+  assert_kdb (!(current()->state() & Thread_drq_ready));
+
+  Thread *curr = current_thread();
+  Syscall_frame *f = curr->regs();
+
+  Obj_cap obj = f->ref();
+  Utcb *utcb = curr->access_utcb();
+  // printf("sys_invoke_object(f=%p, obj=%x)\n", f, f->obj_ref());
+  unsigned char rights;
+  Kobject_iface *o = obj.deref(&rights);
+  L4_msg_tag e;
+  if (EXPECT_TRUE(o!=0))
+    o->invoke(obj, rights, f, utcb);
+  else
+    f->tag(curr->commit_error(utcb, L4_error::Not_existent));
+}
+
+
 //---------------------------------------------------------------------------
 IMPLEMENTATION [debug]:
 
 #include "space.h"
 #include "task.h"
-#include "thread.h"
-
-class Syscalls : public Thread { };
 
 extern "C" void sys_invoke_debug(Kobject *o, Syscall_frame *f);
 
-PUBLIC inline NOEXPORT ALWAYS_INLINE
-void
-Syscalls::sys_invoke_debug()
+extern "C" void sys_invoke_debug_wrapper()
 {
-  Syscall_frame *f = this->regs();
+  Thread *curr = current_thread();
+  Syscall_frame *f = curr->regs();
   //printf("sys_invoke_debugger(f=%p, obj=%lx)\n", f, f->ref().raw());
-  Kobject_iface *o = space()->obj_space()->lookup_local(f->ref().cap());
+  Kobject_iface *o = curr->space()->obj_space()->lookup_local(f->ref().cap());
   if (o)
     ::sys_invoke_debug(o->kobject(), f);
   else
-    f->tag(commit_error(access_utcb(), L4_error::Not_existent));
+    f->tag(curr->commit_error(curr->access_utcb(), L4_error::Not_existent));
 }
-
-
-// these wrappers must come last in the source so that the real sys-call
-// implementations can be inlined by g++
-
-extern "C" void sys_invoke_debug_wrapper()
-{ static_cast<Syscalls*>(current_thread())->sys_invoke_debug(); }
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [!debug]:

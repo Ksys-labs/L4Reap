@@ -3,7 +3,7 @@ IMPLEMENTATION:
 #include <cstdio>
 #include <cstring>
 
-#include "thread.h"
+#include "thread_object.h"
 #include "jdb.h"
 #include "jdb_kobject.h"
 #include "jdb_module.h"
@@ -30,7 +30,7 @@ Jdb_sender_list::show_sender_list(Thread *t, int printlines)
 {
   puts(printlines ? Jdb_screen::Line : "");
   Jdb::clear_to_eol();
-  printf("Thread: %lx\n", t->dbg_id());
+  printf("Thread: %lx\n", t->dbg_info()->dbg_id());
 
   Prio_list_elem *p = t->sender_list()->head();
   if (!p)
@@ -50,7 +50,7 @@ Jdb_sender_list::show_sender_list(Thread *t, int printlines)
       do
         {
           Thread *ts = static_cast<Thread *>(Sender::cast(s));
-          printf("%s %lx", s == p ? "" : ",", ts->dbg_id());
+          printf("%s %lx", s == p ? "" : ",", ts->dbg_info()->dbg_id());
           s = s->_s_next;
         } while (s != p);
       puts("");
@@ -68,7 +68,7 @@ Jdb_sender_list::action(int cmd, void *&, char const *&, int &)
   if (cmd)
     return NOTHING;
 
-  Thread *t = Kobject::dcast<Thread *>(thread);
+  Thread *t = Kobject::dcast<Thread_object *>(thread);
   if (!t)
     {
       printf(" Invalid thread\n");
@@ -87,7 +87,7 @@ Jdb_sender_list::handle_key(Kobject *o, int keycode)
   if (keycode != 'S')
     return false;
 
-  Thread *t = Kobject::dcast<Thread*>(o);
+  Thread *t = Kobject::dcast<Thread_object *>(o);
   if (!t)
     return false;
 

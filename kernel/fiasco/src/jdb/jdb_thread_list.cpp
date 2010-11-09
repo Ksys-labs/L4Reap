@@ -194,7 +194,7 @@ static
 long
 Jdb_thread_list::get_tid(Thread *t)
 {
-  return t->dbg_id();
+  return t->dbg_info()->dbg_id();
 }
 
 // helper function for iter() -- use space as sorting key
@@ -553,13 +553,13 @@ Jdb_thread_list::list_threads_show_thread(Thread *t)
 
   if (is_privileged && !long_output)
     printf("%s", Jdb::esc_emph);
-  Jdb_kobject::print_uid(t, 5);
+  Jdb_kobject::print_uid(t->kobject(), 5);
   if ((is_privileged) && !long_output)
     putstr("\033[m");
 
   printf(" %-3u ", t->cpu());
 
-  print_thread_name(t);
+  print_thread_name(t->kobject());
 
   printf("  %2lx ", get_prio(t));
 

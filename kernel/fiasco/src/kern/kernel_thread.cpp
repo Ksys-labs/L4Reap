@@ -1,8 +1,8 @@
 INTERFACE:
 
-#include "thread.h"
+#include "thread_object.h"
 
-class Kernel_thread : public Thread
+class Kernel_thread : public Thread_object
 {
 private:
   /**
@@ -52,7 +52,7 @@ IMPLEMENTATION:
 
 
 PUBLIC
-Kernel_thread::Kernel_thread() : Thread(Thread::Kernel)
+Kernel_thread::Kernel_thread() : Thread_object(Thread::Kernel)
 {}
 
 PUBLIC inline

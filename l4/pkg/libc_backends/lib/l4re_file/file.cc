@@ -579,3 +579,21 @@ extern "C" int chroot(const char *) L4_NOTHROW
   errno = EINVAL;
   return -1;
 }
+
+extern "C" int mkfifo(const char *, mode_t) L4_NOTHROW
+{
+  errno = EINVAL;
+  return -1;
+}
+
+extern "C" int mknod(const char *, mode_t, dev_t) L4_NOTHROW
+{
+  errno = EINVAL;
+  return -1;
+}
+
+extern "C" int lchown(const char *, uid_t, gid_t) L4_NOTHROW
+{
+  errno = EINVAL;
+  return -1;
+}

@@ -21,7 +21,17 @@ void
 Context::fill_user_state()
 {}
 
-/** Thread context switchin.  Called on every re-activation of a thread 
+PUBLIC inline
+Utcb *
+Context::access_utcb() const
+{ return utcb(); }
+
+PUBLIC inline
+Vcpu_state *
+Context::access_vcpu(bool = false) const
+{ return vcpu_state(); }
+
+/** Thread context switchin.  Called on every re-activation of a thread
     (switch_exec()).  This method is public only because it is called from
     from assembly code in switch_cpu().
  */
@@ -44,14 +54,13 @@ Context::switchin_context(Context *from)
   // load new segment selectors
   load_segments();
 
-  // update the global UTCB pointer to make the thread find its UTCB 
+  // update the global UTCB pointer to make the thread find its UTCB
   // using gs:[0]
   Mem_layout::user_utcb_ptr(current_cpu()) = local_id();
 }
 
-
 //---------------------------------------------------------------------------
-IMPLEMENTATION [segments]:
+IMPLEMENTATION [ia32 || ux]:
 
 PROTECTED inline NEEDS["cpu.h"]
 void
@@ -73,7 +82,7 @@ Context::store_segments()
 
 
 //---------------------------------------------------------------------------
-IMPLEMENTATION [!segments]:
+IMPLEMENTATION [amd64]:
 
 PROTECTED inline
 void

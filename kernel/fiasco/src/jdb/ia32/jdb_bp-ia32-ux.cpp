@@ -81,6 +81,7 @@ IMPLEMENTATION[ia32,amd64,ux]:
 #include "jdb_tbuf.h"
 #include "l4_types.h"
 #include "static_init.h"
+#include "task.h"
 #include "thread.h"
 
 class Jdb_set_bp : public Jdb_module, public Jdb_input_task_addr

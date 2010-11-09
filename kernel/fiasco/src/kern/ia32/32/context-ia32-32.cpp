@@ -1,4 +1,4 @@
-INTERFACE[ia32 && segments]:
+INTERFACE[ia32]:
 
 #include "x86desc.h"
 
@@ -12,7 +12,7 @@ protected:
 
 
 //-----------------------------------------------------------------------------
-IMPLEMENTATION[ia32 && segments]:
+IMPLEMENTATION[ia32]:
 
 #include "cpu.h"
 #include "gdt.h"
@@ -28,7 +28,7 @@ Context::switch_gdt_user_entries(Context *to)
 
 
 //---------------------------------------------------------------------------
-IMPLEMENTATION [ia32,ux]:
+IMPLEMENTATION [ia32 || ux]:
 
 
 IMPLEMENT inline NEEDS [Context::update_consumed_time,
@@ -63,5 +63,3 @@ Context::switch_cpu (Context *t)
      : "c" (&_kernel_sp), "S" (&t->_kernel_sp), "D" (t), "d" (this)
      : "eax", "ebx", "memory");
 }
-
-

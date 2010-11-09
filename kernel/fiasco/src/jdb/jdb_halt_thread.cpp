@@ -6,7 +6,7 @@ IMPLEMENTATION:
 #include "jdb_module.h"
 #include "jdb_kobject.h"
 #include "static_init.h"
-#include "thread.h"
+#include "thread_object.h"
 
 class Jdb_halt_thread : public Jdb_module
 {
@@ -25,7 +25,7 @@ Jdb_halt_thread::action(int cmd, void *&, char const *&, int &)
   if (cmd != 0)
     return NOTHING;
 
-  Thread *t = Kobject::dcast<Thread*>(threadid);
+  Thread *t = Kobject::dcast<Thread_object*>(threadid);
 
   if (!t)
     return NOTHING;

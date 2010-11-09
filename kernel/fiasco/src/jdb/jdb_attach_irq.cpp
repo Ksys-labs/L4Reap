@@ -130,7 +130,7 @@ Jdb_kobject_irq::follow_link(Kobject *o)
   if (!t->owner() || (Smword)t->owner() == -1)
     return o;
 
-  return static_cast<Kobject*>(static_cast<Thread*>(t->owner()));
+  return static_cast<Thread*>(t->owner())->kobject();
 }
 
 PUBLIC

@@ -1,5 +1,6 @@
 INTERFACE:
 
+#include <csetjmp>             // typedef jmp_buf
 #include "types.h"
 #include "clock.h"
 #include "config.h"
@@ -172,7 +173,8 @@ public:
   /**
    * Definition of different scheduling modes
    */
-  enum Sched_mode {
+  enum Sched_mode
+  {
     Periodic	= 0x1,	///< 0 = Conventional, 1 = Periodic
     Nonstrict	= 0x2,	///< 0 = Strictly Periodic, 1 = Non-strictly periodic
   };
@@ -294,6 +296,8 @@ private:
 protected:
   // for trigger_exception
   Continuation _exc_cont;
+
+  jmp_buf *_recover_jmpbuf;     // setjmp buffer for page-fault recovery
 
   struct Migration_rq
   {
@@ -1731,6 +1735,10 @@ Context::rcu_unblock(Rcu_item *i)
   return true;
 }
 
+PUBLIC inline
+void
+Context::recover_jmp_buf(jmp_buf *b)
+{ _recover_jmpbuf = b; }
 
 //----------------------------------------------------------------------------
 IMPLEMENTATION [!mp]:

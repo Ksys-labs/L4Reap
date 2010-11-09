@@ -8,7 +8,7 @@ INTERFACE [ia32,amd64,ux]:
 
 class Idt_entry;
 
-EXTENSION class Thread 
+EXTENSION class Thread
 {
 private:
   /**
@@ -196,7 +196,7 @@ Thread::print_page_fault_error(Mword e)
 PUBLIC
 int
 Thread::handle_slow_trap(Trap_state *ts)
-{ 
+{
   Address ip;
   int from_user = ts->cs() & 3;
 
@@ -557,11 +557,6 @@ Thread::handle_sigma0_page_fault(Address pfa)
     != Mem_space::Insert_err_nomem;
 }
 
-PUBLIC inline
-Utcb *
-Thread::access_utcb() const
-{ return utcb(); }
-
 PRIVATE static inline
 void
 Thread::save_fpu_state_to_utcb(Trap_state *, Utcb *)
@@ -599,7 +594,7 @@ Thread::send_exception_arch(Trap_state *ts)
 //----------------------------------------------------------------------------
 IMPLEMENTATION [ia32 || amd64]:
 
-PRIVATE inline
+PROTECTED inline
 void
 Thread::vcpu_resume_user_arch()
 {}
@@ -607,7 +602,7 @@ Thread::vcpu_resume_user_arch()
 //----------------------------------------------------------------------------
 IMPLEMENTATION [ux]:
 
-PRIVATE inline
+PROTECTED inline
 void
 Thread::vcpu_resume_user_arch()
 {
@@ -629,6 +624,26 @@ Thread::user_ip(Mword ip)
       r->ip(ip);
     }
 }
+
+//----------------------------------------------------------------------------
+IMPLEMENTATION [ia32]:
+
+#include "utcb_init.h"
+
+PROTECTED inline NEEDS["utcb_init.h"]
+void
+Thread::arch_init_seg()
+{
+  _gs = _fs = Utcb_init::utcb_segment();
+}
+
+//----------------------------------------------------------------------------
+IMPLEMENTATION [amd64]:
+
+PROTECTED inline
+void
+Thread::arch_init_seg()
+{}
 
 
 //----------------------------------------------------------------------------
@@ -658,7 +673,6 @@ IMPLEMENTATION[ia32 || amd64]:
 #include "simpleio.h"
 #include "static_init.h"
 #include "terminate.h"
-#include "utcb_init.h"
 
 int (*Thread::int3_handler)(Trap_state*);
 Per_cpu<Thread::Dbg_stack> DEFINE_PER_CPU Thread::dbg_stack;
@@ -700,12 +714,7 @@ Thread::arch_init()
   // after cs initialisation as ip() requires proper cs
   r->ip(0);
 
-#ifdef CONFIG_HANDLE_SEGMENTS
-  _gs = _fs = Utcb_init::utcb_segment();
-#else
-  Cpu::set_gs(Utcb_init::utcb_segment());
-  Cpu::set_fs(Utcb_init::utcb_segment());
-#endif
+  arch_init_seg();
 }
 
 
@@ -975,7 +984,7 @@ Thread::handle_not_nested_trap(Trap_state *ts)
   return 0;
 }
 
-PRIVATE inline
+PROTECTED inline
 int
 Thread::sys_control_arch(Utcb *)
 {

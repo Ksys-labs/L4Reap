@@ -341,6 +341,8 @@ formatter_ipc_res(Tb_entry *tb, const char *tidstr, unsigned tidlen,
 
 IMPLEMENTATION:
 
+#include "kobject_dbg.h"
+
 // pagefault
 static
 unsigned
@@ -474,12 +476,12 @@ formatter_ctx_switch(Tb_entry *tb, const char *tidstr, unsigned tidlen,
       && Jdb_util::is_mapped(e->from_sched()->context()))
     {
       sctx = e->from_sched()->context();
-      sctxid = Thread::lookup(sctx)->dbg_id();
+      sctxid = Thread::lookup(sctx)->dbg_info()->dbg_id();
     }
 
-  src = static_cast<Thread const *>(e->ctx())->dbg_id(); //L4_uid(e->ctx(), Mem_layout::Tcbs, THREAD_BLOCK_SIZE);
-  dst = static_cast<Thread const *>(e->dst())->dbg_id(); //L4_uid(e->dst(), Mem_layout::Tcbs, THREAD_BLOCK_SIZE);
-  dst_orig = static_cast<Thread const *>(e->dst_orig())->dbg_id(); //L4_uid(e->dst_orig(), Mem_layout::Tcbs, THREAD_BLOCK_SIZE);
+  src = static_cast<Thread const *>(e->ctx())->dbg_info()->dbg_id();
+  dst = static_cast<Thread const *>(e->dst())->dbg_info()->dbg_id();
+  dst_orig = static_cast<Thread const *>(e->dst_orig())->dbg_info()->dbg_id();
 
   Address addr       = e->kernel_ip();
 
@@ -551,7 +553,7 @@ formatter_sched(Tb_entry *tb, const char *tidstr, unsigned tidlen,
   Thread const *_t = Thread::lookup (e->owner());
   Mword t = ~0UL;
   if (Jdb_util::is_mapped(_t))
-    t = _t->dbg_id();
+    t = _t->dbg_info()->dbg_id();
 
 
   my_snprintf (buf, maxlen, 

@@ -18,7 +18,6 @@ enum
   Section_no_cache = 0x402,
   Section_local    = 0,
   Section_global   = 0,
-  Ttbr_bits        = 0,
 };
 
 void
@@ -31,7 +30,6 @@ IMPLEMENTATION [arm && armv6plus && (mpcore || armca9)]:
 enum
 {
   Section_shared = 1UL << 16,
-  Ttbr_bits      = 0xa, // shared + Outer-WB+WA
 };
 
 //---------------------------------------------------------------------------
@@ -40,7 +38,6 @@ IMPLEMENTATION [arm && armv6plus && !(mpcore || armca9)]:
 enum
 {
   Section_shared = 0,
-  Ttbr_bits      = 0,
 };
 
 
@@ -87,6 +84,7 @@ static void do_arm_1176_cache_alias_workaround() {}
 IMPLEMENTATION [arm]:
 
 #include "kmem_space.h"
+#include "pagetable.h"
 
 void
 map_1mb(void *pd, Address va, Address pa, bool cache, bool local)
@@ -170,7 +168,7 @@ extern "C" void bootstrap_main()
 
       "mov pc, %[start]               \n"
       : :
-      [pdir]    "r"((Mword)page_dir | Ttbr_bits),
+      [pdir]    "r"((Mword)page_dir | Page_table::Ttbr_bits),
       [doms]    "r"(domains),
       [control] "r"(control),
       [start]   "r"(_start_kernel),

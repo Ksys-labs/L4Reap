@@ -2,7 +2,7 @@ PKGDIR		?= ../..
 L4DIR		?= $(PKGDIR)/../..
 
 TARGET		= libdemangle.a
-SYSTEMS		= x86 arm amd64
+SYSTEMS		= x86 arm amd64 ppc32
 BUILD_PIC	= libdemangle.a
 
 SRC_C		= cplus-dem.c cp-demangle.c safe-ctype.c \

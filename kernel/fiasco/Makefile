@@ -177,5 +177,5 @@ help:
 		@echo
 
 .PHONY:		man install clean cleanall fiasco.builddir.create fiasco \
-		l4check checkall help config oldconfig menuconfig xconfig \
-		randcheck randcheckstop
+		l4check checkall config oldconfig menuconfig nconfig xconfig \
+		randcheck randcheckstop help

@@ -7,6 +7,8 @@ IMPLEMENTATION:
 #include "globals.h"
 #include "ipc_timeout.h"
 #include "jdb.h"
+#include "jdb_kobject.h"
+#include "jdb_kobject_names.h"
 #include "jdb_module.h"
 #include "jdb_screen.h"
 #include "kernel_console.h"
@@ -17,12 +19,6 @@ IMPLEMENTATION:
 #include "timeout.h"
 #include "timeslice_timeout.h"
 #include "thread.h"
-
-//static inline
-//const char*
-//get_thread_name(Global_id)
-//{ return ""; }
-
 
 class Jdb_list_timeouts : public Jdb_module
 {
@@ -47,8 +43,7 @@ private:
 
 
 // available from the jdb_tcb module
-extern int jdb_show_tcb(Thread *thread, int level)
-  __attribute__((weak));
+extern int jdb_show_tcb(Thread *thread, int level) __attribute__((weak));
 
 int      Jdb_timeout_list::_count;
 Timeout *Jdb_timeout_list::_t_start;
@@ -63,9 +58,9 @@ Jdb_timeout_list::init(Timeout *t_head)
 static
 bool
 Jdb_timeout_list::iter(int count, Timeout **t_start,
-		       void (*iter)(Timeout *t)=0)
+		       void (*iter)(Timeout *t) = 0)
 {
-  int i=0;
+  int i = 0;
   int forw = count >= 0;
   Timeout *t_new = *t_start;
 
@@ -223,16 +218,9 @@ Jdb_list_timeouts::get_type(Timeout *t)
   if (t == timeslice_timeout.cpu(0))
     // there is only one global timeslice timeout
     return Timeout_timeslice;
-  
-  if(Timeout_q::timeout_queue.cpu(0).is_root_node(addr))
-    return Timeout_root;
 
-  // FIXME: may be use Kobject stuff to figure this ut
-#if 0
-  if (!Kmem::is_tcb_page_fault(addr, 0))
-    // IPC timeout and Deadline timeout are thread specific
-    return 0;
-#endif
+  if (Timeout_q::timeout_queue.cpu(0).is_root_node(addr))
+    return Timeout_root;
 
   if ((addr % Config::thread_block_size) >= sizeof(Thread))
     // IPC timeouts are located at the kernel stack
@@ -267,8 +255,8 @@ void
 Jdb_list_timeouts::show_header()
 {
   Jdb::cursor();
-  printf("%s  type           timeout    owner  name\033[m\033[K\n",
-      Jdb::esc_emph);
+  printf("%s  type           timeout    owner       name\033[m\033[K\n",
+         Jdb::esc_emph);
 }
 
 static
@@ -300,7 +288,7 @@ Jdb_list_timeouts::list_timeouts_show_timeout(Timeout *t)
       if (owner)
         snprintf (ownerstr, sizeof(ownerstr), "  %p", owner);
       else
-        strcpy (ownerstr, "destruct");
+       strcpy (ownerstr, "destruct");
       break;
     case Timeout_root:
       type  = "root";
@@ -314,19 +302,24 @@ Jdb_list_timeouts::list_timeouts_show_timeout(Timeout *t)
       break;
     }
 
-  printf("  %-10s  ", type);
+  printf("  %-10s   ", type);
   if (timeout < 0)
-    putstr("   over   ");
+    putstr("   over     ");
   else
     {
       char time_str[12];
-      Jdb::write_ll_ns(timeout*1000, time_str,
-	               11 < sizeof(time_str)-1 ? 11 : sizeof(time_str)-1, false);
+      Jdb::write_ll_ns(timeout * 1000, time_str,
+	               11 < sizeof(time_str) - 1 ? 11 : sizeof(time_str) - 1,
+                       false);
       putstr(time_str);
     }
-  // FIXME:
-  printf(" %s  %s\033[K\n",
-      ownerstr, /*owner ? get_thread_name(owner->id()) :*/ "");
+
+  Jdb_kobject_name *nx = 0;
+
+  if (owner)
+    nx = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(owner->kobject());
+
+  printf(" %s  %s\033[K\n", ownerstr, nx ? nx->name() : "");
 }
 
 IMPLEMENT
@@ -339,7 +332,7 @@ void
 Jdb_list_timeouts::list()
 {
   unsigned y, y_max;
-  Timeout *t_current = Timeout_q::timeout_queue.cpu(0).first(); 
+  Timeout *t_current = Timeout_q::timeout_queue.cpu(0).first();
 
   Jdb::clear_screen();
   show_header();

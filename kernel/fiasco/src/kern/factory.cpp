@@ -17,7 +17,7 @@ IMPLEMENTATION:
 #include "ipc_gate.h"
 #include "kmem_slab.h"
 #include "task.h"
-#include "thread.h"
+#include "thread_object.h"
 #include "static_init.h"
 #include "l4_buf_iter.h"
 #include "l4_types.h"
@@ -146,7 +146,7 @@ PRIVATE inline NOEXPORT
 Kobject_iface *
 Factory::new_thread(Utcb const *)
 {
-  Thread *t = new (this) Thread();
+  Thread_object *t = new (this) Thread_object();
   return t;
 }
 
@@ -164,7 +164,7 @@ Factory::new_gate(L4_msg_tag const &tag, Utcb const *utcb, Obj_space *o_space)
 	return reinterpret_cast<Kobject_iface*>(-L4_err::EInval);
 
       unsigned char thread_rights = 0;
-      thread = Kobject::dcast<Thread*>(o_space->lookup_local(bind_thread.obj_index(), &thread_rights));
+      thread = Kobject::dcast<Thread_object*>(o_space->lookup_local(bind_thread.obj_index(), &thread_rights));
 
       if (EXPECT_FALSE(!(thread_rights & L4_fpage::W)))
 	return reinterpret_cast<Kobject_iface*>(-L4_err::EPerm);

@@ -38,7 +38,7 @@ int Thread::handle_page_fault (Address pfa, Mword error_code, Mword pc,
   if (0 && current_cpu() != 0)
     {
       Lock_guard<Cpu_lock> guard(&cpu_lock);
-      printf("*KP[%lx cpu=%u, sp=%lx, pfa=%lx, pc=%lx, error=(%lx)", dbg_id(), current_cpu(), Proc::stack_pointer(), pfa, pc, error_code);
+      printf("*KP[cpu=%u, sp=%lx, pfa=%lx, pc=%lx, error=(%lx)", current_cpu(), Proc::stack_pointer(), pfa, pc, error_code);
       print_page_fault_error(error_code);
       printf("]\n");
     }
@@ -56,10 +56,10 @@ int Thread::handle_page_fault (Address pfa, Mword error_code, Mword pc,
   CNT_PAGE_FAULT;
 
   // TODO: put this into a debug_page_fault_handler
-  if (EXPECT_FALSE (log_page_fault()))
-    page_fault_log (pfa, error_code, pc);
+  if (EXPECT_FALSE(log_page_fault()))
+    page_fault_log(pfa, error_code, pc);
 
-  L4_msg_tag ipc_code = L4_msg_tag(0,0,0,0);
+  L4_msg_tag ipc_code = L4_msg_tag(0, 0, 0, 0);
 
   // Check for page fault in user memory area
   if (EXPECT_TRUE (!Kmem::is_kmem_page_fault(pfa, error_code)))
@@ -78,11 +78,9 @@ int Thread::handle_page_fault (Address pfa, Mword error_code, Mword pc,
           goto error;
         }
 
-
-
       // user mode page fault -- send pager request
       if (handle_page_fault_pager(_pager, pfa, error_code,
-	      L4_msg_tag::Label_page_fault))
+                                  L4_msg_tag::Label_page_fault))
         return 1;
 
       goto error;

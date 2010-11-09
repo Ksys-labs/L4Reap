@@ -12,6 +12,7 @@ IMPLEMENTATION:
 #include "keycodes.h"
 #include "space.h"
 #include "task.h"
+#include "thread_object.h"
 #include "static_init.h"
 #include "types.h"
 
@@ -211,7 +212,7 @@ Jdb_obj_space::handle_key(Kobject *o, int code)
   Space *t = Kobject::dcast<Task*>(o);
   if (!t)
     {
-      Thread *th = Kobject::dcast<Thread*>(o);
+      Thread *th = Kobject::dcast<Thread_object *>(o);
       if (!th || !th->space())
 	return false;
 

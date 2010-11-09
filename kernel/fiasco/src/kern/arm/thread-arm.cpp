@@ -47,18 +47,15 @@ Thread::print_page_fault_error(Mword e)
          (e & 0x00020000)?'r':'w');
 }
 
-PRIVATE inline
+PROTECTED inline
 void FIASCO_NORETURN
-Thread::fast_return_to_user(Mword ip, Mword sp, bool do_fill_user_state = true)
+Thread::fast_return_to_user(Mword ip, Mword sp)
 {
   extern char __iret[];
   regs()->ip(ip);
-  if (do_fill_user_state)
-    {
-      regs()->sp(sp); // user-sp is in lazy user state and thus handled by
-                      // fill_user_state()
-      fill_user_state();
-    }
+  regs()->sp(sp); // user-sp is in lazy user state and thus handled by
+                  // fill_user_state()
+  fill_user_state();
 
   regs()->psr &= ~Proc::Status_thumb;
 
@@ -148,8 +145,8 @@ extern "C" {
 #endif
     if (EXPECT_FALSE(PF::is_alignment_error(error_code)))
       {
-	printf("KERNEL%d: alignment error at %08lx (PC: %08lx, SP: %08lx, FSR: %lx)\n",
-               current_cpu(), pfa, pc, ret_frame->usp, error_code);
+	printf("KERNEL%d: alignment error at %08lx (PC: %08lx, SP: %08lx, FSR: %lx, PSR: %lx)\n",
+               current_cpu(), pfa, pc, ret_frame->usp, error_code, ret_frame->psr);
         return false;
       }
 
@@ -199,7 +196,7 @@ extern "C" {
 
     // cache operations we carry out for user space might cause PFs, we just
     // ignore those
-    if (EXPECT_FALSE(t->is_mem_op_in_progress()))
+    if (EXPECT_FALSE(t->is_ignore_mem_op_in_progress()))
       {
         ret_frame->pc += 4;
         return 1;
@@ -402,7 +399,7 @@ Thread::invalid_ipc_buffer(void const *a)
   return false;
 }
 
-PRIVATE inline
+PROTECTED inline
 int
 Thread::do_trigger_exception(Entry_frame *r, void *ret_handler)
 {
@@ -471,7 +468,7 @@ Thread::copy_utcb_to_ts(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
 }
 
 
-PRIVATE static inline NEEDS[Thread::access_utcb, Thread::save_fpu_state_to_utcb]
+PRIVATE static inline NEEDS[Thread::save_fpu_state_to_utcb]
 bool FIASCO_WARN_RESULT
 Thread::copy_ts_to_utcb(L4_msg_tag const &, Thread *snd, Thread *rcv,
                         unsigned char rights)
@@ -503,14 +500,14 @@ Thread::copy_ts_to_utcb(L4_msg_tag const &, Thread *snd, Thread *rcv,
   return true;
 }
 
-PRIVATE inline
+PROTECTED inline
 bool
 Thread::invoke_arch(L4_msg_tag & /*tag*/, Utcb * /*utcb*/)
 {
   return false;
 }
 
-PRIVATE inline
+PROTECTED inline
 int
 Thread::sys_control_arch(Utcb *)
 {
@@ -520,7 +517,7 @@ Thread::sys_control_arch(Utcb *)
 // ------------------------------------------------------------------------
 IMPLEMENTATION [arm && armv6plus]:
 
-PRIVATE inline
+PROTECTED inline
 void
 Thread::vcpu_resume_user_arch()
 {
@@ -533,37 +530,10 @@ Thread::vcpu_resume_user_arch()
 // ------------------------------------------------------------------------
 IMPLEMENTATION [arm && !armv6plus]:
 
-PRIVATE inline
+PROTECTED inline
 void
 Thread::vcpu_resume_user_arch()
 {
-}
-
-//-----------------------------------------------------------------------------
-IMPLEMENTATION [arm && vcache]:
-
-PUBLIC inline
-Utcb*
-Thread::access_utcb() const
-{
-  // Do not use the alias mapping of the UTCB for the current address space
-  return Mem_space::current_mem_space(current_cpu()) == mem_space()
-         ? (Utcb*)local_id()
-         : utcb();
-}
-
-
-//-----------------------------------------------------------------------------
-IMPLEMENTATION [arm && !vcache]:
-
-PUBLIC inline
-Utcb*
-Thread::access_utcb() const
-{
-  return current_cpu() == cpu() && Mem_space::current_mem_space(current_cpu()) == mem_space()
-    ? (Utcb*)local_id()
-    : utcb();
-  //return utcb();
 }
 
 //-----------------------------------------------------------------------------

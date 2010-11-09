@@ -3,11 +3,11 @@ INTERFACE [arm]:
 EXTENSION class Context
 {
 public:
-  void set_mem_op_in_progress(bool val);
-  bool is_mem_op_in_progress() const { return _mem_op_in_progess; }
+  void set_ignore_mem_op_in_progress(bool val);
+  bool is_ignore_mem_op_in_progress() const { return _ignore_mem_op_in_progess; }
 
 private:
-  bool _mem_op_in_progess;
+  bool _ignore_mem_op_in_progess;
 };
 
 // ------------------------------------------------------------------------
@@ -117,8 +117,54 @@ void Context::switchin_context(Context *from)
 
 IMPLEMENT inline
 void
-Context::set_mem_op_in_progress(bool val)
+Context::set_ignore_mem_op_in_progress(bool val)
 {
-  _mem_op_in_progess = val;
+  _ignore_mem_op_in_progess = val;
   Mem::barrier();
+}
+
+//-----------------------------------------------------------------------------
+IMPLEMENTATION [arm && vcache]:
+
+PUBLIC inline
+Utcb*
+Context::access_utcb() const
+{
+  // Do not use the alias mapping of the UTCB for the current address space
+  return Mem_space::current_mem_space(current_cpu()) == mem_space()
+         ? (Utcb*)local_id()
+         : utcb();
+}
+
+PUBLIC inline
+Vcpu_state *
+Context::access_vcpu(bool is_current = false) const
+{
+  // Do not use the alias mapping of the UTCB for the current address space
+  return is_current || Mem_space::current_mem_space(current_cpu()) == mem_space()
+         ? reinterpret_cast<Vcpu_state *>(local_id() + sizeof(Utcb))
+         : vcpu_state();
+}
+
+
+//-----------------------------------------------------------------------------
+IMPLEMENTATION [arm && !vcache]:
+
+PUBLIC inline
+Utcb*
+Context::access_utcb() const
+{
+  return current_cpu() == cpu() && Mem_space::current_mem_space(current_cpu()) == mem_space()
+         ? (Utcb*)local_id()
+         : utcb();
+}
+
+PUBLIC inline
+Vcpu_state *
+Context::access_vcpu(bool is_current = false) const
+{
+  // Do not use the alias mapping of the vCPU for the current address space
+  return is_current || Mem_space::current_mem_space(current_cpu()) == mem_space()
+         ? reinterpret_cast<Vcpu_state *>(local_id() + sizeof(Utcb))
+         : vcpu_state();
 }

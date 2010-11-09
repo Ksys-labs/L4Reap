@@ -60,7 +60,7 @@ Jdb_semaphore::show_kobject_short(char *buf, int max, Kobject *o)
         {
           Thread *t = static_cast<Thread *>(Sender::cast(s));
           len += snprintf(buf + len, max - len,
-                          "%s%lx", s == p ? "" : ",", t->dbg_id());
+                          "%s%lx", s == p ? "" : ",", t->dbg_info()->dbg_id());
           s = s->_s_next;
         } while (s != p);
       p = p->_p_next;

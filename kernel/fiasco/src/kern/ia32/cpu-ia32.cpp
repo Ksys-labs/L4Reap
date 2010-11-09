@@ -291,7 +291,7 @@ public:
     Gdt::set (&desc);
   }
 
-  void set_tss() const { set_tr(Gdt::gdt_tss); }
+  static void set_tss() { set_tr(Gdt::gdt_tss); }
 
 private:
   void init_lbr_type();
@@ -1627,10 +1627,14 @@ Cpu::calibrate_tsc ()
        :"=a" (tsc_to_ns_div), "=d" (dummy)
        :"r" ((Unsigned32)tsc_end), "a" (0), "d" (calibrate_time));
 
-  scaler_tsc_to_ns = muldiv (tsc_to_ns_div, 1000, 1<<5);
-  scaler_tsc_to_us =         tsc_to_ns_div;
-  scaler_ns_to_tsc = muldiv (1<<31, ((Unsigned32)tsc_end),
-			     calibrate_time * 1000>>1 * 1<<5);
+  // scaler_tsc_to_ns = (tsc_to_ns_div * 1000) / 32
+  // not using muldiv(tsc_to_ns_div, 1000, 1 << 5), as div result > (1 << 32)
+  // will get trap0 if system frequency is too low
+  scaler_tsc_to_ns  = tsc_to_ns_div * 31;
+  scaler_tsc_to_ns += tsc_to_ns_div >> 4;
+  scaler_tsc_to_us  = tsc_to_ns_div;
+  scaler_ns_to_tsc  = muldiv(1 << 31, ((Unsigned32)tsc_end),
+                             calibrate_time * 1000 >> 1 * 1 << 5);
 
   return;
 

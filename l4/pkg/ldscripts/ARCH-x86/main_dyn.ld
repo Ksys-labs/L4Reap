@@ -202,6 +202,8 @@ SECTIONS
   .got.plt        : { *(.got.plt) }
   .data           :
   {
+    PROVIDE_HIDDEN(__l4sys_invoke_indirect = .);
+    LONG (0xeacff000) /*__l4sys_invoke_direct)*/
     *(.data .data.* .gnu.linkonce.d.*)
     KEEP (*(.gnu.linkonce.d.*personality*))
     SORT(CONSTRUCTORS)

@@ -35,6 +35,20 @@ l4util_cmpxchg(volatile l4_umword_t * dest,
   return l4_atomic_cmpxchg((volatile long int *)dest, cmp_val, new_val);
 }
 
+#define __L4UTIL_ATOMIC_HAVE_ARCH_XCHG32
+L4_INLINE l4_uint32_t
+l4util_xchg32(volatile l4_uint32_t *dest, l4_uint32_t new_val)
+{
+  return l4_atomic_xchg((volatile long int *)dest, new_val);
+}
+
+#define __L4UTIL_ATOMIC_HAVE_ARCH_XCHG
+L4_INLINE l4_umword_t
+l4util_xchg(volatile l4_umword_t *dest, l4_umword_t new_val)
+{
+  return l4_atomic_xchg((volatile long int *)dest, new_val);
+}
+
 #define __L4UTIL_ATOMIC_HAVE_ARCH_ADD
 L4_INLINE void
 l4util_atomic_add(volatile long *dest, long val)

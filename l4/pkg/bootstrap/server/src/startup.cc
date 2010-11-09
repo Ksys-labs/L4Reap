@@ -535,7 +535,7 @@ add_elf_regions(l4util_mb_info_t *mbi, l4_umword_t module,
 	  printf("%c", c < 32 ? '.' : c);
 	}
 #endif
-      panic("\n\nThis is an invalid binary, fix it.");
+      panic("\n\nThis is an invalid binary, fix it (%s).", error_msg);
     }
 }
 
@@ -950,7 +950,7 @@ init_pc_serial(l4util_mb_info_t *mbi)
 	  else
 	    comport = -1;
 
-	  printf("PCI IO port = %lx\n", comport);
+	  printf("PCI IO port = %x\n", comport);
         }
 
       if (comport == -1)
@@ -1051,7 +1051,17 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
     }
 
   puts("\nL4 Bootstrapper");
-  puts("  Build: #" BUILD_NR " " BUILD_DATE);
+  puts("  Build: #" BUILD_NR " " BUILD_DATE
+#ifdef ARCH_x86
+      ", x86-32"
+#endif
+#ifdef ARCH_amd64
+      ", x86-64"
+#endif
+#ifdef __VERSION__
+       ", " __VERSION__
+#endif
+      );
 
   regions.init(__regs, sizeof(__regs)/sizeof(__regs[0]), "regions");
   ram.init(__ram, sizeof(__ram)/sizeof(__ram[0]), "RAM",
@@ -1070,6 +1080,7 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
 #ifdef REALMODE_LOADING
   /* create synthetic multi boot info */
   mbi = init_loader_mbi(realmode_si);
+  (void)flag;
 #else
   (void)realmode_si;
   assert(flag == L4UTIL_MB_VALID); /* we need to be multiboot-booted */

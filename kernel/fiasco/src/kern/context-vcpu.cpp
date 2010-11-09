@@ -31,19 +31,12 @@ Context::vcpu_disable_irqs()
 {
   if (EXPECT_FALSE(state() & Thread_vcpu_enabled))
     {
-      Mword s = vcpu_state()->state;
-      vcpu_state()->state = s & ~Vcpu_state::F_irqs;
+      Vcpu_state *vcpu = access_vcpu();
+      Mword s = vcpu->state;
+      vcpu->state = s & ~Vcpu_state::F_irqs;
       return s & Vcpu_state::F_irqs;
     }
   return 0;
-}
-
-PUBLIC inline
-void
-Context::vcpu_restore_irqs(bool irqs)
-{
-  if (EXPECT_FALSE(state() & Thread_vcpu_enabled) && irqs)
-    vcpu_state()->state |= Vcpu_state::F_irqs;
 }
 
 PUBLIC inline
@@ -56,17 +49,17 @@ Context::vcpu_save_state_and_upcall()
 
 PUBLIC inline NEEDS["fpu.h"]
 void
-Context::vcpu_enter_kernel_mode()
+Context::vcpu_enter_kernel_mode(Vcpu_state *vcpu)
 {
   if (EXPECT_FALSE(state() & Thread_vcpu_enabled))
     {
-      vcpu_state()->_saved_state = vcpu_state()->state;
+      vcpu->_saved_state = vcpu->state;
       Mword flags = Vcpu_state::F_traps
 	            | Vcpu_state::F_user_mode;
-      vcpu_state()->state &= ~flags;
+      vcpu->state &= ~flags;
       if (state() & Thread_vcpu_user_mode)
 	{
-	  vcpu_state()->_sp = vcpu_state()->_entry_sp;
+	  vcpu->_sp = vcpu->_entry_sp;
 	  state_del_dirty(Thread_vcpu_user_mode | Thread_vcpu_fpu_disabled);
 
 	  if (current() == this)
@@ -78,7 +71,7 @@ Context::vcpu_enter_kernel_mode()
 	    }
 	}
       else
-	vcpu_state()->_sp = regs()->sp();
+	vcpu->_sp = regs()->sp();
     }
 }
 
@@ -86,26 +79,26 @@ Context::vcpu_enter_kernel_mode()
 
 PUBLIC inline
 bool
-Context::vcpu_irqs_enabled() const
+Context::vcpu_irqs_enabled(Vcpu_state *vcpu) const
 {
   return EXPECT_FALSE(state() & Thread_vcpu_enabled)
-    && vcpu_state()->state & Vcpu_state::F_irqs;
+    && vcpu->state & Vcpu_state::F_irqs;
 }
 
 PUBLIC inline
 bool
-Context::vcpu_pagefaults_enabled() const
+Context::vcpu_pagefaults_enabled(Vcpu_state *vcpu) const
 {
   return EXPECT_FALSE(state() & Thread_vcpu_enabled)
-    && vcpu_state()->state & Vcpu_state::F_page_faults;
+    && vcpu->state & Vcpu_state::F_page_faults;
 }
 
 PUBLIC inline
 bool
-Context::vcpu_exceptions_enabled() const
+Context::vcpu_exceptions_enabled(Vcpu_state *vcpu) const
 {
   return EXPECT_FALSE(state() & Thread_vcpu_enabled)
-    && vcpu_state()->state & Vcpu_state::F_exceptions;
+    && vcpu->state & Vcpu_state::F_exceptions;
 }
 
 PUBLIC inline
@@ -113,16 +106,7 @@ void
 Context::vcpu_set_irq_pending()
 {
   if (EXPECT_FALSE(state() & Thread_vcpu_enabled))
-    vcpu_state()->sticky_flags |= Vcpu_state::Sf_irq_pending;
-}
-
-PUBLIC inline
-bool
-Context::vcpu_irqs_pending() const
-{
-  if (EXPECT_FALSE(state() & Thread_vcpu_enabled))
-    return vcpu_state()->sticky_flags & Vcpu_state::Sf_irq_pending;
-  return false;
+    access_vcpu()->sticky_flags |= Vcpu_state::Sf_irq_pending;
 }
 
 /** Return the space context.

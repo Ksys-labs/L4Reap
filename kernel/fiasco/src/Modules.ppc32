@@ -2,6 +2,7 @@
 
 ###############################################################################
 
+include $(srcdir)/Modules.generic
 
 SUBSYSTEMS  :=	ABI LIBAMM KERNEL LIBUART LIBK DRIVERS MINILIBC CXXLIB CRT0 \
 		VERSION JABI TCBOFFSET
@@ -113,28 +114,8 @@ VPATH 		+= kern/$(CONFIG_XARCH) kern
 VPATH		+= jdb/$(CONFIG_XARCH) jdb
 PRIVATE_INCDIR 	+= kern/$(CONFIG_XARCH) kern kern/ia32
 
-INTERFACES_KERNEL :=	banner bitmap boot_info boot_uart_init bootstrap       \
-			buddy_alloc cmdline config context cpu scheduler      \
-			clock cpu_lock cpu_mask decrementer dbg_page_info \
-			dirq entry_frame factory fpu fpu_alloc fpu_state       \
-			globals helping_lock ipc_gate ipc_timeout ipi irq      \
-			irq_chip irq_controller irq_pin kernel_console        \
-			kernel_thread kernel_task kernel_uart kdb_ke kip_init  \
-			kmem kmem_alloc kmem_slab kmem_slab_simple kobject     \
-			l4_buf_iter lock main map_util mapdb mappable          \
-			mapped_alloc mapping mapping_tree mem_layout mem_space \
-			mem_space_sigma0 mem_unit msr obj_space paging         \
-			per_cpu_data per_cpu_data_alloc perf_cnt pic ppc_types \
-			prio_list queue queue_item pages ptab_base  \
-			ram_quota rcupdate receiver ref_obj ref_ptr ipc_sender \
-			sched_context sender kobject_mapdb spin_lock           \
-			slab_cache_anon space startup switch_lock sys_call_page\
-			syscalls task terminate thread_lock thread_state       \
-			timeout timeslice_timeout timer trap_state thread      \
-			util utcb_init utcb_support vkey virq vlog             \
-			vmem_alloc warn watchdog continuation irq_chip_generic \
-			kobject_dbg kobject_helper icu_helper vcpu \
-			ready_queue_wfq ready_queue_fp
+INTERFACES_KERNEL +=	boot_uart_init bootstrap decrementer msr ppc_types     \
+			util utcb_support virq irq_chip_generic
 
 PREPROCESS_PARTS	+= ulock
 INTERFACES_KERNEL	+= u_semaphore
@@ -236,7 +217,7 @@ LIBK 		:= libk.a
 VPATH          	+= lib/libk/$(CONFIG_XARCH) lib/libk
 PRIVATE_INCDIR 	+= lib/libk/$(CONFIG_XARCH) lib/libk
 
-INTERFACES_LIBK	:= auto_ptr atomic dlist lock_guard mem_region std_macros
+INTERFACES_LIBK	:= auto_ptr atomic dlist lock_guard std_macros
 atomic_IMPL     := atomic atomic-ppc32
 
 #

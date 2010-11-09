@@ -1,4 +1,4 @@
-IMPLEMENTATION[ia32,amd64]:
+IMPLEMENTATION[ia32 || amd64]:
 
 #include <cstdio>
 #include "config.h"
@@ -9,6 +9,7 @@ IMPLEMENTATION[ia32,amd64]:
 #include "jdb_symbol.h"
 #include "jdb_screen.h"
 #include "static_init.h"
+#include "task.h"
 #include "x86desc.h"
 
 class Jdb_misc_general : public Jdb_module
@@ -233,9 +234,6 @@ Jdb_misc_debug::Jdb_misc_debug()
 static Jdb_misc_debug jdb_misc_debug INIT_PRIORITY(JDB_MODULE_INIT_PRIO);
 
 
-// ----------------------------------------------------------------------------
-IMPLEMENTATION[ia32-segments]:
-
 static void
 Jdb_misc_debug::show_ldt()
 {
@@ -270,20 +268,6 @@ Jdb_misc_debug::show_ldt()
         }
     }
 }
-
-
-// ----------------------------------------------------------------------------
-IMPLEMENTATION[{ia32,amd64}-!segments]:
-
-static void
-Jdb_misc_debug::show_ldt()
-{
-  printf(" -- support for segments not enabled in config");
-}
-
-
-//---------------------------------------------------------------------------//
-IMPLEMENTATION[ia32,amd64]:
 
 class Jdb_misc_info : public Jdb_module
 {

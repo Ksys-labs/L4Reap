@@ -10,7 +10,7 @@ IMPLEMENTATION:
 #include "mem_layout.h"
 #include "mem_space_sigma0.h"
 #include "task.h"
-#include "thread.h"
+#include "thread_object.h"
 #include "types.h"
 #include "ram_quota.h"
 
@@ -95,7 +95,7 @@ Kernel_thread::init_workload()
 
   sigma0_space = sigma0_task->mem_space();
 
-  Thread *sigma0_thread = new (Ram_quota::root) Thread();
+  Thread_object *sigma0_thread = new (Ram_quota::root) Thread_object();
 
   assert_kdb(sigma0_thread);
   check (map(sigma0_thread, sigma0_task->obj_space(), sigma0_task, C_thread, 0));
@@ -119,7 +119,7 @@ Kernel_thread::init_workload()
 
   check (boot_task->initialize());
 
-  Thread *boot_thread = new (Ram_quota::root) Thread();
+  Thread_object *boot_thread = new (Ram_quota::root) Thread_object();
 
   assert_kdb (boot_thread);
 

@@ -33,13 +33,14 @@ IMPLEMENTATION [arm]:
 #include "mem_unit.h"
 #include "outer_cache.h"
 #include "space.h"
+#include "warn.h"
 
 PUBLIC static void
 Mem_op::arm_mem_cache_maint(int op, void const *start, void const *end)
 {
   Context *c = current();
 
-  c->set_mem_op_in_progress(true);
+  c->set_ignore_mem_op_in_progress(true);
 
   switch (op)
     {
@@ -100,7 +101,7 @@ Mem_op::arm_mem_cache_maint(int op, void const *start, void const *end)
       break;
     };
 
-  c->set_mem_op_in_progress(false);
+  c->set_ignore_mem_op_in_progress(false);
 }
 
 PUBLIC static void
@@ -115,49 +116,57 @@ Mem_op::arm_mem_access(Mword *r)
   if (!current()->space()->is_user_memory(a, 1 << w))
     return;
 
-  current()->set_mem_op_in_progress(true);
+  jmp_buf pf_recovery;
+  int e;
 
-  switch (r[0])
+  if ((e = setjmp(pf_recovery)) == 0)
     {
-    case Op_mem_read_data:
-      switch (w)
+      current()->recover_jmp_buf(&pf_recovery);
+
+      switch (r[0])
 	{
-	case 0:
-	  r[3] = *(unsigned char *)a;
+	case Op_mem_read_data:
+	  switch (w)
+	    {
+	    case 0:
+	      r[3] = *(unsigned char *)a;
+	      break;
+	    case 1:
+	      r[3] = *(unsigned short *)a;
+	      break;
+	    case 2:
+	      r[3] = *(unsigned int *)a;
+	      break;
+	    default:
+	      break;
+	    };
 	  break;
-	case 1:
-	  r[3] = *(unsigned short *)a;
+
+	case Op_mem_write_data:
+	  switch (w)
+	    {
+	    case 0:
+	      *(unsigned char *)a = r[3];
+	      break;
+	    case 1:
+	      *(unsigned short *)a = r[3];
+	      break;
+	    case 2:
+	      *(unsigned int *)a = r[3];
+	      break;
+	    default:
+	      break;
+	    };
 	  break;
-	case 2:
-	  r[3] = *(unsigned int *)a;
-	  break;
+
 	default:
 	  break;
 	};
-      break;
+    }
+  else
+    WARN("Unresolved memory access, skipping\n");
 
-    case Op_mem_write_data:
-      switch (w)
-	{
-	case 0:
-	  *(unsigned char *)a = r[3];
-	  break;
-	case 1:
-	  *(unsigned short *)a = r[3];
-	  break;
-	case 2:
-	  *(unsigned int *)a = r[3];
-	  break;
-	default:
-	  break;
-	};
-      break;
-
-    default:
-      break;
-    };
-
-  current()->set_mem_op_in_progress(false);
+  current()->recover_jmp_buf(0);
 }
 
 extern "C" void sys_arm_mem_op()

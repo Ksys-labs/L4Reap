@@ -389,10 +389,8 @@ Dope_fb::Dope_fb(const char *configstr)
       _screen_info.height = h;
     }
 
-  if (get_val(configstr, "x=", &val))
-    xpos = val;
-  if (get_val(configstr, "y=", &val))
-    ypos = val;
+  if (char *a = strstr(configstr, "pos="))
+    sscanf(a + 4, "%d,%d", &xpos, &ypos);
 
   L4Re::Video::Pixel_info pixinfo(16, 5, 11, 6, 5, 5, 0);
   pixinfo.bytes_per_pixel(2);

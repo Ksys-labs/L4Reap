@@ -151,6 +151,8 @@ private:
   L4::Cap<L4Re::Dataspace> _annon_ds;
 
   int alloc_ds(unsigned long size, L4::Cap<L4Re::Dataspace> *ds);
+  int alloc_anon_mem(l4_umword_t size, L4::Cap<L4Re::Dataspace> *ds,
+                     l4_addr_t *offset);
 };
 
 static inline bool strequal(char const *a, char const *b)
@@ -312,6 +314,7 @@ Vfs::munmap(void *start, size_t len) L4_NOTHROW
 
   int err;
   Cap<Dataspace> ds;
+  Cap<Rm> r = Env::env()->rm();
 
   while (1)
     {
@@ -322,7 +325,7 @@ Vfs::munmap(void *start, size_t len) L4_NOTHROW
 	  outhex32(len);
 	  outstring("\n");
       });
-      err = Env::env()->rm()->detach(l4_addr_t(start), len, &ds, This_task);
+      err = r->detach(l4_addr_t(start), len, &ds, This_task);
       if (err < 0)
 	return err;
 
@@ -369,6 +372,51 @@ Vfs::alloc_ds(unsigned long size, L4::Cap<L4Re::Dataspace> *ds)
 }
 
 int
+Vfs::alloc_anon_mem(l4_umword_t size, L4::Cap<L4Re::Dataspace> *ds,
+                    l4_addr_t *offset)
+{
+#ifdef USE_BIG_ANON_DS
+  if (!_annon_ds.is_valid() || _annon_offset + size >= _annon_size)
+    {
+      if (_annon_ds.is_valid())
+	L4Re::Core::release_ds(_annon_ds);
+
+      int err;
+      if ((err = alloc_ds(_annon_size, ds)) < 0)
+	return err;
+
+      _annon_offset = 0;
+      _annon_ds = *ds;
+    }
+  else
+    *ds = _annon_ds;
+
+  (*ds)->take();
+
+  if (_early_oom)
+    {
+      if (int err = (*ds)->allocate(_annon_offset, size))
+	return err;
+    }
+
+  *offset = _annon_offset;
+  _annon_offset += size;
+#else
+  int err;
+  if ((err = alloc_ds(size, ds)) < 0)
+    return err;
+
+  if (_early_oom)
+    {
+      if ((err = (*ds)->allocate(0, size)))
+	return err;
+    }
+  *offset = 0;
+#endif
+  return 0;
+}
+
+int
 Vfs::mmap2(void *start, size_t len, int prot, int flags, int fd, off_t _offset,
            void **resptr) L4_NOTHROW
 {
@@ -407,43 +455,9 @@ Vfs::mmap2(void *start, size_t len, int prot, int flags, int fd, off_t _offset,
     {
       rm_flags |= L4Re::Rm::Detach_free;
 
-#ifdef USE_BIG_ANON_DS
-      if (!_annon_ds.is_valid() || _annon_offset + size >= _annon_size)
-	{
-          if (_annon_ds.is_valid())
-            L4Re::Core::release_ds(_annon_ds);
-
-	  int err;
-	  if ((err = alloc_ds(_annon_size, &ds)) < 0)
-	    return err;
-
-	  _annon_offset = 0;
-	  _annon_ds = ds;
-	}
-      else
-        ds = _annon_ds;
-
-      ds->take();
-
-      if (_early_oom)
-	{
-	  if (int err = ds->allocate(_annon_offset, size))
-	    return err;
-	}
-
-      annon_offset = _annon_offset;
-      _annon_offset += size;
-#else
-      int err;
-      if ((err = alloc_ds(size, &ds)) < 0)
+      int err = alloc_anon_mem(size, &ds, &annon_offset);
+      if (err)
 	return err;
-
-      if (_early_oom)
-	{
-	  if ((err = ds->allocate(0, size)))
-	    return err;
-	}
-#endif
 
       DEBUG_LOG(debug_mmap, {
 	  outstring("USE ANNON MEM: ");
@@ -508,33 +522,9 @@ Vfs::mmap2(void *start, size_t len, int prot, int flags, int fd, off_t _offset,
 
       rm_flags |= Rm::In_area;
 
-      while (1)
-	{
-	  L4::Cap<L4Re::Dataspace> ds;
-	  err = r->detach(l4_addr_t(start), len, &ds, This_task);
-	  if (err == -L4_ENOENT)
-	    break;
-
-	  if (err < 0)
-	    return err;
-
-	  switch (err & Rm::Detach_result_mask)
-	    {
-	    case Rm::Split_ds:
-	      if (ds.is_valid())
-		ds->take();
-	      break;
-	    case Rm::Detached_ds:
-	      if (ds.is_valid())
-		L4Re::Core::release_ds(ds);
-	      break;
-	    default:
-	      break;
-	    }
-
-	  if (!(err & Rm::Detach_again))
-	    break;
-	}
+      err = munmap(start, len);
+      if (err && err != -ENOENT)
+	return err;
     }
 
   if (!(flags & MAP_FIXED))  rm_flags |= Rm::Search_addr;
@@ -572,15 +562,172 @@ Vfs::mmap2(void *start, size_t len, int prot, int flags, int fd, off_t _offset,
   return 0;
 }
 
+namespace {
+  class Auto_area
+  {
+  public:
+    L4::Cap<L4Re::Rm> r;
+    l4_addr_t a;
+
+    explicit Auto_area(L4::Cap<L4Re::Rm> r, l4_addr_t a = L4_INVALID_ADDR)
+    : r(r), a(a) {}
+
+    int reserve(l4_addr_t _a, l4_size_t sz, unsigned flags)
+    {
+      a = _a;
+      int e = r->reserve_area(&a, sz, flags);
+      if (e)
+        a = L4_INVALID_ADDR;
+      return e;
+    }
+
+    void free()
+    {
+      if (a != L4_INVALID_ADDR)
+        {
+          r->free_area(a);
+          a = L4_INVALID_ADDR;
+        }
+    }
+
+    ~Auto_area() { free(); }
+  };
+}
+
 int
-Vfs::mremap(void *old_adr, size_t old_size, size_t new_size, int flags, void **new_adr) L4_NOTHROW
+Vfs::mremap(void *old_addr, size_t old_size, size_t new_size, int flags,
+            void **new_addr) L4_NOTHROW
 {
-  (void)old_adr;
-  (void)old_size;
-  (void)new_size;
-  (void)flags;
-  (void)new_adr;
-  return -ENOMEM;
+  using namespace L4Re;
+
+  if (flags & MREMAP_FIXED && !(flags & MREMAP_MAYMOVE))
+    return -EINVAL;
+
+  L4::Cap<Rm> r = Env::env()->rm();
+
+  // sanitize input parameters to multiples of pages
+  l4_addr_t oa = l4_trunc_page((l4_addr_t)old_addr);
+  old_size = l4_round_page(old_size);
+  new_size = l4_round_page(new_size);
+
+  l4_addr_t na;
+
+  if (new_size < old_size)
+    {
+      *new_addr = old_addr;
+      return munmap((void*)(oa + new_size), old_size - new_size);
+    }
+
+  if (new_size == old_size)
+    {
+      *new_addr = old_addr;
+      return 0;
+    }
+
+  Auto_area area(r);
+
+  if (!(flags & MREMAP_FIXED))
+    na = oa;
+  else
+    na = l4_trunc_page((l4_addr_t)new_addr);
+
+  int err;
+
+  // check if the current virtual memory area can be expanded
+  err = area.reserve(oa, new_size, 0);
+  if (err)
+    return err;
+
+  l4_addr_t ta = oa + old_size;
+  unsigned long ts = new_size - old_size;
+  l4_addr_t toffs;
+  unsigned tflags;
+  L4::Cap<L4Re::Dataspace> tds;
+
+  err = r->find(&ta, &ts, &toffs, &tflags, &tds);
+
+  // there is enough space to expand the mapping in place
+  if (!(err == -ENOENT || (err == 0 && (tflags & Rm::In_area))))
+    {
+      if ((flags & (MREMAP_FIXED | MREMAP_MAYMOVE)) != MREMAP_MAYMOVE)
+        return -EINVAL;
+
+      // free our old reserved area, used for blocking the old memory region
+      area.free();
+
+      // move
+      err = area.reserve(0, new_size, Rm::Search_addr);
+      if (err)
+	return err;
+
+      na = area.a;
+
+      // move all the old regions to the new place ...
+      Auto_area block_area(r);
+      err = block_area.reserve(oa, old_size, 0);
+      if (err)
+        return err;
+
+      while (1)
+	{
+          ta = oa;
+          ts = old_size;
+
+	  err = r->find(&ta, &ts, &toffs, &tflags, &tds);
+	  if (err == -ENOENT || (err == 0 && (tflags & Rm::In_area)))
+	    break;
+
+	  if (err)
+            return err;
+
+	  if (ta < oa)
+	    {
+	      toffs += oa - ta;
+	      ts -= oa - ta;
+	      ta = oa;
+	    }
+
+	  l4_addr_t n = na + (ta - oa);
+	  unsigned long max_s = old_size - (ta - oa);
+
+	  if (ts > max_s)
+	    ts = max_s;
+
+	  err = r->attach(&n, ts, tflags | Rm::In_area, tds, toffs);
+	  if (err)
+            return err;
+
+	  tds->take();
+
+          err = r->detach(ta, ts, &tds, This_task);
+          if (err < 0)
+            return err;
+
+          switch (err & Rm::Detach_result_mask)
+            {
+            case Rm::Split_ds:
+              if (tds.is_valid())
+                tds->take();
+              break;
+            case Rm::Detached_ds:
+              if (tds.is_valid())
+                L4Re::Core::release_ds(tds);
+              break;
+            default:
+              break;
+            }
+	}
+    }
+
+  err = alloc_anon_mem(new_size - old_size, &tds, &toffs);
+  if (err)
+    return err;
+
+  *new_addr = (void *)na;
+  na = na + old_size;
+  err = r->attach(&na, new_size - old_size, Rm::In_area, tds, toffs);
+
+  return err;
 }
 
 int

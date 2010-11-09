@@ -1,4 +1,4 @@
-provides: ankh libc_be_socket_lwip
-requires: log l4util dde-linux26 dde-linux26_net libboost-lite
+provides: ankh ankh_lwip libc_be_socket_lwip
+requires: l4util dde-linux26 dde-linux26_net libboost-lite
           shmc_ringbuf lxfuxlibc libstdc++
 Maintainer: doebel@os.inf.tu-dresden.de

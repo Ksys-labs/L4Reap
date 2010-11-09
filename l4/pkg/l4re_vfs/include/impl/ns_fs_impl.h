@@ -26,7 +26,7 @@
 
 namespace L4Re { namespace Core {
 
-Simple_store_sz<Env_dir::Size> Ns_base_dir::store;
+Simple_store_sz<Env_dir::Size> Ns_base_dir::store __attribute__((init_priority(1000)));
 
 void *
 Ns_base_dir::operator new(size_t s) throw()

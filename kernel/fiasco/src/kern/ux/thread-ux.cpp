@@ -218,7 +218,7 @@ Thread::user_invoke()
             ? Kmem::virt_to_phys(Kip::k()) : 0));
 }
 
-PRIVATE inline
+PROTECTED inline
 int
 Thread::sys_control_arch(Utcb *utcb)
 {
@@ -228,14 +228,14 @@ Thread::sys_control_arch(Utcb *utcb)
 }
 
 //---------------------------------------------------------------------------
-IMPLEMENTATION [ux-segments]:
+IMPLEMENTATION [ux]:
 
 #include "gdt.h"
 #include <feature.h>
 
 KIP_KERNEL_FEATURE("segments");
 
-PRIVATE inline
+PROTECTED inline
 bool
 Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
 {
@@ -309,15 +309,4 @@ Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
     default:
       return false;
     };
-}
-
-
-//---------------------------------------------------------------------------
-IMPLEMENTATION [ux && !segments]:
-
-PRIVATE inline
-bool
-Thread::invoke_arch(L4_msg_tag &, Utcb *)
-{
-  return false;
 }

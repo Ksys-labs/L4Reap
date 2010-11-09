@@ -30,7 +30,7 @@ IMPLEMENTATION:
 #include "simpleio.h"
 #include "static_init.h"
 #include "task.h"
-#include "thread.h"
+#include "thread_object.h"
 #include "thread_state.h"
 #include "types.h"
 
@@ -403,7 +403,7 @@ Jdb_disasm_view::show(Jdb_tcb_ptr const &p, Space *s)
 
 PUBLIC
 Jdb_tcb::Jdb_tcb()
-  : Jdb_module("INFO"), Jdb_kobject_handler(Thread::static_kobj_type)
+  : Jdb_module("INFO"), Jdb_kobject_handler(Thread_object::static_kobj_type)
 {
   static Jdb_handler enter(at_jdb_enter);
 
@@ -428,7 +428,7 @@ PUBLIC virtual
 Kobject *
 Jdb_tcb::parent(Kobject *o)
 {
-  Thread *t = Kobject::dcast<Thread*>(o);
+  Thread *t = Kobject::dcast<Thread_object*>(o);
   if (!t)
     return 0;
 
@@ -509,7 +509,7 @@ whole_screen:
   char time_str[12];
 
   putstr("thread: ");
-  Jdb_kobject::print_uid(t, 3);
+  Jdb_kobject::print_uid(t->kobject(), 3);
   print_thread_uid_raw(t);
   printf("CPU %3u ", t->cpu());
 
@@ -539,7 +539,8 @@ whole_screen:
 
   putstr("\n"
          "lcked by: ");
-  Jdb_kobject::print_uid(Thread::lookup(t->thread_lock()->lock_owner()), 3);
+  if (t->thread_lock()->lock_owner())
+    Jdb_kobject::print_uid(Thread::lookup(t->thread_lock()->lock_owner())->kobject(), 3);
 
   putstr("\t\t\ttimeout  : ");
   if (t->_timeout && t->_timeout->is_set())
@@ -600,11 +601,11 @@ whole_screen:
 
   putstr("\tprsent lnk: ");
   if (t->Present_list_item::next())
-    Jdb_kobject::print_uid(static_cast<Thread*>(t->Present_list_item::next()), 3);
+    Jdb_kobject::print_uid(static_cast<Thread*>(t->Present_list_item::next())->kobject(), 3);
   else
     putstr("--- ");
   if (t->Present_list_item::prev())
-    Jdb_kobject::print_uid(static_cast<Thread*>(t->Present_list_item::prev()), 4);
+    Jdb_kobject::print_uid(static_cast<Thread*>(t->Present_list_item::prev())->kobject(), 4);
   else
     putstr("--- ");
   putchar('\n');
@@ -614,9 +615,10 @@ whole_screen:
     {
       char st1[7];
       char st2[7];
-      printf("c=%s s=%s e-ip=%08lx e-sp=%08lx S=",
+      printf("c=%s s=%s sf=%c e-ip=%08lx e-sp=%08lx S=",
              vcpu_state_str(t->vcpu_state()->state, st1, sizeof(st1)),
              vcpu_state_str(t->vcpu_state()->_saved_state, st2, sizeof(st2)),
+             (t->vcpu_state()->sticky_flags & Vcpu_state::Sf_irq_pending) ? 'P' : '-',
              t->vcpu_state()->_entry_ip, t->vcpu_state()->_entry_sp);
       print_kobject(static_cast<Task*>(t->vcpu_user_space()));
     }
@@ -846,14 +848,14 @@ Jdb_tcb::action(int cmd, void *&args, char const *&fmt, int &next_char)
       else if (args == &address)
 	{
 	  address &= ~(Config::thread_block_size-1);
-	  Jdb_kobject::print_uid(reinterpret_cast<Thread*>(address), 3);
+	  Jdb_kobject::print_uid(reinterpret_cast<Thread*>(address)->kobject(), 3);
 	  putchar('\n');
 	}
       else if (args == &tcb_addr)
 	show((Thread*)tcb_addr, 0);
       else
         {
-          Thread *t = Kobject::dcast<Thread *>(threadid);
+          Thread *t = Kobject::dcast<Thread_object *>(threadid);
           if (t)
             show(t, 0);
           else
@@ -868,7 +870,7 @@ PUBLIC
 Kobject *
 Jdb_tcb::follow_link(Kobject *o)
 {
-  Thread *t = Kobject::dcast<Thread*>(o);
+  Thread *t = Kobject::dcast<Thread_object *>(o);
   if (t->space() == Kernel_task::kernel_task())
     return o;
   return static_cast<Kobject*>(static_cast<Task*>(t->space()));
@@ -878,7 +880,7 @@ PUBLIC
 bool
 Jdb_tcb::show_kobject(Kobject *o, int level)
 {
-  Thread *t = Kobject::dcast<Thread*>(o);
+  Thread *t = Kobject::dcast<Thread_object *>(o);
   return show(t, level);
 }
 
@@ -886,7 +888,7 @@ PUBLIC
 int
 Jdb_tcb::show_kobject_short(char *buf, int max, Kobject *o)
 {
-  Thread *t = Kobject::dcast<Thread*>(o);
+  Thread *t = Kobject::dcast<Thread_object *>(o);
   Thread *cur_t = Jdb::get_current_active();
   int cnt = 0;
   if (t->space() == Kernel_task::kernel_task())
@@ -995,7 +997,7 @@ Jdb_thread_name_ext::ext()
 {
   if (Jdb::get_current_active())
     {
-      Jdb_kobject_name *nx = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(Jdb::get_current_active());
+      Jdb_kobject_name *nx = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(Jdb::get_current_active()->kobject());
       if (nx && nx->name()[0])
         printf("[%*.*s] ", nx->max_len(), nx->max_len(), nx->name());
     }

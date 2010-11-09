@@ -124,7 +124,7 @@ public:
 
   /// Default backend for POSIX symlink, symlinkat.
   int symlink(const char *, const char *) throw()
-  { return -ENOTDIR; }
+  { return -EPERM; }
 
   /// Default backend for POSIX rmdir, rmdirat.
   int rmdir(const char *) throw()

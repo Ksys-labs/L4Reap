@@ -69,6 +69,20 @@ asm (
     "  movne r0, #0                      \n"
     "  mov pc, lr                        \n"
     // return result: 1 success, 0 failure
+
+    // exchange
+    //  in-r0: memory reference
+    //  in-r1: new value
+    // out-r0: old value
+    ".p2align(8)                         \n"
+    "  ldr r2, [r0]			 \n"
+    "  nop                               \n"
+    "  nop                               \n"
+    "  str r1, [r0]                      \n"
+    // forward point
+    "  mov r0, r2                        \n"
+    "  mov pc, lr                        \n"
+    // return: always succeeds, old value
     );
 
 //---------------------------------------------------------------------------
@@ -110,4 +124,19 @@ asm (
     "  movne r0, #0                      \n"
     "  mov pc, lr                        \n"
     // return result: 1 success, 0 failure
+
+
+    // exchange
+    //  in-r0: memory reference
+    //  in-r1: new value
+    // out-r0: old value
+    ".p2align(8)                         \n"
+    "  1:                                \n"
+    "  ldrex r2, [r0]			 \n"
+    "  strex r3, r1, [r0]                \n"
+    "  cmp r3, #0                        \n"
+    "  bne 1b                            \n"
+    "  mov r0, r2                        \n"
+    "  mov pc, lr                        \n"
+    // return: always succeeds, old value
     );

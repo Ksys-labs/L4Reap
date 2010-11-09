@@ -366,14 +366,6 @@ endmenu # target
 
 menu "Kernel options"
 
-config HANDLE_SEGMENTS
-	bool "Handle and preserve segments"
-	depends on (PF_PC || PF_UX) && !AMD64
-	help
-	  This function preserves the values of segment registers across
-	  thread and task switches and allows to configure segments for user
-	  programs.
-
 config MP
 	bool "Enable multi processor support"
 	depends on EXPERIMENTAL && (PF_PC || PF_UX || PF_ARM_MP_CAPABLE)

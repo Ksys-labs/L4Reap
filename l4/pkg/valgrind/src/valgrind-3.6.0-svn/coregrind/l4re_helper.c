@@ -135,3 +135,9 @@ void *malloc(size_t size)
 {
     return VG_(malloc) ("l4re", size);
 }
+
+void *calloc(size_t nmemb, size_t size);
+void *calloc(size_t nmemb, size_t size)
+{
+    return VG_(calloc) ("l4re", nmemb, size);
+}

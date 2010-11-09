@@ -38,7 +38,12 @@
   DUMP_MEMBER1 (THREAD, Thread, _p_prev_next,		PRIO_P_PREV_NEXT)
   DUMP_MEMBER1 (THREAD, Thread, _s_next,		PRIO_S_NEXT)
   DUMP_MEMBER1 (THREAD, Thread, _s_prev,		PRIO_S_PREV)
+#if defined(CONFIG_ARM)
+  DUMP_MEMBER1 (THREAD, Context, _local_id,             LOCAL_ID)
+  DUMP_OFFSET  (THREAD, UTCB_SIZE, sizeof(Utcb))
+#else
   DUMP_MEMBER1 (THREAD, Context, _vcpu_state,		VCPU_STATE)
+#endif
 #if 0
   DUMP_MEMBER1 (SCHED_CONTEXT, Sched_context,_owner,		OWNER)
   DUMP_MEMBER1 (SCHED_CONTEXT, Sched_context,_id,		ID)

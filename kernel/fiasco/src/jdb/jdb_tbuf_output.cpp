@@ -190,11 +190,11 @@ Jdb_tbuf_output::print_entry(Tb_entry *tb, char *buf, int maxlen)
   else
     {
       Jdb_kobject_name *ex
-        = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(t);
+        = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(t->kobject());
       if (show_names && ex)
-        snprintf(tidstr, sizeof(tidstr), "%04lx %-*.*s", t->dbg_id(), ex->max_len(), ex->max_len(), ex->name());
+        snprintf(tidstr, sizeof(tidstr), "%04lx %-*.*s", t->dbg_info()->dbg_id(), ex->max_len(), ex->max_len(), ex->name());
       else
-        snprintf(tidstr, sizeof(tidstr), "%04lx", t->dbg_id());
+        snprintf(tidstr, sizeof(tidstr), "%04lx", t->dbg_info()->dbg_id());
     }
 
   if (Config::Max_num_cpus > 1)

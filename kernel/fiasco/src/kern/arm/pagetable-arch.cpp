@@ -13,8 +13,6 @@ private:
   unsigned long _a;
 };
 
-
-
 //---------------------------------------------------------------------------
 INTERFACE[arm && armv5]:
 
@@ -27,10 +25,7 @@ public:
     User    = 0x800,
     Ap_mask = 0xc00,
   };
-
-
 };
-
 
 //---------------------------------------------------------------------------
 INTERFACE[arm && (armv6 || armv7)]:
@@ -60,10 +55,7 @@ public:
 EXTENSION class Page_table
 {
 public:
-  enum
-  {
-    Ttbr_bits = 0x0,
-  };
+  enum { Ttbr_bits = 0x0 };
 };
 
 //---------------------------------------------------------------------------
@@ -72,33 +64,33 @@ INTERFACE[arm && (mpcore || armca9)]:
 EXTENSION class Mem_page_attr
 {
 public:
-  // use shared bit on MP CPUs because we need cache coherency
+  // use shared bit on MP CPUs as we need cache coherency
   enum { Shared  = 0x400 };
 };
+
+//---------------------------------------------------------------------------
+INTERFACE[arm && mpcore]:
+
+EXTENSION class Page_table
+{
+public:
+  enum { Ttbr_bits = 0xa };
+};
+
+//---------------------------------------------------------------------------
+INTERFACE[arm && armca9]:
 
 EXTENSION class Page_table
 {
 public:
   enum
   {
-    Ttbr_bits = 0xa,
+    Ttbr_bits =    (1 << 1)            // S, Shareable bit
+                |  (1 << 3)            // RGN, Region bits, Outer WriteBackWriteAlloc
+		|  (0 << 0) | (1 << 6) // IRGN, Inner region bits, WB-WA
+		|  (1 << 5)            // NOS
+		,
   };
-};
-
-//---------------------------------------------------------------------------
-INTERFACE[arm && !vcache]:
-class Pte
-{
-private:
-  enum { Arm_vcache = 0 };
-};
-
-//---------------------------------------------------------------------------
-INTERFACE[arm && vcache]:
-class Pte
-{
-private:
-  enum { Arm_vcache = 1 };
 };
 
 //---------------------------------------------------------------------------
@@ -109,7 +101,7 @@ INTERFACE [arm]:
 
 class Ram_quota;
 
-EXTENSION class Pte
+class Pte
 {
 public:
 //private:
@@ -120,7 +112,6 @@ public:
   Pte(Page_table *pt, unsigned level, Mword *pte)
   : _pt((unsigned long)pt | level), _pte(pte)
   {}
-
 };
 
 
@@ -139,21 +130,34 @@ private:
 };
 
 //---------------------------------------------------------------------------
-INTERFACE[arm && !vcache]:
-EXTENSION class Page_table
+IMPLEMENTATION [arm && vcache]:
+
+PUBLIC static inline
+bool
+Pte::need_cache_clean()
 {
-private:
-  enum { Arm_vcache = 0 };
-};
+  return false;
+}
 
 //---------------------------------------------------------------------------
-INTERFACE[arm && vcache]:
-EXTENSION class Page_table
-{
-private:
-  enum { Arm_vcache = 1 };
-};
+IMPLEMENTATION [arm && !vcache && !armca9]:
 
+PUBLIC static inline
+bool
+Pte::need_cache_clean()
+{
+  return true;
+}
+
+//---------------------------------------------------------------------------
+IMPLEMENTATION [arm && !vcache && armca9]:
+
+PUBLIC static inline
+bool
+Pte::need_cache_clean()
+{
+  return false;
+}
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [arm]:
@@ -283,7 +287,7 @@ void
 Pte::__set(unsigned long v, bool write_back)
 {
   *_pte = v;
-  if (write_back || !Arm_vcache)
+  if (write_back || need_cache_clean())
     Mem_unit::clean_dcache(_pte);
 }
 
@@ -360,8 +364,8 @@ Pte::attr(Mem_page_attr const &attr, bool write_back)
 PUBLIC /*inline*/
 void Page_table::activate()
 {
-  Pte p = walk(this,0,false,0);
-  if(_current.cpu(current_cpu())!=this)
+  Pte p = walk(this, 0, false, 0);
+  if (_current.cpu(current_cpu()) != this)
     {
       _current.cpu(current_cpu()) = this;
       Mem_unit::flush_vcache();
@@ -370,9 +374,8 @@ void Page_table::activate()
 	  "mcr p15, 0, %0, c2, c0       \n" // pdbr
 
 	  "mrc p15, 0, r1, c2, c0       \n"
-	  "mov r1,r1                    \n"
-	  "sub pc,pc,#4                 \n"
-
+	  "mov r1, r1                   \n"
+	  "sub pc, pc, #4               \n"
 	  :
 	  : "r"(p.phys(this))
 	  : "r1" );
@@ -462,24 +465,23 @@ Pte::attr(Mem_page_attr const &attr, bool write_back)
 PUBLIC /*inline*/
 void Page_table::activate(unsigned long asid)
 {
-  Pte p = walk(this,0,false,0);
+  Pte p = walk(this, 0, false, 0);
   if (_current.cpu(current_cpu()) != this)
     {
       _current.cpu(current_cpu()) = this;
       asm volatile (
-          "mcr p15, 0, r0, c7, c5, 6    \n" // bt flush
+          "mcr p15, 0, %2, c7, c5, 6    \n" // bt flush
 	  "mcr p15, 0, r0, c7, c10, 4   \n"
 	  "mcr p15, 0, %0, c2, c0       \n" // pdbr
 	  "mcr p15, 0, %1, c13, c0, 1   \n"
 
 	  "mrc p15, 0, r1, c2, c0       \n"
-	  "mov r1,r1                    \n"
-	  "sub pc,pc,#4                 \n"
+	  "mov r1, r1                   \n"
+	  "sub pc, pc, #4               \n"
 
 	  :
-	  : "r"(p.phys(this) | Ttbr_bits), "r"(asid)
-	  : "r1" );
-
+	  : "r" (p.phys(this) | Ttbr_bits), "r"(asid), "r" (0)
+	  : "r1");
     }
 }
 
@@ -541,7 +543,7 @@ Page_table::Page_table()
 {
   for( unsigned i = 0; i< 4096; ++i )
     raw[i]=0;
-  if (!Arm_vcache)
+  if (Pte::need_cache_clean())
     Mem_unit::clean_dcache(raw, raw + 4096);
 }
 
@@ -598,12 +600,12 @@ Page_table::walk(void *va, unsigned long size, bool write_back, Ram_quota *q)
 
 	  Mem::memset_mwords(pt, 0, 1024 >> 2);
 
-	  if (write_back || !Arm_vcache)
+	  if (write_back || Pte::need_cache_clean())
 	    Mem_unit::clean_dcache(pt, (char*)pt + 1024);
 
 	  raw[pd_idx] = current_virt_to_phys(pt) | Pde_type_coarse;
 
-	  if (write_back || !Arm_vcache)
+	  if (write_back || Pte::need_cache_clean())
 	    Mem_unit::clean_dcache(raw + pd_idx);
 	}
       else
@@ -659,7 +661,7 @@ void Page_table::copy_in(void *my_base, Page_table *o,
   for (unsigned i = pd_idx; i < pd_idx_max; ++i, ++o_pd_idx)
     raw[i] = o->raw[o_pd_idx];
 
-  if ((asid != ~0UL) || !Arm_vcache)
+  if (Pte::need_cache_clean())
     Mem_unit::clean_dcache(raw + pd_idx, raw + pd_idx_max);
 
   if (need_flush && (asid != ~0UL))
@@ -693,7 +695,7 @@ Page_table::invalidate(void *my_base, unsigned size, unsigned long asid = ~0UL)
 
   // clean the caches if manipulating the current pt or in the case if phys.
   // tagged caches.
-  if ((asid != ~0UL) || !Arm_vcache)
+  if ((asid != ~0UL) || Pte::need_cache_clean())
     Mem_unit::clean_dcache(raw + pd_idx, raw + pd_idx_max);
 
   if (need_flush && (asid != ~0UL))

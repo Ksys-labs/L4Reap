@@ -1,7 +1,6 @@
 IMPLEMENTATION:
 
 extern "C" void sys_ipc_wrapper (void);
-extern "C" void ipc_short_cut_wrapper (void);
 extern "C" void sys_ipc_log_wrapper (void);
 extern "C" void sys_ipc_trace_wrapper (void);
 
@@ -30,7 +29,7 @@ Jdb_set_trace::ipc_tracing(Mode mode)
       Jdb_ipc_trace::_log = 0;
       Jdb_ipc_trace::_cshortcut = 0;
       Jdb_ipc_trace::_slow_ipc = 0;
-      sys_call_table[2] = ipc_short_cut_wrapper;
+      sys_call_table[2] = sys_ipc_wrapper;
       break;
     case Log:
       Jdb_ipc_trace::_trace = 0;

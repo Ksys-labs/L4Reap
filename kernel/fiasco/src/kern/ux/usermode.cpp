@@ -212,7 +212,7 @@ Usermode::kernel_entry (unsigned _cpu,
   if ((Mword) kesp % THREAD_BLOCK_SIZE <= 512)
     {
       printf("KERNEL BUG: Kernel stack of thread ");
-      printf("DBGID=%lx\n", static_cast<Thread*>(context_of(kesp))->dbg_id());
+      printf("DBGID=%lx\n", static_cast<Thread*>(context_of(kesp))->dbg_info()->dbg_id());
       panic(" exceeded (%p, %c). \n"
             "            As a workaround, please make sure that you built \n"
             "            Fiasco-UX with enabled CONTEXT_4K.",

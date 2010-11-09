@@ -2,6 +2,7 @@
 
 ###############################################################################
 
+include $(srcdir)/Modules.generic
 
 SUBSYSTEMS := 	ABI LIBAMM KERNEL LIBK DRIVERS MINILIBC \
 		CXXLIB VERSION JABI TCBOFFSET CRT0
@@ -152,35 +153,9 @@ VPATH 		+= kern/$(CONFIG_XARCH) kern
 VPATH		+= jdb/arm jdb
 PRIVATE_INCDIR 	+= kern/$(CONFIG_XARCH) kern
 
-INTERFACES_KERNEL := 	kmem boot_info pages __main globals config \
-			main mem_op kobject_mapdb dbg_page_info \
-			bitmap kernel_uart pagetable mem_layout \
-			mapped_alloc kmem_alloc kip_init kmem_space \
-			queue_item queue cpu_mask rcupdate irq_pin \
-			mem_unit boot_uart_init kernel_console cpu mem_region \
-			thread kobject_helper icu_helper \
-			syscalls paging vmem_alloc kdb_ke terminate \
-			cpu_lock irq sender startup per_cpu_data \
-			per_cpu_data_alloc ptab_base ref_obj ref_ptr \
-			entry_frame irq_chip helping_lock switch_lock \
-			kmem_slab_simple region kmem_slab slab_cache_anon \
-			thread_state context mp_lock sched_context fpu \
-			fpu_state kobject_dbg kobject l4_buf_iter continuation \
-			mapping mappable mapping_tree \
-			mapdb map_util mem_space mem_space_sigma0    \
-			space task thread_lock irq_chip_generic \
-			receiver timer factory ipc_gate vcpu \
-			timeout ipc_timeout ipc_sender \
-			timeslice_timeout spin_lock \
-			dirq fpu_alloc kernel_thread pic cmdline \
-			buddy_alloc trap_state warn \
-			bootstrap virq vkey kern_lib_page \
-			watchdog perf_cnt jdb_extensions kernel_task \
-			ram_quota lock irq_controller \
-			obj_space vlog outer_cache \
-			utcb_init utcb_support prio_list sys_call_page \
-			app_cpu_thread ipi scheduler \
-                        clock ready_queue_wfq ready_queue_fp
+INTERFACES_KERNEL += 	__main mem_op pagetable kmem_space boot_uart_init     \
+			irq_chip_generic bootstrap kern_lib_page virq         \
+			jdb_extensions outer_cache utcb_support
 
 PREPROCESS_PARTS	+= ulock
 INTERFACES_KERNEL	+= u_semaphore

@@ -12,7 +12,7 @@ IMPLEMENTATION[ia32,amd64,ux]:
 #include "jdb_symbol.h"
 #include "mem_layout.h"
 #include "keycodes.h"
-#include "thread.h"
+#include "thread_object.h"
 #include "task.h"
 
 class Jdb_bt : public Jdb_module, public Jdb_input_task_addr
@@ -353,7 +353,7 @@ Jdb_bt::action(int cmd, void *&args, char const *&fmt, int &next_char)
 	      Kobject* o = ko_tid;
 
 	      if (o)
-		tid = Kobject::dcast<Thread*>(o);
+		tid = Kobject::dcast<Thread_object*>(o);
 
 	      if (!tid)
 		{
@@ -369,7 +369,7 @@ start_backtrace:
 start_backtrace_known_ebp:
 	  printf("\n\nbacktrace (thread %lx, fp="L4_PTR_FMT
 	         ", pc="L4_PTR_FMT"):\n",
-	      tid->dbg_id(), ebp, eip);
+	      tid->dbg_info()->dbg_id(), ebp, eip);
 	  if (task != 0)
 	    show(ebp, eip, 0, ADDR_USER);
 	  if (!Config::Have_frame_ptr)

@@ -38,7 +38,9 @@ Jdb_kern_info_idt::show()
   Idt::get (&idt_pseudo);
 
   printf("idt base="L4_PTR_FMT"  limit=%04x (%04x bytes)\n",
-	 idt_pseudo.base(), (idt_pseudo.limit()+1)/sizeof(Idt_entry), idt_pseudo.limit()+1);
+         idt_pseudo.base(),
+         (unsigned)((idt_pseudo.limit() + 1) / sizeof(Idt_entry)),
+         idt_pseudo.limit() + 1);
   if (!Jdb_core::new_line(line))
     return;
 

@@ -242,8 +242,10 @@ struct lx_sockaddr_un {
 /* 107 */ extern int           lx_lstat(const char *filename, struct lx_stat *buf);
 /* 108 */ extern int           lx_fstat(int filedes, struct lx_stat *buf);
 /* 117 */ extern int           lx_ipc(unsigned int call, int first, int second, int third, const void *ptr, long fifth);
+/* 118 */ extern int           lx_fsync(int fd);
 /* 145 */ extern lx_ssize_t    lx_readv(int fd, const struct lx_iovec *iov, int cnt);
 /* 146 */ extern lx_ssize_t    lx_writev(int fd, const struct lx_iovec *iov, int cnt);
+/* 148 */ extern int           lx_fdatasync(int fd);
 /* 168 */ extern int           lx_poll(struct lx_pollfd *fds, lx_nfds_t nfds, int timeout);
 #ifdef __i386__
 /* 194 */ extern int           lx_ftruncate64(int fd, unsigned long long length);

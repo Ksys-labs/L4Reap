@@ -105,7 +105,7 @@ IMPLEMENTATION:
 #include "lock_guard.h"
 #include "receiver.h"
 #include "std_macros.h"
-#include "thread.h"
+#include "thread_object.h"
 #include "thread_lock.h"
 #include "thread_state.h"
 #include "l4_buf_iter.h"
@@ -529,7 +529,7 @@ Irq::sys_attach(L4_msg_tag const &tag, Utcb const *utcb, Syscall_frame * /*f*/,
       if (EXPECT_FALSE(!bind_thread.is_objpage()))
 	return commit_error(utcb, L4_error::Overflow);
 
-      thread = Kobject::dcast<Thread*>(o_space->lookup_local(bind_thread.obj_index()));
+      thread = Kobject::dcast<Thread_object*>(o_space->lookup_local(bind_thread.obj_index()));
     }
 
   if (!thread)
@@ -640,6 +640,8 @@ Irq::obj_id() const
 
 // --------------------------------------------------------------------------
 IMPLEMENTATION [debug]:
+
+#include "logdefs.h"
 
 PUBLIC
 char const *

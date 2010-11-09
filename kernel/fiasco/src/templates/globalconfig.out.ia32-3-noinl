@@ -8,28 +8,9 @@
 CONFIG_IA32=y
 # CONFIG_AMD64 is not set
 # CONFIG_ARM is not set
-# CONFIG_PPC32 is not set
 CONFIG_PF_PC=y
 # CONFIG_PF_UX is not set
-# CONFIG_PF_IMX is not set
-# CONFIG_PF_REALVIEW is not set
-# CONFIG_PF_S3C2410 is not set
-# CONFIG_PF_TEGRA2 is not set
-# CONFIG_PF_OMAP3 is not set
-# CONFIG_PF_MPC52XX is not set
-# CONFIG_PF_XSCALE is not set
-# CONFIG_PF_SA1100 is not set
-# CONFIG_PF_INTEGRATOR is not set
-# CONFIG_PF_QEMU is not set
 CONFIG_ABI_VF=y
-# CONFIG_ARM_PXA is not set
-# CONFIG_ARM_SA is not set
-# CONFIG_ARM_920T is not set
-# CONFIG_ARM_926 is not set
-# CONFIG_ARM_1176 is not set
-# CONFIG_ARM_MPCORE is not set
-# CONFIG_ARM_CORTEX_A8 is not set
-# CONFIG_ARM_CORTEX_A9 is not set
 # CONFIG_IA32_486 is not set
 CONFIG_IA32_586=y
 # CONFIG_IA32_686 is not set
@@ -43,30 +24,21 @@ CONFIG_IA32_586=y
 # CONFIG_IA32_K7 is not set
 # CONFIG_IA32_K8 is not set
 # CONFIG_IA32_K10 is not set
-# CONFIG_AMD64_K8 is not set
-# CONFIG_AMD64_CORE2 is not set
-# CONFIG_AMD64_ATOM is not set
-# CONFIG_AMD64_K10 is not set
-# CONFIG_PPC32_603e is not set
 # CONFIG_CPU_VIRT is not set
 CONFIG_SCHED_PIT=y
 # CONFIG_SCHED_RTC is not set
 # CONFIG_SCHED_APIC is not set
-# CONFIG_SCHED_HPET is not set
 # CONFIG_WORKAROUND_AMD_FPU_LEAK is not set
 CONFIG_REGPARM3=y
 
 #
 # Kernel options
 #
-# CONFIG_HANDLE_SEGMENTS is not set
 CONFIG_CONTEXT_4K=y
 # CONFIG_IO_PROT is not set
 # CONFIG_SYNC_TSC is not set
 # CONFIG_FINE_GRAINED_CPUTIME is not set
 CONFIG_SCHED_FIXED_PRIO=y
-# CONFIG_SCHED_WFQ is not set
-# CONFIG_SCHED_FP_WFQ is not set
 
 #
 # Debugging

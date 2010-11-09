@@ -82,9 +82,9 @@ Thread::dump_bats()
     printf("IBAT3 U:%08lx L:%08lx\n", batu, batl);
 }
 
-PRIVATE inline
+PROTECTED inline
 void FIASCO_NORETURN
-Thread::fast_return_to_user(Mword ip, Mword sp, bool = true)
+Thread::fast_return_to_user(Mword ip, Mword sp)
 {
   (void)ip; (void)sp;
   // XXX: UNIMPLEMENTED
@@ -109,7 +109,7 @@ Thread::user_invoke()
                " mr %1, %%r2\n"
                : "=r"(vsid), "=r"(utcb));
   printf("\n[%lx]leaving kernel ip %lx sp %lx vsid %lx\n",
-         current_thread()->dbg_id(), r->ip(), r->sp(), vsid);
+         current_thread()->dbg_info()->dbg_id(), r->ip(), r->sp(), vsid);
          printf("kernel_sp %p kip %p utcb %08lx\n", current_thread()->regs() + 1, kip, utcb);
 
   asm volatile ( " mtsprg1 %[kernel_sp]              \n" //correct kernel stack
@@ -157,7 +157,7 @@ extern "C" {
 		 " mfmsr   %4    \n"
 		 " mfsprg1 %5    \n"
 		 : "=r"(etype), "=r"(dar), "=r"(dsisr), "=r"(vsid), "=r"(msr), "=r"(ksp) : : "memory");
-    printf("\n\n[dbg_id: %lx] Exception: %lx\n", current_thread()->dbg_id(), etype & ~0xff);
+    printf("\n\n[dbg_id: %lx] Exception: %lx\n", current_thread()->dbg_info()->dbg_id(), etype & ~0xff);
     Entry_frame *e = current()->regs();
 
     e->Return_frame::dump();
@@ -315,7 +315,7 @@ Thread::send_exception_arch(Trap_state * /*ts*/)
   return 1;      // We did it
 }
 
-PRIVATE inline
+PROTECTED inline
 void
 Thread::vcpu_resume_user_arch()
 {}
@@ -327,7 +327,7 @@ Thread::save_fpu_state_to_utcb(Trap_state *, Utcb *)
 {
 }
 
-PRIVATE inline
+PROTECTED inline
 int
 Thread::do_trigger_exception(Entry_frame * /*r*/, void * /*ret_handler*/)
 {
@@ -344,7 +344,7 @@ Thread::copy_utcb_to_ts(L4_msg_tag const &/*tag*/, Thread * /*snd*/,
   return true;
 }
 
-PRIVATE static inline NEEDS[Thread::access_utcb]
+PRIVATE static inline
 bool FIASCO_WARN_RESULT
 Thread::copy_ts_to_utcb(L4_msg_tag const &, Thread * /*snd*/, Thread * /*rcv*/,
                         unsigned char /*rights*/)
@@ -353,29 +353,19 @@ Thread::copy_ts_to_utcb(L4_msg_tag const &, Thread * /*snd*/, Thread * /*rcv*/,
   return true;
 }
 
-PRIVATE inline
+PROTECTED inline
 bool
 Thread::invoke_arch(L4_msg_tag & /*tag*/, Utcb * /*utcb*/)
 {
   return false;
 }
 
-PRIVATE inline
+PROTECTED inline
 int
 Thread::sys_control_arch(Utcb *)
 {
   return 0;
 }
-
-//-----------------------------------------------------------------------------
-
-PUBLIC inline
-Utcb*
-Thread::access_utcb() const
-{
-  return utcb();
-}
-
 
 //-----------------------------------------------------------------------------
 IMPLEMENTATION [!mp]:

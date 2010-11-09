@@ -15,7 +15,7 @@ IMPLEMENTATION:
 #include "jdb_module.h"
 #include "space.h"
 #include "static_init.h"
-#include "thread.h"
+#include "thread_object.h"
 #include "thread_state.h"
 
 class Jdb_utcb : public Jdb_module
@@ -65,7 +65,7 @@ Jdb_utcb::action( int cmd, void *&, char const *&, int &)
   if (cmd)
     return NOTHING;
 
-  Thread *t = Kobject::dcast<Thread *>(thread);
+  Thread *t = Kobject::dcast<Thread_object *>(thread);
   if (!t)
     {
       printf(" Invalid thread\n");
@@ -118,7 +118,7 @@ Jdb_kobject_utcb_hdl::handle_key(Kobject *o, int keycode)
 {
   if (keycode == 'z')
     {
-      Thread *t = Kobject::dcast<Thread *>(o);
+      Thread *t = Kobject::dcast<Thread_object *>(o);
       if (!t)
         return false;
 

@@ -3,16 +3,10 @@ INTERFACE[ux]:
 EXTENSION class Context
 {
 protected:
-  bool _is_native; // thread can call Linux host system calls
-};
-
-INTERFACE[ux && segments]:
-
-EXTENSION class Context
-{
-protected:
   enum { Gdt_user_entries = 3 };
   struct { Unsigned64 v[2]; } _gdt_user_entries[Gdt_user_entries]; // type struct Ldt_user_desc
+
+  bool _is_native; // thread can call Linux host system calls
   Unsigned32                  _es, _fs, _gs;
 };
 
@@ -28,9 +22,6 @@ PUBLIC inline
 bool
 Context::is_native()
 { return _is_native; }
-
-// ---------------------------------------------------------------------
-IMPLEMENTATION[ux && segments]:
 
 PROTECTED inline
 void

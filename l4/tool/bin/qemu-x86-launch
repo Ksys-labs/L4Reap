@@ -48,5 +48,6 @@ my $qemu_cmd =
       "$qemu -kernel $kernel -append \"$entry{bootstrap}{cmdline}\" ".
       "-initrd \"$initrd\" ".join(' ', @ARGV);
 
+print "Note: At least QEmu 0.13 is required for the loading to work.\n";
 print "$qemu_cmd\n";
 system("$qemu_cmd");

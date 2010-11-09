@@ -357,7 +357,7 @@ entry_sys_ipc_c:
 	RESET_THREAD_CANCEL_AT %rbx
 
 
-	call	ipc_short_cut_wrapper
+	call	sys_ipc_wrapper
 in_sc_ipc1:
 	RESTORE_STATE
 	pop	%rax

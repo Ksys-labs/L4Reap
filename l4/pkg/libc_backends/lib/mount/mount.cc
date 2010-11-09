@@ -138,7 +138,7 @@ static void libmount_init()
   if (fd < 0)
     {
       if (verbose)
-        printf("libmount: Could not open '%s': %d.\n", fstab_path, -errno);
+        printf("libmount: Could not open '%s': %s.\n", fstab_path, strerror(errno));
       return;
     }
 

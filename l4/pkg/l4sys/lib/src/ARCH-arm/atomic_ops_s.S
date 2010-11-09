@@ -1,5 +1,5 @@
 /*
- * (c) 2008-2009 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
+ * (c) 2008-2010 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
  *               Alexander Warg <warg@os.inf.tu-dresden.de>
  *     economic rights: Technische Universität Dresden (Germany)
  *
@@ -23,8 +23,9 @@
 .size s, 12;        \
 s = value
 
-ABS_FUNC(l4_atomic_add, 0xffffe000)
+ABS_FUNC(l4_atomic_add,     0xffffe000)
 ABS_FUNC(l4_atomic_cmpxchg, 0xffffe100)
+ABS_FUNC(l4_atomic_xchg,    0xffffe200)
 
 #else
 
@@ -41,8 +42,10 @@ ABS_FUNC(l4_atomic_cmpxchg, 0xffffe100)
 
 JUMP_CODE(l4_atomic_add)
 JUMP_CODE(l4_atomic_cmpxchg)
+JUMP_CODE(l4_atomic_xchg)
 	
 
 .LCl4_atomic_add:         .word 0xffffe000
 .LCl4_atomic_cmpxchg:     .word 0xffffe100
+.LCl4_atomic_xchg:        .word 0xffffe200
 #endif

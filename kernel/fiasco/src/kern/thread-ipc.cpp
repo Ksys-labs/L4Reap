@@ -102,6 +102,7 @@ IMPLEMENTATION:
 #include "logdefs.h"
 #include "map_util.h"
 #include "processor.h"
+#include "timer.h"
 #include "kdb_ke.h"
 #include "warn.h"
 
@@ -232,7 +233,7 @@ Thread::handle_page_fault_pager(Thread_ptr const &_pager,
     {
       WARN ("CPU%d: Pager of %lx is invalid (pfa=" L4_PTR_FMT
 	    ", errorcode=" L4_PTR_FMT ") to %lx (pc=%lx)\n",
-	    current_cpu(), dbg_id(), pfa, error_code,
+	    current_cpu(), dbg_info()->dbg_id(), pfa, error_code,
             _pager.raw(), regs()->ip());
 
 
@@ -328,75 +329,7 @@ Thread::handle_page_fault_pager(Thread_ptr const &_pager,
   if (orig_timeout)
     orig_timeout->set_again(cpu());
 
-#if 0
-  if (virqs && vcpu_irqs_pending())
-    {
-      vcpu_enter_kernel_mode();
-      vcpu_state()->_saved_state |= Vcpu_state::F_irqs;
-      do_ipc(L4_msg_tag(), 0, 0, true, 0,
-	     L4_timeout_pair(L4_timeout::Zero, L4_timeout::Zero),
-	     &vcpu_state()->_ipc_regs, 7);
-      vcpu_state()->_ts.set_ipc_upcall();
-      fast_return_to_user(vcpu_state()->_entry_ip, vcpu_state()->_sp);
-    }
-#endif
-
   return success;
-}
-
-
-/** L4 IPC system call.
-    This is the `normal'' version of the IPC system call.  It usually only
-    gets called if ipc_short_cut() has failed.
-    @param regs system-call arguments.
- */
-IMPLEMENT inline NOEXPORT ALWAYS_INLINE
-void
-Thread::sys_ipc()
-{
-  assert_kdb (!(state() & Thread_drq_ready));
-
-  Syscall_frame *f = this->regs();
-
-  Obj_cap obj = f->ref();
-  Utcb *utcb = access_utcb();
-  // printf("sys_invoke_object(f=%p, obj=%x)\n", f, f->obj_ref());
-  unsigned char rights;
-  Kobject_iface *o = obj.deref(&rights);
-  L4_msg_tag e;
-  if (EXPECT_TRUE(o!=0))
-    o->invoke(obj, rights, f, utcb);
-  else
-    f->tag(commit_error(utcb, L4_error::Not_existent));
-}
-
-extern "C"
-void
-sys_ipc_wrapper()
-{
-  // Don't allow interrupts before we've got a call frame with a return
-  // address on our stack, so that we can tweak the return address for
-  // sysenter + sys_ex_regs to the iret path.
-
-  current_thread()->sys_ipc();
-
-  assert_kdb (!(current()->state() &
-           (Thread_delayed_deadline | Thread_delayed_ipc)));
-
-  // If we return with a modified return address, we must not be interrupted
-  //  Proc::cli();
-}
-
-
-extern "C"
-void
-ipc_short_cut_wrapper()
-{
-  register Thread *const ct = current_thread();
-  ct->sys_ipc();
-
-  // If we return with a modified return address, we must not be interrupted
-  //  Proc::cli();
 }
 
 PRIVATE inline
@@ -427,7 +360,7 @@ Thread::check_sender(Thread *sender, bool timeout)
 }
 
 
-PRIVATE inline
+PRIVATE inline NEEDS["timer.h"]
 void Thread::goto_sleep(L4_timeout const &t, Sender *sender, Utcb *utcb)
 {
   if (EXPECT_FALSE
@@ -472,13 +405,13 @@ void Thread::goto_sleep(L4_timeout const &t, Sender *sender, Utcb *utcb)
       set_timeout(0);
     }
 
-  assert_kdb (state() & Thread_ready);  
+  assert_kdb (state() & Thread_ready);
 }
 
 
 
 
-/** 
+/**
  * @pre cpu_lock must be held
  */
 PRIVATE inline NEEDS["logdefs.h"]
@@ -744,7 +677,7 @@ Thread::do_ipc(L4_msg_tag const &tag, bool have_send, Thread *partner,
 
   while (EXPECT_TRUE
          ((state() & (Thread_receiving | Thread_ipc_in_progress | Thread_cancel))
-          == (Thread_receiving | Thread_ipc_in_progress)) ) 
+          == (Thread_receiving | Thread_ipc_in_progress)) )
     {
       Sender *next = 0;
 
@@ -805,7 +738,7 @@ Thread::do_ipc(L4_msg_tag const &tag, bool have_send, Thread *partner,
 
 	  assert_kdb (state() & Thread_ready);
 	}
-      else 
+      else
 	{
 	  if (EXPECT_TRUE(have_send && partner->cpu() == cpu()
 	                  && (partner->state() & Thread_ready)))
@@ -992,31 +925,33 @@ Thread::send_exception(Trap_state *ts)
 {
   assert(cpu_lock.test());
 
-  if (vcpu_exceptions_enabled())
+  Vcpu_state *vcpu = access_vcpu();
+
+  if (vcpu_exceptions_enabled(vcpu))
     {
       // no not reflect debug exceptions to the VCPU but handle them in
       // Fiasco
       if (EXPECT_FALSE(ts->is_debug_exception()
-                       && !(vcpu_state()->state & Vcpu_state::F_debug_exc)))
+                       && !(vcpu->state & Vcpu_state::F_debug_exc)))
         return 0;
 
       if (_exc_cont.valid())
 	return 1;
-      vcpu_enter_kernel_mode();
+      vcpu_enter_kernel_mode(vcpu);
       spill_user_state();
       LOG_TRACE("VCPU events", "vcpu", this, __context_vcpu_log_fmt,
 	  Vcpu_log *l = tbe->payload<Vcpu_log>();
 	  l->type = 2;
-	  l->state = vcpu_state()->_saved_state;
+	  l->state = vcpu->_saved_state;
 	  l->ip = ts->ip();
 	  l->sp = ts->sp();
 	  l->trap = ts->trapno();
 	  l->err = ts->error();
 	  l->space = vcpu_user_space() ? static_cast<Task*>(vcpu_user_space())->dbg_id() : ~0;
 	  );
-      memcpy(&vcpu_state()->_ts, ts, sizeof(Trap_state));
+      memcpy(&vcpu->_ts, ts, sizeof(Trap_state));
       save_fpu_state_to_utcb(ts, access_utcb());
-      fast_return_to_user(vcpu_state()->_entry_ip, vcpu_state()->_sp);
+      fast_return_to_user(vcpu->_entry_ip, vcpu->_sp);
     }
 
   // local IRQs must be disabled because we dereference a Thread_ptr

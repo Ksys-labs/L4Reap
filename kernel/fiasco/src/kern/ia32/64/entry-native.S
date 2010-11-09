@@ -175,7 +175,7 @@ entry_sys_fast_ipc_c:
 	ESP_TO_TCB_AT %rbx
 	RESET_THREAD_CANCEL_AT %rbx
 	
-	call    ipc_short_cut_wrapper
+	call    sys_ipc_wrapper
 in_sc_ipc2:
 	RESTORE_STATE_SYSEXIT
 	

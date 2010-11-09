@@ -2,9 +2,9 @@
 IMPLEMENTATION [amd64]:
 
 
-PRIVATE inline
+PROTECTED inline
 void FIASCO_NORETURN
-Thread::fast_return_to_user(Mword ip, Mword sp, bool = true)
+Thread::fast_return_to_user(Mword ip, Mword sp)
 {
   regs()->ip(ip);
   regs()->sp(sp);
@@ -17,7 +17,7 @@ Thread::fast_return_to_user(Mword ip, Mword sp, bool = true)
   __builtin_trap();
 }
 
-PRIVATE inline
+PROTECTED inline
 bool
 Thread::invoke_arch(L4_msg_tag & /*tag*/, Utcb * /*utcb*/)
 {
@@ -39,7 +39,7 @@ Thread::user_sp(Mword sp)
     regs()->sp(sp);
 }
 
-PRIVATE inline
+PROTECTED inline
 int
 Thread::do_trigger_exception(Entry_frame *r, void *ret_handler)
 {

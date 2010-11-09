@@ -29,11 +29,39 @@
 #include <l4/sys/compiler.h>
 #include <l4/sys/syscall_defs.h>
 
+EXTERN_C_BEGIN
+
+/**
+ * \defgroup l4_mem_op_api Memory operations.
+ * \ingroup l4_api
+ * \brief Operations for memory access.
+ *
+ * This modules provides functionality to access user task memory from the
+ * kernel. This is needed for some devices that are only accessible from
+ * privileged processor mode. Only use this when absolutely required. This
+ * functionality is only available on the ARM architecture.
+ *
+ * <c>\#include <l4/sys/mem_op.h></c>
+ */
+
+/**
+ * \brief Memory access width definitions.
+ * \ingroup l4_mem_op_api
+ */
+enum L4_mem_op_widths
+{
+  L4_MEM_WIDTH_1BYTE = 0, ///< Access one byte (8-bit width)
+  L4_MEM_WIDTH_2BYTE = 1, ///< Access two bytes (16-bit width)
+  L4_MEM_WIDTH_4BYTE = 2, ///< Access four bytes (32-bit width)
+};
+
 /**
  * \brief Read memory from kernel privilege level.
+ * \ingroup l4_mem_op_api
+ *
  * \param virtaddress  Virtual address in the calling task.
- * \param width        Width of access in bytes in log2
- *                       (i.e. allowed values: 0, 1, 2)
+ * \param width        Width of access in bytes in log2,
+ *                       \see L4_mem_op_widths
  * \return Read value.
  *
  * Upon an given invalid address or invalid width value the function does
@@ -44,6 +72,8 @@ l4_mem_read(unsigned long virtaddress, unsigned width);
 
 /**
  * \brief Write memory from kernel privilege level.
+ * \ingroup l4_mem_op_api
+ *
  * \param virtaddress  Virtual address in the calling task.
  * \param width        Width of access in bytes in log2
  *                       (i.e. allowed values: 0, 1, 2)
@@ -119,5 +149,7 @@ l4_mem_write(unsigned long virtaddress, unsigned width,
 {
   l4_mem_arm_op_call(L4_MEM_OP_MEM_WRITE, virtaddress, width, value);
 }
+
+EXTERN_C_END
 
 #endif /* ! __L4SYS__INCLUDE__ARCH_ARM__MEM_OP_H__ */

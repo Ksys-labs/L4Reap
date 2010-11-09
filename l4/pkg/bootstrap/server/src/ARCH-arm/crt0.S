@@ -81,9 +81,7 @@ run:
 	mov	r2, #0xc00
 	orr 	r2, #0x009
 	cmp	r0, r2
-	beq	do_cpuid
-
-	b	do_bootstrap               /* None matched, normal startup */
+	bne	do_bootstrap               /* None matched, normal startup */
 
 do_cpuid:
 	mrc	p15, 0, r0, c0, c0, 5      /* CPU ID */
@@ -116,7 +114,7 @@ do_cpuid:
 	ldr	r6, [r5, #0x30]
 	cmp	r6, #0
 	movne	pc, r6
-	wfi
+	.word 0xe320f003 /* wfi */
 	ldr	r0, [r4, #12]
 	str	r0, [r4, #16]
 	b	1b

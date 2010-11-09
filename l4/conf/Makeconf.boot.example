@@ -4,6 +4,7 @@
 #   - Fiasco-UX (ux)
 #   - Image mode (image)
 #   - ISO images (grub1iso, grub2iso)
+#   - VirtualBox
 #
 # This is a make snippet.
 #
@@ -28,7 +29,9 @@
 qemu: MODULE_SEARCH_PATH += /path/to/fiasco-build
 
 # Optional options for QEMU, but setting '-serial stdio' is recommended
-#QEMU_OPTIONS     = -serial stdio -nographic ...
+#QEMU_OPTIONS      = -serial stdio -nographic ...
+#QEMU_OPTIONS-arm += -M realview-eb 256
+#QEMU_OPTIONS      = $(QEMU_OPTIONS-$(ARCH))
 
 # The path to the QEMU binary - optional
 #QEMU_PATH-x86   = /path/to/qemu
@@ -57,3 +60,19 @@ UX_OPTIONS     = -m 128
 # Search path for other make targets:
 # grub1iso grub2iso: MODULE_SEARCH_PATH += /path/to/fiasco-build
 # image: MODULE_SEARCH_PATH += /path/to/fiasco-build
+
+# VirtualBox
+#
+# To use VirtualBox create a VM in VirtualBox and set the name of the VM in
+# 'VBOX_VM'. The 'vbox' target uses an ISO image generating target to generate
+# an ISO and use that with VirtualBox. 
+#
+# Required variables:
+#  VBOX_VM:        Name of the VM to use.
+#
+# Additional (optional) variables:
+#  VBOX_ISOTARGET: grub1iso or grub2iso (grub2iso is the default)
+#  VBOX_OPTIONS:   Additional options (see VBoxSDL --help)
+VBOX_VM                = L4
+VBOX_ISOTARGET         = grub1iso
+#VBOX_OPTIONS          += --memory 256

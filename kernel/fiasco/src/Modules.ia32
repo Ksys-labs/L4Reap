@@ -1,5 +1,7 @@
 # -*- makefile -*-
 
+include $(srcdir)/Modules.generic
+
 SUBSYSTEMS = JABI ABI DRIVERS KERNEL CRT0 BOOT LIBK LIBAMM \
 	     CHECKSUM CXXLIB MINILIBC LIBKERN TCBOFFSET SYMBOLS VERSION GBLCFG
 
@@ -34,7 +36,6 @@ PREPROCESS_PARTS-$(CONFIG_CPU_VIRT)          += svm vmx
 PREPROCESS_PARTS-$(CONFIG_SCHED_FIXED_PRIO)  += sched_fixed_prio
 PREPROCESS_PARTS-$(CONFIG_SCHED_WFQ)         += sched_wfq
 PREPROCESS_PARTS-$(CONFIG_SCHED_FP_WFQ)      += sched_fp_wfq
-PREPROCESS_PARTS-$(CONFIG_HANDLE_SEGMENTS)   += segments
 PREPROCESS_PARTS-$(CONFIG_IO_PROT_IOPL_3)    += iopl3
 
 PREPROCESS_PARTS        += $(PREPROCESS_PARTS-y)
@@ -91,36 +92,10 @@ KERNEL			:= fiasco.image
 VPATH			+= kern/$(CONFIG_XARCH) kern/ia32/32 kern/ia32 kern
 PRIVATE_INCDIR		+= kern/$(CONFIG_XARCH) kern/ia32/32 kern/ia32 kern
 
-INTERFACES_KERNEL	:= cpu_mask rcupdate pages kobject_mapdb \
-			   mem_region per_cpu_data startup boot_info cmdline \
-			   __main queue queue_item l4_buf_iter irq_pin \
-			   bitmap acpi io_apic mapping spin_lock \
-			   mapping_tree mappable dbg_page_info  \
-			   mapdb region pic dirq_pic_pin dirq_io_apic \
-			   kobject_dbg kobject ready_queue_wfq ready_queue_fp \
-			   obj_space ptab_base io_space_sigma0 irq_msi \
-			   io_space ram_quota ref_ptr ref_obj \
-			   mem_space mem_space_sigma0 space vlog \
-			   kmem kmem_alloc slab_cache_anon mem_layout        \
-			   kmem_slab_simple kmem_slab switch_lock kip_init   \
-			   thread_lock helping_lock cpu_lock timer timeout   \
-			   ipc_timeout timeslice_timeout    \
-			   per_cpu_data_alloc vcpu kobject_helper icu_helper \
-			   thread_state context mp_lock sender receiver      \
-			   mem_unit factory lock ipc_sender \
-			   thread syscalls kernel_thread map_util irq banner \
-			   warn app_cpu_thread                               \
-			   dirq globals apic watchdog kernel_uart pit        \
-			   checksum main config mapped_alloc      \
-			   vmem_alloc paging fpu fpu_state fpu_alloc cpu     \
-			   entry_frame kernel_console boot_console profile   \
-			   ipc_gate task kernel_task irq_controller          \
-			   irq_chip terminate continuation \
-			   sched_context utcb_init \
-			   perf_cnt x86desc gdt idt tss trap_state \
-			   buddy_alloc vkey kdb_ke prio_list ipi timer_irq \
-			   scheduler clock vm_factory \
-			   sys_call_page
+INTERFACES_KERNEL	+= __main acpi io_apic dirq_pic_pin dirq_io_apic  \
+			   io_space_sigma0 irq_msi boot_console profile   \
+			   io_space apic pit checksum x86desc gdt idt tss \
+			   timer_irq
 
 INTERFACES_KERNEL-$(CONFIG_CPU_VIRT) += svm vmx vm vm_svm vm_vmx
 

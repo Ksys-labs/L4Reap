@@ -156,13 +156,15 @@ Jdb::access_mem_task(Address virt, Space * task)
     {
       Mem_unit::flush_vdcache();
       Pte pte = Kernel_task::kernel_task()->mem_space()->_dir->walk
-	((void*)Mem_layout::Jdb_tmp_map_area, 0, false,0);
+	((void*)Mem_layout::Jdb_tmp_map_area, 0, false, 0);
 
-      if (pte.phys() != (phys & ~(Config::SUPERPAGE_SIZE-1)))
-	pte.set(phys & ~(Config::SUPERPAGE_SIZE-1), Config::SUPERPAGE_SIZE,
-	    Mem_page_attr(Page::KERN_RW | Page::CACHEABLE), true);
+      if (pte.phys() != (phys & ~(Config::SUPERPAGE_SIZE - 1)))
+        pte.set(phys & ~(Config::SUPERPAGE_SIZE - 1), Config::SUPERPAGE_SIZE,
+                Mem_page_attr(Page::KERN_RW | Page::CACHEABLE), true);
 
-      addr = Mem_layout::Jdb_tmp_map_area + (phys & (Config::SUPERPAGE_SIZE-1));
+      Mem_unit::dtlb_flush();
+
+      addr = Mem_layout::Jdb_tmp_map_area + (phys & (Config::SUPERPAGE_SIZE - 1));
     }
 
   return (Mword*)addr;

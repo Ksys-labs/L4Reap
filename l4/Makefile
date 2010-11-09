@@ -62,7 +62,7 @@ include $(L4DIR)/mk/Makeconf
 export DROPS_STDDIR
 
 # after having absfilename, we can export BID_ROOT_CONF
-ifneq ($(filter config oldconfig gconfig qconfig xconfig, $(MAKECMDGOALS)),)
+ifneq ($(filter config oldconfig gconfig nconfig xconfig, $(MAKECMDGOALS)),)
 export BID_ROOT_CONF=$(call absfilename,$(OBJ_BASE))/.config.all
 endif
 endif
@@ -306,11 +306,22 @@ define entryselection
 	     e=$$(cat $(OBJ_BASE)/.entry-selector.tmp);          \
 	   fi
 endef
+define checkx86amd64build
+	$(VERBOSE)if [ "$(ARCH)" != "x86" -a "$(ARCH)" != "amd64" ]; then      \
+	  echo "This mode can only be used with architectures x86 and amd64."; \
+	  exit 1;                                                              \
+	fi
+endef
 
 BUILDDIR_SEARCHPATH = $(OBJ_BASE)/bin/$(ARCH)_$(CPU):$(OBJ_BASE)/bin/$(ARCH)_$(CPU)/$(BUILD_ABI):$(OBJ_BASE)/lib/$(ARCH)_$(CPU):$(OBJ_BASE)/lib/$(ARCH)_$(CPU)/$(BUILD_ABI)
 
 -include $(L4DIR)/conf/Makeconf.boot
 -include $(OBJ_BASE)/conf/Makeconf.boot
+
+QEMU_ARCH_MAP_$(ARCH) = qemu-system-$(ARCH)
+QEMU_ARCH_MAP_x86     = qemu
+QEMU_ARCH_MAP_amd64   = qemu-system-x86_64
+QEMU_ARCH_MAP_ppc32   = qemu-system-ppc
 
 image:
 	$(VERBOSE)$(entryselection);                                      \
@@ -320,24 +331,35 @@ image:
 		    BOOTSTRAP_MODULE_PATH_BINLIB="$(BUILDDIR_SEARCHPATH)" \
 		    BOOTSTRAP_SEARCH_PATH="$(MODULE_SEARCH_PATH)"
 
+ifneq ($(filter $(ARCH),x86 amd64),)
 qemu:
-	$(VERBOSE)if [ "$(ARCH)" != "x86" -a "$(ARCH)" != "amd64" ]; then      \
-	  echo "This mode can only be used with architectures x86 and amd64."; \
+	$(VERBOSE)$(entryselection);                                      \
+	 qemu=$(if $(QEMU_PATH),$(QEMU_PATH),$(QEMU_ARCH_MAP_$(ARCH)));   \
+	 QEMU=$$qemu L4DIR=$(L4DIR)                                       \
+	  SEARCHPATH="$(MODULE_SEARCH_PATH):$(BUILDDIR_SEARCHPATH)"       \
+	  $(L4DIR)/tool/bin/qemu-x86-launch $$ml "$$e" $(QEMU_OPTIONS)
+else
+qemu: image
+	$(VERBOSE)qemu=$(if $(QEMU_PATH),$(QEMU_PATH),$(QEMU_ARCH_MAP_$(ARCH))); \
+	if [ -z "$$qemu" ]; then echo "Set QEMU_PATH!"; exit 1; fi;              \
+	$$qemu -kernel $(OBJ_BASE)/images/bootstrap.elf $(QEMU_OPTIONS)
+endif
+
+vbox: $(if $(VBOX_ISOTARGET),$(VBOX_ISOTARGET),grub2iso)
+	$(checkx86amd64build)
+	$(VERBOSE)if [ -z "$(VBOX_VM)" ]; then                                 \
+	  echo "Need to set name of configured VirtualBox VM im 'VBOX_VM'.";   \
 	  exit 1;                                                              \
 	fi
-	$(VERBOSE)$(entryselection);                                  \
-	   qemu=$(QEMU_PATH);                                         \
-	   if [ -z "$$qemu" ]; then                                   \
-	     [ "$(ARCH)" = "amd64" ] && qemu=qemu-system-x86_64;      \
-	     [ "$(ARCH)" = "x86" ] && qemu=qemu;                      \
-	   fi;                                                        \
-	 QEMU=$$qemu L4DIR=$(L4DIR)                                   \
-	  SEARCHPATH="$(MODULE_SEARCH_PATH):$(BUILDDIR_SEARCHPATH)"   \
-	  $(L4DIR)/tool/bin/qemu-x86-launch $$ml "$$e" $(QEMU_OPTIONS)
+	$(VERBOSE)VBoxSDL                                  \
+	    --startvm $(VBOX_VM)                           \
+	    --cdrom $(OBJ_BASE)/images/.current.iso         \
+	    --boot d                                       \
+	    $(VBOX_OPTIONS)
 
 kexec:
 	$(VERBOSE)$(entryselection);                                  \
-	 L4DIR=$(L4DIR)                                   \
+	 L4DIR=$(L4DIR)                                               \
 	  SEARCHPATH="$(MODULE_SEARCH_PATH):$(BUILDDIR_SEARCHPATH)"   \
 	  $(L4DIR)/tool/bin/kexec-launch $$ml "$$e"
 
@@ -355,29 +377,23 @@ ux:
 	  SEARCHPATH="$(MODULE_SEARCH_PATH):$(BUILDDIR_SEARCHPATH)"  \
 	  $(L4DIR)/tool/bin/ux-launch $$ml "$$e" $(UX_OPTIONS)
 
-grub1iso:
-	$(VERBOSE)if [ "$(ARCH)" != "x86" -a "$(ARCH)" != "amd64" ]; then      \
-	  echo "This mode can only be used with architectures x86 and amd64."; \
-	  exit 1;                                                              \
-	fi
+define geniso
+	$(checkx86amd64build)
 	$(VERBOSE)$(entryselection);                                   \
 	 $(MKDIR) $(OBJ_BASE)/images;                                  \
+	 ISONAME=$(OBJ_BASE)/images/$$(echo $$e | tr '[ ]' '[_]').iso; \
 	 L4DIR=$(L4DIR)                                                \
 	  SEARCHPATH="$(MODULE_SEARCH_PATH):$(BUILDDIR_SEARCHPATH)"    \
-	  $(L4DIR)/tool/bin/gengrub1iso --timeout=0 $$ml               \
-	     $(OBJ_BASE)/images/$$(echo $$e | tr '[ ]' '[_]').iso "$$e"
+	  $(L4DIR)/tool/bin/gengrub$(1)iso --timeout=0 $$ml            \
+	     $$ISONAME "$$e";                       \
+	 $(LN) -f $$ISONAME $(OBJ_BASE)/images/.current.iso || true
+endef
+
+grub1iso:
+	$(call geniso,1)
 
 grub2iso:
-	$(VERBOSE)if [ "$(ARCH)" != "x86" -a "$(ARCH)" != "amd64" ]; then      \
-	  echo "This mode can only be used with architectures x86 and amd64."; \
-	  exit 1;                                                              \
-	fi
-	$(VERBOSE)$(entryselection);                                   \
-	 $(MKDIR) $(OBJ_BASE)/images;                                  \
-	 L4DIR=$(L4DIR)                                                \
-	  SEARCHPATH="$(MODULE_SEARCH_PATH):$(BUILDDIR_SEARCHPATH)"    \
-	  $(L4DIR)/tool/bin/gengrub2iso --timeout=0 $$ml               \
-	     $(OBJ_BASE)/images/$$(echo $$e | tr '[ ]' '[_]').iso "$$e"
+	$(call geniso,2)
 
 help::
 	@echo
@@ -386,14 +402,15 @@ help::
 	@echo "                     Supported formats include ELF, uimage and raw."
 	@echo "  grub1iso         - Generate an ISO using GRUB1 in images/name.iso [x86, amd64]" 
 	@echo "  grub2iso         - Generate an ISO using GRUB2 in images/name.iso [x86, amd64]" 
-	@echo "  qemu             - Use Qemu to run 'name'. [x86, amd64]" 
+	@echo "  qemu             - Use Qemu to run 'name'." 
+	@echo "  vbox             - Use VirtualBox to run 'name'." 
 	@echo "  ux               - Run 'name' under Fiasco/UX. [x86]" 
 	@echo "  kexec            - Issue a kexec call to start the entry." 
 	@echo " Add 'E=name' to directly select the entry without using the menu."
 	@echo " Modules are defined in conf/modules.list."
 
 
-.PHONY: image qemu ux switch_ram_base grub1iso grub2iso
+.PHONY: image qemu vbox ux switch_ram_base grub1iso grub2iso
 
 switch_ram_base:
 	@echo "  ... Regenerating RAM_BASE settings"

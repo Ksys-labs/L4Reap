@@ -159,8 +159,11 @@ public:
     if (!n)
       return Node();
 
-    if (!n->first.contains(key))
-      return Node();
+    // 'find' should find any region overlapping with the searched one, the
+    // caller should check for further requirements
+    if (0)
+      if (!n->first.contains(key))
+        return Node();
 
     return n;
   }
@@ -173,19 +176,34 @@ public:
       return L4_INVALID_ADDR;
 
 
-    if (flags & Search)
+    Region c;
+
+    if (!(flags & Search))
+      {
+	c = Region(addr, addr + size - 1);
+	Node r = _am.find_node(c);
+	if (r)
+	  return L4_INVALID_ADDR;
+      }
+
+    while (flags & Search)
       {
 	if (addr < min_addr() || (addr + size - 1) > max_addr())
 	  addr = min_addr();
 	addr = find_free(addr, max_addr(), size, align, flags);
 	if (addr == L4_INVALID_ADDR)
 	  return L4_INVALID_ADDR;
-      }
 
-    Region c(addr, addr + size - 1);
-    Node r = _am.find_node(c);
-    if (r)
-      return L4_INVALID_ADDR;
+	c = Region(addr, addr + size - 1);
+	Node r = _am.find_node(c);
+	if (!r)
+	  break;
+
+	if (r->first.end() >= max_addr())
+	  return L4_INVALID_ADDR;
+
+	addr = r->first.end() + 1;
+      }
 
     if (_am.insert(c, Hdlr(typename Hdlr::Dataspace(), 0, flags)).second == 0)
       return addr;

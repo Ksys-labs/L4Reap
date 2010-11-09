@@ -104,9 +104,9 @@
 #endif
 #define __UCLIBC_HAS_LFS__ 1
 #define __UCLIBC_STATIC_LDCONFIG__ 1
-#define __MALLOC__ 1
+#undef __MALLOC__
 #undef __MALLOC_SIMPLE__
-#undef __MALLOC_STANDARD__
+#define __MALLOC_STANDARD__ 1
 #undef __MALLOC_GLIBC_COMPAT__
 #undef __UCLIBC_DYNAMIC_ATEXIT__
 #define __UCLIBC_SUSV3_LEGACY__

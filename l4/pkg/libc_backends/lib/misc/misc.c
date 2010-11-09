@@ -356,17 +356,6 @@ pid_t wait3(int *status, int options, struct rusage *rusage)
 
 
 #include <sys/types.h>
-#include <grp.h>
-
-int getgrgid_r(gid_t gid, struct group *grp,
-               char *buf, size_t buflen, struct group **result)
-{
-  printf("Unimplemented: %s(%d, %p, %p, %zd, %p)\n", __func__,
-         gid, grp, buf, buflen, result);
-  errno = EINVAL;
-  return -1;
-}
-
 
 int getrlimit(__rlimit_resource_t resource, struct rlimit *rlim)
 {

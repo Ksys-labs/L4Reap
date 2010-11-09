@@ -1,18 +1,14 @@
 
-Welcome to Fiasco 1.2!
+Welcome to Fiasco.OC!
 ----------------------
 
-Fiasco is a microkernel intended to be compatible with the L4 microkernel
-for x86. It implements the L4 ABI as defined in the L4/x86 Reference Manual,
-which can be found at: http://os.inf.tu-dresden.de/L4/bib.html
+Fiasco is a microkernel and an be used to construct flexible systems. We at
+TU Dresden use it as a base for our TUD:OS system which supports running
+real-time and time-sharing applications as well as virtualization
+concurrently on one system. However, Fiasco is not only suitable for big and
+complex systems, but also for small, embedded applications.
 
-The Fiasco kernel can be used to construct flexible systems. We at TU Dresden
-use it as a base for our DROPS system which supports running real-time
-and time-sharing applications concurrently on one system. However, Fiasco
-is not only suitable for big and complex systems, but also for small,
-embedded applications.
-
-This distribution contains the Fiasco 1.2 microkernel and tools to build
+This distribution contains the Fiasco.OC microkernel and tools to build
 it. User level applications are not included in this package.
 
 Licensing
@@ -28,35 +24,28 @@ For more details, see our webpage at: http://os.inf.tu-dresden.de/fiasco/
 Supported architectures and ABIs
 --------------------------------
 
-  * IA32 (Intel, AMD and compatible CPUs, i486 and above)
-  * ARM  (SA1110 and PXA)
-  * UX   (Linux usermode emulation of Fiasco/L4)
-
-  The following L4 ABIs are supported by the IA32 and UX variants:
-
-  * L4/v2 (stable version 2)
-  * L4/x0 (experimental version 0)
-
-  The ARM variant of Fiasco supports the L4/x0 L4 ABI.
+  * IA32  (32-bit Intel, AMD and compatible CPUs, i486 and above)
+  * AMD64 (64-bit Intel, AMD and compatible CPUs)
+  * ARM   (various ARM CPUs and platforms)
+  * UX    (Linux usermode emulation of Fiasco/L4)
 
 A list of changes since the last release can be found in the CHANGES file.
 
 Building the Fiasco kernel
 --------------------------
 
-To compile Fiasco you need gcc 3.3, 3.4 or 4.0, a recent version of GNU
-binutils, GNU make and Perl version 5.6 or later. For the configuration tool
-you also need Python version 2.
+To compile Fiasco you need a recent version of gcc and a recent version of
+GNU binutils, GNU make and Perl version 5.6 or later.
 
-Change to the directory fiasco-1.2/l4/kernel/fiasco/ and
+Change to the directory fiasco/l4/kernel/fiasco/ and
 create a build directory with "make BUILDDIR=build" and change to the
 'build' directory. Optionally modify the default configuration using
 "make menuconfig". Then compile the kernel by typing "make".
 
-The kernel image can then be found in fiasco-1.2/l4/kernel/fiasco/build/ as
+The kernel image can then be found in fiasco/l4/kernel/fiasco/build/ as
 'fiasco'.
 
-For further information refer to: http://os.inf.tu-dresden.de/fiasco/use.html
+For further information refer to: http://os.inf.tu-dresden.de/fiasco/build.html
 
 Mailing List
 ------------
@@ -65,16 +54,16 @@ For problem reports and suggestions regarding the Fiasco microkernel,
 please subscribe and send mail to the l4-hackers mailing list:
    http://os.inf.tu-dresden.de/mailman/listinfo/l4-hackers/
 
-Remote CVS
+Remote SVN
 ----------
 
-The latest development versions are available from our Remote-CVS server.
+The latest development versions are available from our SVN server.
 The truly bleeding edge will want to check out daily snapshots from there.
 However, be aware that these may not always run correctly.
-You can also get user land programs for L4 from this Remote-CVS.
+You can also get user land programs for L4 from this SVN.
 
-For information how to use Remote-CVS see:
-http://os.inf.tu-dresden.de/drops/download.html
+For information how to use SVN see:
+http://os.inf.tu-dresden.de/L4Re/download.html
 
 
 Enjoy!

@@ -108,7 +108,7 @@
 	ldrne   lr, [sp, #RF(SVC_LR, -RF_SIZE)]	@ load old kernel lr
 	rfedb	sp
 #else
-	msr	spsr, lr			@ Load SPSR from kernel_lr
+	msr	spsr_cfsx, lr			@ Load SPSR from kernel_lr
 	ldr	lr, [sp, #RF(PC, -RF_SIZE)]	@ copy PC on psr field for
 	str	lr, [sp, #RF(PSR, -RF_SIZE)]	@   final ldmdb and proper ksp
         ldrne   lr, [sp, #RF(SVC_LR, -RF_SIZE)]	@ load old kernel lr
@@ -230,7 +230,7 @@ fast_ret_from_irq:
 
 	/* Return */
 	ldr	lr, [sp, #RF(PSR,0)]
-	msr	spsr, lr
+	msr	spsr_cfsx, lr
 @	ldmia	sp, {sp,lr}^ @ done lazy
 	add	sp, sp, #RF_SIZE
 	ldr	lr, [sp, #RF(PC, -RF_SIZE)]
@@ -599,7 +599,7 @@ sys_call_table:
 	.word sys_kdb_ke
 	.word sys_kdb_ke
 /*SYSCALL(ipc)*/
-	.word ipc_short_cut_wrapper
+	.word sys_ipc_wrapper
 	.word sys_arm_mem_op
 SYSCALL(invoke_debug)
 	.word sys_kdb_ke
@@ -639,8 +639,9 @@ leave_by_vcpu_upcall:
 	/* restore original IP */
 	CONTEXT_OF r1, sp
 
-	ldr	r2, [r1, #(OFS__THREAD__VCPU_STATE)]
-	add	r2, r2, #(VAL__SIZEOF_TRAP_STATE - RF_SIZE)
+	/* access_vcpu() for the local case */
+	ldr	r2, [r1, #(OFS__THREAD__LOCAL_ID)]
+	add	r2, r2, #(OFS__THREAD__UTCB_SIZE + VAL__SIZEOF_TRAP_STATE - RF_SIZE)
 
 	ldr 	r0, [r1, #(OFS__THREAD__EXCEPTION_IP)]
 	str	r0, [r2, #RF(PC, 0)]
@@ -679,7 +680,7 @@ leave_by_vcpu_upcall:
 
 	str	r0, [sp, #RF(PC, 0)]
 
-	b __iret
+	b	__iret
 
 
 kernel_prefetch_abort_label: .string "Kernel prefetch abort"

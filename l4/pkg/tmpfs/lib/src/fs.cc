@@ -81,7 +81,10 @@ class Node : public cxx::Avl_tree_node
 public:
   Node(const char *path, mode_t mode)
     : _ref_cnt(0), _path(strdup(path))
-  { _info.st_mode = mode; }
+  {
+    memset(&_info, 0, sizeof(_info));
+    _info.st_mode = mode;
+  }
 
   const char *path() const { return _path; }
   struct stat64 *info() { return &_info; }
@@ -149,8 +152,7 @@ Ref_ptr<Node> Pers_dir::find_path(cxx::String path)
 
 int Pers_dir::add_node(Ref_ptr<Node> const &n)
 {
-  int e;
-  e = _tree.insert(n.ptr()).second;
+  int e = _tree.insert(n.ptr()).second;
   if (!e)
     n->add_ref();
   return e;
@@ -164,6 +166,8 @@ public:
   int get_entry(const char *, int, mode_t, Ref_ptr<File> *) throw();
   ssize_t getdents(char *, size_t) throw();
   int fstat64(struct stat64 *buf) const throw();
+  int utime(const struct utimbuf *) throw();
+  int fchmod(mode_t) throw();
   int mkdir(const char *, mode_t) throw();
   int unlink(const char *) throw();
   int rename(const char *, const char *) throw();
@@ -188,6 +192,8 @@ public:
   off64_t lseek64(off64_t, int) throw();
   int fstat64(struct stat64 *buf) const throw();
   int ioctl(unsigned long, va_list) throw();
+  int utime(const struct utimbuf *) throw();
+  int fchmod(mode_t) throw();
 
 private:
   Ref_ptr<Pers_file> _file;
@@ -259,7 +265,20 @@ Tmpfs_file::ioctl(unsigned long v, va_list args) throw()
   return -EINVAL;
 }
 
+int
+Tmpfs_file::utime(const struct utimbuf *times) throw()
+{
+  _file->info()->st_atime = times->actime;
+  _file->info()->st_mtime = times->modtime;
+  return 0;
+}
 
+int
+Tmpfs_file::fchmod(mode_t m) throw()
+{
+  _file->info()->st_mode = m;
+  return 0;
+}
 
 
 int
@@ -354,6 +373,21 @@ Tmpfs_dir::fstat64(struct stat64 *buf) const throw()
 }
 
 int
+Tmpfs_dir::utime(const struct utimbuf *times) throw()
+{
+  _dir->info()->st_atime = times->actime;
+  _dir->info()->st_mtime = times->modtime;
+  return 0;
+}
+
+int
+Tmpfs_dir::fchmod(mode_t m) throw()
+{
+  _dir->info()->st_mode = m;
+  return 0;
+}
+
+int
 Tmpfs_dir::walk_path(cxx::String const &_s,
                      Ref_ptr<Node> *ret, cxx::String *remaining)
 {
@@ -424,7 +458,13 @@ Tmpfs_dir::mkdir(const char *name, mode_t mode) throw()
 int
 Tmpfs_dir::unlink(const char *name) throw()
 {
-  printf("Unimplemented: %s(%s)\n", __func__, name); 
+  cxx::Ref_ptr<Node> n;
+
+  int e = walk_path(name, &n);
+  if (e < 0)
+    return -ENOENT;
+
+  printf("Unimplemented (if file exists): %s(%s)\n", __func__, name); 
   return -ENOMEM;
 }
 

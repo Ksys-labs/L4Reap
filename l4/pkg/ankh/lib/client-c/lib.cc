@@ -1,4 +1,3 @@
-#include <l4/log/log.h>
 #include <l4/re/env>
 #include <l4/re/namespace>
 #include <l4/re/util/cap_alloc>

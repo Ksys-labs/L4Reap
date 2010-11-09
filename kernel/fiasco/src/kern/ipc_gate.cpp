@@ -4,7 +4,7 @@ INTERFACE:
 #include "kobject_helper.h"
 #include "ref_ptr.h"
 #include "slab_cache_anon.h"
-#include "thread.h"
+#include "thread_object.h"
 
 class Ram_quota;
 
@@ -201,7 +201,7 @@ Ipc_gate_ctl::bind_thread(L4_obj_ref, Mword, Syscall_frame *f, Utcb const *in, U
   register Space *const c_space = c_thread->space();
   register Obj_space *const o_space = c_space->obj_space();
   unsigned char t_rights = 0;
-  Thread *t = Kobject::dcast<Thread*>(o_space->lookup_local(bind_thread.obj_index(), &t_rights));
+  Thread *t = Kobject::dcast<Thread_object*>(o_space->lookup_local(bind_thread.obj_index(), &t_rights));
 
   if (!(t_rights & L4_fpage::CS))
     return commit_result(-L4_err::EPerm);
@@ -335,7 +335,7 @@ Ipc_gate::invoke(L4_obj_ref /*self*/, Mword rights, Syscall_frame *f, Utcb *utcb
   LOG_TRACE("IPC Gate invoke", "gate", current(), __fmt_ipc_gate_invoke,
       Log_ipc_gate_invoke *l = tbe->payload<Log_ipc_gate_invoke>();
       l->gate_dbg_id = dbg_info()->dbg_id();
-      l->thread_dbg_id = _thread->dbg_id();
+      l->thread_dbg_id = _thread->dbg_info()->dbg_id();
       l->label = _id | rights;
   );
 

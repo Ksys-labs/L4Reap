@@ -33,7 +33,7 @@ UCLIBC_ARCH_arm	  := arm
 UCLIBC_ARCH_amd64 := x86_64
 UCLIBC_ARCH_ppc32 := powerpc
 UCLIBC_ARCH       := $(UCLIBC_ARCH_$(ARCH))
-DIRS		:= libc/stdio libc/stdlib libc/stdlib/malloc libc/string \
+DIRS		:= libc/stdio libc/stdlib libc/stdlib/malloc-standard libc/string \
 		   libc/string/$(UCLIBC_ARCH) libc/string/generic \
 		   libc/inet libc/misc libc/misc/assert libc/misc/ctype \
 		   libc/misc/dirent libc/misc/error libc/misc/internals \
@@ -126,6 +126,7 @@ PRIVATE_INCDIR_ARCH-all/libc/misc/search/twalk.s.o      = $(SRC_DIR)/../contrib/
 
 ifneq ($(L4API),)
 DEFINES		    += -DL4_THREAD_SAFE
+TARGET              := r/libuc_c.a r/libuc_c.so
 LDFLAGS_r/libuc_c.so := $(LDFLAGS_libuc_c.so)
 SRC_C_r/libuc_c.a   := $(SRC_C_libuc_c.a)
 SRC_C_r/libuc_c.so  := $(SRC_C_libuc_c.so) libpthread/src/forward.c

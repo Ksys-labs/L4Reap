@@ -10,10 +10,12 @@ IMPLEMENTATION:
 #include "jdb_screen.h"
 #include "jdb_kobject.h"
 #include "kernel_console.h"
+#include "kernel_task.h"
 #include "keycodes.h"
 #include "ram_quota.h"
 #include "simpleio.h"
 #include "task.h"
+#include "thread_object.h"
 #include "static_init.h"
 
 class Jdb_space : public Jdb_module, public Jdb_kobject_handler
@@ -138,7 +140,7 @@ static
 bool
 filter_task_thread(Kobject const *o)
 {
-  return Kobject::dcast<Task const *>(o) || Kobject::dcast<Thread const *>(o);
+  return Kobject::dcast<Task const *>(o) || Kobject::dcast<Thread_object const *>(o);
 }
 static Jdb_space jdb_space INIT_PRIORITY(JDB_MODULE_INIT_PRIO);
 static Jdb_kobject_list::Mode INIT_PRIORITY(JDB_MODULE_INIT_PRIO) tnt("[Tasks + Threads]", filter_task_thread);

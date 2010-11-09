@@ -1,8 +1,8 @@
 IMPLEMENTATION[ia32 || ux]:
 
-PRIVATE inline
+PROTECTED inline
 void FIASCO_NORETURN
-Thread::fast_return_to_user(Mword ip, Mword sp, bool = true)
+Thread::fast_return_to_user(Mword ip, Mword sp)
 {
   assert_kdb(cpu_lock.test());
   assert_kdb(current() == this);
@@ -28,7 +28,7 @@ void
 Thread::user_sp(Mword sp)
 { regs()->sp(sp); }
 
-PRIVATE inline
+PROTECTED inline
 int
 Thread::do_trigger_exception(Entry_frame *r, void *ret_handler)
 {
@@ -61,22 +61,6 @@ Thread::restore_exc_state()
 #endif
 }
 
-IMPLEMENTATION[(ia32 || ux) && segments]:
-
-PRIVATE static inline
-void
-Thread::copy_utcb_to_ts_reset_segments(Thread *rcv)
-{ rcv->_gs = rcv->_fs = 0; }
-
-IMPLEMENTATION[(ia32 || ux) && !segments]:
-
-PRIVATE static inline
-void
-Thread::copy_utcb_to_ts_reset_segments(Thread *)
-{}
-
-IMPLEMENTATION[ia32 || ux]:
-
 PRIVATE static inline
 Return_frame *
 Thread::trap_state_to_rf(Trap_state *ts)
@@ -85,8 +69,7 @@ Thread::trap_state_to_rf(Trap_state *ts)
   return reinterpret_cast<Return_frame*>(im)-1;
 }
 
-PRIVATE static inline NEEDS[Thread::copy_utcb_to_ts_reset_segments,
-                            Thread::trap_is_privileged,
+PRIVATE static inline NEEDS[Thread::trap_is_privileged,
 			    Thread::trap_state_to_rf]
 bool FIASCO_WARN_RESULT
 Thread::copy_utcb_to_ts(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
@@ -114,7 +97,8 @@ Thread::copy_utcb_to_ts(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
   else
     Mem::memcpy_mwords (&ts->_gs, snd_utcb->values, s > 16 ? 16 : s);
 
-  copy_utcb_to_ts_reset_segments(rcv);
+  // reset segments
+  rcv->_gs = rcv->_fs = 0;
 
   if (tag.transfer_fpu() && (rights & L4_fpage::W))
     snd->transfer_fpu(rcv);
@@ -168,7 +152,7 @@ IMPLEMENTATION [ia32 && !ux]:
 IMPLEMENT inline NEEDS[Thread::exception_triggered]
 void
 Thread::user_ip(Mword ip)
-{ 
+{
   if (exception_triggered())
     _exc_cont.ip(ip);
   else
@@ -268,12 +252,12 @@ Thread::user_invoke()
 }
 
 //---------------------------------------------------------------------------
-IMPLEMENTATION [ia32 & segments]:
+IMPLEMENTATION [ia32]:
 
 #include <feature.h>
 KIP_KERNEL_FEATURE("segments");
 
-PRIVATE inline
+PROTECTED inline
 bool
 Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
 {
@@ -312,17 +296,6 @@ Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
     default:
       return false;
     };
-}
-
-//---------------------------------------------------------------------------
-IMPLEMENTATION [ia32 && !segments]:
-
-PRIVATE inline
-bool
-Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
-{
-  (void)tag; (void)utcb;
-  return false; // not our business
 }
 
 //---------------------------------------------------------------------------

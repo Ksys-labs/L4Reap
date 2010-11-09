@@ -42,7 +42,7 @@ public:
 // ----------------------------------------------------------------------------
 IMPLEMENTATION:
 
-#include "thread.h"
+#include "thread_object.h"
 #include "l4_buf_iter.h"
 #include "entry_frame.h"
 
@@ -101,7 +101,7 @@ Scheduler::sys_run(unsigned char /*rights*/, Syscall_frame *f, Utcb const *utcb)
   if (EXPECT_FALSE(!_thread.is_objpage()))
     return commit_result(-L4_err::EInval);
 
-  Thread *thread = Kobject::dcast<Thread*>(s->lookup_local(_thread.obj_index()));
+  Thread *thread = Kobject::dcast<Thread_object*>(s->lookup_local(_thread.obj_index()));
   if (!thread)
     return commit_result(-L4_err::EInval);
 

@@ -27,7 +27,7 @@
 namespace L4Re { namespace Core {
 
 
-Simple_store<Ro_file> Ro_file::store;
+Simple_store<Ro_file> Ro_file::store __attribute__((init_priority(1000)));
 
 
 void *

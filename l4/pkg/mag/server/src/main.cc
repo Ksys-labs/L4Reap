@@ -101,7 +101,7 @@ public:
 static void
 poll_input(Core_api *core)
 {
-  for (Input_driver *i = core->input_drivers(); i; i = i->next_active())
+  for (Input_source *i = core->input_sources(); i; i = i->next())
       i->poll_events();
 }
 
@@ -241,8 +241,17 @@ int run(int argc, char const *argv[])
   View *cursor = f->create_cursor(big_mouse);
   Background bg(screen->size());
 
-  static User_state user_state(screen, cursor, &bg);
-  static Core_api core_api(&registry, &user_state, rcv_cap);
+  L4Re::Video::View *screen_view = 0;
+
+    {
+      L4Re::Video::Goos::Info i;
+      goos_fb.goos()->info(&i);
+      if (!i.auto_refresh())
+	screen_view = goos_fb.view();
+    }
+  
+  static User_state user_state(screen, screen_view, cursor, &bg);
+  static Core_api core_api(&registry, &user_state, rcv_cap, fb);
 
   Plugin_manager::start_plugins(&core_api);
 
@@ -263,15 +272,18 @@ int main(int argc, char const *argv[])
     {
       return run(argc, argv);
     }
+  catch (L4::Runtime_error const &e)
+    {
+      L4::cerr << "Error: " << e << '\n';
+    }
   catch (L4::Base_exception const &e)
     {
       L4::cerr << "Error: " << e << '\n';
-      return -1;
     }
   catch (std::exception const &e)
     {
       L4::cerr << "Error: " << e.what() << '\n';
     }
 
-  return 0;
+  return -1;
 }

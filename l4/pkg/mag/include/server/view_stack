@@ -9,8 +9,11 @@
  */
 #pragma once
 
+#include <l4/re/video/view>
+
 #include <l4/mag-gfx/canvas>
 #include <l4/mag/server/view>
+
 #include <assert.h>
 
 namespace Mag_server {
@@ -34,6 +37,8 @@ private:
 
   Mode _mode;
   View *_focused;
+
+  L4Re::Video::View *_canvas_view;
 
 
   Dummy_view _no_stay_top_v;
@@ -64,9 +69,9 @@ private:
   }
 
 public:
-  explicit View_stack(Canvas *canvas, View *bg)
+  explicit View_stack(Canvas *canvas, L4Re::Video::View *canvas_view, View *bg)
   : _canvas(canvas), _no_stay_top(&_no_stay_top_v),  _top(bg),
-    _background(bg), _focused(bg)
+    _background(bg), _focused(bg), _canvas_view(canvas_view)
   {
     bg->_pn = &_top;
     insert_before(_no_stay_top, _top);

@@ -79,8 +79,8 @@ SDL_Surface *L4FB_SetVideoMode(_THIS, SDL_Surface *current, int width, int heigh
 	/* Set up the new mode framebuffer */
 	current->w = width;
 	current->h = height;
-	current->pitch = current->w * (bpp / 8);
-	this->hidden->pitch =  current->w * (bpp / 8);
+	current->pitch = SDL_CalculatePitch(current);
+	this->hidden->pitch =  current->pitch;
 	current->flags =  SDL_PREALLOC | SDL_ASYNCBLIT;
 
 

@@ -51,3 +51,26 @@ module libc_be_l4re.so
 module r/libsupc++.so
 module r/libuc_c.so
 
+entry L4linux ARM
+roottask moe rom/l4lx.cfg
+module l4re
+module ned
+module l4lx.cfg
+module io
+module arm-rv.io
+module vmlinuz.arm
+module ramdisk-arm.rd
+
+entry L4Linux-mag-x86
+roottask moe rom/l4lx-gfx.cfg
+module l4re
+module ned
+module l4lx-gfx.cfg
+module io
+module fb-drv
+module mag
+module x86-legacy.devs
+module l4lx-x86.io
+module vmlinuz
+module ramdisk-x86.rd
+

@@ -256,7 +256,7 @@ Thread::handle_page_fault_pager(Thread_ptr const &_pager,
   Pf_msg_utcb_saver saved_utcb_fields(utcb);
 
 
-  utcb->buf_desc = L4_buf_desc(0,0,0,0,L4_buf_desc::Inherit_fpu);
+  utcb->buf_desc = L4_buf_desc(0, 0, 0, L4_buf_desc::Inherit_fpu);
   utcb->buffers[0] = L4_msg_item::map(0).raw();
   utcb->buffers[1] = L4_fpage::all_spaces().raw();
 
@@ -873,7 +873,7 @@ Thread::exception(Kobject_iface *handler, Trap_state *ts, Mword rights)
   Utcb *utcb = access_utcb();
   Buf_utcb_saver saved_state(utcb);
 
-  utcb->buf_desc = L4_buf_desc(0,0,0,0,L4_buf_desc::Inherit_fpu);
+  utcb->buf_desc = L4_buf_desc(0, 0, 0, L4_buf_desc::Inherit_fpu);
   utcb->buffers[0] = L4_msg_item::map(0).raw();
   utcb->buffers[1] = L4_fpage::all_spaces().raw();
 

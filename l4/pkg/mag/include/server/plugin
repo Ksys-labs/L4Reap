@@ -10,33 +10,57 @@
 #pragma once
 
 #include <l4/mag/server/object>
+#include <l4/re/video/goos>
 
 namespace Mag_server {
 
 class User_state;
-class Input_driver;
+class Core_api;
+
+class Input_source
+{
+private:
+  friend class Core_api;
+  Input_source *_next_active;
+
+protected:
+  Core_api *_core;
+
+public:
+  explicit Input_source(Core_api *core = 0) : _core(core) {}
+  virtual void poll_events() = 0;
+  Input_source *next() const { return _next_active; }
+};
 
 class Core_api
 {
 private:
-  Input_driver *_input;
+  Input_source *_input;
   Registry *_reg;
   User_state *_ust;
   L4::Cap<void> _rcv_cap;
+  L4::Cap<L4Re::Video::Goos> _fb;
 
   // not instanziatable
   Core_api(Core_api const &);
   void operator = (Core_api const &);
 
 public:
-  Core_api(Registry *r, User_state *u, L4::Cap<void> rcvc)
-  : _reg(r), _ust(u), _rcv_cap(rcvc)
+  Core_api(Registry *r, User_state *u, L4::Cap<void> rcvc,
+           L4::Cap<L4Re::Video::Goos> fb)
+  : _reg(r), _ust(u), _rcv_cap(rcvc), _fb(fb)
   {}
 
   Registry *registry() const { return _reg; }
   User_state *user_state() const { return _ust; }
-  Input_driver *input_drivers() const { return _input; }
-  void add_input_driver(Input_driver *i) { _input = i; }
+  Input_source *input_sources() const { return _input; }
+  L4::Cap<L4Re::Video::Goos> backend_fb() const { return _fb; }
+  void add_input_source(Input_source *i)
+  {
+    i->_next_active = _input;
+    _input = i;
+  }
+
   L4::Cap<void> rcv_cap() const { return _rcv_cap; }
 };
 

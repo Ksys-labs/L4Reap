@@ -13,6 +13,8 @@
 
 namespace {
 using Mag_server::Input_driver;
+using Mag_server::Input_source;
+using Mag_server::Core_api;
 using Mag_server::User_state;
 using Mag_server::Motion_fwd;
 
@@ -24,16 +26,17 @@ struct Emit
   { u->handle_event(e); }
 };
 
-class Input_driver_libinput : public Input_driver
+class Input_driver_libinput : public Input_driver, public Input_source
 {
 public:
   Input_driver_libinput() : Input_driver("libinput") {}
-  int probe()
+  void start(Core_api *core)
   {
     if (l4input_init(0xff, 0) == 0)
-      return 0;
-
-    return 1;
+      {
+	_core = core;
+	core->add_input_source(this);
+      }
   }
 
   void poll_events()

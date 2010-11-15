@@ -164,9 +164,6 @@ View_stack::draw_recursive(View const *v, View const *dst, Rect const &rect) con
     draw_recursive(n, dst, border.b);
 }
 
-void flush();
-
-
 void
 View_stack::refresh_view(View const *v, View const *dst, Rect const &rect) const
 {
@@ -183,7 +180,11 @@ void
 View_stack::flush()
 {
   for (Redraw_queue::iterator i = rdq.begin(); i != rdq.end(); ++i)
-    draw_recursive(top(), 0, *i);
+    {
+      draw_recursive(top(), 0, *i);
+      if (_canvas_view)
+	_canvas_view->refresh(i->x1(), i->y1(), i->w(), i->h());
+    }
 
   rdq.clear();
 }

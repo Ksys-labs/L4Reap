@@ -10,7 +10,6 @@
 #pragma once
 
 #include <l4/re/util/video/goos_svr>
-#include <l4/re/util/cap_alloc>
 #include <l4/re/util/object_registry>
 #include <l4/re/util/dataspace_svr>
 

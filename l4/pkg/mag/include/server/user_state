@@ -12,6 +12,7 @@
 #include <l4/mag-gfx/geometry>
 #include <l4/mag/server/view_stack>
 
+#include <l4/re/video/view>
 #include <l4/re/event>
 
 namespace Mag_server {
@@ -30,8 +31,9 @@ private:
   int _pressed_keys;
 
 public:
-  User_state(Canvas *screen, View *cursor, View *bg)
-  : _vstack(screen, bg), _mouse_pos(0,0),
+  User_state(Canvas *screen, L4Re::Video::View *screen_view,
+             View *cursor, View *bg)
+  : _vstack(screen, screen_view, bg), _mouse_pos(0,0),
     _mouse_cursor(cursor), _pointed_view(0), _next_mouse_pos(0,0),
     _pressed_keys(0)
   {

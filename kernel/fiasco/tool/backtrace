@@ -26,6 +26,7 @@ if (!defined $img)
 }
 
 my $nm = 'nm';
+$nm = "$ENV{'SYSTEM_TARGET'}$nm" if defined $ENV{"SYSTEM_TARGET"};
 $nm = 'arm-softfloat-elf-nm' if !(system("file -L $img | grep -qw ARM") >> 8);
 
 foreach my $l (split('\n', qx{$nm $img | c++filt}))

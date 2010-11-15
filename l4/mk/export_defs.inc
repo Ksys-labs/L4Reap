@@ -21,6 +21,8 @@ MODE = static
 ifneq ($(SYSTEM),)
 
 L4_SYSTEM                    = $(ARCH)_$(CPU)
+L4_CC                        = $(CC)
+L4_CXX                       = $(CXX)
 L4_CRT0_STATIC               = $(CRT0)
 L4_CRTN_STATIC               = $(CRTN)
 L4_LDFLAGS_LD                = $(filter-out -l%,$(BID_LDFLAGS_FOR_LINKING_LD))
@@ -66,6 +68,8 @@ all::
 	@echo ""                                                               >> $(L4DEF_FILE_SH)
 	@:
 	@$(call do_output_all,L4_SYSTEM)
+	@$(call do_output_all,L4_CC)
+	@$(call do_output_all,L4_CXX)
 	@$(call do_output_all,L4_CRT0_STATIC)
 	@$(call do_output_all,L4_CRTN_STATIC)
 	@$(call do_output_all,L4_LDFLAGS_LD)

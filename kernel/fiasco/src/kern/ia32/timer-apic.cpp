@@ -73,10 +73,10 @@ Timer::update_one_shot(Unsigned64 wakeup)
   else
     {
       Unsigned64 delta = wakeup - now;
-      if (delta < 1000)
-	apic = Apic::us_to_apic(1000);
-      else if (delta > 10000)
-	apic = Apic::us_to_apic(10000);
+      if (delta < Config::One_shot_min_interval_us)
+	apic = Apic::us_to_apic(Config::One_shot_min_interval_us);
+      else if (delta > Config::One_shot_max_interval_us)
+	apic = Apic::us_to_apic(Config::One_shot_max_interval_us);
       else
         apic = Apic::us_to_apic(delta);
 

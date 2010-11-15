@@ -29,9 +29,10 @@
 qemu: MODULE_SEARCH_PATH += /path/to/fiasco-build
 
 # Optional options for QEMU, but setting '-serial stdio' is recommended
-#QEMU_OPTIONS      = -serial stdio -nographic ...
-#QEMU_OPTIONS-arm += -M realview-eb 256
-#QEMU_OPTIONS      = $(QEMU_OPTIONS-$(ARCH))
+QEMU_OPTIONS       = -serial stdio
+#QEMU_OPTIONS      = -nographic
+#QEMU_OPTIONS-arm += -M realview-eb -m 256
+QEMU_OPTIONS      += $(QEMU_OPTIONS-$(ARCH))
 
 # The path to the QEMU binary - optional
 #QEMU_PATH-x86   = /path/to/qemu

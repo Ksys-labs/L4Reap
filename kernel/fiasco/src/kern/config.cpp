@@ -86,6 +86,10 @@ public:
 
   enum {
     Kip_syscalls = 1,
+
+    One_shot_min_interval_us =   200,
+    One_shot_max_interval_us = 10000,
+
 #ifdef CONFIG_ASSEMBLER_IPC_SHORTCUT
     Assembler_ipc_shortcut = 1,
 #else

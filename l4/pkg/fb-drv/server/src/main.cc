@@ -8,12 +8,11 @@
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
  */
-#include <l4/re/env>
-#include <l4/re/error_helper>
-#include <l4/re/namespace>
-#include <l4/re/util/cap_alloc>
+
+#include <l4/sys/capability>
+#include <l4/sys/typeinfo_svr>
 #include <l4/cxx/ipc_server>
-#include <l4/cxx/l4iostream>
+
 #include <cstdio>
 #include <getopt.h>
 #include <cstdlib>
@@ -74,6 +73,8 @@ Phys_fb::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
   ios >> tag;
   switch (tag.label())
     {
+    case L4::Meta::Protocol:
+      return L4::Util::handle_meta_request<L4Re::Video::Goos>(ios);
     case L4Re::Protocol::Goos:
       return L4Re::Util::Video::Goos_svr::dispatch(obj, ios);
     case L4Re::Protocol::Dataspace:
@@ -114,7 +115,7 @@ Prog_args::Prog_args(int argc, char *argv[])
         default:
           printf("Unknown option '%c'\n", c);
           break;
-        };
+        }
     }
 }
 
@@ -152,7 +153,7 @@ int main(int argc, char *argv[])
 
   if (!fb->obj_cap().is_valid())
     {
-      printf("Failed to register in namespace, maybe ro?\n");
+      printf("Failed to connect.\n");
       return 1;
     }
 

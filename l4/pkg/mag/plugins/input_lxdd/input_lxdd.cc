@@ -53,7 +53,7 @@ struct Emit
   { u->handle_event(e); }
 };
 
-class Input_driver_lxproxy : public Input_driver
+class Input_driver_lxproxy : public Input_driver, public Input_source
 {
 private:
   Auto_cap<L4Re::Dataspace>::Cap _ev_ds;
@@ -65,7 +65,7 @@ private:
 public:
 
   Input_driver_lxproxy() : Input_driver("L4Linux Proxy") {}
-  int probe()
+  void start(Core_api *core)
   {
     try
       {
@@ -81,14 +81,14 @@ public:
 	      _ev_ds.get(), 0, L4_PAGESHIFT));
 
 	_ev = L4Re::Event_buffer(_ev_ds_m.get(), _ev_ds->size());
+	_core = core;
+	core->add_input_source(this);
 	printf("LXDD: buffer @%p\n", _ev_ds_m.get());
-	return 0;
       }
     catch (...)
       {
 	printf("could not find linux proxy input\n");
       }
-    return 1;
   }
 
   void poll_events()

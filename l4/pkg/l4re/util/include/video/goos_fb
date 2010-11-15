@@ -60,6 +60,9 @@ public:
   int view_info(L4Re::Video::View::Info *info)
   { return _view.info(info); }
 
+  L4Re::Video::View const *view() const { return &_view; }
+  L4Re::Video::View *view() { return &_view; }
+
   L4::Cap<L4Re::Dataspace> buffer() const { return _buffer; }
   void *attach_buffer();
 

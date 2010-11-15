@@ -147,32 +147,12 @@ public:
 
 class Input_driver : public Plugin
 {
-protected:
-  Core_api *_core;
-
-private:
-  Input_driver *_next_active;
-
 public:
   explicit Input_driver(char const *name)
-  : Plugin(name), _core(0), _next_active(0)
+  : Plugin(name)
   {}
 
   char const *type() const { return "input-driver"; }
-  Input_driver *next_active() const { return _next_active; }
-  virtual void poll_events() = 0;
-  virtual int probe() = 0;
-
-  void start(Core_api *core)
-  {
-    _core = core;
-    if (probe() == 0)
-      {
-	_next_active = core->input_drivers();
-	core->add_input_driver(this);
-      }
-  }
-
   virtual ~Input_driver() {}
 };
 

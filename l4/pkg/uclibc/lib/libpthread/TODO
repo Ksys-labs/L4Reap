@@ -1,5 +1,0 @@
-* Add support for time quanta and periodic threads
-* Fix detached threads / cancelation
-* support for shared libc and shared libpthread
-
-

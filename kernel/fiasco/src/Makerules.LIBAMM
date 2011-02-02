@@ -1,7 +1,0 @@
-# -*- makefile -*-
-
-$(LIBAMM): $(OBJ_LIBAMM)
-	$(AR_MESSAGE)
-	$(VERBOSE)$(RM) $@
-	$(VERBOSE)$(AR) $(ARFLAGS) $@ $^
-

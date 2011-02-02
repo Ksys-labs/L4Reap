@@ -4,11 +4,11 @@ EXTENSION class Utcb_init
 {
 public:
   /**
-   * Value for GS.
-   * @return Value the GS register has to be loaded with when entering user
-   *         mode.
+   * Value for GS and FS.
+   * @return Value the GS and FS register has to be loaded with when
+   *         entering user mode.
    */
-  static Unsigned32 gs_value();
+  static Unsigned32 utcb_segment();
 };
 
 
@@ -22,7 +22,7 @@ IMPLEMENTATION [ux]:
 
 IMPLEMENT static inline
 Unsigned32
-Utcb_init::gs_value()
+Utcb_init::utcb_segment()
 { return 7; }	// RPL=3, TI=LDT, Index=0
 
 IMPLEMENT

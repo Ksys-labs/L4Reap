@@ -27,7 +27,7 @@
 #include <l4/input/libinput.h>
 #include <l4/re/c/util/cap_alloc.h>
 #include <l4/re/env.h>
-
+#include <linux/kernel.h>
 #include <pthread.h>
 
 /* C */
@@ -222,8 +222,6 @@ static int tpad_event(struct input_dev *dev, struct l4evdev *mousedev,
 			}
 		}
 
-		/* ignore this event */
-		return 1;
 		break;
 
 
@@ -288,13 +286,12 @@ static inline int filter_event(struct input_handle *handle, unsigned int type,
                                unsigned int code, int value)
 {
 	/* filter sound driver events */
-	if (test_bit(EV_SND, handle->dev->evbit)) return 1;
-
-	/* filter sync events */
-	if ((type == EV_SYN)) return 1;
+	if (test_bit(EV_SND, handle->dev->evbit))
+          return 1;
 
 	/* filter misc event: scancode -- no handlers yet */
-	if ((type == EV_MSC) && (code == MSC_SCAN)) return 1;
+	if ((type == EV_MSC) && (code == MSC_SCAN))
+          return 1;
 
 	/* accepted */
 	return 0;
@@ -312,10 +309,12 @@ static void l4evdev_event_cb(struct input_handle *handle, unsigned int type,
 #endif
 	static struct l4input ev;
 
+#if 0
 	/* handle touchpads */
 	if (tpad_event(handle->dev, (struct l4evdev *)handle->private,
 	               &type, &code, &value))
 		return;
+#endif
 
 	/* event filter */
 	if (filter_event(handle, type, code, value)) return;
@@ -324,6 +323,7 @@ static void l4evdev_event_cb(struct input_handle *handle, unsigned int type,
 	ev.type = type;
 	ev.code = code;
 	ev.value = value;
+	ev.stream_id = (l4_umword_t)handle->dev;
 
 	/* call back */
 	callback(&ev);
@@ -344,10 +344,12 @@ static void l4evdev_event(struct input_handle *handle, unsigned int type,
 	struct l4evdev *evdev = handle->private;
 	l4_kernel_clock_t clk = l4re_kip()->clock;
 
+#if 0
 	/* handle touchpads */
 	if (tpad_event(handle->dev, (struct l4evdev *)handle->private,
 	               &type, &code, &value))
 		return;
+#endif
 
 	/* event filter */
 	if (filter_event(handle, type, code, value)) return;
@@ -355,11 +357,11 @@ static void l4evdev_event(struct input_handle *handle, unsigned int type,
         pthread_mutex_lock(&l4evdev_lock);
 
 	BUFFER[HEAD].evdev = evdev;
-
 	BUFFER[HEAD].l4event.time = clk;
 	BUFFER[HEAD].event.type = type;
 	BUFFER[HEAD].event.code = code;
 	BUFFER[HEAD].event.value = value;
+	BUFFER[HEAD].l4event.stream_id = (l4_umword_t)handle->dev;
 
 	INC(HEAD);
 
@@ -470,6 +472,7 @@ static int l4evdev_flush(void *buf, int count)
 	        buffer->type = BUFFER[TAIL].event.type;
 		buffer->code = BUFFER[TAIL].event.code;
 		buffer->value = BUFFER[TAIL].event.value;
+		buffer->stream_id = BUFFER[TAIL].l4event.stream_id;
 
 		//memset(&BUFFER[TAIL], 0, sizeof(struct l4evdev_event));
 
@@ -481,6 +484,73 @@ static int l4evdev_flush(void *buf, int count)
 	pthread_mutex_unlock(&l4evdev_lock);
 
 	return num;
+}
+
+static void l4_input_fill_info(struct input_dev *dev, l4re_event_stream_info_t *info)
+{
+	info->stream_id = (l4_umword_t)dev;
+
+	info->id.bustype = dev->id.bustype;
+	info->id.vendor  = dev->id.vendor;
+	info->id.product = dev->id.product;
+	info->id.version = dev->id.version;
+#define COPY_BITS(n) memcpy(info->n ##s, dev->n, min(sizeof(info->n ##s), sizeof(dev->n)))
+
+	COPY_BITS(evbit);
+	COPY_BITS(keybit);
+	COPY_BITS(relbit);
+	COPY_BITS(absbit);
+#undef COPY_BITS
+}
+
+
+L4_CV int
+l4evdev_stream_info_for_id(l4_umword_t id, l4re_event_stream_info_t *si)
+{
+	unsigned devn;
+	for (devn = 0; devn < L4EVDEV_DEVICES; devn++) {
+		if (!DEVS[devn].exists)
+			continue;
+		if ((l4_umword_t)DEVS[devn].handle.dev == id) {
+			l4_input_fill_info(DEVS[devn].handle.dev, si);
+			return 0;
+		}
+	}
+
+	return -L4_EINVAL;
+}
+
+L4_CV int
+l4evdev_absinfo(l4_umword_t id, unsigned naxes, unsigned *axes,
+                l4re_event_absinfo_t *infos)
+{
+	unsigned devn, idx;
+	struct input_dev *dev;
+	for (devn = 0; devn < L4EVDEV_DEVICES; devn++) {
+		if (!DEVS[devn].exists)
+			continue;
+		if ((l4_umword_t)DEVS[devn].handle.dev == id) {
+			break;
+		}
+	}
+
+	if (devn == L4EVDEV_DEVICES)
+		return -L4_EINVAL;
+
+	dev = DEVS[devn].handle.dev;
+	for (idx = 0; idx < naxes; idx++) {
+		unsigned a = axes[idx];
+		if (a > ABS_MAX)
+			return -L4_EINVAL;
+
+		infos[idx].value = 0;
+		infos[idx].min = dev->absmin[a];
+		infos[idx].max = dev->absmax[a];
+		infos[idx].fuzz = dev->absfuzz[a];
+		infos[idx].flat = dev->absflat[a];
+		infos[idx].resolution = 0;
+	}
+	return 0;
 }
 
 static int l4evdev_pcspkr(int tone)

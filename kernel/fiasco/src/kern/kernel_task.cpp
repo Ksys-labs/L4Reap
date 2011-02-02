@@ -1,10 +1,10 @@
 INTERFACE:
 
-#include "space.h"
+#include "task.h"
 
 class Kernel_thread;
 
-class Kernel_task : public Space
+class Kernel_task : public Task
 {
   friend class Kernel_thread;
 };
@@ -17,13 +17,13 @@ IMPLEMENTATION[!(arm || ppc32)]:
 
 PRIVATE inline NEEDS["globals.h"]
 Kernel_task::Kernel_task()
-: Space(Space::Default_factory(), Ram_quota::root, Kmem::kdir)
+: Task(Space::Default_factory(), Ram_quota::root, Kmem::kdir)
 {}
 
 
 IMPLEMENTATION:
 
-PUBLIC static Space*
+PUBLIC static Task*
 Kernel_task::kernel_task()
 {
   static Kernel_task task;

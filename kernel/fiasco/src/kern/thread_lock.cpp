@@ -179,8 +179,7 @@ Thread_lock::clear()
   // Fortunately, it works anyway because contexts live in
   // type-stable memory.
   Lock::clear();
-  if (context()->is_tcb_mapped())
-    context()->set_donatee (lock_owner());	// (*)
+  context()->set_donatee(lock_owner());
 
   // We had locked ourselves, remain current
   if (context() == current())
@@ -229,8 +228,7 @@ Thread_lock::clear_dirty()
   if(test())
     {
       Lock::clear_dirty();
-      if (context()->is_tcb_mapped())
-        context()->set_donatee (lock_owner());       // (*)
+      context()->set_donatee(lock_owner());
     }
   else
     {
@@ -277,8 +275,7 @@ Thread_lock::clear_dirty_dont_switch()
     return;
 
   Lock::clear_dirty();
-  if (context()->is_tcb_mapped())
-    context()->set_donatee (lock_owner());   // (*)
+  context()->set_donatee(lock_owner());
 
   assert(cpu_lock.test());
 }

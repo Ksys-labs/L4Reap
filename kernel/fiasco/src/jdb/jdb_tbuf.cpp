@@ -31,7 +31,7 @@ protected:
   static Mword		_count_mask1;
   static Mword		_count_mask2;
   static Address        _size;		// size of memory area for tbuffer
-  static Spin_lock      _lock;
+  static Spin_lock<>    _lock;
 };
 
 #ifdef CONFIG_JDB_LOGGING
@@ -152,16 +152,16 @@ IMPLEMENTATION:
 #include "mem_layout.h"
 #include "std_macros.h"
 
-Tb_entry       *Jdb_tbuf::_tbuf_act;
-Tb_entry       *Jdb_tbuf::_tbuf_max;
-Mword           Jdb_tbuf::_entries;
-Mword           Jdb_tbuf::_max_entries;
-Mword           Jdb_tbuf::_filter_enabled;
-Mword           Jdb_tbuf::_number;
-Mword           Jdb_tbuf::_count_mask1;
-Mword           Jdb_tbuf::_count_mask2;
-Address         Jdb_tbuf::_size;
-Spin_lock       Jdb_tbuf::_lock;
+Tb_entry *Jdb_tbuf::_tbuf_act;
+Tb_entry *Jdb_tbuf::_tbuf_max;
+Mword Jdb_tbuf::_entries;
+Mword Jdb_tbuf::_max_entries;
+Mword Jdb_tbuf::_filter_enabled;
+Mword Jdb_tbuf::_number;
+Mword Jdb_tbuf::_count_mask1;
+Mword Jdb_tbuf::_count_mask2;
+Address Jdb_tbuf::_size;
+Spin_lock<> Jdb_tbuf::_lock;
 
 static void direct_log_dummy(Tb_entry*, const char*)
 {}
@@ -210,7 +210,7 @@ Jdb_tbuf::new_entry()
 {
   Tb_entry *tb;
   {
-    Lock_guard<Spin_lock> guard(&_lock);
+    Lock_guard<typeof(_lock)> guard(&_lock);
 
     tb = _tbuf_act;
 

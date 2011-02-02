@@ -47,8 +47,6 @@ IMPLEMENTATION:
 #include "thread.h"
 #include "thread_state.h"
 #include "timer.h"
-#include "vmem_alloc.h"
-
 
 
 PUBLIC
@@ -58,9 +56,7 @@ Kernel_thread::Kernel_thread() : Thread_object(Thread::Kernel)
 PUBLIC inline
 Mword *
 Kernel_thread::init_stack()
-{
-  return _kernel_sp;
-}
+{ return _kernel_sp; }
 
 // the kernel bootstrap routine
 IMPLEMENT FIASCO_INIT

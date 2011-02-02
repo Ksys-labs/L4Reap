@@ -82,11 +82,11 @@ Thread::dump_bats()
     printf("IBAT3 U:%08lx L:%08lx\n", batu, batl);
 }
 
-PROTECTED inline
+PUBLIC template<typename T> inline
 void FIASCO_NORETURN
-Thread::fast_return_to_user(Mword ip, Mword sp)
+Thread::fast_return_to_user(Mword ip, Mword sp, T arg)
 {
-  (void)ip; (void)sp;
+  (void)ip; (void)sp; (void)arg;
   // XXX: UNIMPLEMENTED
   panic("__builtin_trap()");
 }
@@ -104,12 +104,12 @@ Thread::user_invoke()
 
   /* DEBUGGING */
   Mword vsid, utcb;
-  
+
   asm volatile(" mfsr %0, 0 \n"
                " mr %1, %%r2\n"
                : "=r"(vsid), "=r"(utcb));
   printf("\n[%lx]leaving kernel ip %lx sp %lx vsid %lx\n",
-         current_thread()->dbg_info()->dbg_id(), r->ip(), r->sp(), vsid);
+         current_thread()->dbg_id(), r->ip(), r->sp(), vsid);
          printf("kernel_sp %p kip %p utcb %08lx\n", current_thread()->regs() + 1, kip, utcb);
 
   asm volatile ( " mtsprg1 %[kernel_sp]              \n" //correct kernel stack
@@ -157,7 +157,7 @@ extern "C" {
 		 " mfmsr   %4    \n"
 		 " mfsprg1 %5    \n"
 		 : "=r"(etype), "=r"(dar), "=r"(dsisr), "=r"(vsid), "=r"(msr), "=r"(ksp) : : "memory");
-    printf("\n\n[dbg_id: %lx] Exception: %lx\n", current_thread()->dbg_info()->dbg_id(), etype & ~0xff);
+    printf("\n\n[dbg_id: %lx] Exception: %lx\n", current_thread()->dbg_id(), etype & ~0xff);
     Entry_frame *e = current()->regs();
 
     e->Return_frame::dump();
@@ -241,8 +241,7 @@ IMPLEMENTATION [ppc32]:
  */
 IMPLEMENT
 Thread::Thread()
-  : Receiver (&_thread_lock),
-    Sender            (0),	// select optimized version of constructor
+  : Sender            (0),	// select optimized version of constructor
     _pager(Thread_ptr::Invalid),
     _exc_handler(Thread_ptr::Invalid),
     _del_observer(0)

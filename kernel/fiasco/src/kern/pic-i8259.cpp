@@ -252,7 +252,7 @@ Pic::pic_init(unsigned char master_base, unsigned char slave_base)
     }
   else
     {
-      printf ("%sUsing (normal) fully nested PIC mode\n",
+      printf("%sUsing (normal) fully nested PIC mode\n",
 	  Config::found_vmware ? "Found VMware: " : "");
 
       /* Initialize the master. */
@@ -283,7 +283,7 @@ Pic::pic_init(unsigned char master_base, unsigned char slave_base)
 
 IMPLEMENT inline NEEDS["io.h"]
 void
-Pic::disable_locked( unsigned irq )
+Pic::disable_locked(unsigned irq)
 {
   if (irq < 8)
     Io::out8(Io::in8(MASTER_OCW) | (1 << irq), MASTER_OCW);
@@ -306,7 +306,7 @@ Pic::enable_locked(unsigned irq, unsigned /*prio*/)
 
 IMPLEMENT inline NEEDS["io.h"]
 void
-Pic::acknowledge_locked( unsigned irq )
+Pic::acknowledge_locked(unsigned irq)
 {
   if (irq >= 8)
     {

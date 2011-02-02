@@ -22,21 +22,21 @@ resume_vm_vmx:
 	mov	(%rsp), %rsp
 
 	// load guest GP registers
-	pop	%rax
-	pop	%rsi
-	pop	%rdx
-	pop	%rcx
-	pop	%rdi
-	pop	%r8
-	pop	%r9
-	pop	%rbx
-	pop	%rbp
-	pop	%r10
-	pop	%r11
-	pop	%r12
-	pop	%r13
-	pop	%r14
-	pop	%r15
+	mov	  0(%rsp), %r15
+	mov	  8(%rsp), %r14
+	mov	 16(%rsp), %r13
+	mov	 24(%rsp), %r12
+	mov	 32(%rsp), %r11
+	mov	 40(%rsp), %r10
+	mov	 48(%rsp), %r9
+	mov	 56(%rsp), %r8
+	mov	 64(%rsp), %rdi
+	mov	 72(%rsp), %rsi
+	mov	 80(%rsp), %rbp
+	mov	 96(%rsp), %rbx
+	mov	104(%rsp), %rdx
+	mov	112(%rsp), %rcx
+	mov	120(%rsp), %rax
 
 	vmresume
 	jnz 1f
@@ -56,28 +56,25 @@ resume_vm_vmx:
 	ret
 
 vm_vmx_exit_vec:
-	push	%rdi
-	mov	8(%rsp), %rdi     // get previously saved register struct pointer
-
-	// save guest GP registers
-	mov	%rax,   0(%rdi)
-	mov	%rsi,   8(%rdi)
-	mov	%rdx,  16(%rdi)
-	mov	%rcx,  24(%rdi)
-	// rdi is saved below
-	mov	%r8,   40(%rdi)
-	mov	%r9,   48(%rdi)
-	mov	%rbx,  56(%rdi)
-	mov	%rbp,  64(%rdi)
-	mov	%r10,  72(%rdi)
-	mov	%r11,  80(%rdi)
-	mov	%r12,  88(%rdi)
-	mov	%r13,  96(%rdi)
-	mov	%r14, 104(%rdi)
-	mov	%r15, 112(%rdi)
-
-	pop	%rax               // pop previously pushed guest rdi
-	mov	%rax,  32(%rdi)
+	push	%rsi
+	mov	8(%rsp), %rsi     // get previously saved register struct pointer
+	mov	%r15,  0(%rsi)
+	mov	%r14,  8(%rsi)
+	mov	%r13, 16(%rsi)
+	mov	%r12, 24(%rsi)
+	mov	%r11, 32(%rsi)
+	mov	%r10, 40(%rsi)
+	mov	%r9,  48(%rsi)
+	mov	%r8,  56(%rsi)
+	mov	%rdi, 64(%rsi)
+	// skip rsi for now
+	mov	%rbp, 80(%rsi)
+	mov	%rbx, 96(%rsi)
+	mov	%rdx,104(%rsi)
+	mov	%rcx,112(%rsi)
+	mov	%rax,120(%rsi)
+	pop	%rcx
+	mov	%rcx, 72(%rsi)
 
 	add	$8, %rsp           // adjust stack after regs pointer push on stack
 

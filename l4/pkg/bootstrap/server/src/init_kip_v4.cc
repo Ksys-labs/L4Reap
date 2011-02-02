@@ -16,12 +16,13 @@
 #include "startup.h"
 #include "region.h"
 #include <l4/sys/kip>
+#include <l4/sys/l4int.h>
 
 using L4::Kip::Mem_desc;
 
 /* XXX not possible to include kip.h from L4Ka::Pistachio here */
 
-#if defined(ARCH_x86) || defined(ARCH_arm) || defined(ARCH_ppc32)
+#if L4_MWORD_BITS == 32
 #define V4KIP_SIGMA0_SP         0x20
 #define V4KIP_SIGMA0_IP         0x24
 #define V4KIP_SIGMA0_LOW        0x28
@@ -32,7 +33,7 @@ using L4::Kip::Mem_desc;
 #define V4KIP_ROOT_HIGH         0x4C
 #define V4KIP_MEM_INFO		0x54
 #define V4KIP_BOOT_INFO		0xB8
-#elif defined(ARCH_amd64)
+#elif L4_MWORD_BITS == 64
 #define V4KIP_SIGMA0_SP         0x40
 #define V4KIP_SIGMA0_IP         0x48
 #define V4KIP_SIGMA0_LOW        0x50

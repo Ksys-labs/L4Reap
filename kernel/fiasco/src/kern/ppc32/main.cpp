@@ -80,8 +80,8 @@ int main()
   // create kernel thread
   static Kernel_thread *kernel = new (Ram_quota::root) Kernel_thread;
   nil_thread = kernel;
-  Space *const ktask = Kernel_task::kernel_task();
-  check(kernel->bind(ktask, 0)); //ktask->kernel_thread_utcb(0)));
+  Task *const ktask = Kernel_task::kernel_task();
+  check(kernel->bind(ktask, User<Utcb>::Ptr(0)));
   //kdb_ke("init");
 
   // switch to stack of kernel thread and bootstrap the kernel

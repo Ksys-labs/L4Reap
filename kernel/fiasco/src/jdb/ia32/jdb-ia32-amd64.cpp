@@ -132,7 +132,6 @@ IMPLEMENTATION[ia32,amd64]:
 #include "thread_state.h"
 #include "timer.h"
 #include "trap_state.h"
-#include "virq.h"
 #include "vkey.h"
 #include "watchdog.h"
 
@@ -257,13 +256,15 @@ Jdb::save_disable_irqs(unsigned cpu)
 	{
 	  Watchdog::disable();
 	  pic_status = Pic::disable_all_save();
+          if (Config::getchar_does_hlt && Config::getchar_does_hlt_works_ok)
+            Timer::disable();
 	}
       if (Io_apic::active() && Apic::is_present())
 	{
 	  apic_tpr.cpu(cpu) = Apic::tpr();
 	  Apic::tpr(APIC_IRQ_BASE - 0x10);
 	}
-      
+
       if (cpu == 0 && Config::getchar_does_hlt && Config::getchar_does_hlt_works_ok)
 	{
 	  // set timer interrupt does nothing than wakeup from hlt
@@ -571,7 +572,7 @@ Jdb::guess_thread_state(Thread *t)
 	}
     }
 
-  if (state == s_unknown && (t->state() & Thread_ipc_mask))
+  if (state == s_unknown && (t->state(false) & Thread_ipc_mask))
     state = s_ipc;
 
   return state;

@@ -30,12 +30,14 @@ namespace Mag_server {
 using L4Re::chksys;
 using L4Re::chkcap;
 
+enum { Bar_height = 16 };
+
 Client_fb::Client_fb(Core_api const *core, Rect const &pos, Point const &offs,
                      Texture *fb, L4::Cap<L4Re::Dataspace> const &fb_ds)
-: View(pos, F_need_frame),
+: View(pos.offset(0, 0, 0, Bar_height), F_need_frame),
   Icu_svr(1, &_ev_irq),
   _core(core), _offs(offs), _fb(fb),
-  _bar_size(pos.w(), 16)
+  _bar_size(pos.w(), Bar_height)
 {
   using L4Re::Video::View;
   using L4Re::Video::Color_component;
@@ -72,16 +74,16 @@ Client_fb::Client_fb(Core_api const *core, Rect const &pos, Point const &offs,
 }
 
 void
-Client_fb::draw(Canvas *canvas, View_stack const *, Mode mode, bool focused) const
+Client_fb::draw(Canvas *canvas, View_stack const *, Mode mode) const
 {
   /* use dimming in x-ray mode */
   Canvas::Mix_mode op = mode.flat() ? Canvas::Solid : Canvas::Mixed;
 
   /* is this the currently focused view? */
-  Rgb32::Color frame_color = focused ? Rgb32::White : View::frame_color();
+  Rgb32::Color frame_color = focused() ? Rgb32::White : View::frame_color();
 
   /* do not dim the focused view in x-ray mode */
-  if (mode.xray() && !mode.kill() && focused)
+  if (mode.xray() && !mode.kill() && focused())
     op = Canvas::Solid;
 
   /*
@@ -121,7 +123,7 @@ Client_fb::handle_event(L4Re::Event_buffer::Event const &e,
 {
   static Point left_drag;
 
-  if (e.payload.type == L4RE_EV_MAX && left_drag != Point())
+  if (e.payload.type == L4RE_EV_ABS && e.payload.code == 1 && left_drag != Point())
     {
       Rect npos = Rect(p1() + mouse - left_drag, size());
       left_drag = mouse;
@@ -146,21 +148,27 @@ Client_fb::handle_event(L4Re::Event_buffer::Event const &e,
 	}
     }
 
-  if (e.payload.type == L4RE_EV_MAX)
+  if (e.payload.type == L4RE_EV_ABS && e.payload.code <= L4RE_ABS_Y)
     {
+      // wait for the following ABS_Y axis
+      if (e.payload.type == L4RE_ABS_X)
+	return;
+
       Rect r = (*this - Rect(p1(), _bar_size)).b;
       if (!r.contains(mouse))
 	return;
 
+      Point mp = p1() + Point(0, _bar_size.h());
+      mp = Point(_fb->size()).min(Point(0,0).max(mouse - mp));
       L4Re::Event_buffer::Event ne;
       ne.time = e.time;
       ne.payload.type = L4RE_EV_ABS;
       ne.payload.code = L4RE_ABS_X;
-      ne.payload.value = mouse.x() - p1().x();
-      ne.payload.stream_id = 0;
+      ne.payload.value = mp.x();
+      ne.payload.stream_id = e.payload.stream_id;
       _events.put(ne);
       ne.payload.code = L4RE_ABS_Y;
-      ne.payload.value = mouse.y() - p1().y() - _bar_size.h();
+      ne.payload.value = mp.y();
       _events.put(ne);
       _ev_irq.trigger();
       return;

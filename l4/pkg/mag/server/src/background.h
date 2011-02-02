@@ -21,7 +21,7 @@ class Background : public View
 {
 public:
   explicit Background(Area const &size) : View(Rect(Point(0,0), size)) {}
-  void draw(Canvas *c, View_stack const *, Mode, bool) const
+  void draw(Canvas *c, View_stack const *, Mode) const
   {
     Clip_guard g(c, *this);
     c->draw_box(*this, Rgb32::Color(25, 37, 50));

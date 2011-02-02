@@ -163,8 +163,6 @@ EXTENSION class Mem_space
 {
 public:
   enum { Need_xcpu_tlb_flush = 1 };
-private:
-  Cpu_mask _flush_tlb;
 };
 
 
@@ -291,7 +289,7 @@ bool Mem_space::is_sigma0 () const
 
 // Mapping utilities
 
-PUBLIC inline
+PUBLIC
 virtual bool
 Mem_space::v_fabricate(Vaddr address,
                        Phys_addr* phys, Size* size, unsigned* attribs = 0)
@@ -312,30 +310,3 @@ PUBLIC inline
 bool
 Mem_space::io_lookup (Address)
 { return false; }
-
-//---------------------------------------------------------------------------
-IMPLEMENTATION [mp]:
-
-PUBLIC inline
-bool
-Mem_space::need_tlb_flush()
-{
-  unsigned c = current_cpu();
-  bool x = _flush_tlb.get(c);
-  if (x)
-    _flush_tlb.atomic_get_and_clear(c);
-  return x;
-}
-
-//---------------------------------------------------------------------------
-IMPLEMENTATION [!mp]:
-PRIVATE inline
-bool
-Mem_space::need_tlb_flush()
-{ return false; }
-
-
-
-
-
-

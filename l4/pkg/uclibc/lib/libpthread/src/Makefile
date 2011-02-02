@@ -19,6 +19,7 @@ INCDIR-x86   = $(SRC_DIR)/sysdeps/i386/i686 $(SRC_DIR)/sysdeps/i386 \
 INCDIR-amd64 = $(SRC_DIR)/sysdeps/x86_64
 INCDIR-arm   = $(SRC_DIR)/sysdeps/arm
 INCDIR-ppc32 = $(SRC_DIR)/sysdeps/powerpc
+INCDIR-sparc = $(SRC_DIR)/sysdeps/sparc
 
 PRIVATE_INCDIR = $(SRC_DIR) $(INCDIR-$(ARCH))
 

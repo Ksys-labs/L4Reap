@@ -21,7 +21,7 @@ Thread::log_page_fault()
 void
 Thread::page_fault_log(Address pfa, unsigned error_code, unsigned long eip)
 {
-  if (Jdb_pf_trace::check_restriction(current_thread()->dbg_info()->dbg_id(), pfa))
+  if (Jdb_pf_trace::check_restriction(current_thread()->dbg_id(), pfa))
     {
       Lock_guard <Cpu_lock> guard (&cpu_lock);
 

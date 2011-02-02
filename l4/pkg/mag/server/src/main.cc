@@ -22,9 +22,15 @@
 #include <l4/re/video/goos>
 #include <l4/re/util/video/goos_fb>
 
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
+
 #include <cassert>
 #include <cstdio>
 #include <cstring>
+
+#include <unistd.h>
 
 #include "background.h"
 #include "big_mouse.h"
@@ -38,6 +44,8 @@
 using namespace Mag_server;
 
 static Core_api *_core_api;
+extern char const _binary_mag_lua_start[];
+extern char const _binary_mag_lua_end[];
 
 namespace Mag_server {
 
@@ -164,7 +172,29 @@ static void test_texture(Texture *t)
 }
 #endif
 
-int load_plugin(Core_api *core_api, char const *name)
+int load_lua_plugin(Core_api *core_api, char const *name)
+{
+  char const *n = name;
+
+  if (access(n, F_OK) != 0)
+    return 1;
+
+  printf("loading '%s'\n", n);
+
+  lua_State *_l = core_api->lua_state();
+  int err = luaL_dofile(_l, n);
+  if (err)
+    {
+      printf("ERROR: loading '%s': %s\n", n, lua_tostring(_l, -1));
+      lua_pop(_l, lua_gettop(_l));
+      return -1;
+    }
+
+  lua_pop(_l, lua_gettop(_l));
+  return 0;
+}
+
+int load_so_plugin(Core_api *core_api, char const *name)
 {
   static char const *const pfx = "libmag-";
   static char const *const sfx = ".so";
@@ -190,6 +220,16 @@ int load_plugin(Core_api *core_api, char const *name)
   delete [] n;
   return 0;
 }
+
+static const luaL_Reg libs[] =
+{
+  { "", luaopen_base },
+// { LUA_IOLIBNAME, luaopen_io },
+  { LUA_STRLIBNAME, luaopen_string },
+  {LUA_LOADLIBNAME, luaopen_package},
+  {LUA_DBLIBNAME, luaopen_debug},
+  { NULL, NULL }
+};
 
 int run(int argc, char const *argv[])
 {
@@ -249,14 +289,56 @@ int run(int argc, char const *argv[])
       if (!i.auto_refresh())
 	screen_view = goos_fb.view();
     }
-  
-  static User_state user_state(screen, screen_view, cursor, &bg);
-  static Core_api core_api(&registry, &user_state, rcv_cap, fb);
+
+  lua_State *lua = luaL_newstate();
+
+  if (!lua)
+    {
+      printf("ERROR: cannot allocate Lua state\n");
+      exit(1);
+    }
+
+  for (int i = 0; libs[i].func; ++i)
+    {
+      lua_pushcfunction(lua, libs[i].func);
+      lua_pushstring(lua,libs[i].name);
+      lua_call(lua, 1, 0);
+    }
+
+  int err;
+  if ((err = luaL_loadbuffer(lua, _binary_mag_lua_start, _binary_mag_lua_end - _binary_mag_lua_start, "@mag.lua")))
+    {
+      fprintf(stderr, "lua error: %s.\n", lua_tostring(lua, -1));
+      lua_pop(lua, lua_gettop(lua));
+      if (err == LUA_ERRSYNTAX)
+	throw L4::Runtime_error(L4_EINVAL, lua_tostring(lua, -1));
+      else
+	throw L4::Out_of_memory(lua_tostring(lua, -1));
+    }
+
+  if ((err = lua_pcall(lua, 0, 1, 0)))
+    {
+      fprintf(stderr, "lua error: %s.\n", lua_tostring(lua, -1));
+      lua_pop(lua, lua_gettop(lua));
+      if (err == LUA_ERRSYNTAX)
+	throw L4::Runtime_error(L4_EINVAL, lua_tostring(lua, -1));
+      else
+	throw L4::Out_of_memory(lua_tostring(lua, -1));
+    }
+
+  lua_pop(lua, lua_gettop(lua));
+
+  static View_stack vstack(screen, screen_view, &bg);
+  static User_state user_state(lua, &vstack, cursor);
+  static Core_api core_api(&registry, lua, &user_state, rcv_cap, fb);
 
   Plugin_manager::start_plugins(&core_api);
 
   for (int i = 1; i < argc; ++i)
-    load_plugin(&core_api, argv[i]);
+    {
+      if (load_lua_plugin(&core_api, argv[i]) == 1)
+        load_so_plugin(&core_api, argv[i]);
+    }
 
   _core_api = &core_api;
 

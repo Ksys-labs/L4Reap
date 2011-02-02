@@ -79,15 +79,6 @@ void Timer::acknowledge()
 {
   Io::write(1, TIMER1_VA_BASE + TIMER_INTCLR);
 
-  if (Config::scheduler_one_shot)
-    {
-      //Kip::k()->clock += timer_to_us(Io::read<Unsigned32>(OSCR));
-    }
-  else
-    {
-      Kip::k()->clock += Config::scheduler_granularity;
-    }
-
   irq->pin()->ack();
 }
 

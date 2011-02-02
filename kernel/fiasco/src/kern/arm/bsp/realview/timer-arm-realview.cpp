@@ -1,18 +1,8 @@
 // --------------------------------------------------------------------------
-INTERFACE [arm]:
+INTERFACE [arm && sp804]:
 
 #include "irq_chip.h"
 #include "irq_pin.h"
-
-EXTENSION class Timer
-{
-private:
-  static Irq_base *irq;
-};
-
-// --------------------------------------------------------------------------
-INTERFACE [arm && sp804]:
-
 #include "kmem.h"
 
 EXTENSION class Timer
@@ -60,30 +50,9 @@ private:
     Ctrl_periodic  = 1 << 6,
     Ctrl_enable    = 1 << 7,
   };
+
+  static Irq_base *irq;
 };
-
-// --------------------------------------------------------------------------
-INTERFACE [arm && mptimer && !realview_pbx]:
-
-EXTENSION class Timer
-{
-private:
-  enum { Interval = 104999, /* assumed 210MHz */};
-};
-
-// --------------------------------------------------------------------------
-INTERFACE [arm && mptimer && realview_pbx]:
-
-EXTENSION class Timer
-{
-private:
-  enum { Interval = 49999, };
-};
-
-// -----------------------------------------------------------------------
-IMPLEMENTATION [arm]:
-
-Irq_base *Timer::irq;
 
 // -----------------------------------------------------------------------
 IMPLEMENTATION [arm && sp804]:
@@ -93,6 +62,8 @@ IMPLEMENTATION [arm && sp804]:
 #include "io.h"
 
 #include <cstdio>
+
+Irq_base *Timer::irq;
 
 IMPLEMENT
 void Timer::init()
@@ -136,10 +107,6 @@ Timer::us_to_timer(Unsigned64 us)
 IMPLEMENT inline NEEDS["io.h"]
 void Timer::acknowledge()
 {
-  // XXX: there's a update_system_clock function !?!?!?!
-  //if (!Config::scheduler_one_shot)
-  //  Kip::k()->clock += Config::scheduler_granularity;
-
   Io::write<Mword>(0, Intclr_0);
   irq->pin()->ack();
 }

@@ -26,12 +26,32 @@ endif
 
 ifneq ($(UCLIBC_LINUX_SPECIFIC),y)
 # we need these internally: fstatfs.c statfs.c
-CSRC := $(filter-out capget.c capset.c inotify.c ioperm.c iopl.c madvise.c \
-	modify_ldt.c personality.c prctl.c readahead.c reboot.c \
+CSRC := $(filter-out capget.c capset.c inotify.c ioperm.c iopl.c \
+	modify_ldt.c personality.c ppoll.c prctl.c readahead.c reboot.c \
 	remap_file_pages.c sched_getaffinity.c sched_setaffinity.c \
 	sendfile64.c sendfile.c setfsgid.c setfsuid.c setresuid.c \
 	splice.c vmsplice.c tee.c signalfd.c swapoff.c swapon.c \
 	sync_file_range.c sysctl.c sysinfo.c timerfd.c uselib.c vhangup.c,$(CSRC))
+ifneq ($(UCLIBC_HAS_THREADS_NATIVE),y)
+# we need madvise.c in NPTL
+CSRC := $(filter-pout madvise.c,$(CSRC))
+endif
+endif
+
+ifeq ($(UCLIBC_HAS_THREADS_NATIVE),y)
+CSRC := $(filter-out fork.c getpid.c raise.c open.c close.c read.c write.c, $(CSRC))
+ifeq ($(TARGET_ARCH),arm)
+CSRC := $(filter-out vfork.c, $(CSRC))
+else ifeq ($(TARGET_ARCH),x86_64)
+CSRC := $(filter-out vfork.c, $(CSRC))
+else
+CSRC := $(filter-out waitpid.c, $(CSRC))
+endif
+endif
+
+ifneq ($(ARCH_USE_MMU),y)
+# stubbed out in mman.h
+CSRC := $(filter-out msync.c, $(CSRC))
 endif
 
 ifneq ($(UCLIBC_BSD_SPECIFIC),y)
@@ -75,6 +95,22 @@ ifneq ($(UCLIBC_SV4_DEPRECATED),y)
 CSRC := $(filter-out ustat.c,$(CSRC))
 endif
 
+ifeq ($(TARGET_ARCH),sh)
+CSRC := $(filter-out longjmp.c vfork.c,$(CSRC))
+endif
+
+ifeq ($(TARGET_ARCH),sparc)
+CSRC := $(filter-out vfork.c,$(CSRC))
+endif
+
+ifeq ($(TARGET_ARCH),i386)
+CSRC := $(filter-out vfork.c,$(CSRC))
+endif
+
+# provided via pthreads builddir
+CSRC := $(filter-out $(libc_a_CSRC) $(notdir $(libpthread_libc_OBJS:.o=.c)),$(CSRC))
+SSRC := $(filter-out $(libc_a_SSRC) $(notdir $(libpthread_libc_OBJS:.o=.S)),$(SSRC))
+
 # fails for some reason
 ifneq ($(strip $(ARCH_OBJS)),)
 CSRC := $(filter-out $(notdir $(ARCH_OBJS:.o=.c)) $(ARCH_OBJ_FILTEROUT),$(CSRC))
@@ -96,7 +132,7 @@ libc-nomulti-y += $(COMMON_OUT)/__syscall_rt_sigaction.o \
 	$(COMMON_OUT)/stat.o
 libc-nomulti-$(UCLIBC_HAS_SSP) += $(COMMON_OUT)/ssp.o
 
-objclean-y += common_clean
+objclean-y += CLEAN_libc/sysdeps/linux/common
 
-common_clean:
+CLEAN_libc/sysdeps/linux/common:
 	$(do_rm) $(addprefix $(COMMON_OUT)/*., o os oS)

@@ -45,7 +45,7 @@ main(int argc, char **argv)
   if (result)
     {
       fprintf(stderr, "%s\n", lua_pushfstring(L, "error calling "
-            LUA_QL("print") " (%s)", lua_tostring(L, -1)));
+            "'print' (%s)", lua_tostring(L, -1)));
       exit(1);
     }
 

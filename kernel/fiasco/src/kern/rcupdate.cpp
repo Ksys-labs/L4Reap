@@ -115,7 +115,7 @@ private:
   Rcu_batch _current;      ///< current batch
   Rcu_batch _completed;    ///< last completed batch
   bool _next_pending;      ///< next batch already pending?
-  Spin_lock _lock;
+  Spin_lock<> _lock;
   Cpu_mask _cpus;
 
 };
@@ -381,14 +381,14 @@ Rcu_data::check_quiescent_state(Rcu_glbl *rgp)
 
   _pending = 0;
 
-  Lock_guard<Spin_lock> guard(&rgp->_lock);
+  Lock_guard<typeof(rgp->_lock)> guard(&rgp->_lock);
 
   if (EXPECT_TRUE(_q_batch == rgp->_current))
     rgp->cpu_quiet(_cpu);
 }
 
 
-PUBLIC static inline NEEDS["cpu_lock.h", "globals.h", "lock_guard.h", "logdefs.h"]
+PUBLIC static //inline NEEDS["cpu_lock.h", "globals.h", "lock_guard.h", "logdefs.h"]
 void
 Rcu::call(Rcu_item *i, bool (*cb)(Rcu_item *))
 {
@@ -426,7 +426,7 @@ Rcu_data::~Rcu_data()
   Rcu_glbl *rgp = Rcu::rcu();
 
     {
-      Lock_guard<Spin_lock> guard(&rgp->_lock);
+      Lock_guard<typeof(rgp->_lock)> guard(&rgp->_lock);
       if (rgp->_current != rgp->_completed)
 	rgp->cpu_quiet(_cpu);
     }
@@ -465,7 +465,7 @@ Rcu_data::process_callbacks(Rcu_glbl *rgp)
       if (!rgp->_next_pending)
 	{
 	  // start the batch and schedule start if it's a new batch
-	  Lock_guard<Spin_lock> guard(&rgp->_lock);
+	  Lock_guard<typeof(rgp->_lock)> guard(&rgp->_lock);
 	  rgp->_next_pending = 1;
 	  rgp->start_batch();
 	}

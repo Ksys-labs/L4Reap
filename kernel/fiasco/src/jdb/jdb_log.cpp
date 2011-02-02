@@ -7,6 +7,7 @@ IMPLEMENTATION:
 #include "jdb.h"
 #include "jdb_core.h"
 #include "jdb_module.h"
+#include "jdb_kobject.h"
 #include "jdb_list.h"
 #include "jdb_screen.h"
 #include "kernel_console.h"
@@ -20,6 +21,7 @@ IMPLEMENTATION:
 
 class Jdb_log_list : public Jdb_list
 {
+  friend class Jdb_log_list_hdl;
 public:
   void *get_head() const { return _log_table; }
   char const *show_head() const { return "[Log]"; }
@@ -29,6 +31,74 @@ private:
 };
 
 Tb_log_table_entry *Jdb_log_list::_end;
+
+class Jdb_log_list_hdl : public Jdb_kobject_handler
+{
+public:
+  Jdb_log_list_hdl() : Jdb_kobject_handler(0) {}
+  virtual bool show_kobject(Kobject_common *, int) { return true; }
+};
+
+PUBLIC
+bool
+Jdb_log_list_hdl::invoke(Kobject_common *, Syscall_frame *f, Utcb *utcb)
+{
+  switch (utcb->values[0])
+    {
+      case Op_query_typeid:
+          {
+            if (f->tag().words() < 3)
+              {
+                f->tag(Kobject_iface::commit_result(-L4_err::EInval));
+                return true;
+              }
+
+            unsigned char const idx = utcb->values[1];
+
+            if (_log_table + idx >= _log_table_end)
+              {
+                f->tag(Kobject_iface::commit_result(-L4_err::EInval));
+                return true;
+              }
+
+            char nbuf[32];
+            strncpy(nbuf, (char const *)&utcb->values[2], sizeof(nbuf));
+            nbuf[sizeof(nbuf) - 1] = 0;
+
+            Tb_log_table_entry *r;
+            r = Jdb_log_list::find_next_log(nbuf, nbuf, _log_table + idx);
+
+            utcb->values[0] = r ? (r - _log_table) + Tbuf_dynentries : ~0UL;
+            f->tag(Kobject_iface::commit_result(0, 1));
+            return true;
+          }
+      case Op_switch_log:
+          {
+            if (f->tag().words() < 3)
+              {
+                f->tag(Kobject_iface::commit_result(-L4_err::EInval));
+                return true;
+              }
+
+            bool on = utcb->values[1];
+            char nbuf[32];
+            strncpy(nbuf, (char const *)&utcb->values[2], sizeof(nbuf));
+            nbuf[sizeof(nbuf) - 1] = 0;
+
+            Tb_log_table_entry *r = _log_table;
+            while ((r = Jdb_log_list::find_next_log(nbuf, nbuf, r)))
+              {
+                Jdb_log_list::patch_item(r, on ? Jdb_log_list::patch_val(r) : 0);
+                r++;
+              }
+
+            f->tag(Kobject_iface::commit_result(0));
+            return true;
+          }
+    }
+
+  return false;
+}
 
 PUBLIC
 int
@@ -42,12 +112,29 @@ Jdb_log_list::show_item(char *buffer, int max, void *item) const
   return pos;
 }
 
+PRIVATE static inline
+unsigned
+Jdb_log_list::patch_val(Tb_log_table_entry const *e)
+{ return (e - _log_table) + Tbuf_dynentries; }
+
+PRIVATE static
+Tb_log_table_entry *
+Jdb_log_list::find_next_log(const char *name, const char *sc,
+                            Tb_log_table_entry *i)
+{
+  for (; i < _end; ++i)
+    if (   !strcmp(name, i->name)
+        || !strcmp(sc, i->name + strlen(i->name) + 1))
+      return i;
+  return 0;
+}
+
 PUBLIC
 bool
 Jdb_log_list::enter_item(void *item) const
 {
   Tb_log_table_entry const *e = static_cast<Tb_log_table_entry const*>(item);
-  patch_item(e, *(e->patch) ? 0 : (e - _log_table) + Tbuf_dynentries);
+  patch_item(e, *(e->patch) ? 0 : patch_val(e));
   return true;
 }
 
@@ -232,6 +319,9 @@ Jdb_log::Jdb_log()
   //disable_all();
   sort_tb_log_table();
   Jdb_log_list::move_dups();
+
+  static Jdb_log_list_hdl hdl;
+  Jdb_kobject::module()->register_handler(&hdl);
 }
 
 PUBLIC

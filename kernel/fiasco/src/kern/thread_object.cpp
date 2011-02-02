@@ -3,11 +3,14 @@ INTERFACE:
 #include "kobject.h"
 #include "thread.h"
 
-class Thread_object :
-  public Thread,
-  public Kobject
+class Thread_object : public Thread
 {
-  FIASCO_DECLARE_KOBJ();
+private:
+  struct Remote_syscall
+  {
+    Thread *thread;
+    L4_msg_tag result;
+  };
 };
 
 class Obj_cap : public L4_obj_ref
@@ -26,7 +29,6 @@ IMPLEMENTATION:
 #include "thread_state.h"
 #include "timer.h"
 
-FIASCO_DEFINE_KOBJ(Thread_object);
 
 
 PUBLIC inline
@@ -65,10 +67,10 @@ Obj_cap::revalidate(Kobject_iface *o)
   return deref() == o;
 }
 
-PUBLIC inline
+PUBLIC
 Thread_object::Thread_object() : Thread() {}
 
-PUBLIC inline
+PUBLIC
 Thread_object::Thread_object(Context_mode_kernel k) : Thread(k) {}
 
 PUBLIC virtual
@@ -104,9 +106,6 @@ Thread_object::destroy(Kobject ***rl)
 {
   Kobject::destroy(rl);
   check_kdb(kill());
-#if 0
-  assert_kdb(state() == Thread_dead);
-#endif
   assert_kdb(_magic == magic);
 
 }
@@ -160,6 +159,9 @@ Thread_object::invoke(L4_obj_ref /*self*/, Mword rights, Syscall_frame *f, Utcb 
     case Op_modify_senders:
       f->tag(sys_modify_senders(f->tag(), utcb, utcb));
       return;
+    case Op_vcpu_control:
+      f->tag(sys_vcpu_control(rights, f->tag(), utcb));
+      return;
     default:
       L4_msg_tag tag = f->tag();
       if (invoke_arch(tag, utcb))
@@ -170,6 +172,7 @@ Thread_object::invoke(L4_obj_ref /*self*/, Mword rights, Syscall_frame *f, Utcb 
     }
 }
 
+
 PRIVATE inline
 L4_msg_tag
 Thread_object::sys_vcpu_resume(L4_msg_tag const &tag, Utcb *utcb)
@@ -178,7 +181,7 @@ Thread_object::sys_vcpu_resume(L4_msg_tag const &tag, Utcb *utcb)
     return commit_result(-L4_err::EInval);
 
   Obj_space *s = space()->obj_space();
-  Vcpu_state *vcpu = access_vcpu(true);
+  Vcpu_state *vcpu = vcpu_state().access(true);
 
   L4_obj_ref user_task = vcpu->user_task;
   if (user_task.valid())
@@ -205,6 +208,7 @@ Thread_object::sys_vcpu_resume(L4_msg_tag const &tag, Utcb *utcb)
       if (EXPECT_FALSE(!snd_items.next()))
         break;
 
+      // XXX: need to take existance lock for map
       cpu_lock.clear();
 
       L4_snd_item_iter::Item const *const item = snd_items.get();
@@ -222,25 +226,24 @@ Thread_object::sys_vcpu_resume(L4_msg_tag const &tag, Utcb *utcb)
         return commit_error(utcb, err);
     }
 
-  if (tag.items())
-    vcpu = access_vcpu(true);
-
   if ((vcpu->_saved_state & Vcpu_state::F_irqs)
       && (vcpu->sticky_flags & Vcpu_state::Sf_irq_pending))
     {
       assert_kdb(cpu_lock.test());
       do_ipc(L4_msg_tag(), 0, 0, true, 0,
 	     L4_timeout_pair(L4_timeout::Zero, L4_timeout::Zero),
-	     &vcpu->_ipc_regs, 7);
+	     &vcpu->_ipc_regs, 3);
 
-      vcpu = access_vcpu(true);
+      vcpu = vcpu_state().access(true);
 
-      if (EXPECT_TRUE(!vcpu->_ipc_regs.tag().has_error()))
+      if (EXPECT_TRUE(!vcpu->_ipc_regs.tag().has_error()
+	              || this->utcb().access(true)->error.error() == L4_error::R_timeout))
 	{
 	  vcpu->_ts.set_ipc_upcall();
 
 	  Address sp;
 
+	  // tried to resume to user mode, so an IRQ enters from user mode
 	  if (vcpu->_saved_state & Vcpu_state::F_user_mode)
 	    sp = vcpu->_entry_sp;
 	  else
@@ -252,33 +255,23 @@ Thread_object::sys_vcpu_resume(L4_msg_tag const &tag, Utcb *utcb)
 	      l->state = vcpu->state;
 	      l->ip = vcpu->_entry_ip;
 	      l->sp = sp;
-	      l->space = vcpu_user_space() ? static_cast<Task*>(vcpu_user_space())->dbg_id() : ~0;
+	      l->space = static_cast<Task*>(_space.vcpu_aware())->dbg_id();
 	      );
 
-	  fast_return_to_user(vcpu->_entry_ip, sp);
+	  fast_return_to_user(vcpu->_entry_ip, sp, vcpu_state().usr().get());
 	}
     }
 
-  // --- CUT here for VM stuff
   vcpu->state = vcpu->_saved_state;
-  Trap_state ts;
-  memcpy(&ts, &vcpu->_ts, sizeof(Trap_state));
-
-
-  assert_kdb(cpu_lock.test());
-
-  ts.set_ipc_upcall();
-
-  ts.sanitize_user_state();
+  Task *target_space = nonull_static_cast<Task*>(space());
+  bool user_mode = false;
 
   if (vcpu->state & Vcpu_state::F_user_mode)
     {
       if (!vcpu_user_space())
 	return commit_result(-L4_err::EInval);
 
-      vcpu->state |= Vcpu_state::F_traps | Vcpu_state::F_exceptions
-                     | Vcpu_state::F_debug_exc;
-      state_add_dirty(Thread_vcpu_user_mode);
+      user_mode = true;
 
       if (!(vcpu->state & Vcpu_state::F_fpu_enabled))
 	{
@@ -288,24 +281,19 @@ Thread_object::sys_vcpu_resume(L4_msg_tag const &tag, Utcb *utcb)
       else
         state_del_dirty(Thread_vcpu_fpu_disabled);
 
-      vcpu_resume_user_arch();
-
-      vcpu_user_space()->switchin_context(space());
+      target_space = static_cast<Task*>(vcpu_user_space());
     }
 
   LOG_TRACE("VCPU events", "vcpu", this, __context_vcpu_log_fmt,
       Vcpu_log *l = tbe->payload<Vcpu_log>();
       l->type = 0;
       l->state = vcpu->state;
-      l->ip = ts.ip();
-      l->sp = ts.sp();
-      l->space = vcpu_user_space() ? static_cast<Task*>(vcpu_user_space())->dbg_id() : ~0;
+      l->ip = vcpu->_ts.ip();
+      l->sp = vcpu->_ts.sp();
+      l->space = target_space->dbg_id();
       );
 
-  vcpu_resume(&ts, regs());
-  // -- END NON VM
-
-  // DO VM ENTRY
+  return commit_result(target_space->resume_vcpu(this, vcpu, user_mode));
 }
 
 PRIVATE inline NOEXPORT NEEDS["processor.h"]
@@ -396,7 +384,7 @@ Thread_object::sys_control(unsigned char rights, L4_msg_tag const &tag, Utcb *ut
   Obj_space *s = curr->space()->obj_space();
   L4_snd_item_iter snd_items(utcb, tag.words());
   Task *task = 0;
-  void *utcb_addr = 0;
+  User<Utcb>::Ptr utcb_addr(0);
 
   Mword flags = utcb->values[0];
 
@@ -431,12 +419,16 @@ Thread_object::sys_control(unsigned char rights, L4_msg_tag const &tag, Utcb *ut
       if (!task)
 	return commit_result(-L4_err::EInval);
 
-      utcb_addr = (void*)utcb->values[5];
+      utcb_addr = User<Utcb>::Ptr((Utcb*)utcb->values[5]);
+
+      if (EXPECT_FALSE(!bind(task, utcb_addr)))
+        return commit_result(-L4_err::EInval); // unbind first !!
     }
 
-  long res = control(_new_pager, _new_exc_handler,
-                     task, utcb_addr, flags & Ctl_vcpu_enabled,
-                     utcb->values[4] & Ctl_vcpu_enabled);
+  Mword del_state = 0;
+  Mword add_state = 0;
+
+  long res = control(_new_pager, _new_exc_handler);
 
   if (res < 0)
     return commit_result(res);
@@ -444,23 +436,78 @@ Thread_object::sys_control(unsigned char rights, L4_msg_tag const &tag, Utcb *ut
   if ((res = sys_control_arch(utcb)) < 0)
     return commit_result(res);
 
+  // FIXME: must be done xcpu safe, may be some parts above too
+  if (flags & Ctl_alien_thread)
     {
-      // FIXME: must be done xcpu safe, may be some parts above too
-      Lock_guard<Cpu_lock> guard(&cpu_lock);
-      if (flags & Ctl_alien_thread)
-        {
-	  if (utcb->values[4] & Ctl_alien_thread)
-	    state_change_dirty (~Thread_dis_alien, Thread_alien, false);
-	  else
-	    state_del_dirty(Thread_alien, false);
+      if (utcb->values[4] & Ctl_alien_thread)
+	{
+	  add_state |= Thread_alien;
+	  del_state |= Thread_dis_alien;
 	}
+      else
+	del_state |= Thread_alien;
     }
+
+  if (del_state || add_state)
+    drq_state_change(~del_state, add_state);
 
   utcb->values[1] = _old_pager;
   utcb->values[2] = _old_exc_handler;
 
   return commit_result(0, 3);
 }
+
+
+PRIVATE inline NOEXPORT
+L4_msg_tag
+Thread_object::sys_vcpu_control(unsigned char, L4_msg_tag const &tag,
+                                Utcb *utcb)
+{
+  if (!space())
+    return commit_result(-L4_err::EInval);
+
+  User<Vcpu_state>::Ptr vcpu(0);
+
+  if (tag.words() >= 2)
+    vcpu = User<Vcpu_state>::Ptr((Vcpu_state*)utcb->values[1]);
+
+  Mword del_state = 0;
+  Mword add_state = 0;
+
+  if (vcpu)
+    {
+      Mword size = sizeof(Vcpu_state);
+      if (utcb->values[0] & 0x10000)
+        {
+          size = Config::PAGE_SIZE;
+          add_state |= Thread_ext_vcpu_enabled;
+        }
+
+      Space::Ku_mem const *vcpu_m
+        = space()->find_ku_mem(vcpu, size);
+
+      if (!vcpu_m)
+        return commit_result(-L4_err::EInval);
+
+      add_state |= Thread_vcpu_enabled;
+      _vcpu_state.set(vcpu, vcpu_m->kern_addr(vcpu));
+    }
+  else
+    return commit_result(-L4_err::EInval);
+
+  /* hm, we do not allow to disable vCPU mode, it's one way enable
+  else
+    {
+      del_state |= Thread_vcpu_enabled | Thread_vcpu_user_mode
+                   | Thread_vcpu_fpu_disabled | Thread_ext_vcpu_enabled;
+    }
+  */
+
+  drq_state_change(~del_state, add_state);
+
+  return commit_result(0);
+}
+
 
 // -------------------------------------------------------------------
 // Thread::ex_regs class system calls
@@ -483,7 +530,7 @@ Thread_object::ex_regs(Address ip, Address sp,
 
   // Changing the run state is only possible when the thread is not in
   // an exception.
-  if (!(ops & Exr_cancel) && (state(false) & Thread_in_exception))
+  if (!(ops & Exr_cancel) && (state() & Thread_in_exception))
     // XXX Maybe we should return false here.  Previously, we actually
     // did so, but we also actually didn't do any state modification.
     // If you change this value, make sure the logic in
@@ -491,13 +538,13 @@ Thread_object::ex_regs(Address ip, Address sp,
     // ex_regs_cap_handler and friends should still be called).
     return true;
 
-  if (state(false) & Thread_dead)	// resurrect thread
-    state_change_dirty (~Thread_dead, Thread_ready, false);
+  if (state() & Thread_dead)	// resurrect thread
+    state_change_dirty(~Thread_dead, Thread_ready);
 
   else if (ops & Exr_cancel)
     // cancel ongoing IPC or other activity
-    state_change_dirty (~(Thread_ipc_in_progress | Thread_delayed_deadline |
-                        Thread_delayed_ipc), Thread_cancel | Thread_ready, false);
+    state_change_dirty(~(Thread_ipc_in_progress | Thread_delayed_deadline |
+                       Thread_delayed_ipc), Thread_cancel | Thread_ready, false);
 
   if (ops & Exr_trigger_exception)
     {
@@ -546,7 +593,7 @@ unsigned
 Thread_object::handle_remote_ex_regs(Drq *, Context *self, void *p)
 {
   Remote_syscall *params = reinterpret_cast<Remote_syscall*>(p);
-  params->result = nonull_static_cast<Thread_object*>(self)->ex_regs(params->thread->access_utcb());
+  params->result = nonull_static_cast<Thread_object*>(self)->ex_regs(params->thread->utcb().access());
   return params->result.proto() == 0 ? Drq::Need_resched : 0;
 }
 
@@ -590,10 +637,10 @@ Thread_object::sys_thread_switch(L4_msg_tag const &/*tag*/, Utcb *utcb)
 
 #if 0 // FIXME: provide API for multiple sched contexts
       // Compute remaining quantum length of timeslice
-      regs->left (timeslice_timeout.cpu(cpu())->get_timeout(Timer::system_clock()));
+      regs->left(timeslice_timeout.cpu(cpu())->get_timeout(Timer::system_clock()));
 
       // Yield current global timeslice
-      cs->owner()->switch_sched (cs->id() ? cs->next() : cs);
+      cs->owner()->switch_sched(cs->id() ? cs->next() : cs);
 #endif
   reinterpret_cast<Utcb::Time_val*>(utcb->values)->t
     = timeslice_timeout.cpu(current_cpu())->get_timeout(Timer::system_clock());

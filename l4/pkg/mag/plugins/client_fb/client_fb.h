@@ -46,7 +46,7 @@ public:
   void set_offs(Point const &offs)
   { _offs = offs; }
 
-  void draw(Canvas *, View_stack const *, Mode, bool) const;
+  void draw(Canvas *, View_stack const *, Mode) const;
   void handle_event(L4Re::Event_buffer::Event const &e,
                     Point const &mouse);
 

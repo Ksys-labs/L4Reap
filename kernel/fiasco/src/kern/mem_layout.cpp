@@ -1,6 +1,6 @@
 INTERFACE:
 
-#include "types.h"
+#include "l4_types.h"
 
 class Mem_layout
 {
@@ -24,7 +24,6 @@ public:
 IMPLEMENTATION:
 
 #include "config.h"
-#include "l4_types.h"
 
 PUBLIC static inline
 bool
@@ -32,9 +31,9 @@ Mem_layout::is_caps_area(Address a)
 { return (a >= Caps_start) && (a < Caps_end); }
 
 PUBLIC static inline
-Address &
+User<Utcb>::Ptr &
 Mem_layout::user_utcb_ptr(unsigned cpu)
-{ return *reinterpret_cast<Address *>(Utcb_ptr_page + cpu * sizeof(Mword)); }
+{ return reinterpret_cast<User<Utcb>::Ptr*>(Utcb_ptr_page)[cpu]; }
 
 IMPLEMENT inline
 Mword

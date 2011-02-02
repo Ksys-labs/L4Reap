@@ -172,6 +172,20 @@ void __main(unsigned long p1, unsigned long p2, unsigned long p3, unsigned long 
 }
 #endif
 
+
+#if defined(ARCH_sparc)
+extern "C" void __main(unsigned long p1, unsigned long p2, unsigned long p3);
+void __main(unsigned long p1, unsigned long p2, unsigned long p3)
+{
+	(void)p1;
+	(void)p2;
+	(void)p3;
+	ctor_init();
+	Platform_base::iterate_platforms();
+	// startup(0,0,0,0);
+}
+#endif
+
 void exit(int c) throw()
 {
   _exit(c);

@@ -3,7 +3,7 @@ L4DIR		?= $(PKGDIR)/../..
 
 TARGET		= libl4z.a libl4z.so
 LIBS            = $(GCCLIB)
-SYSTEMS		= x86 arm amd64 ppc32
+SYSTEMS		= $(SYSTEMS_PLAIN)
 CONTRIB_INCDIR	= zlib
 
 SRC_C		= adler32.c compress.c crc32.c deflate.c gzclose.c gzlib.c \

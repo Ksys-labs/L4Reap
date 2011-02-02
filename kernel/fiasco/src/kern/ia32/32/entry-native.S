@@ -168,14 +168,8 @@ entry_sys_fast_ipc_log:
 	pop	%esp
 	pushl	$(GDT_DATA_USER|SEL_PL_U) /* user ss */
 	pushl   %ebp 			  // user esp
-#ifdef CONFIG_IO_PROT
-	// We must not fake the interrupt flags since we must not
-	// loose the current IOPL of the user task
-	pushf
-#else
 	// Fake user eflags, set IOPL to 3
-	pushl	$EFLAGS_IOPL_U
-#endif
+	pushl	$(EFLAGS_IOPL_U | EFLAGS_IF)
 	cld
 	// Fake user cs. This cs value is never used with exception
 	// that the thread is ex_regs'd before we leave with sysexit.
@@ -223,14 +217,8 @@ entry_sys_fast_ipc_c:
 	pop	%esp
 	pushl	$(GDT_DATA_USER|SEL_PL_U)	/* user ss */
 	pushl	%ebp				// push user SP (get in ebp)
-#ifdef CONFIG_IO_PROT
-	// We must not fake the interrupt flags since we must not
-	// loose the current IOPL of the user task
-	pushf
-#else
 	// Fake user eflags, set IOPL to 3
-	pushl	$EFLAGS_IOPL_U
-#endif
+	pushl	$(EFLAGS_IOPL_U | EFLAGS_IF)
 	cld
 	// Fake user cs. This cs value is never used with exception
 	// that the thread is ex_regs'd before we leave with sysexit.

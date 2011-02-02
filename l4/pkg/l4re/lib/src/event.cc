@@ -60,4 +60,32 @@ Event::get_stream_info(int idx, Event_stream_info *info) const throw()
   return 0;
 }
 
+long
+Event::get_stream_info_for_id(l4_umword_t id, Event_stream_info *info) const throw()
+{
+  L4::Ipc_iostream io(l4_utcb());
+  io << Opcode(Event_::Get_stream_info_for_id) << id;
+  long res = l4_error(io.call(cap(), L4Re::Protocol::Event));
+  if (res < 0)
+    return res;
+
+  io.get(*info);
+  return 0;
+}
+
+long
+Event::get_axis_info(l4_umword_t id, unsigned naxes, unsigned *axis,
+                     Event_absinfo *info) const throw()
+{
+  L4::Ipc_iostream io(l4_utcb());
+  io << Opcode(Event_::Get_axis_info) << id << L4::Ipc::buf_cp_out(axis, naxes);
+  long res = l4_error(io.call(cap(), L4Re::Protocol::Event));
+  if (res < 0)
+    return res;
+
+  long unsigned a = naxes;
+  io >> L4::Ipc::buf_cp_in(info, a);
+  return 0;
+}
+
 }

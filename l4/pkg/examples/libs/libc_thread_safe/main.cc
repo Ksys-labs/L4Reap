@@ -23,7 +23,7 @@
 
 #include <l4/l4re_vfs/backend>
 
-#if defined(ARCH_arm) || defined(ARCH_ppc32)
+#if defined(ARCH_arm) || defined(ARCH_ppc32) || defined(ARCH_sparc)
 static void l4_busy_wait_ns(unsigned long val)
 {
   static volatile int fooo = 0;

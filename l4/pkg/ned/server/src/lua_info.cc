@@ -41,6 +41,8 @@ public:
     const char *s = "arm";
 #elif defined(ARCH_ppc32)
     const char *s = "ppc32";
+#elif defined(ARCH_sparc)
+    const char *s = "sparc";
 #else
 #error Add your arch-string!
 #endif

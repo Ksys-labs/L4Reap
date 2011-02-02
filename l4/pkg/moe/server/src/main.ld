@@ -17,8 +17,6 @@ SECTIONS
     KEEP (*(.init))
     KEEP (*(.fini))
     *(.rodata .rodata.* .gnu.linkonce.r.*)
-    __exidx_start = .;
-    __exidx_end = .;
     . = ALIGN(0x1000);
     _etext = .;
     PROVIDE (etext = .); /* don't fail if user defines this symbol */
@@ -30,12 +28,19 @@ SECTIONS
     *(__ex_table)
   } 
 
+  .ARM.extab      : { *(.ARM.extab* .gnu.linkonce.armextab.*) }
+  __exidx_start = .;
+  .ARM.exidx      : { *(.ARM.exidx* .gnu.linkonce.armexidx.*) }
+  __exidx_end = .;
+
   .eh_frame_hdr : { *(.eh_frame_hdr) }
 
   /* exception frames for C++ */
   .eh_frame : 
   {
+    PROVIDE(__eh_frame_start__ = .);
     KEEP (*(.eh_frame))
+    KEEP (*(.eh_frame_terminator))
   }
 
   .gcc_except_table   : { *(.gcc_except_table .gcc_except_table.*) }

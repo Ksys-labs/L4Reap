@@ -454,8 +454,6 @@ PUBLIC static
 Jdb_module::Action_code
 Jdb_tcb::show(Thread *t, int level)
 {
-new_tcb:
-
   Thread *t_current      = Jdb::get_current_active();
   bool is_current_thread;
   bool redraw_screen     = true;
@@ -509,7 +507,7 @@ whole_screen:
   char time_str[12];
 
   putstr("thread: ");
-  Jdb_kobject::print_uid(t->kobject(), 3);
+  Jdb_kobject::print_uid(t, 3);
   print_thread_uid_raw(t);
   printf("CPU %3u ", t->cpu());
 
@@ -518,8 +516,8 @@ whole_screen:
          t->mode() & Context::Periodic  ?
          t->mode() & Context::Nonstrict ? "Per (IRT)" : "Per (SP)" : "Con");
 
-  printf("state: %03lx ", t->state());
-  t->print_state_long();
+  printf("state: %03lx ", t->state(false));
+  Jdb_thread::print_state_long(t);
 
   putstr("\n\nwait for: ");
   if (!t->partner())
@@ -532,7 +530,7 @@ whole_screen:
 
   putstr("\trcv descr: ");
 
-  if (t->state() & Thread_ipc_receiving_mask)
+  if (t->state(false) & Thread_ipc_receiving_mask)
     printf("%08lx", t->rcv_regs()->from_spec());
   else
     putstr("        ");
@@ -540,7 +538,7 @@ whole_screen:
   putstr("\n"
          "lcked by: ");
   if (t->thread_lock()->lock_owner())
-    Jdb_kobject::print_uid(Thread::lookup(t->thread_lock()->lock_owner())->kobject(), 3);
+    Jdb_kobject::print_uid(static_cast<Thread*>(t->thread_lock()->lock_owner()), 3);
 
   putstr("\t\t\ttimeout  : ");
   if (t->_timeout && t->_timeout->is_set())
@@ -572,14 +570,14 @@ whole_screen:
     print_kobject(static_cast<Task*>(t->space()));
 
   putstr("\tutcb: ");
-  printf("%08lx", (Mword)t->utcb());
+  printf("%08lx", (Mword)t->utcb().kern());
 
   putstr("\nexc-hndl: ");
   print_kobject(t, t->_exc_handler.raw());
 
 #if 0
   putstr("\tready  lnk: ");
-  if (t->state() & Thread_ready)
+  if (t->state(false) & Thread_ready)
     {
       if (t->_ready_next)
 	Jdb_kobject::print_uid(Thread::lookup(t->_ready_next), 3);
@@ -599,27 +597,19 @@ whole_screen:
     puts("--- ---");
 #endif
 
-  putstr("\tprsent lnk: ");
-  if (t->Present_list_item::next())
-    Jdb_kobject::print_uid(static_cast<Thread*>(t->Present_list_item::next())->kobject(), 3);
-  else
-    putstr("--- ");
-  if (t->Present_list_item::prev())
-    Jdb_kobject::print_uid(static_cast<Thread*>(t->Present_list_item::prev())->kobject(), 4);
-  else
-    putstr("--- ");
   putchar('\n');
 
   putstr("vCPU  st: ");
-  if (t->state() & Thread_vcpu_enabled)
+  if (t->state(false) & Thread_vcpu_enabled)
     {
       char st1[7];
       char st2[7];
+      Vcpu_state *v = t->vcpu_state().kern();
       printf("c=%s s=%s sf=%c e-ip=%08lx e-sp=%08lx S=",
-             vcpu_state_str(t->vcpu_state()->state, st1, sizeof(st1)),
-             vcpu_state_str(t->vcpu_state()->_saved_state, st2, sizeof(st2)),
-             (t->vcpu_state()->sticky_flags & Vcpu_state::Sf_irq_pending) ? 'P' : '-',
-             t->vcpu_state()->_entry_ip, t->vcpu_state()->_entry_sp);
+             vcpu_state_str(v->state, st1, sizeof(st1)),
+             vcpu_state_str(v->_saved_state, st2, sizeof(st2)),
+             (v->sticky_flags & Vcpu_state::Sf_irq_pending) ? 'P' : '-',
+             v->_entry_ip, v->_entry_sp);
       print_kobject(static_cast<Task*>(t->vcpu_user_space()));
     }
   else
@@ -738,29 +728,6 @@ dump_stack:
 		}
 	      break;
 #endif
-	    case 'p': // present-list or show_pages
-	      putstr("[n]ext/[p]revious in present list?");
-	      switch (c=Jdb_core::getchar()) 
-		{
-		case 'n':
-		  if (t->Present_list_item::next())
-		    {
-		      t = static_cast<Thread*>(t->Present_list_item::next());
-		      goto new_tcb;
-		    }
-		  break;
-		case 'p':
-		  if (t->Present_list_item::prev())
-		    {
-		      t = static_cast<Thread*>(t->Present_list_item::prev());
-		      goto new_tcb;
-		    }
-		  break;
-		default:
-		  Jdb::execute_command("p", c);
-		  return NOTHING;
-		}
-	      break;
             case 'C':
               _stack_view.memdump_is_colored = !_stack_view.memdump_is_colored;
               redraw = true;
@@ -848,7 +815,7 @@ Jdb_tcb::action(int cmd, void *&args, char const *&fmt, int &next_char)
       else if (args == &address)
 	{
 	  address &= ~(Config::thread_block_size-1);
-	  Jdb_kobject::print_uid(reinterpret_cast<Thread*>(address)->kobject(), 3);
+	  Jdb_kobject::print_uid(reinterpret_cast<Thread*>(address), 3);
 	  putchar('\n');
 	}
       else if (args == &tcb_addr)
@@ -867,10 +834,10 @@ Jdb_tcb::action(int cmd, void *&args, char const *&fmt, int &next_char)
 }
 
 PUBLIC
-Kobject *
-Jdb_tcb::follow_link(Kobject *o)
+Kobject_common *
+Jdb_tcb::follow_link(Kobject_common *o)
 {
-  Thread *t = Kobject::dcast<Thread_object *>(o);
+  Thread *t = Kobject::dcast<Thread_object *>(Kobject::from_dbg(o->dbg_info()));
   if (t->space() == Kernel_task::kernel_task())
     return o;
   return static_cast<Kobject*>(static_cast<Task*>(t->space()));
@@ -878,17 +845,17 @@ Jdb_tcb::follow_link(Kobject *o)
 
 PUBLIC
 bool
-Jdb_tcb::show_kobject(Kobject *o, int level)
+Jdb_tcb::show_kobject(Kobject_common *o, int level)
 {
-  Thread *t = Kobject::dcast<Thread_object *>(o);
+  Thread *t = Kobject::dcast<Thread_object *>(Kobject::from_dbg(o->dbg_info()));
   return show(t, level);
 }
 
 PUBLIC
 int
-Jdb_tcb::show_kobject_short(char *buf, int max, Kobject *o)
+Jdb_tcb::show_kobject_short(char *buf, int max, Kobject_common *o)
 {
-  Thread *t = Kobject::dcast<Thread_object *>(o);
+  Thread *t = Kobject::dcast<Thread_object *>(Kobject::from_dbg(o->dbg_info()));
   Thread *cur_t = Jdb::get_current_active();
   int cnt = 0;
   if (t->space() == Kernel_task::kernel_task())
@@ -957,7 +924,7 @@ PRIVATE static
 void
 Jdb_tcb::print_kobject(Kobject *o)
 {
-  printf("D:%4lx         ", o ? o->dbg_id() : 0);
+  printf("D:%4lx         ", o ? o->dbg_info()->dbg_id() : 0);
 }
 
 PRIVATE static
@@ -997,7 +964,7 @@ Jdb_thread_name_ext::ext()
 {
   if (Jdb::get_current_active())
     {
-      Jdb_kobject_name *nx = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(Jdb::get_current_active()->kobject());
+      Jdb_kobject_name *nx = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(Jdb::get_current_active());
       if (nx && nx->name()[0])
         printf("[%*.*s] ", nx->max_len(), nx->max_len(), nx->name());
     }

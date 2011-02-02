@@ -48,11 +48,16 @@
 #endif
 
 
-/* __MATHCALLX and __MATHCALLI include libm_hidden_def
+/* __MATHCALLX(type,function,[suffix],args,attrib) and
+ * __MATHCALLI(type,function,[suffix],args) include libm_hidden_def
  * (for "double" versions only, xxxf and xxxl do not get this treatment).
- * __MATHCALL does not.
- * __MATHDECL_PRIV includes libm_hidden_def (always)
- * and declares __foo, not foo.
+ *
+ * __MATHDECL(type,function,[suffix],args) does not.
+ * __MATHCALL(function,[suffix],args) also does not
+ * (it is just a shortcut to __MATHDECL(_Mdouble_,function,[suffix],args)).
+ *
+ * __MATHDECL_PRIV(type,function,[suffix],args,attrib)
+ * includes libm_hidden_def (always) and declares __foo, not foo.
  */
 
 
@@ -235,15 +240,14 @@ __MATHCALLX (nan,, (__const char *__tagb), (__const__))
 __END_NAMESPACE_C99
 #endif
 
-
+#if defined __USE_MISC || defined __USE_XOPEN || defined __USE_ISOC99
 /* Return nonzero if VALUE is not a number.  */
-/* DELETE? __MATHDECL_PRIV adds another "__": so this is "____isnan"???! */
-/*__MATHDECL_PRIV (int,__isnan,, (_Mdouble_ __value), (__const__))*/
+__BEGIN_NAMESPACE_C99
+__MATHDECL_PRIV (int,isnan,, (_Mdouble_ __value), (__const__))
+__END_NAMESPACE_C99
+#endif
 
 #if defined __USE_MISC || defined __USE_XOPEN
-/* Return nonzero if VALUE is not a number.  */
-__MATHDECL_PRIV (int,isnan,, (_Mdouble_ __value), (__const__))
-
 # ifdef __DO_XSI_MATH__
 /* Bessel functions.  */
 __MATHCALL (j0,, (_Mdouble_))

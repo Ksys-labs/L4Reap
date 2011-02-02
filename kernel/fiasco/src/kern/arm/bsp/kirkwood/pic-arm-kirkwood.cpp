@@ -114,13 +114,6 @@ Kirkwood_pin::ack()
 
 PUBLIC
 void
-Kirkwood_pin::hit()
-{
-  Irq::self(this)->Irq::hit();
-}
-
-PUBLIC
-void
 Kirkwood_pin_low::do_unmask()
 {
   assert (cpu_lock.test());

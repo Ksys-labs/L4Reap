@@ -44,6 +44,25 @@ do-all: $(ALL_STAMPS)
 	  $(wildcard auto/*))
 	touch $@
 
+define find_ld_emulation
+	emulations=$$(LANG= $(LD) --help |                                \
+	              grep -i "supported emulations:" |                   \
+	              sed -e 's/.*supported emulations: //') ;            \
+	unset found_it;                                                   \
+	for e in $$emulations; do                                         \
+	  for c in $(2); do                                               \
+	    if [ "$$e" = "$$c" ]; then                                    \
+	      echo LD_EMULATION = $$e >> $(1);                            \
+	      found_it=1;                                                 \
+	      break;                                                      \
+	    fi;                                                           \
+	  done;                                                           \
+	done;                                                             \
+	if [ "$$found_it" != "1" ]; then                                  \
+	  echo "No known ld emulation found"; exit 1;                     \
+	fi
+endef
+
 # Force that rule to ensure that compiler changes caused by make command line
 # or system-wide compiler updates are noticed.  
 # Do not use .PHONY, because preprocess would then be triggered everytime.
@@ -64,10 +83,14 @@ do-all: $(ALL_STAMPS)
 	  && { $(RM) .*.d */.*.d; echo "CHANGED.  Recompiling."; }	\
 	  || echo "unchanged."
 
+.Host-config: force-the-rule
+	@$(call find_ld_emulation,$@.new,$(LD_EMULATION_CHOICE))
+	@$(MOVE_IF_CHANGE) $@.new $@ || true
+
 force-the-rule: ;
 
 $(ALL_STAMPS): $(MODULES_FILES) .Modules.deps globalconfig.out \
-	       .Clean-auto .Compiler-config
+	       .Clean-auto .Compiler-config .Host-config
 
 # Basename of implementation files = Basename of first .cpp file
 impl_name = $(basename $(firstword $(subst -, ,\

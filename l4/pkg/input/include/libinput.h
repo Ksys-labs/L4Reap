@@ -28,6 +28,7 @@
 
 #include <l4/sys/compiler.h>
 #include <l4/input/macros.h>
+#include <l4/re/event.h>
 
 EXTERN_C_BEGIN
 
@@ -77,6 +78,9 @@ L4_CV int l4input_flush(void *buffer, int count);
  * \param tone      tone value (0 switches off)
  */
 L4_CV int l4input_pcspkr(int tone);
+
+L4_CV int l4evdev_stream_info_for_id(l4_umword_t id, l4re_event_stream_info_t *si);
+L4_CV int l4evdev_absinfo(l4_umword_t id, unsigned naxes, unsigned *axes, l4re_event_absinfo_t *infos);
 
 EXTERN_C_END
 

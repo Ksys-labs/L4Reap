@@ -117,7 +117,7 @@ View_stack::draw_frame(View const *v) const
   if (_mode.flat() || !v->need_frame())
     return;
 
-  Rgb32::Color color = (v == focused()) ? Rgb32::White : View::frame_color();
+  Rgb32::Color color = v->focused() ? Rgb32::White : View::frame_color();
   _canvas->draw_rect(v->offset(-3, -3, 3, 3), Rgb32::Black);
   _canvas->draw_rect(v->offset(-2, -2, 2, 2), color);
   _canvas->draw_rect(v->offset(-1, -1, 1, 1), Rgb32::Black);
@@ -154,7 +154,7 @@ View_stack::draw_recursive(View const *v, View const *dst, Rect const &rect) con
     {
       Clip_guard g(_canvas, clipped);
       draw_frame(v);
-      v->draw(_canvas, this, _mode, v == focused());
+      v->draw(_canvas, this, _mode);
       draw_label(v);
     }
 

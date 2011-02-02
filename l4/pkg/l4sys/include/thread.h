@@ -318,21 +318,7 @@ l4_thread_control_ux_host_syscall(int on) L4_NOTHROW;
 L4_INLINE void
 l4_thread_control_ux_host_syscall_u(l4_utcb_t *utcb, int on) L4_NOTHROW;
 
-/**
- * \brief Enable VCPU functionality for the thread.
- * \ingroup l4_thread_control_api
- * \param   on    Boolean value defining the state of the feature.
- *
- */
-L4_INLINE void
-l4_thread_control_vcpu_enable(int on) L4_NOTHROW;
 
-/**
- * \internal
- * \ingroup l4_thread_control_api
- */
-L4_INLINE void
-l4_thread_control_vcpu_enable_u(l4_utcb_t *utcb, int on) L4_NOTHROW;
 
 /**
  * \brief Commit the thread control parameters.
@@ -447,6 +433,64 @@ l4_thread_vcpu_resume_commit(l4_cap_idx_t thread,
 L4_INLINE l4_msgtag_t
 l4_thread_vcpu_resume_commit_u(l4_cap_idx_t thread,
                                l4_msgtag_t tag, l4_utcb_t *utcb) L4_NOTHROW;
+
+
+/**
+ * \brief Enable or disable the vCPU feature for the thread.
+ * \ingroup l4_thread_api
+ *
+ * \param thread The thread for which the vCPU feature shall be enabled or
+ *               disabled.
+ * \param vcpu_state The virtual address where the kernel shall store the vCPU
+ *                   state in case of vCPU exits. The address must be a valid
+ *                   kernel-user-memory address.
+ * \return Systemcall result message tag.
+ *
+ * This function enables the vCPU feature of the \a thread if \a vcpu_state
+ * is set to a valid kernel-user-memory address, or disables the vCPU feature
+ * if \a vcpu_state is 0.
+ *
+ */
+L4_INLINE l4_msgtag_t
+l4_thread_vcpu_control(l4_cap_idx_t thread, l4_addr_t vcpu_state) L4_NOTHROW;
+
+/**
+ * \internal
+ * \ingroup l4_thread_api
+ */
+L4_INLINE l4_msgtag_t
+l4_thread_vcpu_control_u(l4_cap_idx_t thread, l4_addr_t vcpu_state,
+                         l4_utcb_t *utcb) L4_NOTHROW;
+
+/**
+ * \brief Enable or disable the extended vCPU feature for the thread.
+ * \ingroup l4_thread_api
+ *
+ * \param thread The thread for which the extended vCPU feature shall be
+ *               enabled or disabled.
+ * \param vcpu_state The virtual address where the kernel shall store the vCPU
+ *                   state in case of vCPU exits. The address must be a valid
+ *                   kernel-user-memory address.
+ * \return Systemcall result message tag.
+ *
+ * The extended vCPU feature allows the use of hardware-virtualization
+ * features such as Intel's VT os AMD's SVM.
+ *
+ * This function enables the extended vCPU feature of the \a thread
+ * if \a vcpu_state is set to a valid kernel-user-memory address, or disables
+ * the vCPU feature if \a vcpu_state is 0.
+ *
+ */
+L4_INLINE l4_msgtag_t
+l4_thread_vcpu_control_ext(l4_cap_idx_t thread, l4_addr_t ext_vcpu_state) L4_NOTHROW;
+
+/**
+ * \internal
+ * \ingroup l4_thread_api
+ */
+L4_INLINE l4_msgtag_t
+l4_thread_vcpu_control_ext_u(l4_cap_idx_t thread, l4_addr_t ext_vcpu_state,
+                             l4_utcb_t *utcb) L4_NOTHROW;
 
 
 /**
@@ -565,6 +609,8 @@ enum L4_thread_ops
   L4_THREAD_VCPU_RESUME_OP        = 4UL,    /**< VCPU resume */
   L4_THREAD_REGISTER_DELETE_IRQ   = 5UL,    /**< Register an IPC-gate deletion IRQ */
   L4_THREAD_MODIFY_SENDER         = 6UL,    /**< Modify all senders IDs that match the given pattern */
+  L4_THREAD_VCPU_CONTROL          = 7UL,    /**< Enable / disable VCPU feature */
+  L4_THREAD_VCPU_CONTROL_EXT      = L4_THREAD_VCPU_CONTROL | 0x10000,
   L4_THREAD_GDT_X86_OP            = 0x10UL, /**< Gdt */
   L4_THREAD_OPCODE_MASK           = 0xffff, /**< Mask for opcodes */
 };
@@ -593,8 +639,6 @@ enum L4_thread_control_flags
   L4_THREAD_CONTROL_UX_NATIVE       = 0x0800000,
   /** The exception handler of the thread will be given. */
   L4_THREAD_CONTROL_SET_EXC_HANDLER = 0x1000000,
-  /** The vCPU functionality is set. */
-  L4_THREAD_CONTROL_VCPU_ENABLED    = 0x2000000,
 };
 
 /**
@@ -719,14 +763,6 @@ l4_thread_control_ux_host_syscall_u(l4_utcb_t *utcb, int on) L4_NOTHROW
   v->mr[L4_THREAD_CONTROL_MR_IDX_FLAG_VALS] |= on ? L4_THREAD_CONTROL_UX_NATIVE : 0;
 }
 
-L4_INLINE void
-l4_thread_control_vcpu_enable_u(l4_utcb_t *utcb, int on) L4_NOTHROW
-{
-  l4_msg_regs_t *v = l4_utcb_mr_u(utcb);
-  v->mr[L4_THREAD_CONTROL_MR_IDX_FLAGS]     |= L4_THREAD_CONTROL_VCPU_ENABLED;
-  v->mr[L4_THREAD_CONTROL_MR_IDX_FLAG_VALS] |= on ? L4_THREAD_CONTROL_VCPU_ENABLED : 0;
-}
-
 L4_INLINE l4_msgtag_t
 l4_thread_control_commit_u(l4_cap_idx_t thread, l4_utcb_t *utcb) L4_NOTHROW
 {
@@ -735,7 +771,6 @@ l4_thread_control_commit_u(l4_cap_idx_t thread, l4_utcb_t *utcb) L4_NOTHROW
     items = 1;
   return l4_ipc_call(thread, utcb, l4_msgtag(L4_PROTO_THREAD, 6, items, 0), L4_IPC_NEVER);
 }
-
 
 
 L4_INLINE l4_msgtag_t
@@ -835,12 +870,6 @@ l4_thread_control_ux_host_syscall(int on) L4_NOTHROW
   l4_thread_control_ux_host_syscall_u(l4_utcb(), on);
 }
 
-L4_INLINE void
-l4_thread_control_vcpu_enable(int on) L4_NOTHROW
-{
-  l4_thread_control_vcpu_enable_u(l4_utcb(), on);
-}
-
 L4_INLINE l4_msgtag_t
 l4_thread_control_commit(l4_cap_idx_t thread) L4_NOTHROW
 {
@@ -897,6 +926,35 @@ l4_thread_register_del_irq(l4_cap_idx_t thread, l4_cap_idx_t irq) L4_NOTHROW
   return l4_thread_register_del_irq_u(thread, irq, l4_utcb());
 }
 
+
+L4_INLINE l4_msgtag_t
+l4_thread_vcpu_control_u(l4_cap_idx_t thread, l4_addr_t vcpu_state,
+                         l4_utcb_t *utcb) L4_NOTHROW
+{
+  l4_msg_regs_t *v = l4_utcb_mr_u(utcb);
+  v->mr[0] = L4_THREAD_VCPU_CONTROL;
+  v->mr[1] = vcpu_state;
+  return l4_ipc_call(thread, utcb, l4_msgtag(L4_PROTO_THREAD, 2, 0, 0), L4_IPC_NEVER);
+}
+
+L4_INLINE l4_msgtag_t
+l4_thread_vcpu_control(l4_cap_idx_t thread, l4_addr_t vcpu_state) L4_NOTHROW
+{ return l4_thread_vcpu_control_u(thread, vcpu_state, l4_utcb()); }
+
+
+L4_INLINE l4_msgtag_t
+l4_thread_vcpu_control_ext_u(l4_cap_idx_t thread, l4_addr_t ext_vcpu_state,
+                             l4_utcb_t *utcb) L4_NOTHROW
+{
+  l4_msg_regs_t *v = l4_utcb_mr_u(utcb);
+  v->mr[0] = L4_THREAD_VCPU_CONTROL_EXT;
+  v->mr[1] = ext_vcpu_state;
+  return l4_ipc_call(thread, utcb, l4_msgtag(L4_PROTO_THREAD, 2, 0, 0), L4_IPC_NEVER);
+}
+
+L4_INLINE l4_msgtag_t
+l4_thread_vcpu_control_ext(l4_cap_idx_t thread, l4_addr_t ext_vcpu_state) L4_NOTHROW
+{ return l4_thread_vcpu_control_ext_u(thread, ext_vcpu_state, l4_utcb()); }
 
 L4_INLINE l4_msgtag_t
 l4_thread_modify_sender_start_u(l4_utcb_t *u) L4_NOTHROW

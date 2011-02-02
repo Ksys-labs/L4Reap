@@ -35,6 +35,7 @@ class Space : public Ref_cnt_obj
 {
   MEMBER_OFFSET();
   friend class Jdb_space;
+
 public:
 
   struct Default_factory
@@ -67,8 +68,32 @@ public:
     In_deletion = 0x10
   };
 
-private:
+  struct Ku_mem
+  {
+    Ku_mem *next;
+    User<void>::Ptr u_addr;
+    void *k_addr;
+    unsigned size;
 
+    static slab_cache_anon *a;
+
+    Ku_mem() : next(0) {}
+
+    void *operator new (size_t, Ram_quota *q) throw()
+    { return a->q_alloc(q); }
+
+    void free(Ram_quota *q) throw()
+    { a->q_free(q, this); }
+
+    template<typename T>
+    T *kern_addr(Smart_ptr<T, Simple_ptr_policy, User_ptr_discr> ua) const
+    {
+      typedef Address A;
+      return (T*)((A)ua.get() - (A)u_addr.get() + (A)k_addr);
+    }
+  };
+
+private:
   template<typename SPACE>
   class Space_container
   {
@@ -100,20 +125,13 @@ private:
   typedef Space_container<Mem_space> Mem_space_container;
 
   // DATA
-  Spin_lock_coloc<State>    _state;
-
   Mem_space_container _mem_space;
   Obj_space _obj_space;
-
-  Address _utcb_area_start;
-  Address _utcb_kernel_area_start;
-  unsigned _utcb_area_size;
 
   void switchin_ldt() const;
 
 protected:
-  void utcb_area(Address user_va, Address kern_va, unsigned long size);
-
+  Ku_mem *_ku_mem;
 };
 
 
@@ -139,11 +157,6 @@ IMPLEMENTATION:
 //@{
 
 
-PROTECTED inline
-void
-Space::set_kern_utcb_area(Address kern_va)
-{ _utcb_kernel_area_start = kern_va; }
-
 /**
  * Get size of UTCB area in bytes.
  *
@@ -152,12 +165,12 @@ Space::set_kern_utcb_area(Address kern_va)
 PUBLIC inline
 unsigned long
 Space::utcb_area_size() const
-{ return _utcb_area_size; }
+{ return _ku_mem->size; }
 
 PUBLIC inline
 Address
 Space::kern_utcb_area() const
-{ return _utcb_kernel_area_start; }
+{ return (Address)_ku_mem->k_addr; }
 
 /**
  * Get the start of the UTCB area in the user address-space.
@@ -167,60 +180,32 @@ Space::kern_utcb_area() const
 PUBLIC inline
 Address
 Space::user_utcb_area() const
-{ return _utcb_area_start; }
+{ return (Address)_ku_mem->u_addr.get(); }
 
-PRIVATE inline
-void
-Space::user_utcb_area(Address user_va)
-{ _utcb_area_start = user_va; }
-
-/**
- * Make the size and the start address of the UTCB area sane.
- *
- * This means we must have at least Config::PAGE_SIZE as size
- * and the start address must be size aligned.
- *
- * \todo We might ensure also a power of two as size.
- */
-PRIVATE inline
-void
-Space::sanitize_utcb_area()
-{
-  if (_utcb_area_size > 0 && _utcb_area_size < Config::PAGE_SIZE)
-    _utcb_area_size = Config::PAGE_SIZE;
-
-  _utcb_area_start &= ~(Address(_utcb_area_size) - 1);
-}
-
-PUBLIC inline
-bool
-Space::is_utcb_valid(void *utcb, unsigned nr_utcbs = 1)
-{
-  Address u = Address(utcb);
-  if (EXPECT_FALSE(u < user_utcb_area()))
-    return false;
-
-  return EXPECT_TRUE(u + sizeof(Utcb) * nr_utcbs
-                     <= user_utcb_area() + utcb_area_size());
-}
-
-PUBLIC inline
-Utcb *
-Space::kernel_utcb(void *user_utcb)
-{
-  // user_utcb == 0 for all kernel threads
-  assert (!user_utcb || is_utcb_valid(user_utcb));
-  Address const user_va = Address(user_utcb);
-  return (Utcb*)(_utcb_kernel_area_start + user_va - user_utcb_area());
-}
 
 //@}
 
-PUBLIC inline
-virtual
-Space::~Space()
+PUBLIC
+Space::Ku_mem const *
+Space::find_ku_mem(User<void>::Ptr p, unsigned size)
 {
+  if ((Address)p.get() & (sizeof(double) - 1))
+    return 0;
+
+  for (Ku_mem const *f = _ku_mem; f; f = f->next)
+    {
+      Address a = (Address)f->u_addr.get();
+      Address pa = (Address)p.get();
+      if (a <= pa && (a + f->size) >= (pa + size))
+	return f;
+    }
+
+  return 0;
 }
+
+PUBLIC virtual
+Space::~Space()
+{}
 
 
 
@@ -235,37 +220,22 @@ Space::~Space()
   * @param number Task number of the new address space
   */
 PUBLIC template< typename SPACE_FACTORY >
-inline NEEDS[Space::sanitize_utcb_area]
-Space::Space(SPACE_FACTORY const &sf, Ram_quota *q, L4_fpage const &utcb_area)
-  : _mem_space(sf, q),
-    _utcb_area_start(Virt_addr(utcb_area.mem_address()).value()),
-    _utcb_area_size(utcb_area.is_valid() ? (1UL << utcb_area.order()) : 0)
+inline
+Space::Space(SPACE_FACTORY const &sf, Ram_quota *q)
+  : _mem_space(sf, q), _ku_mem(0)
 #ifdef CONFIG_IO_PROT
     , _io_space(sf)
 #endif
-{
-  _state.init();
-
-  if (!utcb_area.is_mempage())
-    {
-      _utcb_area_size = 0;
-      _utcb_area_start = 0;
-    }
-
-  sanitize_utcb_area();
-}
+{}
 
 
 PROTECTED template<typename SPACE_FACTORY>
-Space::Space (SPACE_FACTORY const &sf, Ram_quota *q, Mem_space::Dir_type* pdir)
-  : _mem_space(sf, q, pdir),
-    _utcb_area_size(0)
+Space::Space(SPACE_FACTORY const &sf, Ram_quota *q, Mem_space::Dir_type* pdir)
+  : _mem_space(sf, q, pdir)
 #ifdef CONFIG_IO_PROT
     , _io_space(sf)
 #endif
-{
-  _state.init();
-}
+{}
 
 
 PUBLIC inline
@@ -275,9 +245,9 @@ Space::ram_quota() const
 
 PROTECTED
 void
-Space::reset_dirty ()
+Space::reset_dirty()
 {
-  _mem_space.get()->reset_dirty ();
+  _mem_space.get()->reset_dirty();
 }
 
 
@@ -303,12 +273,12 @@ Space::switchin_context(Space *from)
 // Return memory space.
 PUBLIC inline
 Mem_space const *
-Space::mem_space () const
+Space::mem_space() const
 { return _mem_space.get(); }
 
 PUBLIC inline
 Mem_space*
-Space::mem_space ()
+Space::mem_space()
 {
   return _mem_space.get();
 }
@@ -323,7 +293,7 @@ Space::is_user_memory(Address address, Mword len)
 
 PUBLIC inline
 bool
-Space::lookup_space (Mem_space** out_space)
+Space::lookup_space(Mem_space** out_space)
 {
   *out_space = mem_space();
   return true;
@@ -338,26 +308,11 @@ Space::obj_space()
 
 PUBLIC inline
 bool
-Space::lookup_space (Obj_space** out_cap_space)
+Space::lookup_space(Obj_space** out_cap_space)
 {
   *out_cap_space = obj_space();
   return true;
 }
-
-PUBLIC inline
-Space::State
-Space::state() const
-{ return _state.get_unused(); }
-
-PUBLIC inline
-void
-Space::set_state(State s)
-{ _state.set_unused(s); }
-
-PUBLIC inline
-Spin_lock_coloc<Space::State> *
-Space::state_lock()
-{ return &_state; }
 
 // ------------------------------------------------------------------------
 IMPLEMENTATION [!io && !ux]:

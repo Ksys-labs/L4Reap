@@ -1,8 +1,8 @@
 # -*- makefile -*-
 
-OPT_SHARED_FLAGS	+= $(call CHECKCC,-finline-limit=10000,) 
-OPT_CXXFLAGS		+= $(call CHECKCXX,--param large-function-insns=10000)
-OPT_CFLAGS		+= $(call CHECKCC,--param large-function-insns=10000)
+#OPT_SHARED_FLAGS	+= $(call CHECKCC,-finline-limit=10000,) 
+#OPT_CXXFLAGS		+= $(call CHECKCXX,--param large-function-insns=10000)
+#OPT_CFLAGS		+= $(call CHECKCC,--param large-function-insns=10000)
 
 # The -Os option of gcc-4.0 sets max-inline-insns-single to 5 which prevents
 # inlining of almost every function
@@ -36,5 +36,4 @@ SHARED_FLAGS                      += $(call CHECKCC,-mno-3dnow,)
 
 ASFLAGS				  += -m32
 OFORMAT				  := elf32-i386
-LD_EMULATION-SYSTEM-FreeBSD	  := elf_i386_fbsd
-LD_EMULATION-SYSTEM-default	  := elf_i386
+LD_EMULATION_CHOICE               := elf_i386 elf_i386_fbsd

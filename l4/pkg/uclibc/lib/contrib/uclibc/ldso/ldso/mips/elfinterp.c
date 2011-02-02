@@ -172,8 +172,8 @@ int _dl_parse_relocation_information(struct dyn_elf *xpnt,
 	for (i = 0; i < rel_size; i++, rpnt++) {
 		reloc_addr = (unsigned long *) (tpnt->loadaddr +
 			(unsigned long) rpnt->r_offset);
-		reloc_type = ELF32_R_TYPE(rpnt->r_info);
-		symtab_index = ELF32_R_SYM(rpnt->r_info);
+		reloc_type = ELF_R_TYPE(rpnt->r_info);
+		symtab_index = ELF_R_SYM(rpnt->r_info);
 		symbol_addr = 0;
 
 		debug_sym(symtab,strtab,symtab_index);
@@ -201,7 +201,7 @@ int _dl_parse_relocation_information(struct dyn_elf *xpnt,
 		}
 
 		switch (reloc_type) {
-#if USE_TLS
+#if defined USE_TLS && USE_TLS
 # if _MIPS_SIM == _MIPS_SIM_ABI64
 		case R_MIPS_TLS_DTPMOD64:
 		case R_MIPS_TLS_DTPREL64:

@@ -38,7 +38,7 @@ private:
 };
 
 
-class Locked_prio_list : public Prio_list, public Spin_lock
+class Locked_prio_list : public Prio_list, public Spin_lock<>
 {
 };
 

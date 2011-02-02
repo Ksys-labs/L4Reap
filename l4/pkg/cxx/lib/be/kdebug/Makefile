@@ -3,7 +3,7 @@ L4DIR		?= $(PKGDIR)/../..
 
 TARGET		= libcxx_io_kdebug
 PC_FILENAME     = cxx_io_kdebug
-SYSTEMS		= x86 arm amd64 ppc32
+SYSTEMS		= $(SYSTEMS_PLAIN)
 SRC_CC		= iostream.cc
 
 include $(PKGDIR)/lib/Makefile.inc

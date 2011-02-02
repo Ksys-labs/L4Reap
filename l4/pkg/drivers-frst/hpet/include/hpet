@@ -20,7 +20,7 @@ class Hpet
 public:
   // General Capabilities and ID Register
   unsigned rev_id() const { l4_mb(); return _cap_and_id & 0xff; }
-  unsigned num_tim_cap() const { l4_mb(); return ((_cap_and_id >> 8) & 0xf) + 1; }
+  unsigned num_tim_cap() const { l4_mb(); return ((_cap_and_id >> 8) & 0x1f) + 1; }
   unsigned count_size_cap() const { l4_mb(); return _cap_and_id & (1 << 13); }
   unsigned leg_rt_cap() const { l4_mb(); return _cap_and_id & (1 << 13); }
   unsigned vendor_id() const { l4_mb(); return (_cap_and_id >> 16) & 0xffff; };

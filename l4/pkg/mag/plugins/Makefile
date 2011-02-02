@@ -1,6 +1,6 @@
 PKGDIR  ?= ..
 L4DIR   ?= $(PKGDIR)/../..
-TARGET   = src client_fb input_lxdd input_libinput background mag_client
+TARGET   = src client_fb input_libinput input_event background mag_client
 
 include $(L4DIR)/mk/subdir.mk
 

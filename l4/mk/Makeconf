@@ -35,46 +35,52 @@ all::
 # make .general.d dependent on the role-file
 $(if $(ROLE),$(OBJ_DIR)/.general.d: $(L4DIR)/mk/$(ROLE))
 
-SYSTEM_TARGET_arm   = arm-linux-
-SYSTEM_TARGET_ppc32 = powerpc-linux-
-SYSTEM_TARGET	    = $(SYSTEM_TARGET_$(ARCH))
+SYSTEM_TARGET_arm     = arm-linux-
+SYSTEM_TARGET_ppc32   = powerpc-linux-
+SYSTEM_TARGET_sparc   = sparc-elf-
+SYSTEM_TARGET         = $(SYSTEM_TARGET_$(ARCH))
 
 CARCHFLAGS_amd64    = -mno-red-zone
 ASFLAGS_amd64       = -m64
 LDFLAGS_amd64      += -m elf_x86_64 -z max-page-size=0x1000 -z common-page-size=0x1000
 
-LD_EMULATION_CHOICE_amd64 = elf_x86_64
-LD_EMULATION_CHOICE_arm   = armelf armelf_linux_eabi
-LD_EMULATION_CHOICE_ppc32 = elf32ppc
-LD_EMULATION_CHOICE_x86   = elf_i386
+LD_EMULATION_CHOICE_amd64   = elf_x86_64
+LD_EMULATION_CHOICE_arm     = armelf armelf_linux_eabi
+LD_EMULATION_CHOICE_ppc32   = elf32ppc
+LD_EMULATION_CHOICE_x86     = elf_i386
+LD_EMULATION_CHOICE_sparc   = sparcleon
 
 OFORMAT_amd64     = elf64-x86-64
 OFORMAT_arm       = elf32-littlearm
 OFORMAT_ppc32     = elf32-powerpc
 OFORMAT_x86       = elf32-i386
+OFORMAT_sparc     = elf32-sparc
 OFORMAT           = $(OFORMAT_$(ARCH))
 
 BFD_ARCH_amd64    = i386
 BFD_ARCH_arm      = arm
 BFD_ARCH_ppc32    = powerpc
 BFD_ARCH_x86      = i386
+BFD_ARCH_sparc    = sparc
 BFD_ARCH          = $(BFD_ARCH_$(ARCH))
 
-L4_KIP_ADDR_amd64  ?= 0x6ffff000
-L4_KIP_ADDR_arm    ?= 0xaffff000
-L4_KIP_ADDR_ppc32  ?= 0xaffff000
-L4_KIP_ADDR_x86    ?= 0xaffff000
-L4_KIP_ADDR        ?= $(L4_KIP_ADDR_$(ARCH))
+L4_KIP_ADDR_amd64   ?= 0x6ffff000
+L4_KIP_ADDR_arm     ?= 0xaffff000
+L4_KIP_ADDR_ppc32   ?= 0xaffff000
+L4_KIP_ADDR_x86     ?= 0xaffff000
+L4_KIP_ADDR_sparc   ?= 0xaffff000
+L4_KIP_ADDR         ?= $(L4_KIP_ADDR_$(ARCH))
 
 L4_KIP_OFFS_SYS_INVOKE   = 0x800
 L4_KIP_OFFS_SYS_DEBUGGER = 0x900
 
-L4_STACK_ADDR_amd64 ?= 0x70000000
-L4_STACK_ADDR_arm   ?= 0xb0000000
-L4_STACK_ADDR_ppc32 ?= 0xb0000000
-L4_STACK_ADDR_x86   ?= 0xb0000000
-L4_STACK_ADDR       ?= $(L4_STACK_ADDR_$(ARCH))
-L4_STACK_SIZE       ?= $(if $(L4_STACK_SIZE_MAIN_THREAD),$(L4_STACK_SIZE_MAIN_THREAD),0x8000)
+L4_STACK_ADDR_amd64     ?= 0x70000000
+L4_STACK_ADDR_arm       ?= 0xb0000000
+L4_STACK_ADDR_ppc32     ?= 0xb0000000
+L4_STACK_ADDR_x86       ?= 0xb0000000
+L4_STACK_ADDR_sparc     ?= 0xb0000000
+L4_STACK_ADDR           ?= $(L4_STACK_ADDR_$(ARCH))
+L4_STACK_SIZE           ?= $(if $(L4_STACK_SIZE_MAIN_THREAD),$(L4_STACK_SIZE_MAIN_THREAD),0x8000)
 
 # This is quite bad: There is no other chance to disable the page-alignedment
 # of the linker. The linker aligns the first section at 0x100000 for AMD64!
@@ -90,6 +96,7 @@ RAM_SIZE_MB      = $(CONFIG_RAM_SIZE_MB)
 RAM_BASE         = $(CONFIG_RAM_BASE)
 ARM_PLATFORM_TYPE= $(patsubst "%",%,$(CONFIG_ARM_PLATFORM_TYPE))
 PPC_PLATFORM_TYPE= $(patsubst "%",%,$(CONFIG_PPC_PLATFORM_TYPE))
+SPARC_PLATFORM_TYPE= $(patsubst "%",%,$(CONFIG_SPARC_PLATFORM_TYPE))
 CPU              = $(patsubst "%",%,$(CONFIG_CPU))
 BUILD_ABI        = $(patsubst "%",%,$(CONFIG_BUILD_ABI))
 BUILD_ARCH       = $(patsubst "%",%,$(CONFIG_BUILD_ARCH))
@@ -130,10 +137,15 @@ CC_x86          = $(SYSTEM_TARGET)gcc -m32
 CC_amd64        = $(SYSTEM_TARGET)gcc -m64
 CC_arm          = $(SYSTEM_TARGET)gcc
 CC_ppc32        = $(SYSTEM_TARGET)gcc -m32
+CC_sparc        = $(SYSTEM_TARGET)gcc -m32
 CXX_x86         = $(SYSTEM_TARGET)g++ -m32
 CXX_amd64       = $(SYSTEM_TARGET)g++ -m64
 CXX_arm         = $(SYSTEM_TARGET)g++
 CXX_ppc32       = $(SYSTEM_TARGET)g++ -m32
+CXX_sparc       = $(SYSTEM_TARGET)g++ -m32
+
+SYSTEMS_ABI    := x86-l4f amd64-l4f arm-l4f ppc32-l4f sparc-l4f
+SYSTEMS_PLAIN  := x86     amd64     arm     ppc32     sparc
 
 AR		= $(SYSTEM_TARGET)ar
 AS		= $(SYSTEM_TARGET)as
@@ -173,7 +185,7 @@ MKDIR		= mkdir -p
 MKFLAGS		+=$(MKFLAGS_$@)
 NM		= $(SYSTEM_TARGET)nm
 OBJCOPY		= $(SYSTEM_TARGET)objcopy
-PKG_CONFIG      = pkg-config $(if $(VERBOSE),--silence-errors)
+PKG_CONFIG      = pkg-config
 PWDCMD		= sh -c pwd
 RANLIB		= $(SYSTEM_TARGET)ranlib
 RM		= rm -f
@@ -190,7 +202,7 @@ ABS2REL		= $(L4DIR)/tool/bin/abs2rel.sh
 # it's optional to be able to set it as environment variable
 FIASCOUX	?= $(L4DIR)/../kernel/fiasco/build-ux/fiasco
 PAGER		?= less
-DISASM_CMD      ?= $(SYSTEM_TARGET)objdump -ld $(1) | $(PAGER)
+DISASM_CMD      ?= $(SYSTEM_TARGET)objdump -lCSd $(1) | $(PAGER)
 IMAGES_DIR      ?= $(OBJ_BASE)/images
 
 

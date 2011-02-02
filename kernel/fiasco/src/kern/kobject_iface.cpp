@@ -19,24 +19,14 @@ public:
   virtual bool is_local(Space *) const  = 0;
   virtual Mword obj_id() const  = 0;
   virtual void initiate_deletion(Kobject ***) = 0;
-  virtual void destroy(Kobject ***) = 0;
-  virtual bool put() = 0;
 
   virtual Kobject_mappable *map_root() = 0;
-
-  virtual Kobject_dbg *dbg_info() = 0;
-  virtual Kobject_dbg const *dbg_info() const = 0;
-
-  virtual Kobject *kobject() = 0;
-  virtual Kobject const *kobject() const = 0;
 };
 
-class Kobject_iface : public virtual Kobject_common
+class Kobject_iface : public Kobject_common
 {
 public:
   virtual void invoke(L4_obj_ref self, Mword rights, Syscall_frame *, Utcb *) = 0;
-  virtual Kobject_iface *downgrade(unsigned long del_attribs)
-  { (void)del_attribs; return this; }
 };
 
 IMPLEMENTATION:
@@ -58,4 +48,13 @@ Kobject_iface::commit_error(Utcb const *utcb, L4_error const &e,
   return L4_msg_tag(tag, L4_msg_tag::Error);
 }
 
+PUBLIC virtual
+Kobject_iface *
+Kobject_iface::downgrade(unsigned long del_attribs)
+{ (void)del_attribs; return this; }
 
+
+// ------------------------------------------------------------------------
+IMPLEMENTATION [debug]:
+
+PUBLIC virtual Kobject_dbg *Kobject_common::dbg_info() const = 0;

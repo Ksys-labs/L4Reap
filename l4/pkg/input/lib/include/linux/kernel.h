@@ -32,6 +32,12 @@ static inline char *get_options(const char *str, int nints, int *ints)
 	return (char *)str;
 }
 
+#define min(x, y) ({                            \
+        typeof(x) _min1 = (x);                  \
+        typeof(y) _min2 = (y);                  \
+        (void) (&_min1 == &_min2);              \
+        _min1 < _min2 ? _min1 : _min2; })
+
 #define container_of(ptr, type, member) ({			\
         const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
         (type *)( (char *)__mptr - offsetof(type,member) );})

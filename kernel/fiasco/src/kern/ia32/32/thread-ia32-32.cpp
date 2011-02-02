@@ -1,8 +1,8 @@
 IMPLEMENTATION[ia32 || ux]:
 
-PROTECTED inline
+PUBLIC template<typename T> inline
 void FIASCO_NORETURN
-Thread::fast_return_to_user(Mword ip, Mword sp)
+Thread::fast_return_to_user(Mword ip, Mword sp, T arg)
 {
   assert_kdb(cpu_lock.test());
   assert_kdb(current() == this);
@@ -13,7 +13,7 @@ Thread::fast_return_to_user(Mword ip, Mword sp)
     ("mov %0, %%esp \t\n"
      "iret         \t\n"
      :
-     : "r" (static_cast<Return_frame*>(regs()))
+     : "r" (static_cast<Return_frame*>(regs())), "a" (arg)
     );
   __builtin_trap();
 }
@@ -78,7 +78,7 @@ Thread::copy_utcb_to_ts(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
   Trap_state *ts = (Trap_state*)rcv->_utcb_handler;
   Mword       s  = tag.words();
   Unsigned32  cs = ts->cs();
-  Utcb *snd_utcb = snd->access_utcb();
+  Utcb *snd_utcb = snd->utcb().access();
 
   // XXX: check that gs and fs point to valid user_entry only, for gdt and
   // ldt!
@@ -111,7 +111,7 @@ Thread::copy_utcb_to_ts(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
   ts->cs(cs);
 
   bool ret = transfer_msg_items(tag, snd, snd_utcb,
-                                rcv, rcv->access_utcb(), rights);
+                                rcv, rcv->utcb().access(), rights);
 
   rcv->state_del(Thread_in_exception);
   return ret;
@@ -122,7 +122,7 @@ bool FIASCO_WARN_RESULT
 Thread::copy_ts_to_utcb(L4_msg_tag const &, Thread *snd, Thread *rcv,
                         unsigned char rights)
 {
-  Utcb *rcv_utcb = rcv->utcb();
+  Utcb *rcv_utcb = rcv->utcb().access();
   Trap_state *ts = (Trap_state*)snd->_utcb_handler;
   Mword        r = Utcb::Max_words;
 
@@ -269,7 +269,7 @@ Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
       if (EXPECT_FALSE(tag.words() == 1))
         {
           utcb->values[0] = Gdt::gdt_user_entry1 >> 3;
-          tag = commit_result(0, 1);
+          tag = Kobject_iface::commit_result(0, 1);
           return true;
         }
 
@@ -289,7 +289,7 @@ Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
           if (this == current_thread())
             switch_gdt_user_entries(this);
 
-          tag = commit_result(0);
+          tag = Kobject_iface::commit_result(0);
           return true;
         }
 

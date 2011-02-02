@@ -49,9 +49,9 @@ private:
   Unsigned32 dummy[3];
   Unsigned32 volatile data;
 
-  static Spin_lock _l;
   static Io_apic *_apic;
   static Acpi_madt const *_madt;
+  static Spin_lock<> _l;
 } __attribute__((packed));
 
 IMPLEMENTATION:
@@ -63,8 +63,8 @@ IMPLEMENTATION:
 #include "lock_guard.h"
 
 Io_apic *Io_apic::_apic;
-Spin_lock Io_apic::_l;
 Acpi_madt const *Io_apic::_madt;
+Spin_lock<> Io_apic::_l;
 
 
 
@@ -72,7 +72,7 @@ PRIVATE inline NEEDS["lock_guard.h"]
 Mword
 Io_apic::read(int reg)
 {
-  Lock_guard<Spin_lock> g(&_l);
+  Lock_guard<typeof(_l)> g(&_l);
   adr = reg;
   asm volatile ("": : :"memory");
   return data;
@@ -83,7 +83,7 @@ void
 Io_apic::modify(int reg, Mword set_bits, Mword del_bits)
 {
   register Mword tmp;
-  Lock_guard<Spin_lock> g(&_l);
+  Lock_guard<typeof(_l)> g(&_l);
   adr = reg;
   asm volatile ("": : :"memory");
   tmp = data;
@@ -96,7 +96,7 @@ PRIVATE inline NEEDS["lock_guard.h"]
 void
 Io_apic::write(int reg, Mword value)
 {
-  Lock_guard<Spin_lock> g(&_l);
+  Lock_guard<typeof(_l)> g(&_l);
   adr = reg;
   asm volatile ("": : :"memory");
   data = value;

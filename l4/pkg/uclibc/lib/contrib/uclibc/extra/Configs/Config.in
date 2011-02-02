@@ -79,7 +79,7 @@ config TARGET_m68k
 	bool "m68k"
 
 config TARGET_microblaze
-	bool "microblaze (BROKEN)"
+	bool "microblaze"
 
 config TARGET_mips
 	bool "mips"
@@ -224,6 +224,10 @@ config TARGET_SUBARCH
 	default "e500" if CONFIG_E500
 	default "classic" if CONFIG_CLASSIC
 	default "sh4" if CONFIG_SH4
+	default "" if CONFIG_GENERIC_386 || CONFIG_386
+	default "i486" if CONFIG_486
+	default "i586" if CONFIG_586 || CONFIG_586MMX
+	default "i686" if TARGET_ARCH = "i386"
 	default ""
 
 source "extra/Configs/Config.in.arch"
@@ -299,6 +303,18 @@ config LDSO_CACHE_SUPPORT
 	  cache configuration file to support for non-standard library paths.
 	  After updating this file, it is necessary to run 'ldconfig' to update
 	  the /etc/ld.so.cache shared library loader cache file.
+
+config LDSO_PRELOAD_ENV_SUPPORT
+	bool "Enable library loader LD_PRELOAD environment"
+	depends on HAVE_SHARED
+	default y
+	help
+	  Enable this to make use of LD_PRELOAD environment variable.
+	  A whitespace-separated list of additional, user-specified, ELF shared
+	  libraries to be loaded before all others. This can be used to
+	  selectively override functions in other shared libraries. For
+	  set-user-ID/set-group-ID ELF binaries, only libraries in the standard
+	  search directories that are also set-user-ID will be loaded.
 
 config LDSO_PRELOAD_FILE_SUPPORT
 	bool "Enable library loader preload file (ld.so.preload)"
@@ -401,6 +417,7 @@ config LDSO_GNU_HASH_SUPPORT
 
 choice
 	prompt "Thread support"
+	#default UCLIBC_HAS_THREADS_NATIVE if (TARGET_alpha || TARGET_arm || TARGET_i386 || TARGET_mips || TARGET_powerpc || TARGET_sh || TARGET_sh64)
 	default HAS_NO_THREADS
 	help
 	  If you want to compile uClibc with pthread support, then answer Y.
@@ -431,10 +448,45 @@ config LINUXTHREADS_NEW
 	  the latest code from glibc, so it may be the only choice for the
 	  newer ports (like alpha/amd64/64bit arches and hppa).
 
+config UCLIBC_HAS_THREADS_NATIVE
+	bool "Native POSIX Threading (NPTL)"
+	select UCLIBC_HAS_TLS
+	select UCLIBC_HAS_STDIO_FUTEXES
+	# NPTL local:
+	select EXTRA_WARNINGS
+	# i386 has no lowlevellock support (yet) as opposed to i486 onward
+	depends on !CONFIG_386
+	help
+	  If you want to compile uClibc with NPTL support, then answer Y.
+
+	  IMPORTANT NOTE!  NPTL requires a Linux 2.6 kernel, binutils
+	  at least version 2.16 and GCC with at least version 4.1.0. NPTL
+	  will not work with older versions of any above sources. If you
+	  ignore any of these guidelines, you do so at your own risk. Do
+	  not ask for help on any of the development mailing lists.
+
+	  !!!! WARNING !!!! BIG FAT WARNING !!!! REALLY BIG FAT WARNING !!!!
+
+	  This is experimental code and at times it may not even build and
+	  even if it does it might decide to do random damage. This code is
+	  potentially hazardous to your health and sanity. It will remain
+	  that way until further notice at which point this notice will
+	  disappear. Thank you for your support and for not smoking.
+
 endchoice
 
 config UCLIBC_HAS_THREADS
 	def_bool y if !HAS_NO_THREADS
+
+config UCLIBC_HAS_TLS
+	bool "Thread-Local Storage"
+	depends on UCLIBC_HAS_THREADS_NATIVE
+	default n
+	help
+	  If you want to enable TLS support then answer Y.
+	  This is fast an efficient way to store per-thread local data
+	  which is not on stack. It needs __thread support enabled in
+	  gcc.
 
 config PTHREADS_DEBUG_SUPPORT
 	bool "Build pthreads debugging support"
@@ -801,6 +853,17 @@ config UCLIBC_TZ_FILE_PATH
 	  This is the path to the 'TZ' file.
 
 	  Most people will use the default of '/etc/TZ'.
+
+config UCLIBC_FALLBACK_TO_ETC_LOCALTIME
+	bool "Use /etc/localtime as a fallback"
+	depends on UCLIBC_HAS_TZ_FILE
+	default y
+	help
+	  Answer Y to try to use /etc/localtime file.
+	  On glibc systems this file (if it is in TZif2 format)
+	  contains timezone string at the end.
+
+	  Most people will answer Y.
 
 endmenu
 
@@ -1715,6 +1778,14 @@ config UCLIBC_HAS_GNU_GETOPT
 
 	  Most people will answer Y.
 
+config UCLIBC_HAS_STDIO_FUTEXES
+	bool "Use futexes for multithreaded I/O locking"
+	default n
+	depends on UCLIBC_HAS_THREADS_NATIVE
+	help
+	  If you want to compile uClibc to use futexes for low-level
+	  I/O locking, answer Y.  Otherwise, answer N.
+
 config UCLIBC_HAS_GETOPT_LONG
 	bool "Support getopt_long/getopt_long_only"
 	depends on !UCLIBC_HAS_GNU_GETOPT
@@ -1843,6 +1914,15 @@ config UCLIBC_HAS_GNU_GLOB
 	  SUSv3 compatible glob().
 
 	  Most people will answer N.
+
+config UCLIBC_HAS_UTMPX
+       bool "utmpx based support for tracking login/logouts to/from the system"
+       default n
+       help
+         Answer y to enable support for accessing user accounting database.
+         It can be used to track all login/logout to the system.
+
+         If unsure, just answer N.
 
 endmenu
 
@@ -2229,6 +2309,25 @@ config UCLIBC_MALLOC_DEBUGGING
 
 	  Because this increases the size of malloc appreciably (due to strings
 	  etc), you should say N unless you need to debug a malloc problem.
+
+config UCLIBC_HAS_BACKTRACE
+	bool "Add support for application self-debugging"
+	depends on HAVE_SHARED && TARGET_sh
+	default n
+	help
+	  Answer Y here to compile support for application self-debugging, by adding
+	  a new shared object "libubacktrace.so" that provides the following new
+	  functions:
+	  backtrace, backtrace_symbols, backtrace_symbols_fd
+
+	  The backtrace functionality is currently supported on SH platform, and it
+	  based on dwarf2 informations to properly work, so any application that
+	  want to use backtrace needs to be built with -fexceptions flag.
+
+	  The symbol names may be unavailable without the use of special linker
+	  options. For systems using the GNU linker, it is necessary to use the
+	  -rdynamic linker option too. Note that names of "static" functions are not
+	  exposed, and won't be available in the backtrace.
 
 config WARNINGS
 	string "Compiler Warnings"

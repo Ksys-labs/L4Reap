@@ -23,7 +23,6 @@ IMPLEMENTATION:
 #include "jdb_ktrace.h"
 #include "mem_layout.h"
 #include "vmem_alloc.h"
-#include "virq.h"
 
 STATIC_INITIALIZE_P(Jdb_tbuf_init, JDB_MODULE_INIT_PRIO);
 
@@ -31,7 +30,7 @@ STATIC_INITIALIZE_P(Jdb_tbuf_init, JDB_MODULE_INIT_PRIO);
 IMPLEMENT FIASCO_INIT
 void Jdb_tbuf_init::init()
 {
-  static Virq tbuf_irq(Config::Tbuf_irq);
+  //static Irq_sender tbuf_irq(Config::Tbuf_irq);
 
   static int init_done;
 

@@ -1,2 +1,2 @@
 SYSTEM_TARGET			:= powerpc-linux-
-LD_EMULATIOM-SYSTEM-default	:= elf32ppc
+LD_EMULATION_CHOICE             := elf32ppc

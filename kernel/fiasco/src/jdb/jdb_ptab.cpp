@@ -24,7 +24,7 @@ public:
 private:
   Address task;
   static char first_char;
-  bool show_kobject(Kobject *, int) { return false; }
+  bool show_kobject(Kobject_common *, int) { return false; }
 };
 
 class Jdb_ptab : public Jdb_table
@@ -115,7 +115,7 @@ Jdb_ptab::print_head(Mword entry)
 
 PUBLIC
 bool
-Jdb_ptab_m::handle_key(Kobject *o, int code)
+Jdb_ptab_m::handle_key(Kobject_common *o, int code)
 {
   if (code != 'p')
     return false;

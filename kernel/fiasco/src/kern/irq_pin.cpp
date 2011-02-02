@@ -21,18 +21,15 @@ public:
 public:
   void *operator new (size_t, void *p) { return p; }
 
-  //virtual void setup() {}
   virtual void do_mask() = 0;
   virtual void do_unmask() = 0;
   virtual void do_mask_and_ack() = 0;
   virtual void do_set_mode(unsigned) {};
 
-  virtual void hit() = 0;
   virtual void ack() = 0;
   virtual void set_cpu(unsigned) = 0;
   virtual bool check_debug_irq() { return true; }
   virtual void disable() {}
-  virtual bool trigger() { return false; }
   virtual void unbind_irq() = 0;
 
   void mask() { if (!__mask()) do_mask(); }
@@ -91,7 +88,6 @@ public:
   void ack() {}
   void do_mask_and_ack() { __mask(); }
   void do_set_mode(unsigned) {}
-  void hit() {}
   void set_cpu(unsigned) {}
   char const *pin_type() const { return "DUMMY"; }
 };
@@ -138,6 +134,8 @@ public:
 IMPLEMENTATION:
 
 #include "types.h"
+#include "cpu_lock.h"
+#include "lock_guard.h"
 
 Irq_base *(*Irq_base::dcast)(Kobject_iface *);
 
@@ -151,17 +149,17 @@ Irq_base::self(Irq_pin const *pin)
 #undef MYoffsetof
 }
 
+PUBLIC inline NEEDS["lock_guard.h", "cpu_lock.h"]
+void
+Irq_base::destroy()
+{
+  Lock_guard<Cpu_lock> g(&cpu_lock);
+  pin()->unbind_irq();
+  pin()->replace<Sw_irq_pin>();
+}
+
 PUBLIC
 char const *
 Sw_irq_pin::pin_type() const
 { return "SW IRQ"; }
-
-PUBLIC
-bool
-Sw_irq_pin::trigger()
-{
-//  printf("irq : %p %x\n", Irq::self(this), Irq::self(this)->dbg_id());
-  Irq_base::self(this)->hit();
-  return true;
-}
 

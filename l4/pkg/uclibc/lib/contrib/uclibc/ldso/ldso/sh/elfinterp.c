@@ -166,33 +166,39 @@ _dl_do_reloc (struct elf_resolve *tpnt,struct dyn_elf *scope,
 	reloc_type = ELF32_R_TYPE(rpnt->r_info);
 	symtab_index = ELF32_R_SYM(rpnt->r_info);
 	symbol_addr = 0;
-	symname = strtab + symtab[symtab_index].st_name;
 
 	if (symtab_index) {
-		symbol_addr = (unsigned long) _dl_find_hash(symname, scope, tpnt,
-							    elf_machine_type_class(reloc_type), &tls_tpnt);
-		/*
-		 * We want to allow undefined references to weak symbols - this might
-		 * have been intentional.  We should not be linking local symbols
-		 * here, so all bases should be covered.
-		 */
+		symname = strtab + symtab[symtab_index].st_name;
+		if (ELF32_ST_VISIBILITY(symtab[symtab_index].st_other)
+			 != STV_PROTECTED) {
+			symbol_addr = (unsigned long) _dl_find_hash(symname, scope, tpnt,
+								elf_machine_type_class(reloc_type), &tls_tpnt);
+			/*
+			 * We want to allow undefined references to weak symbols - this might
+			 * have been intentional.  We should not be linking local symbols
+			 * here, so all bases should be covered.
+			 */
 
-		if (!symbol_addr
-			&& (ELF_ST_TYPE(symtab[symtab_index].st_info) != STT_TLS)
-			&& (ELF32_ST_BIND(symtab[symtab_index].st_info) != STB_WEAK)) {
-			_dl_dprintf(2, "%s: can't resolve symbol '%s'\n",
-			            _dl_progname, strtab + symtab[symtab_index].st_name);
+			if (!symbol_addr
+				&& (ELF_ST_TYPE(symtab[symtab_index].st_info) != STT_TLS)
+				&& (ELF32_ST_BIND(symtab[symtab_index].st_info) != STB_WEAK)) {
+				_dl_dprintf(2, "%s: can't resolve symbol '%s'\n",
+				            _dl_progname, strtab + symtab[symtab_index].st_name);
 
-			/* Let the caller to handle the error: it may be non fatal if called from dlopen */
-			return 1;
-		}
+				/* Let the caller to handle the error: it may be non fatal if called from dlopen */
+				return 1;
+			}
+		} else
+			/* Resolve protected symbols locally */
+			symbol_addr = DL_FIND_HASH_VALUE(tpnt, elf_machine_type_class(reloc_type),
+											&symtab[symtab_index]);
 	}
 
 #if defined (__SUPPORT_LD_DEBUG__)
 	old_val = *reloc_addr;
 #endif
 
-#if USE_TLS
+#if defined USE_TLS && USE_TLS
 	/* In case of a TLS reloc, tls_tpnt NULL means we have an 'anonymous'
 	   symbol.  This is the case for a static tls variable, so the lookup
 	   module is just that one is referencing the tls variable. */
@@ -225,7 +231,7 @@ _dl_do_reloc (struct elf_resolve *tpnt,struct dyn_elf *scope,
 		case R_SH_RELATIVE:
 			*reloc_addr = (unsigned long) tpnt->loadaddr + rpnt->r_addend;
 			break;
-#if USE_TLS
+#if defined USE_TLS && USE_TLS
 		case R_SH_TLS_DTPMOD32:
 			*reloc_addr = tls_tpnt->l_tls_modid;
 			break;

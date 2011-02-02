@@ -33,6 +33,7 @@ IMPLEMENTATION:
 #include <feature.h>
 #include "context.h"
 #include "kmem_alloc.h"
+#include "minmax.h"
 #include "panic.h"
 #include "space.h"
 #include "thread.h"
@@ -67,7 +68,7 @@ PUBLIC
 Jdb_kobject_name::Jdb_kobject_name()
 { _name[0] = 0; }
 
-static Spin_lock allocator_lock;
+static Spin_lock<> allocator_lock;
 
 IMPLEMENT
 void *
@@ -79,7 +80,7 @@ Jdb_kobject_name::operator new (size_t) throw()
       void **o = reinterpret_cast<void**>(n);
       if (!*o)
 	{
-	  Lock_guard<Spin_lock> g(&allocator_lock);
+	  Lock_guard<Spin_lock<> > g(&allocator_lock);
 	  if (!*o)
 	    {
 	      *o = (void*)10;
@@ -98,7 +99,7 @@ IMPLEMENT
 void
 Jdb_kobject_name::operator delete (void *p)
 {
-  Lock_guard<Spin_lock> g(&allocator_lock);
+  Lock_guard<Spin_lock<> > g(&allocator_lock);
   void **o = reinterpret_cast<void**>(p);
   *o = 0;
 }
@@ -121,36 +122,17 @@ char *
 Jdb_kobject_name::name()
 { return _name; }
 
-#if 0 // XXX use copy from user later 
-PUBLIC
-void
-Name_entry::set(Global_id id, const char *name)
-{
-  unsigned i;
-  Mem_space * const s = current()->mem_space();
-
-  _id = id;
-  for (i=0; i<sizeof(_name)-1; i++)
-    {
-      _name[i] = s->peek_user(name++);
-      if (!_name[i])
-	break;
-    }
-  _name[i] = 0;
-}
-#endif
-
 class Jdb_name_hdl : public Jdb_kobject_handler
 {
 public:
   Jdb_name_hdl() : Jdb_kobject_handler(0) {}
-  virtual bool show_kobject(Kobject *, int) { return true; }
+  virtual bool show_kobject(Kobject_common *, int) { return true; }
   virtual ~Jdb_name_hdl() {}
 };
 
 PUBLIC
 int
-Jdb_name_hdl::show_kobject_short(char *buf, int max, Kobject *o)
+Jdb_name_hdl::show_kobject_short(char *buf, int max, Kobject_common *o)
 {
   Jdb_kobject_name *ex
     = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(o);
@@ -163,28 +145,51 @@ Jdb_name_hdl::show_kobject_short(char *buf, int max, Kobject *o)
 
 PUBLIC
 bool
-Jdb_name_hdl::invoke(Kobject *o, Syscall_frame *f, Utcb *utcb)
+Jdb_name_hdl::invoke(Kobject_common *o, Syscall_frame *f, Utcb *utcb)
 {
-  if (utcb->values[0] == 0)
+  switch (utcb->values[0])
     {
-      if (!o)
-	{
-	  f->tag(Kobject_iface::commit_result(-L4_err::EInval));
-	  return true;
-	}
-      Jdb_kobject_name *ne = new Jdb_kobject_name();
-      if (!ne)
-	{
-	  f->tag(Kobject_iface::commit_result(-L4_err::ENomem));
-	  return true;
-	}
+    case Op_set_name:
+        {
+          Jdb_kobject_name *ne = new Jdb_kobject_name();
+          if (!ne)
+            {
+              f->tag(Kobject_iface::commit_result(-L4_err::ENomem));
+              return true;
+            }
 
-      char const *name = reinterpret_cast<char const*>(&utcb->values[1]);
-      ne->clear_name();
-      strncpy(ne->name(), name, ne->max_len());
-      ne->add(&o->_jdb_data);
-      f->tag(Kobject_iface::commit_result(0));
-      return true;
+          char const *name = reinterpret_cast<char const*>(&utcb->values[1]);
+          ne->clear_name();
+          strncpy(ne->name(), name, ne->max_len());
+          ne->add(&o->dbg_info()->_jdb_data);
+          f->tag(Kobject_iface::commit_result(0));
+          return true;
+        }
+    case Op_get_name:
+        {
+
+          Kobject *o = Kobject::id_to_obj(utcb->values[1]);
+          if (!o)
+            {
+              f->tag(Kobject_iface::commit_result(-L4_err::ENoent));
+              return true;
+            }
+          Jdb_kobject_name *n
+            = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(o);
+          if (!n)
+            {
+              f->tag(Kobject_iface::commit_result(-L4_err::ENoent));
+              return true;
+            }
+
+          unsigned l = min<unsigned>(n->max_len(), sizeof(utcb->values));
+          char *dst = reinterpret_cast<char *>(utcb->values);
+          strncpy(dst, n->name(), l);
+          dst[l - 1] = 0;
+
+          f->tag(Kobject_iface::commit_result(0));
+          return true;
+        }
     }
   return false;
 }

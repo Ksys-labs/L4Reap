@@ -16,7 +16,7 @@ class Kmem_alloc : public Mapped_allocator
 public:
   typedef Buddy_alloc Alloc;
 private:
-  typedef Spin_lock Lock;
+  typedef Spin_lock<> Lock;
   static Lock lock;
   static Alloc *a;
   static unsigned long _orig_free;
@@ -36,8 +36,8 @@ IMPLEMENTATION:
 
 static Kmem_alloc::Alloc _a;
 Kmem_alloc::Alloc *Kmem_alloc::a = &_a;
-Kmem_alloc::Lock Kmem_alloc::lock;
 unsigned long Kmem_alloc::_orig_free;
+Kmem_alloc::Lock Kmem_alloc::lock;
 
 PUBLIC static FIASCO_INIT
 void

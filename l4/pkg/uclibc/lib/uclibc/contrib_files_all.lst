@@ -62,9 +62,11 @@ include/unistd.h
 include/utime.h
 include/wchar.h
 include/wctype.h
+include/wordexp.h
 include/arpa/inet.h
 include/arpa/nameser.h
 include/arpa/nameser_compat.h
+include/internal/parse_config.h
 include/net/ethernet.h
 include/net/if.h
 include/net/if_arp.h
@@ -445,6 +447,7 @@ libc/misc/internals/errno.c
 libc/misc/internals/__errno_location.c
 libc/misc/internals/__h_errno_location.c
 libc/misc/internals/__uClibc_main.c
+libc/misc/internals/parse_config.c
 libc/misc/internals/tempname.h
 libc/misc/internals/tempname.c
 libc/misc/locale/locale.c
@@ -499,6 +502,7 @@ libc/misc/wchar/wcsrtombs.c
 libc/misc/wctype/iswctype.c
 libc/misc/wctype/wctype.c
 libc/misc/wctype/_wctype.c
+libc/misc/wordexp/wordexp.c
 libc/clock_gettime.c
 libc/sysdeps/linux/common/longjmp.c
 libc/sysdeps/linux/common/getdents.c

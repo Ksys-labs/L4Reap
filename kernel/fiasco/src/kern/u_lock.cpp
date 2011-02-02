@@ -101,15 +101,12 @@ U_lock::operator delete (void *_l)
   allocator()->free(l);
 }
 
-PRIVATE static inline NOEXPORT NEEDS["kmem_slab.h"]
+static Kmem_slab_t<U_lock> _ulock_allocator("U_lock");
+
+PRIVATE static
 U_lock::Allocator *
 U_lock::allocator()
-{
-  static Allocator* slabs = 
-    new Kmem_slab_simple (sizeof (U_lock), sizeof (Mword), "U_lock");
-
-  return slabs;
-}
+{ return &_ulock_allocator; }
 
 PUBLIC
 void

@@ -24,23 +24,20 @@ IMPLEMENTATION [mp]:
 #include "thread.h"
 #include "thread_state.h"
 #include "timer.h"
-#include "vmem_alloc.h"
 #include "spin_lock.h"
 
 
 PUBLIC inline
 Mword *
 App_cpu_thread::init_stack()
-{
-  return _kernel_sp;
-}
+{ return _kernel_sp; }
 
 // the kernel bootstrap routine
 IMPLEMENT
 void
 App_cpu_thread::bootstrap()
 {
-  extern Spin_lock _tramp_mp_spinlock;
+  extern Spin_lock<Mword> _tramp_mp_spinlock;
 
   state_change_dirty(0, Thread_ready);		// Set myself ready
 

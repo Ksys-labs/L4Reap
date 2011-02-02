@@ -143,7 +143,7 @@ public:
   virtual ~Client_view();
 
   int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
-  void draw(Canvas *, View_stack const *, Mode, bool) const;
+  void draw(Canvas *, View_stack const *, Mode) const;
   void handle_event(L4Re::Event_buffer::Event const &e, Point const &mouse);
 
   void get_info(L4Re::Video::View::Info *inf) const;
@@ -538,11 +538,11 @@ Mag_goos::put_event(L4Re::Event_buffer::Event const &ne, bool trigger)
 
 
 void
-Client_view::draw(Canvas *c, View_stack const *, Mode mode, bool focused) const
+Client_view::draw(Canvas *c, View_stack const *, Mode mode) const
 {
   Canvas::Mix_mode op = mode.flat() ? Canvas::Solid : Canvas::Mixed;
-  Rgb32::Color frame_color = focused ? Rgb32::White : View::frame_color();
-  if (mode.xray() && !mode.kill() && focused)
+  Rgb32::Color frame_color = focused() ? Rgb32::White : View::frame_color();
+  if (mode.xray() && !mode.kill() && focused())
     op = Canvas::Solid;
 
   if (!_buffer)
@@ -561,8 +561,6 @@ void
 Client_view::handle_event(L4Re::Event_buffer::Event const &e,
                           Point const &mouse)
 {
-  static Point left_drag;
-
   if (e.payload.type == L4RE_EV_MAX)
     {
       L4Re::Event_buffer::Event ne;
@@ -570,7 +568,7 @@ Client_view::handle_event(L4Re::Event_buffer::Event const &e,
       ne.payload.type = L4RE_EV_ABS;
       ne.payload.code = L4RE_ABS_X;
       ne.payload.value = mouse.x();
-      ne.payload.stream_id = 0;
+      ne.payload.stream_id = e.payload.stream_id;
       _screen->put_event(ne, false);
       ne.payload.code = L4RE_ABS_Y;
       ne.payload.value = mouse.y();

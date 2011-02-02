@@ -16,6 +16,7 @@
 #include <l4/re/c/rm.h>
 #include <l4/re/c/mem_alloc.h>
 #include <l4/re/c/namespace.h>
+#include <l4/sys/debugger.h>
 
 #include <l4/util/util.h>
 #include <l4/util/atomic.h>
@@ -138,7 +139,7 @@ l4shmc_add_chunk(l4shmc_area_t *shmarea,
   shm_addr->lock = 0;
 
   while (!l4util_cmpxchg(&shm_addr->lock, SHMAREA_LOCK_FREE,
-	                 SHMAREA_LOCK_TAKEN))
+                         SHMAREA_LOCK_TAKEN))
     l4_sleep(1);
   asm volatile ("" : : : "memory");
   {
@@ -281,6 +282,9 @@ l4shmc_attach_signal_to(l4shmc_area_t *shmarea,
   if ((r = l4_error(l4_irq_attach(signal->_sigcap,
                                   (l4_umword_t)signal, thread))))
     {
+      printf("Error on irq_attach(): %ld (sigcap %lx, sig_id %lx, thread %lx\n",
+             r, signal->_sigcap, l4_debugger_global_id(signal->_sigcap),
+             thread);
       l4re_util_cap_free(signal->_sigcap);
       goto out;
     }

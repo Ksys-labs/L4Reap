@@ -4,7 +4,7 @@ L4DIR		?= $(PKGDIR)/../..
 TARGET		= libcxx_io
 SRC_CC		= iob_write.cc
 PC_FILENAME     = cxx_io
-SYSTEMS		= x86 arm amd64 ppc32
+SYSTEMS		= $(SYSTEMS_PLAIN)
 
 include $(PKGDIR)/lib/Makefile.inc
 include $(L4DIR)/mk/lib.mk

@@ -24,5 +24,4 @@ SHARED_FLAGS                       += $(call CHECKCC,-mno-3dnow,)
 
 ASFLAGS				+= -m64 -mcmodel=kernel
 OFORMAT				:= elf64-x86-64
-LD_EMULATION-SYSTEM-FreeBSD	:= elf_x86_64_fbsd
-LD_EMULATION-SYSTEM-default	:= elf_x86_64
+LD_EMULATION_CHOICE             := elf_x86_64 elf_x86_64_fbsd

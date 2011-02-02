@@ -185,16 +185,6 @@ public:
     prog_info()->ldr_flags = _cfg_integer("ldr_flags", prog_info()->ldr_flags);
     prog_info()->l4re_dbg = _cfg_integer("l4re_dbg", prog_info()->l4re_dbg);
 
-    unsigned max_num_threads = _cfg_integer("max_threads", Default_max_threads);
-    if (max_num_threads > Total_max_threads)
-      {
-        Dbg warn(Dbg::Warn);
-        warn.printf("Warning: Limiting number of thread per task to %d\n", Total_max_threads);
-        max_num_threads = Total_max_threads;
-      }
-    prog_info()->utcbs_log2size
-      = l4util_log2(l4util_next_power2(max_num_threads) * L4_UTCB_OFFSET);
-
     _cfg_cap("log", &prog_info()->log);
     _cfg_cap("mem", &prog_info()->mem_alloc);
     _cfg_cap("factory", &prog_info()->factory);

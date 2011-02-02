@@ -112,9 +112,7 @@ OPT_SHARED_FLAGS	+= $(call CHECKCC,-frename-registers,)
 OPT_SHARED_FLAGS	+= $(call CHECKCC,-fgcse-after-reload,)
 CXXFLAGS		+= -fno-implement-inlines
 
-LD_EMULATION		:= $(if $(LD_EMULATION-SYSTEM-$(SYSTEM)),\
-			        $(LD_EMULATION-SYSTEM-$(SYSTEM)),\
-			        $(LD_EMULATION-SYSTEM-default))
+-include $(objbase)/.Host-config
 
 # Configuration dependent compile flags
 ifneq ($(CONFIG_PROFILE),y)

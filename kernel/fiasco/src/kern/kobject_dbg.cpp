@@ -2,8 +2,6 @@ INTERFACE:
 
 class Kobject_dbg
 {
-public:
-  Kobject_dbg *dbg_info() { return this; }
 };
 
 //----------------------------------------------------------------------------
@@ -40,6 +38,7 @@ public:
 
 public:
   Dbg_extension *_jdb_data;
+  Kobject_dbg *_pref, *_next;
 
 private:
   Mword _dbg_id;
@@ -49,10 +48,10 @@ public:
   virtual Address kobject_start_addr() const = 0;
   virtual Mword kobject_size() const = 0;
 
-private:
-  Kobject_dbg *_pref, *_next;
   static Spin_lock_coloc<Kobject_dbg *> _jdb_head;
   static Kobject_dbg *_jdb_tail;
+
+private:
   static unsigned long _next_dbg_id;
 };
 
@@ -64,7 +63,7 @@ Spin_lock_coloc<Kobject_dbg *> Kobject_dbg::_jdb_head;
 Kobject_dbg *Kobject_dbg::_jdb_tail;
 unsigned long Kobject_dbg::_next_dbg_id;
 
-PUBLIC static inline
+PUBLIC static
 Kobject_dbg *
 Kobject_dbg::pointer_to_obj(void const *p)
 {
@@ -79,7 +78,7 @@ Kobject_dbg::pointer_to_obj(void const *p)
   return 0;
 }
 
-PUBLIC static inline
+PUBLIC static
 unsigned long
 Kobject_dbg::pointer_to_id(void const *p)
 {
@@ -118,11 +117,11 @@ Kobject_dbg::obj_to_id(void const *o)
 }
 
 
-PROTECTED inline
+PROTECTED
 void
 Kobject_dbg::enqueue_debug_queue()
 {
-  Lock_guard<Spin_lock> guard(&_jdb_head);
+  Lock_guard<typeof(_jdb_head)> guard(&_jdb_head);
 
   _pref = _jdb_tail;
   if (_pref)
@@ -133,14 +132,14 @@ Kobject_dbg::enqueue_debug_queue()
     _jdb_head.set_unused(this);
 }
 
-PRIVATE inline
+PRIVATE
 void
 Kobject_dbg::init_debug_info()
 {
   _next = _pref = 0;
   _jdb_data = 0;
 
-  Lock_guard<Spin_lock> guard(&_jdb_head);
+  Lock_guard<typeof(_jdb_head)> guard(&_jdb_head);
 
   _dbg_id = _next_dbg_id++;
   _pref = _jdb_tail;
@@ -152,12 +151,12 @@ Kobject_dbg::init_debug_info()
     _jdb_head.set_unused(this);
 }
 
-PROTECTED inline
+PROTECTED
 void
 Kobject_dbg::dequeue_debug_queue()
 {
     {
-      Lock_guard<Spin_lock> guard(&_jdb_head);
+      Lock_guard<typeof(_jdb_head)> guard(&_jdb_head);
 
       if (_pref)
 	_pref->_next = _next;
@@ -175,7 +174,7 @@ Kobject_dbg::dequeue_debug_queue()
   _next = 0;
 }
 
-PRIVATE inline
+PRIVATE
 void
 Kobject_dbg::fini_debug_info()
 {
@@ -198,7 +197,6 @@ Kobject_dbg::~Kobject_dbg()
 {
   fini_debug_info();
 }
-
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [!debug]:

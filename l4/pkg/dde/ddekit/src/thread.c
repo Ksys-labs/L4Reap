@@ -21,7 +21,7 @@
 
 #include <l4/dde/dde.h>
 #include <l4/log/log.h>
-#ifndef ARCH_arm
+#if !defined(ARCH_arm) && !defined(ARCH_sparc)
 #include <l4/util/rdtsc.h>
 #endif
 #include <l4/util/util.h>
@@ -213,14 +213,14 @@ void ddekit_thread_msleep(unsigned long msecs) {
 }
 
 void ddekit_thread_usleep(unsigned long usecs) {
-#ifndef ARCH_arm
+#if !defined(ARCH_arm) && !defined(ARCH_sparc)
 	l4_busy_wait_us(usecs);
 #endif
 }
 
 
 void ddekit_thread_nsleep(unsigned long nsecs) {
-#ifndef ARCH_arm
+#if !defined(ARCH_arm) && !defined(ARCH_sparc)
 	l4_busy_wait_ns(nsecs);
 #endif
 }

@@ -20,7 +20,6 @@ PUBLIC static
 void
 Vkey::irq(Irq *i)
 { vkey_irq = i; }
- 
 
 // ---------------------------------------------------------------------------
 IMPLEMENTATION [debug && serial && !ux]:
@@ -62,30 +61,30 @@ Vkey::check_(int irq = -1)
       int c = uart->getchar(false);
 
       if (irq == Kernel_uart::uart()->irq() && c == -1)
-	{
-	  ret = 1;
-	  break;
-	}
+        {
+          ret = 1;
+          break;
+        }
 
       if (c == -1 || c == KEY_ESC)
-	break;
+        break;
 
       unsigned nh = (vkey_head + 1) % sizeof(vkey_buffer);
       unsigned oh = vkey_head;
       if (nh != vkey_tail)
-	{
-	  vkey_buffer[vkey_head] = c;
-	  vkey_head = nh;
-	}
+        {
+          vkey_buffer[vkey_head] = c;
+          vkey_head = nh;
+        }
 
       if (oh == vkey_tail)
-	hit = true; 
+        hit = true;
 
       if (vkey_echo == Vkey::Echo_crnl && c == '\r')
-	c = '\n';
+        c = '\n';
 
       if (vkey_echo)
-	putchar(c);
+        putchar(c);
 
       ret = 1;
     }
@@ -120,15 +119,13 @@ Vkey::clear()
     vkey_tail = (vkey_tail + 1) % sizeof(vkey_buffer);
 }
 
-
 //----------------------------------------------------------------------------
 IMPLEMENTATION [!debug || !serial || ux]:
 
 PUBLIC static
 void
 Vkey::set_echo(Echo_type)
-{
-}
+{}
 
 PUBLIC static
 void
@@ -163,7 +160,6 @@ Vkey::get()
   return uart->getchar(false);
 }
 
-
 //----------------------------------------------------------------------------
 IMPLEMENTATION[!debug && !serial]:
 
@@ -171,7 +167,6 @@ PUBLIC static
 int
 Vkey::get()
 { return -1; }
-
 
 //----------------------------------------------------------------------------
 IMPLEMENTATION[!debug || !serial]:

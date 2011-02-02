@@ -1,7 +1,8 @@
 // vi:ft=cpp
 /*
- * (c) 2008-2009 Alexander Warg <warg@os.inf.tu-dresden.de>,
+ * (c) 2008-2011 Alexander Warg <warg@os.inf.tu-dresden.de>,
  *               Torsten Frenzel <frenzel@os.inf.tu-dresden.de>
+ *               Adam Lackorzysnski <adam@os.inf.tu-dresden.de>
  *     economic rights: Technische Universität Dresden (Germany)
  *
  * This file is part of TUD:OS and distributed under the terms of the
@@ -17,54 +18,31 @@
  * invalidate any other reasons why the executable file might be covered by
  * the GNU General Public License.
  */
-
 #pragma once
 
-#include <l4/sys/vcon>
-
-#include <l4/sys/capability>
-#include <l4/cxx/ipc_server>
+#include <l4/cxx/ipc_stream>
 
 namespace L4Re { namespace Util {
 
 /**
- * \brief Framebuffer server class.
+ * \brief Console server template class.
  * \ingroup api_l4re_util
+ *
+ * This template uses vcon_write() and vcon_read() to get and deliver data
+ * from the implementor.
+ *
+ * vcon_read() needs to return a value bigger than the given size to
+ * indicate that there's more data to read for the other end.
+ *
+ * vcon_write() gets the live data from the UTCB. Make sure to copy out the
+ * data before using the UTCB again.
+ *
+ * The size parameter of both function is given in bytes.
  */
 template< typename SVR >
 class Vcon_svr
 {
 public:
-#if 0
-  /**
-   * \brief Write data to console
-   *
-   * \param buffer Buffer with the output data.
-   * \param size   Size of the buffer.
-   *
-   * \return Negative error code on error,
-   *         <= size bytes written.
-   */
-  int vcon_write(const char *buffer, unsigned size) = 0;
-  
-  /**
-   * \brief Read data from console
-   *
-   * \param buffer Buffer for the input data.
-   * \param size   Size of the buffer.
-   *
-   * \return Negative error code on error,
-   *         > size if more to read, size bytes are in the buffer,
-   *         <= size bytes read
-   */
-  virtual int vcon_read(char *buffer, unsigned size) = 0;
-  
-  /**
-   * \brief Return status of input stream
-   * \return true if end of input is reached
-   */
-  virtual bool vcon_end() = 0;
-#endif
   /**
    * \brief Server dispatch function.
    *
@@ -76,7 +54,8 @@ public:
   int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
 
 private:
-  SVR *__self() { return static_cast<SVR*>(this); }
+  SVR const *this_vcon() const { return static_cast<SVR const *>(this); }
+  SVR *this_vcon() { return static_cast<SVR *>(this); }
 };
 
 template< typename SVR >
@@ -88,28 +67,33 @@ Vcon_svr<SVR>::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
 
   if (tag.label() != L4_PROTO_LOG)
     return -L4_EBADPROTO;
-  
-  long size;
-  ios >> size;
-  if (size == 0)
+
+  L4::Opcode op;
+  ios >> op;
+
+  if (op == L4_VCON_WRITE_OP)
     {
       unsigned long size = 0;
-      const char *buf = 0;
-      ios >> L4::ipc_buf_in(buf, size);
-      __self()->vcon_write(buf, size);
+      char *buf = 0;
+      ios >> L4::Ipc::Buf_in<char>(buf, size);
+      this_vcon()->vcon_write(buf, size);
       return -L4_ENOREPLY;
     }
-  else
-    {
-      // shift down to get real size
-      size = size >> 16;
-      char buf[size];
-      size = __self()->vcon_read(buf, size);
-      // don't use stream operators, because we need to set eof bit!
-      ios.put(__self()->vcon_end() ? size | 1UL << 31 : size);
-      ios.put(buf, size);
-      return 0;
-    }
+
+  unsigned size = op >> 16;
+
+  if (size > (L4_UTCB_GENERIC_DATA_SIZE - 1) * sizeof(l4_utcb_mr()->mr[0]))
+    size = (L4_UTCB_GENERIC_DATA_SIZE - 1) * sizeof(l4_utcb_mr()->mr[0]);
+
+  char buf[size];
+  // Hmm, could we avoid the double copy here?
+  unsigned r = this_vcon()->vcon_read(buf, size);
+
+  // don't use stream operators, because we need to set eof bit!
+  ios.put(r > size ? size : r | 1UL << 31);
+  ios.put(buf, size);
+
+  return -L4_EOK;
 }
 
 }}

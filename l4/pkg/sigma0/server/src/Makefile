@@ -19,6 +19,7 @@ SRC_CC_x86-l4f   := ioports_x86.cc
 SRC_CC_amd64-l4f := ioports_x86.cc
 SRC_CC_arm-l4f   := ioports_none.cc
 SRC_CC_ppc32-l4f := ioports_none.cc
+SRC_CC_sparc-l4f := ioports_none.cc
 SRC_C  := support.c
 SRC_S  := $(addprefix ARCH-$(ARCH)/, crt0.S)
 

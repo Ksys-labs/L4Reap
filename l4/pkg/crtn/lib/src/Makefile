@@ -15,7 +15,7 @@ SRC_CC_libcrt0_eh.o.a := init_eh_frame.cc
 
 TARGET		= libcrt0.a libcrt0_s.a libcrt0_eh.o.a
 MYOBJS		= crt0.o
-SYSTEMS		= x86 arm amd64 ppc32
+SYSTEMS		= $(SYSTEMS_PLAIN)
 
 # Setup address space model for AMD64
 CXXFLAGS_amd64 += -mcmodel=medium

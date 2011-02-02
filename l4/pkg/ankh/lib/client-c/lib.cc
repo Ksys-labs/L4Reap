@@ -10,7 +10,6 @@
 #include <l4/sys/kdebug.h>
 #include <l4/sys/debugger.h>
 #include <cstdio>
-#include <cassert>
 
 // XXX: support several ANKH connections
 static L4::Cap<void> ankh_server;
@@ -28,44 +27,53 @@ L4_CV l4shmc_ringbuf_t *l4ankh_get_sendbuf(void) L4_NOTHROW
 L4_CV l4shmc_ringbuf_t *l4ankh_get_recvbuf(void) L4_NOTHROW
 {	return &_rcv; }
 
-L4_CV void l4ankh_init(void) L4_NOTHROW
+L4_CV int l4ankh_init(void) L4_NOTHROW
 {
 	if (!(ankh_server = L4Re::Env::env()->get_cap<void>("ankh"))) {
 		printf("Could not find Ankh server.\n");
-		assert(false);
+		return 1;
 	}
 
 	memset(&_snd, 0, sizeof(_snd));
 	memset(&_rcv, 0, sizeof(_rcv));
+
+	return 0;
 }
 
 
 /*
- * XXX: 
- * 	* pass a cap name as parameter to support multiple connections
- * 	* return a local handle (or a struct ptr)
+ * XXX:
+ *	* pass a cap name as parameter to support multiple connections
+ *	* return a local handle (or a struct ptr)
  */
 L4_CV int
 l4ankh_open(char *shm_name, int bufsize) L4_NOTHROW
 {
 	if (!_initialized)
-		l4ankh_init();
+		if (l4ankh_init())
+			return -L4_ENODEV;
 
 	int err = l4shmc_attach(shm_name, &ankh_shmarea);
-	ASSERT_OK(err);
+	if (err)
+		return err;
 
 	err = l4shmc_rb_init_buffer(&_snd, &ankh_shmarea, "tx_ring", "tx_signal", bufsize);
-	ASSERT_OK(err);
+	if (err)
+		return err;
 	err = l4shmc_rb_init_buffer(&_rcv, &ankh_shmarea, "rx_ring", "rx_signal", bufsize);
-	ASSERT_OK(err);
+	if (err)
+		return err;
 	err = l4shmc_add_chunk(&ankh_shmarea, "info", sizeof(struct AnkhSessionDescriptor),
 	                       &ankh_info_chunk);
-	ASSERT_OK(err);
+	if (err)
+		return err;
 
 	L4::Ipc_iostream s(l4_utcb());
 	s << l4_umword_t(Ankh::Opcode::Activate);
 	l4_msgtag_t res = s.call(ankh_server.cap(), Ankh::Protocol::Ankh);
-	ASSERT_EQUAL(l4_ipc_error(res, l4_utcb()), 0);
+	if (res.has_error())
+		return res.label();
+
 	printf("activated Ankh connection.\n");
 
 	return 0;
@@ -105,35 +113,32 @@ L4_CV int l4ankh_prepare_recv(l4_cap_idx_t owner) L4_NOTHROW
 
 L4_CV int l4ankh_recv_blocking(char *buffer, unsigned *size) L4_NOTHROW
 {
-	ASSERT_NOT_NULL(buffer);
-	ASSERT_NOT_NULL(size);
+	if (EXPECT_FALSE(!buffer || !size))
+		return -L4_EINVAL;
 
 	int err;
 
 	err = l4shmc_rb_receiver_wait_for_data(&_rcv, 1);
-	ASSERT_OK(err);
+	if (err)
+		return err;
 
-	err = l4shmc_rb_receiver_copy_out(HEAD(&_rcv), buffer, size);
-	ASSERT_OK(err);
-
-	return err;
+	return l4shmc_rb_receiver_copy_out(L4SHMC_RINGBUF_HEAD(&_rcv),
+	                                   buffer, size);
 }
 
 
 L4_CV int l4ankh_recv_nonblocking(char *buffer, unsigned *size) L4_NOTHROW
 {
-	ASSERT_NOT_NULL(buffer);
-	ASSERT_NOT_NULL(size);
+	if (EXPECT_FALSE(!buffer || !size))
+		return -L4_EINVAL;
 
 	int err;
 
 	err = l4shmc_rb_receiver_wait_for_data(&_rcv, 0);
-	if (!err) {
-		err = l4shmc_rb_receiver_copy_out(HEAD(&_rcv), buffer, size);
-		ASSERT_OK(err);
-	}
+	if (!err)
+		err = l4shmc_rb_receiver_copy_out(L4SHMC_RINGBUF_HEAD(&_rcv), buffer, size);
 
-    return err;
+	return err;
 }
 
 

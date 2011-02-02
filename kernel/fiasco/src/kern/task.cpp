@@ -18,17 +18,14 @@ class slab_cache_anon;
  * Task is also derived from Rcu_item to provide RCU shutdown of tasks.
  */
 class Task :
-  public Space,
-  public Kobject_iface,
   public Kobject,
-  private Rcu_item
+  public Space
 {
   FIASCO_DECLARE_KOBJ();
 
   friend class Jdb_space;
 
 private:
-
   /// \brief Do host (platform) specific initialization.
   void host_init();
 
@@ -36,45 +33,19 @@ private:
   void map_tbuf();
 
 public:
-
   enum Operation
   {
     Map         = 0,
     Unmap       = 1,
     Cap_info    = 2,
+    Add_ku_mem  = 3,
     Ldt_set_x86 = 0x11,
     Vm_ops      = 0x20,
-  };
-
-
-  /// \brief Destroy it.
-  ~Task();
-
-  /**
-   * \brief Allocate memory for UTCBs for that task.
-   * \return true on success, or false on memory shortage.
-   */
-  bool alloc_utcbs();
-
-  /**
-   * \brief Free the UTCBs allocated with alloc_utcbs()-.
-   */
-  void free_utcbs();
-
-private:
-
-  enum
-  {
-    /// Number of Utcbs fitting on a single page
-    Utcbs_per_page = Config::PAGE_SIZE / sizeof(Utcb),
   };
 
 private:
   /// map the global utcb pointer page into this task
   void map_utcb_ptr_page();
-
-
-
 };
 
 
@@ -100,47 +71,66 @@ IMPLEMENTATION:
 
 FIASCO_DEFINE_KOBJ(Task);
 
+static Kmem_slab_t<Task::Ku_mem> _k_u_mem_list_alloc("Ku_mem");
+slab_cache_anon *Space::Ku_mem::a = &_k_u_mem_list_alloc;
+
+extern "C" void vcpu_resume(Trap_state *, Return_frame *sp)
+   FIASCO_FASTCALL FIASCO_NORETURN;
+
+PUBLIC virtual
+int
+Task::resume_vcpu(Context *ctxt, Vcpu_state *vcpu, bool user_mode)
+{
+  Trap_state ts;
+  memcpy(&ts, &vcpu->_ts, sizeof(Trap_state));
+
+  assert_kdb(cpu_lock.test());
+
+  ts.sanitize_user_state();
+
+  // FIXME: UX is currently broken
+  /* UX:ctxt->vcpu_resume_user_arch(); */
+  if (user_mode)
+    vcpu->state |= Vcpu_state::F_traps | Vcpu_state::F_exceptions
+                   | Vcpu_state::F_debug_exc;
+
+  ctxt->space_ref()->user_mode(user_mode);
+  switchin_context(ctxt->space());
+  vcpu_resume(&ts, ctxt->regs());
+}
 
 PUBLIC virtual
 bool
 Task::put()
-{
-  return dec_ref() == 0;
-}
+{ return dec_ref() == 0; }
 
-
-IMPLEMENT
-bool
-Task::alloc_utcbs()
+PRIVATE
+int
+Task::alloc_ku_mem_chunk(User<void>::Ptr u_addr, unsigned size, void **k_addr)
 {
-  if (!utcb_area_size())
-    {
-      set_kern_utcb_area(0);
-      return true;
-    }
+  assert_kdb ((size & (size - 1)) == 0);
 
   Mapped_allocator *const alloc = Mapped_allocator::allocator();
-  void *utcbs = alloc->q_unaligned_alloc(ram_quota(), utcb_area_size());
+  void *p = alloc->q_unaligned_alloc(ram_quota(), size);
 
-  if (EXPECT_FALSE(!utcbs))
-    return false;
+  if (EXPECT_FALSE(!p))
+    return -L4_err::ENomem;
 
   // clean up utcbs
-  memset(utcbs, 0, utcb_area_size());
-  set_kern_utcb_area(Address(utcbs));
+  memset(p, 0, size);
 
   unsigned long page_size = Config::PAGE_SIZE;
 
   // the following works because the size is a power of two
   // and once we have size larger than a super page we have
   // always multiples of superpages
-  if (utcb_area_size() >= Config::SUPERPAGE_SIZE)
+  if (size >= Config::SUPERPAGE_SIZE)
     page_size = Config::SUPERPAGE_SIZE;
 
-  for (unsigned long i = 0; i < utcb_area_size(); i += page_size)
+  for (unsigned long i = 0; i < size; i += page_size)
     {
-      Address kern_va = kern_utcb_area() + i;
-      Address user_va = user_utcb_area() + i;
+      Address kern_va = (Address)p + i;
+      Address user_va = (Address)u_addr.get() + i;
       Address pa = mem_space()->pmem_to_phys(kern_va);
 
       // must be valid physical address
@@ -156,26 +146,76 @@ Task::alloc_utcbs()
 	{
 	case Mem_space::Insert_ok: break;
 	case Mem_space::Insert_err_nomem:
-	  free_utcbs();
-	  return false;
+	  free_ku_mem_chunk(p, u_addr, size);
+	  return -L4_err::ENomem;
+
+	case Mem_space::Insert_err_exists:
+	  free_ku_mem_chunk(p, u_addr, size);
+	  return -L4_err::EExists;
+
 	default:
 	  printf("UTCB mapping failed: va=%p, ph=%p, res=%d\n",
 	      (void*)user_va, (void*)kern_va, res);
 	  kdb_ke("BUG in utcb allocation");
-	  free_utcbs();
-	  return false;
+	  free_ku_mem_chunk(p, u_addr, size);
+	  return 0;
 	}
     }
 
-  return true;
+  *k_addr = p;
+  return 0;
 }
 
-IMPLEMENT
-void
-Task::free_utcbs()
+
+PRIVATE
+int
+Task::alloc_ku_mem(L4_fpage ku_area)
 {
-  if (EXPECT_FALSE(!kern_utcb_area() || !mem_space() || !mem_space()->dir()))
-    return;
+  if (ku_area.order() < Config::PAGE_SHIFT || ku_area.order() > 20)
+    return -L4_err::EInval;
+
+  Mword sz = 1UL << ku_area.order();
+
+  Ku_mem *m = new (ram_quota()) Ku_mem();
+
+  if (!m)
+    return -L4_err::ENomem;
+
+  User<void>::Ptr u_addr((void*)Virt_addr(ku_area.mem_address()).value());
+
+  void *p;
+  if (int e = alloc_ku_mem_chunk(u_addr, sz, &p))
+    {
+      m->free(ram_quota());
+      return e;
+    }
+
+  m->u_addr = u_addr;
+  m->k_addr = p;
+  m->size = sz;
+
+  // safely add the new Ku_mem object to the list
+  do
+    {
+      m->next = _ku_mem;
+    }
+  while (!mp_cas(&_ku_mem, m->next, m));
+
+  return 0;
+}
+
+PRIVATE inline NOEXPORT
+void
+Task::free_ku_mem(Ku_mem *m)
+{
+  free_ku_mem_chunk(m->k_addr, m->u_addr, m->size);
+  m->free(ram_quota());
+}
+
+PRIVATE
+void
+Task::free_ku_mem_chunk(void *k_addr, User<void>::Ptr u_addr, unsigned size)
+{
 
   Mapped_allocator * const alloc = Mapped_allocator::allocator();
   unsigned long page_size = Config::PAGE_SIZE;
@@ -183,21 +223,34 @@ Task::free_utcbs()
   // the following works because the size is a poer of two
   // and once we have size larger than a super page we have
   // always multiples of superpages
-  if (utcb_area_size() >= Config::SUPERPAGE_SIZE)
+  if (size >= Config::SUPERPAGE_SIZE)
     page_size = Config::SUPERPAGE_SIZE;
 
-  for (unsigned long i = 0; i < utcb_area_size(); i += page_size)
+  for (unsigned long i = 0; i < size; i += page_size)
     {
-      Address user_va = user_utcb_area() + i;
+      Address user_va = (Address)u_addr.get() + i;
       mem_space()->v_delete(Mem_space::Addr(user_va),
                             Mem_space::Size(page_size));
     }
 
-  alloc->q_unaligned_free(ram_quota(), utcb_area_size(), (void*)kern_utcb_area());
-
-  set_kern_utcb_area(0);
+  alloc->q_unaligned_free(ram_quota(), size, k_addr);
 }
 
+PRIVATE
+void
+Task::free_ku_mem()
+{
+  Ku_mem *m = _ku_mem;
+  _ku_mem = 0;
+
+  while (m)
+    {
+      Ku_mem *d = m;
+      m = m->next;
+
+      free_ku_mem(d);
+    }
+}
 
 
 /** Allocate space for the UTCBs of all threads in this task.
@@ -219,41 +272,33 @@ Task::initialize()
  */
 PUBLIC
 template< typename SPACE_FACTORY >
-Task::Task(SPACE_FACTORY const &sf, Ram_quota *q, L4_fpage const &utcb_area)
-  : Space(sf, q, utcb_area)
+Task::Task(SPACE_FACTORY const &sf, Ram_quota *q)
+  : Space(sf, q)
 {
   host_init();
 
-  inc_ref();
+  // increment reference counter from zero
+  inc_ref(true);
 
   if (mem_space()->is_sigma0())
     map_tbuf();
-
-  if (alloc_utcbs())
-    {
-      Lock_guard<Spin_lock> guard(state_lock());
-      set_state(Ready);
-    }
 }
 
+PROTECTED template<typename SPACE_FACTORY>
+Task::Task(SPACE_FACTORY const &sf, Ram_quota *q, Mem_space::Dir_type* pdir)
+  : Space(sf, q, pdir)
+{
+  // increment reference counter from zero
+  inc_ref(true);
+}
+
+// The allocator for tasks
+static Kmem_slab_t<Task> _task_allocator("Task");
 
 PROTECTED static
 slab_cache_anon*
 Task::allocator()
-{
-  static slab_cache_anon* slabs = new Kmem_slab_simple (sizeof (Task), 
-							sizeof (Mword),
-							"Task");
-  return slabs;
-
-  // If Fiasco would kill all tasks even when exiting through the
-  // kernel debugger, we could use a deallocating version of the above:
-  //
-  // static auto_ptr<slab_cache_anon> slabs
-  //   (new Kmem_slab_simple (sizeof (Task), sizeof (Mword)))
-  // return slabs.get();
-}
-
+{ return &_task_allocator; }
 
 
 PROTECTED inline NEEDS["kmem_slab_simple.h"]
@@ -281,39 +326,36 @@ Task::operator delete (void *ptr)
   allocator()->q_free(t->ram_quota(), ptr);
 }
 
-PUBLIC template< typename SPACE_FACTORY > inline NEEDS[Task::operator new]
+
+PUBLIC template< typename SPACE_FACTORY >
 static
 Task *
 Task::create(SPACE_FACTORY const &sf, Ram_quota *quota,
              L4_fpage const &utcb_area)
 {
-  if (void *t = allocator()->q_alloc(quota))
-    {
-      Task *a = new (t) Task(sf, quota, utcb_area);
-      if (a->valid())
-	return a;
+  void *t = allocator()->q_alloc(quota);
+  if (!t)
+    return 0;
 
-      delete a;
+  auto_ptr<Task> a(new (t) Task(sf, quota));
+  if (!a->valid())
+    return 0;
+
+  if (utcb_area.is_valid())
+    {
+      int e = a->alloc_ku_mem(utcb_area);
+      if (e < 0)
+        return 0;
     }
 
-  return 0;
+  return a.release();
 }
 
 PUBLIC inline
 bool
 Task::valid() const
-{ return mem_space()->valid() && state() == Ready; }
+{ return mem_space()->valid(); }
 
-
-PUBLIC
-void
-Task::initiate_deletion(Kobject ***reap_list)
-{
-  Kobject::initiate_deletion(reap_list);
-
-  Lock_guard<Spin_lock> guard(state_lock());
-  set_state(In_deletion);
-}
 
 /**
  * \brief Shutdown the task.
@@ -451,11 +493,30 @@ Task::sys_caps_equal(Syscall_frame *, Utcb *utcb)
 
   if (obj_a.invalid() || obj_b.invalid())
     return commit_result(obj_a.invalid() && obj_b.invalid());
-  
+
   Obj_space::Capability c_a = obj_space()->lookup(obj_a.cap());
   Obj_space::Capability c_b = obj_space()->lookup(obj_b.cap());
 
   return commit_result(c_a == c_b);
+}
+
+PRIVATE inline NOEXPORT
+L4_msg_tag
+Task::sys_add_ku_mem(Syscall_frame *f, Utcb *utcb)
+{
+  unsigned const w = f->tag().words();
+  for (unsigned i = 1; i < w; ++i)
+    {
+      L4_fpage ku_fp(utcb->values[i]);
+      if (!ku_fp.is_valid() || !ku_fp.is_mempage())
+	return commit_result(-L4_err::EInval);
+
+      int e = alloc_ku_mem(ku_fp);
+      if (e < 0)
+	return commit_result(e);
+    }
+
+  return commit_result(0);
 }
 
 PRIVATE inline NOEXPORT
@@ -471,8 +532,6 @@ Task::sys_cap_info(Syscall_frame *f, Utcb *utcb)
     case 3:  return sys_caps_equal(f, utcb);
     }
 }
-
-
 
 
 PUBLIC
@@ -496,6 +555,9 @@ Task::invoke(L4_obj_ref, Mword rights, Syscall_frame *f, Utcb *utcb)
     case Cap_info:
       f->tag(sys_cap_info(f, utcb));
       return;
+    case Add_ku_mem:
+      f->tag(sys_add_ku_mem(f, utcb));
+      return;
     default:
       L4_msg_tag tag = f->tag();
       if (invoke_arch(tag, utcb))
@@ -505,6 +567,7 @@ Task::invoke(L4_obj_ref, Mword rights, Syscall_frame *f, Utcb *utcb)
       return;
     }
 }
+
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [!ux]:
@@ -524,14 +587,9 @@ void
 Task::map_tbuf()
 {}
 
-
-//---------------------------------------------------------------------------
-IMPLEMENTATION [!(ia32|ux|amd64)]:
-
-IMPLEMENT inline
+PUBLIC inline
 Task::~Task()
-{ free_utcbs(); }
-
+{ free_ku_mem(); }
 
 
 // ---------------------------------------------------------------------------

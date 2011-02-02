@@ -3,7 +3,7 @@ L4DIR           ?= $(PKGDIR)/../..
 
 TARGET          = libl4png.a libl4png.so
 LIBS            = $(GCCLIB)
-SYSTEMS		= x86 amd64 arm ppc32
+SYSTEMS		= $(SYSTEMS_PLAIN)
 REQUIRES_LIBS   = zlib
 CONTRIB_INCDIR  = libpng
 

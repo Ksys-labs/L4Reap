@@ -25,7 +25,7 @@ Mem_space_sigma0::virt_to_phys_s0 (void *a) const // pgtble lookup
 }
 
 
-PUBLIC inline NEEDS["config.h"]
+PUBLIC
 bool
 Mem_space_sigma0::v_fabricate(Vaddr address,
                               Phys_addr* phys, Size* size,

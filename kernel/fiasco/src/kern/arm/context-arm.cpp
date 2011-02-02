@@ -111,7 +111,7 @@ void Context::switchin_context(Context *from)
   // switch to our page directory if nessecary
   vcpu_aware_space()->switchin_context(from->vcpu_aware_space());
 
-  Utcb_support::current((Utcb*)local_id());
+  Utcb_support::current(utcb().usr());
 }
 
 
@@ -123,48 +123,3 @@ Context::set_ignore_mem_op_in_progress(bool val)
   Mem::barrier();
 }
 
-//-----------------------------------------------------------------------------
-IMPLEMENTATION [arm && vcache]:
-
-PUBLIC inline
-Utcb*
-Context::access_utcb() const
-{
-  // Do not use the alias mapping of the UTCB for the current address space
-  return Mem_space::current_mem_space(current_cpu()) == mem_space()
-         ? (Utcb*)local_id()
-         : utcb();
-}
-
-PUBLIC inline
-Vcpu_state *
-Context::access_vcpu(bool is_current = false) const
-{
-  // Do not use the alias mapping of the UTCB for the current address space
-  return is_current || Mem_space::current_mem_space(current_cpu()) == mem_space()
-         ? reinterpret_cast<Vcpu_state *>(local_id() + sizeof(Utcb))
-         : vcpu_state();
-}
-
-
-//-----------------------------------------------------------------------------
-IMPLEMENTATION [arm && !vcache]:
-
-PUBLIC inline
-Utcb*
-Context::access_utcb() const
-{
-  return current_cpu() == cpu() && Mem_space::current_mem_space(current_cpu()) == mem_space()
-         ? (Utcb*)local_id()
-         : utcb();
-}
-
-PUBLIC inline
-Vcpu_state *
-Context::access_vcpu(bool is_current = false) const
-{
-  // Do not use the alias mapping of the vCPU for the current address space
-  return is_current || Mem_space::current_mem_space(current_cpu()) == mem_space()
-         ? reinterpret_cast<Vcpu_state *>(local_id() + sizeof(Utcb))
-         : vcpu_state();
-}

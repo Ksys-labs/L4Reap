@@ -16,15 +16,6 @@ using Mag_server::Input_driver;
 using Mag_server::Input_source;
 using Mag_server::Core_api;
 using Mag_server::User_state;
-using Mag_server::Motion_fwd;
-
-struct Emit
-{
-  User_state *u;
-  Emit(User_state *u) : u(u) {}
-  void operator () (L4Re::Event_buffer::Event const &e) const
-  { u->handle_event(e); }
-};
 
 class Input_driver_libinput : public Input_driver, public Input_source
 {
@@ -41,17 +32,21 @@ public:
 
   void poll_events()
   {
-    if (!l4input_ispending())
-      return;
-
     enum { N=20 };
     L4Re::Event_buffer::Event _evb[N];
-
-    int max = l4input_flush(_evb, N);
-    //Motion_merger<10> mm;
-    Motion_fwd mm;
-    mm.process/*<L4Re::Event_buffer::Event>*/(&_evb[0], _evb + max, Emit(_core->user_state()));
+    while (l4input_ispending())
+      {
+	L4Re::Event_buffer::Event *e = _evb;
+	for (int max = l4input_flush(_evb, N); max; --max, ++e)
+	  post_event(e);
+      }
   }
+
+  int get_stream_info(l4_umword_t stream_id, L4Re::Event_stream_info *info)
+  { return l4evdev_stream_info_for_id(stream_id, info); }
+  int get_axis_info(l4_umword_t stream_id, unsigned naxes, unsigned *axes,
+                    L4Re::Event_absinfo *info)
+  { return l4evdev_absinfo(stream_id, naxes, axes, info); }
 };
 
 static Input_driver_libinput _libinput;

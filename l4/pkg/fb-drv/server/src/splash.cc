@@ -16,7 +16,7 @@
 
 #include "splash.h"
 
-void splash_display(L4Re::Video::Goos::Info *fb_info, l4_addr_t fbaddr)
+void splash_display(L4Re::Video::View::Info *fb_info, l4_addr_t fbaddr)
 {
 
   if (fb_info->width < SPLASHNAME.width)
@@ -35,8 +35,14 @@ void splash_display(L4Re::Video::Goos::Info *fb_info, l4_addr_t fbaddr)
   int buf_idx = 0;
   int off_x = (fb_info->width / 2) - (SPLASHNAME.width / 2);
   int off_y = (fb_info->height / 2) - (SPLASHNAME.height / 2);
-  for (unsigned y = 0; y < SPLASHNAME.height; ++y)
-    for (unsigned x = 0; x < SPLASHNAME.width; ++x)
+  char *_fb = (char *)fbaddr + off_y * fb_info->bytes_per_line
+              + off_x * fb_info->pixel_info.bytes_per_pixel();
+  char *a;
+  unsigned x;
+  for (unsigned y = 0; y < SPLASHNAME.height;
+       ++y, _fb += fb_info->bytes_per_line)
+    for (x = 0, a = _fb; x < SPLASHNAME.width;
+         ++x, a += fb_info->pixel_info.bytes_per_pixel())
       {
         unsigned valr = buf[buf_idx];
         unsigned valg = buf[buf_idx + 1];
@@ -46,11 +52,6 @@ void splash_display(L4Re::Video::Goos::Info *fb_info, l4_addr_t fbaddr)
         v  = (((valr <<  0) >> (8  - fb_info->pixel_info.r().size())) & ((1 << fb_info->pixel_info.r().size()) - 1)) << fb_info->pixel_info.r().shift();
         v |= (((valg <<  8) >> (16 - fb_info->pixel_info.g().size())) & ((1 << fb_info->pixel_info.g().size()) - 1)) << fb_info->pixel_info.g().shift();
         v |= (((valb << 16) >> (24 - fb_info->pixel_info.b().size())) & ((1 << fb_info->pixel_info.b().size()) - 1)) << fb_info->pixel_info.b().shift();
-
-        char *_fb = (char *)fbaddr;
-        unsigned fb_off = (y + off_y) * fb_info->width + off_x + x;
-        fb_off *= fb_info->pixel_info.bytes_per_pixel();
-        char *a = &_fb[fb_off];
 
         switch (fb_info->pixel_info.bits_per_pixel())
           {
@@ -62,7 +63,6 @@ void splash_display(L4Re::Video::Goos::Info *fb_info, l4_addr_t fbaddr)
 
         buf_idx += SPLASHNAME.bytes_per_pixel;
       }
-
 
   free(buf);
 }

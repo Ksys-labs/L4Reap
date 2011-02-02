@@ -5,24 +5,16 @@ INTERFACE:
 EXTENSION class Context
 {
 protected:
-  Space *_vcpu_user_space;
-
-private:
-  Vcpu_state *_vcpu_state;
+  Ku_mem_ptr<Vcpu_state> _vcpu_state;
 };
 
 
 IMPLEMENTATION:
 
-PROTECTED inline
-Vcpu_state *
+PUBLIC inline
+Context::Ku_mem_ptr<Vcpu_state> const &
 Context::vcpu_state() const
 { return _vcpu_state; }
-
-PROTECTED inline
-void
-Context::vcpu_state(void *s)
-{ _vcpu_state = (Vcpu_state*)s; }
 
 
 PUBLIC inline
@@ -31,7 +23,7 @@ Context::vcpu_disable_irqs()
 {
   if (EXPECT_FALSE(state() & Thread_vcpu_enabled))
     {
-      Vcpu_state *vcpu = access_vcpu();
+      Vcpu_state *vcpu = vcpu_state().access();
       Mword s = vcpu->state;
       vcpu->state = s & ~Vcpu_state::F_irqs;
       return s & Vcpu_state::F_irqs;
@@ -57,10 +49,16 @@ Context::vcpu_enter_kernel_mode(Vcpu_state *vcpu)
       Mword flags = Vcpu_state::F_traps
 	            | Vcpu_state::F_user_mode;
       vcpu->state &= ~flags;
-      if (state() & Thread_vcpu_user_mode)
+
+      if (vcpu->_saved_state & Vcpu_state::F_user_mode)
+	vcpu->_sp = vcpu->_entry_sp;
+      else
+	vcpu->_sp = regs()->sp();
+
+      if (_space.user_mode())
 	{
-	  vcpu->_sp = vcpu->_entry_sp;
-	  state_del_dirty(Thread_vcpu_user_mode | Thread_vcpu_fpu_disabled);
+	  _space.user_mode(false);
+	  state_del_dirty(Thread_vcpu_fpu_disabled);
 
 	  if (current() == this)
 	    {
@@ -70,8 +68,6 @@ Context::vcpu_enter_kernel_mode(Vcpu_state *vcpu)
 	      space()->switchin_context(vcpu_user_space());
 	    }
 	}
-      else
-	vcpu->_sp = regs()->sp();
     }
 }
 
@@ -106,43 +102,17 @@ void
 Context::vcpu_set_irq_pending()
 {
   if (EXPECT_FALSE(state() & Thread_vcpu_enabled))
-    access_vcpu()->sticky_flags |= Vcpu_state::Sf_irq_pending;
+    vcpu_state().access()->sticky_flags |= Vcpu_state::Sf_irq_pending;
 }
 
 /** Return the space context.
     @return space context used for this execution context.
             Set with set_space_context().
  */
-PUBLIC inline NEEDS["kdb_ke.h", "cpu_lock.h"]
+PUBLIC inline
 Space *
 Context::vcpu_user_space() const
-{
-  //assert_kdb (cpu_lock.test());
-  return _vcpu_user_space;
-}
-
-PUBLIC inline NEEDS["space.h"]
-void
-Context::vcpu_set_user_space(Space *t)
-{
-  assert_kdb (current() == this);
-  if (t)
-    t->inc_ref();
-  else
-    state_del_dirty(Thread_vcpu_user_mode);
-
-  Space *old = _vcpu_user_space;
-  _vcpu_user_space = t;
-
-  if (old)
-    {
-      if (!old->dec_ref())
-	{
-	  rcu_wait();
-	  delete old;
-	}
-    }
-}
+{ return _space.vcpu_user(); }
 
 
 // --------------------------------------------------------------------------

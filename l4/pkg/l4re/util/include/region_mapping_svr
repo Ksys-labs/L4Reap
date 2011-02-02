@@ -160,8 +160,8 @@ int region_map_server(RM *rm, IOS &ios)
 template<typename Dbg, typename RM, typename IOS>
 int region_pf_handler(RM *rm, IOS &ios)
 {
-  l4_umword_t addr, pc;
-  ios >> addr >> pc;
+  l4_umword_t addr, pc, sp;
+  ios >> addr >> pc >> sp;
   Dbg(Dbg::Server).printf("page fault: %lx pc=%lx\n", addr, pc);
 
   register unsigned writable = addr & 2;

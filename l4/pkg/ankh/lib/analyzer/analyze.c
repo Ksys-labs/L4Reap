@@ -159,11 +159,42 @@ static char const *udp_port_str(l4_uint16_t p)
 			return "BOOTP/Srv";
 		case udp_port_bootp_clnt:
 			return "BOOTP/Clnt";
+		case udp_port_dns_srv:
+			return "DNS/Srv";
 		default:
 			break;
 	}
 
 	return "??";
+}
+
+
+static void parse_dns_srv(dns_t *d)
+{
+	printf("    [DNS/Srv] id %x qr %x (%s) op %x (",
+		   d->ident, d->qr, d->qr ? "response" : "query",
+		   d->opcode);
+	switch (d->opcode) {
+		case dns_query:
+			printf("query");
+			break;
+		case dns_iquery:
+			printf("inv. query");
+			break;
+		case dns_status:
+			printf("status");
+			break;
+		case dns_notify:
+			printf("notify");
+			break;
+		case dns_update:
+			printf("update");
+			break;
+		default:
+			printf("reserved");
+			break;
+	}
+	printf(")\n");
 }
 
 
@@ -184,6 +215,9 @@ static void parse_udp(udp_hdr *u)
 			if (PA_DHCP || PA_BOOTP)
 				parse_dhcp_clnt((dhcp*)((char*)u + sizeof(udp_hdr)));
 			break;
+		case udp_port_dns_srv:
+			if (PA_DNS)
+				parse_dns_srv((dns_t *)((char*)u + sizeof(udp_hdr)));
 	}
 }
 

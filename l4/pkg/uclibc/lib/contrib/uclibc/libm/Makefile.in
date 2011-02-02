@@ -34,19 +34,18 @@ libm_FULL_NAME := libm-$(VERSION).so
 libm_DIR:=$(top_srcdir)libm
 libm_OUT:=$(top_builddir)libm
 
-# Fix builds for powerpc as there are different cores in this 
-# section now.`
-ifeq ($(TARGET_ARCH)-$(CONFIG_E500),powerpc-y)
-libm_ARCH_DIR:=$(libm_DIR)/$(TARGET_ARCH)/e500
-libm_ARCH_OUT:=$(libm_OUT)/$(TARGET_ARCH)/e500
-else
 libm_ARCH_DIR:=$(libm_DIR)/$(TARGET_ARCH)
 libm_ARCH_OUT:=$(libm_OUT)/$(TARGET_ARCH)
+
+ifneq ($(TARGET_SUBARCH),)
+libm_SUBARCH_DIR:=$(libm_DIR)/$(TARGET_ARCH)/$(TARGET_SUBARCH)
+libm_SUBARCH_OUT:=$(libm_OUT)/$(TARGET_ARCH)/$(TARGET_SUBARCH)
 endif
 
 ifeq ($(UCLIBC_HAS_FPU),y)
 ifeq ($(DO_C99_MATH),y)
 -include $(libm_ARCH_DIR)/Makefile.arch
+-include $(libm_SUBARCH_DIR)/Makefile.arch
 endif
 endif
 
@@ -219,11 +218,8 @@ endif
 ifeq ($(UCLIBC_HAS_FPU),y)
 ifeq ($(DO_C99_MATH),y)
 ifneq ($(strip $(libm_ARCH_OBJS)),)
-ifeq ($(TARGET_ARCH)-$(CONFIG_E500),powerpc-y)
-CFLAGS-libm/$(TARGET_ARCH)/e500/ := $(CFLAGS-libm)
-else
 CFLAGS-libm/$(TARGET_ARCH)/ := $(CFLAGS-libm)
-endif
+CFLAGS-libm/$(TARGET_ARCH)/$(TARGET_SUBARCH)/ := $(CFLAGS-libm)
 
 # remove generic sources, if arch specific version is present
 ifneq ($(strip $(libm_ARCH_SRC)),)
@@ -270,7 +266,7 @@ libm-so-y += $(libm_OBJS:.o=.os)
 
 lib-a-$(UCLIBC_HAS_FLOATS) += $(top_builddir)lib/libm.a
 lib-so-$(UCLIBC_HAS_FLOATS) += $(top_builddir)lib/libm.so
-objclean-y += libm_clean
+objclean-y += CLEAN_libm
 
 ifeq ($(DOMULTI),n)
 ifeq ($(DOPIC),y)
@@ -278,10 +274,10 @@ $(top_builddir)lib/libm.so: $(top_builddir)lib/libm.a $(libc.depend)
 else
 $(top_builddir)lib/libm.so: $(libm_OUT)/libm_so.a $(libc.depend)
 endif
-	$(call link.so,$(libm_FULL_NAME),$(MAJOR_VERSION))
+	$(call link.so,$(libm_FULL_NAME),$(ABI_VERSION))
 else
 $(top_builddir)lib/libm.so: $(libm_OUT)/libm.oS | $(libc.depend)
-	$(call linkm.so,$(libm_FULL_NAME),$(MAJOR_VERSION))
+	$(call linkm.so,$(libm_FULL_NAME),$(ABI_VERSION))
 endif
 
 $(libm_OUT)/libm_so.a: $(libm-so-y)
@@ -316,5 +312,5 @@ $(libm_MOBJ_FL:.o=.i): $(libm_MSRC_FL)
 $(libm_MOBJ_LD:.o=.i): $(libm_MSRC_LD)
 	$(compile.mi)
 
-libm_clean:
+CLEAN_libm:
 	$(do_rm) $(addprefix $(libm_OUT)/,$(foreach e, o os oS a,$(foreach d, *. */*. */*/*.,$(d)$(e))))

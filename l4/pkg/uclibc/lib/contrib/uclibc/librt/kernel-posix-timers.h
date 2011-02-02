@@ -10,6 +10,25 @@
 #include <pthread.h>
 #endif
 
+#ifdef __UCLIBC_HAS_THREADS_NATIVE__
+/* Nonzero if the system calls are not available.  */
+extern int __no_posix_timers attribute_hidden;
+
+/* Callback to start helper thread.  */
+extern void __start_helper_thread (void) attribute_hidden;
+
+/* Control variable for helper thread creation.  */
+extern pthread_once_t __helper_once attribute_hidden;
+
+/* TID of the helper thread.  */
+extern pid_t __helper_tid attribute_hidden;
+
+/* List of active SIGEV_THREAD timers.  */
+extern struct timer *__active_timer_sigev_thread attribute_hidden;
+/* Lock for the __active_timer_sigev_thread.  */
+extern pthread_mutex_t __active_timer_sigev_thread_lock attribute_hidden;
+#endif
+
 /* Type of timers in the kernel */
 typedef int kernel_timer_t;
 
@@ -33,4 +52,7 @@ struct timer {
 #ifdef __UCLIBC_HAS_THREADS__
     pthread_attr_t attr;
 #endif
+
+    /* Next element in list of active SIGEV_THREAD timers. */
+    struct timer *next;
 };

@@ -58,17 +58,16 @@ class Serial_drv :
 public:
   Serial_drv();
   virtual ~Serial_drv() throw() {}
-  
+
   bool running() const { return _running; }
 
   int vcon_write(const char *buffer, unsigned size);
-  int vcon_read(char *buffer, unsigned size);
-  bool vcon_end();
-  
+  unsigned vcon_read(char *buffer, unsigned size);
+
   L4::Cap<void> rcv_cap() { return srv_rcv_cap; }
 
   int handle_irq();
-  
+
   bool init();
   int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
 
@@ -92,13 +91,13 @@ int
 Serial_drv::vcon_write(const char *buffer, unsigned size)
 {
   _uart->write(buffer, size);
-  return L4_EOK;
+  return -L4_EOK;
 }
 
-int
+unsigned
 Serial_drv::vcon_read(char *buffer, unsigned size)
 {
-  int i = 0;
+  unsigned i = 0;
   while (_uart->char_avail() && size)
     {
       int c = _uart->get_char(false);
@@ -117,13 +116,6 @@ Serial_drv::vcon_read(char *buffer, unsigned size)
     _uart_irq->unmask();
   return i;
 }
-
-bool
-Serial_drv::vcon_end()
-{
-  return !_uart->char_avail();
-}
-
 
 int
 Serial_drv::handle_irq()

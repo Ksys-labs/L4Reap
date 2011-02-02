@@ -7,10 +7,6 @@
  */
 #pragma once
 
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-
 #include <l4/shmc/shmc.h>
 #include <l4/util/assert.h>
 #include <l4/sys/thread.h>
@@ -48,28 +44,28 @@ __BEGIN_DECLS
  * header as well as each packet header and check that these values are
  * valid all the time.
  */
-#define RINGBUF_POISONING 1
+#define L4SHMC_RINGBUF_POISONING 1
 
 /**
  * Head field of a ring buffer.
- * 
+ *
  * \ingroup l4shmc_ringbuf_internal
  */
 typedef struct
 {
 	volatile l4_uint32_t lock;
 	unsigned data_size;
-#if RINGBUF_POISONING
+#if L4SHMC_RINGBUF_POISONING
 	char     magic1;
 #endif
 	unsigned next_read;    ///< offset to next read packet
 	unsigned next_write;   ///< offset to next write packet
-#if RINGBUF_POISONING
+#if L4SHMC_RINGBUF_POISONING
 	char     magic2;
 #endif
 	unsigned bytes_filled; ///< bytes filled in buffer
 	unsigned sender_waits; ///< sender waiting?
-#if RINGBUF_POISONING
+#if L4SHMC_RINGBUF_POISONING
 	char     magic3;
 #endif
 	char data[];           ///< tail pointer -> data
@@ -78,7 +74,7 @@ typedef struct
 
 /**
  * Ring buffer
- * 
+ *
  * \ingroup l4shmc_ringbuf_internal
  */
 typedef struct
@@ -97,26 +93,26 @@ typedef struct
 
 /**
  * Get ring buffer head pointer.
- * 
+ *
  * \ingroup l4shmc_ringbuf_internal
  */
-#define HEAD(ringbuf)       ((l4shmc_ringbuf_head_t*)((ringbuf)->_addr))
+#define L4SHMC_RINGBUF_HEAD(ringbuf)       ((l4shmc_ringbuf_head_t*)((ringbuf)->_addr))
 
 
 /**
  * Get ring buffer data pointer
- * 
+ *
  * \ingroup l4shmc_ringbuf_internal
  */
-#define DATA(ringbuf)       (HEAD(ringbuf)->data)
+#define L4SHMC_RINGBUF_DATA(ringbuf)       (L4SHMC_RINGBUF_HEAD(ringbuf)->data)
 
 
 /**
  * Get size of data area
- * 
+ *
  * \ingroup l4shmc_ringbuf_internal
  */
-#define DATA_SIZE(ringbuf)  ((ringbuf)->_size - sizeof(l4shmc_ringbuf_head_t))
+#define L4SHMC_RINGBUF_DATA_SIZE(ringbuf)  ((ringbuf)->_size - sizeof(l4shmc_ringbuf_head_t))
 
 enum lock_content
 {
@@ -213,7 +209,8 @@ L4_CV int l4shmc_rb_attach_sender(l4shmc_ringbuf_t *buf, char const *,
  * \return valid address on success
  * \return             0 if not enough space available
  */
-L4_CV char *l4shmc_rb_sender_alloc_packet(l4shmc_ringbuf_head_t *head, unsigned psize);
+L4_CV char *l4shmc_rb_sender_alloc_packet(l4shmc_ringbuf_head_t *head,
+                                          unsigned psize);
 
 
 /**
@@ -225,8 +222,8 @@ L4_CV char *l4shmc_rb_sender_alloc_packet(l4shmc_ringbuf_head_t *head, unsigned 
  * \param data    data source
  * \param dsize   data size
  */
-L4_CV void l4shmc_rb_sender_put_data(l4shmc_ringbuf_t *buf, char *addr, char *data,
-                                      unsigned dsize);
+L4_CV void l4shmc_rb_sender_put_data(l4shmc_ringbuf_t *buf, char *addr,
+                                     char *data, unsigned dsize);
 
 
 /**
@@ -242,7 +239,7 @@ L4_CV void l4shmc_rb_sender_put_data(l4shmc_ringbuf_t *buf, char *addr, char *da
  * \return 0           on success
  * \return -L4_ENOMEM  if block == false and no space available
  */
-L4_CV int  l4shmc_rb_sender_next_copy_in(l4shmc_ringbuf_t *buf, char *data, 
+L4_CV int  l4shmc_rb_sender_next_copy_in(l4shmc_ringbuf_t *buf, char *data,
                                           unsigned size, int block_if_necessary);
 
 
@@ -309,7 +306,7 @@ L4_CV void l4shmc_rb_attach_receiver(l4shmc_ringbuf_t *buf, l4_cap_idx_t owner);
 L4_CV int l4shmc_rb_receiver_wait_for_data(l4shmc_ringbuf_t *buf, int blocking);
 
 
-/* 
+/*
  * Copy data out of the buffer.
  *
  * \param target   valid target buffer

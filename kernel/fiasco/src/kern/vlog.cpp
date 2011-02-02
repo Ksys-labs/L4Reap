@@ -4,7 +4,7 @@ INTERFACE:
 
 class Irq;
 
-class Vlog : public Icu_h<Vlog>, public Kobject
+class Vlog : public Icu_h<Vlog>
 {
   FIASCO_DECLARE_KOBJ();
 public:

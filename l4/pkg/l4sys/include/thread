@@ -160,19 +160,13 @@ public:
      void ux_host_syscall(int on) throw()
      { l4_thread_control_ux_host_syscall_u(_u, on); }
 
-     /**
-      * \brief Control vCPU mode of the thread.
-      * \param  on vCPU mode on or off.
-      */
-     void vcpu_enable(int on) throw()
-     { l4_thread_control_vcpu_enable_u(_u, on); }
    };
 
   /**
    * \brief Commit the given thread-attributes object.
    * \param attr the attribute object to commit to the thread.
    */
-  l4_msgtag_t control(Attr const &attr)
+  l4_msgtag_t control(Attr const &attr) throw()
   { return l4_thread_control_commit_u(cap(), attr._u); }
 
   /**
@@ -181,7 +175,7 @@ public:
    *
    * \note The current time slice is inherited to this thread.
    */
-  l4_msgtag_t switch_to(l4_utcb_t *utcb = l4_utcb())
+  l4_msgtag_t switch_to(l4_utcb_t *utcb = l4_utcb()) throw()
   { return l4_thread_switch_u(cap(), utcb); }
 
   /**
@@ -191,7 +185,7 @@ public:
    * The consumed time is return as l4_kernel_clock_t at UTCB message
    * register 0.
    */
-  l4_msgtag_t stats_time(l4_utcb_t *utcb = l4_utcb())
+  l4_msgtag_t stats_time(l4_utcb_t *utcb = l4_utcb()) throw()
   { return l4_thread_stats_time_u(cap(), utcb); }
 
   /**
@@ -199,7 +193,7 @@ public:
    *
    * \see l4_thread_vcpu_resume_start
    */
-  l4_msgtag_t vcpu_resume_start(l4_utcb_t *utcb = l4_utcb())
+  l4_msgtag_t vcpu_resume_start(l4_utcb_t *utcb = l4_utcb()) throw()
   { return l4_thread_vcpu_resume_start_u(utcb); }
 
   /**
@@ -208,15 +202,29 @@ public:
    * \see l4_thread_vcpu_resume_commit
    */
   l4_msgtag_t vcpu_resume_commit(l4_msgtag_t tag,
-                                 l4_utcb_t *utcb = l4_utcb())
+                                 l4_utcb_t *utcb = l4_utcb()) throw()
   { return l4_thread_vcpu_resume_commit_u(cap(), tag, utcb); }
+
+   /**
+    * \copydoc l4_thread_vcpu_control()
+    */
+   l4_msgtag_t vcpu_control(l4_addr_t vcpu_state, l4_utcb_t *utcb = l4_utcb())
+     throw()
+   { return l4_thread_vcpu_control_u(cap(), vcpu_state, utcb); }
+
+   /**
+    * \copydoc l4_thread_vcpu_control_exit()
+    */
+   l4_msgtag_t vcpu_control_ext(l4_addr_t ext_vcpu_state,
+                                l4_utcb_t *utcb = l4_utcb()) throw()
+   { return l4_thread_vcpu_control_ext_u(cap(), ext_vcpu_state, utcb); }
 
   /**
    * \brief Register an IRQ that will trigger upon deletion events.
    *
    * \see l4_thread_register_del_irq
    */
-  l4_msgtag_t register_del_irq(Cap<Irq> irq, l4_utcb_t *u = l4_utcb())
+  l4_msgtag_t register_del_irq(Cap<Irq> irq, l4_utcb_t *u = l4_utcb()) throw()
   { return l4_thread_register_del_irq_u(cap(), irq.cap(), u); }
 
   /**

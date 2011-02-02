@@ -341,7 +341,7 @@ Jdb_mapdb::action(int cmd, void *&args, char const *&fmt, int &next_char)
 
  doit:
   if (which_mapdb == 'o')
-    Jdb_mapdb::show_simple_tree ((Kobject*)pagenum);
+    Jdb_mapdb::show_simple_tree((Kobject_common*)pagenum);
   else
     show(Page_number::create(pagenum), which_mapdb);
   return NOTHING;
@@ -383,7 +383,7 @@ class Jdb_kobject_mapdb_hdl : public Jdb_kobject_handler
 {
 public:
   Jdb_kobject_mapdb_hdl() : Jdb_kobject_handler(0) {}
-  virtual bool show_kobject(Kobject *, int) { return true; }
+  virtual bool show_kobject(Kobject_common *, int) { return true; }
   virtual ~Jdb_kobject_mapdb_hdl() {}
 };
 
@@ -397,7 +397,7 @@ Jdb_kobject_mapdb_hdl::init()
 
 PUBLIC
 bool
-Jdb_kobject_mapdb_hdl::handle_key(Kobject *o, int keycode)
+Jdb_kobject_mapdb_hdl::handle_key(Kobject_common *o, int keycode)
 {
   if (keycode == 'm')
     {
@@ -466,7 +466,7 @@ IMPLEMENTATION:
 
 static
 bool
-Jdb_mapdb::show_simple_tree(Kobject *f, unsigned indent = 1)
+Jdb_mapdb::show_simple_tree(Kobject_common *f, unsigned indent = 1)
 {
   (void)indent;
   (void)f;
@@ -485,7 +485,7 @@ Jdb_mapdb::show_simple_tree(Kobject *f, unsigned indent = 1)
     }
 
   printf(" mapping tree for object D:%lx (%p) ref_cnt=%ld\n",
-         f->dbg_id(), f, f->map_root()->_cnt);
+         f->dbg_info()->dbg_id(), f, f->map_root()->_cnt);
 
   screenline += 2;
 
@@ -501,7 +501,7 @@ Jdb_mapdb::show_simple_tree(Kobject *f, unsigned indent = 1)
 
       if (pi)
 	{
-	  space_id = static_cast<Task*>(Space::space(pi->info<Obj_space::Dbg_info>()->s))->dbg_id();
+	  space_id = static_cast<Task*>(Space::space(pi->info<Obj_space::Dbg_info>()->s))->dbg_info()->dbg_id();
 	  cap_idx += pi->info<Obj_space::Dbg_info>()->offset;
 	}
 

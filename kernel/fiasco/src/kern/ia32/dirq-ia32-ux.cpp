@@ -51,7 +51,7 @@ irq_interrupt(Mword _irqobj, Mword ip)
   cpu_lock.lock();
 #endif
 
-  i->pin()->hit();
+  i->hit();
 
 #if defined(CONFIG_IA32) && defined(CONFIG_PROFILE)
   cpu_lock.clear_irqdisable();

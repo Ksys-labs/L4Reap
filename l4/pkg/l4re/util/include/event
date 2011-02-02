@@ -39,6 +39,14 @@ namespace L4Re { namespace Util {
 class Event
 {
 public:
+  /**
+   * \brief Modes of operation.
+   */
+  enum Mode
+  {
+    Mode_irq,      ///< Create an IRQ and attach, to get notifications.
+    Mode_polling,  ///< Do not use an IRQ.
+  };
 
   /**
    * \brief Initialise an event object.
@@ -48,7 +56,7 @@ public:
    * \param ca      Optional: Pointer to capability allocator.
    * \return 0 on success, error code on error
    */
-  int init(L4::Cap<L4Re::Event> event,
+  int init(L4::Cap<L4Re::Event> event, Mode mode = Mode_irq,
            L4Re::Env const *env = L4Re::Env::env(),
            L4Re::Cap_alloc *ca = L4Re::Cap_alloc::get_cap_alloc(L4Re::Util::cap_alloc));
 

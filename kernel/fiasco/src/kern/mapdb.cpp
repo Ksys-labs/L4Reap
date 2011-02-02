@@ -413,11 +413,6 @@ Treemap::Treemap(Page_number key_end, Space *owner_id,
     _sub_shifts_max(sub_shifts_max)
 {
   assert (_physframe);
-
-  // Call this at least once to ensure the mapping-tree allocators
-  // will be created earlier than the first instance of Treemap,
-  // ensuring that they live longer.
-  Mapping_tree::global_init();
 }
 
 PUBLIC
@@ -431,15 +426,12 @@ Treemap::~Treemap()
   _unwind.neutralize();
 }
 
+static Kmem_slab_t<Treemap> _treemap_allocator("Treemap");
+
 static
 slab_cache_anon*
 Treemap::allocator()
-{
-  static auto_ptr<Kmem_slab_simple> alloc 
-    (new Kmem_slab_simple (sizeof(Treemap), sizeof(Mword), "Treemap"));
-
-  return alloc.get();
-}
+{ return &_treemap_allocator; }
 
 PUBLIC
 inline

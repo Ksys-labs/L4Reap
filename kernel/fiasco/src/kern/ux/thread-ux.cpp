@@ -199,7 +199,8 @@ Thread::user_invoke()
          : "=r"(dummy));
     }
 
-  Cpu::set_gs(Utcb_init::gs_value());
+  Cpu::set_gs(Utcb_init::utcb_segment());
+  Cpu::set_fs(Utcb_init::utcb_segment());
 
   user_invoke_generic();
 

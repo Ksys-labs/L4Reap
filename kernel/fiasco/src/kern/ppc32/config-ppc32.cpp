@@ -5,7 +5,11 @@ INTERFACE [ppc32]:
 EXTENSION class Config
 {
 public:
-  enum {
+  enum
+  {
+    // cannot access user memory directly
+    Access_user_mem = No_access_user_mem,
+
     PAGE_SHIFT = ARCH_PAGE_SHIFT,
     PAGE_SIZE  = 1 << PAGE_SHIFT,
     PAGE_MASK  = ~(PAGE_SIZE - 1),
@@ -24,7 +28,7 @@ public:
                        //, min=1, max=8
   };
 
-  enum 
+  enum
   {
 #ifdef CONFIG_ONE_SHOT
     scheduler_one_shot		= 1,

@@ -4,7 +4,7 @@ INTERFACE:
 #include "config.h"
 #include "continuation.h"
 #include "helping_lock.h"
-#include "kobject_iface.h"
+#include "kobject.h"
 #include "mem_layout.h"
 #include "member_offs.h"
 #include "receiver.h"
@@ -27,9 +27,11 @@ typedef Context_ptr_base<Thread> Thread_ptr;
 class Thread :
   public Receiver,
   public Sender,
-  public Kobject_iface
+  public Kobject
 {
   MEMBER_OFFSET();
+  FIASCO_DECLARE_KOBJ();
+
   friend class Jdb;
   friend class Jdb_bt;
   friend class Jdb_tcb;
@@ -51,6 +53,7 @@ public:
     Op_vcpu_resume = 4,
     Op_register_del_irq = 5,
     Op_modify_senders = 6,
+    Op_vcpu_control= 7,
     Op_gdt_x86 = 0x10,
   };
 
@@ -65,7 +68,6 @@ public:
     Ctl_alien_thread    = 0x0400000,
     Ctl_ux_native       = 0x0800000,
     Ctl_set_exc_handler = 0x1000000,
-    Ctl_vcpu_enabled    = 0x2000000,
   };
 
   enum Ex_regs_flags
@@ -74,10 +76,9 @@ public:
     Exr_trigger_exception = 0x20000,
   };
 
-  struct Remote_syscall
+  enum Vcpu_ctl_flags
   {
-    Thread *thread;
-    L4_msg_tag result;
+    Vcpu_ctl_extendet_vcpu = 0x10000,
   };
 
 
@@ -92,7 +93,6 @@ public:
   static Per_cpu<Dbg_stack> dbg_stack;
 
 public:
-
   typedef void (Utcb_copy_func)(Thread *sender, Thread *receiver);
 
   /**
@@ -107,12 +107,10 @@ public:
    */
   Thread();
 
-
   int handle_page_fault (Address pfa, Mword error, Mword pc,
       Return_frame *regs);
 
 private:
-
   struct Migration_helper_info
   {
     Migration_info inf;
@@ -147,12 +145,9 @@ public:
   static Per_cpu<unsigned long> nested_trap_recover;
   static void handle_remote_requests_irq() asm ("handle_remote_cpu_requests");
   static void handle_global_remote_requests_irq() asm ("ipi_remote_call");
+
 protected:
-  // implementation details follow...
-
   explicit Thread(Context_mode_kernel);
-
-  // DATA
 
   // Another critical TCB cache line:
   Thread_lock  _thread_lock;
@@ -192,6 +187,7 @@ IMPLEMENTATION:
 #include "thread_state.h"
 #include "timeout.h"
 
+FIASCO_DEFINE_KOBJ(Thread);
 
 Per_cpu<unsigned long> DEFINE_PER_CPU Thread::nested_trap_recover;
 
@@ -209,9 +205,7 @@ Thread::Dbg_stack::Dbg_stack()
 PUBLIC inline NEEDS[Thread::thread_lock]
 void
 Thread::kill_lock()
-{
-  thread_lock()->lock();
-}
+{ thread_lock()->lock(); }
 
 
 PUBLIC inline
@@ -244,25 +238,26 @@ Thread::operator new(size_t, Thread *t) throw ()
 }
 
 
-PUBLIC inline NEEDS["space.h"]
+PUBLIC
 bool
-Thread::bind(Space *t, void *_utcb)
+Thread::bind(Task *t, User<Utcb>::Ptr utcb)
 {
   // _utcb == 0 for all kernel threads
-  assert_kdb (!_utcb || t->is_utcb_valid(_utcb));
+  Space::Ku_mem const *u = t->find_ku_mem(utcb, sizeof(Utcb));
 
-    {
-      Lock_guard<Spin_lock> guard(&_space);
-      if (_space.get_unused())
-	return false;
+  // kernel thread?
+  if (EXPECT_FALSE(utcb && !u))
+    return false;
 
-      _space.set_unused(t);
-      space()->inc_ref();
-    }
+  Lock_guard<typeof(*_space.lock())> guard(_space.lock());
+  if (_space.space())
+    return false;
 
-  utcb(t->kernel_utcb(_utcb));
-  local_id(Address(_utcb));
-  _utcb_handler = 0;
+  _space.space(t);
+  t->inc_ref();
+
+  if (u)
+    _utcb.set(utcb, u->kern_addr(utcb));
 
   return true;
 }
@@ -272,16 +267,16 @@ PUBLIC inline NEEDS["kdb_ke.h", "cpu_lock.h", "space.h"]
 bool
 Thread::unbind()
 {
-  Space *old;
+  Task *old;
 
     {
-      Lock_guard<Spin_lock> guard(&_space);
+      Lock_guard<typeof(*_space.lock())> guard(_space.lock());
 
-      if (!_space.get_unused())
+      if (!_space.space())
 	return true;
 
-      old = _space.get_unused();
-      _space.set_unused(0);
+      old = static_cast<Task*>(_space.space());
+      _space.space(0);
 
       Mem_space *oms = old->mem_space();
 
@@ -310,7 +305,7 @@ Thread::unbind()
  */
 IMPLEMENT inline
 Thread::Thread(Context_mode_kernel)
-  : Receiver(&_thread_lock), Sender(), _del_observer(0), _magic(magic)
+  : Receiver(), Sender(), _del_observer(0), _magic(magic)
 {
   *reinterpret_cast<void(**)()>(--_kernel_sp) = user_invoke;
 
@@ -339,7 +334,7 @@ Thread::~Thread()		// To be called in locked state.
   _kernel_sp = 0;
   *--init_sp = 0;
   Fpu_alloc::free_state(fpu_state());
-  state_change(0, Thread_invalid);
+  _state = Thread_invalid;
 }
 
 
@@ -371,15 +366,11 @@ Del_irq_pin::thread() const
 PUBLIC inline
 void
 Del_irq_pin::unbind_irq()
-{
-  thread()->remove_delete_irq(); 
-}
+{ thread()->remove_delete_irq(); }
 
 PUBLIC inline
 Del_irq_pin::~Del_irq_pin()
-{
-  unbind_irq();
-}
+{ unbind_irq(); }
 
 PUBLIC
 void
@@ -405,33 +396,13 @@ Thread::remove_delete_irq()
 // end of: IPC-gate deletion stuff -------------------------------
 
 
-/** Lookup function: Find Thread instance that owns a given Context.
-    @param c a context
-    @return the thread that owns the context
- */
-PUBLIC static inline
-Thread*
-Thread::lookup (Context* c)
-{
-  return reinterpret_cast<Thread*>(c);
-}
-
-PUBLIC static inline
-Thread const *
-Thread::lookup (Context const * c)
-{
-  return reinterpret_cast<Thread const *>(c);
-}
-
 /** Currently executing thread.
     @return currently executing thread.
  */
 inline
 Thread*
 current_thread()
-{
-  return Thread::lookup(current());
-}
+{ return nonull_static_cast<Thread*>(current()); }
 
 PUBLIC inline
 bool
@@ -451,9 +422,7 @@ Thread::exception_triggered() const
 PUBLIC inline
 Thread_lock *
 Thread::thread_lock()
-{
-  return &_thread_lock;
-}
+{ return &_thread_lock; }
 
 
 PUBLIC inline NEEDS ["config.h", "timeout.h"]
@@ -483,10 +452,10 @@ Thread::halt()
 {
   // Cancel must be cleared on all kernel entry paths. See slowtraps for
   // why we delay doing it until here.
-  state_del (Thread_cancel);
+  state_del(Thread_cancel);
 
   // we haven't been re-initialized (cancel was not set) -- so sleep
-  if (state_change_safely (~Thread_ready, Thread_cancel | Thread_dead))
+  if (state_change_safely(~Thread_ready, Thread_cancel | Thread_dead))
     while (! (state() & Thread_ready))
       schedule();
 }
@@ -524,7 +493,7 @@ Thread::leave_and_kill_myself()
 {
   current_thread()->do_kill();
 #ifdef CONFIG_JDB
-  WARN("dead thread scheduled: %lx\n", current_thread()->kobject()->dbg_id());
+  WARN("dead thread scheduled: %lx\n", current_thread()->dbg_id());
 #endif
   kdb_ke("DEAD SCHED");
 }
@@ -538,7 +507,6 @@ Thread::handle_kill_helper(Drq *src, Context *, void *)
 }
 
 
-
 PRIVATE
 bool
 Thread::do_kill()
@@ -548,10 +516,6 @@ Thread::do_kill()
   if (state() == Thread_invalid)
     return false;
 
-
-  unset_utcb_ptr();
-
-
   //
   // Kill this thread
   //
@@ -559,20 +523,20 @@ Thread::do_kill()
   // But first prevent it from being woken up by asynchronous events
 
   {
-    Lock_guard <Cpu_lock> guard (&cpu_lock);
+    Lock_guard <Cpu_lock> guard(&cpu_lock);
 
     // if IPC timeout active, reset it
     if (_timeout)
       _timeout->reset();
 
     // Switch to time-sharing mode
-    set_mode (Sched_mode (0));
+    set_mode(Sched_mode(0));
 
     // Switch to time-sharing scheduling context
     if (sched() != sched_context())
       switch_sched(sched_context());
 
-    if (current_sched()->context() == this)
+    if (!current_sched() || current_sched()->context() == this)
       set_current_sched(current()->sched());
   }
 
@@ -582,7 +546,7 @@ Thread::do_kill()
   // if other threads want to send me IPC messages, abort these
   // operations
   {
-    Lock_guard <Cpu_lock> guard (&cpu_lock);
+    Lock_guard <Cpu_lock> guard(&cpu_lock);
     while (Sender *s = Sender::cast(sender_list()->head()))
       {
 	s->ipc_receiver_aborted();
@@ -592,7 +556,7 @@ Thread::do_kill()
 
   // if engaged in IPC operation, stop it
   if (receiver())
-    sender_dequeue (receiver()->sender_list());
+    sender_dequeue(receiver()->sender_list());
 
   Context::do_kill();
 
@@ -603,7 +567,7 @@ Thread::do_kill()
 
   cpu_lock.lock();
 
-  state_change_dirty (0, Thread_dead);
+  state_change_dirty(0, Thread_dead);
 
   // dequeue from system queues
   ready_dequeue();
@@ -619,7 +583,7 @@ Thread::do_kill()
       {
 	state_del_dirty(Thread_ready_mask);
 	schedule();
-	WARN("woken up dead thread %lx\n", kobject()->dbg_id());
+	WARN("woken up dead thread %lx\n", dbg_id());
 	kdb_ke("X");
       }
 
@@ -667,13 +631,6 @@ Thread::kill()
   drq(Thread::handle_remote_kill, 0, 0, Drq::Any_ctxt);
 
   return true;
-#if 0
-    drq(Thread::handle_migration, reinterpret_cast<void*>(current_cpu()));
-
-  assert_kdb(cpu() == current_cpu());
-
-  return do_kill();
-#endif
 }
 
 
@@ -709,42 +666,8 @@ Thread::set_sched_params(unsigned prio, Unsigned64 quantum)
 
 PUBLIC
 long
-Thread::control(Thread_ptr const &pager, Thread_ptr const &exc_handler,
-                Space *task, void *user_utcb,
-                bool utcb_vcpu_flag = false, bool utcb_vcpu_val = false)
+Thread::control(Thread_ptr const &pager, Thread_ptr const &exc_handler)
 {
-  bool new_vcpu_state = state() & Thread_vcpu_enabled;
-  if (utcb_vcpu_flag)
-    new_vcpu_state = utcb_vcpu_val;
-
-  if (task)
-    {
-      if (EXPECT_FALSE(!task->is_utcb_valid(user_utcb, 1 + new_vcpu_state)))
-        return -L4_err::EInval;
-
-      if (EXPECT_FALSE(!bind(task, user_utcb)))
-        return -L4_err::EInval; // unbind first !!
-
-      if (new_vcpu_state)
-        vcpu_state(utcb() + 1);
-    }
-
-  if (new_vcpu_state)
-    {
-      if (space())
-        {
-	  if (!space()->is_utcb_valid((void *)local_id(), 2))
-            return -L4_err::EInval;
-          vcpu_state(utcb() + 1);
-        }
-
-      state_add_dirty(Thread_vcpu_enabled);
-    }
-  else
-    // we're not clearing the vcpu_state pointer, it's not used if vcpu mode
-    // is off
-    state_del_dirty(Thread_vcpu_enabled);
-
   if (pager.is_valid())
     _pager = pager;
 
@@ -755,20 +678,6 @@ Thread::control(Thread_ptr const &pager, Thread_ptr const &exc_handler,
 }
 
 
-/** Clears the utcb pointer of the Thread
- *  Reason: To avoid a stale pointer after unmapping and deallocating
- *  the UTCB. Without this the Thread_lock::clear will access the UTCB
- *  after the unmapping the UTCB -> POOFFF.
- */
-PUBLIC inline
-void
-Thread::unset_utcb_ptr()
-{
-  utcb(0);
-  local_id(0);
-}
-
-
 PRIVATE static inline
 bool FIASCO_WARN_RESULT
 Thread::copy_utcb_to_utcb(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
@@ -776,8 +685,8 @@ Thread::copy_utcb_to_utcb(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
 {
   assert (cpu_lock.test());
 
-  Utcb *snd_utcb = snd->access_utcb();
-  Utcb *rcv_utcb = rcv->access_utcb();
+  Utcb *snd_utcb = snd->utcb().access();
+  Utcb *rcv_utcb = rcv->utcb().access();
   Mword s = tag.words();
   Mword r = Utcb::Max_words;
 
@@ -875,7 +784,8 @@ Thread::do_migration()
   Migration_helper_info inf;
 
     {
-      Lock_guard<Spin_lock> g(affinity_lock());
+      Lock_guard<typeof(_migration_rq.affinity_lock)>
+	g(&_migration_rq.affinity_lock);
       inf.inf = _migration_rq.inf;
       _migration_rq.pending = false;
       _migration_rq.in_progress = true;
@@ -951,7 +861,8 @@ Thread::migrate(Migration_info const &info)
   );
 
     {
-      Lock_guard<Spin_lock> g(affinity_lock());
+      Lock_guard<typeof(_migration_rq.affinity_lock)>
+	g(&_migration_rq.affinity_lock);
       _migration_rq.inf = info;
       _migration_rq.pending = true;
     }
@@ -1009,7 +920,7 @@ Thread::switchin_fpu(bool alloc_new_fpu = true)
   if (!fpu_state()->state_buffer()
       && (EXPECT_FALSE((!alloc_new_fpu
                         || (state() & Thread_alien))
-                       || !Fpu_alloc::alloc_state (_quota, fpu_state()))))
+                       || !Fpu_alloc::alloc_state(_quota, fpu_state()))))
     return 0;
 
   // Enable the FPU before accessing it, otherwise recursive trap
@@ -1020,10 +931,10 @@ Thread::switchin_fpu(bool alloc_new_fpu = true)
     nonull_static_cast<Thread*>(Fpu::owner(cpu))->spill_fpu();
 
   // Become FPU owner and restore own FPU state
-  Fpu::restore_state (fpu_state());
+  Fpu::restore_state(fpu_state());
 
-  state_add_dirty (Thread_fpu_owner);
-  Fpu::set_owner (cpu, this);
+  state_add_dirty(Thread_fpu_owner);
+  Fpu::set_owner(cpu, this);
   return 1;
 }
 
@@ -1071,7 +982,8 @@ IMPLEMENTATION [!fpu]:
 PUBLIC inline
 int
 Thread::switchin_fpu(bool alloc_new_fpu = true)
-{ (void)alloc_new_fpu;
+{
+  (void)alloc_new_fpu;
   return 0;
 }
 
@@ -1110,16 +1022,6 @@ int Thread::log_page_fault()
 PUBLIC inline
 unsigned Thread::sys_fpage_unmap_log(Syscall_frame *)
 { return 0; }
-
-//---------------------------------------------------------------------------
-IMPLEMENTATION [!io]:
-
-PUBLIC inline
-bool
-Thread::has_privileged_iopl()
-{
-  return false;
-}
 
 
 // ----------------------------------------------------------------------------
@@ -1192,7 +1094,8 @@ IMPLEMENTATION [mp]:
 IMPLEMENT
 void
 Thread::handle_remote_requests_irq()
-{ assert_kdb (cpu_lock.test());
+{
+  assert_kdb (cpu_lock.test());
   // printf("CPU[%2u]: > RQ IPI (current=%p)\n", current_cpu(), current());
   Ipi::eoi(Ipi::Request);
   Context *const c = current();
@@ -1217,7 +1120,8 @@ Thread::handle_remote_requests_irq()
 IMPLEMENT
 void
 Thread::handle_global_remote_requests_irq()
-{ assert_kdb (cpu_lock.test());
+{
+  assert_kdb (cpu_lock.test());
   // printf("CPU[%2u]: > RQ IPI (current=%p)\n", current_cpu(), current());
   Ipi::eoi(Ipi::Global_request);
   Context::handle_global_requests();

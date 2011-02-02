@@ -2,7 +2,7 @@ PKGDIR          ?= ../..
 L4DIR           ?= $(PKGDIR)/../..
 
 TARGET          = libjpeg.a libjpeg.so
-SYSTEMS         = x86 amd64 arm ppc32
+SYSTEMS         = $(SYSTEMS_PLAIN)
 LIBS            = $(GCCLIB)
 CONTRIB_INCDIR  = libjpeg
 

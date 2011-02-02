@@ -26,7 +26,7 @@ sys_call_page-asm.o: $(TCBOFFSET)
 # to the linker script. We don't do this because we don't know which symbols
 # are required by future versions of the libc.
 
-$(KERNEL):	kernel.ux.lds $(OBJ_KERNEL) $(MINILIBC) $(LIBK) $(LIBAMM) $(KERNEL_EXTRA_LIBS) $(ABI) $(JABI) $(DRIVERS) $(CXXLIB)
+$(KERNEL):	kernel.ux.lds $(OBJ_KERNEL) $(MINILIBC) $(LIBK) $(KERNEL_EXTRA_LIBS) $(ABI) $(JABI) $(DRIVERS) $(CXXLIB)
 		$(LINK_MESSAGE)
 		$(VERBOSE)$(CXX) -m32 -Wl,-T$< -static -o $@ -Wl,--whole-archive $(MINILIBC) -Wl,--no-whole-archive $(KERNEL_UNRES_SYMS) $(filter-out $<,$+) -lutil $(WRAP_SYMBOLS)
 		chmod 755 $@

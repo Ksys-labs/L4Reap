@@ -48,6 +48,20 @@ my %modules =
              modules => [ qw(bid toolbin) ],
            },
 
+   # ./mk/pkgdeps -A mk/aliases.d pkgdeps pkg rtc shmc libvcpu stdlibs log
+   # l4re_c-util libio
+   l4linux_requirements
+        => { paths => [ map { "l4/pkg/$_" } qw(
+                     crtn cxx cxx_libc_io l4re l4re_c l4re_vfs l4sys l4util
+                     ldscripts libc_backends libio-io libstdc++-headers
+                     libstdc++-v3 libsupc++ libvbus libvcpu log lxfuxlibc rtc
+                     shmc uclibc
+		    ) ],
+                    pub_module => 1,
+                    modules => [ qw(l4re) ],
+                  },
+
+
    examples => {
      paths => [ qw(l4/pkg/hello),
                 map { "l4/pkg/examples/$_" }
@@ -214,6 +228,15 @@ sub merge_modules
   sort keys %paths;
 }
 
+sub show_pub_modules()
+{
+  print "Available modules:\n";
+  foreach (sort keys %modules)
+    {
+       print "  $_\n" if $modules{$_}{pub_module};
+    }
+}
+
 sub usage
 {
   my $command = shift;
@@ -242,11 +265,11 @@ sub usage
   elsif ($command eq 'checkout')
     {
       print "  'checkout' will check out the given modules.\n";
-      print "Available modules:\n";
-      foreach (sort keys %modules)
-        {
-           print "  $_\n" if $modules{$_}{pub_module};
-        }
+      show_pub_modules();
+    }
+  elsif ($command eq 'modules')
+    {
+      show_pub_modules();
     }
   else
     {

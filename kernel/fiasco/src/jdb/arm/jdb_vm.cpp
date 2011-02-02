@@ -30,7 +30,7 @@ Jdb_vm::Jdb_vm()
 
 PUBLIC
 bool
-Jdb_vm::show_kobject(Kobject *o, int lvl)
+Jdb_vm::show_kobject(Kobject_common *o, int lvl)
 {
   Kobject::dcast<Vm*>(o)->dump_machine_state();
   if (lvl)
@@ -51,7 +51,7 @@ Jdb_vm::kobject_type() const
 
 PUBLIC
 int
-Jdb_vm::show_kobject_short(char *buf, int max, Kobject *o)
+Jdb_vm::show_kobject_short(char *buf, int max, Kobject_common *o)
 {
   return Kobject::dcast<Vm*>(o)->show_short(buf, max);
 }
@@ -60,7 +60,7 @@ static Jdb_vm jdb_vm INIT_PRIORITY(JDB_MODULE_INIT_PRIO);
 
 static
 bool
-filter_vm(Kobject const *o)
+filter_vm(Kobject_common const *o)
 {
   return Kobject::dcast<Vm const *>(o);
 }

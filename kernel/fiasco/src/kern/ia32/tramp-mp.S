@@ -88,7 +88,7 @@ _entry_64virt:
 
     /* Increase CPU counter */
 1:	mov	CPU_NR_COUNTER, %eax
-	mov 	%eax, %edi
+	mov	%eax, %edi
 	inc	%edi
 	lock	; cmpxchg %edi, CPU_NR_COUNTER
 	jnz	1b

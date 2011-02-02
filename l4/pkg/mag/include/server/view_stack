@@ -27,7 +27,7 @@ private:
   {
   public:
     Dummy_view() : View(Rect(Point(0,0), Area(0,0)), F_ignore) {}
-    void draw(Canvas *, View_stack const *, Mode, bool) const {}
+    void draw(Canvas *, View_stack const *, Mode) const {}
   };
 
   Canvas *_canvas;
@@ -36,7 +36,6 @@ private:
   View *const _background;
 
   Mode _mode;
-  View *_focused;
 
   L4Re::Video::View *_canvas_view;
 
@@ -71,7 +70,7 @@ private:
 public:
   explicit View_stack(Canvas *canvas, L4Re::Video::View *canvas_view, View *bg)
   : _canvas(canvas), _no_stay_top(&_no_stay_top_v),  _top(bg),
-    _background(bg), _focused(bg), _canvas_view(canvas_view)
+    _background(bg), _canvas_view(canvas_view)
   {
     bg->_pn = &_top;
     insert_before(_no_stay_top, _top);
@@ -102,9 +101,9 @@ public:
       update_all_views();
   }
 
-  void set_mode(Mode m, bool update = false)
+  void set_mode(Mode::Mode_flag m, bool on, bool update = false)
   {
-    _mode = m;
+    _mode.set(m, on);
     if (update)
       update_all_views();
   }
@@ -135,20 +134,10 @@ public:
   }
 
 
-  View *focused() const { return _focused; }
-  void set_focused(View *v) { _focused = v; }
-
-  void forget_focus(View const *v)
-  {
-    if (_focused == v)
-      _focused = 0;
-  }
-
   void forget_view(View *v)
   {
     assert (v != _no_stay_top);
     assert (v != _background);
-    forget_focus(v);
     remove(v);
     refresh_view(0, 0, outline(v));
   }

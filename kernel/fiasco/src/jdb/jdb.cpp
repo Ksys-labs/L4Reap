@@ -1168,7 +1168,7 @@ INTERFACE [mp]:
 EXTENSION class Jdb
 {
   // remote call
-  static Spin_lock _remote_call_lock;
+  static Spin_lock<> _remote_call_lock;
   static void (*_remote_work_ipi_func)(unsigned, void *);
   static void *_remote_work_ipi_func_data;
   static unsigned long _remote_work_ipi_done;
@@ -1177,10 +1177,10 @@ EXTENSION class Jdb
 //--------------------------------------------------------------------------
 IMPLEMENTATION [mp]:
 
-Spin_lock Jdb::_remote_call_lock;
 void (*Jdb::_remote_work_ipi_func)(unsigned, void *);
 void *Jdb::_remote_work_ipi_func_data;
 unsigned long Jdb::_remote_work_ipi_done;
+Spin_lock<> Jdb::_remote_call_lock;
 
 PRIVATE static
 bool
@@ -1394,7 +1394,7 @@ Jdb::remote_work_ipi(unsigned this_cpu, unsigned to_cpu,
   if (!Cpu::online(to_cpu))
     return false;
 
-  Lock_guard<Spin_lock> guard(&_remote_call_lock);
+  Lock_guard<Spin_lock<> > guard(&_remote_call_lock);
 
   _remote_work_ipi_func      = f;
   _remote_work_ipi_func_data = data;

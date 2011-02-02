@@ -26,6 +26,10 @@ namespace L4Re
      * \ingroup api_l4re_protocols
      * \internal
      */
-    enum Opcodes { Get, Get_num_streams, Get_stream_info };
+    enum Opcodes
+    {
+      Get, Get_num_streams, Get_stream_info, Get_stream_info_for_id,
+      Get_axis_info
+    };
   };
 };

@@ -103,13 +103,6 @@ Imx_pin::ack()
 
 PUBLIC
 void
-Imx_pin::hit()
-{
-  Irq::self(this)->Irq::hit();
-}
-
-PUBLIC
-void
 Imx_pin::do_unmask()
 {
   assert (cpu_lock.test());

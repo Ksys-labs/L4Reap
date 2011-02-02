@@ -322,7 +322,11 @@ prefetch_abort: @ A real prefetch abort occured --- handled as a page fault
 	mrc     p15, 0, r1, c5, c0, 1	@ Load IFSR into r1
 	bic	r1, r1, #0x00ff0000
 	orr	r1, r1, #0x00330000     @ Set read bit and prefetch abort
-	ldr	r0, [sp, #RF(PC, 5*4)]  @ get PC from RF and use as pfa
+#if defined(CONFIG_ARM_V6PLUS)
+	mrc	p15, 0, r0, c6, c0, 2   @ Read fault address, for T2: pfa != pc
+#else
+	ldr	r0, [sp, #RF(PC, 5*4)]  @ Get PC from RF and use as pfa
+#endif
 	mov	r2, r0
 	add 	r3, sp, #(5*4)
 	stmdb	sp!, {r0, r1}
@@ -640,8 +644,8 @@ leave_by_vcpu_upcall:
 	CONTEXT_OF r1, sp
 
 	/* access_vcpu() for the local case */
-	ldr	r2, [r1, #(OFS__THREAD__LOCAL_ID)]
-	add	r2, r2, #(OFS__THREAD__UTCB_SIZE + VAL__SIZEOF_TRAP_STATE - RF_SIZE)
+	ldr	r2, [r1, #(OFS__THREAD__USER_VCPU)]
+	add	r2, r2, #(VAL__SIZEOF_TRAP_STATE - RF_SIZE)
 
 	ldr 	r0, [r1, #(OFS__THREAD__EXCEPTION_IP)]
 	str	r0, [r2, #RF(PC, 0)]
@@ -679,6 +683,7 @@ leave_by_vcpu_upcall:
 	ldr	r0, [r2, #(-8 + OFS__VCPU_STATE__ENTRY_IP)]
 
 	str	r0, [sp, #RF(PC, 0)]
+	add	r0, r2, #(-8)
 
 	b	__iret
 

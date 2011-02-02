@@ -27,11 +27,6 @@ Context::fill_user_state()
 {}
 
 PUBLIC inline
-Utcb *
-Context::access_utcb() const
-{ return utcb(); }
-
-PUBLIC inline
 Vcpu_state *
 Context::access_vcpu(bool = false) const
 { return vcpu_state(); }
@@ -98,5 +93,5 @@ void Context::switchin_context(Context *from)
   // switch to our page directory if nessecary
   vcpu_aware_space()->switchin_context(from->vcpu_aware_space());
 
-  Utcb_support::current((Utcb*)local_id());
+  Utcb_support::current(utcb().usr());
 }

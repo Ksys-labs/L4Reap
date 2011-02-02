@@ -4,7 +4,7 @@
 
 include $(srcdir)/Modules.generic
 
-SUBSYSTEMS := 	ABI LIBAMM KERNEL LIBK DRIVERS MINILIBC \
+SUBSYSTEMS := 	ABI KERNEL LIBK DRIVERS MINILIBC \
 		CXXLIB VERSION JABI TCBOFFSET CRT0
 
 
@@ -97,18 +97,6 @@ NOOPT		+= $(patsubst %.o, %, $(OBJ_MINILIBC))
 
 
 #
-# LIBAMM subsystem
-#
-LIBAMM		:= libamm.a
-VPATH		+= lib/amm
-PRIVATE_INCDIR	+= lib/amm
-CSRC_LIBAMM	:= amm_alloc_entry.c amm_allocate.c amm_deallocate.c amm_destroy.c \
-		   amm_dump.c amm_find_addr.c amm_find_gen.c amm_free_entry.c \
-		   amm_init.c amm_init_gen.c amm_iterate.c amm_iterate_gen.c \
-		   amm_join.c amm_modify.c amm_protect.c amm_reserve.c \
-		   amm_select.c amm_split.c
-
-#
 # LIBGZIP subsystem (only for Jdb)
 #
 ifneq ($(CONFIG_JDB_GZIP),)
@@ -154,7 +142,7 @@ VPATH		+= jdb/arm jdb
 PRIVATE_INCDIR 	+= kern/$(CONFIG_XARCH) kern
 
 INTERFACES_KERNEL += 	__main mem_op pagetable kmem_space boot_uart_init     \
-			irq_chip_generic bootstrap kern_lib_page virq         \
+			irq_chip_generic bootstrap kern_lib_page              \
 			jdb_extensions outer_cache utcb_support
 
 PREPROCESS_PARTS	+= ulock
@@ -201,7 +189,7 @@ spin_lock_IMPL		:= spin_lock spin_lock-arm
 startup_IMPL		:= startup startup-arm
 sys_call_page_IMPL	:= sys_call_page sys_call_page-arm
 task_IMPL		:= task task-arm
-thread_IMPL	  	:= thread thread-list thread-arm \
+thread_IMPL	  	:= thread thread-arm \
 			   thread-jdb thread-ipc \
 			   thread-pagefault  thread-log \
 			   thread-ulock thread-vcpu
@@ -210,30 +198,30 @@ utcb_support_IMPL       := utcb_support utcb_support-arm
 vmem_alloc_IMPL	  	:= vmem_alloc vmem_alloc-arch
 tb_entry_IMPL		:= tb_entry tb_entry-arm
 
+
 ifeq ("$(CONFIG_JDB)","y")
-JDB_INTERFACES		:= jdb_handler_queue jdb_module jdb_pic            \
+JDB			:= jdb_compound.o
+SUBSYSTEMS		+= JDB
+INTERFACES_JDB		:= jdb_handler_queue jdb_module jdb_pic            \
 			   jdb jdb_core jdb_prompt_ext jdb_list            \
                            jdb_prompt_module jdb_exit_module jdb_kern_info \
 			   jdb_tcb jdb_screen jdb_thread_list jdb_input    \
 			   jdb_symbol jdb_lines push_console               \
 			   jdb_timeout jdb_dump jdb_ptab                   \
 			   jdb_attach_irq jdb_table                        \
-			   jdb_kern_info_kmem_alloc jdb_kern_info_region   \
+			   jdb_kern_info_kmem_alloc                        \
 			   jdb_kern_info_kip jdb_mapdb kern_cnt            \
-			   jdb_trace jdb_trace_set jdb_entry_frame         \
+			   jdb_trace_set jdb_entry_frame                   \
 			   jdb_kobject jdb_kobject_names                   \
 			   jdb_util jdb_space jdb_utcb                     \
 			   jdb_trap_state jdb_ipi jdb_rcupdate             \
 			   jdb_ipc_gate jdb_obj_space jdb_log jdb_factory  \
 			   jdb_semaphore jdb_thread jdb_scheduler jdb_sender_list\
-			   jdb_perf jdb_vm jdb_regex jdb_disasm jdb_bp
-
-JDB_TBUF_IFS		:= jdb_tbuf jdb_tbuf_init jdb_tbuf_output          \
-			   jdb_tbuf_show                                   \
-			   tb_entry tb_entry_output
+			   jdb_perf jdb_vm jdb_regex jdb_disasm jdb_bp \
+			   jdb_tbuf_output jdb_tbuf_show tb_entry_output
 
 
-INTERFACES_KERNEL 	+= $(JDB_INTERFACES) $(JDB_TBUF_IFS) $(DBG_INTERFACES)
+INTERFACES_KERNEL 	+= jdb_tbuf jdb_tbuf_init tb_entry jdb_trace
 jdb_IMPL		:= jdb jdb-arm jdb-ansi jdb-thread
 jdb_kern_info_IMPL	:= jdb_kern_info jdb_kern_info-arm \
 			   jdb_kern_info-bench jdb_kern_info-bench-arm \

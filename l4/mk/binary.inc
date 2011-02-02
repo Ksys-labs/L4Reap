@@ -40,7 +40,7 @@ ifeq ($(SYSTEM),) # if we have no system yet, build the subdirs
 #################################################################
 
 # our default systems
-SYSTEMS	?= x86-l4f amd64-l4f arm-l4f ppc32-l4f
+SYSTEMS	?= $(SYSTEMS_ABI)
 
 BID_MISSING_PKGS := \
    $(strip $(if $(DEPENDS_PKGS), \
@@ -286,7 +286,15 @@ BID_PKG_CONFIG = $(if $(strip $(3)),                                     \
                    $(shell PKG_CONFIG_LIBDIR=$(1)/pc                     \
                            PKG_CONFIG_PATH= $(L4_BID_PKG_CONFIG)         \
                            --define-variable=incdir=$(1)/include/contrib \
+                           $(if $(VERBOSE),--silence-errors)             \
 			   $(2) $(3) || echo __PKGCONFIG_FAILED__))
+
+BID_PKG_CONFIG_MISSING =                                        \
+     $(if $(strip $(3)),                                        \
+          $(shell PKG_CONFIG_LIBDIR=$(1)/pc                     \
+                  PKG_CONFIG_PATH= LANG=C $(L4_BID_PKG_CONFIG)  \
+                  --errors-to-stdout --print-errors $(2) $(3)   \
+                  | LANG=C grep ", not found"))
 
 BID_PKG_CONFIG_FAILED = $(findstring __PKGCONFIG_FAILED__,$(1))
 
@@ -297,8 +305,10 @@ ifeq ($(BID_MISSING_PKGS),)
    # error handling
    ifneq ($(call BID_PKG_CONFIG_FAILED,$(REQUIRES_LIBS_LIST)),)
     BID_MISSING_PKGS := $(strip $(foreach i,$(REQUIRES_LIBS), \
-                          $(if $(filter __PKGCONFIG_FAILED__,$(call BID_PKG_CONFIG,$(OBJ_BASE),--print-errors,$(i))),$(i))))
+                          $(if $(filter __PKGCONFIG_FAILED__,$(call BID_PKG_CONFIG,$(OBJ_BASE),--libs --print-errors,$(i))),$(i))))
     text := $(shell echo -e "\033[31mLibrary dependencies missing: \033[1m$(BID_MISSING_PKGS)\033[22m in directory '$(SRC_DIR)'; aborting.\033[0m")
+    text2 := $(strip $(foreach i,$(REQUIRES_LIBS), $(call BID_PKG_CONFIG_MISSING,$(OBJ_BASE),--libs,$(i))))
+    $(if $(text2),$(info $(shell echo -e "\033[31m$(text2)\033[0m")))
     $(if $(BID_MISSING_PKGS),$(info $(text)),$(error $(text)))
    endif
 
@@ -313,8 +323,10 @@ ifeq ($(BID_MISSING_PKGS),)
   # error handling
   ifneq ($(call BID_PKG_CONFIG_FAILED,$(BID_PKG_CONFIG_CFLAGS)),)
    BID_MISSING_PKGS := $(strip $(foreach i,$(REQUIRES_CFLAGS) $(REQUIRES_LIBS), \
-                          $(if $(filter __PKGCONFIG_FAILED__,$(call BID_PKG_CONFIG,$(OBJ_BASE),--print-errors,$(i))),$(i))))
+                          $(if $(filter __PKGCONFIG_FAILED__,$(call BID_PKG_CONFIG,$(OBJ_BASE),--cflags --print-errors,$(i))),$(i))))
    text := $(shell echo -e "\033[31mCflags dependencies missing: \033[1m$(BID_MISSING_PKGS)\033[22m in directory '$(SRC_DIR)'; aborting.\033[0m")
+   text2 := $(strip $(foreach i,$(REQUIRES_LIBS), $(call BID_PKG_CONFIG_MISSING,$(OBJ_BASE),--cflags,$(i))))
+   $(if $(text2),$(info $(shell echo -e "\033[31m$(text2)\033[0m")))
    $(error $(text))
   endif
  endif # SYSTEM

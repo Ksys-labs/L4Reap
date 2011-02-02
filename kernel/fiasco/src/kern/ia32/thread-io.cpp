@@ -157,14 +157,6 @@ Thread::need_iopl(Address ip, bool from_user)
   return instr == 0xfa /*cli*/ || instr == 0xfb /*sti*/;
 }
 
-PUBLIC inline
-bool
-Thread::has_privileged_iopl()
-{
-  return (regs()->flags() & EFLAGS_IOPL) == EFLAGS_IOPL_U;
-}
-
-
 PRIVATE inline NEEDS[Thread::gain_iopl]
 int
 Thread::handle_io_page_fault (Trap_state *ts, bool from_user)

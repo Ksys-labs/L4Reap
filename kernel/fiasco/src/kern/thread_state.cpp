@@ -11,11 +11,10 @@ enum Thread_state
   Thread_polling          = 0x8,  // waiting to send message to specified rcvr
   Thread_ipc_in_progress  = 0x10, // an IPC operation has not been finished
   Thread_send_in_progress = 0x20, // an IPC send operation hasn't been finished
-  Thread_busy             = 0x40, // an IPC rcv handshake has not been finished
   // the ipc handshake bits needs to be in the first byte,
   // the shortcut depends on it
 
-  Thread_cancel               = 0x100,// state has been changed -- cancel activity
+  Thread_cancel               = 0x40,// state has been changed -- cancel activity
   Thread_dead                 = 0x200,// tcb allocated, but inactive (not in any q)
   Thread_suspended            = 0x400,// thread must not execute user code
   // 0x800, 0x1000 are free
@@ -34,15 +33,14 @@ enum Thread_state
   Thread_waiting              = 0x200000, // Thread waits for a lock
 
   Thread_vcpu_enabled         = 0x400000,
-  Thread_vcpu_user_mode       = 0x800000,
   Thread_vcpu_fpu_disabled    = 0x1000000,
+  Thread_ext_vcpu_enabled     = 0x2000000,
 
   // constants for convenience
   Thread_ipc_sending_mask    = Thread_send_in_progress |
                                Thread_polling,
 
   Thread_ipc_receiving_mask  = Thread_receiving |
-                               Thread_busy |
                                Thread_transfer_in_progress,
 
   Thread_ipc_mask            = Thread_ipc_in_progress |

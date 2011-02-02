@@ -71,13 +71,6 @@ Dirq_pic_pin::ack()
 
 PUBLIC
 void
-Dirq_pic_pin::hit()
-{
-  Irq::self(this)->Irq::hit();
-}
-
-PUBLIC
-void
 Dirq_pic_pin::do_set_mode(unsigned)
 {}
 

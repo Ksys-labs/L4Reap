@@ -23,15 +23,13 @@ public:
     Sf_irq_pending = 0x01,
   };
 
-
-
   Trap_state _ts;
   Syscall_frame _ipc_regs;
 
-  Mword state;
-  Mword _saved_state;
-
-  Mword sticky_flags;
+  Unsigned16 state;
+  Unsigned16 _saved_state;
+  Unsigned16 sticky_flags;
+  Unsigned16 _reserved;
 
   L4_obj_ref user_task;
 
@@ -39,6 +37,3 @@ public:
   Mword _entry_ip;
   Mword _sp;
 };
-
-
-

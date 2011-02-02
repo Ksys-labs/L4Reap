@@ -222,7 +222,7 @@ Buddy_t_base<A,B,M>::alloc(unsigned long size)
 
 PUBLIC
 template< int A, int B, int M >
-void 
+void
 Buddy_t_base<A,B,M>::dump() const
 {
   printf("Buddy_alloc [%d,%d]\n", Min_size, Num_sizes);

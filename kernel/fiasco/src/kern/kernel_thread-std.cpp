@@ -83,28 +83,26 @@ Kernel_thread::init_workload()
   assert(sigma0_task);
 
   check (sigma0->initialize());
-  check (map(sigma0,          sigma0_task->obj_space(), sigma0_task, C_task, 0));
-  check (map(Factory::root(), sigma0_task->obj_space(), sigma0_task, C_factory, 0));
+  check (map(sigma0,          sigma0->obj_space(), sigma0, C_task, 0));
+  check (map(Factory::root(), sigma0->obj_space(), sigma0, C_factory, 0));
 
   for (unsigned c = Initial_kobjects::First_cap; c < Initial_kobjects::End_cap; ++c)
     {
       Kobject_iface *o = initial_kobjects.obj(c);
       if (o)
-	check(map(o, sigma0_task->obj_space(), sigma0_task, c, 0));
+	check(map(o, sigma0->obj_space(), sigma0, c, 0));
     }
 
-  sigma0_space = sigma0_task->mem_space();
+  sigma0_space = sigma0->mem_space();
 
   Thread_object *sigma0_thread = new (Ram_quota::root) Thread_object();
 
   assert_kdb(sigma0_thread);
-  check (map(sigma0_thread, sigma0_task->obj_space(), sigma0_task, C_thread, 0));
+  check (map(sigma0_thread, sigma0->obj_space(), sigma0, C_thread, 0));
 
   Address sp = init_workload_s0_stack();
-  check (sigma0_thread->control(Thread_ptr(false), Thread_ptr(false),
-                                sigma0_task,
-                                (void*)Mem_layout::Utcb_addr) == 0);
-
+  check (sigma0_thread->control(Thread_ptr(false), Thread_ptr(false)) == 0);
+  check (sigma0_thread->bind(sigma0, User<Utcb>::Ptr((Utcb*)Mem_layout::Utcb_addr)));
   check (sigma0_thread->ex_regs(Kip::k()->sigma0_ip, sp));
 
   //sigma0_thread->thread_lock()->clear();
@@ -126,9 +124,8 @@ Kernel_thread::init_workload()
   check (map(boot_task,   boot_task->obj_space(), boot_task, C_task, 0));
   check (map(boot_thread, boot_task->obj_space(), boot_task, C_thread, 0));
 
-  check (boot_thread->control(Thread_ptr(C_pager), Thread_ptr(~0UL),
-                              boot_task,
-                              (void*)Mem_layout::Utcb_addr) == 0);
+  check (boot_thread->control(Thread_ptr(C_pager), Thread_ptr(~0UL)) == 0);
+  check (boot_thread->bind(boot_task, User<Utcb>::Ptr((Utcb*)Mem_layout::Utcb_addr)));
   check (boot_thread->ex_regs(Kip::k()->root_ip, Kip::k()->root_sp));
 
   Ipc_gate *s0_b_gate = Ipc_gate::create(Ram_quota::root, sigma0_thread, 4 << 4);
@@ -142,12 +139,12 @@ Kernel_thread::init_workload()
   boot_thread->state_del_dirty(Thread_suspended);
 
   sigma0_thread->activate();
-  check (obj_map(sigma0_task, C_factory,   1, boot_task, C_factory, 0).error() == 0);
+  check (obj_map(sigma0, C_factory,   1, boot_task, C_factory, 0).error() == 0);
   for (unsigned c = Initial_kobjects::First_cap; c < Initial_kobjects::End_cap; ++c)
     {
       Kobject_iface *o = initial_kobjects.obj(c);
       if (o)
-	check(obj_map(sigma0_task, c, 1, boot_task, c, 0).error() == 0);
+	check(obj_map(sigma0, c, 1, boot_task, c, 0).error() == 0);
     }
 
   boot_thread->activate();

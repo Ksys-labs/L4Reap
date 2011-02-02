@@ -17,15 +17,20 @@ protected:
   static bool have_receive(Utcb *rcv) { return rcv != utcb_dummy(); }
 };
 
-template<typename T>
-class Kobject_h : public Kobject_iface, protected Kobject_helper_base
+template<typename T, typename Base = Kobject>
+class Kobject_h : public Base, protected Kobject_helper_base
 {
 private:
   static Sender *_sender(Thread *, Sender *t) { return t; }
   static Sender *_sender(Thread *ct, ...) { return ct; }
 
 public:
-  Kobject_iface *downgrade(unsigned long) { return this; }
+
+  explicit Kobject_h() : Base() {}
+
+  template< typename A >
+  explicit Kobject_h(A a) : Base(a) {}
+
   void invoke(L4_obj_ref self, Mword rights, Syscall_frame *f, Utcb *u)
   {
     L4_msg_tag res(0);
@@ -59,3 +64,4 @@ public:
 IMPLEMENTATION:
 
 Mword Kobject_helper_base::_utcb_dummy[(sizeof(Utcb) + sizeof(Mword) - 1) / sizeof(Mword)];
+

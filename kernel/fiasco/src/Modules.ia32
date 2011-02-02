@@ -2,8 +2,8 @@
 
 include $(srcdir)/Modules.generic
 
-SUBSYSTEMS = JABI ABI DRIVERS KERNEL CRT0 BOOT LIBK LIBAMM \
-	     CHECKSUM CXXLIB MINILIBC LIBKERN TCBOFFSET SYMBOLS VERSION GBLCFG
+SUBSYSTEMS = JABI ABI DRIVERS KERNEL CRT0 BOOT LIBK \
+	     CHECKSUM CXXLIB MINILIBC LIBKERN TCBOFFSET VERSION GBLCFG
 
 ifeq ("$(CONFIG_GSTABS)","y")      
   SUBSYSTEMS		+= LINES
@@ -146,9 +146,7 @@ task_IMPL		:= task task-ia32-amd64
 tb_entry_IMPL		:= tb_entry tb_entry-ia32-32
 timer_IMPL		:= timer timer-ia32-amd64-ux
 thread_IMPL		:= thread thread-ia32 thread-ia32-32 \
-			   thread-ipc \
-			   thread-list \
-			   thread-pagefault thread-log      \
+			   thread-ipc thread-pagefault thread-log \
 			   thread-debug thread-dbf thread-ulock thread-vcpu
 utcb_init_IMPL		:= utcb_init utcb_init-ia32
 vmem_alloc_IMPL		:= vmem_alloc vmem_alloc-ia32
@@ -185,19 +183,22 @@ ifeq ("$(CONFIG_IO_PROT)","y")
 endif
 
 ifeq ("$(CONFIG_JDB)","y")
+JDB			:= jdb_compound.o
+SUBSYSTEMS		+= JDB
 VPATH			+= jdb/ia32/32 jdb/ia32 jdb
-INTERFACES_KERNEL	+= jdb jdb_util jdb_prompt_ext jdb_symbol jdb_lines \
+INTERFACES_KERNEL	+= jdb_tbuf jdb_tbuf_init jdb_trace tb_entry 
+INTERFACES_JDB		+= jdb jdb_util jdb_prompt_ext jdb_symbol jdb_lines \
 			   jdb_dbinfo jdb_bp \
-			   jdb_tbuf jdb_module jdb_core jdb_io_ports \
+			   jdb_module jdb_core jdb_io_ports \
 			   jdb_kern_info jdb_prompt_module jdb_tbuf_output \
 			   jdb_input jdb_dump jdb_ptab jdb_misc jdb_mapdb \
-			   jdb_tcb jdb_attach_irq jdb_tbuf_init jdb_trace \
+			   jdb_tcb jdb_attach_irq \
 			   jdb_trace_set jdb_counters jdb_table kern_cnt  \
-			   tb_entry tb_entry_output jdb_exit_module \
-			   jdb_tbuf_show jdb_console_buffer virq \
+			   tb_entry_output jdb_exit_module \
+			   jdb_tbuf_show jdb_console_buffer \
 			   jdb_list jdb_screen push_console jdb_timeout \
 			   jdb_handler_queue jdb_halt_thread \
-			   jdb_kern_info_kmem_alloc jdb_kern_info_region \
+			   jdb_kern_info_kmem_alloc \
 			   jdb_kern_info_kip jdb_kern_info_config \
 			   loadcnt jdb_utcb jdb_thread_list \
 			   jdb_entry_frame jdb_kobject jdb_space jdb_io_apic \
@@ -224,7 +225,7 @@ jdb_screen_IMPL		:= jdb_screen jdb_screen-ia32
 jdb_tcb_IMPL		:= jdb_tcb jdb_tcb-ia32-ux
 jdb_trace_set_IMPL	:= jdb_trace_set jdb_trace_set-ia32-ux
 
-INTERFACES_KERNEL-$(CONFIG_JDB_MISC)	+= jdb_tetris
+INTERFACES_JDB-$(CONFIG_JDB_MISC)	+= jdb_tetris
 endif
 
 
@@ -242,6 +243,9 @@ NOOPT			+= tb_entry_output $(tb_entry_IMPL) $(perf_cnt_IMPL)  \
 			   kern_cnt loadcnt $(apic_IMPL) $(watchdog_IMPL) kdb \
 			   $(kernel_uart_IMPL) push_console virq thread-dbf   \
 			   trap_state
+NOOPT			+= $(foreach in,$(INTERFACES_JDB), \
+			       $(if $($(in)_IMPL),$($(in)_IMPL),$(in)))
+
 
 ### When testing with test threads, uncomment the following:
 #
@@ -345,17 +349,6 @@ PRIVATE_INCDIR	+= lib/kern/include
 CSRC_LIBKERN	:=
 NOOPT		+= $(patsubst %.o, %, $(OBJ_LIBKERN))
 
-#
-# LIBAMM subsystem
-#
-LIBAMM		:= libamm.a
-VPATH		+= lib/amm
-PRIVATE_INCDIR	+= lib/amm
-CSRC_LIBAMM	:= amm_alloc_entry.c amm_allocate.c amm_deallocate.c \
-		   amm_destroy.c amm_dump.c amm_find_addr.c amm_find_gen.c \
-		   amm_free_entry.c amm_init.c amm_init_gen.c amm_iterate.c \
-		   amm_iterate_gen.c amm_join.c amm_modify.c amm_protect.c \
-		   amm_reserve.c amm_select.c amm_split.c
 
 #
 # LIBGZIP subsystem (only for Jdb)

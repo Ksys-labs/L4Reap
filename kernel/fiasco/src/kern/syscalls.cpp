@@ -14,7 +14,7 @@ sys_ipc_wrapper()
   Syscall_frame *f = curr->regs();
 
   Obj_cap obj = f->ref();
-  Utcb *utcb = curr->access_utcb();
+  Utcb *utcb = curr->utcb().access(true);
   // printf("sys_invoke_object(f=%p, obj=%x)\n", f, f->obj_ref());
   unsigned char rights;
   Kobject_iface *o = obj.deref(&rights);
@@ -32,7 +32,7 @@ IMPLEMENTATION [debug]:
 #include "space.h"
 #include "task.h"
 
-extern "C" void sys_invoke_debug(Kobject *o, Syscall_frame *f);
+extern "C" void sys_invoke_debug(Kobject_iface *o, Syscall_frame *f) __attribute__((weak));
 
 extern "C" void sys_invoke_debug_wrapper()
 {
@@ -40,10 +40,10 @@ extern "C" void sys_invoke_debug_wrapper()
   Syscall_frame *f = curr->regs();
   //printf("sys_invoke_debugger(f=%p, obj=%lx)\n", f, f->ref().raw());
   Kobject_iface *o = curr->space()->obj_space()->lookup_local(f->ref().cap());
-  if (o)
-    ::sys_invoke_debug(o->kobject(), f);
+  if (o && &::sys_invoke_debug)
+    ::sys_invoke_debug(o, f);
   else
-    f->tag(curr->commit_error(curr->access_utcb(), L4_error::Not_existent));
+    f->tag(curr->commit_error(curr->utcb().access(true), L4_error::Not_existent));
 }
 
 //---------------------------------------------------------------------------

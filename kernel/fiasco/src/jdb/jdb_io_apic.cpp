@@ -30,7 +30,6 @@ PRIVATE static
 void
 Jdb_io_apic_module::print_lapic(unsigned cpu, void *)
 {
-
   printf("\nLocal APIC [%u, %08x]: tpr=%2x ppr=%2x\n", cpu, Apic::get_id(), Apic::tpr(),
          Apic::reg_read(0xa0));
   printf("  Running: tpr=%02x\n", Jdb::apic_tpr.cpu(cpu));
@@ -118,7 +117,7 @@ Jdb_module::Cmd const *
 Jdb_io_apic_module::cmds() const
 {
   static Cmd cs[] =
-    { { 0, "", "apic", "", "apic\tdump state of IOAPIC", (void*)0 } };
+    { { 0, "A", "apic", "", "apic\tdump state of IOAPIC", (void*)0 } };
 
   return cs;
 }

@@ -264,7 +264,7 @@ Sw_icu::Sw_irq_pin::allocate_master_irq()
   Auto_cap<L4::Irq>::Cap lirq = chkcap(L4Re::Util::cap_alloc.alloc<L4::Irq>(),
       "allocating IRQ capability");
   // printf("IRQ mode = %x -> %x\n", type(), l4_type());
-  chksys(L4Re::Env::env()->factory()->create_irq(lirq.get()), "allocating IRQ");
+  chksys(L4Re::Env::env()->factory()->create(lirq.get(), L4_PROTO_IRQ) << l4_umword_t(1), "allocating IRQ");
   chksys(_master->bind(lirq.get(), l4_type()), "binding IRQ");
   _master->_irq  = lirq.release();
   _master->set_chained(true);

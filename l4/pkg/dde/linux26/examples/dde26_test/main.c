@@ -170,6 +170,7 @@ static void tasklet_test(void)
 
 	msleep(1000);
 	
+#if 0
 	printk("Scheduling hi_tasklets 10-12, and tasklets 0-2\n");
 	tasklet_hi_schedule(&hi0);
 	tasklet_hi_schedule(&hi1);
@@ -178,15 +179,18 @@ static void tasklet_test(void)
 	tasklet_schedule(&low1);
 	tasklet_schedule(&low2);
 	tasklet_enable(&hi2);
+#endif
 
-	msleep(1000);
-	printk("Scheduling (disabled) tasklet 3 twice - should only run once after enabling.\n");
-	tasklet_disable(&low3);
-	tasklet_schedule(&low3);
-	tasklet_schedule(&low3);
-	tasklet_enable(&low3);
+	unsigned idx;
+	for (idx=0; idx < 3; ++idx) {
+	    printk("Scheduling (disabled) tasklet 3 twice - should only run once after enabling.\n");
+	    tasklet_disable(&low3);
+	    tasklet_schedule(&low3);
+	    tasklet_schedule(&low3);
+	    tasklet_enable(&low3);
+	    msleep(2000);
+	}
 
-	msleep(1000);
 
 	printk("END TASKLET TEST\n");
 }
@@ -435,14 +439,14 @@ void pci_test(void)
 int main(int argc, const char **argv)
 {
 	int test_current = 1;
-	int test_kernel_thread = 1;
-	int test_wait = 1;
+	int test_kernel_thread = 0;
+	int test_wait = 0;
 	int test_tasklet = 1;
-	int test_timer = 1;
-	int test_memory = 1;
-	int test_kthread = 1;
-	int test_work = 1;
-	int test_pci = 1;
+	int test_timer = 0;
+	int test_memory = 0;
+	int test_kthread = 0;
+	int test_work = 0;
+	int test_pci = 0;
 
 	msleep(1000);
 
@@ -495,7 +499,7 @@ int main(int argc, const char **argv)
 	if (test_tasklet) tasklet_test();
 	if (test_timer) timer_test();
 	if (test_memory) memory_test();
-	if (1) kthread_test();
+	if (test_kthread) kthread_test();
 	if (test_work) work_queue_test();
 //	if (test_pci) pci_test();
 	printk("Test done.\n");

@@ -1118,6 +1118,13 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
     }
   ram.add(Region::n(0x0, ram_size, ".ram", Region::Ram));
 
+#elif defined(ARCH_sparc)
+  l4util_mb_info_t my_mbi;
+  memset(&my_mbi, 0, sizeof(my_mbi));
+  mbi = &my_mbi;
+
+  (void)realmode_si;
+  (void)flag;
 #else
 #error Unknown arch!
 #endif
@@ -1318,6 +1325,11 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
   startup_func f = (startup_func)boot_info.kernel_start;
   of_if.boot_finish();
   f(&kernel_mbi, of_if.get_prom());
+
+#elif defined(ARCH_sparc)
+
+  printf("ENTER THE KERNEL!\n");
+
 #else
 
 #error "How to enter the kernel?"

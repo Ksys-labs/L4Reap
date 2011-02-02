@@ -223,7 +223,7 @@ low_level_input(struct netif *netif)
 
   /* Obtain the size of the packet and put it into the "len"
      variable. */
-  len = l4shmc_rb_receiver_read_next_size(HEAD(rb));
+  len = l4shmc_rb_receiver_read_next_size(L4SHMC_RINGBUF_HEAD(rb));
   if (len <= 0)
       return NULL;
 
@@ -244,7 +244,7 @@ low_level_input(struct netif *netif)
    * available data in the pbuf is given by the p->len
    * variable. */
     assert(p->len == len);
-    int err = l4shmc_rb_receiver_copy_out(HEAD(rb), p->payload, (unsigned*)&p->len);
+    int err = l4shmc_rb_receiver_copy_out(L4SHMC_RINGBUF_HEAD(rb), p->payload, (unsigned*)&p->len);
 #if 0
     printf("Incoming %p: ", p); __hexdump(p->payload, 12);
 #endif

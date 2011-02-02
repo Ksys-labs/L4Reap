@@ -7,6 +7,7 @@ DIR_amd64 := x86_64
 DIR_x86   := i386
 DIR_arm   := arm
 DIR_ppc32 := powerpc
+DIR_sparc := sparc
 
 
 vpath %.c $(CON_DIR)/ldso

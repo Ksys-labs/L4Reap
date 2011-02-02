@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <netdb.h>
+#include <not-cancel.h>
 
 #define HOSTID "/etc/hostid"
 
@@ -25,11 +26,11 @@ int sethostid(long int new_id)
 
 	if (geteuid() || getuid())
 		return __set_errno(EPERM);
-	fd = open(HOSTID, O_CREAT|O_WRONLY, 0644);
+	fd = open_not_cancel(HOSTID, O_CREAT|O_WRONLY, 0644);
 	if (fd < 0)
 		return fd;
-	ret = write(fd, &new_id, sizeof(new_id)) == sizeof(new_id) ? 0 : -1;
-	close(fd);
+	ret = write_not_cancel(fd, &new_id, sizeof(new_id)) == sizeof(new_id) ? 0 : -1;
+	close_not_cancel_no_status (fd);
 	return ret;
 }
 #endif
@@ -44,10 +45,10 @@ long int gethostid(void)
 	 * It is not an error if we cannot read this file. It is not even an
 	 * error if we cannot read all the bytes, we just carry on trying...
 	 */
-	fd = open(HOSTID, O_RDONLY);
+	fd = open_not_cancel_2(HOSTID, O_RDONLY);
 	if (fd >= 0) {
-		int i = read(fd, &id, sizeof(id));
-		close(fd);
+		int i = read_not_cancel(fd, &id, sizeof(id));
+		close_not_cancel_no_status(fd);
 		if (i > 0)
 			return id;
 	}

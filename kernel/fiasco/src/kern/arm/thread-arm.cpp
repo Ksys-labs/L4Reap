@@ -47,9 +47,9 @@ Thread::print_page_fault_error(Mword e)
          (e & 0x00020000)?'r':'w');
 }
 
-PROTECTED inline
+PUBLIC template<typename T> inline
 void FIASCO_NORETURN
-Thread::fast_return_to_user(Mword ip, Mword sp)
+Thread::fast_return_to_user(Mword ip, Mword sp, T arg)
 {
   extern char __iret[];
   regs()->ip(ip);
@@ -59,12 +59,16 @@ Thread::fast_return_to_user(Mword ip, Mword sp)
 
   regs()->psr &= ~Proc::Status_thumb;
 
-  asm volatile
-    ("mov sp, %0  \t\n"
-     "mov pc, %1  \t\n"
-     :
-     : "r" (nonull_static_cast<Return_frame*>(regs())), "r" (__iret)
-    );
+    {
+      register Mword r0 asm("r0") = (Mword)arg;
+
+      asm volatile
+	("mov sp, %0  \t\n"
+	 "mov pc, %1  \t\n"
+	 :
+	 : "r" (nonull_static_cast<Return_frame*>(regs())), "r" (__iret), "r"(r0)
+	);
+    }
   panic("__builtin_trap()");
 }
 
@@ -302,8 +306,7 @@ IMPLEMENTATION [arm]:
  */
 IMPLEMENT
 Thread::Thread()
-  : Receiver(&_thread_lock),
-    Sender(0),	// select optimized version of constructor
+  : Sender(0),	// select optimized version of constructor
     _pager(Thread_ptr::Invalid),
     _exc_handler(Thread_ptr::Invalid),
     _del_observer(0)
@@ -418,7 +421,7 @@ Thread::copy_utcb_to_ts(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
                         unsigned char rights)
 {
   Trap_state *ts = (Trap_state*)rcv->_utcb_handler;
-  Utcb *snd_utcb = snd->access_utcb();
+  Utcb *snd_utcb = snd->utcb().access();
   Mword       s  = tag.words();
 
   if (EXPECT_FALSE(rcv->exception_triggered()))
@@ -458,10 +461,10 @@ Thread::copy_utcb_to_ts(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
     snd->transfer_fpu(rcv);
 
   if ((tag.flags() & 0x8000) && (rights & L4_fpage::W))
-    rcv->access_utcb()->user[2] = snd_utcb->values[25];
+    rcv->utcb().access()->user[2] = snd_utcb->values[25];
 
   bool ret = transfer_msg_items(tag, snd, snd_utcb,
-                                rcv, rcv->access_utcb(), rights);
+                                rcv, rcv->utcb().access(), rights);
 
   rcv->state_del(Thread_in_exception);
   return ret;
@@ -477,7 +480,7 @@ Thread::copy_ts_to_utcb(L4_msg_tag const &, Thread *snd, Thread *rcv,
 
   {
     Lock_guard <Cpu_lock> guard (&cpu_lock);
-    Utcb *rcv_utcb = rcv->access_utcb();
+    Utcb *rcv_utcb = rcv->utcb().access();
 
     Mem::memcpy_mwords (rcv_utcb->values, ts, 15);
     Continuation::User_return_frame *d
@@ -524,7 +527,7 @@ Thread::vcpu_resume_user_arch()
   // just an experiment for now, we cannot really take the
   // user-writable register because user-land might already use it
   asm volatile("mcr p15, 0, %0, c13, c0, 2"
-               : : "r" (access_utcb()->values[25]) : "memory");
+               : : "r" (utcb().access(true)->values[25]) : "memory");
 }
 
 // ------------------------------------------------------------------------
@@ -533,8 +536,7 @@ IMPLEMENTATION [arm && !armv6plus]:
 PROTECTED inline
 void
 Thread::vcpu_resume_user_arch()
-{
-}
+{}
 
 //-----------------------------------------------------------------------------
 IMPLEMENTATION [mp]:

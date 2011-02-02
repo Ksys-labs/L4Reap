@@ -114,13 +114,6 @@ Pxa_sa_pin::ack()
 
 PUBLIC
 void
-Pxa_sa_pin::hit()
-{
-  Irq::self(this)->Irq::hit();
-}
-
-PUBLIC
-void
 Pxa_sa_pin::do_unmask()
 {
   Io::write(Io::read<Mword>(Pic::ICMR) | (1 << irq()), Pic::ICMR);

@@ -54,7 +54,7 @@ public:
    * @brief The result type of lock operations.
    */
   enum Status 
-  { 
+  {
     Not_locked, ///< The lock was formerly not aquired and -- we got it
     Locked,     ///< The lock was already aquired by ourselves
     Invalid     ///< The lock does not exist (is invalid)
@@ -117,7 +117,7 @@ Switch_lock::initialize()
  *  @return current owner of the lock.  0 if there is no owner.
  */
 PUBLIC
-inline 
+inline
 Context * NO_INSTRUMENT
 Switch_lock::lock_owner() const
 {
@@ -151,12 +151,12 @@ inline NEEDS["atomic.h"]
 Switch_lock::Status NO_INSTRUMENT
 Switch_lock::try_lock()
 {
-  Lock_guard<Cpu_lock> guard (&cpu_lock);
+  Lock_guard<Cpu_lock> guard(&cpu_lock);
 
   if (EXPECT_FALSE(!valid()))
     return Invalid;
 
-  bool ret = cas (&_lock_owner, (Address)0, Address(current()));
+  bool ret = cas(&_lock_owner, (Address)0, Address(current()));
 
   if (ret)
     current()->inc_lock_cnt();	// Do not lose this lock if current is deleted
@@ -175,7 +175,7 @@ PUBLIC
 Switch_lock::Status NO_INSTRUMENT
 Switch_lock::lock()
 {
-  Lock_guard <Cpu_lock> guard (&cpu_lock);
+  Lock_guard <Cpu_lock> guard(&cpu_lock);
   return lock_dirty();
 }
 
@@ -198,7 +198,7 @@ Switch_lock::lock_dirty()
     return Invalid;
 
   // have we already the lock?
-  if(Address(_lock_owner) & ~1UL == Address(current()))
+  if (Address(_lock_owner) & ~1UL == Address(current()))
     return Locked;
 
   while (test())
@@ -207,7 +207,7 @@ Switch_lock::lock_dirty()
 
       // Help lock owner until lock becomes free
       //      while (test())
-      bool tmp = current()->switch_exec_locked (lock_owner(), Context::Helping);
+      bool tmp = current()->switch_exec_locked(lock_owner(), Context::Helping);
       (void)tmp;
 
       Proc::irq_chance();
@@ -299,15 +299,15 @@ Switch_lock::switch_dirty(Lock_context const &c)
    */
   bool need_sched = false;
   if (h != c.owner)
-    need_sched = c.owner->switch_exec_locked (h, Context::Ignore_Helping);
+    need_sched = c.owner->switch_exec_locked(h, Context::Ignore_Helping);
 
   /*
    * Someone apparently tries to delete us. Therefore we aren't
    * allowed to continue to run and therefore let the scheduler
-   * pick the next thread to execute. 
+   * pick the next thread to execute.
    */
   if (need_sched || (c.owner->lock_cnt() == 0 && c.owner->donatee())) 
-    c.owner->schedule ();
+    c.owner->schedule();
 }
 
 /** Free the lock.  
@@ -318,11 +318,11 @@ Switch_lock::switch_dirty(Lock_context const &c)
 
     @pre The lock must be valid (see valid()).
  */
-PUBLIC 
+PUBLIC
 void NO_INSTRUMENT
 Switch_lock::clear()
 {
-  Lock_guard<Cpu_lock> guard (&cpu_lock);
+  Lock_guard<Cpu_lock> guard(&cpu_lock);
 
   switch_dirty(clear_no_switch_dirty());
 }
@@ -335,7 +335,7 @@ Switch_lock::set(Status s)
     clear();
 }
 
-/** Free the lock.  
+/** Free the lock.
     Return the CPU to helper if there is one, since it had to have a
     higher priority to be able to help (priority may be its own, it
     may run on a donated timeslice or round robin scheduling may have
@@ -359,7 +359,7 @@ PUBLIC inline
 void NO_INSTRUMENT
 Switch_lock::invalidate()
 {
-  Lock_guard<Cpu_lock> guard (&cpu_lock);
+  Lock_guard<Cpu_lock> guard(&cpu_lock);
   _lock_owner |= 1;
 }
 
@@ -367,12 +367,12 @@ PUBLIC
 void NO_INSTRUMENT
 Switch_lock::wait_free()
 {
-  Lock_guard<Cpu_lock> guard (&cpu_lock);
+  Lock_guard<Cpu_lock> guard(&cpu_lock);
 
   assert (!valid());
 
   // have we already the lock?
-  if(lock_owner() == current())
+  if (lock_owner() == current())
     {
       set_lock_owner(0);
       current()->dec_lock_cnt();
@@ -385,7 +385,7 @@ Switch_lock::wait_free()
 
       // Help lock owner until lock becomes free
       //      while (test())
-      check (!current()->switch_exec_locked ((Context*)(Address(_lock_owner & ~1UL)), Context::Helping));
+      check (!current()->switch_exec_locked((Context*)(Address(_lock_owner & ~1UL)), Context::Helping));
 
       Proc::irq_chance();
     }

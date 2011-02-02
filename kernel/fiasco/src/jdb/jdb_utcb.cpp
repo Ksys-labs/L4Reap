@@ -40,17 +40,17 @@ PUBLIC static
 void
 Jdb_utcb::print(Thread *t)
 {
-  if (t->utcb())
+  if (t->utcb().kern())
     {
-      printf("\nUtcb-addr: %p\n", t->utcb());
-      t->utcb()->print();
+      printf("\nUtcb-addr: %p\n", t->utcb().kern());
+      t->utcb().kern()->print();
     }
 
-  if (t->state() & Thread_vcpu_enabled)
+  if (t->state(false) & Thread_vcpu_enabled)
     {
-      Vcpu_state *v = t->vcpu_state();
+      Vcpu_state *v = t->vcpu_state().kern();
       printf("\nVcpu-state-addr: %p\n", v);
-      printf("state: %lx    saved-state:  %lx  sticky: %lx\n",
+      printf("state: %x    saved-state:  %x  sticky: %x\n",
              v->state, v->_saved_state, v->sticky_flags);
       printf("entry_sp = %lx    entry_ip = %lx  sp = %lx\n",
              v->_entry_sp, v->_entry_ip, v->_sp);
@@ -100,7 +100,7 @@ class Jdb_kobject_utcb_hdl : public Jdb_kobject_handler
 {
 public:
   Jdb_kobject_utcb_hdl() : Jdb_kobject_handler(0) {}
-  virtual bool show_kobject(Kobject *, int) { return true; }
+  virtual bool show_kobject(Kobject_common *, int) { return true; }
   virtual ~Jdb_kobject_utcb_hdl() {}
 };
 
@@ -114,7 +114,7 @@ Jdb_kobject_utcb_hdl::init()
 
 PUBLIC
 bool
-Jdb_kobject_utcb_hdl::handle_key(Kobject *o, int keycode)
+Jdb_kobject_utcb_hdl::handle_key(Kobject_common *o, int keycode)
 {
   if (keycode == 'z')
     {

@@ -31,7 +31,12 @@ public:
 
   void toggle(Mode_flag m)
   {
-    if (_m & m)
+    _m ^= m;
+  }
+
+  void set(Mode_flag m, bool on = true)
+  {
+    if (!on)
       _m &= ~m;
     else
       _m |= m;

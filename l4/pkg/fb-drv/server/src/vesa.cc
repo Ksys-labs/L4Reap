@@ -51,7 +51,7 @@ Vesa_fb::setup_drv(Prog_args *pa)
 
   x86emu_int10_done();
 
-  splash_display(&_screen_info, _vidmem_start);
+  splash_display(&_view_info, _vidmem_start);
 
   return true;
 }

@@ -60,6 +60,7 @@ Event::event_loop(void *data)
 
       e->_event_func(data);
     }
+  return 0;
 }
 
 }

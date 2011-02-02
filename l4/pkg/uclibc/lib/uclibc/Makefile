@@ -6,7 +6,7 @@ CFLAGS_amd64 += -mcmodel=medium
 
 include $(L4DIR)/mk/Makeconf
 
-SYSTEMS		= x86 arm amd64 ppc32
+SYSTEMS		= $(SYSTEMS_PLAIN)
 TARGET		= libuc_c.a libuc_c.so
 PC_LIBS         = -luc_c
 LDFLAGS         = -z combreloc -z relro --sort-common \
@@ -24,6 +24,7 @@ FILES_x86	:= $(PKGDIR_ABS)/lib/uclibc/contrib_files_x86.lst
 FILES_arm	:= $(PKGDIR_ABS)/lib/uclibc/contrib_files_arm.lst
 FILES_amd64     := $(PKGDIR_ABS)/lib/uclibc/contrib_files_amd64.lst
 FILES_ppc32     := $(PKGDIR_ABS)/lib/uclibc/contrib_files_ppc32.lst
+FILES_sparc     := $(PKGDIR_ABS)/lib/uclibc/contrib_files_sparc.lst
 CONTRIB_DIR	:= $(PKGDIR_ABS)/lib/contrib/uclibc
 PTHLIB_DIR	:= $(PKGDIR_ABS)/lib/libpthread
 
@@ -32,6 +33,7 @@ UCLIBC_ARCH_x86   := i386
 UCLIBC_ARCH_arm	  := arm
 UCLIBC_ARCH_amd64 := x86_64
 UCLIBC_ARCH_ppc32 := powerpc
+UCLIBC_ARCH_sparc := sparc
 UCLIBC_ARCH       := $(UCLIBC_ARCH_$(ARCH))
 DIRS		:= libc/stdio libc/stdlib libc/stdlib/malloc-standard libc/string \
 		   libc/string/$(UCLIBC_ARCH) libc/string/generic \
@@ -195,6 +197,7 @@ REBUILD_LINKS_CONTRIB =                                                  \
            "$${path_file}" = "$(SYSDEPS)/arm/bits"  -o                   \
            "$${path_file}" = "$(SYSDEPS)/x86_64/bits" -o                 \
            "$${path_file}" = "$(SYSDEPS)/powerpc/bits" -o                \
+           "$${path_file}" = "$(SYSDEPS)/sparc/bits" -o                  \
            "$${path_file}" = "$(SYSDEPS)/common/bits" ]; then            \
         if [ \( ! -e ARCH-$${arch}/include/bits/`basename $${dest}` \)   \
                   -a \( -e $(CONTRIB_DIR)/$${file} \) ]; then            \
@@ -206,6 +209,7 @@ REBUILD_LINKS_CONTRIB =                                                  \
              "$${path_file}" = "$(SYSDEPS)/arm/sys"  -o                  \
              "$${path_file}" = "$(SYSDEPS)/x86_64/sys"  -o               \
              "$${path_file}" = "$(SYSDEPS)/powerpc/sys"  -o              \
+             "$${path_file}" = "$(SYSDEPS)/sparc/sys" -o                 \
              "$${path_file}" = "$(SYSDEPS)/common/sys" ]; then           \
         if [ \( ! -e ARCH-$${arch}/include/sys/`basename $${dest}` \)    \
                   -a \( -e $(CONTRIB_DIR)/$${file} \) ]; then            \
@@ -217,6 +221,7 @@ REBUILD_LINKS_CONTRIB =                                                  \
                 "$${path_file}" = "$(SYSDEPS)/arm"  -o                   \
                 "$${path_file}" = "$(SYSDEPS)/x86_64"  -o                \
                 "$${path_file}" = "$(SYSDEPS)/powerpc"  -o               \
+                "$${path_file}" = "$(SYSDEPS)/sparc"  -o                 \
                 "$${path_file}" = "$(SYSDEPS)/common" \)                 \
 	     -a $${file%.h} != $${file} ]; then                          \
         if [ \( ! -e ARCH-$${arch}/include/`basename $${dest}` \)        \

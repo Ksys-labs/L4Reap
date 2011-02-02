@@ -14,7 +14,7 @@ class Jdb_sender_list : public Jdb_module, public Jdb_kobject_handler
 public:
   Jdb_sender_list() FIASCO_INIT;
 
-  virtual bool show_kobject(Kobject *, int) { return true; }
+  virtual bool show_kobject(Kobject_common *, int) { return true; }
 private:
   static Kobject *thread;
 };
@@ -82,7 +82,7 @@ Jdb_sender_list::action(int cmd, void *&, char const *&, int &)
 
 PUBLIC
 bool
-Jdb_sender_list::handle_key(Kobject *o, int keycode)
+Jdb_sender_list::handle_key(Kobject_common *o, int keycode)
 {
   if (keycode != 'S')
     return false;
@@ -105,7 +105,7 @@ Jdb_module::Cmd const * Jdb_sender_list::cmds() const
 {
   static Cmd cs[] =
     {
-	{ 0, "S", "senderlist", "%q",
+	{ 0, "ls", "senderlist", "%q",
           "senderlist\tshow sender-list of thread", &thread }
     };
 

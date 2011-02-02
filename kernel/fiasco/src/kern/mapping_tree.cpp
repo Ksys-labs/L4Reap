@@ -221,52 +221,49 @@ enum Mapping_tree_size
   Size_id_max = 9		// can be up to 15 (4 bits)
 };
 
-class mapping_tree_allocators
+template<int SIZE_ID>
+struct Mapping_tree_allocator
 {
-  auto_ptr<Kmem_slab> _allocator[Size_id_max + 1];
+  Kmem_slab a;
+  enum
+  {
+    Elem_size = (Size_factor << SIZE_ID) * sizeof (Mapping)
+                + sizeof(Mapping_tree)
+  };
 
-  friend class foo;		// Avoid warning about not being constructible
+  Mapping_tree_allocator(Kmem_slab **array)
+  : a(Elem_size, Mapping::Alignment, "Mapping_tree")
+  { array[SIZE_ID] = &a; }
 };
 
-mapping_tree_allocators::mapping_tree_allocators()
+template<int SIZE_ID_MAX>
+struct Mapping_tree_allocators;
+
+template<>
+struct Mapping_tree_allocators<0>
 {
-  // create a slab for each mapping tree size
-  for (int slab_number = 0;
-       slab_number <= Size_id_max;
-       slab_number++ )
-    {
-      unsigned elem_size = (Size_factor << slab_number) * sizeof(Mapping)
-                           + sizeof(Mapping_tree);
+  Mapping_tree_allocator<0> a;
+  Mapping_tree_allocators(Kmem_slab **array) : a(array) {}
+};
 
-      auto_ptr<Kmem_slab> alloc(new Kmem_slab(elem_size, Mapping::Alignment,
-                                "Mapping_tree"));
-      _allocator[slab_number] = alloc;
-    }
-}
-
-PUBLIC inline
-Kmem_slab *
-mapping_tree_allocators::allocator_for_treesize(int size)
+template<int SIZE_ID_MAX>
+struct Mapping_tree_allocators
 {
-  return _allocator[size].get();
-}
 
-/** Singleton instance of mapping_tree_allocators. */
-PUBLIC static
-mapping_tree_allocators&
-mapping_tree_allocators::instance()
-{
-  static mapping_tree_allocators tree_allocators;
+  Mapping_tree_allocator<SIZE_ID_MAX> a;
+  Mapping_tree_allocators<SIZE_ID_MAX - 1> n;
 
-  return tree_allocators;
-}
+  Mapping_tree_allocators(Kmem_slab **array) : a(array), n(array) {}
+};
 
-static inline NEEDS[mapping_tree_allocators::instance,
-                    mapping_tree_allocators::allocator_for_treesize]
+static Kmem_slab *_allocators[Size_id_max + 1];
+static Mapping_tree_allocators<Size_id_max> _mapping_tree_allocators(_allocators);
+
+static
 Kmem_slab *
 allocator_for_treesize(int size)
 {
-  return mapping_tree_allocators::instance().allocator_for_treesize(size);
+  return _allocators[size];
 }
 
 //
@@ -279,12 +276,6 @@ Ram_quota *
 Mapping_tree::quota(Space *space)
 {
   return space->ram_quota();
-}
-
-PUBLIC static
-void Mapping_tree::global_init()
-{
-  mapping_tree_allocators::instance();
 }
 
 PUBLIC

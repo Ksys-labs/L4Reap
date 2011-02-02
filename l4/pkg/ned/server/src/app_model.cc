@@ -12,7 +12,6 @@
 
 #include <l4/re/error_helper>
 #include <l4/re/util/env_ns>
-#include <l4/util/bitops.h>
 
 using L4Re::chksys;
 using L4Re::chkcap;
@@ -103,7 +102,7 @@ App_model::App_model()
 {
   // set default values for utcb area, values may be changed by loader
   _info.utcbs_start     = Utcb_area_start;
-  _info.utcbs_log2size  = l4util_log2(Default_max_threads * L4_UTCB_OFFSET);
+  _info.utcbs_log2size  = L4_PAGESHIFT;
 
   // set default values for the application stack
   _info.kip = Kip_address;

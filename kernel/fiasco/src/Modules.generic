@@ -2,7 +2,7 @@ INTERFACES_KERNEL	:= cpu_mask rcupdate pages kobject_mapdb             \
 			   mem_region per_cpu_data startup boot_info cmdline \
 			   queue queue_item l4_buf_iter irq_pin bitmap       \
 			   mapping spin_lock mapping_tree mappable           \
-			   dbg_page_info mapdb region pic kobject_dbg        \
+			   dbg_page_info mapdb pic kobject_dbg               \
 			   kobject_iface kobject ready_queue_wfq             \
 			   ready_queue_fp obj_space ptab_base ram_quota      \
 			   ref_ptr ref_obj mem_space mem_space_sigma0 space  \
@@ -24,4 +24,3 @@ INTERFACES_KERNEL	:= cpu_mask rcupdate pages kobject_mapdb             \
 			   clock vm_factory sys_call_page
 
 syscalls_IMPL		:= syscalls syscalls-log
-

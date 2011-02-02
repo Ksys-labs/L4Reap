@@ -125,13 +125,6 @@ Irq_pin_msi::do_set_mode(unsigned)
 
 PUBLIC
 void
-Irq_pin_msi::hit()
-{
-  Irq::self(this)->Irq::hit();
-}
-
-PUBLIC
-void
 Irq_pin_msi::ack()
 {
   Apic::irq_ack();

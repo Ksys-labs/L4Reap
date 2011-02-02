@@ -10,7 +10,7 @@ INTERFACE:
 
 class Ram_quota;
 
-class Vm : public Kobject_iface, public Kobject, public Ref_cnt_obj
+class Vm : public Kobject, public Ref_cnt_obj
 {
   FIASCO_DECLARE_KOBJ();
 
@@ -295,15 +295,12 @@ Vm::operator delete (void *_l)
   allocator()->free(l);
 }
 
-PRIVATE static inline NOEXPORT NEEDS["kmem_slab.h"]
+static Kmem_slab_t<Vm> _vm_allocator("Vm");
+
+PRIVATE static
 Vm::Allocator *
 Vm::allocator()
-{
-  static Allocator* slabs = 
-    new Kmem_slab_simple (sizeof (Vm), sizeof (Mword), "Vm");
-
-  return slabs;
-}
+{ return &_vm_allocator; }
 
 PUBLIC inline
 bool
@@ -362,8 +359,8 @@ Vm::dump_machine_state()
   printf("fiq: sp %08lx lr %08lx psr %08lx\n",
       jdb_get(&s->sp_fiq), jdb_get(&s->lr_fiq), jdb_get(&s->spsr_fiq));
   printf("r8: %08lx %08lx %08lx %08lx %08lx\n",
-      jdb_get(&s->r_fiq[8]), jdb_get(&s->r_fiq[9]), jdb_get(&s->r_fiq[10]),
-      jdb_get(&s->r_fiq[11]), jdb_get(&s->r_fiq[12]));
+      jdb_get(&s->r_fiq[0]), jdb_get(&s->r_fiq[1]), jdb_get(&s->r_fiq[2]),
+      jdb_get(&s->r_fiq[3]), jdb_get(&s->r_fiq[4]));
 
   printf("abt: sp %08lx lr %08lx psr %08lx\n",
       jdb_get(&s->sp_abt), jdb_get(&s->lr_abt), jdb_get(&s->spsr_abt));

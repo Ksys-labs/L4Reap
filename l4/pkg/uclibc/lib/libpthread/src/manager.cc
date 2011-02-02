@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/mman.h>
 #include <sys/time.h>
 #include <locale.h>		/* for __uselocale */
 
@@ -198,11 +199,6 @@ __pthread_manager(void *arg)
           restart(request.req_thread);
 	  do_reply = 1;
 	  break;
-        case REQ_L4_RESERVE_CONSECUTIVE_UTCBS:
-          *request.req_args.l4_reserve_consecutive_utcbs.retutcbp
-             = pthread_mgr_l4_reserve_consecutive_utcbs(request.req_args.l4_reserve_consecutive_utcbs.num);
-	  do_reply = 1;
-          break;
 	}
       tag = l4_msgtag(0, 0, 0, L4_MSGTAG_SCHEDULE);
     }
@@ -389,9 +385,10 @@ static int pthread_allocate_stack(const pthread_attr_t *attr,
       else
 	{
 	  guardsize = granularity;
-	  stacksize = __pthread_default_stacksize - guardsize;
+	  stacksize = __pthread_max_stacksize - guardsize;
 	}
 
+#if 1
       map_addr = 0;
       L4Re::Env const *e = L4Re::Env::env();
       long err;
@@ -425,6 +422,21 @@ static int pthread_allocate_stack(const pthread_attr_t *attr,
 	  e->rm()->free_area(l4_addr_t(map_addr));
 	  return -1;
 	}
+#else
+
+      map_addr = mmap(NULL, stacksize + guardsize,
+                      PROT_READ | PROT_WRITE | PROT_EXEC,
+                      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+      if (map_addr == MAP_FAILED)
+        /* No more memory available.  */
+        return -1;
+
+      guardaddr = (char *)map_addr;
+      if (guardsize > 0)
+        mprotect (guardaddr, guardsize, PROT_NONE);
+
+      new_thread_bottom = (char *) map_addr + guardsize;
+#endif
 
 #ifdef USE_TLS
       new_thread = ((pthread_descr) (new_thread_bottom + stacksize));
@@ -496,6 +508,29 @@ int __pthread_mgr_create_thread(pthread_descr thread, char **tos,
   th_sem.release();
   return 0;
 }
+
+static int l4pthr_get_more_utcb()
+{
+  using namespace L4Re;
+
+  l4_addr_t kumem = 0;
+  Env const *e = Env::env();
+
+  if (e->rm()->reserve_area(&kumem, L4_PAGESIZE,
+                            Rm::Reserved | Rm::Search_addr))
+    return 1;
+
+  if (l4_error(e->task()->add_ku_mem(l4_fpage(kumem, L4_PAGESHIFT,
+                                              L4_FPAGE_RW))))
+    {
+      e->rm()->free_area(kumem);
+      return 1;
+    }
+
+  __l4_add_utcbs(kumem, kumem + L4_PAGESIZE);
+  return 0;
+}
+
 
 static inline l4_utcb_t *mgr_alloc_utcb()
 {
@@ -578,7 +613,9 @@ static int pthread_handle_create(pthread_t *thread, const pthread_attr_t *attr,
 # endif
 	  _dl_deallocate_tls (new_thread, true);
 #endif
-      return EAGAIN;
+
+      if (l4pthr_get_more_utcb())
+        return EAGAIN;
     }
 
   l4_utcb_t *new_utcb = mgr_alloc_utcb();

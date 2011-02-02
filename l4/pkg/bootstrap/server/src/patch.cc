@@ -39,6 +39,10 @@
 #include "ARCH-ppc32/macros.h"
 #endif
 
+#ifdef ARCH_sparc
+#include "ARCH-sparc/macros.h"
+#endif
+
 #include "types.h"
 #include "patch.h"
 #include "startup.h"

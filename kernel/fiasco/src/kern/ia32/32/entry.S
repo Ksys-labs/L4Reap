@@ -655,6 +655,7 @@ leave_by_vcpu_upcall:
 	call	thread_restore_exc_state
 
 	ESP_TO_TCB_AT %ecx
+	mov OFS__THREAD__USER_VCPU(%ecx), %eax /* vcpu state poiner from TCB */
 	mov OFS__THREAD__VCPU_STATE(%ecx), %ecx /* vcpu state poiner from TCB */
 	addl $(VAL__SIZEOF_TRAP_STATE - 20), %ecx /* skip return frame */
 	mov SCRATCH_REGISTER_SIZE(%esp),  %edx
@@ -696,10 +697,10 @@ leave_by_vcpu_upcall:
 	pushl	%es		/* RESET_{KERNEL,USER}_SEGMENTS           */
 
 	mov %edx, %esp
-	mov -VAL__SIZEOF_TRAP_STATE + 20 + OFS__VCPU_STATE__ENTRY_SP(%ecx), %eax
-	mov %eax, 12(%esp)
-	mov -VAL__SIZEOF_TRAP_STATE + 20 + OFS__VCPU_STATE__ENTRY_IP(%ecx), %eax
-	mov %eax, 0(%esp)
+	mov -VAL__SIZEOF_TRAP_STATE + 20 + OFS__VCPU_STATE__ENTRY_SP(%ecx), %edx
+	mov %edx, 12(%esp)
+	mov -VAL__SIZEOF_TRAP_STATE + 20 + OFS__VCPU_STATE__ENTRY_IP(%ecx), %edx
+	mov %edx, 0(%esp)
 	iret
 	
 	.p2align

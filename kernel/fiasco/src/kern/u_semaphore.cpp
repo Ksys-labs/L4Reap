@@ -10,7 +10,7 @@ INTERFACE:
 
 class Ram_quota;
 
-class U_semaphore : public Kobject_iface, public Kobject
+class U_semaphore : public Kobject
 {
   friend class Jdb_semaphore;
 
@@ -263,15 +263,13 @@ U_semaphore::operator delete (void *_l)
   allocator()->free(l);
 }
 
-PRIVATE static inline NOEXPORT NEEDS["kmem_slab.h"]
+
+static Kmem_slab_t<U_semaphore> _usem_allocator("U_semaphore");
+
+PRIVATE static
 U_semaphore::Allocator *
 U_semaphore::allocator()
-{
-  static Allocator* slabs = 
-    new Kmem_slab_simple (sizeof (U_semaphore), sizeof (Mword), "U_semaphore");
-
-  return slabs;
-}
+{ return &_usem_allocator; }
 
 
 PUBLIC

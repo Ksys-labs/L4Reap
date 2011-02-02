@@ -9,10 +9,10 @@ SRC_CC		= main.cc session.cc device.cc
 SRC_C  = linux_glue.c
 
 # switch network cards on/off here
-NE2K    = y
+NE2K    = n
 LOOP    = y
 RTL8139 = n
-RTL8169 = n
+RTL8169 = y
 PCNET   = n
 E100    = n
 E1000   = n

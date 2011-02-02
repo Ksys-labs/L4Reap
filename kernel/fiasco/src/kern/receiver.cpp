@@ -67,8 +67,8 @@ IMPLEMENTATION:
     @param space_context the space context 
  */
 PROTECTED inline
-Receiver::Receiver(Thread_lock *thread_lock)
-: Context(thread_lock), _caller(0)
+Receiver::Receiver()
+: Context(), _caller(0)
 {}
 
 PUBLIC inline
@@ -262,17 +262,6 @@ Receiver::set_partner(Sender* partner)
   _partner = partner;
 }
 
-/** Unlock a receiver locked with ipc_try_lock(). */
-PUBLIC inline NEEDS ["thread_lock.h", "globals.h"]
-void
-Receiver::ipc_unlock()
-{
-  //assert (thread_lock()->lock_owner() == current());
-
-  thread_lock()->clear();
-}
-
-
 
 /** Return whether the receiver is ready to accept a message from the
     given sender.
@@ -294,7 +283,7 @@ Receiver::sender_ok(const Sender *sender) const
 
   // Check open wait; test if this sender is really the first in queue
   if (EXPECT_TRUE(!partner()
-                  && (!_sender_list.head() 
+                  && (!_sender_list.head()
 		    || sender->is_head_of(&_sender_list))))
     return Rs_ipc_receive;
 
@@ -312,7 +301,10 @@ PRIVATE inline
 Receiver::Rcv_state
 Receiver::vcpu_async_ipc(Sender const *sender) const
 {
-  Vcpu_state *vcpu = access_vcpu();
+  if (EXPECT_FALSE(state() & Thread_ipc_sending_mask))
+    return Rs_not_receiving;
+
+  Vcpu_state *vcpu = vcpu_state().access();
 
   if (EXPECT_FALSE(!vcpu_irqs_enabled(vcpu)))
     return Rs_not_receiving;
@@ -350,5 +342,43 @@ Receiver::vcpu_update_state()
     return;
 
   if (!sender_list()->head())
-    access_vcpu()->sticky_flags &= ~Vcpu_state::Sf_irq_pending;
+    vcpu_state().access()->sticky_flags &= ~Vcpu_state::Sf_irq_pending;
 }
+
+
+// --------------------------------------------------------------------------
+
+struct Ipc_remote_dequeue_request
+{
+  Receiver *partner;
+  Sender *sender;
+  bool was_queued;
+};
+
+PRIVATE static
+unsigned
+Receiver::handle_remote_abort_send(Drq *, Context *, void *_rq)
+{
+  Ipc_remote_dequeue_request *rq = (Ipc_remote_dequeue_request*)_rq;
+  if (rq->sender->in_sender_list())
+    {
+      // really cancled IPC
+      rq->was_queued = true;
+      rq->sender->sender_dequeue(rq->partner->sender_list());
+      rq->partner->vcpu_update_state();
+    }
+  return 0;
+}
+
+PUBLIC
+bool
+Receiver::abort_send(Sender *sender)
+{
+  Ipc_remote_dequeue_request rq;
+  rq.partner = this;
+  rq.sender = sender;
+  rq.was_queued = false;
+  current()->drq(handle_remote_abort_send, &rq);
+  return !rq.was_queued;
+}
+

@@ -27,11 +27,9 @@ public:
   Jdb_attach_irq() FIASCO_INIT;
 private:
   static char     subcmd;
-  static unsigned irq;
 };
 
 char     Jdb_attach_irq::subcmd;
-unsigned Jdb_attach_irq::irq;
 static Jdb_attach_irq jdb_attach_irq INIT_PRIORITY(JDB_MODULE_INIT_PRIO);
 
 IMPLEMENT
@@ -41,7 +39,7 @@ Jdb_attach_irq::Jdb_attach_irq()
 
 PUBLIC
 Jdb_module::Action_code
-Jdb_attach_irq::action( int cmd, void *&args, char const *&fmt, int & )
+Jdb_attach_irq::action( int cmd, void *&args, char const *&, int & )
 {
   if (cmd!=0)
     return NOTHING;
@@ -50,11 +48,6 @@ Jdb_attach_irq::action( int cmd, void *&args, char const *&fmt, int & )
     {
       switch(subcmd) 
 	{
-	case 'a': // attach
-	  args = &irq;
-	  fmt = " irq: %i\n";
-	  return EXTRA_INPUT;
-	  
 	case 'l': // list
   	    {
   	      Irq *r;
@@ -69,12 +62,6 @@ Jdb_attach_irq::action( int cmd, void *&args, char const *&fmt, int & )
 	    }
 	  return NOTHING;
 	}
-    }
-  else if (args == (void*)&irq)
-    {
-      Irq *i = static_cast<Irq*>(Irq_chip::hw_chip->irq(irq));
-      if (i)
-	i->alloc((Receiver*)-1);
     }
   return NOTHING;
 }
@@ -92,7 +79,7 @@ Jdb_attach_irq::cmds() const
 {
   static Cmd cs[] =
     {   { 0, "R", "irq", " [l]ist/[a]ttach: %c",
-	   "R{l|a<num>}\tlist IRQ threads, attach Jdb to IRQ", &subcmd }
+	   "R{l}\tlist IRQ threads", &subcmd }
     };
 
   return cs;
@@ -108,6 +95,38 @@ class Jdb_kobject_irq : public Jdb_kobject_handler
 {
 };
 
+#define FIASCO_JDB_CMP_VTABLE(n, o) \
+  extern char n[]; \
+  char const *const *z = reinterpret_cast<char const* const*>(o); \
+  return *z == n + 12 ? (o) : 0
+
+
+PUBLIC static
+Irq_sender *
+Jdb_kobject_irq::dcast_h(Irq_sender *i)
+{
+  FIASCO_JDB_CMP_VTABLE(_ZTV10Irq_sender, i);
+}
+
+PUBLIC static
+Irq_muxer *
+Jdb_kobject_irq::dcast_h(Irq_muxer *i)
+{
+  FIASCO_JDB_CMP_VTABLE(_ZTV9Irq_muxer, i);
+}
+
+PUBLIC template<typename T>
+static
+T
+Jdb_kobject_irq::dcast(Kobject *o)
+{
+  Irq *i = Kobject::dcast<Irq*>(o);
+  if (!i)
+    return 0;
+
+  return dcast_h(static_cast<T>(i));
+}
+
 PUBLIC inline
 Jdb_kobject_irq::Jdb_kobject_irq()
   : Jdb_kobject_handler(Irq::static_kobj_type)
@@ -122,20 +141,43 @@ Jdb_kobject_irq::kobject_type() const
   return JDB_ANSI_COLOR(white) "IRQ" JDB_ANSI_COLOR(default);
 }
 
+
 PUBLIC
-Kobject *
-Jdb_kobject_irq::follow_link(Kobject *o)
+bool
+Jdb_kobject_irq::handle_key(Kobject_common *o, int key)
 {
+  if (key != 'x')
+    return false;
+
   Irq *t = Kobject::dcast<Irq*>(o);
-  if (!t->owner() || (Smword)t->owner() == -1)
+
+  if (!t)
+    return true;
+
+  Irq_sender *i = static_cast<Irq_sender*>(t);
+
+  printf("IRQ: owner = %p\n     cnt = %d\n", i->owner(), i->queued());
+
+  Jdb::getchar();
+
+  return true;
+}
+
+
+PUBLIC
+Kobject_common *
+Jdb_kobject_irq::follow_link(Kobject_common *o)
+{
+  Irq_sender *t = dcast<Irq_sender*>(Kobject::from_dbg(o->dbg_info()));
+  if (!t || !t->owner() || (Smword)t->owner() == -1)
     return o;
 
-  return static_cast<Thread*>(t->owner())->kobject();
+  return Kobject::from_dbg(static_cast<Thread*>(t->owner())->dbg_info());
 }
 
 PUBLIC
 bool
-Jdb_kobject_irq::show_kobject(Kobject *, int)
+Jdb_kobject_irq::show_kobject(Kobject_common *, int)
 { return true; }
 #if 0
   Thread *t = Kobject::dcast<Thread*>(o);
@@ -144,19 +186,19 @@ Jdb_kobject_irq::show_kobject(Kobject *, int)
 
 PUBLIC
 int
-Jdb_kobject_irq::show_kobject_short(char *buf, int max, Kobject *o)
+Jdb_kobject_irq::show_kobject_short(char *buf, int max, Kobject_common *o)
 {
   Irq *t = Kobject::dcast<Irq*>(o);
-  Kobject *d = follow_link(o);
+  Kobject_common *d = follow_link(o);
   int cnt = 0;
   return cnt + snprintf(buf, max, " I=%3lx %s L=%lx T=%lx F=%x",
                         t->irq(), t->pin()->pin_type(), t->obj_id(),
-                        d ? d->dbg_id() : 0, (unsigned)t->pin()->flags());
+                        d ? d->dbg_info()->dbg_id() : 0, (unsigned)t->pin()->flags());
 }
 
 static
 bool
-filter_irqs(Kobject const *o)
+filter_irqs(Kobject_common const *o)
 { return Kobject::dcast<Irq const *>(o); }
 
 static Jdb_kobject_list::Mode INIT_PRIORITY(JDB_MODULE_INIT_PRIO) tnt("[IRQs]", filter_irqs);

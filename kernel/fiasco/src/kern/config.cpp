@@ -34,6 +34,12 @@ class Config
 public:
 
   static const char *const kernel_warn_config_string;
+  enum User_memory_access_type
+  {
+    No_access_user_mem = 0,
+    Access_user_mem_direct,
+    Must_access_user_mem_direct
+  };
 
   enum {
     SERIAL_ESC_IRQ	= 2,
@@ -151,7 +157,7 @@ INTERFACE:
 #define CONFIG_KERNEL_VERSION_STRING \
   GREETING_COLOR_ANSI_TITLE "Welcome to Fiasco.OC ("CONFIG_XARCH")!\\n"            \
   GREETING_COLOR_ANSI_INFO "L4/Fiasco.OC " ARCH_NAME " "                \
-                           "microkernel (C) 1998-2010 TU Dresden\\n"           \
+                           "microkernel (C) 1998-2011 TU Dresden\\n"           \
                            "Rev: " CODE_VERSION " compiled with gcc " COMPILER \
                             " for " TARGET_NAME "    [" CONFIG_LABEL "]\\n"    \
                            "Build: #" BUILD_NR " " BUILD_DATE "\\n"            \

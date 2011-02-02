@@ -22,9 +22,9 @@ extern "C" void sys_ipc_log_wrapper(void)
   Unsigned8 have_snd       = (ipc_regs->ref().flags() & L4_obj_ref::Ipc_send)
                              || (ipc_regs->ref().flags() == L4_obj_ref::Ipc_call);
   Unsigned8 is_next_period = ipc_regs->next_period();
-  Utcb *utcb = curr->access_utcb();
+  Utcb *utcb = curr->utcb().access(true);
   int do_log               = Jdb_ipc_trace::log() &&
-				Jdb_ipc_trace::check_restriction (curr->kobject()->dbg_id(),
+				Jdb_ipc_trace::check_restriction (curr->dbg_id(),
 					 static_cast<Task*>(curr->space())->dbg_id(),
 					 ipc_regs, 0);
 

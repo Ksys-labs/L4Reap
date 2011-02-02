@@ -68,13 +68,12 @@ Dbg_page_info::table()
   return _t;
 }
 
+static Kmem_slab_t<Dbg_page_info> _dbg_page_info_allocator("Dbg_page_info");
+
 PRIVATE static
 Dbg_page_info::Allocator *
 Dbg_page_info::alloc()
-{
-  static Kmem_slab_simple _a(sizeof(Dbg_page_info), __alignof__(Dbg_page_info), "Dbg_page_info");
-  return &_a;
-}
+{ return &_dbg_page_info_allocator; }
 
 
 PUBLIC static

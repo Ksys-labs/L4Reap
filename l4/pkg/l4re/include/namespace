@@ -118,7 +118,7 @@ public:
    *         see \ref l4_error_code_t.
    *         - -#L4_ENOENT
    *         - IPC errors
-   *         == if name could be fully resolved
+   *         == 0 if name could be fully resolved
    *          > 0 if name could not be fully resolved
    */
   long query(char const *name, unsigned len, L4::Cap<void> const &cap,

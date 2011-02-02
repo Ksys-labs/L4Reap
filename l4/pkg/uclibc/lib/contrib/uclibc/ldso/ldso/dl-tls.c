@@ -176,7 +176,7 @@ fail:
    libpthread implementations should provide their own hook
    to handle all threads.  */
 void
-internal_function __attribute_noinline__
+attribute_hidden __attribute_noinline__
 _dl_nothread_init_static_tls (struct link_map *map)
 {
 # ifdef TLS_TCB_AT_TP
@@ -317,9 +317,9 @@ _dl_determine_tlsoffset (void)
 
 # ifdef TLS_TCB_AT_TP
   /* We simply start with zero.  */
-  size_t offset = 0;
+  size_t cnt, offset = 0;
 
-  for (size_t cnt = 1; slotinfo[cnt].map != NULL; ++cnt)
+  for (cnt = 1; slotinfo[cnt].map != NULL; ++cnt)
     {
       _dl_assert (cnt < _dl_tls_dtv_slotinfo_list->len);
 
@@ -842,7 +842,10 @@ __tls_get_addr (GET_ADDR_ARGS)
   void *p;
 
   if (__builtin_expect (dtv[0].counter != _dl_tls_generation, 0))
-    the_map = _dl_update_slotinfo (GET_ADDR_MODULE);
+    {
+      the_map = _dl_update_slotinfo (GET_ADDR_MODULE);
+      dtv = THREAD_DTV ();
+    }
 
   p = dtv[GET_ADDR_MODULE].pointer.val;
 

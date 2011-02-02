@@ -112,19 +112,34 @@ Mem_space::xlate_flush_result(Mword attribs)
 
 // Mapping utilities
 
-
 PUBLIC inline NEEDS["mem_unit.h"]
 void
 Mem_space::tlb_flush(bool force = false)
 {
   if (!Have_asids)
     Mem_unit::tlb_flush();
-  else if (force && c_asid())
+  else if (force && c_asid() != ~0UL)
     Mem_unit::tlb_flush(c_asid());
 
   // else do nothing, we manage ASID local flushes in v_* already
   // Mem_unit::tlb_flush();
 }
+
+PUBLIC static inline NEEDS["mem_unit.h"]
+void
+Mem_space::tlb_flush_spaces(bool all, Mem_space *s1, Mem_space *s2)
+{
+  if (all || !Have_asids)
+    Mem_unit::tlb_flush();
+  else
+    {
+      if (s1)
+	s1->tlb_flush(true);
+      if (s2)
+	s2->tlb_flush(true);
+    }
+}
+
 
 PUBLIC inline
 void
@@ -153,7 +168,7 @@ Page_table *Mem_space::current_pdir()
   return Page_table::current();
 }
 
-IMPLEMENT inline NEEDS ["kmem.h", Mem_space::c_asid, Mem_space::need_tlb_flush]
+IMPLEMENT inline NEEDS ["kmem.h", Mem_space::c_asid]
 void Mem_space::switchin_context(Mem_space *from)
 {
 #if 0
@@ -164,7 +179,7 @@ void Mem_space::switchin_context(Mem_space *from)
 
   if (from != this)
     make_current();
-  else if (need_tlb_flush())
+  else
     tlb_flush(true);
 #if 0
   _dir->invalidate((void*)Kmem::ipc_window(0), Config::SUPERPAGE_SIZE * 4,

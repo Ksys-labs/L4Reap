@@ -21,13 +21,6 @@ INTERFACE[mp]:
 EXTENSION class Ipi
 {
 private:
-
-  // remote call
-  static Spin_lock _remote_call_lock;
-  static void (*_remote_call_func)(void *);
-  static void *_remote_call_func_data;
-  static unsigned long _remote_call_done;
-
   static Per_cpu<Ipi> _ipi;
 };
 

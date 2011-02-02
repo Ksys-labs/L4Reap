@@ -49,7 +49,7 @@ Jdb_bp::read_debug_register(int reg, Space *s)
   Mword val;
   if (!Usermode::read_debug_register(pid, reg, val))
     printf("[read debugreg #%d task %p/%lx failed]\n", reg, s,
-           static_cast<Task*>(s)->dbg_id());
+           static_cast<Task*>(s)->dbg_info()->dbg_id());
 
   return val;
 }
@@ -61,7 +61,7 @@ Jdb_bp::write_debug_register(int reg, Mword val, Space *s)
   pid_t pid = s ? s->pid() : Boot_info::pid();
   if (!Usermode::write_debug_register(pid, reg, val))
     printf("[write %08lx to debugreg #%d task %p/%lx failed]\n", val, reg, s,
-           static_cast<Task*>(s)->dbg_id());
+           static_cast<Task*>(s)->dbg_info()->dbg_id());
 }
 
 PUBLIC static inline
@@ -104,7 +104,7 @@ Jdb_bp::set_debug_address_register(int num, Mword addr, Mword len,
 	  clr_dr7(num, local_dr7);
 	  set_debug_control_register(local_dr7, old_task);
 	}
-      bps[num].restrict_task(0, task->dbg_id());
+      bps[num].restrict_task(0, task->dbg_info()->dbg_id());
       write_debug_register(num, addr, task);
       local_dr7 = get_debug_control_register(task);
       clr_dr7(num, local_dr7);

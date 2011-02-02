@@ -118,13 +118,6 @@ Mpc52xx_pin::do_unmask()
 
 PUBLIC
 void
-Mpc52xx_pin::hit()
-{
-  Irq::self(this)->Irq::hit();
-}
-
-PUBLIC
-void
 Mpc52xx_pin::set_cpu(unsigned)
 {}
 

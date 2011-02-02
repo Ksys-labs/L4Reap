@@ -102,10 +102,8 @@ libc/sysdeps/linux/powerpc/bits/uClibc_arch_features.h
 libc/sysdeps/linux/powerpc/bits/wordsize.h
 libc/sysdeps/linux/powerpc/sys/ucontext.h
 libc/sysdeps/linux/powerpc/__longjmp.S
-libc/sysdeps/linux/powerpc/brk.S
 libc/sysdeps/linux/powerpc/bsd-_setjmp.S
 libc/sysdeps/linux/powerpc/bsd-setjmp.S
-libc/sysdeps/linux/powerpc/clone.S
 libc/sysdeps/linux/powerpc/setjmp.S
 libc/sysdeps/linux/powerpc/fpu_control.h
 libc/sysdeps/linux/powerpc/ppc_asm.h

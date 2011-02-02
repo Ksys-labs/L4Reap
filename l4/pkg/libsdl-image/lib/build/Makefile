@@ -2,7 +2,7 @@ PKGDIR          ?= ../..
 L4DIR           ?= $(PKGDIR)/../..
 
 TARGET          = libsdl-image.a
-SYSTEMS         = x86 amd64 arm ppc32
+SYSTEMS         = $(SYSTEMS_PLAIN)
 REQUIRES_LIBS   = libsdl libpng libjpeg
 
 SRC_C           = IMG.c IMG_bmp.c IMG_gif.c IMG_jpg.c IMG_lbm.c \

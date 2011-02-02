@@ -37,7 +37,7 @@ Jdb_space::Jdb_space()
 
 PUBLIC
 bool
-Jdb_space::show_kobject(Kobject *o, int lvl)
+Jdb_space::show_kobject(Kobject_common *o, int lvl)
 {
   Task *t = Kobject::dcast<Task*>(o);
   show(t);
@@ -59,7 +59,7 @@ Jdb_space::kobject_type() const
 
 PUBLIC
 int
-Jdb_space::show_kobject_short(char *buf, int max, Kobject *o)
+Jdb_space::show_kobject_short(char *buf, int max, Kobject_common *o)
 {
   Task *t = Kobject::dcast<Task*>(o);
   int cnt = 0;
@@ -88,9 +88,9 @@ Jdb_space::show(Task *t)
   obj_space_info(t);
   io_space_info(t);
 
-  printf("  utcb area: user_va=%lx kernel_va=%lx size=%lx\n",
-         t->user_utcb_area(), t->_utcb_kernel_area_start,
-         t->utcb_area_size());
+  for (Space::Ku_mem const *m = t->_ku_mem; m; m = m->next)
+    printf("  utcb area: user_va=%p kernel_va=%p size=%x\n",
+           m->u_addr.get(), m->k_addr, m->size);
 
   unsigned long m = t->ram_quota()->current();
   unsigned long l = t->ram_quota()->limit();
@@ -98,7 +98,7 @@ Jdb_space::show(Task *t)
          m, m/1024, l, l/1024, t->ram_quota());
 }
 
-static bool space_filter(Kobject const *o)
+static bool space_filter(Kobject_common const *o)
 { return Kobject::dcast<Task const *>(o); }
 
 PUBLIC
@@ -138,7 +138,7 @@ Jdb_space::obj_space_info(Space *s)
 
 static
 bool
-filter_task_thread(Kobject const *o)
+filter_task_thread(Kobject_common const *o)
 {
   return Kobject::dcast<Task const *>(o) || Kobject::dcast<Thread_object const *>(o);
 }

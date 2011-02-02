@@ -48,11 +48,7 @@ enum
  */
 L4_INLINE
 unsigned
-l4_vm_vmx_field_len(unsigned field)
-{
-  static const char widths[4] = { 2, 8, 4, sizeof(l4_umword_t) };
-  return widths[field >> 13];
-}
+l4_vm_vmx_field_len(unsigned field);
 
 /**
  * \brief Get pointer into VMCS.
@@ -63,6 +59,21 @@ l4_vm_vmx_field_len(unsigned field)
  *
  * \param Pointer to field in the VMCS.
  */
+L4_INLINE
+void *
+l4_vm_vmx_field_ptr(void *vmcs, unsigned field);
+
+
+/* Implementations */
+
+L4_INLINE
+unsigned
+l4_vm_vmx_field_len(unsigned field)
+{
+  static const char widths[4] = { 2, 8, 4, sizeof(l4_umword_t) };
+  return widths[field >> 13];
+}
+
 L4_INLINE
 void *
 l4_vm_vmx_field_ptr(void *vmcs, unsigned field)

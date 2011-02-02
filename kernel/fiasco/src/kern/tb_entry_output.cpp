@@ -476,12 +476,12 @@ formatter_ctx_switch(Tb_entry *tb, const char *tidstr, unsigned tidlen,
       && Jdb_util::is_mapped(e->from_sched()->context()))
     {
       sctx = e->from_sched()->context();
-      sctxid = Thread::lookup(sctx)->dbg_info()->dbg_id();
+      sctxid = static_cast<Thread*>(sctx)->dbg_id();
     }
 
-  src = static_cast<Thread const *>(e->ctx())->dbg_info()->dbg_id();
-  dst = static_cast<Thread const *>(e->dst())->dbg_info()->dbg_id();
-  dst_orig = static_cast<Thread const *>(e->dst_orig())->dbg_info()->dbg_id();
+  src = static_cast<Thread const *>(e->ctx())->dbg_id();
+  dst = static_cast<Thread const *>(e->dst())->dbg_id();
+  dst_orig = static_cast<Thread const *>(e->dst_orig())->dbg_id();
 
   Address addr       = e->kernel_ip();
 
@@ -550,13 +550,13 @@ formatter_sched(Tb_entry *tb, const char *tidstr, unsigned tidlen,
 		char *buf, int maxlen)
 {
   Tb_entry_sched *e = static_cast<Tb_entry_sched*>(tb);
-  Thread const *_t = Thread::lookup (e->owner());
+  Thread const *_t = static_cast<Thread const *>(e->owner());
   Mword t = ~0UL;
   if (Jdb_util::is_mapped(_t))
-    t = _t->dbg_info()->dbg_id();
+    t = _t->dbg_id();
 
 
-  my_snprintf (buf, maxlen, 
+  my_snprintf(buf, maxlen, 
             "%-*s (ts %s) owner:%lx id:%2x, prio:%2x, left:%6ld/%-6lu",
                tidlen, tidstr,
                e->mode() == 0 ? "save" :

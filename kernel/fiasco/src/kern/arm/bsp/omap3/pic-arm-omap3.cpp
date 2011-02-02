@@ -90,12 +90,6 @@ Omap3_pin::ack()
   Io::write<Mword>(1, Pic::INTCPS_CONTROL);
 }
 
-PUBLIC
-void
-Omap3_pin::hit()
-{
-  Irq::self(this)->Irq::hit();
-}
 
 PUBLIC
 void

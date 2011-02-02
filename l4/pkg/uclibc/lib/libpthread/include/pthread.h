@@ -678,6 +678,7 @@ extern int pthread_atfork (void (*__prepare) (void),
 			   void (*__parent) (void),
 			   void (*__child) (void)) __THROW;
 #endif
+
 /* Terminate all threads in the program except the calling process.
    Should be called just before invoking one of the exec*() functions.  */
 

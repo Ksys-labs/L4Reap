@@ -12,6 +12,9 @@ EXTENSION class Config
 public:
   enum
   {
+    // cannot access user memory directly
+    Access_user_mem = No_access_user_mem,
+
     SCHED_PIT = 0,
   };
 

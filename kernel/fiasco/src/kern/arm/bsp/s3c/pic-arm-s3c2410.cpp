@@ -219,12 +219,6 @@ S3c_pin::ack()
 {
   ack_pin(irq());
 }
-PUBLIC
-void
-S3c_pin::hit()
-{
-  Irq::self(this)->Irq::hit();
-}
 
 PUBLIC
 void

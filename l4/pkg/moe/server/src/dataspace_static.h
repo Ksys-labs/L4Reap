@@ -11,7 +11,7 @@
 #include "dataspace_cont.h"
 
 namespace Moe {
-	
+
 class Dataspace_static : public Dataspace_cont
 {
 public:

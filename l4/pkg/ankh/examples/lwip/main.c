@@ -110,7 +110,8 @@ static void server(void)
 
 int main(int argc, char **argv)
 {
-	l4ankh_init();
+	if (l4ankh_init())
+	  return 1;
 
 	l4_cap_idx_t c = pthread_getl4cap(pthread_self());
 	cfg.send_thread = c;

@@ -13,5 +13,4 @@ SHARED_FLAGS			  += -msoft-float
 SHARED_FLAGS                      += $(call CHECKCC,-mno-thumb-interwork)
 SHARED_FLAGS                      += -mabi=apcs-gnu
 LDFLAGS                           += --no-warn-mismatch
-LD_EMULATION-SYSTEM-FreeBSD	  := armelf_fbsd
-LD_EMULATION-SYSTEM-default	  := armelf
+LD_EMULATION_CHOICE               := armelf armelf_linux_eabi armelf_fbsd

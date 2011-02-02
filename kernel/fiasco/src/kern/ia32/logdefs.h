@@ -169,27 +169,27 @@
   } while (0)
 
 
-#define LOG_TRACE(name, sc, ctx, fmt, code...) \
-  BEGIN_LOG_EVENT(name, sc, fmt) \
-    Tb_entry *tbe = Jdb_tbuf::new_entry(); \
-    tbe->set_global(__do_log__, ctx, Proc::program_counter()); \
-    code ; \
-    Jdb_tbuf::commit_entry(); \
-    END_LOG_EVENT
+#define LOG_TRACE(name, sc, ctx, fmt, code...)                          \
+  BEGIN_LOG_EVENT(name, sc, fmt)                                        \
+    Tb_entry *tbe = Jdb_tbuf::new_entry();                              \
+    tbe->set_global(__do_log__, ctx, Proc::program_counter());          \
+    code;                                                               \
+    Jdb_tbuf::commit_entry();                                           \
+  END_LOG_EVENT
 
 
 #else
 
 #define LOG_TRACE(name, sc, ctx, fmt, code...) do { } while (0)
-#define LOG_CONTEXT_SWITCH		do { } while (0)
-#define LOG_TRAP			do { } while (0)
-#define LOG_TRAP_N(n)			do { } while (0)
-#define LOG_PF_RES_USER			do { } while (0)
-#define LOG_SCHED			do { } while (0)
-#define LOG_SCHED_SAVE(n)		do { } while (0)
-#define LOG_SCHED_LOAD(n)		do { } while (0)
-#define LOG_SCHED_INVALIDATE		do { } while (0)
-#define LOG_SEND_PREEMPTION		do { } while (0)
+#define LOG_CONTEXT_SWITCH		       do { } while (0)
+#define LOG_TRAP			       do { } while (0)
+#define LOG_TRAP_N(n)			       do { } while (0)
+#define LOG_PF_RES_USER			       do { } while (0)
+#define LOG_SCHED			       do { } while (0)
+#define LOG_SCHED_SAVE(n)	               do { } while (0)
+#define LOG_SCHED_LOAD(n)	               do { } while (0)
+#define LOG_SCHED_INVALIDATE	               do { } while (0)
+#define LOG_SEND_PREEMPTION	               do { } while (0)
 
 #endif // CONFIG_JDB
 

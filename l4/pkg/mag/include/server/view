@@ -53,6 +53,7 @@ public:
     F_transparent = 1,
     F_need_frame  = 2,
     F_ignore = 4,
+    F_focused = 8,
   };
 
   void set_geometry(Rect const &p)
@@ -63,8 +64,17 @@ public:
   bool transparent() const { return _flags & F_transparent; }
   bool need_frame() const { return _flags & F_need_frame; }
   bool ignore() const { return _flags & F_ignore; }
+  bool focused() const { return _flags & F_focused; }
 
-  virtual void draw(Canvas *, View_stack const *, Mode, bool) const = 0;
+  void set_focus(bool on)
+  {
+    if (on)
+      _flags |= F_focused;
+    else
+      _flags &= ~F_focused;
+  }
+
+  virtual void draw(Canvas *, View_stack const *, Mode) const = 0;
   virtual void handle_event(L4Re::Event_buffer::Event const &, Point const &) {}
   virtual ~View() {}
 

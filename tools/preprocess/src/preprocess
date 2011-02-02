@@ -732,7 +732,6 @@ sub parse_file
 	      next NEXTLINE;
 	    }
   
-
 	  # Member function definition?
 	  if (/^([^\{\(]*?)             # pretext, maybe w template decl tag
 	       \b ($identifier (?: $s :: $s $identifier)*) # class name
@@ -741,7 +740,7 @@ sub parse_file
 	       ((?:$operator_name | (?: ~? $identifier )) # member name
 	        (?:$s $template_arg)?)  # optional member-template args
                $s ( \( (?: [^\)] | \([^\)]*\) )* \) [^:\{=]* ) # arg list
-               ((?:\{|:.*\{).*)$/sx)    # initializer ':' and body '{'
+               ((?:\{|:.*\{).* | (?:$s = $s 0 $s ;))$/sx)    # initializer ':' and body '{' or pure virtual
 	    {
 	      my ($pretext, $class, $templateargs, $name, $args, $posttext)
 	        = ($1, $2, (defined $3 ? $3 : ''), $4, $5, $6);
@@ -1025,6 +1024,8 @@ sub handle_function
 {
   my $func = $_[0];
 
+  $func->{purevirtual} = 0;
+
   if ($func->{class} ne '')
     {
       # Nested class hacks
@@ -1065,6 +1066,11 @@ sub handle_function
 	  $func->{visibility} = "implementation_only";
           $func->{pretext} =~ s|IMPLEMENT[ \t]*||s;
         }
+
+      if ($func->{posttext} =~ s/$s=${s}0$s;$s$//s)
+        {
+	  $func->{purevirtual} = 1;
+	}
 
       if ($func->{class} =~ /::/
 	  && $func->{visibility} ne "implementation_only")
@@ -1404,7 +1410,8 @@ sub func_prototype($)		# Return a function declaration from
 				       $func->{name} . $func->{args});
 
   # Insert ; at the correct place, that is, before any comments.
-  $func_header =~ s/($s)$/;$1/s;
+  my $e = $func->{purevirtual} ? ' = 0' : '';
+  $func_header =~ s/($s)$/$e;$1/s;
 
   return $func_header;
 }
@@ -1501,6 +1508,7 @@ my $parengroup;
 sub print_funcdef($)
 {
   my $function = $_[0];
+  return if $function->{purevirtual};
   return if check_if_printed ($function);
 
   my $pretext = $function->{pretext};

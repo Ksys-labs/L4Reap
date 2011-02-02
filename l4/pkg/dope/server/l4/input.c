@@ -45,7 +45,7 @@ static void convert_event(struct l4input *from, EVENT *to)
   to->type = from->type;
   to->code = from->code;
   to->value = from->value;
-  to->stream_id = 0;
+  to->stream_id = from->stream_id;
 }
 
 /*** GET NEXT EVENT OF EVENT QUEUE ***
@@ -56,6 +56,12 @@ static void convert_event(struct l4input *from, EVENT *to)
 #define MAX_INPUT_EVENTS 64
 static struct l4input ev[MAX_INPUT_EVENTS];
 static long num_ev, curr_ev;
+
+static int get_event_null(EVENT *e)
+{
+  (void)e;
+  return 0;
+}
 
 static int get_event_libinput(EVENT *e)
 {
@@ -103,6 +109,8 @@ int init_input(struct dope_services *d)
   extern void *fb_buf;
   int init_ret;
 
+  input.get_event = get_event_null;
+
   d->register_module("Input 1.0", &input);
 
   if (!goosfb_initialized
@@ -133,22 +141,41 @@ int init_input(struct dope_services *d)
       || l4re_event_get(l4re_util_video_goos_fb_goos(&goosfb), ev_ds)
       || l4re_event_buffer_attach(&ev_buf, ev_ds, l4re_env()->rm))
     {
-      // failed, try to start the hw driver
-      l4re_util_cap_free(ev_ds);
-      l4re_util_cap_free(ev_irq);
+      // failed, try to get 'ev'
+      l4_cap_idx_t evcap;
+      if (l4_is_invalid_cap(evcap = l4re_util_cap_alloc()))
+        Panic("Cap alloc failed");
 
-      printf("Using native hardware drivers\n");
+      evcap = l4re_get_env_cap("ev");
 
-      init_ret = l4input_init(254, NULL);
-      if (init_ret)
-        printf("Input(init): Error: l4input_init() returned %d\n", init_ret);
+      if (l4_is_invalid_cap(evcap)
+          || l4_error(l4_icu_bind(evcap, 0, ev_irq))
+          || l4re_event_get(evcap, ev_ds)
+          || l4re_event_buffer_attach(&ev_buf, ev_ds, l4re_env()->rm))
+        {
+          // failed, try to start the hw driver
+          l4re_util_cap_free(ev_ds);
+          l4re_util_cap_free(ev_irq);
 
-      input.get_event = get_event_libinput;
+          printf("Using native hardware drivers\n");
+
+          init_ret = l4input_init(254, NULL);
+          if (init_ret)
+            printf("Input(init): Error: l4input_init() returned %d\n", init_ret);
+          else
+            input.get_event = get_event_libinput;
+
+          return 1;
+        }
+
+      printf("Using L4Re::Event interface via 'ev'.\n");
+
+      input.get_event = get_event_l4re_event;
 
       return 1;
     }
 
-  printf("Using l4re event pass-through\n");
+  printf("Using L4Re::Event via Framebuffer\n");
 
   input.get_event = get_event_l4re_event;
 

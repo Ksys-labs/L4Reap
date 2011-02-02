@@ -42,7 +42,7 @@ public:
    * Return remaining time of timeout.
    */
   Signed64 get_timeout(Unsigned64 clock);
-  
+
   /**
    * Dequeue an expired timeout.
    * @return true if a reschedule is necessary, false otherwise.
@@ -247,7 +247,7 @@ Timeout::get_timeout(Unsigned64 clock)
 
 IMPLEMENT inline NEEDS [<cassert>, "cpu_lock.h", "lock_guard.h",
                         Timeout::is_set, Timeout_q::enqueue, Timeout::has_hit]
-void 
+void
 Timeout::set_again(unsigned cpu)
 {
   // XXX uses global kernel lock
@@ -262,7 +262,7 @@ Timeout::set_again(unsigned cpu)
 
 IMPLEMENT inline NEEDS ["cpu_lock.h", "lock_guard.h", "timer.h",
 			"kdb_ke.h", Timeout::is_set]
-void 
+void
 Timeout::reset()
 {
   assert_kdb (cpu_lock.test());
@@ -279,7 +279,7 @@ Timeout::reset()
 }
 
 IMPLEMENT inline
-bool 
+bool
 Timeout::dequeue(bool is_expired)
 {
   // XXX assume we run kernel-locked
@@ -315,10 +315,10 @@ Timeout_q::do_timeouts()
   // Calculate which timeout queues needs to be checked.
   int start = (_old_clock >> Wakeup_queue_distance);
   int diff  = (Kip::k()->clock >> Wakeup_queue_distance) - start;
-  int end   = (start + diff + 1) & (Wakeup_queue_count -1);
+  int end   = (start + diff + 1) & (Wakeup_queue_count - 1);
 
-  // wrap around 
-  start = start &  (Wakeup_queue_count -1);
+  // wrap around
+  start = start & (Wakeup_queue_count - 1);
 
   // test if an complete miss
   if (diff >= Wakeup_queue_count)
@@ -328,12 +328,10 @@ Timeout_q::do_timeouts()
   _old_clock = Kip::k()->clock;
 
   // ensure we always terminate
-  assert((end >=0) && (end < Wakeup_queue_count));
-
+  assert((end >= 0) && (end < Wakeup_queue_count));
 
   for (;;)
     {
-
       Timeout *timeout = first(start)->_next;
 
       // now scan this queue for timeouts below current clock
@@ -364,19 +362,19 @@ Timeout_q::do_timeouts()
       //_current = (Unsigned64) ULONG_LONG_MAX;
       _current = Kip::k()->clock + 10000; //ms
       bool update_timer = true;
-      
-      for (int i=0; i< Wakeup_queue_count; i++)
+
+      for (int i = 0; i < Wakeup_queue_count; i++)
 	{
 	  // make sure that something enqueued other than the dummy element
 	  if (first(i)->_next == first(i+1))
 	    continue;
-	  
+
 	  update_timer = true;
 
 	  if (first(i)->_next->_wakeup < _current)
 	    _current =  first(i)->_next->_wakeup;
 	}
-      
+
       if (update_timer)
 	Timer::update_timer(_current);
 

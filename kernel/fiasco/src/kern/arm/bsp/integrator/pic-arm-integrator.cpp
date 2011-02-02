@@ -91,12 +91,6 @@ Integr_pin::ack()
 {
   // ack is empty
 }
-PUBLIC
-void
-Integr_pin::hit()
-{
-  Irq::self(this)->Irq::hit();
-}
 
 PUBLIC
 void

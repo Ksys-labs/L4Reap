@@ -8,7 +8,7 @@ class Vmcb;
 class Vm_svm : public Vm
 {
 private:
-  static void resume_vm_svm(Mword phys_vmcb, Mword *regs)
+  static void resume_vm_svm(Mword phys_vmcb, Vcpu_state *regs)
     asm("resume_vm_svm") __attribute__((__regparm__(3)));
   Unsigned8 _asid[Config::Max_num_cpus];
   Unsigned32 _asid_generation[Config::Max_num_cpus];
@@ -134,21 +134,21 @@ Vm_svm::asid ()
 
 PRIVATE inline
 void
-Vm_svm::asid (Unsigned8 asid)
+Vm_svm::asid(Unsigned8 asid)
 {
   _asid[current_cpu()] = asid;
 }
 
 PRIVATE inline
 Unsigned32
-Vm_svm::asid_generation ()
+Vm_svm::asid_generation()
 {
   return _asid_generation[current_cpu()];
 }
 
 PRIVATE inline
 void
-Vm_svm::asid_generation (Unsigned32 generation)
+Vm_svm::asid_generation(Unsigned32 generation)
 {
   _asid_generation[current_cpu()] = generation;
 }
@@ -342,7 +342,7 @@ Vm_svm::copy_control_area_back(Vmcb *dest, Vmcb *src)
  */
 PRIVATE
 void
-Vm_svm::configure_asid (Vmcb *vmcb_s, Vmcb *kernel_vmcb_s)
+Vm_svm::configure_asid(Vmcb *vmcb_s, Vmcb *kernel_vmcb_s)
 {
   assert (cpu_lock.test());
 
@@ -371,9 +371,9 @@ Vm_svm::configure_asid (Vmcb *vmcb_s, Vmcb *kernel_vmcb_s)
 #endif
 }
 
-PUBLIC
-L4_msg_tag
-Vm_svm::sys_vm_run(Syscall_frame *f, Utcb *utcb)
+PRIVATE inline NOEXPORT
+int
+Vm_svm::do_resume_vcpu(Context *ctxt, Vcpu_state *vcpu, Vmcb *vmcb_s)
 {
   //Mword host_cr0;
   Unsigned64 orig_cr3, orig_ncr3;
@@ -388,69 +388,54 @@ Vm_svm::sys_vm_run(Syscall_frame *f, Utcb *utcb)
 
   Svm &s = Svm::cpus.cpu(current_cpu());
 
-  L4_msg_tag const &tag = f->tag();
-
+  // FIXME: this can be an assertion I think, however, think about MP
   if (EXPECT_FALSE(!s.svm_enabled()))
     {
       WARN("svm: not supported/enabled\n");
-      return commit_result(-L4_err::EInval);
-    }
-
-  if (EXPECT_FALSE(tag.words() < 2 + Svm::Gpregs_words))
-    {
-      WARN("svm: Invalid message length\n");
-      return commit_result(-L4_err::EInval);
-    }
-
-  Vmcb *vmcb_s;
-
-  if (int r = Vm::getpage(utcb, tag, (void **)&vmcb_s))
-    {
-      WARN("svm: Invalid VMCB\n");
-      return commit_result(r);
+      return -L4_err::EInval;
     }
 
   if (EXPECT_FALSE(vmcb_s->np_enabled() && !s.has_npt()))
     {
       WARN("svm: No NPT available\n");
-      return commit_result(-L4_err::EInval);
+      return -L4_err::EInval;
     }
 
   Address vm_cr3 = get_vm_cr3(vmcb_s);
   // can only fail on 64bit, will be optimized away on 32bit
   if (EXPECT_FALSE(is_64bit() && !vm_cr3))
-    return commit_result(-L4_err::ENomem);
+    return -L4_err::ENomem;
 
   // neither EFER.LME nor EFER.LMA must be set
   if (EXPECT_FALSE(!is_64bit()
 	           && (vmcb_s->state_save_area.efer & (EFER_LME | EFER_LMA))))
     {
       WARN("svm: EFER invalid %llx\n", vmcb_s->state_save_area.efer);
-      return commit_result(-L4_err::EInval);
+      return -L4_err::EInval;
     }
 
   // EFER.SVME must be set
   if (!(vmcb_s->state_save_area.efer & 0x1000))
     {
       WARN("svm: EFER invalid %llx\n", vmcb_s->state_save_area.efer);
-      return commit_result(-L4_err::EInval);
+      return -L4_err::EInval;
     }
   // allow PAE in combination with NPT
 #if 0
   // CR4.PAE must be clear
   if(vmcb_s->state_save_area.cr4 & 0x20)
-    return commit_result(-L4_err::EInval);
+    return -L4_err::EInval;
 #endif
 
   // XXX:
   // This generates a circular dep between thread<->task, this cries for a
   // new abstraction...
-  if (!(current()->state() & Thread_fpu_owner))
+  if (!(ctxt->state() & Thread_fpu_owner))
     {
-      if (!current_thread()->switchin_fpu())
+      if (!static_cast<Thread*>(ctxt)->switchin_fpu())
         {
           WARN("svm: switchin_fpu failed\n");
-          return commit_result(-L4_err::EInval); 
+          return -L4_err::EInval;
         }
     }
 
@@ -485,7 +470,7 @@ Vm_svm::sys_vm_run(Syscall_frame *f, Utcb *utcb)
                    && !(kernel_vmcb_s->state_save_area.cr4 & CR4_PAE)))
     {
       WARN("svm: No 32bit shadow page-tables on AMD64, use PAE!\n");
-      return commit_result(-L4_err::EInval);
+      return -L4_err::EInval;
     }
 
   // set MCE according to host
@@ -623,7 +608,7 @@ Vm_svm::sys_vm_run(Syscall_frame *f, Utcb *utcb)
     Cpu::set_cr4(cr4 & ~CR4_PGE);
 #endif
 
-  resume_vm_svm(kernel_vmcb_pa, &utcb->values[2]);
+  resume_vm_svm(kernel_vmcb_pa, vcpu);
 
 
 #if 0
@@ -664,15 +649,58 @@ Vm_svm::sys_vm_run(Syscall_frame *f, Utcb *utcb)
             l->rip       = vmcb_s->state_save_area.rip;
            );
 
-  return commit_result(L4_error::None);
+  // check for IRQ exit
+  if (kernel_vmcb_s->control_area.exitcode == 0x60)
+    return 1;
+
+  vcpu->state &= ~(Vcpu_state::F_traps | Vcpu_state::F_user_mode);
+  return 0;
 }
 
 PUBLIC
-void
-Vm_svm::invoke(L4_obj_ref obj, Mword rights, Syscall_frame *f, Utcb *utcb)
+int
+Vm_svm::resume_vcpu(Context *ctxt, Vcpu_state *vcpu, bool user_mode)
 {
-  vm_invoke<Vm_svm>(obj, rights, f, utcb);
+  (void)user_mode;
+  assert_kdb (user_mode);
+
+  if (EXPECT_FALSE(!(ctxt->state(true) & Thread_ext_vcpu_enabled)))
+    return -L4_err::EInval;
+
+  Vmcb *vmcb_s = reinterpret_cast<Vmcb*>(reinterpret_cast<char *>(vcpu) + 0x400);
+  for (;;)
+    {
+      // in the case of disabled IRQs and a pending IRQ directly simulate an
+      // external interrupt intercept
+      if (   !(vcpu->_saved_state & Vcpu_state::F_irqs)
+	  && (vcpu->sticky_flags & Vcpu_state::Sf_irq_pending))
+	{
+	  vmcb_s->control_area.exitcode = 0x60;
+	  return 1; // return 1 to indicate pending IRQs (IPCs)
+	}
+
+      int r = do_resume_vcpu(ctxt, vcpu, vmcb_s);
+
+      // test for error or non-IRQ exit resason
+      if (r <= 0)
+	return r;
+
+      // check for IRQ exits and allow to handle the IRQ
+      if (r == 1)
+	Proc::preemption_point();
+
+      // Check if the current context got a message delivered.
+      // This is done by testing for a valid continuation.
+      // When a continuation is set we have to directly
+      // leave the kernel to not overwrite the vcpu-regs
+      // with bogus state.
+      Thread *t = nonull_static_cast<Thread*>(ctxt);
+      if (t->exception_triggered())
+	t->fast_return_to_user(vcpu->_entry_ip, vcpu->_entry_sp, t->vcpu_state().usr().get());
+    }
 }
+
+
 
 // ------------------------------------------------------------------------
 IMPLEMENTATION [svm && debug]:

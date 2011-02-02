@@ -213,16 +213,12 @@ static reg_errcode_t extend_buffers (re_match_context_t *mctx)
    We return 0 if we find a match and REG_NOMATCH if not.  */
 
 int
-regexec (preg, string, nmatch, pmatch, eflags)
-    const regex_t *__restrict preg;
-    const char *__restrict string;
-    size_t nmatch;
-    regmatch_t pmatch[];
-    int eflags;
+regexec (const regex_t *__restrict preg, const char *__restrict string,
+	 size_t nmatch, regmatch_t pmatch[], int eflags)
 {
   reg_errcode_t err;
   int start, length;
-#ifndef __UCLIBC__ /* libc_lock_lock does not exist */
+#ifdef __UCLIBC_HAS_THREADS__
   re_dfa_t *dfa = (re_dfa_t *) preg->buffer;
 #endif
 
@@ -282,56 +278,43 @@ libc_hidden_def(regexec)
    match was found and -2 indicates an internal error.  */
 
 int
-re_match (bufp, string, length, start, regs)
-    struct re_pattern_buffer *bufp;
-    const char *string;
-    int length, start;
-    struct re_registers *regs;
+re_match (struct re_pattern_buffer *bufp, const char *string, int length,
+		  int start, struct re_registers *regs)
 {
   return re_search_stub (bufp, string, length, start, 0, length, regs, 1);
 }
 
 int
-re_search (bufp, string, length, start, range, regs)
-    struct re_pattern_buffer *bufp;
-    const char *string;
-    int length, start, range;
-    struct re_registers *regs;
+re_search (struct re_pattern_buffer *bufp, const char *string, int length,
+		   int start, int range, struct re_registers *regs)
 {
   return re_search_stub (bufp, string, length, start, range, length, regs, 0);
 }
 libc_hidden_def(re_search)
 
 int
-re_match_2 (bufp, string1, length1, string2, length2, start, regs, stop)
-    struct re_pattern_buffer *bufp;
-    const char *string1, *string2;
-    int length1, length2, start, stop;
-    struct re_registers *regs;
+re_match_2 (struct re_pattern_buffer *bufp, const char *string1, int length1,
+		   const char *string2, int length2, int start,
+		   struct re_registers *regs, int stop)
 {
   return re_search_2_stub (bufp, string1, length1, string2, length2,
 			   start, 0, regs, stop, 1);
 }
 
 int
-re_search_2 (bufp, string1, length1, string2, length2, start, range, regs, stop)
-    struct re_pattern_buffer *bufp;
-    const char *string1, *string2;
-    int length1, length2, start, range, stop;
-    struct re_registers *regs;
+re_search_2 (struct re_pattern_buffer *bufp, const char *string1, int lenght1,
+			 const char *string2, int length2, int start, int range,
+			 struct re_registers *regs,  int stop)
 {
-  return re_search_2_stub (bufp, string1, length1, string2, length2,
+  return re_search_2_stub (bufp, string1, lenght1, string2, length2,
 			   start, range, regs, stop, 0);
 }
 libc_hidden_def(re_search_2)
 
-static int
-re_search_2_stub (bufp, string1, length1, string2, length2, start, range, regs,
-		  stop, ret_len)
-    struct re_pattern_buffer *bufp;
-    const char *string1, *string2;
-    int length1, length2, start, range, stop, ret_len;
-    struct re_registers *regs;
+static int internal_function
+re_search_2_stub (struct re_pattern_buffer *bufp, const char *string1,
+				  int length1, const char *string2, int length2, int start,
+				  int range, struct re_registers *regs, int stop, int ret_len)
 {
   const char *str;
   int rval;
@@ -371,21 +354,18 @@ re_search_2_stub (bufp, string1, length1, string2, length2, start, range, regs,
    If RET_LEN is nonzero the length of the match is returned (re_match style);
    otherwise the position of the match is returned.  */
 
-static int
-re_search_stub (bufp, string, length, start, range, stop, regs, ret_len)
-    struct re_pattern_buffer *bufp;
-    const char *string;
-    int length, start, range, stop, ret_len;
-    struct re_registers *regs;
+static int internal_function
+re_search_stub (struct re_pattern_buffer *bufp, const char *string, int length,
+				int start, int range, int stop, struct re_registers *regs,
+				int ret_len)
 {
   reg_errcode_t result;
   regmatch_t *pmatch;
   int nregs, rval;
   int eflags = 0;
-#ifndef __UCLIBC__ /* libc_lock_lock does not exist */
+#ifdef __UCLIBC_HAS_THREADS__
   re_dfa_t *dfa = (re_dfa_t *) bufp->buffer;
 #endif
-
   /* Check for out-of-range.  */
   if (BE (start < 0 || start > length, 0))
     return -1;
@@ -462,11 +442,9 @@ re_search_stub (bufp, string, length, start, range, stop, regs, ret_len)
   return rval;
 }
 
-static unsigned
-re_copy_regs (regs, pmatch, nregs, regs_allocated)
-    struct re_registers *regs;
-    regmatch_t *pmatch;
-    int nregs, regs_allocated;
+static unsigned internal_function
+re_copy_regs (struct re_registers *regs, regmatch_t *pmatch, int nregs,
+			  int regs_allocated)
 {
   int rval = REGS_REALLOCATE;
   int i;
@@ -532,11 +510,8 @@ re_copy_regs (regs, pmatch, nregs, regs_allocated)
    freeing the old data.  */
 
 void
-re_set_registers (bufp, regs, num_regs, starts, ends)
-    struct re_pattern_buffer *bufp;
-    struct re_registers *regs;
-    unsigned num_regs;
-    regoff_t *starts, *ends;
+re_set_registers (struct re_pattern_buffer *bufp, struct re_registers *regs,
+				  unsigned num_regs, regoff_t *starts, regoff_t *ends)
 {
   if (num_regs)
     {
@@ -575,15 +550,10 @@ re_exec (const char *s)
    otherwise return the error code.
    Note: We assume front end functions already check ranges.
    (START + RANGE >= 0 && START + RANGE <= LENGTH)  */
-
-static reg_errcode_t
-re_search_internal (preg, string, length, start, range, stop, nmatch, pmatch,
-		    eflags)
-    const regex_t *preg;
-    const char *string;
-    int length, start, range, stop, eflags;
-    size_t nmatch;
-    regmatch_t pmatch[];
+static reg_errcode_t internal_function
+re_search_internal (const regex_t *preg, const char *string, int length,
+					int start, int range, int stop, size_t nmatch,
+					regmatch_t pmatch[], int eflags)
 {
   reg_errcode_t err;
   const re_dfa_t *dfa = (const re_dfa_t *) preg->buffer;
@@ -889,9 +859,8 @@ re_search_internal (preg, string, length, start, range, stop, nmatch, pmatch,
   return err;
 }
 
-static reg_errcode_t
-prune_impossible_nodes (mctx)
-     re_match_context_t *mctx;
+static reg_errcode_t internal_function
+prune_impossible_nodes (re_match_context_t *mctx)
 {
   const re_dfa_t *const dfa = mctx->dfa;
   int halt_node, match_last;

@@ -20,20 +20,17 @@ IMPLEMENT
 void Kern_lib_page::init()
 {
   extern char kern_lib_start;
-
-  Pte pte = Kmem_space::kdir()->walk((void*)Kmem_space::Kern_lib_base, 
-      Config::PAGE_SIZE, true, Ram_quota::root);
+  Pte pte = Kmem_space::kdir()->walk((void *)Kmem_space::Kern_lib_base,
+                                     Config::PAGE_SIZE, true, Ram_quota::root);
 
   if (pte.lvl() == 0) // allocation of second level faild
-    {
-      panic("FATAL: Error mapping cpu page to %p\n",
-	    (void*)Kmem_space::Kern_lib_base);
-    }
-  
-  pte.set((Address)&kern_lib_start - Mem_layout::Map_base 
-      + Mem_layout::Sdram_phys_base,
-      Config::PAGE_SIZE, Mem_page_attr(Page::USER_RO | Page::CACHEABLE), true);
+    panic("FATAL: Error mapping kernel-lib page to %p\n",
+          (void *)Kmem_space::Kern_lib_base);
 
+  pte.set((Address)&kern_lib_start - Mem_layout::Map_base
+          + Mem_layout::Sdram_phys_base,
+          Config::PAGE_SIZE, Mem_page_attr(Page::USER_RO | Page::CACHEABLE),
+          true);
 }
 
 //---------------------------------------------------------------------------

@@ -145,6 +145,106 @@ typedef Page_addr<ARCH_PAGE_SHIFT> Virt_size;
 typedef Page_addr<0> Page_number;
 typedef Page_number Page_count;
 
+template<typename T>
+struct Simple_ptr_policy
+{
+  typedef T &Deref_type;
+  typedef T *Ptr_type;
+  typedef T *Member_type;
+  typedef T *Storage_type;
+
+  static void init(Storage_type const &) {}
+  static void init(Storage_type &d, Storage_type const &s) { d = s; }
+  static void copy(Storage_type &d, Storage_type const &s) { d = s; }
+  static void destroy(Storage_type const &) {}
+  static Deref_type deref(Storage_type p) { return *p; }
+  static Member_type member(Storage_type p) { return p; }
+  static Ptr_type ptr(Storage_type p) { return p; }
+};
+
+template<>
+struct Simple_ptr_policy<void>
+{
+  typedef void Deref_type;
+  typedef void *Ptr_type;
+  typedef void Member_type;
+  typedef void *Storage_type;
+
+  static void init(Storage_type const &) {}
+  static void init(Storage_type &d, Storage_type const &s) { d = s; }
+  static void copy(Storage_type &d, Storage_type const &s) { d = s; }
+  static void destroy(Storage_type const &) {}
+  static Deref_type deref(Storage_type p);
+  static Member_type member(Storage_type p);
+  static Ptr_type ptr(Storage_type p) { return p; }
+};
+
+
+template<typename T, template<typename P> class Policy = Simple_ptr_policy,
+         typename Discriminator = int>
+class Smart_ptr
+{
+private:
+  struct Null_check_type;
+public:
+  typedef typename Policy<T>::Deref_type Deref_type;
+  typedef typename Policy<T>::Ptr_type Ptr_type;
+  typedef typename Policy<T>::Member_type Member_type;
+  typedef typename Policy<T>::Storage_type Storage_type;
+
+  template<typename A, template<typename X> class B, typename C>
+  friend class Smart_ptr;
+
+protected:
+  Storage_type _p;
+
+public:
+  Smart_ptr()
+  { Policy<T>::init(_p); }
+
+  explicit Smart_ptr(T *p)
+  { Policy<T>::init(_p, p); }
+
+  Smart_ptr(Smart_ptr const &o)
+  { Policy<T>::copy(_p, o._p); }
+
+  template< typename RHT >
+  Smart_ptr(Smart_ptr<RHT, Policy, Discriminator> const &o)
+  { Policy<T>::copy(_p, o._p); }
+
+  ~Smart_ptr()
+  { Policy<T>::destroy(_p); }
+
+  Smart_ptr operator = (Smart_ptr const &o)
+  {
+    if (this == &o)
+      return *this;
+
+    Policy<T>::destroy(_p);
+    Policy<T>::copy(_p, o._p);
+    return *this;
+  }
+
+  Deref_type operator * () const
+  { return Policy<T>::deref(_p); }
+
+  Member_type operator -> () const
+  { return Policy<T>::member(_p); }
+
+  Ptr_type get() const
+  { return Policy<T>::ptr(_p); }
+
+  operator Null_check_type const * () const
+  { return reinterpret_cast<Null_check_type const *>(Policy<T>::ptr(_p)); }
+};
+
+enum User_ptr_discr {};
+
+template<typename T>
+struct User
+{
+  typedef Smart_ptr<T, Simple_ptr_policy, User_ptr_discr> Ptr;
+};
 #endif
 
 /// standard size type

@@ -105,18 +105,20 @@ export RUNTIME_PREFIX DEVEL_PREFIX KERNEL_HEADERS MULTILIB_DIR
 # Now config hard core
 MAJOR_VERSION := 0
 MINOR_VERSION := 9
-SUBLEVEL      := 31
+SUBLEVEL      := 32
 EXTRAVERSION  :=-rc1-git
 VERSION       := $(MAJOR_VERSION).$(MINOR_VERSION).$(SUBLEVEL)
+ABI_VERSION   := $(MAJOR_VERSION)
 ifneq ($(EXTRAVERSION),)
 VERSION       := $(VERSION)$(EXTRAVERSION)
 endif
 # Ensure consistent sort order, 'gcc -print-search-dirs' behavior, etc.
 LC_ALL := C
-export MAJOR_VERSION MINOR_VERSION SUBLEVEL VERSION LC_ALL
+export MAJOR_VERSION MINOR_VERSION SUBLEVEL VERSION ABI_VERSION LC_ALL
 
 LIBC := libc
-SHARED_MAJORNAME := $(LIBC).so.$(MAJOR_VERSION)
+SHARED_LIBNAME := $(LIBC).so.$(ABI_VERSION)
+UBACKTRACE_DSO := libubacktrace.so.$(MAJOR_VERSION)
 ifneq ($(findstring  $(TARGET_ARCH) , hppa64 ia64 mips64 powerpc64 s390x sparc64 x86_64 ),)
 UCLIBC_LDSO_NAME := ld64-uClibc
 ARCH_NATIVE_BIT := 64
@@ -124,17 +126,23 @@ else
 UCLIBC_LDSO_NAME := ld-uClibc
 ARCH_NATIVE_BIT := 32
 endif
-UCLIBC_LDSO := $(UCLIBC_LDSO_NAME).so.$(MAJOR_VERSION)
+UCLIBC_LDSO := $(UCLIBC_LDSO_NAME).so.$(ABI_VERSION)
 NONSHARED_LIBNAME := uclibc_nonshared.a
-libc := $(top_builddir)lib/$(SHARED_MAJORNAME)
-libc.depend := $(top_builddir)lib/$(SHARED_MAJORNAME:.$(MAJOR_VERSION)=)
+libc := $(top_builddir)lib/$(SHARED_LIBNAME)
+libc.depend := $(top_builddir)lib/$(SHARED_LIBNAME:.$(ABI_VERSION)=)
+ifneq ($(ARCH_HAS_NO_SHARED),y)
+libdl.depend := $(top_builddir)lib/libdl.so
+endif
+ifneq ($(HAS_NO_THREADS),y)
+libpthread.depend := $(top_builddir)lib/libpthread.so
+endif
 interp := $(top_builddir)lib/interp.os
 ldso := $(top_builddir)lib/$(UCLIBC_LDSO)
 headers_dep := $(top_builddir)include/bits/sysnum.h
 sub_headers := $(headers_dep)
 
 #LIBS :=$(interp) -L$(top_builddir)lib -lc
-LIBS := $(interp) -L$(top_builddir)lib $(libc:.$(MAJOR_VERSION)=)
+LIBS := $(interp) -L$(top_builddir)lib $(libc:.$(ABI_VERSION)=)
 
 # Make sure DESTDIR and PREFIX can be used to install
 # PREFIX is a uClibcism while DESTDIR is a common GNUism
@@ -331,7 +339,7 @@ ifeq ($(TARGET_ARCH),arm)
 	CPU_CFLAGS-$(CONFIG_ARM720T)+=-mtune=arm7tdmi -march=armv4t
 	CPU_CFLAGS-$(CONFIG_ARM920T)+=-mtune=arm9tdmi -march=armv4t
 	CPU_CFLAGS-$(CONFIG_ARM922T)+=-mtune=arm9tdmi -march=armv4t
-	CPU_CFLAGS-$(CONFIG_ARM926T)+=-mtune=arm9tdmi -march=armv5t
+	CPU_CFLAGS-$(CONFIG_ARM926T)+=-mtune=arm9e -march=armv5te
 	CPU_CFLAGS-$(CONFIG_ARM10T)+=-mtune=arm10tdmi -march=armv5t
 	CPU_CFLAGS-$(CONFIG_ARM1136JF_S)+=-mtune=arm1136jf-s -march=armv6
 	CPU_CFLAGS-$(CONFIG_ARM1176JZ_S)+=-mtune=arm1176jz-s -march=armv6
@@ -346,7 +354,7 @@ ifeq ($(TARGET_ARCH),arm)
 endif
 
 ifeq ($(TARGET_ARCH),mips)
-	OPTIMIZATIONS+=-mno-split-addresses
+	OPTIMIZATION+=-mno-split-addresses
 	CPU_CFLAGS-$(CONFIG_MIPS_ISA_1)+=-mips1
 	CPU_CFLAGS-$(CONFIG_MIPS_ISA_2)+=-mips2 -mtune=mips2
 	CPU_CFLAGS-$(CONFIG_MIPS_ISA_3)+=-mips3 -mtune=mips3
@@ -368,7 +376,7 @@ ifeq ($(TARGET_ARCH),mips)
 endif
 
 ifeq ($(TARGET_ARCH),nios)
-	OPTIMIZATIONS+=-funaligned-struct-hack
+	OPTIMIZATION+=-funaligned-struct-hack
 	CPU_LDFLAGS-y+=-Wl,-m32
 	CPU_CFLAGS-y+=-Wl,-m32
 endif
@@ -405,11 +413,11 @@ ifeq ($(TARGET_ARCH),h8300)
 endif
 
 ifeq ($(TARGET_ARCH),i960)
-	OPTIMIZATIONS+=-mh -mint32 #-fsigned-char
+	OPTIMIZATION+=-mh -mint32 #-fsigned-char
 endif
 
 ifeq ($(TARGET_ARCH),e1)
-	OPTIMIZATIONS+=-mgnu-param
+	OPTIMIZATION+=-mgnu-param
 endif
 
 ifeq ($(TARGET_ARCH),cris)
@@ -473,10 +481,6 @@ ifeq ($(TARGET_ARCH),i960)
       SYMBOL_PREFIX=_
 endif
 
-ifeq ($(TARGET_ARCH),microblaze)
-      SYMBOL_PREFIX=_
-endif
-
 ifeq ($(TARGET_ARCH),v850)
       SYMBOL_PREFIX=_
 endif
@@ -520,14 +524,35 @@ link.asneeded = $(if $(and $(CC_FLAG_ASNEEDED),$(CC_FLAG_NO_ASNEEDED)),$(CC_FLAG
 # Check for AS_NEEDED support in linker script (binutils>=2.16.1 has it)
 ifndef ASNEEDED
 export ASNEEDED:=$(shell $(LD) --help 2>/dev/null | grep -q -- --as-needed && echo "AS_NEEDED ( $(UCLIBC_LDSO) )" || echo "$(UCLIBC_LDSO)")
+ifeq ($(UCLIBC_HAS_BACKTRACE),y)
+# Only used in installed libc.so linker script
+UBACKTRACE_FULL_NAME := $(RUNTIME_PREFIX)lib/$(UBACKTRACE_DSO)
+export UBACKTRACE_ASNEEDED:=$(shell $(LD) --help 2>/dev/null | grep -q -- --as-needed && echo "AS_NEEDED ( $(UBACKTRACE_FULL_NAME) )" || echo "$(UBACKTRACE_FULL_NAME)")
+else
+export UBACKTRACE_ASNEEDED:=""
+endif
 endif
 
 # Add a bunch of extra pedantic annoyingly strict checks
-XWARNINGS=$(call qstrip,$(WARNINGS)) -Wstrict-prototypes -fno-strict-aliasing
+XWARNINGS=$(call qstrip,$(WARNINGS)) 
+XWARNINGS+=$(foreach w,\
+	-Wstrict-prototypes \
+	-fno-strict-aliasing \
+	, $(call check_gcc,$(w),))
 ifeq ($(EXTRA_WARNINGS),y)
-XWARNINGS+=-Wnested-externs -Wshadow -Wmissing-noreturn -Wmissing-format-attribute -Wformat=2
-XWARNINGS+=-Wmissing-prototypes -Wmissing-declarations
-XWARNINGS+=-Wnonnull -Wundef
+XWARNINGS+=$(foreach w,\
+	-Wformat=2 \
+	-Wmissing-noreturn \
+	-Wmissing-format-attribute \
+	-Wmissing-prototypes \
+	-Wmissing-declarations \
+	-Wnested-externs \
+	-Wnonnull \
+	-Wold-style-declaration \
+	-Wold-style-definition \
+	-Wshadow \
+	-Wundef \
+	, $(call check_gcc,$(w),))
 # Works only w/ gcc-3.4 and up, can't be checked for gcc-3.x w/ check_gcc()
 #XWARNINGS+=-Wdeclaration-after-statement
 endif
@@ -579,7 +604,7 @@ ifeq ($(LDSO_GNU_HASH_SUPPORT),y)
 # Be sure that binutils support it
 LDFLAGS_GNUHASH:=$(call check_ld,--hash-style=gnu)
 ifeq ($(LDFLAGS_GNUHASH),)
-ifneq ($(filter-out install_headers headers-y,$(MAKECMDGOALS)),)
+ifneq ($(filter-out $(clean_targets) install_headers headers-y,$(MAKECMDGOALS)),)
 $(error Your binutils do not support --hash-style option, while you want to use it)
 endif
 else
@@ -589,7 +614,7 @@ endif
 
 LDFLAGS:=$(LDFLAGS_NOSTRIP) -Wl,-z,defs
 ifeq ($(DODEBUG),y)
-CFLAGS += -O0 -g3
+CFLAGS += -O0 -g3 -DDEBUG
 else
 CFLAGS += $(OPTIMIZATION)
 endif
@@ -621,6 +646,7 @@ endif
 ifeq ($(UCLIBC_HAS_THREADS),y)
 ifeq ($(UCLIBC_HAS_THREADS_NATIVE),y)
 	PTNAME := nptl
+	CFLAGS += -DHAVE_FORCED_UNWIND
 else
 ifeq ($(LINUXTHREADS_OLD),y)
 	PTNAME := linuxthreads.old
@@ -631,14 +657,18 @@ endif
 PTDIR := libpthread/$(PTNAME)
 # set up system dependencies include dirs (NOTE: order matters!)
 ifeq ($(UCLIBC_HAS_THREADS_NATIVE),y)
-PTINC:=	-I$(top_srcdir)$(PTDIR)						\
+PTINC:= -I$(top_builddir)$(PTDIR)					\
+	-I$(top_srcdir)$(PTDIR)						\
+	$(if $(TARGET_ARCH),-I$(top_srcdir)$(PTDIR)/sysdeps/unix/sysv/linux/$(TARGET_ARCH)/$(TARGET_SUBARCH)) \
 	-I$(top_srcdir)$(PTDIR)/sysdeps/unix/sysv/linux/$(TARGET_ARCH)	\
+	-I$(top_builddir)$(PTDIR)/sysdeps/$(TARGET_ARCH)		\
 	-I$(top_srcdir)$(PTDIR)/sysdeps/$(TARGET_ARCH)			\
+	-I$(top_builddir)$(PTDIR)/sysdeps/unix/sysv/linux		\
 	-I$(top_srcdir)$(PTDIR)/sysdeps/unix/sysv/linux			\
 	-I$(top_srcdir)$(PTDIR)/sysdeps/pthread				\
-	-I$(top_srcdir)$(PTDIR)/sysdeps/pthread/bits				\
+	-I$(top_srcdir)$(PTDIR)/sysdeps/pthread/bits			\
 	-I$(top_srcdir)$(PTDIR)/sysdeps/generic				\
-	-I$(top_srcdir)ldso/ldso/$(TARGET_ARCH)			\
+	-I$(top_srcdir)ldso/ldso/$(TARGET_ARCH)				\
 	-I$(top_srcdir)ldso/include
 #
 # Test for TLS if NPTL support was selected.
@@ -671,6 +701,7 @@ else
 	PTNAME :=
 	PTINC  :=
 endif
+CFLAGS += -I$(top_srcdir)libc/sysdeps/linux/common
 CFLAGS += -I$(KERNEL_HEADERS)
 
 #CFLAGS += -iwithprefix include-fixed -iwithprefix include

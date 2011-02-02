@@ -21,6 +21,7 @@
 
 #ifdef DDE_LINUX
 #include "local.h"
+#include <l4/sys/kdebug.h>
 #endif /* DDE_LINUX */
 
 /*

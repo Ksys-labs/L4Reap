@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <l4/re/env>
 #include <l4/vcpu/vcpu.h>
 
 namespace L4vcpu {
@@ -114,8 +115,9 @@ public:
    * \param do_event_work_cb Call-back function that is called in case an
    *                         event (such as an interrupt) is pending.
    */
-  void irq_enable(l4vcpu_event_hndl_t do_event_work_cb) throw()
-  { l4vcpu_irq_enable(this, do_event_work_cb); }
+  void irq_enable(l4_utcb_t *utcb, l4vcpu_event_hndl_t do_event_work_cb,
+                  l4vcpu_setup_ipc_t setup_ipc) throw()
+  { l4vcpu_irq_enable(this, utcb, do_event_work_cb, setup_ipc); }
 
   /**
    * \brief Restore a previously saved IRQ/event state.
@@ -124,11 +126,14 @@ public:
    * \param do_event_work_cb Call-back function that is called in case an
    *                         event (such as an interrupt) is pending.
    */
-  void irq_restore(Irq_state s, l4vcpu_event_hndl_t do_event_work_cb) throw()
-  { l4vcpu_irq_restore(this, s, do_event_work_cb); }
+  void irq_restore(Irq_state s, l4_utcb_t *utcb,
+                   l4vcpu_event_hndl_t do_event_work_cb,
+                   l4vcpu_setup_ipc_t setup_ipc) throw()
+  { l4vcpu_irq_restore(this, s, utcb, do_event_work_cb, setup_ipc); }
 
-  void halt(l4vcpu_event_hndl_t do_event_work_cb) throw()
-  { l4vcpu_halt(this, do_event_work_cb); }
+  void halt(l4_utcb_t *utcb, l4vcpu_event_hndl_t do_event_work_cb,
+            l4vcpu_setup_ipc_t setup_ipc) throw()
+  { l4vcpu_halt(this, utcb, do_event_work_cb, setup_ipc); }
 
   /**
    * \brief Set the task of the vCPU.
@@ -179,7 +184,6 @@ public:
   l4_vcpu_ipc_regs_t const *i() const throw()
   { return &(l4_vcpu_state_t::i); }
 
-
   /**
    * \brief Set vCPU entry stack pointer.
    * \param sp  Stack pointer address to set.
@@ -196,19 +200,47 @@ public:
   void entry_ip(l4_umword_t ip)
   { l4_vcpu_state_t::entry_ip = ip; }
 
+  /**
+   * \brief Allocate state area for an extented vCPU.
+   *
+   * \retval vcpu      Allocated vcpu-state area.
+   * \retval ext_state Allocated extended vcpu-state area.
+   * \param  task      Task to use for allocation, defaults to own task.
+   * \param  rm        Region manager to use for allocation defaults to standard region manager.
+   *
+   * \return 0 for success, error code otherwise
+   */
+  static int
+  ext_alloc(Vcpu **vcpu,
+            l4_addr_t *ext_state,
+            L4::Cap<L4::Task> task = L4Re::Env::env()->task(),
+            L4::Cap<L4Re::Rm> rm = L4Re::Env::env()->rm()) throw();
+
+  /**
+   * \brief Cast a void ponter to a class pointer.
+   *
+   * \param x Pointer.
+   *
+   * \return Pointer to Vcpu class.
+   */
+  static inline Vcpu *cast(void *x) throw()
+  { return reinterpret_cast<Vcpu *>(x); }
+
+  /**
+   * \brief Cast an address to a class pointer.
+   *
+   * \param x Pointer.
+   *
+   * \return Pointer to Vcpu class.
+   */
+  static inline Vcpu *cast(l4_addr_t x) throw()
+  { return reinterpret_cast<Vcpu *>(x); }
 
   /**
    * \brief Print the state of the vCPU.
    */
   void print_state(const char *prefix = "") throw()
   { l4vcpu_print_state(this, prefix); }
-
-  /**
-   * \brief Return a vCPU given the thread UTCB pointer.
-   * \return A pointer to a vCPU.
-   */
-  static Vcpu *vcpu_from_utcb(l4_utcb_t const *utcb) throw()
-  { return reinterpret_cast<Vcpu *>((l4_umword_t)utcb + L4_UTCB_OFFSET); }
 };
 
 

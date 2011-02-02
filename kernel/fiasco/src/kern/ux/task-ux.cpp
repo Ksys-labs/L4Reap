@@ -117,22 +117,10 @@ Task::map_tbuf ()
 #endif
 }
 
-IMPLEMENT
+PUBLIC
 Task::~Task()
 {
-  free_utcbs();
-  //_state = Dying;
-  //unregister_space();
-  //shutdown();
-  //dequeue_at_parent();
-
-#if 0
-  if (id() == Config::kernel_taskno)
-    {
-      reset_dirty();		// Must not deallocate kernel pagetable.
-      return;			// No need to kill kernel process.
-    }
-#endif
+  free_ku_mem();
 
   Lock_guard<Cpu_lock> guard (&cpu_lock);
 

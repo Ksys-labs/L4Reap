@@ -43,7 +43,7 @@ bool Exception_handler::do_handle_exception(l4_umword_t /*t*/,
 
 bool Exception_handler::handle(l4_umword_t t, void *s)
 {
-#if defined ARCH_arm || defined ARCH_ppc32
+#if defined ARCH_arm || defined ARCH_ppc32 || defined ARCH_sparc
   (void)t;
 #else
   l4_exc_regs_t e = *l4_utcb_exc_u((l4_utcb_t*)s);

@@ -31,6 +31,16 @@ typedef struct l4re_event_stream_id_t
   l4_uint16_t version;
 } l4re_event_stream_id_t;
 
+typedef struct l4re_event_absinfo_t
+{
+  l4_int32_t value;
+  l4_int32_t min;
+  l4_int32_t max;
+  l4_int32_t fuzz;
+  l4_int32_t flat;
+  l4_int32_t resolution;
+} l4re_event_absinfo_t;
+
 enum l4re_event_stream_max_values_t
 {
   L4RE_EVENT_EV_MAX  = 0x1f,
@@ -45,7 +55,7 @@ enum l4re_event_stream_props_t
 };
 
 
-#define __UNUM_B(x) (x + sizeof(unsigned long) - 1) / sizeof(unsigned long)
+#define __UNUM_B(x) (x + sizeof(unsigned long)*8 - 1) / (sizeof(unsigned long)*8)
 
 typedef struct l4re_event_stream_info_t
 {

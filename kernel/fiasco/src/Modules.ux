@@ -1,6 +1,6 @@
 # -*- makefile -*-
 
-SUBSYSTEMS = JABI ABI DRIVERS KERNEL LIBK LIBAMM CXXLIB \
+SUBSYSTEMS = JABI ABI DRIVERS KERNEL LIBK CXXLIB JDB \
 	     TCBOFFSET SYMBOLS VERSION GBLCFG MINILIBC
 
 ifeq ("$(CONFIG_GSTABS)","y")     
@@ -86,7 +86,7 @@ INTERFACES_KERNEL	:= mem_region simpleio kernel_console panic warn \
 			   tb_entry perf_cnt jdb_tbuf x86desc		  \
 			   emulation pic usermode cpu trampoline cpu_lock \
 			   spin_lock					  \
-			   region entry_frame continuation                \
+			   entry_frame continuation                \
 			   kmem mapped_alloc mem_unit  \
 			   ram_quota kmem_alloc ptab_base per_cpu_data_alloc \
 			   ref_ptr ref_obj                                \
@@ -107,7 +107,7 @@ INTERFACES_KERNEL	:= mem_region simpleio kernel_console panic warn \
 			   sender receiver ipc_sender thread thread_object \
 			   kobject_helper \
 			   syscalls					  \
-			   kernel_thread virq dirq dirq_pic_pin		  \
+			   kernel_thread dirq dirq_pic_pin		  \
 			   banner fpu_alloc irq icu_helper main 	  \
 			   startup irq_chip libc_support                 \
 			   jdb_dbinfo jdb fb net utcb_init	  \
@@ -125,7 +125,7 @@ INTERFACES_KERNEL	:= mem_region simpleio kernel_console panic warn \
 			   idt tss trap_state jdb_prompt_ext		  \
 			   jdb_handler_queue jdb_exit_module		  \
 			   jdb_halt_thread  jdb_tetris                    \
-			   jdb_kern_info_kip jdb_kern_info_region         \
+			   jdb_kern_info_kip                              \
 			   jdb_kern_info_kmem_alloc jdb_kern_info_config  \
 			   jdb_space jdb_trap_state                       \
 			   vkey jdb_utcb vlog		                  \
@@ -195,8 +195,7 @@ task_IMPL		:= task task-ux
 tb_entry_IMPL		:= tb_entry tb_entry-ia32-32
 terminate_IMPL		:= terminate-ux
 thread_IMPL		:= thread thread-ia32 thread-ia32-32 thread-ux       \
-			   thread-ipc             \
-			   thread-pagefault thread-list thread-log           \
+			   thread-ipc thread-pagefault thread-log            \
 			   thread-debug thread-io thread-ulock thread-vcpu
 timer_IMPL 		:= timer timer-ia32-amd64-ux timer-ux
 utcb_init_IMPL		:= utcb_init utcb_init-ux
@@ -260,17 +259,6 @@ VPATH		+= lib/libk/$(CONFIG_XARCH) lib/libk
 PRIVATE_INCDIR  += lib/libk/$(CONFIG_XARCH) lib/libk
 INTERFACES_LIBK	:= atomic lock_guard auto_ptr std_macros dlist
 
-#
-# LIBAMM subsystem
-#
-LIBAMM		:= libamm.a
-VPATH		+= lib/amm
-PRIVATE_INCDIR	+= lib/amm
-CSRC_LIBAMM	:= amm_alloc_entry.c amm_allocate.c amm_deallocate.c \
-		   amm_destroy.c amm_dump.c amm_find_addr.c amm_find_gen.c \
-		   amm_free_entry.c amm_init.c amm_init_gen.c amm_iterate.c \
-		   amm_iterate_gen.c amm_join.c amm_modify.c amm_protect.c \
-		   amm_reserve.c amm_select.c amm_split.c
 
 ifneq ($(CONFIG_JDB_GZIP),)
  ifneq ($(wildcard $(srcdir)/lib/gzip),)

@@ -16,16 +16,10 @@ class Receiver;
     it provides a registry that ensures that only one receiver can sign up
     to receive interrupt IPC messages.
  */
-class Irq :
-  public Irq_base,
-  public Ipc_sender<Irq>,
-  public Kobject_h<Irq>,
-  public Kobject
+class Irq : public Irq_base, public Kobject
 {
-  FIASCO_DECLARE_KOBJ();
   MEMBER_OFFSET();
-
-  friend class Chain_irq_pin;
+  FIASCO_DECLARE_KOBJ();
 
 private:
   typedef slab_cache_anon Allocator;
@@ -53,19 +47,39 @@ private:
   Irq(Irq&);
 
 protected:
-  Smword _queued;
-  Receiver *_irq_thread;
-
-private:
-  Mword _irq_id;
-
-protected:
   Ram_quota *_q;
   Context::Drq _drq;
 
 public:
   virtual ~Irq() {}
 
+};
+
+class Irq_sender
+: public Kobject_h<Irq_sender, Irq>,
+  public Ipc_sender<Irq_sender>
+{
+private:
+  Irq_sender(Irq_sender &);
+
+protected:
+  Smword _queued;
+  Receiver *_irq_thread;
+
+private:
+  Mword _irq_id;
+};
+
+class Irq_muxer : public Kobject_h<Irq_muxer, Irq>
+{
+  friend class Chain_irq_pin;
+
+private:
+  Smword _mask_cnt;
+};
+
+class Irq_debugger : public Irq_base
+{
 };
 
 
@@ -103,14 +117,15 @@ IMPLEMENTATION:
 #include "kdb_ke.h"
 #include "kmem_slab.h"
 #include "lock_guard.h"
+#include "minmax.h"
 #include "receiver.h"
 #include "std_macros.h"
 #include "thread_object.h"
-#include "thread_lock.h"
 #include "thread_state.h"
 #include "l4_buf_iter.h"
 
 FIASCO_DEFINE_KOBJ(Irq);
+
 namespace {
 static Irq_base *irq_base_dcast(Kobject_iface *o)
 { return Kobject::dcast<Irq*>(o); }
@@ -137,13 +152,13 @@ Irq::self(Irq_pin const *pin)
 
 
 PUBLIC inline explicit
-Chain_irq_pin::Chain_irq_pin(Irq *i)
+Chain_irq_pin::Chain_irq_pin(Irq_muxer *i)
 { payload()[0] = Mword(i); }
 
 PUBLIC inline
-Irq *
+Irq_muxer *
 Chain_irq_pin::irq() const
-{ return (Irq*)payload()[0]; }
+{ return (Irq_muxer*)payload()[0]; }
 
 PUBLIC
 void
@@ -151,8 +166,8 @@ Chain_irq_pin::do_unmask()
 {
   Smword old;
   do
-    old = irq()->_queued;
-  while (!mp_cas(&irq()->_queued, old, old - 1));
+    old = irq()->_mask_cnt;
+  while (!mp_cas(&irq()->_mask_cnt, old, old - 1));
 
   if (old == 1)
     irq()->pin()->unmask();
@@ -165,8 +180,8 @@ Chain_irq_pin::do_mask()
 {
   Smword old;
   do
-    old = irq()->_queued;
-  while (!mp_cas(&irq()->_queued, old, old + 1));
+    old = irq()->_mask_cnt;
+  while (!mp_cas(&irq()->_mask_cnt, old, old + 1));
 
   if (old == 0)
     irq()->pin()->mask();
@@ -198,7 +213,7 @@ Chain_irq_pin::do_mask_and_ack()
 }
 
 
-PUBLIC inline NOEXPORT
+PUBLIC inline
 void *
 Irq::operator new (size_t, void *p)
 { return p; }
@@ -214,32 +229,25 @@ Irq::operator delete (void *_l)
   allocator()->free(l);
 }
 
-PUBLIC static
-Irq*
+PUBLIC template<typename T> inline NEEDS[Irq::allocator, Irq::operator new]
+static
+T*
 Irq::allocate(Ram_quota *q)
 {
-  void *nq;
-  if (q->alloc(sizeof(Irq)) && (nq = allocator()->alloc()))
-    return new (nq) Irq(q);
+  void *nq =allocator()->q_alloc(q);
+  if (nq)
+    return new (nq) T(q);
 
   return 0;
 }
 
-PRIVATE static inline NOEXPORT NEEDS["kmem_slab.h"]
+static Kmem_slab _irq_allocator(max(sizeof (Irq_sender), sizeof(Irq_muxer)),
+                                __alignof__ (Irq), "Irq");
+
+PRIVATE static
 Irq::Allocator *
 Irq::allocator()
-{
-  static Allocator* slabs =
-    new Kmem_slab_simple (sizeof (Irq), __alignof__ (Irq), "Irq");
-
-  return slabs;
-}
-
-
-PUBLIC inline
-Receiver *
-Irq::owner() const
-{ return _irq_thread; }
+{ return &_irq_allocator; }
 
 
 /** Bind a receiver to this device interrupt.
@@ -248,13 +256,13 @@ Irq::owner() const
  */
 PUBLIC inline NEEDS ["atomic.h", "cpu_lock.h", "lock_guard.h"]
 bool
-Irq::alloc(Receiver *t)
+Irq_sender::alloc(Receiver *t)
 {
-  bool ret = cas (&_irq_thread, reinterpret_cast<Receiver*>(0), t);
+  bool ret = mp_cas(&_irq_thread, reinterpret_cast<Receiver*>(0), t);
 
   if (ret)
     {
-      if (EXPECT_TRUE(t && t != (Receiver*)~0UL)) // handle attaching the JDB
+      if (EXPECT_TRUE(t != 0))
 	{
           t->inc_ref();
 	  pin()->set_cpu(t->cpu());
@@ -266,6 +274,9 @@ Irq::alloc(Receiver *t)
   return ret;
 }
 
+PUBLIC
+Receiver *
+Irq_sender::owner() const { return _irq_thread; }
 
 /** Release an device interrupt.
     @param t the receiver that ownes the IRQ
@@ -274,21 +285,21 @@ Irq::alloc(Receiver *t)
  */
 PUBLIC
 bool
-Irq::free(Receiver *t)
+Irq_sender::free(Receiver *t)
 {
-  bool ret = cas (&_irq_thread, t, reinterpret_cast<Receiver*>(0));
+  bool ret = mp_cas(&_irq_thread, t, reinterpret_cast<Receiver*>(0));
 
   if (ret)
     {
-	{
-	  Lock_guard<Cpu_lock> guard(&cpu_lock);
-	  pin()->mask();
-	}
+      Lock_guard<Cpu_lock> guard(&cpu_lock);
+      pin()->mask();
 
       if (EXPECT_TRUE(t != 0))
 	{
-	  sender_dequeue(t->sender_list());
-	  t->vcpu_update_state();
+	  t->abort_send(this);
+
+	  // release cpu-lock early, actually before delete
+	  guard.release();
 
 	  if (t->dec_ref() == 0)
 	    delete t;
@@ -301,7 +312,7 @@ Irq::free(Receiver *t)
 
 PUBLIC explicit inline
 Irq::Irq(Ram_quota *q = 0)
-: _queued(0), _irq_thread(0), _irq_id(~0UL), _q(q)
+: _q(q)
 {
   new (pin()) Sw_irq_pin();
   pin()->mask();
@@ -311,16 +322,23 @@ PUBLIC
 void
 Irq::destroy(Kobject ***rl)
 {
+  Irq_base::destroy();
+  Kobject::destroy(rl);
+}
+
+PUBLIC explicit
+Irq_sender::Irq_sender(Ram_quota *q = 0)
+: Kobject_h<Irq_sender, Irq>(q), _queued(0), _irq_thread(0), _irq_id(~0UL)
+{}
+
+PUBLIC
+void
+Irq_sender::destroy(Kobject ***rl)
+{
   if (_irq_thread)
     free(_irq_thread);
 
-    {
-      Lock_guard<Cpu_lock> g(&cpu_lock);
-      pin()->unbind_irq();
-      pin()->replace<Sw_irq_pin>();
-    }
-
-  Kobject::destroy(rl);
+  Irq::destroy(rl);
 }
 
 PUBLIC inline
@@ -333,7 +351,7 @@ Irq::irq() const
  */
 PRIVATE inline NEEDS ["atomic.h"]
 Smword
-Irq::consume()
+Irq_sender::consume()
 {
   Smword old;
 
@@ -346,9 +364,9 @@ Irq::consume()
   return old - 1;
 }
 
-PUBLIC inline NEEDS[Irq::consume]
+PUBLIC inline
 int
-Irq::queued()
+Irq_sender::queued()
 {
   return _queued;
 }
@@ -358,25 +376,25 @@ Irq::queued()
  * Predicate used to figure out if the sender shall be enqueued
  * for sending a second message after sending the first.
  */
-PUBLIC inline
+PUBLIC inline NEEDS[Irq_sender::consume]
 bool
-Irq::requeue_sender()
+Irq_sender::requeue_sender()
 { return consume() > 0; }
 
 /**
  * Predicate used to figure out if the sender shall be deqeued after
  * sending the request.
  */
-PUBLIC inline
+PUBLIC inline NEEDS[Irq_sender::consume]
 bool
-Irq::dequeue_sender()
+Irq_sender::dequeue_sender()
 { return consume() < 1; }
 
 PUBLIC inline
 Syscall_frame *
-Irq::transfer_msg()
+Irq_sender::transfer_msg(Receiver *recv)
 {
-  Syscall_frame* dst_regs = _irq_thread->rcv_regs();
+  Syscall_frame* dst_regs = recv->rcv_regs();
 
   // set ipc return value: OK
   dst_regs->tag(L4_msg_tag(0, 0, 0, L4_msg_tag::Label_irq));
@@ -388,7 +406,7 @@ Irq::transfer_msg()
 }
 
 PUBLIC void
-Irq::modify_label(Mword const *todo, int cnt)
+Irq_sender::modify_label(Mword const *todo, int cnt)
 {
   for (int i = 0; i < cnt*4; i += 4)
     {
@@ -408,18 +426,21 @@ Irq::modify_label(Mword const *todo, int cnt)
 
 PRIVATE static
 unsigned
-Irq::handle_remote_hit(Context::Drq *, Context *, void *arg)
+Irq_sender::handle_remote_hit(Context::Drq *, Context *, void *arg)
 {
-  Irq *irq = (Irq*)arg;
+  Irq_sender *irq = (Irq_sender*)arg;
   irq->pin()->set_cpu(current_cpu());
   irq->send_msg(irq->_irq_thread);
   return Context::Drq::No_answer;
 }
 
-PRIVATE inline
+PRIVATE
 void
-Irq::handle_chained_irq()
+Irq_muxer::hit()
 {
+  assert (cpu_lock.test());
+  pin()->mask_and_ack();
+
   if (EXPECT_FALSE (!Irq_base::_next))
     return;
 
@@ -427,33 +448,45 @@ Irq::handle_chained_irq()
   for (Irq_base *n = Irq_base::_next; n;)
     {
       Irq *i = nonull_static_cast<Irq*>(n);
-      if (i->_irq_thread)
-	{
-	  ++irqs;
-	  i->pin()->__mask();
-	}
+      ++irqs;
+      i->pin()->__mask();
       n = i->Irq_base::_next;
     }
 
     {
       Smword old;
       do
-	old = _queued;
-      while (!mp_cas(&_queued, old, old + irqs));
+	old = _mask_cnt;
+      while (!mp_cas(&_mask_cnt, old, old + irqs));
     }
 
   for (Irq_base *n = Irq_base::_next; n;)
     {
       Irq *i = nonull_static_cast<Irq*>(n);
-      if (i->_irq_thread)
-	i->Irq::hit();
+      i->hit();
       n = i->Irq_base::_next;
     }
 }
 
-PUBLIC inline NEEDS[Irq::handle_chained_irq]
+
+PUBLIC inline
 void
-Irq::hit()
+Irq_debugger::hit()
+{
+  assert (cpu_lock.test());
+  pin()->mask_and_ack();
+
+#if defined(CONFIG_KDB) || defined(CONFIG_JDB)
+  if (pin()->check_debug_irq())
+    kdb_ke("IRQ ENTRY");
+#endif
+  pin()->unmask();
+}
+
+
+PUBLIC inline
+void
+Irq_sender::hit()
 {
   // We're entered holding the kernel lock, which also means irqs are
   // disabled on this CPU (XXX always correct?).  We never enable irqs
@@ -468,10 +501,7 @@ Irq::hit()
   pin()->mask_and_ack();
 
   if (EXPECT_FALSE (!_irq_thread))
-    {
-      handle_chained_irq();
-      return;
-    }
+    return;
   else if (EXPECT_FALSE (_irq_thread == (void*)-1))
     {
       // debugger attached to IRQ
@@ -499,9 +529,10 @@ Irq::hit()
     }
 }
 
+
 PRIVATE
 L4_msg_tag
-Irq::sys_attach(L4_msg_tag const &tag, Utcb const *utcb, Syscall_frame * /*f*/,
+Irq_sender::sys_attach(L4_msg_tag const &tag, Utcb const *utcb, Syscall_frame * /*f*/,
                 Obj_space *o_space)
 {
   L4_snd_item_iter snd_items(utcb, tag.words());
@@ -546,9 +577,23 @@ Irq::sys_attach(L4_msg_tag const &tag, Utcb const *utcb, Syscall_frame * /*f*/,
   return commit_result(-L4_err::EInval);
 }
 
+PUBLIC explicit
+Irq_muxer::Irq_muxer(Ram_quota *q = 0)
+: Kobject_h<Irq_muxer, Irq>(q), _mask_cnt(0)
+{}
+
+PUBLIC
+void
+Irq_muxer::destroy(Kobject ***rl)
+{
+  // FIXME: unchain IRQs
+
+  Irq::destroy(rl);
+}
+
 PRIVATE
 L4_msg_tag
-Irq::sys_chain(L4_msg_tag const &tag, Utcb const *utcb, Syscall_frame * /*f*/,
+Irq_muxer::sys_attach(L4_msg_tag const &tag, Utcb const *utcb, Syscall_frame * /*f*/,
                 Obj_space *o_space)
 {
   L4_snd_item_iter snd_items(utcb, tag.words());
@@ -556,7 +601,7 @@ Irq::sys_chain(L4_msg_tag const &tag, Utcb const *utcb, Syscall_frame * /*f*/,
   Irq *irq = 0;
   unsigned mode = utcb->values[0] >> 16;
 
-  if (tag.items() == 0 || _irq_thread)
+  if (tag.items() == 0)
     return commit_result(-L4_err::EInval);
 
   if (tag.items() && snd_items.next())
@@ -581,8 +626,8 @@ Irq::sys_chain(L4_msg_tag const &tag, Utcb const *utcb, Syscall_frame * /*f*/,
     {
       Smword old;
       do
-	old = _queued;
-      while (!mp_cas(&_queued, old, old + 1));
+	old = _mask_cnt;
+      while (!mp_cas(&_mask_cnt, old, old + 1));
     }
 
   irq->pin()->replace<Chain_irq_pin>(this);
@@ -595,8 +640,38 @@ Irq::sys_chain(L4_msg_tag const &tag, Utcb const *utcb, Syscall_frame * /*f*/,
 
 PUBLIC
 L4_msg_tag
-Irq::kinvoke(L4_obj_ref, Mword /*rights*/, Syscall_frame *f,
-             Utcb const *utcb, Utcb *)
+Irq_muxer::kinvoke(L4_obj_ref, Mword /*rights*/, Syscall_frame *f,
+                   Utcb const *utcb, Utcb *)
+{
+  register Context *const c_thread = ::current();
+  register Space *const c_space = c_thread->space();
+  register Obj_space *const o_space = c_space->obj_space();
+
+  L4_msg_tag tag = f->tag();
+
+  if (EXPECT_FALSE(tag.proto() != L4_msg_tag::Label_irq))
+    return commit_result(-L4_err::EBadproto);
+
+  if (EXPECT_FALSE(tag.words() < 1))
+    return commit_result(-L4_err::EInval);
+
+  switch ((utcb->values[0] & 0xffff))
+    {
+    case Op_chain:
+      return sys_attach(tag, utcb, f, o_space);
+    case Op_trigger:
+      hit();
+      Irq::log_irq(this, 0);
+      return no_reply();
+    default:
+      return commit_result(-L4_err::EInval);
+    }
+}
+
+PUBLIC
+L4_msg_tag
+Irq_sender::kinvoke(L4_obj_ref, Mword /*rights*/, Syscall_frame *f,
+                    Utcb const *utcb, Utcb *)
 {
   register Context *const c_thread = ::current();
   register Space *const c_space = c_thread->space();
@@ -618,15 +693,10 @@ Irq::kinvoke(L4_obj_ref, Mword /*rights*/, Syscall_frame *f,
       return no_reply();
     case Op_attach: /* ATTACH, DETACH */
       return sys_attach(tag, utcb, f, o_space);
-    case Op_chain:
-      return sys_chain(tag, utcb, f, o_space);
     case Op_trigger:
-      if (pin()->trigger())
-        {
-          Irq::log_irq(this, 0);
-          return no_reply();
-        }
-      // fall through
+      hit();
+      Irq::log_irq(this, 0);
+      return no_reply();
     default:
       return commit_result(-L4_err::EInval);
     }
@@ -634,7 +704,7 @@ Irq::kinvoke(L4_obj_ref, Mword /*rights*/, Syscall_frame *f,
 
 PUBLIC
 Mword
-Irq::obj_id() const
+Irq_sender::obj_id() const
 { return _irq_id; }
 
 
@@ -666,7 +736,7 @@ Irq::log_irq(Irq *irq, int nr)
   LOG_TRACE("IRQ-Object triggers", "irq", c, __irq_log_fmt,
       Irq::Irq_log *l = tbe->payload<Irq::Irq_log>();
       l->irq_number = nr;
-      l->user_ip    = c->regs()->ip(),
+      l->user_ip    = c->regs()->ip();
       l->irq_obj    = irq ? irq->dbg_id() : ~0UL;
   );
 }

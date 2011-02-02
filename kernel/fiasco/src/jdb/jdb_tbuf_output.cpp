@@ -118,7 +118,7 @@ Jdb_tbuf_output::thread_ip(int e_nr, Thread const **th, Mword *ip)
   if (!e)
     return false;
 
-  *th = Thread::lookup(e->ctx());
+  *th = static_cast<Thread const *>(e->ctx());
 
   *ip = e->ip();
 
@@ -183,14 +183,14 @@ Jdb_tbuf_output::print_entry(Tb_entry *tb, char *buf, int maxlen)
   assert(tb->type() < Tbuf_max);
 
   char tidstr[32];
-  Thread const *t = Thread::lookup(tb->ctx());
+  Thread const *t = static_cast<Thread const *>(tb->ctx());
 
   if (!t || !Kobject_dbg::is_kobj(t))
     strcpy(tidstr, "????");
   else
     {
       Jdb_kobject_name *ex
-        = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(t->kobject());
+        = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(t);
       if (show_names && ex)
         snprintf(tidstr, sizeof(tidstr), "%04lx %-*.*s", t->dbg_info()->dbg_id(), ex->max_len(), ex->max_len(), ex->name());
       else

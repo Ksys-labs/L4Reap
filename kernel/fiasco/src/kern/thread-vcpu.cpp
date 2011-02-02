@@ -1,21 +1,36 @@
-INTERFACE:
-
-extern "C" void vcpu_resume(Trap_state *, Return_frame *sp)
-   FIASCO_FASTCALL FIASCO_NORETURN;
-
-
-// --------------------------------------------------------------------------
 IMPLEMENTATION:
 
 #include "logdefs.h"
+#include "task.h"
 #include "vcpu.h"
+
+PUBLIC inline NEEDS["task.h"]
+void
+Thread::vcpu_set_user_space(Task *t)
+{
+  assert_kdb (current() == this);
+  if (t)
+    t->inc_ref();
+
+  Task *old = static_cast<Task*>(_space.vcpu_user());
+  _space.vcpu_user(t);
+
+  if (old)
+    {
+      if (!old->dec_ref())
+	{
+	  rcu_wait();
+	  delete old;
+	}
+    }
+}
 
 PUBLIC inline NEEDS["logdefs.h", "vcpu.h"]
 bool
 Thread::vcpu_pagefault(Address pfa, Mword err, Mword ip)
 {
   (void)ip;
-  Vcpu_state *vcpu = access_vcpu();
+  Vcpu_state *vcpu = vcpu_state().access();
   if (vcpu_pagefaults_enabled(vcpu))
     {
       spill_user_state();

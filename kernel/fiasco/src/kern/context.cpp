@@ -9,6 +9,7 @@ INTERFACE:
 #include "fpu_state.h"
 #include "globals.h"
 #include "l4_types.h"
+#include "mem_space.h"
 #include "member_offs.h"
 #include "per_cpu_data.h"
 #include "queue.h"
@@ -19,7 +20,6 @@ INTERFACE:
 #include "timeout.h"
 
 class Entry_frame;
-class Mem_space;
 class Space;
 class Thread_lock;
 class Context;
@@ -70,18 +70,32 @@ public:
   //T *ptr(Space *s) const { return static_cast<T*>(Context_ptr::ptr(s)); }
 };
 
-
-
-
-class Present_list_item : public D_list_item
+class Context_space_ref
 {
-protected:
-  static Spin_lock _plist_lock;
-  static Present_list_item *head;
+public:
+  typedef Spin_lock_coloc<Space *> Space_n_lock;
+
+private:
+  Space_n_lock _s;
+  Address _v;
+
+public:
+  Space *space() const { return _s.get_unused(); }
+  Space_n_lock *lock() { return &_s; }
+  Address user_mode() const { return _v & 1; }
+  Space *vcpu_user() const { return reinterpret_cast<Space*>(_v & ~3); }
+  Space *vcpu_aware() const { return user_mode() ? vcpu_user() : space(); }
+
+  void space(Space *s) { _s.set_unused(s); }
+  void vcpu_user(Space *s) { _v = (Address)s; }
+  void user_mode(bool enable)
+  {
+    if (enable)
+      _v |= (Address)1;
+    else
+      _v &= (Address)(~1);
+  }
 };
-
-
-
 
 /** An execution context.  A context is a runnable, schedulable activity.
     It carries along some state used by other subsystems: A lock count,
@@ -89,7 +103,6 @@ protected:
  */
 class Context :
   public Global_context_data,
-  private Present_list_item,
   protected Rcu_item
 {
   MEMBER_OFFSET();
@@ -115,12 +128,15 @@ public:
    */
   class Context_member
   {
-  public:
+  private:
+    Context_member(Context_member const &);
 
+  public:
+    Context_member() {}
     /**
      * \brief Get the aggregating Context object.
      */
-    Context *context();
+    Context *context() const;
   };
 
   /**
@@ -167,9 +183,42 @@ public:
     unsigned short prio;
   };
 
+  template<typename T>
+  class Ku_mem_ptr : public Context_member
+  {
+    MEMBER_OFFSET();
+
+  private:
+    typename User<T>::Ptr _u;
+    T *_k;
+
+  public:
+    Ku_mem_ptr() : _u(0), _k(0) {}
+    Ku_mem_ptr(typename User<T>::Ptr const &u, T *k) : _u(u), _k(k) {}
+
+    void set(typename User<T>::Ptr const &u, T *k)
+    { _u = u; _k = k; }
+
+    T *access(bool is_current = false) const
+    {
+      // assert_kdb (!is_current || current() == context());
+      if (is_current
+          && (int)Config::Access_user_mem == Config::Access_user_mem_direct)
+        return _u.get();
+
+      unsigned const cpu = current_cpu();
+      if ((int)Config::Access_user_mem == Config::Must_access_user_mem_direct
+          && cpu == context()->cpu()
+          && Mem_space::current_mem_space(cpu) == context()->mem_space())
+        return _u.get();
+      return _k;
+    }
+
+    typename User<T>::Ptr usr() const { return _u; }
+    T* kern() const { return _k; }
+  };
 
 public:
-
   /**
    * Definition of different scheduling modes
    */
@@ -182,14 +231,12 @@ public:
   /**
    * Definition of different helping modes
    */
-  enum Helping_mode {
+  enum Helping_mode
+  {
     Helping,
     Not_Helping,
     Ignore_Helping
   };
-
-  // FIXME: remove this function!
-  Mword is_tcb_mapped() const;
 
   /**
    * Size of a Context (TCB + kernel stack)
@@ -202,28 +249,6 @@ public:
    */
   Cpu_time consumed_time();
 
-  /**
-   * Get the kernel UTCB pointer.
-   * @return UTCB pointer, or 0 if there is no UTCB
-   */
-  Utcb* utcb() const;
-  
-  /**
-   * Get the local ID of the context.
-   */
-  Local_id local_id() const;
-
-  /**
-   * Set the local ID of the context.
-   * Does not touch the kernel UTCB pointer, since
-   * we would need space() to do the address translation.
-   *
-   * After setting the local ID and mapping the UTCB area, use
-   * Thread::utcb_init() to set the kernel UTCB pointer and initialize the
-   * UTCB.
-   */
-  void local_id (Local_id id);
-
   virtual bool kill() = 0;
 
   void spill_user_state();
@@ -235,16 +260,10 @@ protected:
    *        reading out the current thread's consumed CPU time.
    */
   void update_consumed_time();
-  
-  /**
-   * Set the kernel UTCB pointer.
-   * Does NOT keep the value of _local_id in sync.
-   * @see local_id (Local_id id);
-   */
-  void utcb (Utcb *u);
 
-  Mword   *		_kernel_sp;
+  Mword *_kernel_sp;
   void *_utcb_handler;
+  Ku_mem_ptr<Utcb> _utcb;
 
 private:
   friend class Jdb;
@@ -260,36 +279,32 @@ private:
   void switch_cpu (Context *t);
 
 protected:
-  Spin_lock_coloc<Space *> _space;
+  Context_space_ref _space;
 
 private:
-  Context *		_donatee;
-  Context *		_helper;
+  Context *_donatee;
+  Context *_helper;
 
   // Lock state
   // how many locks does this thread hold on other threads
   // incremented in Thread::lock, decremented in Thread::clear
   // Thread::kill needs to know
-  int			_lock_cnt;
-  Thread_lock * const	_thread_lock;
-  
-  Local_id _local_id;
-  Utcb *_utcb;
+  int _lock_cnt;
+
 
   // The scheduling parameters.  We would only need to keep an
   // anonymous reference to them as we do not need them ourselves, but
   // we aggregate them for performance reasons.
-  Sched_context		_sched_context;
-  Sched_context *	_sched;
-  Unsigned64		_period;
-  Sched_mode		_mode;
+  Sched_context _sched_context;
+  Sched_context *_sched;
+  Unsigned64 _period;
+  Sched_mode _mode;
 
   // Pointer to floating point register state
-  Fpu_state		_fpu_state;
+  Fpu_state _fpu_state;
   // Implementation-specific consumed CPU time (TSC ticks or usecs)
-  Clock::Time           _consumed_time;
+  Clock::Time _consumed_time;
 
-  bool _drq_active;
   Drq _drq;
   Drq_q _drq_q;
 
@@ -302,10 +317,12 @@ protected:
   struct Migration_rq
   {
     Migration_info inf;
+    Spin_lock<> affinity_lock;
     bool pending;
     bool in_progress;
 
-    Migration_rq() : pending(false), in_progress(false) {}
+    Migration_rq() : pending(false), in_progress(false)
+    { affinity_lock.init(); }
   } _migration_rq;
 
 protected:
@@ -314,8 +331,7 @@ protected:
   // timeout can be set at one time we use the same timeout. The timeout
   // has to be defined here because Dirq::hit has to be able to reset the
   // timeout (Irq::_irq_thread is of type Receiver).
-  Timeout *          _timeout;
-  Spin_lock _affinity_lock;
+  Timeout *_timeout;
 
 private:
   static Per_cpu<Clock> _clock;
@@ -382,9 +398,6 @@ IMPLEMENTATION:
 Per_cpu<Clock> DEFINE_PER_CPU Context::_clock(true);
 Per_cpu<Context *> DEFINE_PER_CPU Context::_kernel_ctxt;
 
-Spin_lock Present_list_item::_plist_lock INIT_PRIORITY(EARLY_INIT_PRIO);
-Present_list_item *Present_list_item::head;
-
 IMPLEMENT inline NEEDS["kdb_ke.h"]
 Kobject_iface *
 Context_ptr::ptr(Space *s, unsigned char *rights) const
@@ -407,13 +420,13 @@ Context_ptr::ptr(Space *s, unsigned char *rights) const
     @param space_context the space context
  */
 PUBLIC inline NEEDS ["atomic.h", "entry_frame.h", <cstdio>]
-Context::Context(Thread_lock *thread_lock)
+Context::Context()
 : _kernel_sp(reinterpret_cast<Mword*>(regs())),
+  _utcb_handler(0),
   _helper(this),
-  _thread_lock(thread_lock),
   _sched_context(),
   _sched(&_sched_context),
-  _mode(Sched_mode (0))
+  _mode(Sched_mode(0))
 {
   // NOTE: We do not have to synchronize the initialization of
   // _space_context because it is constant for all concurrent
@@ -423,19 +436,8 @@ Context::Context(Thread_lock *thread_lock)
   // space_context arguments.
 
   set_cpu_of(this, current_cpu());
-
-  Lock_guard<Spin_lock> guard(&Present_list_item::_plist_lock);
-  if (Present_list_item::head)
-    Present_list_item::head->Present_list_item::enqueue(this);
-  else
-    Present_list_item::head = this;
 }
 
-
-PUBLIC inline
-Spin_lock *
-Context::affinity_lock()
-{ return &_affinity_lock; }
 
 PUBLIC inline
 void
@@ -453,22 +455,7 @@ Context::do_kill()
  */
 PUBLIC virtual
 Context::~Context()
-{
-  Lock_guard<Spin_lock> guard(&Present_list_item::_plist_lock);
-  if (this == Present_list_item::head)
-    {
-      if (Present_list_item::next() != this)
-	Present_list_item::head = static_cast<Present_list_item*>(Present_list_item::next());
-      else
-	{
-	  Present_list_item::head = 0;
-	  return;
-	}
-    }
-
-  Present_list_item::dequeue();
-  
-}
+{}
 
 
 PUBLIC inline
@@ -476,15 +463,9 @@ Mword
 Context::state(bool check = true) const
 {
   (void)check;
-  assert_2_kdb(!check || cpu() == current_cpu());
+  assert_kdb(!check || cpu() == current_cpu());
   return _state;
 }
-
-IMPLEMENT inline
-Mword
-Context::is_tcb_mapped() const
-{ return true; }
-
 
 PUBLIC static inline
 Context*
@@ -529,10 +510,10 @@ Context::is_invalid() const
  */
 PUBLIC inline NEEDS ["atomic.h"]
 void
-Context::state_add (Mword const bits)
+Context::state_add(Mword const bits)
 {
-  assert_2_kdb(cpu() == current_cpu());
-  atomic_or (&_state, bits);
+  assert_kdb(cpu() == current_cpu());
+  atomic_or(&_state, bits);
 }
 
 /**
@@ -543,10 +524,10 @@ Context::state_add (Mword const bits)
  */ 
 PUBLIC inline
 void
-Context::state_add_dirty (Mword bits)
+Context::state_add_dirty(Mword bits)
 { 
-  assert_2_kdb(cpu() == current_cpu());
-  _state |=bits;
+  assert_kdb(cpu() == current_cpu());
+  _state |= bits;
 }
 
 /**
@@ -556,10 +537,10 @@ Context::state_add_dirty (Mword bits)
  */
 PUBLIC inline NEEDS ["atomic.h"]
 void
-Context::state_del (Mword const bits)
+Context::state_del(Mword const bits)
 {
-  assert_2_kdb (current_cpu() == cpu());
-  atomic_and (&_state, ~bits);
+  assert_kdb (current_cpu() == cpu());
+  atomic_and(&_state, ~bits);
 }
 
 /**
@@ -570,11 +551,11 @@ Context::state_del (Mword const bits)
  */
 PUBLIC inline
 void
-Context::state_del_dirty (Mword bits, bool check = true)
+Context::state_del_dirty(Mword bits, bool check = true)
 {
   (void)check;
-  assert_2_kdb(!check || cpu() == current_cpu());
-  _state &=~bits;
+  assert_kdb(!check || cpu() == current_cpu());
+  _state &= ~bits;
 }
 
 /**
@@ -588,9 +569,9 @@ Context::state_del_dirty (Mword bits, bool check = true)
  */
 PUBLIC inline NEEDS ["atomic.h"]
 Mword
-Context::state_change_safely (Mword const mask, Mword const bits)
+Context::state_change_safely(Mword const mask, Mword const bits)
 {
-  assert_2_kdb (current_cpu() == cpu());
+  assert_kdb (current_cpu() == cpu());
   Mword old;
 
   do
@@ -599,7 +580,7 @@ Context::state_change_safely (Mword const mask, Mword const bits)
       if (old & bits & mask | ~old & ~mask)
         return 0;
     }
-  while (!cas (&_state, old, old & mask | bits));
+  while (!cas(&_state, old, old & mask | bits));
 
   return 1;
 }
@@ -611,10 +592,10 @@ Context::state_change_safely (Mword const mask, Mword const bits)
  */
 PUBLIC inline NEEDS ["atomic.h"]
 Mword
-Context::state_change (Mword const mask, Mword const bits)
+Context::state_change(Mword const mask, Mword const bits)
 {
-  assert_2_kdb (current_cpu() == cpu());
-  return atomic_change (&_state, mask, bits);
+  assert_kdb (current_cpu() == cpu());
+  return atomic_change(&_state, mask, bits);
 }
 
 /**
@@ -626,10 +607,10 @@ Context::state_change (Mword const mask, Mword const bits)
  */
 PUBLIC inline
 void
-Context::state_change_dirty (Mword const mask, Mword const bits, bool check = true)
+Context::state_change_dirty(Mword const mask, Mword const bits, bool check = true)
 {
   (void)check;
-  assert_2_kdb(!check || cpu() == current_cpu());
+  assert_kdb(!check || cpu() == current_cpu());
   _state &= mask;
   _state |= bits;
 }
@@ -641,23 +622,20 @@ Context::state_change_dirty (Mword const mask, Mword const bits, bool check = tr
     @return space context used for this execution context.
             Set with set_space_context().
  */
-PUBLIC inline NEEDS["kdb_ke.h", "cpu_lock.h"]
+PUBLIC inline
 Space *
 Context::space() const
-{
-  //assert_kdb (cpu_lock.test());
-  return _space.get_unused();
-}
+{ return _space.space(); }
 
-PUBLIC inline NEEDS[Context::space, Context::vcpu_user_space]
+PUBLIC inline
+Context_space_ref *
+Context::space_ref()
+{ return &_space; }
+
+PUBLIC inline
 Space *
 Context::vcpu_aware_space() const
-{
-  if (EXPECT_FALSE(state() & Thread_vcpu_user_mode))
-    return vcpu_user_space();
-  else
-    return space();
-}
+{ return _space.vcpu_aware(); }
 
 /** Convenience function: Return memory space. */
 PUBLIC inline NEEDS["space.h"]
@@ -665,16 +643,6 @@ Mem_space*
 Context::mem_space() const
 {
   return space()->mem_space();
-}
-
-/** Thread lock.
-    @return the thread lock used to lock this context.
- */
-PUBLIC inline
-Thread_lock *
-Context::thread_lock() const
-{
-  return _thread_lock;
 }
 
 
@@ -760,13 +728,12 @@ PUBLIC
 void
 Context::schedule()
 {
-  Lock_guard <Cpu_lock> guard (&cpu_lock);
+  Lock_guard <Cpu_lock> guard(&cpu_lock);
 
   CNT_SCHEDULE;
 
   // Ensure only the current thread calls schedule
   assert_kdb (this == current());
-  assert_kdb (!_drq_active);
 
   unsigned current_cpu = ~0U;
   Sched_context::Ready_queue *rq = 0;
@@ -797,12 +764,12 @@ Context::schedule()
 
 	  // Ensure ready-list sanity
 	  assert_kdb (next_to_run);
-      
+
 	  if (EXPECT_TRUE (next_to_run->state() & Thread_ready_mask))
 	    break;
 
 	  next_to_run->ready_dequeue();
- 
+
 	  rq->schedule_in_progress = this;
 
 	  cpu_lock.clear();
@@ -821,7 +788,7 @@ Context::schedule()
 	    rq->schedule_in_progress = 0;
 	}
     }
-  while (EXPECT_FALSE(schedule_switch_to_locked (next_to_run)));
+  while (EXPECT_FALSE(schedule_switch_to_locked(next_to_run)));
 }
 
 /**
@@ -834,24 +801,21 @@ Context::schedule_in_progress()
   return sched()->schedule_in_progress(cpu());
 }
 
+PUBLIC inline NEEDS[Context::schedule_in_progress]
+void
+Context::schedule_if(bool s)
+{
+  if (!s || schedule_in_progress())
+    return;
+
+  schedule();
+}
 
 PROTECTED inline
 void
 Context::reset_schedule_in_progress()
 { sched()->reset_schedule_in_progress(cpu()); }
 
-#if 0
-/**
- * Return true if s can preempt the current scheduling context, false otherwise
- */
-PUBLIC static inline NEEDS ["globals.h"]
-bool
-Context::can_preempt_current (Sched_context const *s)
-{
-  assert_kdb (current_cpu() == s->owner()->cpu());
-  return current()->sched()->can_preempt_current(s);
-}
-#endif
 /**
  * Return currently active global Sched_context.
  */
@@ -945,7 +909,7 @@ Context::sched() const
  */
 PROTECTED inline
 void
-Context::set_sched (Sched_context * const sched)
+Context::set_sched(Sched_context * const sched)
 {
   _sched = sched;
 }
@@ -967,7 +931,7 @@ Context::period() const
  */
 PROTECTED inline
 void
-Context::set_period (Unsigned64 const period)
+Context::set_period(Unsigned64 const period)
 {
   _period = period;
 }
@@ -989,7 +953,7 @@ Context::mode() const
  */
 PUBLIC inline
 void
-Context::set_mode (Context::Sched_mode const mode)
+Context::set_mode(Context::Sched_mode const mode)
 {
   _mode = mode;
 }
@@ -1028,13 +992,14 @@ Context::in_ready_list() const
  */
 PUBLIC
 void
-Context::ready_enqueue()
+Context::ready_enqueue(bool check = true)
 {
-  assert_kdb(current_cpu() == cpu());
+  (void)check;
+  assert_kdb(!check || current_cpu() == cpu());
   //Lock_guard <Cpu_lock> guard (&cpu_lock);
 
   // Don't enqueue threads that are not ready or have no own time
-  if (EXPECT_FALSE (!(state() & Thread_ready_mask) || !sched()->left()))
+  if (EXPECT_FALSE (!(state(check) & Thread_ready_mask) || !sched()->left()))
     return;
 
   sched()->ready_enqueue(cpu());
@@ -1051,7 +1016,7 @@ PUBLIC
 bool
 Context::activate()
 {
-  Lock_guard <Cpu_lock> guard (&cpu_lock);
+  Lock_guard <Cpu_lock> guard(&cpu_lock);
   if (cpu() == current_cpu())
     {
       state_add_dirty(Thread_ready);
@@ -1078,6 +1043,7 @@ Context::ready_dequeue()
   sched()->ready_dequeue();
 }
 
+
 /** Helper.  Context that helps us by donating its time to us. It is
     set by switch_exec() if the calling thread says so.
     @return context that helps us and should be activated after freeing a lock.
@@ -1089,9 +1055,10 @@ Context::helper() const
   return _helper;
 }
 
+
 PUBLIC inline
 void
-Context::set_helper (enum Helping_mode const mode)
+Context::set_helper(Helping_mode const mode)
 {
   switch (mode)
     {
@@ -1121,7 +1088,7 @@ Context::donatee() const
 
 PUBLIC inline
 void
-Context::set_donatee (Context * const donatee)
+Context::set_donatee(Context * const donatee)
 {
   _donatee = donatee;
 }
@@ -1135,7 +1102,7 @@ Context::get_kernel_sp() const
 
 PUBLIC inline
 void
-Context::set_kernel_sp (Mword * const esp)
+Context::set_kernel_sp(Mword * const esp)
 {
   _kernel_sp = esp;
 }
@@ -1186,15 +1153,15 @@ Context::consumed_time()
  */
 PUBLIC inline NEEDS [<cassert>]
 void
-Context::switch_to (Context *t)
+Context::switch_to(Context *t)
 {
   // Call switch_to_locked if CPU lock is already held
   assert (!cpu_lock.test());
 
   // Grab the CPU lock
-  Lock_guard <Cpu_lock> guard (&cpu_lock);
+  Lock_guard <Cpu_lock> guard(&cpu_lock);
 
-  switch_to_locked (t);
+  switch_to_locked(t);
 }
 
 /**
@@ -1208,7 +1175,7 @@ Context::schedule_switch_to_locked(Context *t)
 {
    // Must be called with CPU lock held
   assert_kdb (cpu_lock.test());
- 
+
   // Switch to destination thread's scheduling context
   if (current_sched() != t->sched())
     set_current_sched(t->sched());
@@ -1236,16 +1203,45 @@ Context::switch_to_locked(Context *t)
  */
 PUBLIC inline NEEDS ["kdb_ke.h"]
 bool FIASCO_WARN_RESULT
-Context::switch_exec (Context *t, enum Helping_mode mode)
+Context::switch_exec(Context *t, enum Helping_mode mode)
 {
   // Call switch_exec_locked if CPU lock is already held
   assert_kdb (!cpu_lock.test());
 
   // Grab the CPU lock
-  Lock_guard <Cpu_lock> guard (&cpu_lock);
+  Lock_guard <Cpu_lock> guard(&cpu_lock);
 
-  return switch_exec_locked (t, mode);
+  return switch_exec_locked(t, mode);
 }
+
+
+PRIVATE inline
+Context *
+Context::handle_helping(Context *t)
+{
+  assert_kdb (current() == this);
+  // Time-slice lending: if t is locked, switch to its locker
+  // instead, this is transitive
+  while (t->donatee() &&		// target thread locked
+         t->donatee() != t)		// not by itself
+    {
+      // Special case for Thread::kill(): If the locker is
+      // current(), switch to the locked thread to allow it to
+      // release other locks.  Do this only when the target thread
+      // actually owns locks.
+      if (t->donatee() == this)
+        {
+          if (t->lock_cnt() > 0)
+            break;
+
+          return this;
+        }
+
+      t = t->donatee();
+    }
+  return t;
+}
+
 
 /**
  * Switch to a specific different execution context.
@@ -1258,11 +1254,10 @@ Context::switch_exec (Context *t, enum Helping_mode mode)
  */
 PUBLIC
 bool  FIASCO_WARN_RESULT //L4_IPC_CODE
-Context::switch_exec_locked (Context *t, enum Helping_mode mode)
+Context::switch_exec_locked(Context *t, enum Helping_mode mode)
 {
   // Must be called with CPU lock held
   assert_kdb (cpu_lock.test());
-  if (t->cpu() != current_cpu()){ printf("%p => %p\n", this, t); kdb_ke("ass"); }  assert_kdb (t->cpu() == current_cpu());
   assert_kdb (current() != t);
   assert_kdb (current() == this);
   assert_kdb (timeslice_timeout.cpu(cpu())->is_set()); // Coma check
@@ -1273,23 +1268,10 @@ Context::switch_exec_locked (Context *t, enum Helping_mode mode)
 
   // Time-slice lending: if t is locked, switch to its locker
   // instead, this is transitive
-  while (t->donatee() &&		// target thread locked
-         t->donatee() != t)		// not by itself
-    {
-      // Special case for Thread::kill(): If the locker is
-      // current(), switch to the locked thread to allow it to
-      // release other locks.  Do this only when the target thread
-      // actually owns locks.
-      if (t->donatee() == current())
-        {
-          if (t->lock_cnt() > 0)
-            break;
+  t = handle_helping(t);
 
-          return handle_drq();
-        }
-
-      t = t->donatee();
-    }
+  if (t == this)
+    return handle_drq();
 
   LOG_CONTEXT_SWITCH;
   CNT_CONTEXT_SWITCH;
@@ -1305,58 +1287,34 @@ Context::switch_exec_locked (Context *t, enum Helping_mode mode)
   // Ensure kernel stack pointer is non-null if thread is ready
   assert_kdb (t->_kernel_sp);
 
-  t->set_helper (mode);
+  t->set_helper(mode);
 
   update_ready_list();
   assert_kdb (!(state() & Thread_ready_mask) || !sched()->left()
               || in_ready_list());
 
-  switch_fpu (t);
-  switch_cpu (t);
+  switch_fpu(t);
+  switch_cpu(t);
 
   return handle_drq();
 }
 
 PUBLIC inline NEEDS[Context::switch_exec_locked, Context::schedule]
 void
-Context::switch_exec_schedule_locked (Context *t, enum Helping_mode mode)
+Context::switch_exec_schedule_locked(Context *t, enum Helping_mode mode)
 {
   if (EXPECT_FALSE(switch_exec_locked(t, mode)))
     schedule();
 }
 
-IMPLEMENT inline
-Local_id
-Context::local_id() const
-{
-  return _local_id;
-}
-
-IMPLEMENT inline
-void
-Context::local_id (Local_id id)
-{
-  _local_id = id;
-}
-
-IMPLEMENT inline
-Utcb *
+PUBLIC inline
+Context::Ku_mem_ptr<Utcb> const &
 Context::utcb() const
-{
-  return _utcb;
-}
-
-IMPLEMENT inline
-void
-Context::utcb (Utcb *u)
-{
-  _utcb = u;
-}
-
+{ return _utcb; }
 
 IMPLEMENT inline NEEDS["globals.h"]
 Context *
-Context::Context_member::context()
+Context::Context_member::context() const
 { return context_of(this); }
 
 IMPLEMENT inline NEEDS["lock_guard.h", "kdb_ke.h"]
@@ -1533,18 +1491,12 @@ PUBLIC //inline
 bool
 Context::handle_drq()
 {
-  //LOG_MSG_3VAL(this, ">drq", _drq_active, 0, cpu_lock.test());
   assert_kdb (current_cpu() == this->cpu());
   assert_kdb (cpu_lock.test());
 
   try_finish_migration();
 
-  if (_drq_active)
-    return false;
-
-  if (drq_pending())
-    _drq_active = 1;
-  else
+  if (!drq_pending())
     return false;
 
   Mem::barrier();
@@ -1557,7 +1509,6 @@ Context::handle_drq()
       if (EXPECT_TRUE(!drq_pending()))
 	{
 	  state_del_dirty(Thread_drq_ready);
-	  _drq_active = 0;
 	  break;
 	}
     }
@@ -1625,6 +1576,12 @@ PUBLIC inline NEEDS[Context::drq]
 void
 Context::drq_state_change(Mword mask, Mword add)
 {
+  if (current() == this)
+    {
+      state_change_dirty(mask, add);
+      return;
+    }
+
   State_request rq;
   rq.del = mask;
   rq.add = add;
@@ -1740,6 +1697,14 @@ void
 Context::recover_jmp_buf(jmp_buf *b)
 { _recover_jmpbuf = b; }
 
+PUBLIC static
+void
+Context::xcpu_tlb_flush(...)
+{
+  // This should always be optimized away
+  assert(0);
+}
+
 //----------------------------------------------------------------------------
 IMPLEMENTATION [!mp]:
 
@@ -1791,8 +1756,9 @@ Context::rcu_wait()
 
 PUBLIC static inline
 void
-Context::xcpu_tlb_flush()
+Context::xcpu_tlb_flush(bool, Mem_space *, Mem_space *)
 {}
+
 
 
 //----------------------------------------------------------------------------
@@ -1813,10 +1779,7 @@ protected:
   };
 
   class Pending_rq : public Queue_item, public Context_member
-  {
-  };
-
-  Pending_rq _pending_rq;
+  {} _pending_rq;
 
 protected:
   static Per_cpu<Pending_rqq> _pending_rqq;
@@ -2065,35 +2028,25 @@ Context::rcu_wait()
 
 PRIVATE static
 unsigned
-Context::handle_remote_tlb_flush(Drq *, Context *, void *)
+Context::handle_remote_tlb_flush(Drq *, Context *, void *_s)
 {
-  // printf("RCV XCPU_FLUSH (%d)\n", current_cpu());
-  if (!current()->space())
-    return 0;
-
-  Mem_space *ms = current()->mem_space();
-  bool need_flush = ms->need_tlb_flush();
-  if (need_flush)
-    ms->tlb_flush(true);
-
+  Mem_space **s = (Mem_space **)_s;
+  Mem_space::tlb_flush_spaces((bool)s[0], s[1], s[2]);
   return 0;
 }
 
 
 PUBLIC static
 void
-Context::xcpu_tlb_flush()
+Context::xcpu_tlb_flush(bool flush_all_spaces, Mem_space *s1, Mem_space *s2)
 {
-  //printf("XCPU_ TLB FLUSH\n");
   Lock_guard<Cpu_lock> g(&cpu_lock);
+  Mem_space *s[3] = { (Mem_space *)flush_all_spaces, s1, s2 };
   unsigned ccpu = current_cpu();
   for (unsigned i = 0; i < Config::Max_num_cpus; ++i)
-    {
-      if (ccpu != i && Cpu::online(i))
-	current()->global_drq(i, Context::handle_remote_tlb_flush, 0);
-    }
+    if (ccpu != i && Cpu::online(i))
+      current()->global_drq(i, Context::handle_remote_tlb_flush, s);
 }
-
 
 
 //----------------------------------------------------------------------------

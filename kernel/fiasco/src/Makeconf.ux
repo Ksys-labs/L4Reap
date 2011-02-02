@@ -31,5 +31,4 @@ SHARED_FLAGS                    += $(call CHECKCC,-mno-3dnow,)
 
 ASFLAGS				+= -m32
 OFORMAT				:= elf32-i386
-LD_EMULATION-SYSTEM-FreeBSD	:= elf_i386_fbsd
-LD_EMULATION-SYSTEM-default	:= elf_i386
+LD_EMULATION_CHOICE             := elf_i386 elf_i386_fbsd

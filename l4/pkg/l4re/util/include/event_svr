@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include <l4/re/event_enums.h>
+#include <l4/re/event>
 #include <l4/re/event-sys.h>
 #include <l4/re/util/icu_svr>
 
@@ -38,6 +40,14 @@ protected:
 public:
   Event_svr() : Icu_svr(1, &_irq) {}
   int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int get_num_streams() const { return 0; }
+  int get_stream_info(int, L4Re::Event_stream_info *)
+  { return -L4_EINVAL; }
+  int get_stream_info_for_id(l4_umword_t, L4Re::Event_stream_info *)
+  { return -L4_EINVAL; }
+  int get_axis_info(l4_umword_t, unsigned /*naxes*/, unsigned * /*axes*/,
+                    L4Re::Event_absinfo *infos)
+  { return -L4_EINVAL; }
 };
 
 template<typename SVR>
@@ -60,6 +70,42 @@ Event_svr<SVR>::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
     case L4Re::Event_::Get:
       ios << _ds;
       return L4_EOK;
+    case L4Re::Event_::Get_num_streams:
+      ios << (l4_umword_t)static_cast<SVR*>(this)->get_num_streams();
+      return L4_EOK;
+    case L4Re::Event_::Get_stream_info:
+        {
+          int idx;
+          ios >> idx;
+          Event_stream_info si;
+          int r = static_cast<SVR*>(this)->get_stream_info(idx, &si);
+	  ios.put(si);
+	  return r;
+        }
+    case L4Re::Event_::Get_stream_info_for_id:
+        {
+          l4_umword_t stream_id;
+          ios >> stream_id;
+          Event_stream_info si;
+          int r = static_cast<SVR*>(this)->get_stream_info_for_id(stream_id, &si);
+	  ios.put(si);
+	  return r;
+        }
+    case L4Re::Event_::Get_axis_info:
+	{
+	  l4_umword_t stream_id;
+	  long unsigned naxes = L4RE_ABS_MAX;
+	  unsigned axes[L4RE_ABS_MAX];
+	  ios >> stream_id >> L4::Ipc::buf_cp_in(axes, naxes);
+
+	  Event_absinfo infos[naxes];
+	  int r = static_cast<SVR*>(this)->get_axis_info(stream_id, naxes, axes, infos);
+	  if (r < 0)
+	    return r;
+
+	  ios << L4::Ipc::buf_cp_out(infos, naxes);
+	  return r;
+	}
     default:
       return -L4_ENOSYS;
     }

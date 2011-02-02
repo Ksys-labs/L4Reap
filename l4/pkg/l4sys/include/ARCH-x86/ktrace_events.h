@@ -187,6 +187,11 @@ typedef struct __attribute__((packed))
         } preemption;
       struct __attribute__((__packed__))
         {
+          Mword irq_obj;
+          int irq_number;
+        } irq;
+      struct __attribute__((__packed__))
+        {
             char _pad[30];
         } fit;
     } m;

@@ -88,7 +88,7 @@ Service::create(char const *_msg, L4::Ipc_iostream &ios)
 
   Texture *smpl = sf->create_texture(res, dsa.get());
 
-  cxx::Ref_ptr<Client_fb> x(new Client_fb(_core, Rect(Point(px, py), Area(res.w(), res.h() + 16)), Point(0, 0), smpl, ds.get()));
+  cxx::Ref_ptr<Client_fb> x(new Client_fb(_core, Rect(Point(px, py), res), Point(0, 0), smpl, ds.get()));
 
   reg()->register_obj(x);
   x->obj_cap()->dec_refcnt(1);

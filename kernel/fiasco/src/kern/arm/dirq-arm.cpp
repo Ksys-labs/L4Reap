@@ -44,7 +44,7 @@ next_irq:
 		Irq::log_irq(i, irq);
 
                 i->pin()->mask();
-		i->pin()->hit();
+		i->hit();
 		goto next_irq;
 	      }
 	  }
@@ -69,7 +69,7 @@ next_irq:
 	  {
 	    Irq *i = nonull_static_cast<Irq*>(Irq_chip_gen::irqs[irq]);
 	    Irq::log_irq(i, irq);
-	    i->pin()->hit();
+	    i->hit();
 	  }
       }
 }

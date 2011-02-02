@@ -23,7 +23,7 @@
 #include <l4/sys/types.h>
 //#include <l4/util/irq.h>
 #include <l4/irq/irq.h>
-#if !defined(ARCH_arm) && !defined(ARCH_ppc32)
+#if !defined(ARCH_arm) && !defined(ARCH_ppc32) && !defined(ARCH_sparc)
 #include <l4/util/port_io.h>
 #endif
 #include <l4/util/macros.h>

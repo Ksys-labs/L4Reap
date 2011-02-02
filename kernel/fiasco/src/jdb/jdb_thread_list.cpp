@@ -311,7 +311,17 @@ Thread*
 Jdb_thread_list::iter_prev(Thread *t)
 {
   if (_pr == 'p')
-    return static_cast<Thread*>(t->Present_list_item::prev());
+    {
+      Kobject *o = t;
+      do
+	{
+	  o = Kobject::from_dbg(o->dbg_info()->_pref);
+	  if (!o)
+	    o = Kobject::from_dbg(Kobject_dbg::_jdb_tail);
+	}
+      while (!Kobject::dcast<Thread*>(o));
+      return Kobject::dcast<Thread*>(o);
+    }
   else
     return static_cast<Thread*>(sc_iter_prev(t->sched())->context());
 }
@@ -322,7 +332,17 @@ Thread*
 Jdb_thread_list::iter_next(Thread *t)
 {
   if (_pr == 'p')
-    return static_cast<Thread*>(t->Present_list_item::next());
+    {
+      Kobject *o = t;
+      do
+	{
+	  o = Kobject::from_dbg(o->dbg_info()->_next);
+	  if (!o)
+	    o = Kobject::from_dbg(Kobject_dbg::_jdb_head.get_unused());
+	}
+      while (!Kobject::dcast<Thread*>(o));
+      return Kobject::dcast<Thread*>(o);
+    }
   else
     return static_cast<Thread*>(sc_iter_next(t->sched())->context());
 }
@@ -500,6 +520,7 @@ Jdb_thread_list::action(int cmd, void *&argbuf, char const *&fmt, int &)
 		  cpu = 0;
 		  break;
 	case 't': Jdb::execute_command("lt"); break; // other module
+	case 's': Jdb::execute_command("ls"); break; // other module
 	}
     }
   else if (cmd == 1)
@@ -526,7 +547,7 @@ Jdb_thread_list::action(int cmd, void *&argbuf, char const *&fmt, int &)
 
 PRIVATE static inline
 void
-Jdb_thread_list::print_thread_name(Kobject const * o)
+Jdb_thread_list::print_thread_name(Kobject_common const * o)
 {
   Jdb_kobject_name *nx = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(o);
   unsigned len = 15;
@@ -545,21 +566,16 @@ Jdb_thread_list::list_threads_show_thread(Thread *t)
 {
   char to[24];
   int  waiting_for = 0;
-  bool is_privileged = t->has_privileged_iopl();
 
   *to = '\0';
 
   Kconsole::console()->getchar_chance();
 
-  if (is_privileged && !long_output)
-    printf("%s", Jdb::esc_emph);
-  Jdb_kobject::print_uid(t->kobject(), 5);
-  if ((is_privileged) && !long_output)
-    putstr("\033[m");
+  Jdb_kobject::print_uid(t, 5);
 
   printf(" %-3u ", t->cpu());
 
-  print_thread_name(t->kobject());
+  print_thread_name(t);
 
   printf("  %2lx ", get_prio(t));
 
@@ -569,7 +585,7 @@ Jdb_thread_list::list_threads_show_thread(Thread *t)
     printf(" %5lx ", get_space_dbgid(t));
 
 
-  if (t->state() & Thread_receiving)
+  if (t->state(false) & Thread_receiving)
     {
       Jdb_thread::print_partner(t, 5);
       waiting_for = 1;
@@ -605,7 +621,7 @@ Jdb_thread_list::list_threads_show_thread(Thread *t)
 
   if (long_output)
     {
-      t->print_state_long(47);
+      Jdb_thread::print_state_long(t, 47);
       putchar('\n');
     }
   else
@@ -613,18 +629,18 @@ Jdb_thread_list::list_threads_show_thread(Thread *t)
       if (Config::stack_depth)
 	{
 	  Mword i, stack_depth;
-	  char *c  = (char*)t + sizeof(Thread);
-	  for (i=sizeof(Thread), stack_depth=Config::thread_block_size;
-	      i<Config::thread_block_size;
+	  char *c  = (char*)t + sizeof (Thread);
+	  for (i = sizeof (Thread), stack_depth = Config::thread_block_size;
+	      i < Config::thread_block_size;
 	      i++, stack_depth--, c++)
 	    if (*c != '5')
 	      break;
 
-	  printf("(%4ld) ", stack_depth-sizeof(Thread));
-	  t->print_state_long(23);
+	  printf("(%4ld) ", stack_depth - sizeof (Thread));
+	  Jdb_thread::print_state_long(t, 23);
 	}
       else
-	t->print_state_long(30);
+	Jdb_thread::print_state_long(t, 30);
       putstr("\033[K\n");
     }
 }
@@ -649,7 +665,7 @@ Jdb_thread_list::list_threads(Thread *t_start, char pr)
       Lock_guard<Cpu_lock> g(&cpu_lock);
       // enqueue current, which may not be in the ready list due to lazy queueing
       if (!t_current->in_ready_list())
-        t_current->ready_enqueue();
+        t_current->ready_enqueue(false);
     }
 
   Jdb::clear_screen();
@@ -726,7 +742,7 @@ Jdb_thread_list::list_threads(Thread *t_start, char pr)
 		case KEY_TAB: // goto thread we are waiting for
 		  t = Jdb_thread_list::index(y);
 		  if (t->partner()
-		      && (t->state() & (Thread_receiving |
+		      && (t->state(false) & (Thread_receiving |
 					Thread_busy  |
 					Thread_rcvlong_in_progress))
 		      && (!t->partner()->id().is_irq() ||

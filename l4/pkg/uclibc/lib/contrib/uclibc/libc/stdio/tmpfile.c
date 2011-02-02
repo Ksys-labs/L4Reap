@@ -18,8 +18,10 @@
 
 #include <features.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include "../misc/internals/tempname.h"
+#include <not-cancel.h>
 
 
 /* This returns a new stream opened on a temporary file (generated
@@ -34,7 +36,7 @@ FILE * tmpfile (void)
 
     if (__path_search (buf, FILENAME_MAX, NULL, "tmpf", 0))
 	return NULL;
-    fd = __gen_tempname (buf, __GT_FILE);
+    fd = __gen_tempname (buf, __GT_FILE, S_IRUSR | S_IWUSR);
     if (fd < 0)
 	return NULL;
 
@@ -43,7 +45,7 @@ FILE * tmpfile (void)
     (void) remove (buf);
 
     if ((f = fdopen (fd, "w+b")) == NULL)
-	close (fd);
+	close_not_cancel (fd);
 
     return f;
 }

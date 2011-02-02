@@ -459,8 +459,8 @@ map(MAPDB* mapdb,
       // Sigma0 special case: Sigma0 doesn't need to have a
       // fully-constructed page table, and it can fabricate mappings
       // for all physical addresses.:435
-      if (EXPECT_FALSE(! from->v_fabricate(snd_addr,
-	      &s_phys, &s_size, &s_attribs)))
+      if (EXPECT_FALSE(! from->v_fabricate(snd_addr, &s_phys,
+                                           &s_size, &s_attribs)))
 	continue;
 
       // We have a mapping in the sender's address space.
@@ -492,7 +492,7 @@ map(MAPDB* mapdb,
 
 	      if (Size super_offset = snd_addr.offset(Size(SUPERPAGE_SIZE)))
 		{
-		  // Just use OR here because i_phys may already contain 
+		  // Just use OR here because i_phys may already contain
 		  // the offset. (As is on ARM)
 		  i_phys = SPACE::subpage_address(i_phys, super_offset);
 		}
@@ -521,11 +521,11 @@ map(MAPDB* mapdb,
 
 	  // Check if we can upgrade mapping.  Otherwise, flush target
 	  // mapping.
-	  if (! grant	    		      // Grant currently always flushes
+	  if (! grant                         // Grant currently always flushes
 	      && r_size <= i_size             // Rcv frame in snd frame
 	      && SPACE::page_address(r_phys, i_size) == i_phys
 	      && (sender_mapping = mapdb->check_for_upgrade(r_phys, from_id, snd_addr, to_id, rcv_addr, &mapdb_frame)))
-	      doing_upgrade = true;
+	    doing_upgrade = true;
 
 	  if (! sender_mapping)	// Need flush
 	    {
@@ -546,7 +546,7 @@ map(MAPDB* mapdb,
       // s_size, s_attribs), the max. size of the receiver frame
       // (r_phys), the sender_mapping, and whether a receiver mapping
       // already exists (doing_upgrade).
-      
+
       unsigned i_attribs
         = Mt::apply_attribs(s_attribs, i_phys, attrib_add, attrib_del);
 
@@ -564,14 +564,13 @@ map(MAPDB* mapdb,
 	case SPACE::Insert_ok:
 
 	  assert (mapdb->valid_address(s_phys) || status == SPACE::Insert_ok);
-	  	// Never doing upgrades for mapdb-unmanaged memory
+          // Never doing upgrades for mapdb-unmanaged memory
 
 	  if (grant)
 	    {
 	      if (mapdb->valid_address(s_phys))
-		if (EXPECT_FALSE(
-		      !mapdb->grant(mapdb_frame, sender_mapping, to_id,
-			rcv_addr)))
+		if (EXPECT_FALSE(!mapdb->grant(mapdb_frame, sender_mapping,
+			                       to_id, rcv_addr)))
 		  {
 		    // Error -- remove mapping again.
 		    to->v_delete(rcv_addr, i_size);
@@ -580,18 +579,17 @@ map(MAPDB* mapdb,
 		    break;
 		  }
 
-
 	      from->v_delete(snd_addr.trunc(s_size), s_size);
 	      need_tlb_flush = true;
 	    }
 	  else if (status == SPACE::Insert_ok)
 	    {
-	      assert (! doing_upgrade);
+	      assert (!doing_upgrade);
 
 	      if (mapdb->valid_address(s_phys)
-		  && ! mapdb->insert(mapdb_frame, sender_mapping,
-				     to_id, rcv_addr,
-				     i_phys, i_size))
+		  && !mapdb->insert(mapdb_frame, sender_mapping,
+				    to_id, rcv_addr,
+				    i_phys, i_size))
 		{
 		  // Error -- remove mapping again.
 		  to->v_delete(rcv_addr, i_size);
@@ -629,13 +627,21 @@ map(MAPDB* mapdb,
 	break;
     }
 
+  SPACE *flush_from = 0;
   if (need_tlb_flush)
-    from->tlb_flush();
+    {
+      from->tlb_flush();
+      if (SPACE::Need_xcpu_tlb_flush)
+	flush_from = from;
+    }
 
-  if (SPACE::Need_xcpu_tlb_flush
-      && ((SPACE::Need_insert_tlb_flush && need_xcpu_tlb_flush)
-          || need_tlb_flush))
-    Context::xcpu_tlb_flush();
+  if (SPACE::Need_xcpu_tlb_flush)
+    {
+      SPACE *flush_to = 0;
+      if (SPACE::Need_insert_tlb_flush && need_xcpu_tlb_flush)
+	flush_to = to;
+      Context::xcpu_tlb_flush(false, to, from);
+    }
 
   if (EXPECT_FALSE(no_page_mapped))
     {
@@ -718,20 +724,8 @@ unmap(MAPDB* mapdb, SPACE* space, Space *space_id,
 	    end = address + phys_size;
 	}
 
-      if (!mapdb->valid_address(phys)) // No mapdb data -> cannot recurse
-	{
-	  WARN("NO MAPDB for [%s] %lx\n", SPACE::name, SPACE::phys_to_word(phys));
-	  if (me_too)
-	    {
-	      flushed_rights |=
-		space->v_delete(address, phys_size, flush_rights);
-
-	      need_tlb_flush = true;
-	      need_xcpu_tlb_flush = true;
-	    }
-
-	  continue;
-	}
+      // all pages shall be handled by our mapping data base
+      assert (mapdb->valid_address(phys));
 
       Mapping *mapping;
       Frame mapdb_frame;
@@ -782,7 +776,7 @@ unmap(MAPDB* mapdb, SPACE* space, Space *space_id,
     space->tlb_flush();
 
   if (SPACE::Need_xcpu_tlb_flush && need_xcpu_tlb_flush)
-    Context::xcpu_tlb_flush();
+    Context::xcpu_tlb_flush(true, space, 0);
 
   return SPACE::xlate_flush_result(flushed_rights);
 }

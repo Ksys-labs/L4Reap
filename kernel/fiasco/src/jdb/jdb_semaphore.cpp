@@ -30,7 +30,7 @@ Jdb_semaphore::Jdb_semaphore()
 
 PUBLIC
 bool
-Jdb_semaphore::show_kobject(Kobject *, int )
+Jdb_semaphore::show_kobject(Kobject_common *, int )
 {
   return true;
 }
@@ -44,7 +44,7 @@ Jdb_semaphore::kobject_type() const
 
 PUBLIC
 int
-Jdb_semaphore::show_kobject_short(char *buf, int max, Kobject *o)
+Jdb_semaphore::show_kobject_short(char *buf, int max, Kobject_common *o)
 {
   U_semaphore *u = Kobject::dcast<U_semaphore*>(o);
   Prio_list_elem *p = u->_queue.head();

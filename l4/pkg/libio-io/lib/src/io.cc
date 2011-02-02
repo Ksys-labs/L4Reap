@@ -62,7 +62,7 @@ __internal_l4io_init()
       vbus() = L4Re::Env::env()->get_cap<void>("vbus");
       if (!vbus().is_valid())
 	{
-	  printf("libio: Warning: Query of 'vbus' failed with!\n");
+	  printf("libio: Warning: Query of 'vbus' failed!\n");
 	  return;
 	}
 

@@ -9,14 +9,13 @@
 # You shouldn't need to mess with anything beyond this point...
 #--------------------------------------------------------------
 clean_targets := clean realclean distclean \
-	objclean-y headers_clean-y utils_clean
+	objclean-y headers_clean-y CLEAN_utils
 noconfig_targets := menuconfig config oldconfig silentoldconfig randconfig \
 	defconfig allyesconfig allnoconfig \
 	release dist tags help
 
 include $(top_srcdir)Rules.mak
 sub_headers := headers
-
 ifndef KCONFIG_CONFIG
 KCONFIG_CONFIG := $(top_builddir).config
 endif
@@ -24,7 +23,7 @@ export KCONFIG_CONFIG
 
 ifeq ($(HAVE_DOT_CONFIG),y)
 
-all: pregen libs
+all: headers pregen libs
 libs: pregen
 
 # In this section, we need .config
@@ -49,6 +48,7 @@ include $(top_srcdir)libresolv/Makefile.in
 include $(top_srcdir)libutil/Makefile.in
 include $(top_srcdir)libpthread/Makefile.in
 include $(top_srcdir)librt/Makefile.in
+include $(top_srcdir)libubacktrace/Makefile.in
 include $(top_srcdir)extra/locale/Makefile.in
 
 # last included to catch all the objects added by others (locales/threads)
@@ -114,7 +114,8 @@ target-headers-sysdep := \
 	$(ALL_HEADERS_BITS_ARCH) \
 	$(ALL_HEADERS_BITS_SUBARCH) \
 	$(ALL_HEADERS_SYS_COMMON) \
-	$(ALL_HEADERS_SYS_ARCH)
+	$(ALL_HEADERS_SYS_ARCH) \
+	$(ALL_HEADERS_BITS_PTHREAD)
 
 $(top_builddir)include/fpu_control.h:
 	@$(disp_ln)
@@ -146,21 +147,22 @@ $(ALL_HEADERS_SYS_ARCH):
 	$(do_ln) $(call rel_srcdir)libc/sysdeps/linux/$(TARGET_ARCH)/sys/$(@F) $@
 endif
 
-$(target-headers-sysdep): | $(top_builddir)include/bits $(top_builddir)include/sys
+$(target-headers-sysdep) $(pregen-headers-y): | $(top_builddir)include/bits $(top_builddir)include/sys
 
-sysdep_common_headers-clean:
-	$(RM) $(ALL_HEADERS_COMMON)
-headers_clean-y += sysdep_common_headers-clean
+HEADERCLEAN_common:
+	$(do_rm) $(ALL_HEADERS_COMMON)
+headers_clean-y += HEADERCLEAN_common
 
 # The headers. Arch specific headers are specified via ARCH_HEADERS in
 # libc/sysdeps/linux/$(TARGET_ARCH)/Makefile.arch which appends those via
 # libc/sysdeps/linux/Makefile.commonarch to headers-y
 headers-y += $(target-headers-sysdep)
 
-headers: $(top_builddir)include/bits/uClibc_config.h
+headers: $(top_builddir)include/bits/uClibc_config.h $(top_builddir)include/bits/sysnum.h | subdirs
 subdirs: $(addprefix $(top_builddir),$(subdirs))
-pregen: $(top_builddir)include/bits/sysnum.h headers subdirs
-
+pregen-headers: $(pregen-headers-y)
+pregen: pregen-headers
+	$(Q)$(if $(UCLIBC_HAS_LOCALE),$(MAKE) -C extra/locale locale_headers)
 $(top_builddir)include/bits/sysnum.h: $(top_srcdir)extra/scripts/gen_bits_syscall_h.sh | $(top_builddir)include/bits
 	@$(disp_gen)
 	$(Q)set -e; \
@@ -193,6 +195,8 @@ install: install_runtime install_dev
 
 RUNTIME_PREFIX_LIB_FROM_DEVEL_PREFIX_LIB=$(shell $(top_srcdir)extra/scripts/relative_path.sh $(DEVEL_PREFIX)$(MULTILIB_DIR) $(RUNTIME_PREFIX)$(MULTILIB_DIR))
 
+startfiles: $(crt-y)
+
 $(top_builddir)extra/scripts/unifdef: |$(top_builddir)extra/scripts
 $(top_builddir)extra/scripts/unifdef: $(top_srcdir)extra/scripts/unifdef.c
 	$(hcompile.u)
@@ -201,6 +205,7 @@ $(top_builddir)extra/scripts/unifdef: $(top_srcdir)extra/scripts/unifdef.c
 # a "y" here means the feature is enabled and so we should *not* rm it.
 # if the option expands to nothing though, we can punt the headers.
 HEADERS_RM- := \
+	internal \
 	dl-osinfo.h \
 	_lfs_64.h \
 	bits/uClibc_arch_features.h \
@@ -209,42 +214,54 @@ HEADERS_RM- := \
 	bits/kernel_types.h \
 	bits/syscalls.h \
 	bits/syscalls-common.h \
-	bits/utmpx.h \
 	bits/uClibc_errno.h \
 	bits/uClibc_uintmaxtostr.h \
-	atomic.h \
-	bits/atomic.h \
 	bits/sigcontextinfo.h \
 	bits/stackinfo.h \
 	tls.h \
 	rpc/des_crypt.h \
 	rpc/key_prot.h \
-	rpc/rpc_des.h \
-	sgtty.h
-HEADERS_RM-$(UCLIBC_HAS_FLOATS) += \
-	complex.h \
-	fpu_control.h \
-	ieee754.h \
+	rpc/rpc_des.h
+HEADERS_RM-$(HAVE_SHARED)                    += dlfcn.h bits/dlfcn.h
+HEADERS_RM-$(PTHREADS_DEBUG_SUPPORT)         += thread_db.h
+HEADERS_RM-$(UCLIBC_HAS_BSD_ERR)             += err.h
+HEADERS_RM-$(UCLIBC_HAS_CRYPT)               += crypt.h
+HEADERS_RM-$(UCLIBC_HAS_EPOLL)               += sys/epoll.h
+HEADERS_RM-$(UCLIBC_HAS_FENV)                += fenv.h bits/fenv.h bits/fenvinline.h
+HEADERS_RM-$(UCLIBC_HAS_FLOATS)              += complex.h fpu_control.h ieee754.h \
 	math.h \
 	tgmath.h \
 	bits/uClibc_fpmax.h \
 	bits/math*.h
+HEADERS_RM-$(findstring y,$(UCLIBC_HAS_FTW)$(UCLIBC_HAS_NFTW))  += ftw.h
+HEADERS_RM-$(UCLIBC_HAS_GETTEXT_AWARENESS)   += libintl.h
+HEADERS_RM-$(UCLIBC_HAS_GLIBC_CUSTOM_PRINTF) += printf.h
+HEADERS_RM-$(UCLIBC_HAS_GLOB)                += glob.h
+HEADERS_RM-$(UCLIBC_HAS_GNU_ERROR)           += error.h
 HEADERS_RM-$(UCLIBC_HAS_GNU_GETOPT)$(UCLIBC_HAS_GETOPT_LONG) += getopt.h
-HEADERS_RM-$(UCLIBC_HAS_REALTIME) += \
-	mqueue.h \
-	bits/mqueue.h \
-	sched.h \
+HEADERS_RM-$(UCLIBC_HAS_IPV6)                += netinet/ip6.h netinet/icmp6.h
+HEADERS_RM-$(UCLIBC_HAS_BACKTRACE)           += execinfo.h
+HEADERS_RM-$(UCLIBC_HAS_LOCALE)              += iconv.h
+HEADERS_RM-$(UCLIBC_HAS_PTY)                 += pty.h
+HEADERS_RM-$(UCLIBC_HAS_REALTIME)            += mqueue.h bits/mqueue.h sched.h \
 	bits/sched.h \
 	semaphore.h
-HEADERS_RM-$(UCLIBC_HAS_THREADS) += \
-	*thread*.h \
-	semaphore.h \
+HEADERS_RM-$(UCLIBC_HAS_REGEX)               += regex.h regexp.h
+HEADERS_RM-$(UCLIBC_HAS_RPC)                 += rpc
+HEADERS_RM-$(UCLIBC_HAS_SHADOW)              += shadow.h
+HEADERS_RM-$(UCLIBC_HAS_SOCKET)              += sys/socket.h bits/socket.h sys/socketvar.h
+HEADERS_RM-$(UCLIBC_HAS_SYSLOG)              += syslog.h sys/syslog.h bits/syslog*.h
+HEADERS_RM-$(UCLIBC_HAS_THREADS)             += *thread*.h semaphore.h \
 	bits/*thread*.h \
 	bits/initspin.h
-HEADERS_RM-$(UCLIBC_LINUX_SPECIFIC) += \
-	sys/fsuid.h \
-	sys/inotify.h \
-	sys/perm.h \
+HEADERS_RM-$(UCLIBC_HAS_THREADS_NATIVE)      += atomic.h bits/atomic.h
+HEADERS_RM-$(UCLIBC_HAS_UTMPX)               += bits/utmpx.h utmpx.h
+HEADERS_RM-$(UCLIBC_HAS_WCHAR)               += wchar.h wctype.h
+HEADERS_RM-$(UCLIBC_HAS_WORDEXP)             += wordexp.h
+HEADERS_RM-$(UCLIBC_HAS_XATTR)               += sys/xattr.h
+HEADERS_RM-$(UCLIBC_HAS_XLOCALE)             += xlocale.h
+HEADERS_RM-$(UCLIBC_HAS_LOCALE)              += bits/uClibc_ctype.h
+HEADERS_RM-$(UCLIBC_LINUX_SPECIFIC)          += sys/fsuid.h sys/inotify.h sys/perm.h \
 	sys/personality.h \
 	sys/prctl.h \
 	sys/reboot.h \
@@ -256,29 +273,6 @@ HEADERS_RM-$(UCLIBC_LINUX_SPECIFIC) += \
 	sys/sysctl.h \
 	sys/sysinfo.h \
 	sys/vfs.h
-HEADERS_RM-$(HAVE_SHARED)                    += dlfcn.h bits/dlfcn.h
-HEADERS_RM-$(PTHREADS_DEBUG_SUPPORT)         += thread_db.h
-HEADERS_RM-$(UCLIBC_HAS_BSD_ERR)             += err.h
-HEADERS_RM-$(UCLIBC_HAS_CRYPT)               += crypt.h
-HEADERS_RM-$(UCLIBC_HAS_EPOLL)               += sys/epoll.h
-HEADERS_RM-$(UCLIBC_HAS_FENV)                += fenv.h bits/fenv.h bits/fenvinline.h
-HEADERS_RM-$(findstring y,$(UCLIBC_HAS_FTW)$(UCLIBC_HAS_NFTW))  += ftw.h
-HEADERS_RM-$(UCLIBC_HAS_GETTEXT_AWARENESS)   += libintl.h
-HEADERS_RM-$(UCLIBC_HAS_GLIBC_CUSTOM_PRINTF) += printf.h
-HEADERS_RM-$(UCLIBC_HAS_GLOB)                += glob.h
-HEADERS_RM-$(UCLIBC_HAS_GNU_ERROR)           += error.h
-HEADERS_RM-$(UCLIBC_HAS_IPV6)                += netinet/ip6.h netinet/icmp6.h
-HEADERS_RM-$(UCLIBC_HAS_LOCALE)              += iconv.h
-HEADERS_RM-$(UCLIBC_HAS_PTY)                 += pty.h
-HEADERS_RM-$(UCLIBC_HAS_REGEX)               += regex.h regexp.h
-HEADERS_RM-$(UCLIBC_HAS_RPC)                 += rpc
-HEADERS_RM-$(UCLIBC_HAS_SHADOW)              += shadow.h
-HEADERS_RM-$(UCLIBC_HAS_SOCKET)              += sys/socket.h bits/socket.h sys/socketvar.h
-HEADERS_RM-$(UCLIBC_HAS_SYSLOG)              += syslog.h sys/syslog.h bits/syslog*.h
-HEADERS_RM-$(UCLIBC_HAS_WCHAR)               += wchar.h wctype.h
-HEADERS_RM-$(UCLIBC_HAS_WORDEXP)             += wordexp.h
-HEADERS_RM-$(UCLIBC_HAS_XATTR)               += sys/xattr.h
-HEADERS_RM-$(UCLIBC_HAS_XLOCALE)             += xlocale.h
 HEADERS_RM-$(UCLIBC_SUPPORT_AI_ADDRCONFIG)   += ifaddrs.h
 HEADERS_RM-$(UCLIBC_SV4_DEPRECATED)          += ustat.h sys/ustat.h bits/ustat.h
 HEADERS_RM-$(UCLIBC_SUSV3_LEGACY)            += sys/timeb.h regexp.h
@@ -287,47 +281,69 @@ HEADERS_RM-$(UCLIBC_SUSV4_LEGACY)            += utime.h
 	### ucontext.h
 
 ifneq ($(findstring install,$(MAKECMDGOALS)),)
-$(PREFIX)$(RUNTIME_PREFIX)$(MULTILIB_DIR) $(addprefix $(PREFIX)$(DEVEL_PREFIX),include lib):
+$(addprefix $(PREFIX)$(DEVEL_PREFIX),include $(MULTILIB_DIR)):
+	$(do_mkdir)
+# avoid warning about duplicate targets in rule or overrides
+ifneq ($(abspath $(RUNTIME_PREFIX)$(MULTILIB_DIR)),$(abspath $(DEVEL_PREFIX)$(MULTILIB_DIR)))
+$(PREFIX)$(RUNTIME_PREFIX)$(MULTILIB_DIR):
 	$(do_mkdir)
 endif
-
+endif
 install_headers: headers $(top_builddir)extra/scripts/unifdef | $(PREFIX)$(DEVEL_PREFIX)include
-	top_builddir=$(top_builddir) \
-	$(top_srcdir)extra/scripts/install_headers.sh include $(PREFIX)$(DEVEL_PREFIX)include
-	cd $(PREFIX)$(DEVEL_PREFIX)include && $(RM) -r $(HEADERS_RM-)
+	@$(call disp_install,"include -> $(PREFIX)$(DEVEL_PREFIX)include")
+	$(Q)top_builddir=$(top_builddir) \
+	$(top_srcdir)extra/scripts/install_headers.sh \
+	include $(PREFIX)$(DEVEL_PREFIX)include
+ifneq ($(O),) # only run this step in O is set i.e. make O=/my/builddir/ ..
+	@$(call disp_install,"$(top_builddir)/include -> $(PREFIX)$(DEVEL_PREFIX)include")
+	$(Q)top_builddir=$(top_builddir) \
+	$(top_srcdir)extra/scripts/install_headers.sh \
+	$(top_builddir)/include $(PREFIX)$(DEVEL_PREFIX)include
+endif
+	$(Q)cd $(PREFIX)$(DEVEL_PREFIX)include && $(RM) -r $(HEADERS_RM-)
 ifeq ($(UCLIBC_HAS_WCHAR),)
-	cd $(PREFIX)$(DEVEL_PREFIX)include && mv -f wchar-stub.h wchar.h
+	$(Q)cd $(PREFIX)$(DEVEL_PREFIX)include && mv -f wchar-stub.h wchar.h
 else
-	cd $(PREFIX)$(DEVEL_PREFIX)include && $(RM) -f wchar-stub.h
+	$(Q)cd $(PREFIX)$(DEVEL_PREFIX)include && $(RM) -f wchar-stub.h
 endif
 
+# Installs startfiles
+install_startfiles: startfiles | $(PREFIX)$(DEVEL_PREFIX)$(MULTILIB_DIR)
+	-$(INSTALL) -m 644 $(startfiles) $(PREFIX)$(DEVEL_PREFIX)$(MULTILIB_DIR)/
+
 # Installs development library links.
-install_dev: install_headers install_runtime | $(PREFIX)$(DEVEL_PREFIX)$(MULTILIB_DIR)
-	-$(INSTALL) -m 644 $(top_builddir)lib/*.[ao] $(PREFIX)$(DEVEL_PREFIX)$(MULTILIB_DIR)/
+install_dev: install_headers install_runtime install_startfiles | $(PREFIX)$(DEVEL_PREFIX)$(MULTILIB_DIR)
+	-$(INSTALL) -m 644 $(top_builddir)lib/*.a $(PREFIX)$(DEVEL_PREFIX)$(MULTILIB_DIR)/
 ifeq ($(HAVE_SHARED),y)
 	for i in `cd $(top_builddir) && find lib/ -type l -name 'lib[a-zA-Z]*.so' | \
 	$(SED) -e 's/lib\///'` ; do \
-		$(LN) -sf $(RUNTIME_PREFIX_LIB_FROM_DEVEL_PREFIX_LIB)$$i.$(MAJOR_VERSION) \
+		$(LN) -sf $(RUNTIME_PREFIX_LIB_FROM_DEVEL_PREFIX_LIB)$$i.$(ABI_VERSION) \
 		$(PREFIX)$(DEVEL_PREFIX)$(MULTILIB_DIR)/$$i; \
 	done
 ifeq ($(HARDWIRED_ABSPATH),y)
-	if [ -f $(top_builddir)lib/libc.so -a -f $(PREFIX)$(RUNTIME_PREFIX)$(MULTILIB_DIR)/$(SHARED_MAJORNAME) ] ; then \
+	if [ -f $(top_builddir)lib/libc.so -a -f $(PREFIX)$(RUNTIME_PREFIX)$(MULTILIB_DIR)/$(SHARED_LIBNAME) ] ; then \
 		$(RM) $(PREFIX)$(DEVEL_PREFIX)$(MULTILIB_DIR)/libc.so; \
 		$(SED) -e 's:$(NONSHARED_LIBNAME):$(DEVEL_PREFIX)$(MULTILIB_DIR)/$(NONSHARED_LIBNAME):' \
-		    -e 's:$(SHARED_MAJORNAME):$(RUNTIME_PREFIX)$(MULTILIB_DIR)/$(SHARED_MAJORNAME):' \
+		    -e 's:$(SHARED_LIBNAME):$(RUNTIME_PREFIX)$(MULTILIB_DIR)/$(SHARED_LIBNAME):' \
 		    -e 's:$(UCLIBC_LDSO):$(RUNTIME_PREFIX)$(MULTILIB_DIR)/$(UCLIBC_LDSO):' \
 		    $(top_builddir)lib/libc.so > $(PREFIX)$(DEVEL_PREFIX)$(MULTILIB_DIR)/libc.so; \
 	fi
 else
 	-$(INSTALL) -m 755 $(top_builddir)lib/libc.so $(PREFIX)$(DEVEL_PREFIX)$(MULTILIB_DIR)/
 endif
+ifeq ($(UCLIBC_HAS_BACKTRACE),y)
+# Add the AS_NEEDED entry for libubacktrace.so
+	if [ -f $(top_builddir)lib/libc.so -a -f $(PREFIX)$(RUNTIME_PREFIX)lib/$(SHARED_MAJORNAME) ] ; then \
+		echo "GROUP ( $(UBACKTRACE_ASNEEDED) )" >> $(PREFIX)$(DEVEL_PREFIX)lib/libc.so; \
+	fi
+endif
 ifeq ($(UCLIBC_HAS_THREADS),y)
 ifneq ($(LINUXTHREADS_OLD),y)
 ifeq ($(HARDWIRED_ABSPATH),y)
-	if [ -f $(top_builddir)lib/libpthread.so -a -f $(PREFIX)$(RUNTIME_PREFIX)$(MULTILIB_DIR)/libpthread.so.$(MAJOR_VERSION) ] ; then \
+	if [ -f $(top_builddir)lib/libpthread.so -a -f $(PREFIX)$(RUNTIME_PREFIX)$(MULTILIB_DIR)/libpthread.so.$(ABI_VERSION) ] ; then \
 		$(RM) $(PREFIX)$(DEVEL_PREFIX)$(MULTILIB_DIR)/libpthread.so; \
 		cp $(top_srcdir)extra/scripts/format.lds $(PREFIX)$(DEVEL_PREFIX)$(MULTILIB_DIR)/libpthread.so; \
-		echo "GROUP ( $(RUNTIME_PREFIX)$(MULTILIB_DIR)/libpthread.so.$(MAJOR_VERSION) $(DEVEL_PREFIX)$(MULTILIB_DIR)/libpthread_nonshared.a )" \
+		echo "GROUP ( $(RUNTIME_PREFIX)$(MULTILIB_DIR)/libpthread.so.$(ABI_VERSION) $(DEVEL_PREFIX)$(MULTILIB_DIR)/libpthread_nonshared.a )" \
 			>> $(PREFIX)$(DEVEL_PREFIX)$(MULTILIB_DIR)/libpthread.so; \
 	fi
 else
@@ -374,7 +390,7 @@ ifeq ($(HAVE_SHARED),y)
 	fi
 endif
 
-utils:
+utils: | pregen
 	$(Q)$(MAKE) CROSS="$(CROSS)" CC="$(CC)" -C utils $@
 
 # Installs helper applications, such as 'ldd' and 'ldconfig'
@@ -383,13 +399,13 @@ install_utils: utils
 
 endif # ifeq ($(HAVE_DOT_CONFIG),y)
 
-hostutils:
+hostutils: | pregen
 	$(Q)$(MAKE) CROSS="$(CROSS)" CC="$(CC)" HOSTCC="$(HOSTCC)" DOTHOST=.host -C utils $@
 
 install_hostutils: hostutils
 	$(Q)$(MAKE) CROSS="$(CROSS)" CC="$(CC)" HOSTCC="$(HOSTCC)" DOTHOST=.host -C utils utils_install
 
-$(addprefix $(top_builddir),include/bits include/sys include/config extra/config/lxdialog extra/locale extra/scripts $(subdirs)):
+$(addprefix $(top_builddir),include include/bits include/sys include/config lib extra/config/lxdialog extra/locale extra/scripts $(subdirs)):
 	$(do_mkdir)
 
 # configuration
@@ -430,7 +446,7 @@ defconfig: $(top_builddir)extra/config/conf
 		-D extra/Configs/defconfigs/$(ARCH)
 
 menuconfig-clean-y:
-	$(Q)$(MAKE) -C extra/config menuconfig_clean
+	$(Q)$(MAKE) -C extra/config CLEAN_extra/config
 
 include_clean:
 	$(Q)$(RM) $(top_builddir)include/fpu_control.h $(top_builddir)include/dl-osinfo.h $(top_builddir)include/hp-timing.h
@@ -446,7 +462,7 @@ include_clean:
 
 clean: include_clean
 	$(Q)$(RM) -r $(top_builddir)lib $(top_builddir)include/bits
-	@$(MAKE) -C utils utils_clean
+	@$(MAKE) -C utils CLEAN_utils
 	+$(MAKE) -s -C test clean
 	@$(RM) $(top_builddir)include/linux $(top_builddir)include/asm*
 	$(Q)$(RM) $(top_builddir)extra/scripts/unifdef

@@ -22,9 +22,19 @@ Ref_cnt_obj::ref_cnt() const
 { return _ref_cnt; }
 
 PUBLIC inline NEEDS["atomic.h"]
-void
-Ref_cnt_obj::inc_ref()
-{ atomic_mp_add((Mword*)&_ref_cnt, 1); }
+bool
+Ref_cnt_obj::inc_ref(bool from_zero = true)
+{
+  Smword old;
+  do
+    {
+      old = _ref_cnt;
+      if (!from_zero && !old)
+        return false;
+    }
+  while (!mp_cas(&_ref_cnt, old, old + 1));
+  return true;
+}
 
 PUBLIC inline NEEDS["atomic.h"]
 Smword
@@ -33,7 +43,7 @@ Ref_cnt_obj::dec_ref()
   Smword old;
   do
     old = _ref_cnt;
-  while (!mp_cas(&_ref_cnt, old, old -1));
+  while (!mp_cas(&_ref_cnt, old, old - 1));
 
-  return old -1;
+  return old - 1;
 }

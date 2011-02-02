@@ -1,6 +1,8 @@
 // --------------------------------------------------------------------------
 INTERFACE [arm && mptimer]:
 
+#include "irq_chip.h"
+#include "irq_pin.h"
 #include "kmem.h"
 
 EXTENSION class Timer
@@ -22,6 +24,8 @@ private:
 
     Timer_int_stat_event   = 1,
   };
+
+  static Irq_base *irq;
 };
 
 // --------------------------------------------------------------
@@ -34,6 +38,8 @@ IMPLEMENTATION [arm && mptimer]:
 #include "kip.h"
 
 #include "globals.h"
+
+Irq_base *Timer::irq;
 
 IMPLEMENT
 void Timer::init()

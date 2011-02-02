@@ -86,9 +86,9 @@
 #endif
 
 #if defined __GNUC__ && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 4))
-# define attribute_optimize(lvl) __attribute__ ((optimize(x)))
+# define attribute_optimize(x) __attribute__ ((optimize(x)))
 #else
-# define attribute_optimize(lvl)
+# define attribute_optimize(x)
 #endif
 
 #define attribute_unused __attribute__ ((unused))
@@ -98,6 +98,12 @@
 #else
 # define attribute_noreturn
 #endif
+
+#define libc_freeres_ptr(decl) \
+      __make_section_unallocated ("__libc_freeres_ptrs, \"aw\", %nobits") \
+  decl __attribute__ ((section ("__libc_freeres_ptrs" __sec_comment)))
+#define __libc_freeres_fn_section \
+      __attribute__ ((section ("__libc_freeres_fn")))
 
 #ifndef NOT_IN_libc
 # define IS_IN_libc 1
@@ -463,9 +469,11 @@ FIXME! - ?
 	&& (( __GNUC__ >= 3 && __GNUC_MINOR__ >= 3) || __GNUC__ >= 4) \
     ) || defined __ICC
 # define attribute_hidden __attribute__ ((visibility ("hidden")))
+# define attribute_protected __attribute__ ((visibility ("protected")))
 # define __hidden_proto_hiddenattr(attrs...) __attribute__ ((visibility ("hidden"), ##attrs))
 #else
 # define attribute_hidden
+# define attribute_protected
 # define __hidden_proto_hiddenattr(attrs...)
 #endif
 

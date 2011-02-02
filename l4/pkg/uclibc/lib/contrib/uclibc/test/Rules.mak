@@ -44,6 +44,7 @@ endif
 export TARGET_ARCH
 
 RM_R = $(Q)$(RM) -r
+LN_S = $(Q)$(LN) -fs
 
 ifneq ($(KERNEL_HEADERS),)
 ifeq ($(patsubst /%,/,$(KERNEL_HEADERS)),/)
@@ -63,9 +64,9 @@ CFLAGS         += $(OPTIMIZATION) $(CPU_CFLAGS) $(XWARNINGS)
 
 # Can't add $(OPTIMIZATION) here, it may be target-specific.
 # Just adding -Os for now.
-HOST_CFLAGS    += $(XCOMMON_CFLAGS) -Os $(XWARNINGS)
+HOST_CFLAGS    += $(XCOMMON_CFLAGS) -Os $(XWARNINGS) -std=gnu99
 
-LDFLAGS        := $(CPU_LDFLAGS-y) -Wl,-z,defs -Wl,-z,now
+LDFLAGS        := $(CPU_LDFLAGS-y) -Wl,-z,now
 ifeq ($(DODEBUG),y)
 	CFLAGS        += -g
 	HOST_CFLAGS   += -g
@@ -77,8 +78,7 @@ else
 endif
 
 ifneq ($(HAVE_SHARED),y)
-	LDFLAGS       += -Wl,-static
-	HOST_LDFLAGS  += -Wl,-static
+	LDFLAGS       += -Wl,-static -static-libgcc
 endif
 
 LDFLAGS += -B$(top_builddir)lib -Wl,-rpath,$(top_builddir)lib -Wl,-rpath-link,$(top_builddir)lib

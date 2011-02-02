@@ -26,6 +26,7 @@
 
 /* Syntactic details of assembler.  */
 
+#define LOCAL(X)	.L_##X
 #define ALIGNARG(log2) log2
 /* For ELF we need the `.type' directive to make shared libs work right.  */
 #define ASM_TYPE_DIRECTIVE(name,typearg) .type name,@##typearg;
@@ -144,7 +145,7 @@
 
 #define ret_ERRVAL ret
 
-#ifndef PIC
+#ifndef __PIC__
 # define SYSCALL_ERROR_HANDLER	\
 	mov.l 0f,r1; \
 	jmp @r1; \
@@ -171,7 +172,7 @@
 
 # elif defined _LIBC_REENTRANT
 
-#  if USE___THREAD
+#  if defined USE___THREAD
 
 #   ifndef NOT_IN_libc
 #    define SYSCALL_ERROR_ERRNO __libc_errno
@@ -246,7 +247,7 @@
      0: .long _GLOBAL_OFFSET_TABLE_; \
      1: .long errno@GOT
 # endif	/* _LIBC_REENTRANT */
-#endif	/* PIC */
+#endif	/* __PIC__ */
 
 # ifdef __SH4__
 #  define SYSCALL_INST_PAD \
@@ -273,5 +274,24 @@
     .align 2;				\
  1: .long SYS_ify (syscall_name);	\
  2:
-
 #endif	/* __ASSEMBLER__ */
+
+/* Pointer mangling support.  */
+#if defined NOT_IN_libc && defined IS_IN_rtld
+/* We cannot use the thread descriptor because in ld.so we use setjmp
+   earlier than the descriptor is initialized.  Using a global variable
+   is too complicated here since we have no PC-relative addressing mode.  */
+#else
+# ifdef __ASSEMBLER__
+#  define PTR_MANGLE(reg, tmp) \
+     stc gbr,tmp; mov.l @(POINTER_GUARD,tmp),tmp; xor tmp,reg
+#  define PTR_MANGLE2(reg, tmp)	xor tmp,reg
+#  define PTR_DEMANGLE(reg, tmp)	PTR_MANGLE (reg, tmp)
+#  define PTR_DEMANGLE2(reg, tmp)	PTR_MANGLE2 (reg, tmp)
+# else
+#  define PTR_MANGLE(var) \
+     (var) = (void *) ((uintptr_t) (var) ^ THREAD_GET_POINTER_GUARD ())
+#  define PTR_DEMANGLE(var)	PTR_MANGLE (var)
+# endif
+#endif
+

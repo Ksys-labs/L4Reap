@@ -233,7 +233,7 @@ function Loader:startv(env, ...)
   return e:start(...);
 end
 
--- Create a new IPC gate for a cleint-server connection
+-- Create a new IPC gate for a client-server connection
 function L4.Loader:new_channel()
   return self.factory:create(Proto.Ipc_gate);
 end

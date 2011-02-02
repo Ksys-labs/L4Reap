@@ -4,8 +4,8 @@
 # - BOOTSTRAP_SEARCH_PATH
 # - BOOTSTRAP_ELF_NAME
 # - BOOTSTRAP_MODULES_LIST
-# - BOOTSTRAP_OMIT_RAW
-# - BOOTSTRAP_OMIT_UIMAGE
+# - BOOTSTRAP_DO_RAW_IMAGE
+# - BOOTSTRAP_DO_UIMAGE
 # - BOOTSTRAP_UIMAGE_COMPRESSION: set to none, gzip, or bzip2
 # - BOOTSTRAP_CMDLINE: compiled-in command line, only used if no cmdline
 #                      given via multi-boot boot loader (e.g. on arm)
@@ -14,6 +14,7 @@ DEFAULT_RELOC_arm   := 0x01000000
 DEFAULT_RELOC_x86   := 0x002d0000
 DEFAULT_RELOC_amd64 := 0x002d0000
 DEFAULT_RELOC_ppc32 := 0x002d0000
+DEFAULT_RELOC_sparc := 0x00100000
 RELOC_PHYS          := y
 LDFLAGS              = -Bstatic
 EXTRA_GENERAL_D_DEP  = .redo-change-tracker
@@ -23,8 +24,16 @@ BOOTSTRAP_LD_dep    := $(SRC_DIR)/ldscript.inc
 
 include $(L4DIR)/mk/Makeconf
 -include $(OBJ_DIR)/Makeconf.local
--include $(L4DIR)/conf/Makeconf.bootstrap
--include $(OBJ_BASE)/Makeconf.bootstrap
+-include $(L4DIR)/conf/Makeconf.boot
+-include $(OBJ_BASE)/conf/Makeconf.boot
+
+# Checks added Nov 2010:
+ifneq ($(wildcard $(L4DIR)/conf/Makeconf.bootstrap),)
+$(error $(L4DIR)/conf/Makeconf.bootstrap not used anymore. Please use $(L4DIR)/conf/Makeconf.boot now)
+endif
+ifneq ($(wildcard $(OBJ_BASE)/Makeconf.bootstrap),)
+$(error $(OBJ_BASE)/Makeconf.bootstrap not used anymore. Please use $(OBJ_BASE)/conf/Makeconf.boot now)
+endif
 
 BOOTSTRAP_SEARCH_PATH        ?= .
 BOOTSTRAP_MODULES_LIST       ?= $(SRC_DIR)/modules.list
@@ -64,6 +73,7 @@ PLATFORM_TYPE-arm   = $(ARM_PLATFORM_TYPE)
 PLATFORM_TYPE-ppc32 = $(PPC_PLATFORM_TYPE)
 PLATFORM_TYPE-x86   = $(X86_PLATFORM_TYPE)
 PLATFORM_TYPE-amd64 = $(X86_PLATFORM_TYPE)
+PLATFORM_TYPE-sparc = $(SPARC_PLATFORM_TYPE)
 PLATFORM_TYPE       = $(PLATFORM_TYPE-$(ARCH))
 endif
 
@@ -90,6 +100,8 @@ SUPPORT_CC_x86-pc         := support_x86_pc.cc
 
 SUPPORT_CC_amd64-pc       := support_x86_pc.cc
 
+SUPPORT_CC_sparc-leon3    := support_sparc_leon3.cc
+
 SRC_C		+= exec.c module.c
 SRC_CC		+= region.cc startup.cc init_kip_v2.cc init_kip_v4.cc \
                    libc_support+.cc patch.cc
@@ -101,6 +113,7 @@ SRC_C_amd64	+= base_critical.c ARCH-x86/serial.c
 SRC_CC_arm     	+= ARCH-arm/reboot.cc
 SRC_CC_ppc32    += ARCH-ppc32/init_kip_v2-arch.cc \
 		   ARCH-ppc32/reboot.cc
+SRC_CC_sparc	+= ARCH-sparc/reboot.cc
 SRC_CC          += $(SUPPORT_CC_$(ARCH)-$(PLATFORM_TYPE))
 SRC_S		+= ARCH-$(ARCH)/crt0.S
 
@@ -191,10 +204,10 @@ bootstrap_$(ENTRY_FN).uimage: bootstrap.uimage
            { echo -e "\nERROR: Missing at least one platform instantiation.\n"; \
              exit 1; } ; $(STRIP) $@
 
-   ifeq ($(BOOTSTRAP_OMIT_RAW),)
+   ifneq ($(BOOTSTRAP_DO_RAW_IMAGE)$(BOOTSTRAP_DO_UIMAGE),)
      BOOTSTRAP_RAW      := bootstrap.raw
      INSTALL_TARGET     += bootstrap.raw bootstrap_$(ENTRY_FN).raw
-     ifeq ($(BOOTSTRAP_OMIT_UIMAGE),)
+     ifneq ($(BOOTSTRAP_DO_UIMAGE),)
        ifneq ($(shell command -v $(MKIMAGE)),)
          BOOTSTRAP_UIMAGE   := bootstrap.uimage
          INSTALL_TARGET     += bootstrap.uimage bootstrap_$(ENTRY_FN).uimage
@@ -206,10 +219,11 @@ bootstrap_$(ENTRY_FN).uimage: bootstrap.uimage
  endif
 
 all:: $(addprefix $(IMAGES_DIR)/,$(INSTALL_TARGET))
-	$(VERBOSE)echo "Image size(s) in bytes:"
+	$(VERBOSE)echo "  Image size(s) in bytes:"
 	$(VERBOSE)for f in $(filter bootstrap_$(ENTRY_FN).elf bootstrap.raw bootstrap.uimage, $(INSTALL_TARGET)); do \
-	  find . -name $$f -printf " %20f:  %s\n"; \
+	  find . -name $$f -printf " %30f:  %s\n"; \
 	done
+	$(if $(BOOTSTRAP_DO_RAW_IMAGE),$(VERBOSE)echo "  Start address: $(patsubst -Ttext=%,%,$(LDFLAGS_bootstrap.elf))")
 	$(VERBOSE)echo "  --> Build-Nr: $$(cat .build_nr)"
 
 # install images into easy to reach directory in build dir
@@ -315,6 +329,7 @@ $(BOOTSTRAP_RAW): $(TARGET_BIN)
 	@$(GEN_MESSAGE)
 	$(VERBOSE)cp $< $@.tmp
 	$(VERBOSE)$(OBJCOPY) -O binary $@.tmp $@
+	$(VERBOSE)chmod -x $@
 	$(VERBOSE)$(RM) $@.tmp
 
 %.gzip: %

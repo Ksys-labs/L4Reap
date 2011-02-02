@@ -18,7 +18,10 @@ STRING_SUBARCH_OUT := $(top_builddir)libc/string/$(TARGET_ARCH)/$(TARGET_SUBARCH
 STRING_SUBARCH_SSRC := $(wildcard $(STRING_SUBARCH_OUT)/*.S)
 STRING_SUBARCH_SOBJ := $(patsubst $(STRING_SUBARCH_DIR)/%.S,$(STRING_SUBARCH_OUT)/%.o,$(STRING_SUBARCH_SSRC))
 
-STRING_SUBARCH_OBJS := $(STRING_SUBARCH_SOBJ)
+STRING_SUBARCH_CSRC := $(wildcard $(STRING_SUBARCH_OUT)/*.c)
+STRING_SUBARCH_COBJ := $(patsubst $(STRING_SUBARCH_DIR)/%.c,$(STRING_SUBARCH_OUT)/%.o,$(STRING_SUBARCH_CSRC))
+
+STRING_SUBARCH_OBJS := $(STRING_SUBARCH_SOBJ) $(STRING_SUBARCH_COBJ)
 endif
 
 # Collect the arch specific implementation (asm, c files)
@@ -135,7 +138,7 @@ libc-y += $(STRING_COBJ)
 libc-nomulti-$(UCLIBC_HAS_XLOCALE) += $(STRING_OUT)/wcsxfrm_l.o
 libc-nomulti-y += $(STRING_OUT)/__xpg_strerror_r.o
 
-objclean-y += string_clean
+objclean-y += CLEAN_libc/string
 
-string_clean:
+CLEAN_libc/string:
 	$(do_rm) $(addprefix $(STRING_OUT)/,$(addprefix *., o os oS) $(addprefix */*., o os oS) $(addprefix */*/*., o os oS))

@@ -237,14 +237,14 @@ Jdb_list_timeouts::get_owner(Timeout *t)
   switch (get_type(t))
     {
       case Timeout_ipc:
-        return Thread::lookup(context_of (t));
+        return static_cast<Thread*>(context_of(t));
       case Timeout_deadline:
-        return Thread::lookup(context_of (t));
+        return static_cast<Thread*>(context_of(t));
       case Timeout_timeslice:
 	return kernel_thread;
 	// XXX: current_sched does not work from the debugger
         if (Context::current_sched())
-          return Thread::lookup(Context::current_sched()->context());
+          return static_cast<Thread*>(Context::current_sched()->context());
       default:
         return 0;
     }
@@ -275,25 +275,25 @@ Jdb_list_timeouts::list_timeouts_show_timeout(Timeout *t)
     case Timeout_ipc:
       type  = "ipc";
       owner = get_owner(t);
-      snprintf (ownerstr, sizeof(ownerstr), "  %p", owner);
+      snprintf(ownerstr, sizeof(ownerstr), "  %p", owner);
       break;
     case Timeout_deadline:
       type  = "deadline";
       owner = get_owner(t);
-      snprintf (ownerstr, sizeof(ownerstr), "  %p", owner);
+      snprintf(ownerstr, sizeof(ownerstr), "  %p", owner);
       break;
     case Timeout_timeslice:
       type  = "timeslice";
       owner = get_owner(t);
       if (owner)
-        snprintf (ownerstr, sizeof(ownerstr), "  %p", owner);
+        snprintf(ownerstr, sizeof(ownerstr), "  %p", owner);
       else
        strcpy (ownerstr, "destruct");
       break;
     case Timeout_root:
       type  = "root";
       owner = 0;
-      strcpy (ownerstr, "kern");
+      strcpy(ownerstr, "kern");
       break;
     default:
       snprintf(ownerstr, sizeof(ownerstr), L4_PTR_FMT, (Address)t);
@@ -317,7 +317,7 @@ Jdb_list_timeouts::list_timeouts_show_timeout(Timeout *t)
   Jdb_kobject_name *nx = 0;
 
   if (owner)
-    nx = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(owner->kobject());
+    nx = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(owner);
 
   printf(" %s  %s\033[K\n", ownerstr, nx ? nx->name() : "");
 }

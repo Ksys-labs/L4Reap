@@ -74,6 +74,9 @@ public:
   int ioctl(unsigned long, va_list) throw()
   { return -EINVAL; }
 
+  int fstat64(struct stat64 *) const throw()
+  { return -EINVAL; }
+
   /// Default backend for POSIX chmod and fchmod.
   int fchmod(mode_t) throw()
   { return -EINVAL; }

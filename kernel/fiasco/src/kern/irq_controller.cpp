@@ -6,7 +6,7 @@ INTERFACE:
 
 class Irq_chip;
 
-class Icu : public Icu_h<Icu>, public Kobject
+class Icu : public Icu_h<Icu>
 {
   FIASCO_DECLARE_KOBJ();
 

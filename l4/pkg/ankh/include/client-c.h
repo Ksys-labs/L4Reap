@@ -13,7 +13,7 @@ __BEGIN_DECLS
  *
  * Call this before everything else.
  */
-L4_CV void l4ankh_init(void) L4_NOTHROW;
+L4_CV int l4ankh_init(void) L4_NOTHROW;
 
 /*
  * Open SHM connection using shm name and buffer size

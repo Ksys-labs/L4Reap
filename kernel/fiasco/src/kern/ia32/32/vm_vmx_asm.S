@@ -22,13 +22,13 @@ resume_vm_vmx:
 	mov	(%esp), %esp
 
 	// load guest GPs
-	pop	%eax
-	pop	%edx
-	pop	%ecx
-	pop	%ebx
-	pop	%ebp
-	pop	%esi
-	pop	%edi
+	mov	 16(%esp), %edi
+	mov	 20(%esp), %esi
+	mov	 24(%esp), %ebp
+	mov	 32(%esp), %ebx
+	mov	 36(%esp), %edx
+	mov	 40(%esp), %ecx
+	mov	 44(%esp), %eax
 
 	vmresume
 	jnz	1f
@@ -50,15 +50,14 @@ vm_vmx_exit_vec:
 	mov	4(%esp), %eax   // get previously saved register struct pointer
 
 	// eax is saved below
-	mov	%edx, 4(%eax)   // save guest GP registers
-	mov	%ecx, 8(%eax)
-	mov	%ebx, 12(%eax)
-	mov	%ebp, 16(%eax)
+	mov	%edi, 16(%eax)
 	mov	%esi, 20(%eax)
-	mov	%edi, 24(%eax)
-
+	mov	%ebp, 24(%eax)
+	mov	%ebx, 32(%eax)
+	mov	%edx, 36(%eax)
+	mov	%ecx, 40(%eax)
 	pop	%ecx            // guest EAX to ECX
-	mov	%ecx, 0(%eax)
+	mov	%ecx, 44(%eax)
 
 	add	$4, %esp	// adjust stack after regs pointer push on stack
 	

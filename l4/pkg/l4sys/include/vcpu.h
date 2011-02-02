@@ -36,15 +36,15 @@ typedef struct l4_vcpu_state_t
   l4_vcpu_regs_t       r;             ///< Register state
   l4_vcpu_ipc_regs_t   i;             ///< IPC state
 
-  l4_umword_t          state;         ///< Current vCPU state
-  l4_umword_t          saved_state;   ///< Saved vCPU state
-
-  l4_umword_t          sticky_flags;  ///< Pending flags
+  l4_uint16_t          state;         ///< Current vCPU state
+  l4_uint16_t          saved_state;   ///< Saved vCPU state
+  l4_uint16_t          sticky_flags;  ///< Pending flags
+  l4_uint16_t          _reserved;     ///< \internal
 
   l4_cap_idx_t         user_task;     ///< User task to use
 
-  l4_umword_t          entry_sp;      ///< Stack pointer for entry
-  l4_umword_t          entry_ip;      ///< IP for entry (when coming from user task)
+  l4_umword_t          entry_sp;      ///< Stack pointer for entry (when coming from user task)
+  l4_umword_t          entry_ip;      ///< IP for entry
   l4_umword_t          reserved_sp;   ///< \internal
 } l4_vcpu_state_t;
 
@@ -69,4 +69,13 @@ enum L4_vcpu_state_flags
 enum L4_vcpu_sticky_flags
 {
   L4_VCPU_SF_IRQ_PENDING = 0x01, ///< An event (e.g. IRQ) is pending
+};
+
+/**
+ * \brief Offsets for vCPU state layouts
+ * \ingroup l4_vcpu_api
+ */
+enum L4_vcpu_state_offset
+{
+  L4_VCPU_OFFSET_EXT_STATE = 0x400, ///< Offset where extended state begins
 };

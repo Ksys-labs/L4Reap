@@ -1,0 +1,5 @@
+
+
+$(JDB): $(OBJ_JDB)
+	$(AR_MESSAGE)
+	$(VERBOSE)$(LD) -T/dev/null -m $(LD_EMULATION) -r -o $@ $^

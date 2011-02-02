@@ -24,11 +24,11 @@
 
 typedef struct 
 {
-#if RINGBUF_POISONING
+#if L4SHMC_RINGBUF_POISONING
 	char mag1;
 #endif
 	unsigned size;
-#if RINGBUF_POISONING
+#if L4SHMC_RINGBUF_POISONING
 	char mag2;
 #endif
 } size_cookie_t;
@@ -36,13 +36,13 @@ typedef struct
 #define SIZE_COOKIE_MAGIC1 (char)0xDE
 #define SIZE_COOKIE_MAGIC2 (char)0xAD
 #define EXTRACT_SIZE(size_cookie) (((size_cookie_t*)(size_cookie))->size)
-#if RINGBUF_POISONING
+#if L4SHMC_RINGBUF_POISONING
 #define SIZE_COOKIE_INITIALIZER(size) (size_cookie_t){ SIZE_COOKIE_MAGIC1, (size), SIZE_COOKIE_MAGIC2 }
 #else
 #define SIZE_COOKIE_INITIALIZER(size) (size_cookie_t){(size)}
 #endif
 
-#if RINGBUF_POISONING
+#if L4SHMC_RINGBUF_POISONING
 #define ASSERT_COOKIE(c) \
 	ASSERT_EQUAL(((size_cookie_t*)(c))->mag1, SIZE_COOKIE_MAGIC1); \
 	ASSERT_EQUAL(((size_cookie_t*)(c))->mag2, SIZE_COOKIE_MAGIC2);
@@ -54,11 +54,11 @@ typedef struct
 #define BUF_HEAD_MAGIC2 (char)0xCD
 #define BUF_HEAD_MAGIC3 (char)0xEF
 
-#if RINGBUF_POISONING
+#if L4SHMC_RINGBUF_POISONING
 #define ASSERT_MAGIC(buf) \
-	ASSERT_EQUAL(HEAD(buf)->magic1, BUF_HEAD_MAGIC1); \
-	ASSERT_EQUAL(HEAD(buf)->magic2, BUF_HEAD_MAGIC2); \
-	ASSERT_EQUAL(HEAD(buf)->magic3, BUF_HEAD_MAGIC3);
+	ASSERT_EQUAL(L4SHMC_RINGBUF_HEAD(buf)->magic1, BUF_HEAD_MAGIC1); \
+	ASSERT_EQUAL(L4SHMC_RINGBUF_HEAD(buf)->magic2, BUF_HEAD_MAGIC2); \
+	ASSERT_EQUAL(L4SHMC_RINGBUF_HEAD(buf)->magic3, BUF_HEAD_MAGIC3);
 #else
 #define ASSERT_MAGIC(buf) do {} while(0)
 #endif
@@ -83,7 +83,7 @@ static void log_ringbuf(l4shmc_ringbuf_t *buf)
 	       buf->_area->_name, buf->_size);
 	printf("   owner %lx, name %s, signal %s\n", buf->_owner,
 	       buf->_chunkname, buf->_signame);
-	log_ringbuf_head(HEAD(buf));
+	log_ringbuf_head(L4SHMC_RINGBUF_HEAD(buf));
 }
 
 static void l4shmc_rb_generic_init(l4shmc_area_t *area,
@@ -156,7 +156,7 @@ void l4shmc_rb_init_header(l4shmc_ringbuf_head_t *head);
 	head->next_write   = 0;
 	head->bytes_filled = 0;
 	head->sender_waits = 0;
-#if RINGBUF_POISONING
+#if L4SHMC_RINGBUF_POISONING
 	head->magic1 = BUF_HEAD_MAGIC1;
 	head->magic2 = BUF_HEAD_MAGIC2;
 	head->magic3 = BUF_HEAD_MAGIC3;
@@ -223,7 +223,7 @@ L4_CV int l4shmc_rb_receiver_wait_for_data(l4shmc_ringbuf_t *buf, int block)
 	else
 	    to = L4_IPC_BOTH_TIMEOUT_0;
 
-	//while (!HEAD(buf)->bytes_filled)
+	//while (!L4SHMC_RINGBUF_HEAD(buf)->bytes_filled)
 	return l4shmc_wait_signal_to(&buf->_signal_empty, to);
 }
 
@@ -292,10 +292,10 @@ L4_CV void l4shmc_rb_receiver_notify_done(l4shmc_ringbuf_t *buf)
 {
 	ASSERT_NOT_NULL(buf);
 
-	l4shmc_rb_lock(HEAD(buf));
+	l4shmc_rb_lock(L4SHMC_RINGBUF_HEAD(buf));
 
-	if (HEAD(buf)->sender_waits) {
-		HEAD(buf)->sender_waits = 0;
+	if (L4SHMC_RINGBUF_HEAD(buf)->sender_waits) {
+		L4SHMC_RINGBUF_HEAD(buf)->sender_waits = 0;
 #if 0
 		printf("RCV: TRIGGER %lx (%lx)\n", buf->_signal_empty._sigcap,
 			   l4_debugger_global_id(buf->_signal_empty._sigcap));
@@ -303,7 +303,7 @@ L4_CV void l4shmc_rb_receiver_notify_done(l4shmc_ringbuf_t *buf)
 		l4shmc_trigger(&buf->_signal_full);
 	}
 
-	l4shmc_rb_unlock(HEAD(buf));
+	l4shmc_rb_unlock(L4SHMC_RINGBUF_HEAD(buf));
 }
 
 
@@ -380,8 +380,8 @@ L4_CV int l4shmc_rb_init_buffer(l4shmc_ringbuf_t *buf, l4shmc_area_t *area,
 
 	buf->_addr = l4shmc_chunk_ptr(&buf->_chunk);
 
-	l4shmc_rb_init_header(HEAD(buf));
-	HEAD(buf)->data_size = size;
+	l4shmc_rb_init_header(L4SHMC_RINGBUF_HEAD(buf));
+	L4SHMC_RINGBUF_HEAD(buf)->data_size = size;
 
 	log_ringbuf(buf);
 
@@ -407,7 +407,7 @@ L4_CV int l4shmc_rb_attach_sender(l4shmc_ringbuf_t *buf, char const *signal_name
 	printf("SND: attaching to signal %lx (%lx)\n",
 		   l4_debugger_global_id(l4shmc_signal_cap(&buf->_signal_full)),
 		   l4shmc_signal_cap(&buf->_signal_full));
-	printf("     buf @ %p\n", HEAD(buf));
+	printf("     buf @ %p\n", L4SHMC_RINGBUF_HEAD(buf));
 	err = l4shmc_attach_signal(buf->_area, signame, buf->_owner, &buf->_signal_full);
 	ASSERT_OK(err);
 
@@ -483,7 +483,7 @@ L4_CV int l4shmc_rb_sender_next_copy_in(l4shmc_ringbuf_t *buf, char *data,
 #if 0
 	printf("%s: %p %p %d %d\n", __func__, buf, data, size, block_if_necessary);
 #endif
-	while (((addr = l4shmc_rb_sender_alloc_packet(HEAD(buf), size)) == 0) &&
+	while (((addr = l4shmc_rb_sender_alloc_packet(L4SHMC_RINGBUF_HEAD(buf), size)) == 0) &&
 	         block_if_necessary) {
 #if 0
 		printf("%s: wait(%lx (%lx))\n", __func__, buf->_signal_full._sigcap,
@@ -510,10 +510,12 @@ L4_CV void l4shmc_rb_sender_put_data(l4shmc_ringbuf_t *buf, char *addr, char *da
 	ASSERT_NOT_NULL(data);
 	ASSERT_MAGIC(buf);
 
-	char *max_addr = DATA(buf) + DATA_SIZE(buf);
+	char *max_addr = L4SHMC_RINGBUF_DATA(buf) + L4SHMC_RINGBUF_DATA_SIZE(buf);
 	if (max_addr < addr) {
 		printf("ERROR: max %p, addr %p\n", (void*)max_addr, addr);
-		printf("  DATA %p, DATA_SIZE %lx\n", DATA(buf), (unsigned long)DATA_SIZE(buf));
+		printf("  DATA %p, DATA_SIZE %lx\n",
+                       L4SHMC_RINGBUF_DATA(buf),
+                       (unsigned long)L4SHMC_RINGBUF_DATA_SIZE(buf));
 		log_ringbuf(buf);
 	}
 	ASSERT_GREATER_EQ(max_addr, addr);
@@ -522,11 +524,11 @@ L4_CV void l4shmc_rb_sender_put_data(l4shmc_ringbuf_t *buf, char *addr, char *da
 	{
 		l4_addr_t diff = (l4_addr_t)max_addr - (l4_addr_t)addr;
 		memcpy(addr, data, diff);
-		memcpy(DATA(buf), data + diff, dsize - diff);
+		memcpy(L4SHMC_RINGBUF_DATA(buf), data + diff, dsize - diff);
 	}
 	else
 	{
-		memcpy(addr,data, dsize);
+		memcpy(addr, data, dsize);
 	}
 }
 

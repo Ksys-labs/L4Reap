@@ -187,6 +187,26 @@ l4_task_cap_equal(l4_cap_idx_t task, l4_cap_idx_t cap_a,
  * \internal
  */
 L4_INLINE l4_msgtag_t
+l4_task_add_ku_mem_u(l4_cap_idx_t task, l4_fpage_t const ku_mem,
+                     l4_utcb_t *u) L4_NOTHROW;
+
+/**
+ * \brief Add kernel-user memory.
+ * \ingroup l4_task_api
+ *
+ * \param task   Capability selector of the task to add the memory to
+ * \param ku_mem Flexpage describing the virtual area the memory goes to.
+ *
+ * \return Syscall return tag
+ */
+L4_INLINE l4_msgtag_t
+l4_task_add_ku_mem(l4_cap_idx_t task, l4_fpage_t const ku_mem) L4_NOTHROW;
+
+
+/**
+ * \internal
+ */
+L4_INLINE l4_msgtag_t
 l4_task_cap_equal_u(l4_cap_idx_t task, l4_cap_idx_t cap_a,
                     l4_cap_idx_t cap_b, l4_utcb_t *utcb) L4_NOTHROW;
 
@@ -200,6 +220,7 @@ enum L4_task_ops
   L4_TASK_MAP_OP         = 0UL,    /**< Map */
   L4_TASK_UNMAP_OP       = 1UL,    /**< Unmap */
   L4_TASK_CAP_INFO_OP    = 2UL,    /**< Cap info */
+  L4_TASK_ADD_KU_MEM_OP  = 3UL,    /**< Add kernel-user memory */
   L4_TASK_LDT_SET_X86_OP = 0x11UL, /**< x86: LDT set */
   L4_TASK_VM_OPS         = 0x20UL, /**< VM op */
 };
@@ -275,6 +296,15 @@ l4_task_cap_equal_u(l4_cap_idx_t task, l4_cap_idx_t cap_a,
   return l4_ipc_call(task, u, l4_msgtag(L4_PROTO_TASK, 3, 0, 0), L4_IPC_NEVER);
 }
 
+L4_INLINE l4_msgtag_t
+l4_task_add_ku_mem_u(l4_cap_idx_t task, l4_fpage_t const ku_mem,
+                     l4_utcb_t *u) L4_NOTHROW
+{
+  l4_msg_regs_t *v = l4_utcb_mr_u(u);
+  v->mr[0] = L4_TASK_ADD_KU_MEM_OP;
+  v->mr[1] = ku_mem.raw;
+  return l4_ipc_call(task, u, l4_msgtag(L4_PROTO_TASK, 2, 0, 0), L4_IPC_NEVER);
+}
 
 
 
@@ -317,4 +347,10 @@ l4_task_cap_equal(l4_cap_idx_t task, l4_cap_idx_t cap_a,
                   l4_cap_idx_t cap_b) L4_NOTHROW
 {
   return l4_task_cap_equal_u(task, cap_a, cap_b, l4_utcb());
+}
+
+L4_INLINE l4_msgtag_t
+l4_task_add_ku_mem(l4_cap_idx_t task, l4_fpage_t const ku_mem) L4_NOTHROW
+{
+  return l4_task_add_ku_mem_u(task, ku_mem, l4_utcb());
 }

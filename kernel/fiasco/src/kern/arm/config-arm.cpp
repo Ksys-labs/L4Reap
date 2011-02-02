@@ -7,6 +7,8 @@ public:
 
   enum
   {
+    Access_user_mem = Must_access_user_mem_direct,
+
     PAGE_SHIFT = ARCH_PAGE_SHIFT,
     PAGE_SIZE  = 1 << PAGE_SHIFT,
     PAGE_MASK  = ~(PAGE_SIZE - 1),
@@ -34,7 +36,7 @@ public:
 
   enum
   {
-    KMEM_SIZE = 8 << 20,
+    KMEM_SIZE = 16 << 20,
   };
 
   // the default uart to use for serial console

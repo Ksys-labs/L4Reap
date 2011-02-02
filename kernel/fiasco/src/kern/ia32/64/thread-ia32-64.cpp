@@ -2,9 +2,9 @@
 IMPLEMENTATION [amd64]:
 
 
-PROTECTED inline
+PUBLIC template<typename T> inline
 void FIASCO_NORETURN
-Thread::fast_return_to_user(Mword ip, Mword sp)
+Thread::fast_return_to_user(Mword ip, Mword sp, T arg)
 {
   regs()->ip(ip);
   regs()->sp(sp);
@@ -12,7 +12,7 @@ Thread::fast_return_to_user(Mword ip, Mword sp)
     ("mov %0, %%rsp \t\n"
      "iretq         \t\n"
      :
-     : "r" (static_cast<Return_frame*>(regs()))
+     : "r" (static_cast<Return_frame*>(regs())), "d"(arg)
     );
   __builtin_trap();
 }
@@ -76,7 +76,7 @@ Thread::copy_utcb_to_ts(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
   Trap_state *ts = (Trap_state*)rcv->_utcb_handler;
   Mword       s  = tag.words();
   Unsigned32  cs = ts->cs();
-  Utcb *snd_utcb = snd->access_utcb();
+  Utcb *snd_utcb = snd->utcb().access();
 
   if (EXPECT_FALSE(rcv->exception_triggered()))
     {
@@ -105,7 +105,7 @@ Thread::copy_utcb_to_ts(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
   ts->cs(cs);
 
   bool ret = transfer_msg_items(tag, snd, snd_utcb,
-                                rcv, rcv->access_utcb(), rights);
+                                rcv, rcv->utcb().access(), rights);
 
   rcv->state_del(Thread_in_exception);
   return ret;
@@ -117,7 +117,7 @@ Thread::copy_ts_to_utcb(L4_msg_tag const &, Thread *snd, Thread *rcv,
                         unsigned char rights)
 {
   Trap_state *ts = (Trap_state*)snd->_utcb_handler;
-  Utcb *rcv_utcb = rcv->utcb();
+  Utcb *rcv_utcb = rcv->utcb().access();
   {
     Lock_guard <Cpu_lock> guard (&cpu_lock);
     if (EXPECT_FALSE(snd->exception_triggered()))

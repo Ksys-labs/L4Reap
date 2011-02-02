@@ -18,6 +18,13 @@
 #include <stdint.h>
 #include <endian.h>
 
+#ifdef __UCLIBC_HAS_THREADS_NATIVE__
+#include <sysdep-cancel.h>
+#else
+#define SINGLE_THREAD_P 1
+#endif
+
+
 #ifdef __NR_pread64             /* Newer kernels renamed but it's the same.  */
 # ifdef __NR_pread
 #  error "__NR_pread and __NR_pread64 both defined???"
@@ -33,7 +40,15 @@ static __inline__ _syscall6(ssize_t, __syscall_pread, int, fd, void *, buf,
 
 ssize_t __libc_pread(int fd, void *buf, size_t count, off_t offset)
 {
-	return(__syscall_pread(fd,buf,count,0,__LONG_LONG_PAIR(offset >> 31,offset)));
+	if (SINGLE_THREAD_P)
+		return(__syscall_pread(fd,buf,count,0,__LONG_LONG_PAIR(offset >> 31,offset)));
+
+#ifdef __UCLIBC_HAS_THREADS_NATIVE__
+	int oldtype = LIBC_CANCEL_ASYNC ();
+	ssize_t result = __syscall_pread(fd,buf,count,0,__LONG_LONG_PAIR(offset >> 31,offset));
+	LIBC_CANCEL_RESET (oldtype);
+	return result;
+#endif
 }
 weak_alias(__libc_pread,pread)
 
@@ -43,7 +58,16 @@ ssize_t __libc_pread64(int fd, void *buf, size_t count, off64_t offset)
 {
 	uint32_t low = offset & 0xffffffff;
 	uint32_t high = offset >> 32;
-	return(__syscall_pread(fd, buf, count, 0, __LONG_LONG_PAIR (high, low)));
+
+	if (SINGLE_THREAD_P)
+		return __syscall_pread(fd, buf, count, 0, __LONG_LONG_PAIR (high, low));
+
+#ifdef __UCLIBC_HAS_THREADS_NATIVE__
+	int oldtype = LIBC_CANCEL_ASYNC ();
+	ssize_t result = __syscall_pread(fd, buf, count, 0, __LONG_LONG_PAIR (high, low));
+	LIBC_CANCEL_RESET (oldtype);
+	return result;
+#endif
 }
 weak_alias(__libc_pread64,pread64)
 # endif /* __UCLIBC_HAS_LFS__  */
@@ -66,7 +90,16 @@ static __inline__ _syscall6(ssize_t, __syscall_pwrite, int, fd, const void *, bu
 
 ssize_t __libc_pwrite(int fd, const void *buf, size_t count, off_t offset)
 {
-	return(__syscall_pwrite(fd,buf,count,0,__LONG_LONG_PAIR(offset >> 31,offset)));
+	if (SINGLE_THREAD_P)
+		return __syscall_pwrite(fd,buf,count,0,__LONG_LONG_PAIR(offset >> 31,offset));
+
+#ifdef __UCLIBC_HAS_THREADS_NATIVE__
+	int oldtype = LIBC_CANCEL_ASYNC ();
+	ssize_t result = __syscall_pwrite(fd,buf,count,0,__LONG_LONG_PAIR(offset >> 31,offset));
+	LIBC_CANCEL_RESET (oldtype);
+	return result;
+#endif
+
 }
 weak_alias(__libc_pwrite,pwrite)
 
@@ -76,7 +109,16 @@ ssize_t __libc_pwrite64(int fd, const void *buf, size_t count, off64_t offset)
 {
 	uint32_t low = offset & 0xffffffff;
 	uint32_t high = offset >> 32;
-	return(__syscall_pwrite(fd, buf, count, 0, __LONG_LONG_PAIR (high, low)));
+
+	if (SINGLE_THREAD_P)
+		return __syscall_pwrite(fd, buf, count, 0, __LONG_LONG_PAIR (high, low));
+
+#ifdef __UCLIBC_HAS_THREADS_NATIVE__
+	int oldtype = LIBC_CANCEL_ASYNC ();
+	ssize_t result = __syscall_pwrite(fd, buf, count, 0, __LONG_LONG_PAIR (high, low));
+	LIBC_CANCEL_RESET (oldtype);
+	return result;
+#endif
 }
 weak_alias(__libc_pwrite64,pwrite64)
 # endif /* __UCLIBC_HAS_LFS__  */

@@ -33,7 +33,7 @@ private:
   int     _level;
   Mode    _mode;
 
-  bool show_kobject(Kobject *, int) { return false; }
+  bool show_kobject(Kobject_common *, int) { return false; }
 
 };
 
@@ -101,7 +101,7 @@ Jdb_obj_space::print_statline(unsigned long row, unsigned long col)
       return;
     }
 
-  unsigned len = Jdb_kobject::obj_description(buf, sizeof(buf), true, o->kobject());
+  unsigned len = Jdb_kobject::obj_description(buf, sizeof(buf), true, o);
   Jdb::printf_statline("objs", "<Space>=mode",
 		       "%lx: %-*s", index(row,col), len, buf);
 }
@@ -157,12 +157,11 @@ Jdb_obj_space::index(unsigned long row, unsigned long col)
 
 PRIVATE
 bool
-Jdb_obj_space::handle_user_keys(int c, Kobject_iface *oif)
+Jdb_obj_space::handle_user_keys(int c, Kobject_iface *o)
 {
-  if (!oif)
+  if (!o)
     return false;
 
-  Kobject *o = oif->kobject();
   Jdb_kobject_handler *h = Jdb_kobject::module()->first_global_handler();
   bool handled = false;
   while (h)
@@ -204,7 +203,7 @@ Jdb_obj_space::key_pressed(int c, unsigned long &row, unsigned long &col)
 
 PUBLIC
 bool
-Jdb_obj_space::handle_key(Kobject *o, int code)
+Jdb_obj_space::handle_key(Kobject_common *o, int code)
 {
   if (code != 'o')
     return false;

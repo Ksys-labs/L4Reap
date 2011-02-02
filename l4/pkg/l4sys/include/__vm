@@ -41,21 +41,6 @@ protected:
 private:
   Vm(Vm const &);
   void operator = (Vm const &);
-
-public:
-  /**
-   * \copydoc l4_vm_gpregs()
-   */
-  static l4_vm_gpregs_t *gpregs(l4_utcb_t *u = l4_utcb()) throw()
-  { return l4_vm_gpregs_u(u); }
-
-  /**
-   * \copydoc l4_vm_run()
-   * \note \a dst_task is the implicit \a this pointer.
-   */
-   l4_msgtag_t run(l4_fpage_t const &vmcb_fpage,
-                       l4_utcb_t *utcb = l4_utcb()) throw()
-   { return l4_vm_run_u(cap(), vmcb_fpage, utcb); }
 };
 
 };

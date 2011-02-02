@@ -8,6 +8,8 @@ PRIVATE_INCDIR = .
 
 include $(L4DIR)/mk/lib.mk
 
+CFLAGS += -fvisibility=internal
+
 names.o names.s.o: devlist.h classlist.h
 
 devlist.h classlist.h: $(SRC_DIR)/pci.ids gen-devlist $(GENERIC_LOC_D)

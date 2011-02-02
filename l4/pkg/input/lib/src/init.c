@@ -35,7 +35,7 @@
 #include "internal.h"
 
 /** Backend operations */
-struct l4input_ops *ops;
+static struct l4input_ops *ops;
 
 
 int l4input_ispending()

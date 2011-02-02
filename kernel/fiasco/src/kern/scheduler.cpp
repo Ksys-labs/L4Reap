@@ -4,7 +4,7 @@ INTERFACE:
 #include "kobject_helper.h"
 #include "types.h"
 
-class Scheduler : public Kobject_h<Scheduler>, public Kobject
+class Scheduler : public Kobject_h<Scheduler>
 {
   FIASCO_DECLARE_KOBJ();
 

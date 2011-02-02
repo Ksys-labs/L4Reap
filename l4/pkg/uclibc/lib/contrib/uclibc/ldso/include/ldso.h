@@ -38,6 +38,7 @@
 #ifndef __ARCH_HAS_NO_SHARED__
 #include <dl-syscall.h>
 #include <dl-string.h>
+#include <dlfcn.h>
 /* Now the ldso specific headers */
 #include <dl-elf.h>
 #ifdef __UCLIBC_HAS_TLS__
@@ -72,11 +73,15 @@ extern char *_dl_ldsopath;             /* Where the shared lib loader was found 
 extern const char *_dl_progname;       /* The name of the executable being run */
 extern size_t _dl_pagesize;            /* Store the page size for use later */
 
-#ifdef USE_TLS
+#if defined(USE_TLS) && USE_TLS
 extern void _dl_add_to_slotinfo (struct link_map  *l);
 extern void ** __attribute__ ((const)) _dl_initial_error_catch_tsd (void);
 #endif
 
+#ifdef USE_TLS
+void _dl_add_to_slotinfo (struct link_map  *l);
+void ** __attribute__ ((const)) _dl_initial_error_catch_tsd (void);
+#endif
 #ifdef __SUPPORT_LD_DEBUG__
 extern char *_dl_debug;
 extern char *_dl_debug_symbols;

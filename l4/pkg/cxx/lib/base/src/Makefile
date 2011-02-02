@@ -2,7 +2,7 @@ PKGDIR		?= ../../..
 L4DIR		?= $(PKGDIR)/../..
 
 TARGET		= libcxx_base
-SYSTEMS		= x86 arm amd64 ppc32
+SYSTEMS		= $(SYSTEMS_PLAIN)
 PC_FILENAME     = cxx_base
 SRC_CC		= cxa_pure_virtual.cc cxa_pure_delete.cc
 SRC_CC_arm     	= dso_handle.cc

@@ -25,7 +25,6 @@ IMPLEMENTATION:
 #include "globals.h"
 #include "kdb_ke.h"
 #include "thread_state.h"
-#include "thread_lock.h"
 #include <cassert>
 
 PUBLIC
@@ -59,9 +58,9 @@ Ipc_sender<Derived>::ipc_receiver_ready(Receiver *recv)
 
   recv->ipc_init(this);
 
-  derived()->transfer_msg();
+  derived()->transfer_msg(recv);
 
-  recv->state_change(~(Thread_receiving | Thread_busy
+  recv->state_change(~(Thread_receiving
                        | Thread_transfer_in_progress
                        | Thread_ipc_in_progress),
                      Thread_ready);
@@ -76,11 +75,10 @@ Ipc_sender<Derived>::ipc_receiver_ready(Receiver *recv)
   return true;
 }
 
-PROTECTED inline NEEDS["config.h", "globals.h", "thread_lock.h",
-                       "thread_state.h"]
+PROTECTED inline NEEDS["config.h", "globals.h", "thread_state.h"]
 bool
-Ipc_sender_base::handle_irq_shortcut(Syscall_frame *dst_regs,
-                                     Receiver *receiver)
+Ipc_sender_base::handle_shortcut(Syscall_frame *dst_regs,
+                                 Receiver *receiver)
 {
   if (EXPECT_TRUE
       ((current() != receiver
@@ -91,18 +89,17 @@ Ipc_sender_base::handle_irq_shortcut(Syscall_frame *dst_regs,
         // after-syscall exception
         && !(receiver->state()
           & (Thread_ready_mask | Thread_delayed_deadline | Thread_alien))
-        && !receiver->thread_lock()->test() // irq_thread not locked?
         && !current()->schedule_in_progress()))) // no schedule in progress
     {
       // we don't need to manipulate the state in a safe way
       // because we are still running with interrupts turned off
-      receiver->state_change_dirty(~Thread_busy, Thread_ready);
+      receiver->state_add_dirty(Thread_ready);
 
       if (!Config::Irq_shortcut)
         {
           // no shortcut: switch to the interrupt thread which will
           // calls Irq::ipc_receiver_ready
-          current()->switch_to_locked (receiver);
+          current()->switch_to_locked(receiver);
           return true;
         }
 
@@ -142,7 +139,7 @@ Ipc_sender_base::handle_irq_shortcut(Syscall_frame *dst_regs,
 
 PROTECTED template< typename Derived >
 inline  NEEDS["config.h","globals.h", "thread_state.h",
-              Ipc_sender_base::handle_irq_shortcut]
+              Ipc_sender_base::handle_shortcut]
 void
 Ipc_sender<Derived>::send_msg(Receiver *receiver)
 {
@@ -164,7 +161,7 @@ Ipc_sender<Derived>::send_msg(Receiver *receiver)
   // operation (or similar)!
   if (Receiver::Rcv_state s = receiver->sender_ok(this))
     {
-      Syscall_frame *dst_regs = derived()->transfer_msg();
+      Syscall_frame *dst_regs = derived()->transfer_msg(receiver);
 
       if (derived()->requeue_sender())
 	{
@@ -180,12 +177,12 @@ Ipc_sender<Derived>::send_msg(Receiver *receiver)
 
       if (s == Receiver::Rs_ipc_receive)
 	{
-	  if (handle_irq_shortcut(dst_regs, receiver))
+	  if (handle_shortcut(dst_regs, receiver))
 	    return;
 	}
       // we don't need to manipulate the state in a safe way
       // because we are still running with interrupts turned off
-      receiver->state_change_dirty(~Thread_busy, Thread_ready);
+      receiver->state_add_dirty(Thread_ready);
       receiver->sched()->deblock(receiver->cpu());
       return;
     }

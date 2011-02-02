@@ -12,8 +12,10 @@
 #include <l4/util/util.h>
 #include <l4/re/env>
 #include <l4/re/util/cap_alloc>
+#include <l4/re/util/kumem_alloc>
 #include <l4/sys/debugger.h>
 #include <l4/vcpu/vcpu>
+#include <l4/cxx/iostream>
 
 #include <l4/re/error_helper>
 
@@ -150,6 +152,24 @@ asm
   );
 static void setup_user_state_arch(L4vcpu::Vcpu *) { }
 static void handler_prolog() {}
+#elif defined(ARCH_sparc)
+asm
+(
+  ".p2align 12                      \t\n"
+  ".global my_super_code            \t\n"
+  ".global my_super_code_excp       \t\n"
+  ".global my_super_code_excp_after \t\n"
+  "my_super_code:                   \t\n"
+  "1: add %o0, 4, %o0               \t\n"
+  "my_super_code_excp:              \t\n"
+  "   ta 2                          \t\n"
+  "my_super_code_excp_after:        \t\n"
+  "   add %o0, 4, %o0               \t\n"
+  "   b 1b                          \t\n"
+  "   nop                           \t\n"
+  );
+static void setup_user_state_arch(L4vcpu::Vcpu *) { }
+static void handler_prolog() {}
 #else
 #error Add your architecture.
 #endif
@@ -164,7 +184,7 @@ static void handler(void)
   if (0)
     vcpu->print_state();
 
-  // very simple page-fault hanlding
+  // very simple page-fault handling
   // we're just replying with the only page we have, without checking any
   // values
   if (vcpu->is_page_fault_entry())
@@ -225,7 +245,7 @@ static void vcpu_thread(void)
     ;
 }
 
-int main(void)
+int run(void)
 {
   l4_utcb_t *u = l4_utcb();
   L4::Cap<L4::Thread> vcpu_cap;
@@ -258,9 +278,17 @@ int main(void)
   chksys(L4Re::Env::env()->factory()->create_irq(irq), "irq");
   l4_debugger_set_object_name(irq.cap(), "some irq");
 
-  // use two consecutive UTCBs
-  l4_utcb_t *vcpu_utcb  = (l4_utcb_t *)l4re_env()->first_free_utcb;
-  vcpu = L4vcpu::Vcpu::vcpu_from_utcb(vcpu_utcb);
+  // get memory for vCPU state
+  l4_addr_t kumem;
+  if (0)
+    kumem = (l4_addr_t)l4re_env()->first_free_utcb;
+  else
+    {
+      if (L4Re::Util::kumem_alloc(&kumem, 0))
+        exit(1);
+    }
+  l4_utcb_t *vcpu_utcb = (l4_utcb_t *)kumem;
+  vcpu = L4vcpu::Vcpu::cast(kumem + L4_UTCB_OFFSET);
   vcpu->entry_sp((l4_umword_t)hdl_stack + sizeof(hdl_stack));
   vcpu->entry_ip((l4_umword_t)handler);
 
@@ -270,9 +298,9 @@ int main(void)
   L4::Thread::Attr attr;
   attr.pager(L4::cap_reinterpret_cast<L4::Thread>(L4Re::Env::env()->rm()));
   attr.exc_handler(L4Re::Env::env()->main_thread());
-  attr.vcpu_enable(1);
   attr.bind(vcpu_utcb, L4Re::This_task);
   chksys(vcpu_cap->control(attr), "control");
+  chksys(vcpu_cap->vcpu_control((l4_addr_t)vcpu), "enable VCPU");
 
   chksys(vcpu_cap->ex_regs((l4_umword_t)vcpu_thread,
                            (l4_umword_t)thread_stack + sizeof(thread_stack),
@@ -306,4 +334,20 @@ int main(void)
 
   l4_sleep_forever();
   return 0;
+}
+
+int main()
+{
+  try { return run(); }
+  catch (L4::Runtime_error &e)
+    {
+      L4::cerr << "FATAL uncought exception: " << e
+               << "\nterminating...\n";
+    }
+  catch (...)
+    {
+      L4::cerr << "FATAL uncought exception of unknown type\n"
+               << "terminating...\n";
+    }
+  return 1;
 }

@@ -1,9 +1,10 @@
 PKGDIR ?= ../..
 L4DIR  ?= $(PKGDIR)/../..
 
-SRC_CC   := of.cc
-SYSTEMS  := x86 arm amd64 ppc32
-TARGET    = libdrivers_of.a
+SRC_CC     := of.cc
+SYSTEMS     = $(SYSTEMS_PLAIN)
+TARGET      = libdrivers_of.a
+PC_FILENAME = drivers_of
 
 PRIVATE_INCDIR += $(SRC_DIR)/../include 
 

@@ -176,7 +176,7 @@ Generic_io_space<SPACE>::is_superpage()
 // 
 
 PUBLIC template< typename SPACE >
-virtual inline
+virtual
 bool
 Generic_io_space<SPACE>::v_fabricate(Addr address, Phys_addr* phys,
                                      Size* size, unsigned* attribs = 0)
@@ -374,7 +374,7 @@ Generic_io_space<SPACE>::io_insert(Address port_number)
       // bit == 0 enables the port
       memset(page, 0xff, Config::PAGE_SIZE);
 
-      Mem_space::Status status = 
+      Mem_space::Status status =
 	mem_space()->v_insert(
 	    Mem_space::Phys_addr(Mem_layout::pmem_to_phys(page)),
 	    Mem_space::Addr(port_virt & Config::PAGE_MASK),

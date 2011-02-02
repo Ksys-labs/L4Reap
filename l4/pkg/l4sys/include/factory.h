@@ -401,6 +401,8 @@ l4_factory_create_add_fpage_u(l4_fpage_t d, l4_msgtag_t *tag,
 {
   l4_msg_regs_t *v = l4_utcb_mr_u(u);
   int w = l4_msgtag_words(*tag);
+  if (w + 2 > L4_UTCB_GENERIC_DATA_SIZE)
+    return 0;
   v->mr[w] = L4_VARG_TYPE_FPAGE | (sizeof(l4_fpage_t) << 16);
   v->mr[w + 1] = d.raw;
   w += 2;
@@ -414,6 +416,8 @@ l4_factory_create_add_int_u(l4_mword_t d, l4_msgtag_t *tag,
 {
   l4_msg_regs_t *v = l4_utcb_mr_u(u);
   int w = l4_msgtag_words(*tag);
+  if (w + 2 > L4_UTCB_GENERIC_DATA_SIZE)
+    return 0;
   v->mr[w] = L4_VARG_TYPE_MWORD | (sizeof(l4_mword_t) << 16);
   v->mr[w + 1] = d;
   w += 2;
@@ -427,20 +431,21 @@ l4_factory_create_add_uint_u(l4_umword_t d, l4_msgtag_t *tag,
 {
   l4_msg_regs_t *v = l4_utcb_mr_u(u);
   int w = l4_msgtag_words(*tag);
+  if (w + 2 > L4_UTCB_GENERIC_DATA_SIZE)
+    return 0;
   v->mr[w] = L4_VARG_TYPE_UMWORD | (sizeof(l4_umword_t) << 16);
   v->mr[w + 1] = d;
   w += 2;
   tag->raw = (tag->raw & ~0x3fUL) | (w & 0x3f);
   return 1;
 }
-#if 1
+
 L4_INLINE int
 l4_factory_create_add_str_u(char const *s, l4_msgtag_t *tag,
                             l4_utcb_t *u) L4_NOTHROW
 {
   return l4_factory_create_add_lstr_u(s, __builtin_strlen(s), tag, u);
 }
-#endif
 
 L4_INLINE int
 l4_factory_create_add_lstr_u(char const *s, int len, l4_msgtag_t *tag,
@@ -451,6 +456,10 @@ l4_factory_create_add_lstr_u(char const *s, int len, l4_msgtag_t *tag,
   int w = l4_msgtag_words(*tag);
   char *c;
   int i;
+
+  if (w + 1 + (len + sizeof(l4_umword_t) - 1) / sizeof(l4_umword_t)
+      > L4_UTCB_GENERIC_DATA_SIZE)
+    return 0;
 
   v->mr[w] = L4_VARG_TYPE_STRING | (len << 16);
   c = (char*)&v->mr[w + 1];

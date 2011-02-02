@@ -2,7 +2,7 @@
 
 #include <spin_lock.h>
 
-static Spin_lock __libc_backend_printf_spinlock;
+static Spin_lock<> __libc_backend_printf_spinlock;
 
 unsigned long __libc_backend_printf_lock()
 {

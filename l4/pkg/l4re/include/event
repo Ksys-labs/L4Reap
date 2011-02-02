@@ -35,6 +35,7 @@ namespace L4Re {
 
 typedef l4re_event_stream_id_t Event_stream_id;
 typedef l4re_event_stream_info_t Event_stream_info;
+typedef l4re_event_absinfo_t Event_absinfo;
 
 /**
  * \brief Event class.
@@ -55,6 +56,9 @@ public:
   long get_buffer(L4::Cap<Dataspace> ds) const throw();
   long get_num_streams() const throw();
   long get_stream_info(int idx, Event_stream_info *info) const throw();
+  long get_stream_info_for_id(l4_umword_t stream_id, Event_stream_info *info) const throw();
+  long get_axis_info(l4_umword_t stream_id, unsigned naxes, unsigned *axis,
+                     Event_absinfo *info) const throw();
 };
 
 struct L4_EXPORT Default_event_payload

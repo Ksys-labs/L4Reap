@@ -2,7 +2,6 @@
   DUMP_MEMBER1 (THREAD, Context, _kernel_sp,		KERNEL_SP)
   DUMP_MEMBER1 (THREAD, Context, _donatee,		DONATEE)
   DUMP_MEMBER1 (THREAD, Context, _lock_cnt,		LOCK_CNT)
-  DUMP_MEMBER1 (THREAD, Context, _thread_lock,		THREAD_LOCK_PTR)
   DUMP_MEMBER1 (THREAD, Context, _sched_context,	SCHED_CONTEXT)
   DUMP_MEMBER1 (THREAD, Context, _sched,		SCHED)
   DUMP_MEMBER1 (THREAD, Context, _period,		PERIOD)
@@ -28,18 +27,14 @@
   DUMP_MEMBER1 (THREAD, Thread, _exc_cont._psr,         EXCEPTION_PSR)
 #endif
   DUMP_MEMBER1 (THREAD, Thread, _magic,			MAGIC)
-#if defined(CONFIG_IA32)
-  DUMP_MEMBER1 (THREAD, Thread, _idt,			IDT)
-  DUMP_MEMBER1 (THREAD, Thread, _idt_limit,		IDT_LIMIT)
-#endif
   DUMP_OFFSET  (THREAD, MAX, sizeof (Thread))
 
   DUMP_MEMBER1 (THREAD, Thread, _p_next,		PRIO_P_NEXT)
   DUMP_MEMBER1 (THREAD, Thread, _p_prev_next,		PRIO_P_PREV_NEXT)
   DUMP_MEMBER1 (THREAD, Thread, _s_next,		PRIO_S_NEXT)
   DUMP_MEMBER1 (THREAD, Thread, _s_prev,		PRIO_S_PREV)
+  DUMP_MEMBER1 (THREAD, Context, _vcpu_state._u,        USER_VCPU)
 #if defined(CONFIG_ARM)
-  DUMP_MEMBER1 (THREAD, Context, _local_id,             LOCAL_ID)
   DUMP_OFFSET  (THREAD, UTCB_SIZE, sizeof(Utcb))
 #else
   DUMP_MEMBER1 (THREAD, Context, _vcpu_state,		VCPU_STATE)
@@ -59,7 +54,6 @@
   DUMP_MEMBER1 (SPACE,         Space, _mem_space,               MEM_SPACE)
   DUMP_MEMBER1 (MEM_SPACE, Mem_space, _dir,                     PGTABLE)
 
-  DUMP_MEMBER1 (IRQ, Irq, _queued,				QUEUED)
 
   DUMP_MEMBER1 (TBUF_STATUS, Tracebuffer_status, kerncnts,      KERNCNTS)
 

@@ -84,7 +84,7 @@ public:
    * \note \a task is the implicit \a this pointer.
    */
   l4_msgtag_t cap_has_child(Cap<void> const &cap,
-                         l4_utcb_t *utcb = l4_utcb()) throw()
+                            l4_utcb_t *utcb = l4_utcb()) throw()
   { return l4_task_cap_has_child_u(this->cap(), cap.cap(), utcb); }
 
   /**
@@ -95,6 +95,14 @@ public:
                         Cap<void> const &cap_b,
                         l4_utcb_t *utcb = l4_utcb()) throw()
   { return l4_task_cap_equal_u(cap(), cap_a.cap(), cap_b.cap(), utcb); }
+
+  /**
+   * \copydoc l4_task_add_ku_mem()
+   * \note \a task is the implicit \a this pointer.
+   */
+  l4_msgtag_t add_ku_mem(l4_fpage_t const &fpage,
+                         l4_utcb_t *utcb = l4_utcb()) throw()
+  { return l4_task_add_ku_mem_u(cap(), fpage, utcb); }
 
 };
 }

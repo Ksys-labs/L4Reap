@@ -20,6 +20,14 @@
 # path.
 # MODULES_SEARCH_PATH = /path/to/cfgs:/path/to/foo:..
 #
+# 'image' just builds what's configured:
+# - default: just ELF
+# - BOOTSTRAP_DO_RAW_IMAGE=y: additionally raw images
+# - BOOTSTRAP_DO_UIMAGE=y:    additionally uImages
+#
+# Other bootstrap options (see also pkg/bootstrap/server/src/Make.rules):
+# - BOOTSTRAP_CMDLINE: default cmdline
+# - BOOTSTRAP_UIMAGE_COMPRESSION: set to none, gzip, or bzip2
 #
 #
 # QEMU: Specific configuration for 'qemu' target (make qemu E=xxx'):
@@ -60,7 +68,7 @@ UX_OPTIONS     = -m 128
 
 # Search path for other make targets:
 # grub1iso grub2iso: MODULE_SEARCH_PATH += /path/to/fiasco-build
-# image: MODULE_SEARCH_PATH += /path/to/fiasco-build
+# image %image: MODULE_SEARCH_PATH += /path/to/fiasco-build
 
 # VirtualBox
 #

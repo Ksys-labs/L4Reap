@@ -35,7 +35,7 @@ static inline void libc_backend_rtc_get_s_and_ns(l4_uint32_t *s, l4_uint32_t *ns
   l4_tsc_to_s_and_ns(l4_rdtsc(), s, ns);
 }
 
-#elif defined(ARCH_arm) || defined(ARCH_ppc32)
+#elif defined(ARCH_arm) || defined(ARCH_ppc32) || defined(ARCH_sparc)
 
 static inline void libc_backend_rtc_init(void)
 {

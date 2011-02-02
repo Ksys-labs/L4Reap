@@ -17,14 +17,14 @@
  */
 #pragma once
 
-L4_INLINE
+L4_CV L4_INLINE
 int
 l4vcpu_is_irq_entry(l4_vcpu_state_t *vcpu) L4_NOTHROW
 {
   return vcpu->r.err == 0x00600000;
 }
 
-L4_INLINE
+L4_CV L4_INLINE
 int
 l4vcpu_is_page_fault_entry(l4_vcpu_state_t *vcpu) L4_NOTHROW
 {

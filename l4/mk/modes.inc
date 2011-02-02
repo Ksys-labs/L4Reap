@@ -20,9 +20,15 @@ ifeq ($(MODE),l4linux)
   endif
 endif
 
+ifeq ($(ARCH),sparc)
+CRTBEGIN_so       = $(GCCLIBDIR)/crtbegin.o
+CRTBEGIN_stat_bin = $(GCCLIBDIR)/crtbegin.o
+else
 CRTBEGIN_so       = $(GCCLIBDIR)/crtbeginS.o
-CRTBEGIN_dyn_bin  = $(GCCLIBDIR)/crtbegin.o
 CRTBEGIN_stat_bin = $(GCCLIBDIR)/crtbeginT.o
+endif
+
+CRTBEGIN_dyn_bin  = $(GCCLIBDIR)/crtbegin.o
 
 CRTEND_so         = $(GCCLIBDIR)/crtendS.o
 CRTEND_dyn_bin    = $(GCCLIBDIR)/crtend.o
@@ -37,7 +43,11 @@ CRTI_so           = $(call findfile,crti.s.o,$(L4LIBDIR))
 CRTI_dyn_bin      = $(call findfile,crti.o,$(L4LIBDIR))
 CRTI_stat_bin     = $(call findfile,crti.o,$(L4LIBDIR))
 
+ifeq ($(ARCH),sparc)
+CRTN_so           = $(call findfile,crtn.s.o,$(L4LIBDIR))
+else
 CRTN_so           = $(CRTEND_so)       $(call findfile,crtn.s.o,$(L4LIBDIR))
+endif
 CRTN_dyn_bin      = $(CRTEND_dyn_bin)  $(call findfile,crtn.o,$(L4LIBDIR))
 CRTN_stat_bin     = $(CRTEND_stat_bin) $(call findfile,crtn.o,$(L4LIBDIR))
 

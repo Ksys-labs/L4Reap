@@ -2,7 +2,7 @@ PKGDIR          ?= ../..
 L4DIR           ?= $(PKGDIR)/../..
 
 TARGET          = libudis86.a libudis86.so
-SYSTEMS         = x86 amd64 arm ppc32
+SYSTEMS         = $(SYSTEMS_PLAIN)
 PC_FILENAME     = libudis86
 CONTRIB_INCDIR  = libudis86
 

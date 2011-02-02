@@ -22,23 +22,29 @@
 namespace L4Re { namespace Util {
 
 int
-Event::init(L4::Cap<L4Re::Event> event,
+Event::init(L4::Cap<L4Re::Event> event, Mode mode,
             L4Re::Env const *env, L4Re::Cap_alloc *ca)
 {
   Auto_cap<L4Re::Dataspace>::Cap ev_ds = ca->alloc<L4Re::Dataspace>();
   if (!ev_ds.is_valid())
     return -L4_ENOMEM;
 
-  Auto_del_cap<L4::Irq>::Cap ev_irq = ca->alloc<L4::Irq>();
-  if (!ev_irq.is_valid())
-    return -L4_ENOMEM;
-
   int r;
-  if ((r = l4_error(env->factory()->create_irq(ev_irq.get()))))
-    return r;
 
-  if ((r = l4_error(event->bind(0, ev_irq.get()))))
-    return r;
+  Auto_del_cap<L4::Irq>::Cap ev_irq;
+
+  if (mode == Mode_irq)
+    {
+      ev_irq = ca->alloc<L4::Irq>();
+      if (!ev_irq.is_valid())
+        return -L4_ENOMEM;
+
+      if ((r = l4_error(env->factory()->create_irq(ev_irq.get()))))
+        return r;
+
+      if ((r = l4_error(event->bind(0, ev_irq.get()))))
+        return r;
+    }
 
   if ((r = event->get_buffer(ev_ds.get())))
     return r;
@@ -49,8 +55,7 @@ Event::init(L4::Cap<L4Re::Event> event,
 
   Rm::Auto_region<void*> buf;
 
-  if ((r = env->rm()->attach(&buf, sz, L4Re::Rm::Search_addr,
-          ev_ds.get())))
+  if ((r = env->rm()->attach(&buf, sz, L4Re::Rm::Search_addr, ev_ds.get())))
     return r;
 
   _ev_buffer = L4Re::Event_buffer(buf.get(), sz);

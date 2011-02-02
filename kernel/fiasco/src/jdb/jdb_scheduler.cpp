@@ -30,7 +30,7 @@ Jdb_cpu::Jdb_cpu()
 
 PUBLIC
 bool
-Jdb_cpu::show_kobject(Kobject *, int )
+Jdb_cpu::show_kobject(Kobject_common *, int )
 {
   return true;
 }
@@ -45,7 +45,7 @@ Jdb_cpu::kobject_type() const
 #if 0
 PUBLIC
 int
-Jdb_cpu::show_kobject_short(char *buf, int max, Kobject *o)
+Jdb_cpu::show_kobject_short(char *buf, int max, Kobject_common *o)
 {
   Cpu_object *co = Kobject::dcast<Cpu_object *>(o);
   return snprintf(buf, max, " id=%d o%sline", co->id(),

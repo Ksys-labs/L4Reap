@@ -84,6 +84,7 @@ typedef struct  __attribute__((packed)){
 enum udp_ports {
 	udp_port_reserved = 0,
 	udp_port_echo = 7,
+	udp_port_dns_srv = 53,
 	udp_port_bootp_srv = 67,
 	udp_port_bootp_clnt = 68,
 };
@@ -134,6 +135,35 @@ typedef struct
 	char        bootfile[128];
 } dhcp;
 
+typedef struct
+{
+	l4_uint16_t  ident; // request identifier
+	l4_uint8_t   qr:1;  // 0 = query, 1 = response
+	l4_uint8_t   opcode:4; // 0 - 5
+	l4_uint8_t   aa:1; // authoritative answer y/n
+	l4_uint8_t   tc:1; // truncated y/n
+	l4_uint8_t   rd:1; // recursion desired
+	l4_uint8_t   ra:1; // recursion available
+	l4_uint8_t    z:1; // --
+	l4_uint8_t   ad:1; // authenticated data
+	l4_uint8_t   cd:1; // checking disabled
+	l4_uint8_t   rcode:4; // return code
+	l4_uint16_t  tot_questions; // # of questions
+	l4_uint16_t  tot_answer_rr; // # of answers
+	l4_uint16_t  tot_auth_rr; // # of authority resource records
+	l4_uint16_t  tot_add_rr; // # of addtional resource records
+} dns_t;
+
+enum dns_ops
+{
+	dns_query,
+	dns_iquery,
+	dns_status,
+	dns_reserved,
+	dns_notify,
+	dns_update,
+};
+
 /*
  * Config stuff
  */
@@ -144,9 +174,10 @@ typedef struct
 #define PA_ICMP  0
 #define PA_TCP   0
 
-#define PA_UDP   (PA_DHCP || PA_BOOTP)
+#define PA_UDP   (PA_DHCP || PA_BOOTP || PA_DNS)
 #define PA_DHCP  0
 #define PA_BOOTP 0
+#define PA_DNS   0
 
 
 /*

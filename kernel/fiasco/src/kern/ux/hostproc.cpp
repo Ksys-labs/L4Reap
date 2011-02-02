@@ -39,7 +39,7 @@ Hostproc::setup()
 
   // Zero all args, making ps output pretty
   do arglen += strlen (*args) + 1; while (*++args);
-  memset (*Boot_info::args(), 0, arglen); 
+  memset (*Boot_info::args(), 0, arglen);
 
   // Put task number into argv[0] for ps
   snprintf (*Boot_info::args(), arglen, "[Task]");
@@ -93,7 +93,7 @@ Hostproc::create()
    * stack pointer for the fork system call. This ensures that the
    * child gets its own COW stack rather than running on the parent
    * stack.
-   */      
+   */
   asm volatile ("movl %%esp, %0; movl %1, %%esp" :
                 "=m" (esp), "=m" (boot_stack));
 
@@ -104,19 +104,19 @@ Hostproc::create()
     {
       case -1:                            // Failed
         return 0;
-      
+
       case 0:                             // Child
         setup();
         _exit(1);                        // unreached
-        
+
       default:                            // Parent
         asm volatile ("movl %0, %%esp" : : "m" (esp));
-      
+
         int status;
         check (waitpid (pid, &status, 0) == pid);
         assert (WIFSTOPPED (status) && WSTOPSIG (status) == SIGUSR1);
-      
+
         Trampoline::syscall (pid, __NR_munmap, 0, Mem_layout::Trampoline_page);
         return pid;
     }
-}  
+}

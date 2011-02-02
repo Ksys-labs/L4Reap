@@ -131,15 +131,15 @@ class Shm_ringbuffer
 		/*
 		 * Get data size only
 		 */
-		unsigned data_size() const { return DATA_SIZE(buffer()); }
-		/* 
+		unsigned data_size() const { return L4SHMC_RINGBUF_DATA_SIZE(buffer()); }
+		/*
 		 * Get data area address
 		 */
-		char    *data_addr() const { return HEAD(buffer())->data; }
+		char    *data_addr() const { return L4SHMC_RINGBUF_HEAD(buffer())->data; }
 		/*
 		 * Get buffer base address
 		 */
-		char    *base_addr() const { return reinterpret_cast<char*>(HEAD(buffer())); }
+		char    *base_addr() const { return reinterpret_cast<char*>(L4SHMC_RINGBUF_HEAD(buffer())); }
 
 
 		/*
@@ -235,7 +235,7 @@ class Shm_receiver : public Shm_ringbuffer_user
 		 */
 		int next_copy_out(char *target, unsigned *tsize)
 		{
-			int err = l4shmc_rb_receiver_copy_out(HEAD(_rb->buffer()), target, tsize);
+			int err = l4shmc_rb_receiver_copy_out(L4SHMC_RINGBUF_HEAD(_rb->buffer()), target, tsize);
 			return err;
 		}
 		

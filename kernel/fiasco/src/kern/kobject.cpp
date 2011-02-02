@@ -44,19 +44,12 @@ INTERFACE:
 #include "space.h"
 
 class Kobject :
-  public virtual Kobject_common,
+  public Kobject_iface,
   private Kobject_mappable,
-  public Kobject_dbg
+  private Kobject_dbg
 {
   template<typename T>
   friend class Map_traits;
-
-public:
-  Kobject_mappable *map_root() { return this; }
-  Kobject_dbg *dbg_info() { return this; }
-  Kobject_dbg const *dbg_info() const { return this; }
-  Kobject *kobject() { return this; }
-  Kobject const *kobject() const { return this; }
 
 private:
   template<typename T>
@@ -66,12 +59,6 @@ private:
   class Tconv<T*> { public: typedef T Base; };
 
 public:
-  bool is_local(Space *) const { return false; }
-  Mword obj_id() const { return ~0UL; }
-  void initiate_deletion(Kobject ***);
-  void destroy(Kobject ***);
-  bool put() { return true; }
-
   template<typename T>
   static T dcast(Kobject_common *_o)
   {
@@ -108,12 +95,15 @@ public:
 
 #define FIASCO_DECLARE_KOBJ() \
   public: static char const *const static_kobj_type; \
-          char const *kobj_type() const { return static_kobj_type; } \
-          Address kobject_start_addr() const { return (Address)this; } \
-          Mword kobject_size() const { return sizeof(*this); }
+          char const *kobj_type() const; \
+          Address kobject_start_addr() const; \
+          Mword kobject_size() const;
 
 #define FIASCO_DEFINE_KOBJ(t) \
-  char const *const t::static_kobj_type = #t
+  char const *const t::static_kobj_type = #t; \
+  char const *t::kobj_type() const { return static_kobj_type; } \
+  Address t::kobject_start_addr() const { return (Address)this; } \
+  Mword t::kobject_size() const { return sizeof(*this); }
 
 
 //---------------------------------------------------------------------------
@@ -122,6 +112,12 @@ IMPLEMENTATION:
 #include "logdefs.h"
 #include "l4_buf_iter.h"
 #include "lock_guard.h"
+
+
+PUBLIC bool  Kobject::is_local(Space *) const { return false; }
+PUBLIC Mword Kobject::obj_id() const { return ~0UL; }
+PUBLIC virtual bool  Kobject::put() { return true; }
+PUBLIC Kobject_mappable *Kobject::map_root() { return this; }
 
 PUBLIC inline NEEDS["lock_guard.h"]
 Smword
@@ -132,8 +128,7 @@ Kobject_mappable::dec_cap_refcnt(Smword diff)
   return _cnt;
 }
 
-
-IMPLEMENT inline
+PUBLIC
 void
 Kobject::initiate_deletion(Kobject ***reap_list)
 {
@@ -144,7 +139,7 @@ Kobject::initiate_deletion(Kobject ***reap_list)
   *reap_list = &_next_to_reap;
 }
 
-IMPLEMENT
+PUBLIC virtual
 void
 Kobject::destroy(Kobject ***)
 {
@@ -205,11 +200,15 @@ Kobject *
 Kobject::id_to_obj(unsigned long id)
 { return static_cast<Kobject*>(Kobject_dbg::id_to_obj(id)); }
 
-PUBLIC static inline
+PUBLIC static
 Kobject *
 Kobject::pointer_to_obj(void const *p)
 { return static_cast<Kobject*>(Kobject_dbg::pointer_to_obj(p)); }
 
+PUBLIC inline
+Mword
+Kobject::dbg_id() const
+{ return Kobject_dbg::dbg_id(); }
 
 //---------------------------------------------------------------------------
 INTERFACE [debug]:
@@ -233,6 +232,15 @@ protected:
 //---------------------------------------------------------------------------
 IMPLEMENTATION [debug]:
 
+PUBLIC static inline
+Kobject *
+Kobject::from_dbg(Kobject_dbg *d)
+{ return static_cast<Kobject*>(d); }
+
+PUBLIC
+Kobject_dbg *
+Kobject::dbg_info() const
+{ return const_cast<Kobject*>(this); }
 
 IMPLEMENT
 unsigned

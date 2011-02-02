@@ -57,6 +57,18 @@ Lock_guard<LOCK>::lock(LOCK *l)
 
 PUBLIC template<typename LOCK>
 inline
+void
+Lock_guard<LOCK>::release()
+{
+  if (_lock)
+    {
+      _lock->set(_state);
+      _lock = 0;
+    }
+}
+
+PUBLIC template<typename LOCK>
+inline
 Lock_guard<LOCK>::~Lock_guard()
 {
   if (_lock)

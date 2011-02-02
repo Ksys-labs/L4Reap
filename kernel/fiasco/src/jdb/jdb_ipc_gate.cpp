@@ -27,23 +27,23 @@ Jdb_ipc_gate::Jdb_ipc_gate()
 }
 
 PUBLIC
-Kobject *
-Jdb_ipc_gate::follow_link(Kobject *o)
+Kobject_common *
+Jdb_ipc_gate::follow_link(Kobject_common *o)
 {
-  Ipc_gate_obj *g = Kobject::dcast<Ipc_gate_obj *>(o);
-  return g->thread() ? g->thread()->kobject() : o;
+  Ipc_gate_obj *g = Kobject::dcast<Ipc_gate_obj *>(Kobject::from_dbg(o->dbg_info()));
+  return g->thread() ? Kobject::from_dbg(g->thread()->dbg_info()) : o;
 }
 
 PUBLIC
 bool
-Jdb_ipc_gate::show_kobject(Kobject *, int)
+Jdb_ipc_gate::show_kobject(Kobject_common *, int)
 { return true; }
 
 PUBLIC
 int
-Jdb_ipc_gate::show_kobject_short(char *buf, int max, Kobject *o)
+Jdb_ipc_gate::show_kobject_short(char *buf, int max, Kobject_common *o)
 {
-  Ipc_gate_obj *g = Kobject::dcast<Ipc_gate_obj*>(o);
+  Ipc_gate_obj *g = Kobject::dcast<Ipc_gate_obj*>(Kobject::from_dbg(o->dbg_info()));
   if (!g)
     return 0;
 

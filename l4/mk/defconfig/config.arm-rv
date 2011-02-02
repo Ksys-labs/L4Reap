@@ -6,6 +6,7 @@
 # CONFIG_BUILD_ARCH_amd64 is not set
 CONFIG_BUILD_ARCH_arm=y
 # CONFIG_BUILD_ARCH_ppc32 is not set
+# CONFIG_BUILD_ARCH_sparc is not set
 CONFIG_BUILD_ARCH="arm"
 CONFIG_BUILD_ABI_l4f=y
 CONFIG_BUILD_ABI="l4f"

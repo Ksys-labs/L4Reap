@@ -21,6 +21,9 @@ private:
     OSSR  = Base + 0x14,
     OWER  = Base + 0x18,
     OIER  = Base + 0x1c,
+
+
+    Timer_diff = (36864 * Config::scheduler_granularity) / 10000, // 36864MHz*1ms
   };
 
   static Irq_base *irq;
@@ -36,8 +39,6 @@ IMPLEMENTATION [arm && (sa1100 || pxa)]:
 #include "pic.h"
 #include "io.h"
 
-static unsigned const timer_diff = (36864 * Config::scheduler_granularity)/10000; // 36864MHz*1ms
-
 Irq_base *Timer::irq;
 
 IMPLEMENT
@@ -45,7 +46,7 @@ void Timer::init()
 {
   Io::write(1,          OIER); // enable OSMR0
   Io::write(0,          OWER); // disable Watchdog
-  Io::write(timer_diff, OSMR0);
+  Io::write<Mword>(Timer_diff, OSMR0);
   Io::write(0,          OSCR); // set timer counter to zero
   Io::write(~0U,        OSSR); // clear all status bits
 
@@ -77,10 +78,7 @@ void Timer::acknowledge()
       Io::write(0xffffffff, OSMR0);
     }
   else
-    {
-      Kip::k()->clock += Config::scheduler_granularity;
-      Io::write(0, OSCR);
-    }
+    Io::write(0, OSCR);
   Io::write(1, OSSR); // clear all status bits
   enable();
 }

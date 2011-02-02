@@ -17,9 +17,6 @@ private:
   static Mword exception_cs();
 
 protected:
-  Idt_entry *_idt;
-  Unsigned16 _idt_limit;
-
   static Trap_state::Handler nested_trap_handler FIASCO_FASTCALL;
 };
 
@@ -60,7 +57,7 @@ Trap_state::Handler Thread::nested_trap_handler FIASCO_FASTCALL;
 
 IMPLEMENT
 Thread::Thread()
-: Receiver(&_thread_lock),
+: Receiver(),
   Sender(0),   // select optimized version of constructor
   _pager(Thread_ptr::Invalid),
   _exc_handler(Thread_ptr::Invalid),
@@ -76,7 +73,6 @@ Thread::Thread()
 		Config::thread_block_size-sizeof(Thread)-64);
 
   _magic          = magic;
-  _idt_limit      = 0;
   _recover_jmpbuf = 0;
   _timeout        = 0;
 
@@ -206,8 +202,17 @@ Thread::handle_slow_trap(Trap_state *ts)
       goto generic_debug;
     }
 
-  if (from_user && (state() & Thread_vcpu_user_mode) && send_exception(ts))
-    goto success;
+  if (from_user && _space.user_mode())
+    {
+      if (ts->_trapno == 14 && Kmem::is_io_bitmap_page_fault(ts->_cr2))
+        {
+	  ts->_trapno = 13;
+	  ts->_err    = 0;
+        }
+      if (send_exception(ts))
+	goto success;
+    }
+
 
   // XXX We might be forced to raise an excepton. In this case, our return
   // CS:IP points to leave_by_trigger_exception() which will trigger the
@@ -298,34 +303,6 @@ Thread::handle_slow_trap(Trap_state *ts)
       // find out if we are a privileged task
       bool is_privileged = trap_is_privileged (ts);
 
-      // check for "lidt (%eax)"
-      if (EXPECT_FALSE
-	  (ip < Kmem::mem_user_max - 4 &&
-	   (mem_space()->peek((Mword*) ip, from_user) & 0xffffff) == 0x18010f))
-	{
-          // emulate "lidt (%eax)"
-
-          // read descriptor
-          if (ts->value() >= Kmem::mem_user_max - 6)
-            goto fail;
-
-          Idt_entry *idt
-	    = mem_space()->peek((Idt_entry**)(ts->value() + 2), from_user);
-          Unsigned16 limit = mem_space()->peek ((Unsigned16*) ts->value(), from_user);
-
-          if ((Address)idt >= (Address)Kmem::mem_user_max-limit-1)
-            goto fail;
-
-          // OK; store descriptor
-          _idt = idt;
-          _idt_limit = (limit + 1) / sizeof(Idt_entry);
-
-          // consume instruction and continue
-	  ts->consume_instruction(3);
-          // ignore errors
-          goto success;
-        }
-
       // check for "wrmsr (%eax)"
       if (EXPECT_FALSE
 	  (is_privileged
@@ -371,34 +348,6 @@ check_exception:
   // send exception IPC if requested
   if (send_exception(ts))
     goto success;
-
-  // let's see if we have a trampoline to invoke
-  if (ts->_trapno < 0x20 && ts->_trapno < _idt_limit)
-    {
-      Idt_entry e = mem_space()->peek(_idt + ts->_trapno, 1);
-
-      if ((e.ist() & 0xe0) == 0x00
-          && (e.access() & 0x1f) == 0x0f) // gate descriptor ok?
-        {
-          Address handler = e.offset();
-
-          if (handler
-              && handler  <  Kmem::mem_user_max // in user space?
-              && ts->sp() <= Kmem::mem_user_max
-              && ts->sp() > 5 * sizeof (Mword)) // enough space on user stack?
-            {
-	      // OK, reflect the trap to user mode
-	      if (1 /* !raise_exception (ts, handler) */)
-                {
-                  // someone interfered and changed our state
-		  assert (state() & Thread_cancel);
-                  state_del(Thread_cancel);
-                }
-
-              goto success;     // we've consumed the trap
-            }
-        }
-    }
 
   // backward compatibility cruft: check for those insane "int3" debug
   // messaging command sequences
@@ -478,7 +427,7 @@ thread_page_fault(Address pfa, Mword error_code, Address ip, Mword flags,
     Proc::sti();
 
   // Pagefault in kernel mode and interrupts were disabled
-  else 
+  else
     {
       // page fault in kernel memory region
       if (Kmem::is_kmem_page_fault(pfa, error_code))
@@ -496,9 +445,9 @@ thread_page_fault(Address pfa, Mword error_code, Address ip, Mword flags,
           // No error -- just enable interrupts.
 	  Proc::sti();
 	}
-      else 
+      else
 	{
-       	  // Error: We interrupted a cli'd kernel context touching kernel space
+          // Error: We interrupted a cli'd kernel context touching kernel space
 	  if (!Thread::log_page_fault())
 	    printf("*P[%lx,%lx,%lx] ", pfa, error_code & 0xffff, ip);
 

@@ -10,11 +10,11 @@ class Ram_quota;
 
 class Ipc_gate_obj;
 
-class Ipc_gate_ctl : public Kobject_h<Ipc_gate_ctl>, public Kobject
+class Ipc_gate_ctl : public Kobject_h<Ipc_gate_ctl, Kobject_iface>
 {
 };
 
-class Ipc_gate : public Kobject_iface
+class Ipc_gate : public Kobject
 {
   friend class Ipc_gate_ctl;
 protected:
@@ -34,6 +34,8 @@ private:
   typedef slab_cache_anon Self_alloc;
 
 public:
+  bool put() { return Ipc_gate::put(); }
+
   Thread *thread() const { return _thread.ptr(); }
   Mword id() const { return _id; }
   Mword obj_id() const { return _id; }
@@ -74,6 +76,11 @@ IMPLEMENTATION:
 FIASCO_DEFINE_KOBJ(Ipc_gate_obj);
 
 PUBLIC
+::Kobject_mappable *
+Ipc_gate_obj::map_root()
+{ return Ipc_gate::map_root(); }
+
+PUBLIC
 Kobject_iface *
 Ipc_gate_obj::downgrade(unsigned long attr)
 {
@@ -93,7 +100,7 @@ Ipc_gate_obj::Ipc_gate_obj(Ram_quota *q, Thread *t, Mword id)
   : Ipc_gate(q, t, id)
 {}
 
-PUBLIC inline
+PUBLIC
 void
 Ipc_gate_obj::unblock_all()
 {
@@ -102,16 +109,14 @@ Ipc_gate_obj::unblock_all()
       Lock_guard<Cpu_lock> g1(&cpu_lock);
       Thread *w;
 	{
-	  Lock_guard<Spin_lock> g2(&_wait_q);
+	  Lock_guard<typeof(_wait_q)> g2(&_wait_q);
 	  if (EXPECT_FALSE(h != _wait_q.head()))
 	    continue;
 
 	  w = static_cast<Thread*>(Sender::cast(h));
 	  w->sender_dequeue(&_wait_q);
 	}
-      w->state_change_safely(~(Thread_ipc_in_progress | Thread_send_in_progress), Thread_ready);
-      w->ready_enqueue();
-      w->reset_timeout();
+      w->activate();
     }
 }
 
@@ -145,15 +150,12 @@ void *
 Ipc_gate_obj::operator new (size_t, void *b)
 { return b; }
 
-PRIVATE static inline NOEXPORT NEEDS["kmem_slab.h"]
+static Kmem_slab_t<Ipc_gate_obj> _ipc_gate_allocator("Ipc_gate");
+
+PRIVATE static
 Ipc_gate_obj::Self_alloc *
 Ipc_gate_obj::allocator()
-{
-  static Self_alloc* slabs =
-    new Kmem_slab_simple (sizeof (Ipc_gate_obj), sizeof (Mword), "Ipc_gate");
-
-  return slabs;
-}
+{ return &_ipc_gate_allocator; }
 
 PUBLIC static
 Ipc_gate_obj *
@@ -233,7 +235,7 @@ void
 Ipc_gate_ctl::invoke(L4_obj_ref self, Mword rights, Syscall_frame *f, Utcb *utcb)
 {
   if (f->tag().proto() == L4_msg_tag::Label_kobject)
-    Kobject_h<Ipc_gate_ctl>::invoke(self, rights, f, utcb);
+    Kobject_h<Ipc_gate_ctl, Kobject_iface>::invoke(self, rights, f, utcb);
   else
     static_cast<Ipc_gate_obj*>(this)->Ipc_gate::invoke(self, rights, f, utcb);
 }
@@ -258,7 +260,7 @@ Ipc_gate_ctl::kinvoke(L4_obj_ref self, Mword rights, Syscall_frame *f, Utcb cons
     case 0x11:
       return get_infos(self, rights, f, in, out);
     default:
-      return kobject_invoke(self, rights, f, in, out);
+      return static_cast<Ipc_gate_obj*>(this)->kobject_invoke(self, rights, f, in, out);
     }
 }
 
@@ -275,7 +277,7 @@ Ipc_gate::block(Thread *ct, L4_timeout const &to, Utcb *u)
     }
 
     {
-      Lock_guard<Spin_lock> g(&_wait_q);
+      Lock_guard<typeof(_wait_q)> g(&_wait_q);
       ct->wait_queue(&_wait_q);
       ct->sender_enqueue(&_wait_q, ct->sched_context()->prio());
     }
@@ -289,9 +291,13 @@ Ipc_gate::block(Thread *ct, L4_timeout const &to, Utcb *u)
     }
 
   ct->schedule();
+
+  ct->state_change(~(Thread_ipc_in_progress | Thread_send_in_progress), Thread_ready);
+  ct->reset_timeout();
+
   if (EXPECT_FALSE(ct->in_sender_list() && timeout.has_hit()))
     {
-      Lock_guard<Spin_lock> g(&_wait_q);
+      Lock_guard<typeof(_wait_q)> g(&_wait_q);
       if (!ct->in_sender_list())
 	return L4_error::None;
 
@@ -334,8 +340,8 @@ Ipc_gate::invoke(L4_obj_ref /*self*/, Mword rights, Syscall_frame *f, Utcb *utcb
 
   LOG_TRACE("IPC Gate invoke", "gate", current(), __fmt_ipc_gate_invoke,
       Log_ipc_gate_invoke *l = tbe->payload<Log_ipc_gate_invoke>();
-      l->gate_dbg_id = dbg_info()->dbg_id();
-      l->thread_dbg_id = _thread->dbg_info()->dbg_id();
+      l->gate_dbg_id = dbg_id();
+      l->thread_dbg_id = _thread->dbg_id();
       l->label = _id | rights;
   );
 
@@ -351,6 +357,11 @@ Ipc_gate::invoke(L4_obj_ref /*self*/, Mword rights, Syscall_frame *f, Utcb *utcb
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [debug]:
+
+PUBLIC
+::Kobject_dbg *
+Ipc_gate_obj::dbg_info() const
+{ return Ipc_gate::dbg_info(); }
 
 IMPLEMENT
 unsigned

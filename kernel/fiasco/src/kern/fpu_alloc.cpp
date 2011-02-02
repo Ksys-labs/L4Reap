@@ -15,15 +15,14 @@ IMPLEMENTATION:
 #include "ram_quota.h"
 #include "slab_cache_anon.h"
 
+static Kmem_slab _fpu_state_allocator(Fpu::state_size() + sizeof(Ram_quota*),
+                                      Fpu::state_align(), "Fpu state");
 
-PRIVATE inline static 
+PRIVATE static
 slab_cache_anon *
 Fpu_alloc::slab_alloc()
 {
-  static slab_cache_anon *my_slab 
-    = new Kmem_slab(Fpu::state_size() + sizeof(Ram_quota*),
-	Fpu::state_align(), "Fpu state");
-  return my_slab;
+  return &_fpu_state_allocator;
 }
 
 PUBLIC static

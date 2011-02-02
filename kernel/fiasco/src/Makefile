@@ -158,7 +158,8 @@ all doc $(addsuffix .ps,$(DEPS_FILES)) $(addsuffix .svg,$(DEPS_FILES)) TAGS tags
 
 # Well, we need to provide some empty rules for some targets to
 # prevent the above catch-all from running amok.
-Makerules.local $(srcdir)/Makeconf.local $(objbase)/Makeconf.local : ;
+Makerules.local $(srcdir)/Makeconf.local $(objbase)/Makeconf.local \
+   $(objbase)/.Host-config: ;
 
 %: %.o				# delete implicit rule
 

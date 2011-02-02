@@ -9,6 +9,9 @@ public:
 
   enum
   {
+    // can access user memory directly
+    Access_user_mem = Access_user_mem_direct,
+
     Max_num_dirqs       = 32,
 
     Tbuf_irq            = Max_num_dirqs + 0,

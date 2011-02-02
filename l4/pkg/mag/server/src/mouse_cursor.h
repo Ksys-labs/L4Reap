@@ -30,7 +30,7 @@ public:
     _t(static_cast<Mem::Texture<PT> const *>(t))
   {}
 
-  void draw(Canvas *canvas, View_stack const *s, Mode, bool) const
+  void draw(Canvas *canvas, View_stack const *s, Mode) const
   {
     Clip_guard g(canvas, *this);
 

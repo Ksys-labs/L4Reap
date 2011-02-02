@@ -21,40 +21,38 @@ resume_vm_svm:
 	clgi			// super CLI
 
 	sti
-	nop
+	mov 0x10(%edx), %edi
+	mov 0x14(%edx), %esi
+	mov 0x18(%edx), %ebp
+	mov 0x20(%edx), %ebx
+	mov 0x28(%edx), %ecx
+	mov 0x24(%edx), %edx
+	// EAX is in the vmcb
 
-	movl 4(%edx), %ecx	// restore guest GP registers
-	movl 8(%edx), %ebx
-	movl 12(%edx), %ebp
-	movl 16(%edx), %esi
-	movl 20(%edx), %edi
-	movl (%edx), %edx
-	
 	// TODO: Debugregs etc.
-		
+
 	// eax used as implicit operand for vm* instructions
 	vmload
-	vmrun		
+	vmrun
 	vmsave
 
 	pushl %edx
 	movl 4(%esp), %edx     // get previously saved register struct pointer
 
-	movl %ecx, 4(%edx)     // save guest GP registers
-	movl %ebx, 8(%edx)
-	movl %ebp, 12(%edx)
-	movl %esi, 16(%edx)
-	movl %edi, 20(%edx)
+	movl %ecx, 0x28(%edx)
+	movl %ebx, 0x20(%edx)
+	movl %ebp, 0x18(%edx)
+	movl %esi, 0x14(%edx)
+	movl %edi, 0x10(%edx)
 
 	movl (%esp), %ecx      // guest EDX to ECX
-	movl %ecx, (%edx)      // EDX has offset 0 in structure
+	movl %ecx, 0x24(%edx)
 
 	// TODO: restore task register, clear busy flag
 
 	cli
-	nop
 	stgi
-						
+
 	addl $8, %esp         // adjust stack after two pushs
 
 	// restore callee saved registers
@@ -62,5 +60,5 @@ resume_vm_svm:
 	popl %ebx
 	popl %esi
 	popl %edi
-		
+
 	ret

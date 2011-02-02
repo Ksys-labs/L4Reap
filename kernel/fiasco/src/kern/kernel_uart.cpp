@@ -92,10 +92,9 @@ Kernel_uart::enable_rcv_irq()
 {
   // we must not allocate the IRQ in the constructor but here 
   // since the constructor is called before Dirq::Dirq() constructor
-  static Irq uart_irq;
+  static Irq_debugger uart_irq;
   if (Irq_chip::hw_chip->alloc(&uart_irq, uart()->irq()))
     {
-      uart_irq.alloc((Receiver*)-1);
       uart_irq.pin()->unmask();
       uart()->enable_rcv_irq();
     }

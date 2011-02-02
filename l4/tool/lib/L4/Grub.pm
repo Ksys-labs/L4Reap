@@ -57,7 +57,10 @@ sub grub1_mkisofs($$@)
 {
   my ($isofilename, $dir, @morefiles) = @_;
   system("cp -v ".join(' ', @morefiles)." $dir") if @morefiles;
-  my $cmd = "mkisofs -f -R -b boot/grub/stage2_eltorito".
+  my $mkisofs = 'genisoimage';
+  system("genisoimage -help >/dev/null 2>&1");
+  $mkisofs = 'mkisofs' if $?;
+  my $cmd = "$mkisofs -f -R -b boot/grub/stage2_eltorito".
             " -no-emul-boot -boot-load-size 4 -boot-info-table".
             " -hide-rr-moved -J -joliet-long -o \"$isofilename\" \"$dir\"";
 

@@ -7,13 +7,17 @@ class Vm : public Task
 public:
   ~Vm() {}
 
-  void invoke(L4_obj_ref obj, Mword rights, Syscall_frame *f, Utcb *utcb) = 0;
-
-  enum Operation
-  {
-    Vm_run_op = Task::Vm_ops + 0,
-  };
+  int resume_vcpu(Context *, Vcpu_state *, bool) = 0;
 };
+
+template< typename VM >
+struct Vm_allocator
+{
+  static Kmem_slab_t<VM> a;
+};
+
+template<typename VM>
+Kmem_slab_t<VM> Vm_allocator<VM>::a("Vm");
 
 // ------------------------------------------------------------------------
 IMPLEMENTATION:
@@ -42,72 +46,14 @@ struct Vm_space_factory
 
 
 PUBLIC
-Vm::Vm(Ram_quota *q)
-  : Task(Vm_space_factory(), q, L4_fpage(0))
-{
-}
+Vm::Vm(Ram_quota *q) : Task(Vm_space_factory(), q)
+{}
 
 PUBLIC static
 template< typename VM >
 slab_cache_anon *
 Vm::allocator()
-{
-  static slab_cache_anon *slabs = new Kmem_slab_simple (sizeof (VM),
-                                                        sizeof (Mword),
-                                                        "Vm");
-  return slabs;
-}
-
-PUBLIC static
-int
-Vm::getpage(Utcb *utcb, L4_msg_tag tag, void **addr)
-{
-  L4_snd_item_iter item(utcb, tag.words());
-
-  if (EXPECT_FALSE(!tag.items() || !item.next()))
-    return -L4_err::EInval;
-
-  L4_fpage page(item.get()->d);
-
-  if (EXPECT_FALSE(   !page.is_mempage()
-                   || page.order() < 12))
-    return -L4_err::EInval;
-
-  unsigned int page_attribs;
-  Mem_space::Phys_addr phys;
-  Mem_space::Size size;
-
-  if (EXPECT_FALSE(!current()->space()->mem_space()
-                        ->v_lookup(Virt_addr(page.mem_address()),
-                                   &phys, &size, &page_attribs)))
-    return -L4_err::EInval;
-
-  *addr = (void *)Virt_addr(page.mem_address()).value();
-
-  return 0;
-}
-
-PUBLIC
-template< typename Vm_impl >
-void
-Vm::vm_invoke(L4_obj_ref obj, Mword rights, Syscall_frame *f, Utcb *utcb)
-{
-  if (EXPECT_FALSE(f->tag().proto() != L4_msg_tag::Label_task))
-    {
-      f->tag(commit_result(-L4_err::EBadproto));
-      return;
-    }
-
-  switch (utcb->values[0])
-    {
-    case Vm_run_op:
-      f->tag(static_cast<Vm_impl *>(this)->sys_vm_run(f, utcb));
-      return;
-    default:
-      Task::invoke(obj, rights, f, utcb);
-      return;
-    }
-}
+{ return &Vm_allocator<VM>::a; }
 
 
 // ------------------------------------------------------------------------

@@ -58,7 +58,7 @@ l4re_rm_detach_srv(l4_cap_idx_t rm, l4_addr_t addr, l4re_ds_t *ds,
 {
   L4::Cap<L4Re::Rm> x(rm);
   L4::Cap<L4::Task> t(task);
-  L4::Cap<L4Re::Dataspace> d;
+  L4::Cap<L4Re::Dataspace> d(L4_INVALID_CAP);
   int r = x->detach(addr, &d, t);
   if (ds)
     *ds = d.cap();
@@ -72,7 +72,7 @@ l4re_rm_find_srv(l4_cap_idx_t rm, l4_addr_t *addr,
                  unsigned *flags, l4_cap_idx_t *m) L4_NOTHROW
 {
   L4::Cap<L4Re::Rm> x(rm);
-  L4::Cap<L4Re::Dataspace> mm;
+  L4::Cap<L4Re::Dataspace> mm(L4_INVALID_CAP);
   int r = x->find(addr, size, offset, flags, &mm);
   *m = mm.cap();
   return r;

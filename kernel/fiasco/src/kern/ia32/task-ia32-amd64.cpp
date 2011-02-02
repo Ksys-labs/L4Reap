@@ -4,12 +4,6 @@ IMPLEMENTATION [ia32 || amd64]:
 #include "std_macros.h"
 #include "x86desc.h"
 
-IMPLEMENT inline
-Task::~Task()
-{
-  free_utcbs();
-}
-
 PRIVATE inline NEEDS["gdt.h"]
 bool
 Task::invoke_arch(L4_msg_tag &tag, Utcb *utcb)

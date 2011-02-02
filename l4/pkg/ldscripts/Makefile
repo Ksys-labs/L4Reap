@@ -1,7 +1,7 @@
 PKGDIR		?= .
 L4DIR		?= $(PKGDIR)/../..
 
-SYSTEMS		= x86 arm amd64 ppc32
+SYSTEMS		= $(SYSTEMS_PLAIN)
 
 # Page sizes for linker
 MAXPAGESIZE_amd64    := 0x200000
@@ -28,6 +28,7 @@ UCLIBC_ARCH_x86   := i386
 UCLIBC_ARCH_arm   := arm
 UCLIBC_ARCH_amd64 := x86_64
 UCLIBC_ARCH_ppc32 := powerpc
+UCLIBC_ARCH_sparc := sparc
 UCLIBC_BASE       = $(PKGDIR)/../uclibc
 UCLIBC_SYSDEPS    = $(UCLIBC_BASE)/lib/contrib/uclibc/libc/sysdeps/linux/$(UCLIBC_ARCH_$(ARCH))
 

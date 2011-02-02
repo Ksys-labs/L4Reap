@@ -19,7 +19,6 @@ IMPLEMENTATION [io]:
 //
 
 PUBLIC template< typename SPACE >
-inline
 bool
 Io_space_sigma0<SPACE>::v_fabricate(Addr address, Phys_addr* phys,
                                     Size* size, unsigned* attribs = 0)

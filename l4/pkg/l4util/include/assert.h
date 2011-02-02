@@ -17,7 +17,7 @@
 /*****************************************************************************/
 #pragma once
 
-#if !DEBUG
+#ifndef DEBUG
 
 #define DO_NOTHING              do {} while (0)
 #define ASSERT_VALID(c)         DO_NOTHING
@@ -51,7 +51,8 @@
 #define ASSERT_EQUAL(a, b) \
 	do { \
 		if ((a) != (b)) { \
-			printf("%s: "#a" (%lx) != "#b" (%lx)\n", __func__, (unsigned long)(a), (unsigned long)(b)); \
+			printf("%s:\n", __func__); \
+			printf("    "#a" (%lx) != "#b" (%lx)\n", (unsigned long)(a), (unsigned long)(b)); \
 			assert((a)==(b)); \
 		} \
 	} while (0)
@@ -60,7 +61,8 @@
 #define ASSERT_NOT_EQUAL(a, b) \
 	do { \
 		if ((a) == (b)) { \
-			printf("%s: "#a" (%lx) == "#b" (%lx)\n", __func__, (unsigned long)(a), (unsigned long)(b)); \
+			printf("%s:\n", __func__); \
+			printf("    "#a" (%lx) == "#b" (%lx)\n", (unsigned long)(a), (unsigned long)(b)); \
 			assert((a)!=(b)); \
 		} \
 	} while (0)
@@ -69,7 +71,8 @@
 #define ASSERT_LOWER_EQ(val, max) \
 	do { \
 		if ((val) > (max)) { \
-			printf("%s: "#val" (%lx) > "#max" (%lx)\n", __func__, (unsigned long)(val), (unsigned long)(max)); \
+			printf("%s:\n", __func__); \
+			printf("    "#val" (%lx) > "#max" (%lx)\n", (unsigned long)(val), (unsigned long)(max)); \
 			assert((val)<=(max)); \
 		} \
 	} while (0)
@@ -78,7 +81,8 @@
 #define ASSERT_GREATER_EQ(val, min) \
 	do { \
 		if ((val) < (min)) { \
-			printf("%s: "#val" (%lx) < "#min" (%lx)\n", __func__, (unsigned long)(val), (unsigned long)(min)); \
+			printf("%s:\n", __func__); \
+			printf("    "#val" (%lx) < "#min" (%lx)\n", (unsigned long)(val), (unsigned long)(min)); \
 			assert((val)>=(min)); \
 		} \
 	} while (0)

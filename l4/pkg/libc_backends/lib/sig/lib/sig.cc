@@ -85,6 +85,8 @@ asm(
 "word: .long                    0xe1600070 \n\t" // smc
 #elif defined(ARCH_ppc32)
 "trap                            \n\t"
+#elif defined(ARCH_sparc)
+"ta 0x1                          \n\t"
 #else
 #error Unsupported arch!
 #endif

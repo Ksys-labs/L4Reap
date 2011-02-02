@@ -11,7 +11,7 @@ cleanall-dirs = tool pkg doc
 
 BUILD_TOOLS	= gawk gcc g++ ld perl pkg-config
 
-CMDS_WITHOUT_OBJDIR := checkbuild up update check_build_tools
+CMDS_WITHOUT_OBJDIR := help checkbuild up update check_build_tools
 
 # our default target is all::
 all::
@@ -312,6 +312,14 @@ define checkx86amd64build
 	  exit 1;                                                              \
 	fi
 endef
+define genimage
+	$(VERBOSE)$(entryselection);                                      \
+	PWD=$(PWD)/pkg/bootstrap/server/src                               \
+	    $(MAKE) -C pkg/bootstrap/server/src ENTRY="$$e"               \
+	            BOOTSTRAP_MODULES_LIST=$$ml $(1)                      \
+		    BOOTSTRAP_MODULE_PATH_BINLIB="$(BUILDDIR_SEARCHPATH)" \
+		    BOOTSTRAP_SEARCH_PATH="$(MODULE_SEARCH_PATH)"
+endef
 
 BUILDDIR_SEARCHPATH = $(OBJ_BASE)/bin/$(ARCH)_$(CPU):$(OBJ_BASE)/bin/$(ARCH)_$(CPU)/$(BUILD_ABI):$(OBJ_BASE)/lib/$(ARCH)_$(CPU):$(OBJ_BASE)/lib/$(ARCH)_$(CPU)/$(BUILD_ABI)
 
@@ -324,12 +332,16 @@ QEMU_ARCH_MAP_amd64   = qemu-system-x86_64
 QEMU_ARCH_MAP_ppc32   = qemu-system-ppc
 
 image:
-	$(VERBOSE)$(entryselection);                                      \
-	PWD=$(PWD)/pkg/bootstrap/server/src                               \
-	    $(MAKE) -C pkg/bootstrap/server/src ENTRY="$$e"               \
-	            BOOTSTRAP_MODULES_LIST=$$ml                           \
-		    BOOTSTRAP_MODULE_PATH_BINLIB="$(BUILDDIR_SEARCHPATH)" \
-		    BOOTSTRAP_SEARCH_PATH="$(MODULE_SEARCH_PATH)"
+	$(genimage)
+
+elfimage:
+	$(call genimage,BOOTSTRAP_DO_UIMAGE= BOOTSTRAP_DO_RAW_IMAGE=)
+
+uimage:
+	$(call genimage,BOOTSTRAP_DO_UIMAGE=y BOOTSTRAP_DO_RAW_IMAGE=)
+
+rawimage:
+	$(call genimage,BOOTSTRAP_DO_UIMAGE= BOOTSTRAP_DO_RAW_IMAGE=y)
 
 ifneq ($(filter $(ARCH),x86 amd64),)
 qemu:
@@ -339,9 +351,10 @@ qemu:
 	  SEARCHPATH="$(MODULE_SEARCH_PATH):$(BUILDDIR_SEARCHPATH)"       \
 	  $(L4DIR)/tool/bin/qemu-x86-launch $$ml "$$e" $(QEMU_OPTIONS)
 else
-qemu: image
+qemu: elfimage
 	$(VERBOSE)qemu=$(if $(QEMU_PATH),$(QEMU_PATH),$(QEMU_ARCH_MAP_$(ARCH))); \
 	if [ -z "$$qemu" ]; then echo "Set QEMU_PATH!"; exit 1; fi;              \
+	echo QEmu-cmd: $$qemu -kernel $(OBJ_BASE)/images/bootstrap.elf $(QEMU_OPTIONS);    \
 	$$qemu -kernel $(OBJ_BASE)/images/bootstrap.elf $(QEMU_OPTIONS)
 endif
 
@@ -351,10 +364,10 @@ vbox: $(if $(VBOX_ISOTARGET),$(VBOX_ISOTARGET),grub2iso)
 	  echo "Need to set name of configured VirtualBox VM im 'VBOX_VM'.";   \
 	  exit 1;                                                              \
 	fi
-	$(VERBOSE)VBoxSDL                                  \
-	    --startvm $(VBOX_VM)                           \
-	    --cdrom $(OBJ_BASE)/images/.current.iso         \
-	    --boot d                                       \
+	$(VERBOSE)VBoxSDL                              \
+	    --startvm $(VBOX_VM)                       \
+	    --cdrom $(OBJ_BASE)/images/.current.iso    \
+	    --boot d                                   \
 	    $(VBOX_OPTIONS)
 
 kexec:
@@ -398,19 +411,21 @@ grub2iso:
 help::
 	@echo
 	@echo "Image generation targets:"
-	@echo "  image            - Generate images containing all modules."
-	@echo "                     Supported formats include ELF, uimage and raw."
-	@echo "  grub1iso         - Generate an ISO using GRUB1 in images/name.iso [x86, amd64]" 
-	@echo "  grub2iso         - Generate an ISO using GRUB2 in images/name.iso [x86, amd64]" 
-	@echo "  qemu             - Use Qemu to run 'name'." 
-	@echo "  vbox             - Use VirtualBox to run 'name'." 
-	@echo "  ux               - Run 'name' under Fiasco/UX. [x86]" 
-	@echo "  kexec            - Issue a kexec call to start the entry." 
+	@echo "  image     - Generate images according to config [ELF, raw, uImage]."
+	@echo "  elfimage  - Generate an ELF image, containing all modules."
+	@echo "  rawimage  - Generate a raw image (memory dump), containing all modules."
+	@echo "  uimage    - Generate a uimage for u-boot, containing all modules."
+	@echo "  grub1iso  - Generate an ISO using GRUB1 in images/<name>.iso [x86, amd64]" 
+	@echo "  grub2iso  - Generate an ISO using GRUB2 in images/<name>.iso [x86, amd64]" 
+	@echo "  qemu      - Use Qemu to run 'name'." 
+	@echo "  vbox      - Use VirtualBox to run 'name'." 
+	@echo "  ux        - Run 'name' under Fiasco/UX. [x86]" 
+	@echo "  kexec     - Issue a kexec call to start the entry." 
 	@echo " Add 'E=name' to directly select the entry without using the menu."
 	@echo " Modules are defined in conf/modules.list."
 
 
-.PHONY: image qemu vbox ux switch_ram_base grub1iso grub2iso
+.PHONY: image elfimage rawimage uimage qemu vbox ux switch_ram_base grub1iso grub2iso
 
 switch_ram_base:
 	@echo "  ... Regenerating RAM_BASE settings"
@@ -432,6 +447,7 @@ checkbuild:
 	  $(MAKE) O=$$p oldconfig;                                            \
 	  $(MAKE) O=$$p tool;                                                 \
 	  $(MAKE) O=$$p USE_CCACHE=$(USE_CCACHE) $(CHECK_MAKE_ARGS);          \
+	  $(if $(CHCEK_REMOVE_OBJDIR),rm -rf $$p;)                            \
 	done
 
 report:

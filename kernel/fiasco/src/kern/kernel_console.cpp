@@ -6,7 +6,7 @@ INTERFACE:
 class Kconsole : public Mux_console
 {
 public:
-  int  getchar( bool blocking = true );
+  int  getchar(bool blocking = true);
   void getchar_chance();
 
   static Mux_console *console() FIASCO_CONST;
@@ -24,7 +24,7 @@ IMPLEMENTATION:
 
 
 IMPLEMENT
-int Kconsole::getchar( bool blocking )
+int Kconsole::getchar(bool blocking)
 {
   if (!blocking)
     return Mux_console::getchar(false);
@@ -63,7 +63,7 @@ Kconsole::activate()
 
 PUBLIC
 virtual bool
-Kconsole::register_console( Console *c, int pos = 0)
+Kconsole::register_console(Console *c, int pos = 0)
 {
   bool b = Mux_console::register_console(c, pos);
   if (b) 

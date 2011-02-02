@@ -71,7 +71,7 @@ obj_fpage_unmap(Space * space, L4_fpage fp, L4_map_mask mask,
                fp.rights(), mask, reap_list);
 }
 
-inline
+
 L4_error
 obj_map(Space *from, unsigned long snd_addr, unsigned long snd_size,
         Space *to, unsigned long rcv_addr,

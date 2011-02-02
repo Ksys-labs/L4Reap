@@ -227,14 +227,21 @@ static void event_callback(l4re_event_t *e) {
 	}
 }
 
+
+static pthread_mutex_t ev_init_wait = PTHREAD_MUTEX_INITIALIZER;
+
 static void * ev_loop(void * data)
 {
-	SDL_VideoDevice * this = (SDL_VideoDevice *) data;
+	SDL_VideoDevice * d = (SDL_VideoDevice *) data;
 
 	printf("Input handler thread started\n");
-	l4re_event_buffer_consumer_process(&this->hidden->ev_buf,
-	                                   this->hidden->ev_irq,
-	                                   pthread_getl4cap(this->hidden->ev_thread),
+
+        pthread_mutex_lock(&ev_init_wait);
+        pthread_mutex_unlock(&ev_init_wait);
+
+	l4re_event_buffer_consumer_process(&d->hidden->ev_buf,
+	                                   d->hidden->ev_irq,
+	                                   pthread_getl4cap(d->hidden->ev_thread),
 	                                   event_callback);
 	printf("Input handler terminates\n");
 	return 0;
@@ -243,62 +250,65 @@ static void * ev_loop(void * data)
 
 
 
-void L4FB_InstallEventHandler(_THIS) {
-	INFO(LOG_Enter("");)
-	int ret;
+void L4FB_InstallEventHandler(_THIS)
+{
+  INFO(LOG_Enter("");)
+  int ret;
 
-	L4FB_InitOSKeymap(this);
+  L4FB_InitOSKeymap(this);
 
-	if (l4_is_invalid_cap(this->hidden->ev_ds = l4re_util_cap_alloc()))
-	{
-		/* TODO: handle ERROR */
-		printf("ERROR: ev_ds cap_alloc\n");
-		return;
-	}
-
-
-	if (l4_is_invalid_cap(this->hidden->ev_irq = l4re_util_cap_alloc()))
-	{
-		/* TODO: handle ERROR */
-		printf("ERROR: ev_irq cap_alloc\n");
-		return;
-	}
-
-	if ((ret = l4_error(l4_factory_create_irq(l4re_env()->factory, this->hidden->ev_irq))))
-	{
-		/* TODO: handle ERROR */
-		printf("ERROR: Creating irq: %d \n", ret);
-		return;
-	}
-	if ((ret = l4_error(l4_icu_bind(l4re_util_video_goos_fb_goos(&this->hidden->goosfb),
-                                    0, this->hidden->ev_irq))))
-	{
-		/* TODO: handle ERROR */
-		printf("ERROR: Creating irq: %d \n", ret);
-		return;
-	}
-    if ((ret = l4re_event_get(l4re_util_video_goos_fb_goos(&this->hidden->goosfb),
-	                      this->hidden->ev_ds)))
-	{
-		/* TODO: handle ERROR */
-		printf("ERROR: l4re_event_get: %d \n", ret);
-		return;
-	}
-
-    if (l4re_event_buffer_attach(&this->hidden->ev_buf, this->hidden->ev_ds, l4re_env()->rm))
-	{
-		/* TODO: handle ERROR */
-		printf("ERROR: l4re_buffer_attach \n");
-		return;
-	}
+  if (l4_is_invalid_cap(this->hidden->ev_ds = l4re_util_cap_alloc()))
+    {
+      /* TODO: handle ERROR */
+      printf("ERROR: ev_ds cap_alloc\n");
+      return;
+    }
 
 
-	dev= this;
-	if (pthread_create(&this->hidden->ev_thread, NULL, ev_loop, (void*)this))
-	{
-		/* TODO: handle ERROR */
-		printf("ERROR: ev_thread create \n");
-	}	
+  if (l4_is_invalid_cap(this->hidden->ev_irq = l4re_util_cap_alloc()))
+    {
+      /* TODO: handle ERROR */
+      printf("ERROR: ev_irq cap_alloc\n");
+      return;
+    }
+
+  if ((ret = l4_error(l4_factory_create_irq(l4re_env()->factory, this->hidden->ev_irq))))
+    {
+      /* TODO: handle ERROR */
+      printf("ERROR: Creating irq: %d \n", ret);
+      return;
+    }
+  if ((ret = l4_error(l4_icu_bind(l4re_util_video_goos_fb_goos(&this->hidden->goosfb),
+            0, this->hidden->ev_irq))))
+    {
+      /* TODO: handle ERROR */
+      printf("ERROR: Creating irq: %d \n", ret);
+      return;
+    }
+  if ((ret = l4re_event_get(l4re_util_video_goos_fb_goos(&this->hidden->goosfb),
+          this->hidden->ev_ds)))
+    {
+      /* TODO: handle ERROR */
+      printf("ERROR: l4re_event_get: %d \n", ret);
+      return;
+    }
+
+  if (l4re_event_buffer_attach(&this->hidden->ev_buf, this->hidden->ev_ds, l4re_env()->rm))
+    {
+      /* TODO: handle ERROR */
+      printf("ERROR: l4re_buffer_attach \n");
+      return;
+    }
+
+
+  dev = this;
+  /* ev_loop needs to wait until pthread_create returns so that
+   * this->hidden->ev_thread is set, as it uses it */
+  pthread_mutex_lock(&ev_init_wait);
+  if (pthread_create(&this->hidden->ev_thread, NULL, ev_loop, (void*)this))
+    /* TODO: handle ERROR */
+    printf("ERROR: ev_thread create \n");
+  pthread_mutex_unlock(&ev_init_wait);
 }
 
 void L4FB_RemoveEventHandler(_THIS) {

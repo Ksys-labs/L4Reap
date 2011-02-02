@@ -22,6 +22,9 @@ config BUILD_ARCH_arm
 config BUILD_ARCH_ppc32
 	bool "PowerPC 32 architecture (EXPERIMENTAL!)"
 
+config BUILD_ARCH_sparc
+	bool "Sparc architecture (EXPERIMENTAL)"
+
 endchoice
 
 config BUILD_ARCH
@@ -30,6 +33,7 @@ config BUILD_ARCH
 	default "arm"   if BUILD_ARCH_arm
 	default "amd64" if BUILD_ARCH_amd64
 	default "ppc32" if BUILD_ARCH_ppc32
+	default "sparc" if BUILD_ARCH_sparc
 
 # currently we have nothing for abi linux, so just do not offer this option
 #choice
@@ -418,6 +422,20 @@ endmenu
 
 endif
 
+
+
+
+if BUILD_ARCH_sparc
+
+config CPU
+	string "Sparc CPU variant"
+	default "v8"
+
+config SPARC_PLATFORM_TYPE
+	string
+	default "leon3"
+
+endif
 
 
 config USE_DROPS_STDDIR

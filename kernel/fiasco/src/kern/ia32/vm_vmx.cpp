@@ -10,7 +10,7 @@ class Vmcs;
 class Vm_vmx : public Vm
 {
 private:
-  static unsigned long resume_vm_vmx(Mword *regs)
+  static unsigned long resume_vm_vmx(Vcpu_state *regs)
     asm("resume_vm_vmx") __attribute__((__regparm__(3)));
 
   enum
@@ -444,9 +444,9 @@ Vm_vmx::dump_state(void *v)
   dump(v, 0x6c00, 0x6c16);
 }
 
-PUBLIC
-L4_msg_tag
-Vm_vmx::sys_vm_run(Syscall_frame *f, Utcb *utcb)
+PRIVATE inline NOEXPORT
+int
+Vm_vmx::do_resume_vcpu(Context *ctxt, Vcpu_state *vcpu, void *vmcs_s)
 {
   assert (cpu_lock.test());
 
@@ -459,37 +459,22 @@ Vm_vmx::sys_vm_run(Syscall_frame *f, Utcb *utcb)
   unsigned cpu = current_cpu();
   Vmx &v = Vmx::cpus.cpu(cpu);
 
-  L4_msg_tag const &tag = f->tag();
-
+  // FIXME: this can be an assertion I think, however, think about MP
   if(!v.vmx_enabled())
     {
       WARN("VMX: not supported/enabled\n");
-      return commit_result(-L4_err::EInval);
-    }
-
-  if (EXPECT_FALSE(tag.words() < 1 + Vmx::Gpregs_words))
-    {
-      WARN("VMX: Invalid message length\n");
-      return commit_result(-L4_err::EInval);
-    }
-
-  void *vmcs_s;
-
-  if (int r = Vm::getpage(utcb, tag, &vmcs_s))
-    {
-      WARN("VMX: Invalid VMCS\n");
-      return commit_result(r);
+      return -L4_err::EInval;
     }
 
   // XXX:
   // This generates a circular dep between thread<->task, this cries for a
   // new abstraction...
-  if (!(current()->state() & Thread_fpu_owner))
+  if (!(ctxt->state() & Thread_fpu_owner))
     {
-      if (EXPECT_FALSE(!current_thread()->switchin_fpu()))
+      if (EXPECT_FALSE(!static_cast<Thread*>(ctxt)->switchin_fpu()))
         {
           WARN("VMX: switchin_fpu failed\n");
-          return commit_result(-L4_err::EInval);
+          return -L4_err::EInval;
         }
     }
 
@@ -514,9 +499,11 @@ Vm_vmx::sys_vm_run(Syscall_frame *f, Utcb *utcb)
   // set guest CR2
   asm volatile("mov %0, %%cr2" : : "r" (read<Mword>(vmcs_s, Vmx::F_guest_cr2)));
 
-  unsigned long ret = resume_vm_vmx(&utcb->values[1]);
+  unsigned long ret = resume_vm_vmx(vcpu);
+
+  // FIXME: What is this for
   if (EXPECT_FALSE(ret & 0x40))
-    return commit_result(-L4_err::EInval);
+    return -L4_err::EInval;
 
   // save guest cr2
     {
@@ -540,12 +527,55 @@ Vm_vmx::sys_vm_run(Syscall_frame *f, Utcb *utcb)
   store_guest_state(cpu, vmcs_s);
   store_exit_info(cpu, vmcs_s);
 
-  return commit_result(L4_error::None);
+  if ((read<Unsigned32>(vmcs_s, 0x4402) & 0xffff) == 1)
+    return 1;
+
+  vcpu->state &= ~(Vcpu_state::F_traps | Vcpu_state::F_user_mode);
+  return 0;
 }
 
 PUBLIC
-void
-Vm_vmx::invoke(L4_obj_ref obj, Mword rights, Syscall_frame *f, Utcb *utcb)
+int
+Vm_vmx::resume_vcpu(Context *ctxt, Vcpu_state *vcpu, bool user_mode)
 {
-  vm_invoke<Vm_vmx>(obj, rights, f, utcb);
+  (void)user_mode;
+  assert_kdb (user_mode);
+
+  if (EXPECT_FALSE(!(ctxt->state(true) & Thread_ext_vcpu_enabled)))
+    return -L4_err::EInval;
+
+  void *vmcs_s = reinterpret_cast<char *>(vcpu) + 0x400;
+
+  for (;;)
+    {
+      // in the case of disabled IRQs and a pending IRQ directly simulate an
+      // external interrupt intercept
+      if (   !(vcpu->_saved_state & Vcpu_state::F_irqs)
+	  && (vcpu->sticky_flags & Vcpu_state::Sf_irq_pending))
+	{
+	  // XXX: check if this is correct, we set external irq exit as reason
+	  write<Unsigned32>(vmcs_s, 0x4402, 1);
+	  return 1; // return 1 to indicate pending IRQs (IPCs)
+	}
+
+      int r = do_resume_vcpu(ctxt, vcpu, vmcs_s);
+
+      // test for error or non-IRQ exit resason
+      if (r <= 0)
+	return r;
+
+      // check for IRQ exits and allow to handle the IRQ
+      if (r == 1)
+	Proc::preemption_point();
+
+      // Check if the current context got a message delivered.
+      // This is done by testing for a valid continuation.
+      // When a continuation is set we have to directly
+      // leave the kernel to not overwrite the vcpu-regs
+      // with bogus state.
+      Thread *t = nonull_static_cast<Thread*>(ctxt);
+      if (t->exception_triggered())
+	t->fast_return_to_user(vcpu->_entry_ip, vcpu->_entry_sp, t->vcpu_state().usr().get());
+    }
 }
+

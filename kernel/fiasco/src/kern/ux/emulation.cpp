@@ -12,15 +12,15 @@ class Idt_entry;
 
 struct Ldt_user_desc			// work around glibc naming mess
 {
- unsigned int  entry_number;
- unsigned long base_addr;   
- unsigned int  limit;
- unsigned int  seg_32bit:1;
- unsigned int  contents:2; 
- unsigned int  read_exec_only:1;
- unsigned int  limit_in_pages:1;
- unsigned int  seg_not_present:1;
- unsigned int  useable:1;
+  unsigned int  entry_number;
+  unsigned long base_addr;
+  unsigned int  limit;
+  unsigned int  seg_32bit:1;
+  unsigned int  contents:2;
+  unsigned int  read_exec_only:1;
+  unsigned int  limit_in_pages:1;
+  unsigned int  seg_not_present:1;
+  unsigned int  useable:1;
 };
 
 class Pseudo_descriptor;
@@ -41,8 +41,8 @@ IMPLEMENTATION:
 #include <sched.h>
 #include "x86desc.h"
 
-Address 	Emulation::_page_dir_addr;
-Address 	Emulation::_page_fault_addr;
+Address         Emulation::_page_dir_addr;
+Address         Emulation::_page_fault_addr;
 Idt_entry const *Emulation::_idt_base;
 unsigned short	Emulation::_idt_limit;
 
@@ -56,10 +56,10 @@ Emulation::pdir_addr()
 {
   return _page_dir_addr;
 }
- 
+
 /**
  * Set page directory base address (register cr3)
- * @param addr New Page Directory Base Address   
+ * @param addr New Page Directory Base Address
  */
 PUBLIC static inline
 void
@@ -67,10 +67,10 @@ Emulation::set_pdir_addr (Address addr)
 {
   _page_dir_addr = addr;
 }
- 
+
 /**
  * Set page fault address (register cr2)
- * @param addr Page Fault Address   
+ * @param addr Page Fault Address
  */
 PUBLIC static inline
 void

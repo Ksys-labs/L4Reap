@@ -30,7 +30,7 @@ Jdb_factory::Jdb_factory()
 
 PUBLIC
 bool
-Jdb_factory::show_kobject(Kobject *, int )
+Jdb_factory::show_kobject(Kobject_common *, int )
 {
   return true;
 }
@@ -44,7 +44,7 @@ Jdb_factory::kobject_type() const
 
 PUBLIC
 int
-Jdb_factory::show_kobject_short(char *buf, int max, Kobject *o)
+Jdb_factory::show_kobject_short(char *buf, int max, Kobject_common *o)
 {
   Factory *t = Kobject::dcast<Factory*>(o);
   return snprintf(buf, max, " c=%ld l=%ld", t->current(), t->limit());

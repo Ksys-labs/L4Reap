@@ -54,7 +54,7 @@ Lcd_drv_fb::setup_drv(Prog_args *pa)
 
   lcd->enable();
 
-  splash_display(&_screen_info, _vidmem_start);
+  splash_display(&_view_info, _vidmem_start);
 
   // slow
   //l4_cache_dma_coherent(_vidmem_start, _vidmem_start + _vidmem_size);

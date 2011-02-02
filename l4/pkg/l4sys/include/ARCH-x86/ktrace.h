@@ -56,6 +56,7 @@ typedef struct
  * Trace-buffer status.
  * \ingroup api_calls_fiasco
  */
+// keep in sync with fiasco/src/jabi/jdb_ktrace.cpp
 typedef struct
 {
   l4_tracebuffer_status_window_t window[2];

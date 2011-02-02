@@ -304,7 +304,7 @@ Usermode::user_exception (unsigned _cpu, pid_t pid, struct ucontext *context,
        * instructions in the syscall page.
        */
       if (EXPECT_FALSE((t->state() & (Thread_alien | Thread_dis_alien))
-                       == Thread_alien || t->state() & Thread_vcpu_user_mode))
+                       == Thread_alien || t->space_ref()->user_mode()))
         regs->eip += 2;
       else
         {
@@ -502,7 +502,7 @@ Usermode::iret_to_user_mode (unsigned _cpu,
   regs.ebp    = context->uc_mcontext.gregs[REG_EBP];
   regs.xds    = context->uc_mcontext.gregs[REG_DS];
   regs.xes    = context->uc_mcontext.gregs[REG_ES];
-  regs.xfs    = context->uc_mcontext.gregs[REG_FS];
+  regs.xfs    = Cpu::get_fs();
   regs.xgs    = Cpu::get_gs();
 
   // ptrace will return with an error if we try to load invalid values to
@@ -551,7 +551,7 @@ Usermode::iret_to_user_mode (unsigned _cpu,
   context->uc_mcontext.gregs[REG_EBP] = regs.ebp;
   context->uc_mcontext.gregs[REG_DS]  = regs.xds;
   context->uc_mcontext.gregs[REG_ES]  = regs.xes;
-  context->uc_mcontext.gregs[REG_FS]  = regs.xfs;
+  Cpu::set_fs(regs.xfs);
   Cpu::set_gs(regs.xgs);
 
   Fpu::save_state (t->fpu_state());

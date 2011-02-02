@@ -11,11 +11,14 @@
 #include <l4/sys/task.h>
 #include <l4/sys/kdebug.h>
 #include <l4/sys/vm.h>
+#include <l4/sys/thread.h>
+#include <l4/sys/vcpu.h>
 
 #include <l4/util/util.h>
 #include <l4/util/cpu.h>
 #include <l4/re/env.h>
 #include <l4/re/c/util/cap_alloc.h>
+#include <l4/vcpu/vcpu.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -24,7 +27,6 @@
 #define STACKSIZE (8<<10)
 
 static char stack[STACKSIZE];
-static unsigned long vmcb[1024] __attribute__((aligned(4096)));
 static unsigned long idt[32 * 2] __attribute__((aligned(4096)));
 static unsigned long gdt[32 * 2] __attribute__((aligned(4096)));
 
@@ -125,14 +127,52 @@ static int check_svm_npt(void)
   return (!(dx & 1));
 }
 
+static l4_vcpu_state_t *get_state_mem(l4_addr_t *extstate)
+{
+  static int done;
+  long r;
+  l4_msgtag_t tag;
+  static l4_vcpu_state_t *vcpu;
+  static l4_addr_t ext_state;
+
+  if (done)
+    {
+      *extstate = ext_state;
+      return vcpu;
+    }
+
+  if ((r = l4vcpu_ext_alloc(&vcpu, &ext_state,
+                            L4_BASE_TASK_CAP, l4re_env()->rm)))
+    {
+      printf("Adding state mem failed: %ld\n", r);
+      exit(1);
+    }
+
+  vcpu->state       = L4_VCPU_F_FPU_ENABLED;
+  vcpu->saved_state = L4_VCPU_F_USER_MODE | L4_VCPU_F_FPU_ENABLED;
+
+  tag = l4_thread_vcpu_control_ext(L4_INVALID_CAP, (l4_addr_t)vcpu);
+  if (l4_error(tag))
+    {
+      printf("Could not enable ext vCPU\n");
+      exit(1);
+    }
+
+  done = 1;
+  *extstate = ext_state;
+
+  return vcpu;
+}
+
 static void run_test(int np_available)
 {
   l4_umword_t eflags;
   l4_msgtag_t tag;
   l4_cap_idx_t vm_task = l4re_util_cap_alloc();
   int i;
-  unsigned long long exit_code[16];
   l4_umword_t ip, marker, test_end;
+  l4_addr_t vmcx;
+  l4_vcpu_state_t *vcpu = get_state_mem(&vmcx);
 
   printf("run test, np_available=%d\n", np_available);
 
@@ -149,24 +189,18 @@ static void run_test(int np_available)
       exit(1);
     }
 
-  l4_vm_svm_vmcb_t *vmcb_s = (l4_vm_svm_vmcb_t *)vmcb;
-  l4_vm_gpregs_t gpregs =
-    { .edx = 1,
-      .ecx = 2,
-      .ebx = 3,
-      .ebp = 4,
-      .esi = 5,
-      .edi = 6,
-      .dr0 = 0,
-      .dr1 = 0,
-      .dr2 = 0,
-      .dr3 = 0
-    };
+  l4_vm_svm_vmcb_t *vmcb_s = (l4_vm_svm_vmcb_t *)vmcx;
+
+  vcpu->user_task = vm_task;
+
+  vcpu->r.dx = 1;
+  vcpu->r.cx = 2;
+  vcpu->r.bx = 3;
+  vcpu->r.bp = 4;
+  vcpu->r.si = 5;
+  vcpu->r.di = 6;
 
   printf("clearing exit codes\n");
-
-  for (i = 0; i < 16; i++)
-    exit_code[i] = 1 << i;
 
   asm volatile("    jmp 1f;           \n"
                "2:  nop               \n"
@@ -182,6 +216,7 @@ static void run_test(int np_available)
                "    nop               \n"
                "    movl %%eax, %%ecx \n"
                "    addl %%edx, %%ecx \n"
+               "    vmmcall           \n"
                "4:                    \n"
                "    ud2               \n"
                "1:  movl $2b, %0      \n"
@@ -304,18 +339,15 @@ static void run_test(int np_available)
       old_rip = vmcb_s->state_save_area.rip;
 
 
-      *l4_vm_gpregs() = gpregs;
-      tag = l4_vm_run(vm_task, l4_fpage((unsigned long)vmcb, 12, 0));
+      tag = l4_thread_vcpu_resume_commit(L4_INVALID_CAP,
+                                         l4_thread_vcpu_resume_start());
       if (l4_error(tag))
-	printf("vm-run failed: %s (%ld)\n",
+	printf("vm-resume failed: %s (%ld)\n",
                l4sys_errtostr(l4_error(tag)), l4_error(tag));
-      gpregs = *l4_vm_gpregs();
 
       printf("iteration=%d, exit code=%llx, rip=%llx -> %llx\n",
              i, vmcb_s->control_area.exitcode,
              old_rip, vmcb_s->state_save_area.rip);
-      //exit_code[i] = vmcb[28];
-      //exit_code[i] = vmcb_s->control_area.exitcode;
 
 
       if (vmcb_s->control_area.exitcode == 0x43)
@@ -341,6 +373,12 @@ static void run_test(int np_available)
           printf("page fault; error code=%llx, pfa=%llx\n",
                  vmcb_s->control_area.exitinfo1,
                  vmcb_s->control_area.exitinfo2);
+        }
+
+      if (vmcb_s->control_area.exitcode == 0x81)
+        {
+          printf("VMMCALL\n");
+          vmcb_s->state_save_area.rip += 3;
         }
 
       if (vmcb_s->control_area.exitcode == 0x4d)
@@ -374,14 +412,9 @@ static void run_test(int np_available)
   printf("rip=%08llx, rax=%llx, edx=%lx, ecx=%lx\n",
          vmcb_s->state_save_area.rip,
          vmcb_s->state_save_area.rax,
-         gpregs.edx, gpregs.ecx);
+         vcpu->r.dx, vcpu->r.cx);
 
-  //for (j = 0; j < i; j++)
-  //  {
-  //    printf("exit_code[%d] = %llx\n", j, exit_code[i]);
-  //  }
-
-  printf("run vm stop, status=%s\n", gpregs.ecx == 9 ? "success" : "failure");
+  printf("run vm stop, status=%s\n", vcpu->r.cx == 9 ? "success" : "failure");
 
   l4_task_unmap(L4RE_THIS_TASK_CAP,
                 l4_obj_fpage(vm_task, 0, L4_FPAGE_RWX),

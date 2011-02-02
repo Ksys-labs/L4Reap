@@ -243,12 +243,6 @@ Gic_pin::ack()
   gic()->acknowledge_locked(irq());
 }
 
-PUBLIC
-void
-Gic_pin::hit()
-{
-  Irq::self(this)->Irq::hit();
-}
 
 PUBLIC
 void
@@ -284,16 +278,17 @@ Gic_cascade_irq::self(Irq_pin const *pin)
 
 PUBLIC
 void
-Gic_cascade_pin::hit()
+Gic_cascade_irq::hit()
 {
-  Unsigned32 num = Gic_cascade_irq::self(this)->child_gic()->pending();
+  Unsigned32 num = child_gic()->pending();
   if (num == 0x3ff)
     return;
 
-  Irq *i = nonull_static_cast<Irq*>(Irq_chip_gen::lookup(num + Gic_cascade_irq::self(this)->irq_offset()));
-  i->pin()->hit();
+  Irq *i = nonull_static_cast<Irq*>(Irq_chip_gen::lookup(num + irq_offset()));
+  i->hit();
 
-  gic()->acknowledge_locked(irq());
+  Gic_pin *gp = static_cast<Gic_pin*>(pin());
+  gp->gic()->acknowledge_locked(gp->irq());
 }
 
 //-------------------------------------------------------------------

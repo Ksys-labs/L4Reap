@@ -947,14 +947,15 @@ public:
     _tag = l4_msgtag(0, w, _current_item, 0);
   }
 #endif
-protected:
-  void pre_ipc()
+public:
+  l4_msgtag_t prepare_ipc(long proto = 0, unsigned flags = 0)
   {
     register unsigned w = (_pos + sizeof(l4_umword_t)-1) / sizeof(l4_umword_t);
     w -= _current_item * 2;
-    _tag = l4_msgtag(0, w, _current_item, 0);
+    return l4_msgtag(proto, w, _current_item, flags);
   }
 
+protected:
   l4_msgtag_t _tag;
   l4_utcb_t *_utcb;
   char *_current_msg;
@@ -1075,8 +1076,8 @@ public:
                                     l4_timeout_t timeout, long proto = 0);
   inline l4_msgtag_t send_and_wait(l4_cap_idx_t dest, l4_umword_t *src,
                                    l4_timeout_t timeout, long proto = 0);
-  inline l4_msgtag_t reply(l4_timeout_t timeout, long proto);
-  inline l4_msgtag_t reply(long proto)
+  inline l4_msgtag_t reply(l4_timeout_t timeout, long proto = 0);
+  inline l4_msgtag_t reply(long proto = 0)
   { return reply(L4_IPC_SEND_TIMEOUT_0, proto); }
 
   //@}
@@ -1129,47 +1130,39 @@ Istream::put(Small_buf const &item)
 inline l4_msgtag_t
 Ostream::send(l4_cap_idx_t dst, long proto, unsigned flags)
 {
-  pre_ipc();
-  //unsigned long *b = reinterpret_cast<unsigned long*>(_msg->_msg);
-  _tag.label(proto);
-  _tag.raw |= (L4_MSGTAG_FLAGS & flags);
-  return l4_ipc_send(dst, _utcb, _tag, L4_IPC_NEVER);
+  l4_msgtag_t tag = prepare_ipc(proto, L4_MSGTAG_FLAGS & flags);
+  return l4_ipc_send(dst, _utcb, tag, L4_IPC_NEVER);
 }
 
 inline l4_msgtag_t
 Iostream::call(l4_cap_idx_t dst)
 {
-  pre_ipc();
-  l4_msgtag_t res;
-  res = l4_ipc_call(dst, Ostream::_utcb, Ostream::_tag, L4_IPC_NEVER);
-  Istream::tag() = res;
+  l4_msgtag_t tag = prepare_ipc();
+  tag = l4_ipc_call(dst, Ostream::_utcb, tag, L4_IPC_NEVER);
+  Istream::tag() = tag;
   Istream::_pos = 0;
-  return res;
+  return tag;
 }
 
 inline l4_msgtag_t
 Iostream::call(l4_cap_idx_t dst, long label)
 {
-  pre_ipc();
-  l4_msgtag_t res;
-  Ostream::_tag.label(label);
-  res = l4_ipc_call(dst, Ostream::_utcb, Ostream::_tag, L4_IPC_NEVER);
-  Istream::tag() = res;
+  l4_msgtag_t tag = prepare_ipc(label);
+  tag = l4_ipc_call(dst, Ostream::_utcb, tag, L4_IPC_NEVER);
+  Istream::tag() = tag;
   Istream::_pos = 0;
-  return res;
+  return tag;
 }
 
 
 inline l4_msgtag_t
 Iostream::reply_and_wait(l4_umword_t *src_dst, l4_timeout_t timeout, long proto)
 {
-  pre_ipc();
-  l4_msgtag_t res;
-  Ostream::_tag.label(proto);
-  res = l4_ipc_reply_and_wait(Ostream::_utcb, Ostream::_tag, src_dst, timeout);
-  Istream::tag() = res;
+  l4_msgtag_t tag = prepare_ipc(proto);
+  tag = l4_ipc_reply_and_wait(Ostream::_utcb, tag, src_dst, timeout);
+  Istream::tag() = tag;
   Istream::_pos = 0;
-  return res;
+  return tag;
 }
 
 
@@ -1177,25 +1170,21 @@ inline l4_msgtag_t
 Iostream::send_and_wait(l4_cap_idx_t dest, l4_umword_t *src,
                         l4_timeout_t timeout, long proto)
 {
-  pre_ipc();
-  l4_msgtag_t res;
-  Ostream::_tag.label(proto);
-  res = l4_ipc_send_and_wait(dest, Ostream::_utcb, Ostream::_tag, src, timeout);
-  Istream::tag() = res;
+  l4_msgtag_t tag = prepare_ipc(proto);
+  tag = l4_ipc_send_and_wait(dest, Ostream::_utcb, tag, src, timeout);
+  Istream::tag() = tag;
   Istream::_pos = 0;
-  return res;
+  return tag;
 }
 
 inline l4_msgtag_t
 Iostream::reply(l4_timeout_t timeout, long proto)
 {
-  pre_ipc();
-  l4_msgtag_t res;
-  Ostream::_tag.label(proto);
-  res = l4_ipc_send(L4_INVALID_CAP | L4_SYSF_REPLY, Ostream::_utcb, Ostream::_tag, timeout);
-  Istream::tag() = res;
+  l4_msgtag_t tag = prepare_ipc(proto);
+  tag = l4_ipc_send(L4_INVALID_CAP | L4_SYSF_REPLY, Ostream::_utcb, tag, timeout);
+  Istream::tag() = tag;
   Istream::_pos = 0;
-  return res;
+  return tag;
 }
 
 inline l4_msgtag_t

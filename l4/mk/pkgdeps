@@ -174,9 +174,12 @@ sub generate_dep_makefile($)
   print "# ", `date`;
   print "#\n";
 
+  my %p = %provided;
+
   foreach my $a (sort keys %requires)
     {
       print "$a:";
+      delete $p{$a};
       foreach (sort @{$requires{$a}})
         {
           if (defined $provided{$_})
@@ -200,7 +203,11 @@ sub generate_dep_makefile($)
       print "\n";
     }
 
-  print "\n.PHONY: ".join(' ', sort keys %aliases)."\n" if %aliases;
+  print "\n";
+  print "$_: $p{$_}\n" foreach sort keys %p;
+
+  print "\n.PHONY: ".join(' ', sort keys %aliases).' '
+        .join(' ', sort keys %p)."\n"                   if %aliases or %p;
 
   if ($error_count)
     {
@@ -209,8 +216,6 @@ sub generate_dep_makefile($)
     }
 }
 
-
-
 sub figure_out_pkg_dependecies(@)
 {
   my %newpkgs;
@@ -218,9 +223,9 @@ sub figure_out_pkg_dependecies(@)
     {
       if (not defined $requires{$_})
         {
-          if (not defined $provided{$_})
+          if (not defined $provided{$_} and not is_alias($_))
             {
-              print STDERR "WARNING: '$_' does not exist.\n";
+              print STDERR "WARNING: '$_' does not exist (forgot -A?).\n";
               next;
             }
           $newpkgs{$provided{$_}} = 1;

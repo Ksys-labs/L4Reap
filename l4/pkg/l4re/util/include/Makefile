@@ -22,7 +22,8 @@ EXTRA_TARGET += basic_dispatcher   \
   video/get_view     \
   video/goos_svr     \
   video/goos_fb      \
-  event
+  event              \
+  kumem_alloc
 
 
 include $(L4DIR)/mk/include.mk

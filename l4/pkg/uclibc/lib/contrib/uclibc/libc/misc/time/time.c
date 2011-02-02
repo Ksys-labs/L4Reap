@@ -479,6 +479,7 @@ char *ctime(const time_t *t)
 	 * localtime's static buffer:
 	 */
 	struct tm xtm;
+	memset(&xtm, 0, sizeof(xtm));
 
 	return asctime(localtime_r(t, &xtm));
 }
@@ -1804,12 +1805,12 @@ static smallint TZ_file_read;		/* Let BSS initialization set this to 0. */
 
 static char *read_TZ_file(char *buf)
 {
+	int r;
 	int fd;
 	char *p = NULL;
 
 	fd = open(__UCLIBC_TZ_FILE_PATH__, O_RDONLY);
 	if (fd >= 0) {
-		ssize_t r;
 #if 0
 		/* TZ are small *files*. On files, short reads
 		 * only occur on EOF (unlike, say, pipes).
@@ -1829,13 +1830,12 @@ static char *read_TZ_file(char *buf)
 			todo -= r;
 		} while (todo);
 #else
-		/* Shorter, and does one less read syscall */
+		/* Shorter, and does one fewer read syscall */
 		r = read(fd, buf, TZ_BUFLEN);
 		if (r < 0)
 			goto ERROR;
 		p = buf + r;
 #endif
-
 		if ((p > buf) && (p[-1] == '\n')) { /* Must end with newline */
 			p[-1] = 0;
 			p = buf;
@@ -1848,6 +1848,45 @@ ERROR:
 		}
 		close(fd);
 	}
+#ifdef __UCLIBC_FALLBACK_TO_ETC_LOCALTIME__
+	else {
+		fd = open("/etc/localtime", O_RDONLY);
+		if (fd >= 0) {
+			r = read(fd, buf, TZ_BUFLEN);
+			if (r != TZ_BUFLEN
+			 || strncmp(buf, "TZif", 4) != 0
+			 || (unsigned char)buf[4] < 2
+			 || lseek(fd, -TZ_BUFLEN, SEEK_END) < 0
+			) {
+				goto ERROR;
+			}
+			/* tzfile.h from tzcode database says about TZif2+ files:
+			**
+			** If tzh_version is '2' or greater, the above is followed by a second instance
+			** of tzhead and a second instance of the data in which each coded transition
+			** time uses 8 rather than 4 chars,
+			** then a POSIX-TZ-environment-variable-style string for use in handling
+			** instants after the last transition time stored in the file
+			** (with nothing between the newlines if there is no POSIX representation for
+			** such instants).
+			*/
+			r = read(fd, buf, TZ_BUFLEN);
+			if (r <= 0 || buf[--r] != '\n')
+				goto ERROR;
+			buf[r] = 0;
+			while (r != 0) {
+				if (buf[--r] == '\n') {
+					p = buf + r + 1;
+#ifndef __UCLIBC_HAS_TZ_FILE_READ_MANY__
+					TZ_file_read = 1;
+#endif
+					break;
+				}
+			} /* else ('\n' not found): p remains NULL */
+			close(fd);
+		}
+	}
+#endif /* __UCLIBC_FALLBACK_TO_ETC_LOCALTIME__ */
 	return p;
 }
 
@@ -1874,38 +1913,36 @@ void _time_tzset(int use_old_rules)
 	static char oldval[TZ_BUFLEN]; /* BSS-zero'd. */
 #endif
 
+	/* Put this inside the lock to prevent the possibility of two different
+	 * timezones being used in a threaded app. */
 	__UCLIBC_MUTEX_LOCK(_time_tzlock);
 
 	e = getenv(TZ);				/* TZ env var always takes precedence. */
 
 #if defined(__UCLIBC_HAS_TZ_FILE__) && !defined(__UCLIBC_HAS_TZ_FILE_READ_MANY__)
-	/* Put this inside the lock to prevent the possiblity of two different
-	 * timezones being used in a threaded app. */
-
-	if (e != NULL) {
-		TZ_file_read = 0;		/* Reset if the TZ env var is set. */
-	} else if (TZ_file_read) {
+	if (e) {
+		/* Never use TZfile if TZ env var is set. */
+		TZ_file_read = 0;
+	}
+	if (TZ_file_read) {
+		/* We already parsed TZfile before, skip everything. */
 		goto FAST_DONE;
 	}
-#endif /* defined(__UCLIBC_HAS_TZ_FILE__) && !defined(__UCLIBC_HAS_TZ_FILE_READ_MANY__) */
+#endif
 
 	/* Warning!!!  Since uClibc doesn't do lib locking, the following is
 	 * potentially unsafe in a multi-threaded program since it is remotely
 	 * possible that another thread could call setenv() for TZ and overwrite
 	 * the string being parsed.  So, don't do that... */
 
-	if ((!e						/* TZ env var not set... */
 #ifdef __UCLIBC_HAS_TZ_FILE__
-		 && !(e = read_TZ_file(buf)) /* and no file or invalid file */
+	if (!e)
+		e = read_TZ_file(buf);
 #endif
-		 ) || !*e) {			/* or set to empty string. */
-ILLEGAL:					/* TODO: Clean up the following... */
-#ifdef __UCLIBC_HAS_TZ_CACHING__
-		*oldval = 0;			/* Set oldval to an empty string. */
-#endif
-		memset(_time_tzinfo, 0, 2*sizeof(rule_struct));
-		strcpy(_time_tzinfo[0].tzname, UTC);
-		goto DONE;
+	if (!e		/* TZ env var not set and no TZfile (or bad TZfile) */
+	 || !*e		/* or set to empty string. */
+	) {
+		goto ILLEGAL;
 	}
 
 	if (*e == ':') {			/* Ignore leading ':'. */
@@ -1913,8 +1950,9 @@ ILLEGAL:					/* TODO: Clean up the following... */
 	}
 
 #ifdef __UCLIBC_HAS_TZ_CACHING__
-	if (strcmp(e, oldval) == 0) { /* Same string as last time... */
-		goto FAST_DONE;			/* So nothing to do. */
+	if (strcmp(e, oldval) == 0) {
+		/* Same string as last time... nothing to do. */
+		goto FAST_DONE;
 	}
 	/* Make a copy of the TZ env string.  It won't be nul-terminated if
 	 * it is too long, but it that case it will be illegal and will be reset
@@ -1935,10 +1973,11 @@ LOOP:
 	s = new_rules[count].tzname;
 	n = 0;
 	while (*e
-		   && isascii(*e)		/* SUSv3 requires char in portable char set. */
-		   && (isalpha(*e)
-			   || (c && (isalnum(*e) || (*e == '+') || (*e == '-'))))
-		   ) {
+	    && isascii(*e)		/* SUSv3 requires char in portable char set. */
+	    && (isalpha(*e)
+		|| (c && (isalnum(*e) || (*e == '+') || (*e == '-')))
+	       )
+	) {
 		*s++ = *e++;
 		if (++n > TZNAME_MAX) {
 			goto ILLEGAL;
@@ -1947,8 +1986,8 @@ LOOP:
 	*s = 0;
 
 	if ((n < 3)					/* Check for minimum length. */
-		|| (c && (*e++ != c))	/* Match any quoting '<'. */
-		) {
+	 || (c && (*e++ != c))	/* Match any quoting '<'. */
+	) {
 		goto ILLEGAL;
 	}
 
@@ -1963,7 +2002,8 @@ LOOP:
 	}
 
 	++e;
-	if (!(e = getoffset(e, &off))) {
+	e = getoffset(e, &off);
+	if (!e) {
 		goto ILLEGAL;
 	}
 
@@ -2000,7 +2040,8 @@ SKIP_OFFSET:
 
 			n = 365;
 			s = (char *) RULE;
-			if ((c = *e++) == 'M') {
+			c = *e++;
+			if (c == 'M') {
 				n = 12;
 			} else if (c == 'J') {
 				s += 8;
@@ -2010,26 +2051,31 @@ SKIP_OFFSET:
 				s += 6;
 			}
 
-			*(p = &new_rules[count].rule_type) = c;
+			p = &new_rules[count].rule_type;
+			*p = c;
 			if (c != 'M') {
 				p -= 2;
 			}
 
 			do {
 				++s;
-				if (!(e = getnumber(e, &f))
-					|| (((unsigned int)(f - s[1])) > n)
-					|| (*s && (*e++ != *s))
-					) {
+				e = getnumber(e, &f);
+				if (!e
+				 || ((unsigned int)(f - s[1]) > n)
+				 || (*s && (*e++ != *s))
+				) {
 					goto ILLEGAL;
 				}
 				*--p = f;
-			} while ((n = *(s += 2)) > 0);
+				s += 2;
+				n = *s;
+			} while (n > 0);
 
 			off = 2 * 60 * 60;	/* Default to 2:00:00 */
 			if (*e == '/') {
 				++e;
-				if (!(e = getoffset(e, &off))) {
+				e = getoffset(e, &off);
+				if (!e) {
 					goto ILLEGAL;
 				}
 			}
@@ -2037,7 +2083,13 @@ SKIP_OFFSET:
 		} while (++count < 2);
 
 		if (*e) {
-			goto ILLEGAL;
+ILLEGAL:
+#ifdef __UCLIBC_HAS_TZ_CACHING__
+			oldval[0] = 0; /* oldval = "" */
+#endif
+			memset(_time_tzinfo, 0, sizeof(_time_tzinfo));
+			strcpy(_time_tzinfo[0].tzname, UTC);
+			goto DONE;
 		}
 	}
 

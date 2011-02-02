@@ -11,4 +11,4 @@
 #include <l4/sys/types.h>
 #include <l4/re/video/goos>
 
-void splash_display(L4Re::Video::Goos::Info *fb_info, l4_addr_t fbaddr);
+void splash_display(L4Re::Video::View::Info *fb_info, l4_addr_t fbaddr);

@@ -145,6 +145,13 @@ Mem_space::tlb_flush(bool = false)
   Mem_unit::tlb_flush();
 }
 
+PUBLIC static inline
+void
+Mem_space::tlb_flush_spaces(bool, Mem_space *, Mem_space *)
+{
+  tlb_flush();
+}
+
 
 IMPLEMENT inline
 Mem_space *
@@ -428,8 +435,7 @@ void Mem_space::kmem_update (void *addr)
   *dir.e = *kdir.e;
 }
 
-IMPLEMENT inline NEEDS["kmem.h","logdefs.h",Mem_space::current_pdir,
-                       Mem_space::need_tlb_flush]
+IMPLEMENT inline NEEDS["kmem.h", "logdefs.h", Mem_space::current_pdir]
 void
 Mem_space::switchin_context(Mem_space *from)
 {
@@ -441,7 +447,7 @@ Mem_space::switchin_context(Mem_space *from)
     return;
 #endif
 
-  if (from != this || need_tlb_flush())
+  if (from != this)
     {
       CNT_ADDR_SPACE_SWITCH;
       make_current();

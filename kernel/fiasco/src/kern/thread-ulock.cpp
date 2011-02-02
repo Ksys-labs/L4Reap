@@ -30,7 +30,7 @@ Thread::wait_queue_kill()
 {
   while (Locked_prio_list *q = wait_queue())
     {
-      Lock_guard<Spin_lock> g(q);
+      Lock_guard<typeof(*q)> g(q);
       if (wait_queue() == q)
 	{
           sender_dequeue(q);

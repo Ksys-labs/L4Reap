@@ -3,7 +3,7 @@ INTERFACE:
 #include "ram_quota.h"
 #include "kobject_helper.h"
 
-class Factory : public Ram_quota, public Kobject_h<Factory>, public Kobject
+class Factory : public Ram_quota, public Kobject_h<Factory>
 {
   FIASCO_DECLARE_KOBJ();
 
@@ -40,15 +40,13 @@ Factory::Factory(Ram_quota *q, unsigned long max)
   : Ram_quota(q, max)
 {}
 
-PRIVATE static inline NOEXPORT NEEDS["kmem_slab.h"]
+
+static Kmem_slab_t<Factory> _factory_allocator("Factory");
+
+PRIVATE static
 Factory::Self_alloc *
 Factory::allocator()
-{
-  static Self_alloc* slabs =
-    new Kmem_slab_simple (sizeof (Factory), sizeof (Mword), "Factory");
-
-  return slabs;
-}
+{ return &_factory_allocator; }
 
 PUBLIC static inline
 Factory *
@@ -133,7 +131,7 @@ Factory::new_task(Utcb const *u)
   if (!new_t)
     return 0;
 
-  if (new_t->state() != Task::Ready || !new_t->initialize())
+  if (!new_t->valid() || !new_t->initialize())
     {
       delete new_t;
       return 0;
@@ -187,12 +185,13 @@ Factory::new_semaphore(Utcb const *)
 
 PRIVATE inline NOEXPORT
 Kobject_iface *
-Factory::new_irq(Utcb const *)
+Factory::new_irq(unsigned w, Utcb const *utcb)
 {
-  Irq *i = Irq::allocate(this);
-  return i;
+  if (w >= 3 && utcb->values[2])
+    return Irq::allocate<Irq_muxer>(this);
+  else
+    return Irq::allocate<Irq_sender>(this);
 }
-
 
 PUBLIC
 L4_msg_tag
@@ -255,7 +254,7 @@ Factory::kinvoke(L4_obj_ref ref, Mword rights, Syscall_frame *f,
       break;
 
     case L4_msg_tag::Label_irq:
-      new_o = new_irq(utcb);
+      new_o = new_irq(f->tag().words(), utcb);
       break;
 
     case L4_msg_tag::Label_vm:
@@ -270,7 +269,7 @@ Factory::kinvoke(L4_obj_ref ref, Mword rights, Syscall_frame *f,
     Log_entry *le = tbe->payload<Log_entry>();
     le->op = utcb->values[0];
     le->buffer = buffer.obj_index();
-    le->id = dbg_id();
+    le->id = dbg_info()->dbg_id();
     le->ram = current();
     le->newo = new_o ? new_o->dbg_info()->dbg_id() : ~0);
 
@@ -293,7 +292,7 @@ Factory::new_vm(Utcb const *)
   if (!new_t)
     return 0;
 
-  if (new_t->state() != Task::Ready || !new_t->initialize())
+  if (!new_t->valid() || !new_t->initialize())
     {
       delete new_t;
       return 0;

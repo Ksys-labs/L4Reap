@@ -90,10 +90,6 @@ Timer::us_to_timer(Unsigned64 us)
 IMPLEMENT inline NEEDS["config.h", "io.h"]
 void Timer::acknowledge()
 {
-  // XXX: there's a update_system_clock function !?!?!?!
-  //if (!Config::scheduler_one_shot)
-  //  Kip::k()->clock += Config::scheduler_granularity;
-
   Io::write<Mword>(2, TISR);
   irq->pin()->ack();
 }

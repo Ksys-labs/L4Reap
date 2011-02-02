@@ -24,28 +24,6 @@
 #ifndef __INCLUDE__ARCH_X86__VM_H__
 #define __INCLUDE__ARCH_X86__VM_H__
 
-#include <l4/sys/types.h>
-
-/**
- * \brief General purpose regisers, x86-32
- * \ingroup l4_vm_api
- */
-
-typedef struct l4_vm_gpregs_t
-{
-  l4_umword_t eax; // Ignored with SVM
-  l4_umword_t edx;
-  l4_umword_t ecx;
-  l4_umword_t ebx;
-  l4_umword_t ebp;
-  l4_umword_t esi;
-  l4_umword_t edi;
-  l4_umword_t dr0;
-  l4_umword_t dr1;
-  l4_umword_t dr2;
-  l4_umword_t dr3;
-} l4_vm_gpregs_t;
-
 #include <l4/sys/__vm.h>
 
 #endif /* ! __INCLUDE__ARCH_X86__VM_H__ */

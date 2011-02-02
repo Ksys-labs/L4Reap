@@ -14,7 +14,7 @@ phys_mem.o: $(TCBOFFSET)
 #	$(VERBOSE)$(OBJCOPY) -G _boot_start $@_x.o $@
 #	$(VERBOSE)$(RM) $@_x.o
 
-$(KERNEL).image: $(srcdir)/kernel.ppc32.ld $(CRT0) $(OBJ_KERNEL) $(LIBK) $(LIBAMM) $(LIBDISASM) libdrivers.a $(ABI) $(LIBUART) $(CXXLIB) $(MINILIBC) libgluedriverslibc.a 
+$(KERNEL).image: $(srcdir)/kernel.ppc32.ld $(CRT0) $(OBJ_KERNEL) $(LIBK) $(LIBDISASM) libdrivers.a $(ABI) $(LIBUART) $(CXXLIB) $(MINILIBC) libgluedriverslibc.a 
 	$(LINK_MESSAGE)
 	$(VERBOSE)$(LD) $(LDFLAGS) -N -T $< -o $@ $(filter-out $<,$+) $(LIBGCC)
 

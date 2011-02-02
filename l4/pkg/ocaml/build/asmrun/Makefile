@@ -22,6 +22,7 @@ OCAML_ARCH_FILE_x86   = i386
 OCAML_ARCH_FILE_amd64 = amd64
 OCAML_ARCH_FILE_arm   = arm
 OCAML_ARCH_FILE_ppc32 = power-elf
+OCAML_ARCH_FILE_sparc = sparc
 OCAML_ARCH_FILE       = $(OCAML_ARCH_FILE_$(ARCH))
 
 NATIVECCCOMPOPTS=-Wall -D_FILE_OFFSET_BITS=64 -D_REENTRANT
@@ -30,12 +31,13 @@ DEFINES_x86   = -DTARGET_i386 -DSYS_linux_elf
 DEFINES_amd64 = -DTARGET_amd64 -DSYS_linux
 DEFINES_arm   = -DTARGET_arm
 DEFINES_ppc32 = -DTARGET_power -DSYS_elf
+DEFINES_sparc = -DTARGET_sparc
 DEFINES       = -DCAML_NAME_SPACE -DNATIVE_CODE \
                 $(DEFINES_$(ARCH)) $(NATIVECCCOMPOPTS)
 
 # arm.s contains some fp instructions, set version explicitely to have it
 # compile, it will trap at runtime as nobody will emulate it
-ASFLAGS_arm.S     = -mfpu=fpa
+ASFLAGS_arm.S     = -mfpu=fpa -mabi=apcs-gnu
 
 SRC_C = startup.c main.c fail.c roots.c globroots.c signals.c signals_asm.c \
         misc.c freelist.c major_gc.c minor_gc.c memory.c alloc.c compare.c \

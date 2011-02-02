@@ -11,4 +11,6 @@ vpath %.h $(SRC_DIR)/../contrib/src
 	
 
 include $(SRC_DIR)/../contrib/src/Makefile
-MYCFLAGS=-I$(SRC_DIR)/../contrib/src -nostdinc -fno-stack-protector $(L4_INCLUDES)
+
+
+MYCFLAGS=-I$(SRC_DIR)/../contrib/src $(L4_DEFINES) -nostdinc -fno-stack-protector $(L4_INCLUDES)

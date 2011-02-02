@@ -81,8 +81,8 @@ kernel_main()
   // create kernel thread
   static Kernel_thread *kernel = new (Ram_quota::root) Kernel_thread;
   nil_thread = kernel;
-  Space *const ktask = Kernel_task::kernel_task();
-  check(kernel->bind(ktask, 0));
+  Task *const ktask = Kernel_task::kernel_task();
+  check(kernel->bind(ktask, User<Utcb>::Ptr(0)));
 
   Mem_unit::tlb_flush();
 
@@ -117,7 +117,7 @@ int boot_ap_cpu(unsigned _cpu)
 {
   if (!Per_cpu_data_alloc::alloc(_cpu))
     {
-      extern Spin_lock _tramp_mp_spinlock;
+      extern Spin_lock<Mword> _tramp_mp_spinlock;
       printf("CPU allocation failed for CPU%u, disabling CPU.\n", _cpu);
       _tramp_mp_spinlock.clear();
       while (1)
@@ -136,7 +136,7 @@ int boot_ap_cpu(unsigned _cpu)
   // create kernel thread
   App_cpu_thread *kernel = new (Ram_quota::root) App_cpu_thread();
   set_cpu_of(kernel, _cpu);
-  check(kernel->bind(Kernel_task::kernel_task(), 0));
+  check(kernel->bind(Kernel_task::kernel_task(), User<Utcb>::Ptr(0)));
 
   // switch to stack of kernel thread and bootstrap the kernel
   asm volatile

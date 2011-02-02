@@ -285,7 +285,7 @@ sub get_file_uncompressed_or_die($$$)
   read F, $buf, 2;
   close F;
 
-  if (unpack("n", $buf) == 0x1f8b) {
+  if (length($buf) >= 2 && unpack("n", $buf) == 0x1f8b) {
     (my $tf = $fp) =~ s|.*/||;
     $tf = $tmpdir.'/'.$tf;
     print "'$fp' is a zipped file, uncompressing to '$tf'\n";

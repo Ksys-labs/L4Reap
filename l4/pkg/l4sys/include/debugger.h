@@ -5,7 +5,7 @@
  * \ingroup l4_api
  */
 /*
- * (c) 2008-2009 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
+ * (c) 2008-2011 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
  *               Alexander Warg <warg@os.inf.tu-dresden.de>
  *     economic rights: Technische Universität Dresden (Germany)
  *
@@ -33,6 +33,9 @@
  * \brief Kernel debugger related functionality.
  * \attention This API is subject to change!
  *
+ * This is a debugging factility, any call to any function might be invalid.
+ * Do not rely on it in any real code.
+ *
  * <c>\#include <l4/sys/debugger.h></c>
  */
 
@@ -42,6 +45,8 @@
  *
  * \param cap     Capability
  * \param name    Name
+ *
+ * This is a debugging factility, the call might be invalid.
  */
 L4_INLINE l4_msgtag_t
 l4_debugger_set_object_name(l4_cap_idx_t cap, const char *name) L4_NOTHROW;
@@ -60,7 +65,7 @@ l4_debugger_set_object_name_u(l4_cap_idx_t cap, const char *name, l4_utcb_t *utc
  *
  * \return ~0UL on non-valid capability, ID otherwise
  *
- * This is a debugging factility, do not use it in real code.
+ * This is a debugging factility, the call might be invalid.
  */
 L4_INLINE unsigned long
 l4_debugger_global_id(l4_cap_idx_t cap) L4_NOTHROW;
@@ -71,12 +76,77 @@ l4_debugger_global_id(l4_cap_idx_t cap) L4_NOTHROW;
 L4_INLINE unsigned long
 l4_debugger_global_id_u(l4_cap_idx_t cap, l4_utcb_t *utcb) L4_NOTHROW;
 
+/**
+ * Get the globally unique ID of the object behind the kobject pointer.
+ * \ingroup l4_debugger_api
+ *
+ * \param cap    Capability
+ * \param kobjp  Kobject pointer
+ *
+ * \return ~0UL on non-valid capability or invalid kobject pointer, ID otherwise
+ *
+ * This is a debugging factility, the call might be invalid.
+ */
+L4_INLINE unsigned long
+l4_debugger_kobj_to_id(l4_cap_idx_t cap, l4_addr_t kobjp) L4_NOTHROW;
+
+/**
+ * \internal
+ */
+L4_INLINE unsigned long
+l4_debugger_kobj_to_id_u(l4_cap_idx_t cap, l4_addr_t kobjp, l4_utcb_t *utcb) L4_NOTHROW;
+
+/**
+ * \brief Query the log-id for a log type
+ *
+ * \param cap    Capability
+ * \param  name  Name to query for.
+ * \param  idx   Idx to start searching, start with 0
+ *
+ * \return ID, ~0U on error or no valid log name.
+ *
+ * This is a debugging factility, the call might be invalid.
+ */
+L4_INLINE unsigned
+l4_debugger_query_log_typeid(l4_cap_idx_t cap, const char *name,
+                             unsigned idx) L4_NOTHROW;
+
+/**
+ * \internal
+ */
+L4_INLINE unsigned
+l4_debugger_query_log_typeid_u(l4_cap_idx_t cap, const char *name,
+                               unsigned idx, l4_utcb_t *utcb) L4_NOTHROW;
+
+/**
+ * \brief Set or unset log.
+ */
+L4_INLINE l4_msgtag_t
+l4_debugger_switch_log(l4_cap_idx_t cap, const char *name,
+                       int on_off) L4_NOTHROW;
+
+/**
+ * \internal
+ */
+L4_INLINE l4_msgtag_t
+l4_debugger_switch_log_u(l4_cap_idx_t cap, const char *name, int on_off,
+                         l4_utcb_t *utcb) L4_NOTHROW;
+
 enum
 {
-  L4_DEBUGGER_NAME_SET_OP  = 0UL,
-  L4_DEBUGGER_GLOBAL_ID_OP = 1UL,
+  L4_DEBUGGER_NAME_SET_OP         = 0UL,
+  L4_DEBUGGER_GLOBAL_ID_OP        = 1UL,
+  L4_DEBUGGER_KOBJ_TO_ID_OP       = 2UL,
+  L4_DEBUGGER_QUERY_LOG_TYPEID_OP = 3UL,
+  L4_DEBUGGER_SWITCH_LOG_OP       = 4UL,
+  L4_DEBUGGER_NAME_GET_OP         = 5UL,
 };
 
+enum
+{
+  L4_DEBUGGER_SWITCH_LOG_ON  = 1,
+  L4_DEBUGGER_SWITCH_LOG_OFF = 0,
+};
 
 /* IMPLEMENTATION -----------------------------------------------------------*/
 
@@ -107,8 +177,60 @@ l4_debugger_global_id_u(l4_cap_idx_t cap, l4_utcb_t *utcb) L4_NOTHROW
   return l4_utcb_mr_u(utcb)->mr[0];
 }
 
+L4_INLINE unsigned long
+l4_debugger_kobj_to_id_u(l4_cap_idx_t cap, l4_addr_t kobjp, l4_utcb_t *utcb) L4_NOTHROW
+{
+  l4_utcb_mr_u(utcb)->mr[0] = L4_DEBUGGER_KOBJ_TO_ID_OP;
+  l4_utcb_mr_u(utcb)->mr[1] = kobjp;
+  if (l4_error_u(l4_invoke_debugger(cap, l4_msgtag(0, 2, 0, 0), utcb), utcb))
+    return ~0UL;
+  return l4_utcb_mr_u(utcb)->mr[0];
+}
 
+L4_INLINE unsigned
+l4_debugger_query_log_typeid_u(l4_cap_idx_t cap, const char *name,
+                               unsigned idx,
+                               l4_utcb_t *utcb) L4_NOTHROW
+{
+  unsigned l;
+  l4_utcb_mr_u(utcb)->mr[0] = L4_DEBUGGER_QUERY_LOG_TYPEID_OP;
+  l4_utcb_mr_u(utcb)->mr[1] = idx;
+  l = __builtin_strlen(name);
+  l = l > 31 ? 31 : l;
+  __builtin_strncpy((char *)&l4_utcb_mr_u(utcb)->mr[2], name, 31);
+  l = (l + 1 + sizeof(l4_umword_t) - 1) / sizeof(l4_umword_t);
+  if (l4_error_u(l4_invoke_debugger(cap, l4_msgtag(0, 2 + l, 0, 0), utcb), utcb))
+    return ~0U;
+  return l4_utcb_mr_u(utcb)->mr[0];
+}
 
+L4_INLINE l4_msgtag_t
+l4_debugger_switch_log_u(l4_cap_idx_t cap, const char *name, int on_off,
+                         l4_utcb_t *utcb) L4_NOTHROW
+{
+  unsigned l;
+  l4_utcb_mr_u(utcb)->mr[0] = L4_DEBUGGER_SWITCH_LOG_OP;
+  l4_utcb_mr_u(utcb)->mr[1] = on_off;
+  l = __builtin_strlen(name);
+  l = l > 31 ? 31 : l;
+  __builtin_strncpy((char *)&l4_utcb_mr_u(utcb)->mr[2], name, 31);
+  l = (l + 1 + sizeof(l4_umword_t) - 1) / sizeof(l4_umword_t);
+  return l4_invoke_debugger(cap, l4_msgtag(0, 2 + l, 0, 0), utcb);
+}
+
+L4_INLINE l4_msgtag_t
+l4_debugger_get_object_name_u(l4_cap_idx_t cap, unsigned id,
+                              char *name, unsigned size,
+                              l4_utcb_t *utcb) L4_NOTHROW
+{
+  l4_msgtag_t t;
+  l4_utcb_mr_u(utcb)->mr[0] = L4_DEBUGGER_NAME_GET_OP;
+  l4_utcb_mr_u(utcb)->mr[1] = id;
+  t = l4_invoke_debugger(cap, l4_msgtag(0, 2, 0, 0), utcb);
+  __builtin_strncpy(name, (char *)&l4_utcb_mr_u(utcb)->mr[0], size);
+  name[size - 1] = 0;
+  return t;
+}
 
 
 L4_INLINE l4_msgtag_t
@@ -122,4 +244,31 @@ L4_INLINE unsigned long
 l4_debugger_global_id(l4_cap_idx_t cap) L4_NOTHROW
 {
   return l4_debugger_global_id_u(cap, l4_utcb());
+}
+
+L4_INLINE unsigned long
+l4_debugger_kobj_to_id(l4_cap_idx_t cap, l4_addr_t kobjp) L4_NOTHROW
+{
+  return l4_debugger_kobj_to_id_u(cap, kobjp, l4_utcb());
+}
+
+L4_INLINE unsigned
+l4_debugger_query_log_typeid(l4_cap_idx_t cap, const char *name,
+                             unsigned idx) L4_NOTHROW
+{
+  return l4_debugger_query_log_typeid_u(cap, name, idx, l4_utcb());
+}
+
+L4_INLINE l4_msgtag_t
+l4_debugger_switch_log(l4_cap_idx_t cap, const char *name,
+                       int on_off) L4_NOTHROW
+{
+  return l4_debugger_switch_log_u(cap, name, on_off, l4_utcb());
+}
+
+L4_INLINE l4_msgtag_t
+l4_debugger_get_object_name(l4_cap_idx_t cap, unsigned id,
+                            char *name, unsigned size) L4_NOTHROW
+{
+  return l4_debugger_get_object_name_u(cap, id, name, size, l4_utcb());
 }

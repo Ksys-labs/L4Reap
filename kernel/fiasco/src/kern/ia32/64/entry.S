@@ -152,8 +152,8 @@ entry_vec0e_page_fault:
 	cld
 	SAVE_SCRATCH
 
-/* We must reset the cancel flag here atomically 
-   if we are entering fresh from user mode and an IPC might occur. 
+/* We must reset the cancel flag here atomically
+   if we are entering fresh from user mode and an IPC might occur.
    NOTE: We cannot test the user-mode bit in the error code because
    it will flag "kernel" in case an I/O-bitmap page is not mapped
    during an I/O access. */
@@ -434,6 +434,7 @@ leave_by_vcpu_upcall:
 	call	thread_restore_exc_state
 
 	ESP_TO_TCB_AT %rcx
+	mov OFS__THREAD__USER_VCPU(%rcx), %rdi
 	mov OFS__THREAD__VCPU_STATE(%rcx), %rcx
 	add $(VAL__SIZEOF_TRAP_STATE - 40), %rcx
 	mov SCRATCH_REGISTER_SIZE(%rsp),  %rdx

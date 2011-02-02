@@ -39,18 +39,18 @@ libintl-so-y := $(libintl_MOBJ:.o=.os)
 
 lib-a-$(UCLIBC_HAS_GETTEXT_AWARENESS) += $(top_builddir)lib/libintl.a
 lib-so-$(UCLIBC_HAS_GETTEXT_AWARENESS) += $(top_builddir)lib/libintl.so
-objclean-y += libintl_clean
+objclean-y += CLEAN_libintl
 
 ifeq ($(DOMULTI),n)
 ifeq ($(DOPIC),y)
-$(top_builddir)lib/libintl.so: $(top_builddir)lib/libintl.a $(libc)
+$(top_builddir)lib/libintl.so: $(top_builddir)lib/libintl.a $(libc.depend)
 else
-$(top_builddir)lib/libintl.so: $(libintl_OUT)/libintl_so.a $(libc)
+$(top_builddir)lib/libintl.so: $(libintl_OUT)/libintl_so.a $(libc.depend)
 endif
-	$(call link.so,$(libintl_FULL_NAME),$(MAJOR_VERSION))
+	$(call link.so,$(libintl_FULL_NAME),$(ABI_VERSION))
 else
-$(top_builddir)lib/libintl.so: $(libintl_OUT)/libintl.oS | $(libc)
-	$(call linkm.so,$(libintl_FULL_NAME),$(MAJOR_VERSION))
+$(top_builddir)lib/libintl.so: $(libintl_OUT)/libintl.oS | $(libc.depend)
+	$(call linkm.so,$(libintl_FULL_NAME),$(ABI_VERSION))
 endif
 
 $(libintl_OUT)/libintl_so.a: $(libintl-so-y)
@@ -72,5 +72,5 @@ $(libintl_MOBJ): $(libintl_MSRC)
 $(libintl_MOBJ:.o=.os): $(libintl_MSRC)
 	$(compile.m)
 
-libintl_clean:
+CLEAN_libintl:
 	$(do_rm) $(addprefix $(libintl_OUT)/*., o os oS a)

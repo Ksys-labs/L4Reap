@@ -43,7 +43,7 @@ private:
 
   };
 
-  static Spin_lock _lock;
+  static Spin_lock<> _lock;
 
 public:
   enum
@@ -62,7 +62,7 @@ IMPLEMENTATION [arm && realview && outer_cache]:
 
 #include <cstdio>
 
-Spin_lock Outer_cache::_lock;
+Spin_lock<> Outer_cache::_lock;
 
 IMPLEMENT inline NEEDS ["io.h"]
 void
@@ -76,7 +76,7 @@ PRIVATE static inline NEEDS ["io.h", "lock_guard.h"]
 void
 Outer_cache::write(Address reg, Mword val)
 {
-  Lock_guard<Spin_lock> guard(&_lock);
+  Lock_guard<Spin_lock<> > guard(&_lock);
   Io::write<Mword>(val, reg);
   while (Io::read<Mword>(reg) & 1)
     ;

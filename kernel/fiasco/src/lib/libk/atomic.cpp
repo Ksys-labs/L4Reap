@@ -23,23 +23,23 @@ struct Pair
 //---------------------------------------------------------------------------
 IMPLEMENTATION:
 
-template< typename Type > inline 
+template< typename Type > inline
 bool
-cas (Type *ptr, Type oldval, Type newval)
+cas(Type *ptr, Type oldval, Type newval)
 {
   MACRO_CAS_ASSERT(sizeof(Type),sizeof(Mword));
-  return cas_unsafe (reinterpret_cast<Mword*>(ptr), 
-		     (Mword)oldval, (Mword)newval);
+  return cas_unsafe(reinterpret_cast<Mword*>(ptr),
+                    (Mword)oldval, (Mword)newval);
 }
 
-template< typename Type > inline 
+template< typename Type > inline
 bool
-cas2 (Type *ptr, Type *oldval, Type *newval)
+cas2(Type *ptr, Type *oldval, Type *newval)
 {
   MACRO_CAS_ASSERT(sizeof(Type),(sizeof(Mword)*2));
-  return cas2_unsafe (reinterpret_cast<Mword*>(ptr), 
-		      reinterpret_cast<Mword*>(oldval), 
-	  	      reinterpret_cast<Mword*>(newval));
+  return cas2_unsafe(reinterpret_cast<Mword*>(ptr),
+                     reinterpret_cast<Mword*>(oldval),
+                     reinterpret_cast<Mword*>(newval));
 }
 
 template <typename T> inline
@@ -51,7 +51,7 @@ atomic_change(T *ptr, T mask, T bits)
     {
       old = *ptr;
     }
-  while (! cas (ptr, old, (old & mask) | bits));
+  while (!cas(ptr, old, (old & mask) | bits));
   return old;
 }
 
@@ -60,28 +60,28 @@ IMPLEMENTATION [ia32,ux]:
 
 inline
 void
-atomic_mp_add (Mword *l, Mword value)
+atomic_mp_add(Mword *l, Mword value)
 {
   asm volatile ("lock; addl %1, %2" : "=m"(*l) : "ir"(value), "m"(*l));
 }
 
 inline
 void
-atomic_add (Mword *l, Mword value)
+atomic_add(Mword *l, Mword value)
 {
   asm volatile ("addl %1, %2" : "=m"(*l) : "ir"(value), "m"(*l));
 }
 
 inline
 void
-atomic_and (Mword *l, Mword mask)
+atomic_and(Mword *l, Mword mask)
 {
   asm volatile ("andl %1, %2" : "=m"(*l) : "ir"(mask), "m"(*l));
 }
 
 inline
 void
-atomic_or (Mword *l, Mword bits)
+atomic_or(Mword *l, Mword bits)
 {
   asm volatile ("orl %1, %2" : "=m"(*l) : "ir"(bits), "m"(*l));
 }
@@ -93,7 +93,7 @@ atomic_or (Mword *l, Mword bits)
 
 inline
 bool
-cas_unsafe (Mword *ptr, Mword oldval, Mword newval)
+cas_unsafe(Mword *ptr, Mword oldval, Mword newval)
 {
   Mword tmp;
 
@@ -124,7 +124,7 @@ mp_cas_arch(Mword *m, Mword o, Mword n)
 
 inline
 bool
-cas2_unsafe (Mword *ptr, Mword *oldval, Mword *newval)
+cas2_unsafe(Mword *ptr, Mword *oldval, Mword *newval)
 {
   char ret;
   asm volatile
@@ -142,7 +142,7 @@ cas2_unsafe (Mword *ptr, Mword *oldval, Mword *newval)
 
 inline
 bool
-mp_cas2_arch (char *m, Mword o1, Mword o2, Mword n1, Mword n2)
+mp_cas2_arch(char *m, Mword o1, Mword o2, Mword n1, Mword n2)
 {
   char ret;
   asm volatile
@@ -156,7 +156,7 @@ mp_cas2_arch (char *m, Mword o1, Mword o2, Mword n1, Mword n2)
 }
 inline
 bool
-tas (Mword *l)
+tas(Mword *l)
 {
   Mword tmp;
   asm volatile ("xchg %0, %1" : "=r"(tmp) : "m"(*l), "0"(1) : "memory");
@@ -170,7 +170,7 @@ IMPLEMENTATION[(ppc32 && !mp) || (arm && !armv6plus)]:
 
 inline NEEDS["processor.h"]
 void
-atomic_mp_add (Mword *l, Mword value)
+atomic_mp_add(Mword *l, Mword value)
 {
   Proc::Status s = Proc::cli_save();
   *l += value;
@@ -183,7 +183,7 @@ IMPLEMENTATION[arm && armv6plus]:
 
 inline
 void
-atomic_mp_add (Mword *l, Mword value)
+atomic_mp_add(Mword *l, Mword value)
 {
   Mword tmp, ret;
 
@@ -223,7 +223,7 @@ mp_cas_arch(Mword *m, Mword o, Mword n)
 
 inline
 bool
-mp_cas2_arch (char *m, Mword o1, Mword o2, Mword n1, Mword n2)
+mp_cas2_arch(char *m, Mword o1, Mword o2, Mword n1, Mword n2)
 {
   register Mword _n1 asm("r6") = n1;
   register Mword _n2 asm("r7") = n2;
@@ -253,7 +253,7 @@ IMPLEMENTATION [mp]:
 
 template< typename T > inline
 bool
-mp_cas (T *m, T o, T n)
+mp_cas(T *m, T o, T n)
 {
   MACRO_CAS_ASSERT(sizeof(T),sizeof(Mword));
   return mp_cas_arch(reinterpret_cast<Mword*>(m),
@@ -263,7 +263,7 @@ mp_cas (T *m, T o, T n)
 
 template< typename T, typename T2 > inline
 bool
-mp_cas2 (Pair<T,T2> *m, T o1, T2 o2, T n1, T2 n2)
+mp_cas2(Pair<T,T2> *m, T o1, T2 o2, T n1, T2 n2)
 {
   MACRO_CAS_ASSERT(sizeof(T),sizeof(Mword));
   MACRO_CAS_ASSERT(sizeof(T2),sizeof(Mword));
@@ -280,6 +280,6 @@ IMPLEMENTATION [!mp]:
 
 template< typename T > inline
 bool
-mp_cas (T *m, T o, T n)
+mp_cas(T *m, T o, T n)
 { return cas(m,o,n); }
 

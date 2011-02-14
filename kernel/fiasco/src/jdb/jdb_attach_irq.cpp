@@ -52,7 +52,7 @@ Jdb_attach_irq::action( int cmd, void *&args, char const *&, int & )
   	    {
   	      Irq *r;
 	      putchar('\n');
-  	      for (unsigned i = 0; i < Config::Max_num_irqs; ++i)
+              for (unsigned i = 0; i < Config::Max_num_dirqs; ++i)
 		{
 		  r = static_cast<Irq*>(Irq_chip::hw_chip->irq(i));
 		  if (!r)
@@ -168,32 +168,25 @@ PUBLIC
 Kobject_common *
 Jdb_kobject_irq::follow_link(Kobject_common *o)
 {
-  Irq_sender *t = dcast<Irq_sender*>(Kobject::from_dbg(o->dbg_info()));
-  if (!t || !t->owner() || (Smword)t->owner() == -1)
-    return o;
-
-  return Kobject::from_dbg(static_cast<Thread*>(t->owner())->dbg_info());
+  Irq_sender *t = Kobject::dcast<Irq_sender*>(o);
+  return t ? Kobject::pointer_to_obj(t->owner()) : 0;
 }
 
 PUBLIC
 bool
 Jdb_kobject_irq::show_kobject(Kobject_common *, int)
 { return true; }
-#if 0
-  Thread *t = Kobject::dcast<Thread*>(o);
-  return show(t, level);
-#endif
 
 PUBLIC
 int
 Jdb_kobject_irq::show_kobject_short(char *buf, int max, Kobject_common *o)
 {
-  Irq *t = Kobject::dcast<Irq*>(o);
-  Kobject_common *d = follow_link(o);
-  int cnt = 0;
-  return cnt + snprintf(buf, max, " I=%3lx %s L=%lx T=%lx F=%x",
-                        t->irq(), t->pin()->pin_type(), t->obj_id(),
-                        d ? d->dbg_info()->dbg_id() : 0, (unsigned)t->pin()->flags());
+  Irq_sender *t = Kobject::dcast<Irq_sender*>(o);
+  Kobject_common *w = follow_link(o);
+  return snprintf(buf, max, " I=%3lx %s L=%lx T=%lx F=%x",
+                  t->irq(), t->pin()->pin_type(), t->obj_id(),
+                  w ? w->dbg_info()->dbg_id() : 0,
+		  (unsigned)t->pin()->flags());
 }
 
 static

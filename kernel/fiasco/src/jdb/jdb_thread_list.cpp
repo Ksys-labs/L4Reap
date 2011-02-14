@@ -746,7 +746,7 @@ Jdb_thread_list::list_threads(Thread *t_start, char pr)
 					Thread_busy  |
 					Thread_rcvlong_in_progress))
 		      && (!t->partner()->id().is_irq() ||
-		           t->partner()->id().irq() > Config::Max_num_irqs))
+		           t->partner()->id().irq() > Config::Max_num_dirqs))
 		    {
 		      t_current = static_cast<Thread*>(t->partner());
 		      redraw = true;

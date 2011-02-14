@@ -409,6 +409,16 @@ bool
 Thread::exception_triggered() const
 { return _exc_cont.valid(); }
 
+PUBLIC inline
+bool
+Thread::continuation_test_and_restore()
+{
+  bool v = _exc_cont.valid();
+  if (v)
+    _exc_cont.restore(regs());
+  return v;
+}
+
 //
 // state requests/manipulation
 //

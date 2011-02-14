@@ -127,11 +127,13 @@ _slowtraps:
 slowtraps:
 #ifdef CONFIG_PF_UX
 # define REG_GS CPU_GS
+# define REG_FS CPU_FS
 #else
 # define REG_GS %gs
+# define REG_FS %fs
 #endif
 
-	pushl	%fs		/* we save the segment regs in the trap   */
+	pushl	REG_FS		/* we save the segment regs in the trap   */
 	pushl	REG_GS		/* state, but we do not restore them.  We */
 	pushl	%ds		/* rather reload them using               */
 	pushl	%es		/* RESET_{KERNEL,USER}_SEGMENTS           */
@@ -183,7 +185,7 @@ in_slowtrap:
 
 	addl	$4*2,%esp		/* Pop ds, es segment registers */
 	popl	REG_GS
-	popl	%fs			/* Restore segment registers */
+	popl	REG_FS			/* Restore segment registers */
 	popa
 	addl	$4*2,%esp		/* Pop trap number and error code */
 	iret
@@ -655,8 +657,8 @@ leave_by_vcpu_upcall:
 	call	thread_restore_exc_state
 
 	ESP_TO_TCB_AT %ecx
-	mov OFS__THREAD__USER_VCPU(%ecx), %eax /* vcpu state poiner from TCB */
-	mov OFS__THREAD__VCPU_STATE(%ecx), %ecx /* vcpu state poiner from TCB */
+	mov OFS__THREAD__USER_VCPU(%ecx), %eax /* vcpu state pointer from TCB */
+	mov OFS__THREAD__VCPU_STATE(%ecx), %ecx /* vcpu state pointer from TCB */
 	addl $(VAL__SIZEOF_TRAP_STATE - 20), %ecx /* skip return frame */
 	mov SCRATCH_REGISTER_SIZE(%esp),  %edx
 	mov %edx, (%ecx)                                /* EIP */
@@ -685,13 +687,7 @@ leave_by_vcpu_upcall:
 
 	/*add SCRATCH_REGISTER_SIZE, %esp*/
 
-#ifdef CONFIG_PF_UX
-# define REG_GS CPU_GS
-#else
-# define REG_GS %gs
-#endif
-
-	pushl	%fs		/* we save the segment regs in the trap   */
+	pushl	REG_FS		/* we save the segment regs in the trap   */
 	pushl	REG_GS		/* state, but we do not restore them.  We */
 	pushl	%ds		/* rather reload them using               */
 	pushl	%es		/* RESET_{KERNEL,USER}_SEGMENTS           */
@@ -711,7 +707,7 @@ vcpu_resume:
 	//popl %es
 	//popl %ds
 	popl REG_GS
-	popl %fs
+	popl REG_FS
 	popa
 	addl $(2*4), %esp
 	iret

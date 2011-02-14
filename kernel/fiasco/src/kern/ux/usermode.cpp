@@ -514,7 +514,7 @@ Usermode::iret_to_user_mode (unsigned _cpu,
            "        Fixing up!\n");
       regs.xds = Cpu::kern_ds();
       regs.xes = Cpu::kern_es();
-      regs.xfs = 0;
+      regs.xgs = 0;
       check(ptrace (PTRACE_SETREGS, pid, NULL, &regs));
     }
   else

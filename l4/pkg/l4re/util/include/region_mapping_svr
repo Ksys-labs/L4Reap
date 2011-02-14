@@ -191,7 +191,7 @@ int region_pf_handler(RM *rm, IOS &ios)
   typename RM::Region_handler::Ops::Map_result result;
   if (int err = n->second.map(addr, n->first, writable, &result))
     {
-      Dbg(Dbg::Warn, "rm").printf("mapping for pf failed with %d @%lx pc=%lx\n",
+      Dbg(Dbg::Warn, "rm").printf("mapping for page fault failed with %d @%lx pc=%lx\n",
                                   err, addr, pc);
       // generate exception
       ios << (l4_umword_t)~0;

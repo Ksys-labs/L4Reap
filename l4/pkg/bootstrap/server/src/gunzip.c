@@ -166,7 +166,7 @@ static void initialize_tables (void);
 
 static void show_progress(int done, int len)
 {
-  int r = printf("%d%%", (done * 100) / len);
+  int r = printf("%lld%%", ((unsigned long long)done * 100) / len);
   while (r-- > 0)
     putchar('\b');
   fflush(NULL);

@@ -26,7 +26,7 @@ public:
     unsigned nr_irqs() const { return 16; }
 
     bool valloc(Irq_base *irq, unsigned vector);
-    bool vfree(Irq_base *irq, unsigned vector);
+    static bool vfree(Irq_base *irq, unsigned vector);
     virtual void disable_irq(unsigned vector);
 
   protected:

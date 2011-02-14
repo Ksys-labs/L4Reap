@@ -44,15 +44,25 @@ public:
 
 class Io_apic
 {
-private:
-  Unsigned32 volatile adr;
-  Unsigned32 dummy[3];
-  Unsigned32 volatile data;
+public:
+  enum { Max_ioapics = 6 };
 
-  static Io_apic *_apic;
+private:
+  struct Apic
+  {
+    Unsigned32 volatile adr;
+    Unsigned32 dummy[3];
+    Unsigned32 volatile data;
+  } __attribute__((packed));
+
+  Apic *_apic;
+  Spin_lock<> _l;
+  unsigned _offset;
+
+  static Io_apic _apics[Max_ioapics];
+  static unsigned _nr_irqs;
   static Acpi_madt const *_madt;
-  static Spin_lock<> _l;
-} __attribute__((packed));
+};
 
 IMPLEMENTATION:
 
@@ -62,10 +72,9 @@ IMPLEMENTATION:
 #include "kip.h"
 #include "lock_guard.h"
 
-Io_apic *Io_apic::_apic;
+Io_apic Io_apic::_apics[Io_apic::Max_ioapics];
 Acpi_madt const *Io_apic::_madt;
-Spin_lock<> Io_apic::_l;
-
+unsigned Io_apic::_nr_irqs;
 
 
 PRIVATE inline NEEDS["lock_guard.h"]
@@ -73,9 +82,9 @@ Mword
 Io_apic::read(int reg)
 {
   Lock_guard<typeof(_l)> g(&_l);
-  adr = reg;
+  _apic->adr = reg;
   asm volatile ("": : :"memory");
-  return data;
+  return _apic->data;
 }
 
 PRIVATE inline NEEDS["lock_guard.h"]
@@ -84,12 +93,12 @@ Io_apic::modify(int reg, Mword set_bits, Mword del_bits)
 {
   register Mword tmp;
   Lock_guard<typeof(_l)> g(&_l);
-  adr = reg;
+  _apic->adr = reg;
   asm volatile ("": : :"memory");
-  tmp = data;
+  tmp = _apic->data;
   tmp &= ~del_bits;
   tmp |= set_bits;
-  data = tmp;
+  _apic->data = tmp;
 }
 
 PRIVATE inline NEEDS["lock_guard.h"]
@@ -97,9 +106,9 @@ void
 Io_apic::write(int reg, Mword value)
 {
   Lock_guard<typeof(_l)> g(&_l);
-  adr = reg;
+  _apic->adr = reg;
   asm volatile ("": : :"memory");
-  data = value;
+  _apic->data = value;
 }
 
 PRIVATE inline
@@ -143,20 +152,59 @@ Io_apic::init()
     }
   printf("MADT = %p\n", _madt);
 
-  Acpi_madt::Io_apic const *ioapic
-    = static_cast<Acpi_madt::Io_apic const *>(_madt->find(Acpi_madt::IOAPIC, 0));
+  int n_apics = 0;
 
-  if (!ioapic)
+  for (n_apics = 0;
+       Acpi_madt::Io_apic const *ioapic = static_cast<Acpi_madt::Io_apic const *>(_madt->find(Acpi_madt::IOAPIC, n_apics));
+       ++n_apics)
+    {
+
+      if (n_apics >= Max_ioapics)
+	{
+	  printf("Maximum number of IO-APICs exceeded ignore further IO-APICs\n");
+	  break;
+	}
+
+      printf("IO-APIC[%2d]: struct: %p adr=%x\n", n_apics, ioapic, ioapic->adr);
+
+      Address offs;
+      Address va = Mem_layout::alloc_io_vmem(Config::PAGE_SIZE);
+      assert (va);
+
+      Kmem::map_phys_page(ioapic->adr, va, false, true, &offs);
+
+      Kip::k()->add_mem_region(Mem_desc(ioapic->adr, ioapic->adr + Config::PAGE_SIZE -1, Mem_desc::Reserved));
+
+
+      Io_apic *apic = Io_apic::apic(n_apics);
+      apic->_apic = (Io_apic::Apic*)(va + offs);
+      apic->write(0, 0);
+      unsigned ne = apic->num_entries();
+      apic->_offset = _nr_irqs;
+      _nr_irqs += ne + 1;
+
+      for (unsigned i = 0; i <= ne; ++i)
+        {
+          int v = 0x20+i;
+          Io_apic_entry e(v, Io_apic_entry::Fixed, Io_apic_entry::Physical,
+              Io_apic_entry::High_active, Io_apic_entry::Edge, 0);
+          apic->write_entry(i, e);
+        }
+
+      printf("IO-APIC[%2d]: pins %u\n", n_apics, ne);
+      apic->dump();
+    }
+
+  if (!n_apics)
     {
       printf("IO-APIC: Could not find IO-APIC in MADT, skip init\n");
       return false;
     }
 
-  printf("IO-APIC: struct: %p adr=%x\n", ioapic, ioapic->adr);
+
   printf("IO-APIC: dual 8259: %s\n", _madt->apic_flags & 1 ? "yes" : "no");
 
-  unsigned tmp = 0;
-  for (;;++tmp)
+  for (unsigned tmp = 0;;++tmp)
     {
       Acpi_madt::Irq_source const *irq
 	= static_cast<Acpi_madt::Irq_source const *>(_madt->find(Acpi_madt::Irq_src_ovr, tmp));
@@ -167,34 +215,13 @@ Io_apic::init()
       printf("IO-APIC: ovr[%2u] %02x -> %x\n", tmp, irq->src, irq->irq);
     }
 
-  if (tmp)
-    printf("IO-APIC: NOTE IRQ overrides are ignored!\n");
-
-  Address offs;
-  Kmem::map_phys_page(ioapic->adr, Mem_layout::Io_apic_page,
-		      false, true, &offs);
-
-  Kip::k()->add_mem_region(Mem_desc(ioapic->adr, ioapic->adr + Config::PAGE_SIZE -1, Mem_desc::Reserved));
-
-
-  Io_apic *apic = (Io_apic*)(Mem_layout::Io_apic_page + offs);
-  _apic = apic;
-  apic->write(0, 0);
-  unsigned ne = apic->num_entries();
-
-  for (unsigned i = 0; i <= ne; ++i)
-    {
-      int v = 0x20+i;
-      Io_apic_entry e(v, Io_apic_entry::Fixed, Io_apic_entry::Physical,
-                      Io_apic_entry::High_active, Io_apic_entry::Edge, 0);
-      apic->write_entry(i, e);
-    }
-
-  printf("IO-APIC: pins %u\n", ne);
-  dump();
-
   return true;
 };
+
+PUBLIC static
+unsigned
+Io_apic::total_irqs()
+{ return _nr_irqs; }
 
 PUBLIC static 
 unsigned
@@ -218,14 +245,14 @@ Io_apic::legacy_override(unsigned i)
   return i;
 }
 
-PUBLIC static
+PUBLIC
 void
 Io_apic::dump()
 {
-  unsigned ne = _apic->num_entries();
+  unsigned ne = num_entries();
   for (unsigned i = 0; i <= ne; ++i)
     {
-      Io_apic_entry e = _apic->read_entry(i);
+      Io_apic_entry e = read_entry(i);
       printf("  PIN[%2u%c]: vector=%2x, del=%u, dm=%s, dest=%u (%s, %s)\n",
 	     i, e.mask() ? 'm' : '.',
 	     e.vector(), e.delivery(), e.dest_mode() ? "logical" : "physical",
@@ -239,54 +266,74 @@ Io_apic::dump()
 PUBLIC static inline
 bool
 Io_apic::active()
-{ return _apic; }
+{ return _apics[0]._apic; }
 
-PUBLIC static inline NEEDS["kdb_ke.h", Io_apic::modify]
+PUBLIC inline
+bool
+Io_apic::valid() const { return _apic; }
+
+PUBLIC inline NEEDS["kdb_ke.h", Io_apic::modify]
 void
 Io_apic::mask(unsigned irq)
 {
   //assert_kdb(irq <= _apic->num_entries());
-  _apic->modify(0x10 + irq * 2, 1UL << 16, 0);
+  modify(0x10 + irq * 2, 1UL << 16, 0);
 }
 
-PUBLIC static inline NEEDS["kdb_ke.h", Io_apic::modify]
+PUBLIC inline NEEDS["kdb_ke.h", Io_apic::modify]
 void
 Io_apic::unmask(unsigned irq)
 {
   //assert_kdb(irq <= _apic->num_entries());
-  _apic->modify(0x10 + irq * 2, 0, 1UL << 16);
+  modify(0x10 + irq * 2, 0, 1UL << 16);
 }
 
-PUBLIC static inline NEEDS["kdb_ke.h", Io_apic::read]
+PUBLIC inline NEEDS["kdb_ke.h", Io_apic::read]
 bool
 Io_apic::masked(unsigned irq)
 {
   //assert_kdb(irq <= _apic->num_entries());
-  return _apic->read(0x10 + irq * 2) & (1UL << 16);
+  return read(0x10 + irq * 2) & (1UL << 16);
 }
 
-PUBLIC static inline NEEDS[Io_apic::read]
+PUBLIC inline NEEDS[Io_apic::read]
 void
 Io_apic::sync()
 {
   (void)_apic->data;
 }
 
-PUBLIC static inline NEEDS["kdb_ke.h", Io_apic::modify]
+PUBLIC inline NEEDS["kdb_ke.h", Io_apic::modify]
 void
 Io_apic::set_dest(unsigned irq, Mword dst)
 {
   //assert_kdb(irq <= _apic->num_entries());
-  _apic->modify(0x11 + irq * 2, dst & (~0UL << 24), ~0UL << 24);
+  modify(0x11 + irq * 2, dst & (~0UL << 24), ~0UL << 24);
 }
 
-PUBLIC static inline NEEDS[Io_apic::num_entries]
+PUBLIC inline NEEDS[Io_apic::num_entries]
 unsigned
 Io_apic::nr_irqs()
-{ return _apic->num_entries() + 1; }
+{ return num_entries() + 1; }
+
+PUBLIC inline
+unsigned
+Io_apic::gsi_offset() const { return _offset; }
 
 PUBLIC static inline
 Io_apic *
-Io_apic::apic()
-{ return _apic; }
+Io_apic::apic(unsigned idx)
+{ return &_apics[idx]; }
+
+PUBLIC static
+unsigned
+Io_apic::find_apic(unsigned irqnum)
+{
+  for (unsigned i = Max_ioapics; i > 0; --i)
+    {
+      if (_apics[i-1]._apic && _apics[i-1]._offset < irqnum)
+	return i - 1;
+    }
+  return 0;
+};
 

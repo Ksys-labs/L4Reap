@@ -53,7 +53,7 @@ Icu::icu_bind_irq(Irq *irq, unsigned irqnum)
     return commit_result(-L4_err::EInval);
 
   irq->pin()->unbind_irq();
- 
+
   if (!c->alloc(irq, irqnum & ~Msi_bit))
     return commit_result(-L4_err::EPerm);
 

@@ -15,9 +15,9 @@ typedef l4_mword_t l4vbus_device_handle_t;
 typedef l4_addr_t l4vbus_paddr_t;
 
 typedef struct {
-  l4_uint16_t    type;            /**< resource type */
-  l4_uint16_t    flags;
-  l4vbus_paddr_t start;           /**< start of res. range */
+  l4_uint16_t    type;            /**< Resource type, see l4vbus_resource_type_t */
+  l4_uint16_t    flags;           /**< Flags */
+  l4vbus_paddr_t start;           /**< Start of res. range */
   l4vbus_paddr_t end;             /**< (inclusive) end of res. range */
 } l4vbus_resource_t;
 
@@ -29,19 +29,18 @@ enum l4vbus_resource_type_t {
   L4VBUS_RESOURCE_MAX,         /**< Maximum resource id */
 };
 
-enum {
+enum l4vbus_consts_t {
   L4VBUS_DEV_NAME_LEN = 64,
   L4VBUS_MAX_DEPTH = 100,
 };
 
 typedef struct {
-  int           type;                      /**< type */
-  char          name[L4VBUS_DEV_NAME_LEN]; /**< name */
-  unsigned      num_resources;             /**< resources count */
-  unsigned      flags;
+  int           type;                      /**< Type */
+  char          name[L4VBUS_DEV_NAME_LEN]; /**< Name */
+  unsigned      num_resources;             /**< Resources count */
+  unsigned      flags;                     /**< Flags */
 } l4vbus_device_t;
 
-enum
-{
+enum l4vbus_device_flags_t {
   L4VBUS_DEVICE_F_CHILDREN = 0x10,
 };

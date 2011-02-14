@@ -919,7 +919,13 @@ Thread::send_exception(Trap_state *ts)
 
       if (_exc_cont.valid())
 	return 1;
-      vcpu_enter_kernel_mode(vcpu);
+      if (vcpu_enter_kernel_mode(vcpu))
+	{
+	  // enter_kernel_mode has switched the address space from user to
+	  // kernel space, so reevaluate the address of the VCPU state area
+	  vcpu = vcpu_state().access();
+	}
+
       spill_user_state();
       LOG_TRACE("VCPU events", "vcpu", this, __context_vcpu_log_fmt,
 	  Vcpu_log *l = tbe->payload<Vcpu_log>();

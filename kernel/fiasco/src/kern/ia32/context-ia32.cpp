@@ -46,7 +46,7 @@ Context::switchin_context(Context *from)
   load_segments();
 
   // update the global UTCB pointer to make the thread find its UTCB
-  // using gs:[0]
+  // using fs:[0]
   Mem_layout::user_utcb_ptr(current_cpu()) = utcb().usr();
 }
 

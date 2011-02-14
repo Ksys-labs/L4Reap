@@ -296,7 +296,8 @@ void
 Kmem::map_phys_page(Address phys, Address virt,
                     bool cached, bool global, Address *offs=0)
 {
-  Pdir::Iter i = kdir->walk(Virt_addr(virt));
+  Pdir::Iter i = kdir->walk(Virt_addr(virt), 100, Mapped_allocator::allocator()
+);
   Pte_base *e = i.e;
   Mword pte = phys & Config::PAGE_MASK;
 

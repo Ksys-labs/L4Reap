@@ -560,7 +560,7 @@ Vm_vmx::resume_vcpu(Context *ctxt, Vcpu_state *vcpu, bool user_mode)
 
       int r = do_resume_vcpu(ctxt, vcpu, vmcs_s);
 
-      // test for error or non-IRQ exit resason
+      // test for error or non-IRQ exit reason
       if (r <= 0)
 	return r;
 
@@ -574,8 +574,8 @@ Vm_vmx::resume_vcpu(Context *ctxt, Vcpu_state *vcpu, bool user_mode)
       // leave the kernel to not overwrite the vcpu-regs
       // with bogus state.
       Thread *t = nonull_static_cast<Thread*>(ctxt);
-      if (t->exception_triggered())
-	t->fast_return_to_user(vcpu->_entry_ip, vcpu->_entry_sp, t->vcpu_state().usr().get());
+      if (t->continuation_test_and_restore())
+        t->fast_return_to_user(vcpu->_entry_ip, vcpu->_entry_sp,
+                               t->vcpu_state().usr().get());
     }
 }
-

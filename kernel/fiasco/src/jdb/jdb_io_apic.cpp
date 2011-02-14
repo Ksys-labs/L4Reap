@@ -68,7 +68,14 @@ Jdb_io_apic_module::action (int cmd, void *&, char const *&, int &)
       return NOTHING;
     }
   printf("\nState of IO APIC\n");
-  Io_apic::dump();
+  for (unsigned i = 0; i < Io_apic::Max_ioapics; ++i)
+    {
+      Io_apic *a = Io_apic::apic(i);
+      if (!a->valid())
+	break;
+
+      a->dump();
+    }
 
   // print global LAPIC state
   unsigned khz;

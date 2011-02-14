@@ -1185,15 +1185,6 @@ Cpu::get_ss()
 }
 
 PUBLIC static inline
-Unsigned32
-Cpu::get_fs()
-{
-  Unsigned32 val;
-  asm volatile ("mov %%fs, %0" : "=rm" (val));
-  return val;
-}
-
-PUBLIC static inline
 void
 Cpu::set_ds(Unsigned32 val)
 { asm volatile ("mov %0, %%ds" : : "rm" (val)); }
@@ -1202,12 +1193,6 @@ PUBLIC static inline
 void
 Cpu::set_es(Unsigned32 val)
 { asm volatile ("mov %0, %%es" : : "rm" (val)); }
-
-PUBLIC static inline
-void
-Cpu::set_fs(Unsigned32 val)
-{ asm volatile ("mov %0, %%fs" : : "rm" (val)); }
-
 
 //----------------------------------------------------------------------------
 IMPLEMENTATION[ia32, amd64]:
@@ -1670,8 +1655,18 @@ Cpu::enable_ldt(Address addr, int size)
 
 PUBLIC static inline
 Unsigned32
+Cpu::get_fs()
+{ Unsigned32 val; asm volatile ("mov %%fs, %0" : "=rm" (val)); return val; }
+
+PUBLIC static inline
+Unsigned32
 Cpu::get_gs()
 { Unsigned32 val; asm volatile ("mov %%gs, %0" : "=rm" (val)); return val; }
+
+PUBLIC static inline
+void
+Cpu::set_fs(Unsigned32 val)
+{ asm volatile ("mov %0, %%fs" : : "rm" (val)); }
 
 PUBLIC static inline
 void

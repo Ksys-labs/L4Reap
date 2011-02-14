@@ -47,11 +47,13 @@ Thread::print_page_fault_error(Mword e)
          (e & 0x00020000)?'r':'w');
 }
 
-PUBLIC template<typename T> inline
+PUBLIC inline
 void FIASCO_NORETURN
-Thread::fast_return_to_user(Mword ip, Mword sp, T arg)
+Thread::fast_return_to_user(Mword ip, Mword sp, Vcpu_state *arg)
 {
   extern char __iret[];
+  assert_kdb((regs()->psr & Proc::Status_mode_mask) == Proc::Status_mode_user);
+
   regs()->ip(ip);
   regs()->sp(sp); // user-sp is in lazy user state and thus handled by
                   // fill_user_state()
@@ -60,7 +62,7 @@ Thread::fast_return_to_user(Mword ip, Mword sp, T arg)
   regs()->psr &= ~Proc::Status_thumb;
 
     {
-      register Mword r0 asm("r0") = (Mword)arg;
+      register Vcpu_state *r0 asm("r0") = arg;
 
       asm volatile
 	("mov sp, %0  \t\n"
@@ -142,8 +144,8 @@ extern "C" {
   {
 #if 0 // Double PF detect
     static unsigned long last_pfa = ~0UL;
-    LOG_MSG_3VAL(current(),"PF", pfa, last_pfa, pc);
-    if (last_pfa == pfa)
+    LOG_MSG_3VAL(current(),"PF", pfa, error_code, pc);
+    if (last_pfa == pfa || pfa == 0)
       kdb_ke("DBF");
     last_pfa = pfa;
 #endif

@@ -84,6 +84,7 @@ else # ! no ABI
 include $(srcdir)/Makeconf
 
 include $(MODULES_FILE)
+MODULES_FILES += $(srcdir)/Modules.generic
 
 ifdef SUBSYSTEMS
  _modules_read_ = true

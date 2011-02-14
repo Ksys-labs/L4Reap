@@ -40,7 +40,7 @@ Context::vcpu_save_state_and_upcall()
 }
 
 PUBLIC inline NEEDS["fpu.h"]
-void
+bool
 Context::vcpu_enter_kernel_mode(Vcpu_state *vcpu)
 {
   if (EXPECT_FALSE(state() & Thread_vcpu_enabled))
@@ -66,9 +66,11 @@ Context::vcpu_enter_kernel_mode(Vcpu_state *vcpu)
 		Fpu::enable();
 
 	      space()->switchin_context(vcpu_user_space());
+	      return true;
 	    }
 	}
     }
+  return false;
 }
 
 

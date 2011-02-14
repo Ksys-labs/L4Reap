@@ -506,29 +506,29 @@ whole_screen:
 
   char time_str[12];
 
-  putstr("thread: ");
+  putstr("thread  : ");
   Jdb_kobject::print_uid(t, 3);
   print_thread_uid_raw(t);
-  printf("CPU %3u ", t->cpu());
+  printf("\tCPU: %u ", t->cpu());
 
   printf("\tprio: %02x  mode: %s\n",
          t->sched()->prio(),
          t->mode() & Context::Periodic  ?
          t->mode() & Context::Nonstrict ? "Per (IRT)" : "Per (SP)" : "Con");
 
-  printf("state: %03lx ", t->state(false));
+  printf("state   : %03lx ", t->state(false));
   Jdb_thread::print_state_long(t);
 
-  putstr("\n\nwait for: ");
+  putstr("\nwait for: ");
   if (!t->partner())
-    putstr("--- ");
+    putstr("---  ");
   else
     Jdb_thread::print_partner(t, 4);
 
-  putstr("   polling: ");
+  putstr(" polling: ");
   Jdb_thread::print_snd_partner(t, 3);
 
-  putstr("\trcv descr: ");
+  putstr("rcv descr: ");
 
   if (t->state(false) & Thread_ipc_receiving_mask)
     printf("%08lx", t->rcv_regs()->from_spec());
@@ -563,17 +563,17 @@ whole_screen:
 	 t->sched()->left(), t->sched()->quantum(), Config::char_micro);
   print_kobject(t, t->_pager.raw());
 
-  putstr("\ttask: ");
+  putstr("\ttask     : ");
   if (t->space() == Kernel_task::kernel_task())
     putstr(" kernel        ");
   else
     print_kobject(static_cast<Task*>(t->space()));
 
-  putstr("\tutcb: ");
-  printf("%08lx", (Mword)t->utcb().kern());
-
   putstr("\nexc-hndl: ");
   print_kobject(t, t->_exc_handler.raw());
+
+  printf("\tUTCB     : %08lx/%08lx",
+         (Mword)t->utcb().kern(), (Mword)t->utcb().usr().get());
 
 #if 0
   putstr("\tready  lnk: ");
@@ -599,22 +599,23 @@ whole_screen:
 
   putchar('\n');
 
-  putstr("vCPU  st: ");
+  putstr("vCPU    : ");
   if (t->state(false) & Thread_vcpu_enabled)
     {
       char st1[7];
       char st2[7];
       Vcpu_state *v = t->vcpu_state().kern();
-      printf("c=%s s=%s sf=%c e-ip=%08lx e-sp=%08lx S=",
+      printf("%08lx/%08lx S=", (Mword)v, (Mword)t->vcpu_state().usr().get());
+      print_kobject(static_cast<Task*>(t->vcpu_user_space()));
+      putchar('\n');
+      printf("vCPU    : c=%s s=%s sf=%c e-ip=%08lx e-sp=%08lx\n",
              vcpu_state_str(v->state, st1, sizeof(st1)),
              vcpu_state_str(v->_saved_state, st2, sizeof(st2)),
              (v->sticky_flags & Vcpu_state::Sf_irq_pending) ? 'P' : '-',
              v->_entry_ip, v->_entry_sp);
-      print_kobject(static_cast<Task*>(t->vcpu_user_space()));
     }
   else
-    putstr("---");
-  putchar('\n');
+    putstr("---\nvCPU    : ---\n");
 
   Address ksp  = is_current_thread ? ef->ksp()
 				   : (Address)t->get_kernel_sp();

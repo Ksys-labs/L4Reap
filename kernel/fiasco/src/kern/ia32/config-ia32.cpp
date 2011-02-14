@@ -12,11 +12,7 @@ public:
     // can access user memory directly
     Access_user_mem = Access_user_mem_direct,
 
-    Max_num_dirqs       = 32,
-
-    Tbuf_irq            = Max_num_dirqs + 0,
-
-    Max_num_irqs        = Max_num_dirqs + 4,
+    Max_num_dirqs       = 128,
 
     /// Timer vector used with APIC timer or IOAPIC
     Apic_timer_vector = APIC_IRQ_BASE + 0,

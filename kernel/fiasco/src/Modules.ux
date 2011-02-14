@@ -67,7 +67,7 @@ VPATH			+= kern/$(CONFIG_XARCH) kern/ia32/32 kern/ia32 kern
 VPATH			+= jdb/ia32 jdb/ia32/32 jdb/ux jdb
 PRIVATE_INCDIR		+= kern/$(CONFIG_XARCH) kern/ia32/32 kern/ia32 kern
 
-KERNEL_EXTRA-$(CONFIG_UX_CON)) += ux_con
+KERNEL_EXTRA-$(CONFIG_UX_CON)  += ux_con
 KERNEL_EXTRA-$(CONFIG_UX_NET)  += ux_net
 KERNEL_EXTRA            += $(KERNEL_EXTRA-y)
 

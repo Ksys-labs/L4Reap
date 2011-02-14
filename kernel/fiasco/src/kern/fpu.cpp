@@ -75,7 +75,7 @@ unsigned Fpu::state_size()
 
 IMPLEMENT inline
 unsigned Fpu::state_align()
-{ return 0; }
+{ return 1; }
 
 IMPLEMENT
 void Fpu::init(unsigned)

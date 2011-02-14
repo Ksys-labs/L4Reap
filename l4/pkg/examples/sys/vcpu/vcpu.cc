@@ -46,7 +46,7 @@ extern char my_super_code_excp_after[];
 
 #if defined(ARCH_x86) || defined(ARCH_amd64)
 
-static unsigned long gs;
+static unsigned long fs;
 static unsigned long ds;
 
 asm
@@ -82,7 +82,7 @@ asm
 
 static void setup_user_state_arch(L4vcpu::Vcpu *v)
 {
-  asm volatile ("mov %%gs, %0" : "=r"(gs));
+  asm volatile ("mov %%fs, %0" : "=r"(fs));
   asm volatile ("mov %%ds, %0" : "=r"(ds));
 #ifndef __amd64__
   v->r()->gs = ds;
@@ -97,8 +97,8 @@ static void handler_prolog()
 {
   asm volatile ("mov %0, %%es \t\n"
                 "mov %0, %%ds \t\n"
-                "mov %1, %%gs \t\n"
-                : : "r"(ds), "r"(gs));
+                "mov %1, %%fs \t\n"
+                : : "r"(ds), "r"(fs));
 }
 
 #elif defined(ARCH_arm)

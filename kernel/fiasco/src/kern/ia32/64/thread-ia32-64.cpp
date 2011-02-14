@@ -6,6 +6,10 @@ PUBLIC template<typename T> inline
 void FIASCO_NORETURN
 Thread::fast_return_to_user(Mword ip, Mword sp, T arg)
 {
+  assert_kdb(cpu_lock.test());
+  assert_kdb(current() == this);
+  assert_kdb(regs()->cs() & 3 == 3);
+
   regs()->ip(ip);
   regs()->sp(sp);
   asm volatile
@@ -25,7 +29,7 @@ Thread::invoke_arch(L4_msg_tag & /*tag*/, Utcb * /*utcb*/)
 }
 
 IMPLEMENT inline
-Mword 
+Mword
 Thread::user_sp() const
 { return exception_triggered()?_exc_cont.sp(regs()):regs()->sp(); }
 

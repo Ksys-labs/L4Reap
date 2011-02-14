@@ -23,12 +23,10 @@ public:
     Space_index       = 0xea000000,    ///< % 4MB
     Service_page      = 0xeac00000,    ///< % 4MB   global mappings
     Local_apic_page   = Service_page + 0x0000,   ///< % 4KB
-    Io_apic_page      = Service_page + 0x1000,
     Kmem_tmp_page_1   = Service_page + 0x2000,   ///< % 4KB size 8KB
     Kmem_tmp_page_2   = Service_page + 0x4000,   ///< % 4KB size 8KB
     Tbuf_status_page  = Service_page + 0x6000,   ///< % 4KB
     Tbuf_ustatus_page = Tbuf_status_page,
-    Hpet_page         = Service_page + 0x7000,   ///< % 4KB
     Jdb_bench_page    = Service_page + 0x8000,   ///< % 4KB
     Jdb_bts_area      = Service_page + 0xf000,   ///< % 4KB size 0x81000
     Utcb_ptr_page     = Service_page + 0xfd000,  ///< % 4KB
@@ -38,9 +36,8 @@ public:
     Tbuf_buffer_area  = Service_page + 0x200000, ///< % 2MB
     Tbuf_ubuffer_area = Tbuf_buffer_area,
     // 0xeb800000-0xec000000 (8MB) free
-    __free_1          = 0xec000000,    ///< % 4MB
-    __free_2          = 0xec400000,    ///< % 4MB
-    __free_3          = 0xec800000,    ///< % 4MB
+    Io_map_area_start = 0xec000000,
+    Io_map_area_end   = 0xec800000,
     __free_4          = 0xec880000,    ///< % 4MB
     Jdb_debug_start   = 0xecc00000,    ///< % 4MB   JDB symbols/lines
     Jdb_debug_end     = 0xee000000,    ///< % 4MB

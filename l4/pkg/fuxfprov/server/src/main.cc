@@ -49,7 +49,7 @@ static L4Re::Util::Registry_server<> server(l4_utcb(),
                                             L4Re::Env::env()->factory());
 
 enum {
-  Max_search_paths = 10,
+  Max_search_paths = 20,
 };
 
 static char *search_paths[Max_search_paths];
@@ -499,9 +499,10 @@ Fprov_server::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
 int
 main(int argc, char *argv[])
 {
-  setup(argc, argv);
   try
     {
+      setup(argc, argv);
+
       int err = mount("/", fprov_prefix, "fuxfs", 0, 0);
       if (err == -1)
         {

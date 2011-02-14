@@ -174,11 +174,14 @@ Hpet::init()
 
   Address offs;
   Address a = _acpi_hpet->base_address.addr;
-  Kmem::map_phys_page(a, Mem_layout::Hpet_page, false, true, &offs);
+  Address va = Mem_layout::alloc_io_vmem(Config::PAGE_SIZE);
+  assert (va);
+ 
+  Kmem::map_phys_page(a, va, false, true, &offs);
 
   Kip::k()->add_mem_region(Mem_desc(a, a + 1023, Mem_desc::Reserved));
 
-  _hpet = (Hpet_device *)(Mem_layout::Hpet_page + offs);
+  _hpet = (Hpet_device *)(va + offs);
 
   _hpet->dump();
 

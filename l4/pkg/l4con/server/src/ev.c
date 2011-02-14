@@ -169,6 +169,10 @@ handle_event(struct l4input *ev)
       /* ignored */
       return;
     }
+  else if (ev->type == EV_SYN)
+    {
+      /* Pass through */
+    }
   else
     {
       printf("handle_event: Unknown event type %d\n", ev->type);

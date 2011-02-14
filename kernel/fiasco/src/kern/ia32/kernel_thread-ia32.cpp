@@ -37,7 +37,7 @@ Kernel_thread::bootstrap_arch()
   //
   // initialize interrupts
   //
-  if (!Io_apic::apic())
+  if (!Io_apic::active())
     {
       Irq_chip::hw_chip->reserve(2);		// reserve cascade irq
       Pic::enable_locked(2);			// allow cascaded irqs
@@ -64,7 +64,7 @@ Kernel_thread::bootstrap_arch()
     }
   else
     {
-      if (!Io_apic::apic() && !user_irq0
+      if (!Io_apic::active() && !user_irq0
           && !Config::scheduler_mode == Config::SCHED_PIT)
 	Irq_chip::hw_chip->reserve(0); // reserve irq0 even though
     }

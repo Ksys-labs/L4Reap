@@ -7,7 +7,6 @@ extern "C"
 void
 sys_ipc_wrapper()
 {
-  // FIXME: use UTCB from user, not the kernel var (remove access utcb
   assert_kdb (!(current()->state() & Thread_drq_ready));
 
   Thread *curr = current_thread();
@@ -15,7 +14,6 @@ sys_ipc_wrapper()
 
   Obj_cap obj = f->ref();
   Utcb *utcb = curr->utcb().access(true);
-  // printf("sys_invoke_object(f=%p, obj=%x)\n", f, f->obj_ref());
   unsigned char rights;
   Kobject_iface *o = obj.deref(&rights);
   L4_msg_tag e;

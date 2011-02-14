@@ -16,6 +16,7 @@ private:
   static Tss *tss asm ("CPU_TSS");
   static int msr_dev;
   static unsigned long _gs asm ("CPU_GS");
+  static unsigned long _fs asm ("CPU_FS");
   static Mword _kern_ds asm ("KERN_DS");
   static Mword _kern_es asm ("KERN_ES");
 
@@ -41,7 +42,8 @@ IMPLEMENTATION[ux]:
 Proc::Status volatile Proc::virtual_processor_state = 0;
 Tss *Cpu::tss;
 int Cpu::msr_dev = -1;
-unsigned long Cpu::_gs; // XXX percpu
+unsigned long Cpu::_gs; // for mp: percpu
+unsigned long Cpu::_fs; // for mp: percpu
 unsigned long Cpu::_kern_ds;
 unsigned long Cpu::_kern_es;
 
@@ -182,8 +184,18 @@ Cpu::debugctl_disable()
 
 PUBLIC static inline
 void
+Cpu::set_fs(Unsigned32 val)
+{ _fs = val; }
+
+PUBLIC static inline
+void
 Cpu::set_gs(Unsigned32 val)
 { _gs = val; }
+
+PUBLIC static inline
+Unsigned32
+Cpu::get_fs()
+{ return _fs; }
 
 PUBLIC static inline
 Unsigned32

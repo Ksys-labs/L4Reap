@@ -37,7 +37,7 @@
 #if defined(CONFIG_ARM)
   DUMP_OFFSET  (THREAD, UTCB_SIZE, sizeof(Utcb))
 #else
-  DUMP_MEMBER1 (THREAD, Context, _vcpu_state,		VCPU_STATE)
+  DUMP_MEMBER1 (THREAD, Context, _vcpu_state._k,	VCPU_STATE)
 #endif
 #if 0
   DUMP_MEMBER1 (SCHED_CONTEXT, Sched_context,_owner,		OWNER)

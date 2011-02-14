@@ -532,7 +532,7 @@ Pci_dev::discover_pci_caps()
 	  l4_umword_t msg = 0;
 	  if (l4_error(system_icu()->icu->msi_info(msi, &msg)) < 0)
 	    {
-	      printf("WARNING: could not get MSI message, use noremal IRQ\n");
+	      printf("WARNING: could not get MSI message, use normal IRQ\n");
 	      continue;
 	    }
 

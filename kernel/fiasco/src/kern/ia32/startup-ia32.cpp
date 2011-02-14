@@ -74,9 +74,10 @@ Startup::stage2()
 	{
 	  unsigned const pic_pin
 	    = Io_apic::legacy_override(Config::scheduler_irq_vector - Pic_base);
-	  Io_apic_entry e = Io_apic::apic()->read_entry(pic_pin);
+	  // assume the legacy irqs are routet to IO-APIC 0
+	  Io_apic_entry e = Io_apic::apic(0)->read_entry(pic_pin);
 	  e.vector(Config::Apic_timer_vector);
-	  Io_apic::apic()->write_entry(pic_pin, e);
+	  Io_apic::apic(0)->write_entry(pic_pin, e);
 	  Config::scheduler_irq_vector = Config::Apic_timer_vector;
 	}
     }

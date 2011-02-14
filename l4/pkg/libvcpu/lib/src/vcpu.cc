@@ -25,9 +25,9 @@ L4_CV void
 l4vcpu_print_state(l4_vcpu_state_t *vcpu,
                    const char *prefix) L4_NOTHROW
 {
-  printf("%svcpu=%p state=%lx savedstate=%lx label=%lx\n",
+  printf("%svcpu=%p state=%x savedstate=%x label=%lx\n",
          prefix, vcpu, vcpu->state, vcpu->saved_state, vcpu->i.label);
-  printf("%ssticky=%lx user_task=%lx\n",
+  printf("%ssticky=%x user_task=%lx\n",
          prefix, vcpu->sticky_flags, vcpu->user_task << L4_CAP_SHIFT);
   printf("%sentry_sp=%lx entry_ip=%lx\n",
          prefix, vcpu->entry_sp, vcpu->entry_ip);
@@ -54,7 +54,7 @@ do_l4vcpu_ext_alloc(L4vcpu::Vcpu **vcpu,
 
 L4_CV int
 l4vcpu_ext_alloc(l4_vcpu_state_t **vcpu, l4_addr_t *ext_state,
-                      l4_cap_idx_t task, l4_cap_idx_t regmgr) L4_NOTHROW
+                 l4_cap_idx_t task, l4_cap_idx_t regmgr) L4_NOTHROW
 {
   L4::Cap<L4::Task> t(task);
   L4::Cap<L4Re::Rm> r(regmgr);

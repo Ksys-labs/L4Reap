@@ -34,6 +34,7 @@ ifeq ("$(GCCMAJORVERSION)", "4")
 endif
 
 STDCXX_CONTRIB_DIR = $(STDCXX_PKG_DIR)/contrib/libstdc++-v3-$(STDCXX_CONTRIB_VERSION)
+DEFINES += -Dlinux
 
 CPU_H_x86   := i386
 CPU_H_ppc32 := powerpc

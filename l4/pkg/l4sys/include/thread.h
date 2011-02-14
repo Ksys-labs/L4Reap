@@ -413,7 +413,9 @@ l4_thread_vcpu_resume_start_u(l4_utcb_t *utcb) L4_NOTHROW;
  *                  for the current thread.
  * \param tag       Tag to use, returned by l4_thread_vcpu_resume_start()
  *
- * \return System call result message tag.
+ * \return System call result message tag. In extended vCPU mode and when
+ * the virtual interrupts are cleared, the return code 1 flags an incoming
+ * IPC message, whereas 0 indicates a VM exit.
  *
  * To resume into another address space the capability to the target task
  * must be set in the vCPU-state (\see l4_vcpu_state_t). The task needs

@@ -18,7 +18,7 @@
 # files or any other data file you might want to load. Note that the bin and
 # lib directories of the build-tree are automatically added to the search
 # path.
-# MODULES_SEARCH_PATH = /path/to/cfgs:/path/to/foo:..
+# MODULE_SEARCH_PATH = /path/to/cfgs:/path/to/foo:..
 #
 # 'image' just builds what's configured:
 # - default: just ELF

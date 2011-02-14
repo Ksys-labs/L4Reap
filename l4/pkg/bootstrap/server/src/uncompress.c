@@ -102,9 +102,9 @@ decompress(const char *name, void *start, void *destbuf,
   if (!compressed_file)
     return start;
 
-  printf("  Uncompressing %s from %p to %p (%d to %d bytes, %+d%%).\n",
+  printf("  Uncompressing %s from %p to %p (%d to %d bytes, %+lld%%).\n",
         name, start, destbuf, size, size_uncompressed,
-	100*size_uncompressed/size - 100);
+	100*(unsigned long long)size_uncompressed/size - 100);
 
   // Add 10 to detect too short given size
   if ((read_size = grub_read(destbuf, size_uncompressed + 10))

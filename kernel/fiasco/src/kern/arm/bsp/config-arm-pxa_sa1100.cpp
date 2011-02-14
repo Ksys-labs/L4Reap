@@ -13,12 +13,7 @@ public:
   enum
   {
     Scheduling_irq       = 26,
-    scheduler_irq_vector = Scheduling_irq,
-    Max_num_irqs         = 64,
     Max_num_dirqs        = 32,
-
-    Vkey_irq             = 27,
-    Tbuf_irq             = 28,
   };
 };
 

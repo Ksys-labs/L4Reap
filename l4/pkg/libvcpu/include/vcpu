@@ -32,6 +32,12 @@ class State
 {
 public:
   State() {}
+
+  /**
+   * \brief Initialize state.
+   *
+   * \param v Initial state.
+   */
   explicit State(l4vcpu_state_t v) : _s(v) {}
 
   /**
@@ -66,6 +72,9 @@ private:
 class Vcpu : private l4_vcpu_state_t
 {
 public:
+  /**
+   * \brief IRQ status type.
+   */
   typedef l4vcpu_irq_state_t Irq_state;
 
   /**
@@ -112,8 +121,11 @@ public:
   /**
    * \brief Enable the vCPU for event delivery.
    *
+   * \param utcb             The UTCB to use.
    * \param do_event_work_cb Call-back function that is called in case an
    *                         event (such as an interrupt) is pending.
+   * \param setup_ipc        Call-back function that is called before an
+   *                         IPC operation is called.
    */
   void irq_enable(l4_utcb_t *utcb, l4vcpu_event_hndl_t do_event_work_cb,
                   l4vcpu_setup_ipc_t setup_ipc) throw()
@@ -123,14 +135,26 @@ public:
    * \brief Restore a previously saved IRQ/event state.
    *
    * \param s                IRQ state to be restored.
+   * \param utcb             The UTCB to use.
    * \param do_event_work_cb Call-back function that is called in case an
    *                         event (such as an interrupt) is pending.
+   * \param setup_ipc        Call-back function that is called before an
+   *                         IPC operation is called.
    */
   void irq_restore(Irq_state s, l4_utcb_t *utcb,
                    l4vcpu_event_hndl_t do_event_work_cb,
                    l4vcpu_setup_ipc_t setup_ipc) throw()
   { l4vcpu_irq_restore(this, s, utcb, do_event_work_cb, setup_ipc); }
 
+  /**
+   * \brief Halt/block the vCPU.
+   *
+   * \param utcb             The UTCB to use.
+   * \param do_event_work_cb Call-back function that is called in case an
+   *                         event (such as an interrupt) is pending.
+   * \param setup_ipc        Call-back function that is called before an
+   *                         IPC operation is called.
+   */
   void halt(l4_utcb_t *utcb, l4vcpu_event_hndl_t do_event_work_cb,
             l4vcpu_setup_ipc_t setup_ipc) throw()
   { l4vcpu_halt(this, utcb, do_event_work_cb, setup_ipc); }
@@ -195,7 +219,7 @@ public:
 
   /**
    * \brief Set vCPU entry instruction pointer.
-   * \param sp  Instruction pointer address to set.
+   * \param ip  Instruction pointer address to set.
    */
   void entry_ip(l4_umword_t ip)
   { l4_vcpu_state_t::entry_ip = ip; }

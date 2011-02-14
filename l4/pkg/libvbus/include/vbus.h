@@ -24,10 +24,10 @@ __BEGIN_DECLS
 /**
  * \brief Find a device by the HID APCI conforming or L4Io static name.
  *
- * \param  vbus		capability of the system bus
- * \param  parent	handle to the parent to start the search
- * \retval child	handle to the found device
- * \param  hid		HID name of the device
+ * \param  vbus         Capability of the system bus
+ * \param  parent       Handle to the parent to start the search
+ * \retval child        Handle to the found device
+ * \param  hid          HID name of the device
  * \retval devinfo      Device information structure (might be NULL)
  * \retval reshandle    Resource handle (might be NULL)
  *
@@ -41,11 +41,11 @@ l4vbus_get_device_by_hid(l4_cap_idx_t vbus, l4vbus_device_handle_t parent,
 /**
  * \brief Find next child following \a child.
  *
- * \param  vbus		capability of the system bus
- * \param  parent	handle to the parent device (use 0 for the system bus)
- * \param  child	handle to the child device (use 0 to get the first
+ * \param  vbus         Capability of the system bus
+ * \param  parent       Handle to the parent device (use 0 for the system bus)
+ * \param  child        Handle to the child device (use 0 to get the first
  *                      child)
- * \retval next		handle to the successor of child
+ * \retval next         Handle to the successor of child
  * \retval devinfo      device information (might be NULL)
  *
  * \return 0 on succes, else failure
@@ -58,11 +58,11 @@ l4vbus_get_next_device(l4_cap_idx_t vbus, l4vbus_device_handle_t parent,
 /**
  * \brief Iterate over the resources of a device
  *
- * \param  vbus		capability of the system bus
- * \param  dev		handle of the device
- * \retval res_idx	Index of the resource, the number of resources is
- * 			availabnle in the devinfo from get device functions.
- * \retval res		descriptor of the resource
+ * \param  vbus         Capability of the system bus
+ * \param  dev          Handle of the device
+ * \retval res_idx      Index of the resource, the number of resources is
+ *                      availabnle in the devinfo from get device functions.
+ * \retval res          Descriptor of the resource
  *
  * \return 0 on succes, else failure
  */
@@ -74,9 +74,9 @@ l4vbus_get_resource(l4_cap_idx_t vbus, l4vbus_device_handle_t dev,
 /**
  * \brief Request a resource of a specific type
  *
- * \param  vbus		capability of the system bus
- * \param  res		descriptor of the resource
- * \param  flags	optional flags
+ * \param  vbus         Capability of the system bus
+ * \param  res          Descriptor of the resource
+ * \param  flags        Optional flags
  *
  * \return 0 on succes, else failure
  *
@@ -95,16 +95,25 @@ l4vbus_request_resource(l4_cap_idx_t vbus, l4vbus_resource_t *res,
 /**
  * \brief Release a previously requested resource
  *
- * \param  vbus		capability of the system bus
- * \param  res		descriptor of the resource
+ * \param  vbus         Capability of the system bus.
+ * \param  res          Descriptor of the resource.
  *
  * \return 0 on succes, else failure
  */
 int L4_CV
 l4vbus_release_resource(l4_cap_idx_t vbus, l4vbus_resource_t *res);
 
+/**
+ * \brief Get capability of ICU.
+ *
+ * \param  vbus         Capability of the system bus.
+ * \param  icu          ICU device handle.
+ * \param  cap          Capability slot for the capability.
+ *
+ * \return 0 on succes, else failure
+ */
 int L4_CV
 l4vbus_vicu_get_cap(l4_cap_idx_t vbus, l4vbus_device_handle_t icu,
-                    l4_cap_idx_t res);
+                    l4_cap_idx_t cap);
 
 __END_DECLS

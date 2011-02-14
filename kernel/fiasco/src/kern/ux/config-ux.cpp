@@ -43,8 +43,6 @@ public:
   enum {
     Scheduling_irq = 0,
     Max_num_dirqs = 16,
-    Max_num_irqs  = Max_num_dirqs + 4,
-    Tbuf_irq = Max_num_dirqs + 1,
     Is_ux = 1,
   };
 };

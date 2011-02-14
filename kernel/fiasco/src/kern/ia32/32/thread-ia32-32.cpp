@@ -6,6 +6,7 @@ Thread::fast_return_to_user(Mword ip, Mword sp, T arg)
 {
   assert_kdb(cpu_lock.test());
   assert_kdb(current() == this);
+  assert_kdb(Config::Is_ux || (regs()->cs() & 3 == 3));
 
   regs()->ip(ip);
   regs()->sp(sp);

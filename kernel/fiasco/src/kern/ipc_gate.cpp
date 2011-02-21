@@ -12,6 +12,12 @@ class Ipc_gate_obj;
 
 class Ipc_gate_ctl : public Kobject_h<Ipc_gate_ctl, Kobject_iface>
 {
+private:
+  enum Operation
+  {
+    Op_bind     = 0x10,
+    Op_get_info = 0x11,
+  };
 };
 
 class Ipc_gate : public Kobject
@@ -255,9 +261,9 @@ Ipc_gate_ctl::kinvoke(L4_obj_ref self, Mword rights, Syscall_frame *f, Utcb cons
 
   switch (in->values[0])
     {
-    case 0x10:
+    case Op_bind:
       return bind_thread(self, rights, f, in, out);
-    case 0x11:
+    case Op_get_info:
       return get_infos(self, rights, f, in, out);
     default:
       return static_cast<Ipc_gate_obj*>(this)->kobject_invoke(self, rights, f, in, out);

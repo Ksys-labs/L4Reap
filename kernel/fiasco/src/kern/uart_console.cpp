@@ -11,7 +11,7 @@ IMPLEMENTATION:
 #include "static_init.h"
 #include "irq.h"
 
-STATIC_INITIALIZER_P(uart_console_init_stage1 ,UART_INIT_PRIO);
+STATIC_INITIALIZER_P(uart_console_init_stage1, UART_INIT_PRIO);
 STATIC_INITIALIZER  (uart_console_init_stage2);
 
 static void uart_console_init_stage1()

@@ -75,7 +75,7 @@ PUBLIC static
 void
 Jdb_thread::print_partner(Thread *t, int task_format = 0)
 {
-  Kobject *o;
+  Sender *p = t->partner();
 
   if (!(t->state(false) & Thread_receiving))
     {
@@ -83,13 +83,13 @@ Jdb_thread::print_partner(Thread *t, int task_format = 0)
       return;
     }
 
-  if (!t->partner())
+  if (!p)
     {
       printf("%*s ", task_format, "-");
       return;
     }
 
-  if (Kobject_dbg::is_kobj(o = Kobject::pointer_to_obj(t->partner())))
+  if (Kobject *o = Kobject::pointer_to_obj(p))
     {
       char flag = '?';
       const char *n = o->kobj_type();
@@ -102,5 +102,5 @@ Jdb_thread::print_partner(Thread *t, int task_format = 0)
       printf("%*.lx%c", task_format, o->dbg_info()->dbg_id(), flag);
     }
   else
-    printf("\033[31;1m%p\033[m ", t->partner());
+    printf("\033[31;1m%p\033[m ", p);
 }

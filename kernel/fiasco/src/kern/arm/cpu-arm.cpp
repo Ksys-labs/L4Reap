@@ -29,10 +29,26 @@ public:
 
   Cpu(unsigned id) { set_id(id); }
 
+
+  struct Ids {
+    Mword _pfr[2], _dfr0, _afr0, _mmfr[4];
+  };
+  void id_init();
+
+  enum {
+    Copro_dbg_model_not_supported = 0,
+    Copro_dbg_model_v6            = 2,
+    Copro_dbg_model_v6_1          = 3,
+    Copro_dbg_model_v7            = 4,
+  };
+
+  unsigned copro_dbg_model() const { return _cpu_id._dfr0 & 0xf; }
+
 private:
   static Cpu *_boot_cpu;
 
   unsigned _phys_id;
+  Ids _cpu_id;
 };
 
 // ------------------------------------------------------------------------
@@ -105,9 +121,8 @@ public:
   enum {
     Cp15_c1_ee              = 1 << 25,
     Cp15_c1_nmfi            = 1 << 27,
-    Cp15_c1_tre             = 1 << 28,
-    Cp15_c1_afe             = 1 << 29,
     Cp15_c1_te              = 1 << 30,
+    Cp15_c1_rao_sbop        = (0xf << 3) | (1 << 16) | (1 << 18) | (1 << 22) | (1 << 23),
 
     Cp15_c1_cache_bits      = Cp15_c1_cache
                               | Cp15_c1_insn_cache,
@@ -115,6 +130,7 @@ public:
     Cp15_c1_generic         = Cp15_c1_mmu
                               | (Config::Cp15_c1_use_alignment_check ?  Cp15_c1_alignment_check : 0)
 			      | Cp15_c1_branch_predict
+                              | Cp15_c1_rao_sbop
 			      | Cp15_c1_high_vector,
   };
 };
@@ -129,9 +145,8 @@ public:
     Cp15_c1_ha              = 1 << 17,
     Cp15_c1_ee              = 1 << 25,
     Cp15_c1_nmfi            = 1 << 27,
-    Cp15_c1_tre             = 1 << 28,
-    Cp15_c1_afe             = 1 << 29,
     Cp15_c1_te              = 1 << 30,
+    Cp15_c1_rao_sbop        = (0xf << 3) | (1 << 16) | (1 << 18) | (1 << 22) | (1 << 23),
 
     Cp15_c1_cache_bits      = Cp15_c1_cache
                               | Cp15_c1_insn_cache,
@@ -140,6 +155,7 @@ public:
                               | (Config::Cp15_c1_use_alignment_check ?  Cp15_c1_alignment_check : 0)
 			      | Cp15_c1_branch_predict
 			      | Cp15_c1_high_vector
+                              | Cp15_c1_rao_sbop
 			      | (Config::Cp15_c1_use_a9_swp_enable ?  Cp15_c1_sw : 0),
 
     Smp_enable              = 0x41,
@@ -229,8 +245,6 @@ void Cpu::early_init()
   early_init_platform();
 
   Mem_unit::flush_cache();
-
-  print_infos();
 }
 
 
@@ -307,6 +321,36 @@ Cpu::init(bool is_boot_cpu)
   _phys_id = Proc::cpu_id();
 
   init_tz();
+
+  id_init();
+
+  print_infos();
+}
+
+//---------------------------------------------------------------------------
+IMPLEMENTATION [arm && !armv6plus]:
+
+IMPLEMENT
+void
+Cpu::id_init()
+{
+}
+
+//---------------------------------------------------------------------------
+IMPLEMENTATION [arm && armv6plus]:
+
+IMPLEMENT
+void
+Cpu::id_init()
+{
+  __asm__("mrc p15, 0, %0, c0, c1, 0": "=r" (_cpu_id._pfr[0]));
+  __asm__("mrc p15, 0, %0, c0, c1, 1": "=r" (_cpu_id._pfr[1]));
+  __asm__("mrc p15, 0, %0, c0, c1, 2": "=r" (_cpu_id._dfr0));
+  __asm__("mrc p15, 0, %0, c0, c1, 3": "=r" (_cpu_id._afr0));
+  __asm__("mrc p15, 0, %0, c0, c1, 4": "=r" (_cpu_id._mmfr[0]));
+  __asm__("mrc p15, 0, %0, c0, c1, 5": "=r" (_cpu_id._mmfr[1]));
+  __asm__("mrc p15, 0, %0, c0, c1, 6": "=r" (_cpu_id._mmfr[2]));
+  __asm__("mrc p15, 0, %0, c0, c1, 7": "=r" (_cpu_id._mmfr[3]));
 }
 
 //---------------------------------------------------------------------------
@@ -434,11 +478,38 @@ Cpu::print_infos()
 {}
 
 // ------------------------------------------------------------------------
+IMPLEMENTATION [debug && armv6plus]:
+
+PRIVATE
+void
+Cpu::id_print_infos()
+{
+  printf("ID_PFR0:  %08lx\n", _cpu_id._pfr[0]);
+  printf("ID_PFR1:  %08lx\n", _cpu_id._pfr[1]);
+  printf("ID_DFR0:  %08lx\n", _cpu_id._dfr0);
+  printf("ID_AFR0:  %08lx\n", _cpu_id._afr0);
+  printf("ID_MMFR0: %08lx\n", _cpu_id._mmfr[0]);
+  printf("ID_MMFR1: %08lx\n", _cpu_id._mmfr[1]);
+  printf("ID_MMFR2: %08lx\n", _cpu_id._mmfr[2]);
+  printf("ID_MMFR3: %08lx\n", _cpu_id._mmfr[3]);
+}
+
+// ------------------------------------------------------------------------
+IMPLEMENTATION [debug && !armv6plus]:
+
+PRIVATE
+void
+Cpu::id_print_infos()
+{
+}
+
+// ------------------------------------------------------------------------
 IMPLEMENTATION [debug]:
 
-PRIVATE static
+PRIVATE
 void
 Cpu::print_infos()
 {
   printf("Cache config: %s\n", Config::cache_enabled ? "ON" : "OFF");
+  id_print_infos();
 }

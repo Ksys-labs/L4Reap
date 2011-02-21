@@ -34,7 +34,7 @@
  */
 
 /**
- * \brief
+ * \brief CPU sets.
  * \ingroup l4_scheduler_api
  */
 typedef struct l4_sched_cpu_set_t
@@ -95,30 +95,18 @@ l4_scheduler_info_u(l4_cap_idx_t scheduler, l4_umword_t *cpu_max,
 
 
 /**
- * \brief
+ * \brief Scheduler parameter set.
  * \ingroup l4_scheduler_api
  */
 typedef struct l4_sched_param_t
 {
-  /**
-   * Timeslice in micro seconds.
-   */
-  l4_cpu_time_t quantum;
-
-  /**
-   * Priority for scheduling.
-   */
-  unsigned prio;
-
-  /**
-   * CPU affinity.
-   */
-  l4_sched_cpu_set_t affinity;
-
+  l4_cpu_time_t      quantum;  ///< Timeslice in micro seconds.
+  unsigned           prio;     ///< Priority for scheduling.
+  l4_sched_cpu_set_t affinity; ///< CPU affinity.
 } l4_sched_param_t;
 
 /**
- * \brief
+ * \brief Construct scheduler parameter.
  * \ingroup l4_scheduler_api
  */
 L4_INLINE l4_sched_param_t

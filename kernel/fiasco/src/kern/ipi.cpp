@@ -16,6 +16,7 @@ public:
 
 INTERFACE[mp]:
 
+#include "per_cpu_data.h"
 #include "spin_lock.h"
 
 EXTENSION class Ipi
@@ -26,8 +27,6 @@ private:
 
 
 INTERFACE[mp && debug]:
-
-#include "per_cpu_data.h"
 
 EXTENSION class Ipi
 {

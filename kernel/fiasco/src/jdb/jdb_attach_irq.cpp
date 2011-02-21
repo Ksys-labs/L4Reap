@@ -17,7 +17,7 @@ IMPLEMENTATION:
 
 /**
  * 'IRQ' module.
- * 
+ *
  * This module handles the 'R' command that
  * provides IRQ attachment and listing functions.
  */
@@ -41,27 +41,27 @@ PUBLIC
 Jdb_module::Action_code
 Jdb_attach_irq::action( int cmd, void *&args, char const *&, int & )
 {
-  if (cmd!=0)
+  if (cmd)
     return NOTHING;
 
   if ((char*)args == &subcmd)
     {
-      switch(subcmd) 
-	{
-	case 'l': // list
-  	    {
-  	      Irq *r;
-	      putchar('\n');
+      switch (subcmd)
+        {
+        case 'l': // list
+            {
+              Irq *r;
+              putchar('\n');
               for (unsigned i = 0; i < Config::Max_num_dirqs; ++i)
-		{
-		  r = static_cast<Irq*>(Irq_chip::hw_chip->irq(i));
-		  if (!r)
-		    continue;
-  		  printf("IRQ %02x/%02d\n", i, i);
-		}
-	    }
-	  return NOTHING;
-	}
+                {
+                  r = static_cast<Irq*>(Irq_chip::hw_chip->irq(i));
+                  if (!r)
+                    continue;
+                  printf("IRQ %02x/%02d\n", i, i);
+                }
+              return NOTHING;
+            }
+        }
     }
   return NOTHING;
 }
@@ -98,7 +98,7 @@ class Jdb_kobject_irq : public Jdb_kobject_handler
 #define FIASCO_JDB_CMP_VTABLE(n, o) \
   extern char n[]; \
   char const *const *z = reinterpret_cast<char const* const*>(o); \
-  return *z == n + 12 ? (o) : 0
+  return *z == n + 3 * sizeof(Mword) ? (o) : 0
 
 
 PUBLIC static

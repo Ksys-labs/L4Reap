@@ -10,7 +10,6 @@ public:
 
   // startup code that runs after console I/O is initialized
   static void stage2();
-  
 };
 
 IMPLEMENTATION:

@@ -83,7 +83,7 @@ static static_init_##va __static_construction_of_##va##__ \
 #define STATIC_INITIALIZER_P(f, p) \
   __STATIC_INITIALIZER_P(f,func_##f,p)
 
-/// mark f as static initailizer 
+/// mark f as static initailizer
 #define STATIC_INITIALIZER(f) \
   __STATIC_INITIALIZER(f,func_##f)
 //@}
@@ -91,12 +91,12 @@ static static_init_##va __static_construction_of_##va##__ \
 
 /// static initialization of singleton (static) classes
 /**
- * The classes that should be initialized must provide 
+ * The classes that should be initialized must provide
  * a init() member function that takes no arguments.
  */
 //@{
 
-/** mark class c to be statically initialized via its init 
+/** mark class c to be statically initialized via its init
  *  function and with priority p
  */
 #define STATIC_INITIALIZE_P(c,p) \
@@ -106,7 +106,7 @@ static static_init_##va __static_construction_of_##va##__ \
 #define STATIC_INITIALIZE(c) \
   __STATIC_INITIALIZER(c::init, class_##c)
 
-/** mark class c to be statically initialized via its init 
+/** mark class c to be statically initialized via its init
  *  function and with priority p
  */
 #define STATIC_INITIALIZEX_P(c,func,p) \

@@ -59,6 +59,9 @@ class Irq_sender
 : public Kobject_h<Irq_sender, Irq>,
   public Ipc_sender<Irq_sender>
 {
+public:
+  Mword kobject_size() const { return sizeof(*this); }
+
 private:
   Irq_sender(Irq_sender &);
 

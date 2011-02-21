@@ -48,42 +48,37 @@ l4shmc_create(const char *shm_name, l4_umword_t shm_size)
 {
   shared_mem_t *s;
   l4re_ds_t shm_ds = L4_INVALID_CAP;
-  l4re_namespace_t tmp = L4_INVALID_CAP;
+  l4re_namespace_t shm_cap;
   long r = -L4_ENOMEM;
 
+  shm_cap = l4re_get_env_cap(shm_name);
+  if (l4_is_invalid_cap(shm_cap))
+    return -L4_ENOENT;
+
   if (l4_is_invalid_cap(shm_ds = l4re_util_cap_alloc()))
-    goto out;
+    return -L4_ENOMEM;
 
   if ((r = l4re_ma_alloc(shm_size, shm_ds, 0)))
-    goto out;
+    goto out_shm_free_cap;
 
   if ((r = l4re_rm_attach((void **)&s, shm_size, L4RE_RM_SEARCH_ADDR, shm_ds,
                           0, L4_PAGESHIFT)))
-    goto out;
+    goto out_shm_free_mem;
 
   s->_first_chunk = 0;
 
-  r =  -L4_ENOMEM;
-  if (l4_is_invalid_cap(tmp = l4re_util_cap_alloc()))
-    goto out;
-
-  tmp = l4re_get_env_cap(shm_name);
-  if (l4_is_invalid_cap(tmp))
-    {
-      r = -L4_ENOENT;
-      goto out;
-    }
-
-  if ((r = l4re_ns_register_obj_srv(tmp, "shm", shm_ds, L4RE_NS_REGISTER_RW)))
-    goto out;
+  r = L4_EOK;
+  if ((r = l4re_ns_register_obj_srv(shm_cap, "shm", shm_ds, L4RE_NS_REGISTER_RW)))
+    r = -L4_EINVAL;
 
   l4re_rm_detach_unmap((l4_addr_t)s, L4RE_THIS_TASK_CAP);
 
-  r = L4_EOK;
+  return r;
 
-out:
-  if (!l4_is_invalid_cap(tmp))
-    l4re_util_cap_free(tmp);
+out_shm_free_mem:
+  l4re_ma_free(shm_ds);
+out_shm_free_cap:
+  l4re_util_cap_free(shm_ds);
   return r;
 }
 
@@ -286,7 +281,6 @@ l4shmc_attach_signal_to(l4shmc_area_t *shmarea,
              r, signal->_sigcap, l4_debugger_global_id(signal->_sigcap),
              thread);
       l4re_util_cap_free(signal->_sigcap);
-      goto out;
     }
 
 out:

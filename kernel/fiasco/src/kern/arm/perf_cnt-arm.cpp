@@ -286,13 +286,23 @@ Perf_cnt::mon_event_type(int nr)
 // ------------------------------------------------------------------------
 IMPLEMENTATION [arm && perf_cnt && (armca8 || armca9)]:
 
+#include "cpu.h"
+
 char const *Perf_cnt::perf_type_str = "ACor";
 int Perf_cnt::_nr_counters;
+
+PRIVATE static
+bool
+Perf_cnt::is_avail()
+{ return Cpu::boot_cpu()->copro_dbg_model() == Cpu::Copro_dbg_model_v7; }
 
 PRIVATE static
 void
 Perf_cnt::set_event_type(int counter_nr, int event)
 {
+  if (!is_avail())
+    return;
+
   pmnxsel(counter_nr);
   evtsel(event);
 }
@@ -301,6 +311,8 @@ PUBLIC static
 Mword
 Perf_cnt::read_cycle_cnt()
 {
+  if (!is_avail())
+    return 0;
   return ccnt();
 }
 
@@ -308,17 +320,21 @@ PUBLIC static
 unsigned long
 Perf_cnt::read_counter(int counter_nr)
 {
+  if (!is_avail())
+    return 0;
   if (counter_nr >= _nr_counters)
     return ccnt();
   pmnxsel(counter_nr);
   return pmcnt();
 }
 
-
 PUBLIC static
 unsigned
 Perf_cnt::mon_event_type(int nr)
 {
+  if (!is_avail())
+    return 0;
+
   if (nr >= _nr_counters)
     return 0xff;
   pmnxsel(nr);
@@ -329,6 +345,9 @@ PUBLIC static FIASCO_INIT_CPU
 void
 Perf_cnt::init_cpu()
 {
+  if (!is_avail())
+    return;
+
   _nr_counters = (pmnc() >> 11) & 0x1f;
 
   pmnc(PMNC_ENABLE | PMNC_PERF_RESET | PMNC_CNT_RESET);
@@ -340,8 +359,6 @@ Perf_cnt::init_cpu()
   // allow user to access events
   useren(1);
 }
-
-
 
 // ------------------------------------------------------------------------
 IMPLEMENTATION [arm && perf_cnt]:

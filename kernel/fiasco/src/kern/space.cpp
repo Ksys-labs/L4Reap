@@ -22,6 +22,7 @@ INTERFACE:
 #include "obj_space.h"
 #include "spin_lock.h"
 #include "ref_obj.h"
+#include "slab_cache_anon.h"
 
 class Ram_quota;
 class Context;

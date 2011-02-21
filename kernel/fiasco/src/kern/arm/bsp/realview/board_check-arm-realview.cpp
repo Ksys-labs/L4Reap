@@ -9,36 +9,37 @@ public:
 
 private:
   static Mword read_board_id();
+  struct id_pair {
+    unsigned mask, id;
+  };
+  static id_pair ids[];
 };
 
 // ------------------------------------------------------------------------
-INTERFACE [arm && realview && realview_eb]:
+IMPLEMENTATION [arm && realview]:
 
-EXTENSION class Board_check
-{
-  enum {
-    id_mask = 0x1ffffe00, id_val = 0x01400400,
-  };
+#include "initcalls.h"
+
+// ------------------------------------------------------------------------
+IMPLEMENTATION [arm && realview && realview_eb]:
+
+Board_check::id_pair Board_check::ids[] FIASCO_INITDATA = {
+  { 0x1ffffe00, 0x01400400 },
 };
 
 // ------------------------------------------------------------------------
-INTERFACE [arm && realview && realview_pb11mp]:
+IMPLEMENTATION [arm && realview && realview_pb11mp]:
 
-EXTENSION class Board_check
-{
-  enum {
-    id_mask = 0x0fffff00, id_val = 0x0159f500,
-  };
+Board_check::id_pair Board_check::ids[] FIASCO_INITDATA = {
+  { 0x0fffff00, 0x0159f500 },
 };
 
 // ------------------------------------------------------------------------
-INTERFACE [arm && realview && realview_pbx]:
+IMPLEMENTATION [arm && realview && realview_pbx]:
 
-EXTENSION class Board_check
-{
-  enum {
-    id_mask = 0xffffff00, id_val = 0x1182f500,
-  };
+Board_check::id_pair Board_check::ids[] FIASCO_INITDATA = {
+  { 0xffffff00, 0x1182f500 }, // board
+  { 0xffffff00, 0x01780500 }, // qemu
 };
 
 // ------------------------------------------------------------------------
@@ -56,12 +57,12 @@ enum
   SYS_ID = Kmem::System_regs_map_base + 0x0,
 };
 
-IMPLEMENT static
+IMPLEMENT static FIASCO_INIT
 Mword
 Board_check::read_board_id()
 { return Io::read<Mword>(SYS_ID); }
 
-IMPLEMENT static
+IMPLEMENT static FIASCO_INIT
 void
 Board_check::check_board()
 {
@@ -71,14 +72,18 @@ Board_check::check_board()
          id >> 28, (id >> 16) & 0xfff, (id >> 12) & 0xf,
 	 (id >> 8) & 0xf, id & 0xff);
 
-  if ((id & id_mask) != id_val)
-    {
-      printf("  Invalid System ID for this kernel config\n"
-	     "  Expected (%08lx & %08x) == %08x\n"
-	     "  Stopping.\n", id, id_mask, id_val);
-      while (1)
-	Proc::halt();
-    }
+  for (unsigned i = 0; i < (sizeof(ids) / sizeof(ids[0])); ++i)
+    if ((id & ids[i].mask) == ids[i].id)
+      return;
+
+  printf("  Invalid System ID for this kernel config\n");
+  for (unsigned i = 0; i < (sizeof(ids) / sizeof(ids[0])); ++i)
+    printf("  Expected (%08lx & %08x) == %08x%s\n",
+           id, ids[i].mask, ids[i].id,
+           i + 1 < (sizeof(ids) / sizeof(ids[0])) ? ", or" : "");
+  printf("  Stopping.\n");
+  while (1)
+    Proc::halt();
 }
 
 STATIC_INITIALIZEX_P(Board_check, check_board, GDB_INIT_PRIO);

@@ -1,14 +1,10 @@
 IMPLEMENTATION [arm && serial]:
 
+#include "kernel_console.h"
 #include "kernel_uart.h"
 #include "static_init.h"
 
-STATIC_INITIALIZER_P(boot_console_init, EARLY_INIT_PRIO);
+STATIC_INITIALIZE_P(Kconsole, EARLY_INIT_PRIO);
+STATIC_INITIALIZE_P(Kernel_uart, EARLY_INIT_PRIO);
 
-static void boot_console_init()
-{
-  Console::stdout = Kernel_uart::uart();
-  Console::stderr = Console::stdout;
-  Console::stdin  = Console::stdout;
-}
 

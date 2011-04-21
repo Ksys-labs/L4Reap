@@ -11,8 +11,8 @@
 #include <l4/sys/vhw.h>
 #include <l4/re/env.h>
 
+#include "debug.h"
 #include "ux.h"
-
 #include "hw_device.h"
 
 #include <cstdio>
@@ -25,7 +25,7 @@ void ux_setup(Hw::Device *bus)
 
   if (!(vhw = l4_vhw_get(l4re_kip())))
     {
-      printf("%s: No VHWs found.\n", __func__);
+      d_printf(DBG_WARN, "%s: No VHWs found.\n", __func__);
       return;
     }
 
@@ -35,7 +35,7 @@ void ux_setup(Hw::Device *bus)
       Hw::Device *input = new Hw::Device();
 
        if (!input)
-         printf("Failed to allocate device for 'L4UXinput'\n");
+         d_printf(DBG_ERR, "Failed to allocate device for 'L4UXinput'\n");
        else
          {
 	   input->set_hid("L4UXinput");
@@ -56,7 +56,7 @@ void ux_setup(Hw::Device *bus)
       Hw::Device *fb = new Hw::Device();
 
       if (!fb)
-        printf("Failed to allocate device for 'L4UXfb'\n");
+        d_printf(DBG_ERR, "Failed to allocate device for 'L4UXfb'\n");
       else
         {
 	  fb->set_hid("L4UXfb");
@@ -74,7 +74,7 @@ void ux_setup(Hw::Device *bus)
       Hw::Device *net = new Hw::Device();
 
       if (!net)
-        printf("Failed to allocate device for 'L4UXnet'\n");
+        d_printf(DBG_ERR, "Failed to allocate device for 'L4UXnet'\n");
       else
         {
           net->set_hid("L4UXnet");

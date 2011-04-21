@@ -9,11 +9,14 @@ IMPLEMENTATION [apic_timer]:
 #include "pit.h"
 #include "std_macros.h"
 
+// no IRQ line for the LAPIC
+IMPLEMENT inline int Timer::irq_line() { return -1; }
+
 IMPLEMENT
 void
 Timer::init()
 {
-  Apic::timer_assign_irq_vector(Config::scheduler_irq_vector);
+  Apic::timer_assign_irq_vector(Config::Apic_timer_vector);
 
   if (Config::scheduler_one_shot)
     {
@@ -34,7 +37,7 @@ Timer::init()
     Config::getchar_does_hlt_works_ok = Config::hlt_works_ok;
 
   printf ("Using the Local APIC timer on vector %x (%s Mode) for scheduling\n",
-          Config::scheduler_irq_vector,
+          Config::Apic_timer_vector,
           Config::scheduler_one_shot ? "One-Shot" : "Periodic");
 }
 

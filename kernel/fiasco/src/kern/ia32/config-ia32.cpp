@@ -116,7 +116,6 @@ public:
 IMPLEMENTATION[ia32,amd64]:
 
 #include <cstring>
-#include "cmdline.h"
 
 bool Config::hlt_works_ok = true;
 
@@ -124,6 +123,7 @@ bool Config::found_vmware = false;
 char const Config::char_micro = '\265';
 bool Config::apic = false;
 bool Config::getchar_does_hlt_works_ok = false;
+unsigned Config::scheduler_irq_vector;
 
 #ifdef CONFIG_WATCHDOG
 bool Config::watchdog = false;
@@ -163,20 +163,18 @@ IMPLEMENT FIASCO_INIT
 void
 Config::init_arch()
 {
-  char const *cmdline = Cmdline::cmdline();
-
 #ifdef CONFIG_WATCHDOG
-  if (strstr(cmdline, " -watchdog"))
+  if (Koptions::o()->opt(Koptions::F_watchdog))
     {
       watchdog = true;
       apic = true;
     }
 #endif
 
-  if (strstr(cmdline, " -nohlt"))
+  if (Koptions::o()->opt(Koptions::F_nohlt))
     hlt_works_ok = false;
 
-  if (strstr(cmdline, " -apic"))
+  if (Koptions::o()->opt(Koptions::F_apic))
     apic = true;
 
   if (scheduler_mode == SCHED_APIC)
@@ -187,22 +185,4 @@ Config::init_arch()
 #include <feature.h>
 KIP_KERNEL_FEATURE("io_prot");
 #endif
-  
 
-IMPLEMENTATION[(ia32 | amd64) && pit_timer]:
-
-unsigned Config::scheduler_irq_vector = 0x20U;
-
-
-IMPLEMENTATION[(ia32 | amd64) && rtc_timer]:
-
-unsigned Config::scheduler_irq_vector = 0x28U;
-
-
-IMPLEMENTATION[(ia32 | amd64) && apic_timer]:
-
-unsigned Config::scheduler_irq_vector = Config::Apic_timer_vector;
-
-IMPLEMENTATION[(ia32 | amd64) && hpet_timer]:
-
-unsigned Config::scheduler_irq_vector;

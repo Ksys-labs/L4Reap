@@ -82,7 +82,10 @@ Region_list::add_nolimitcheck(Region const &region, bool may_overlap)
   if (_end >= _max)
     panic("Bootstrap: %s: Region overflow\n", __func__);
 
-  if (!may_overlap && (r = find(region)))
+  if (!may_overlap && (r = find(region))
+      // sometimes there are smaller regions in regions of the same type
+      && !(   r->contains(region)
+           && region.type() == r->type()))
     {
       printf("  New region for list %s:\t", _name);
       region.vprint();

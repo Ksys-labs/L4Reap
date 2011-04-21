@@ -158,14 +158,14 @@ generate_l4defs_files = \
 	$(RM) -r $$tmpdir
 
 $(L4DEF_FILE_MK): $(BUILD_DIRS) $(DROPSCONF_CONFIG_MK) $(L4DIR)/mk/export_defs.inc
-	$(call generate_l4defs_files,prog)
-	$(call generate_l4defs_files,lib)
+	$(call generate_l4defs_files,static)
+	$(call generate_l4defs_files,shared)
 
 $(L4DEF_FILE_SH): $(L4DEF_FILE_MK)
 
 regen_l4defs:
-	$(call generate_l4defs_files,prog)
-	$(call generate_l4defs_files,lib)
+	$(call generate_l4defs_files,static)
+	$(call generate_l4defs_files,shared)
 
 .PHONY: l4defs regen_l4defs
 
@@ -290,15 +290,18 @@ check_build_tools:
 	  echo "All checked ok.";                                  \
 	fi
 
+define set_ml
+	unset ml; ml=$(L4DIR_ABS)/conf/modules.list;             \
+	   [ -n "$(MODULES_LIST)" ] && ml=$(MODULES_LIST)
+endef
 define entryselection
-	unset e; unset ml;                                       \
-	   ml=$(L4DIR_ABS)/conf/modules.list;                    \
-	   [ -n "$(MODULES_LIST)" ] && ml=$(MODULES_LIST);       \
+	unset e;                                                 \
+	   $(set_ml);                                            \
 	   [ -n "$(ENTRY)"       ] && e="$(ENTRY)";              \
 	   [ -n "$(E)"           ] && e="$(E)";                  \
 	   if [ -z "$$e" ]; then                                 \
 	     BACKTITLE="No entry given. Use 'make $@ E=entryname' to avoid menu." \
-	       L4DIR=$(L4DIR) $(L4DIR)/tool/bin/entry-selector $$ml 2> $(OBJ_BASE)/.entry-selector.tmp; \
+	       L4DIR=$(L4DIR) $(L4DIR)/tool/bin/entry-selector menu $$ml 2> $(OBJ_BASE)/.entry-selector.tmp; \
 	     if [ $$? != 0 ]; then                               \
 	       cat $(OBJ_BASE)/.entry-selector.tmp;              \
 	       exit 1;                                           \
@@ -330,6 +333,10 @@ QEMU_ARCH_MAP_$(ARCH) = qemu-system-$(ARCH)
 QEMU_ARCH_MAP_x86     = qemu
 QEMU_ARCH_MAP_amd64   = qemu-system-x86_64
 QEMU_ARCH_MAP_ppc32   = qemu-system-ppc
+
+list:
+	$(VERBOSE)$(set_ml); \
+	  L4DIR=$(L4DIR) $(L4DIR)/tool/bin/entry-selector list $$ml
 
 image:
 	$(genimage)
@@ -392,14 +399,14 @@ ux:
 
 define geniso
 	$(checkx86amd64build)
-	$(VERBOSE)$(entryselection);                                   \
-	 $(MKDIR) $(OBJ_BASE)/images;                                  \
-	 ISONAME=$(OBJ_BASE)/images/$$(echo $$e | tr '[ ]' '[_]').iso; \
-	 L4DIR=$(L4DIR)                                                \
-	  SEARCHPATH="$(MODULE_SEARCH_PATH):$(BUILDDIR_SEARCHPATH)"    \
-	  $(L4DIR)/tool/bin/gengrub$(1)iso --timeout=0 $$ml            \
-	     $$ISONAME "$$e";                       \
-	 $(LN) -f $$ISONAME $(OBJ_BASE)/images/.current.iso || true
+	$(VERBOSE)$(entryselection);                                         \
+	 $(MKDIR) $(OBJ_BASE)/images;                                        \
+	 ISONAME=$(OBJ_BASE)/images/$$(echo $$e | tr '[ A-Z]' '[_a-z]').iso; \
+	 L4DIR=$(L4DIR)                                                      \
+	  SEARCHPATH="$(MODULE_SEARCH_PATH):$(BUILDDIR_SEARCHPATH)"          \
+	  $(L4DIR)/tool/bin/gengrub$(1)iso --timeout=0 $$ml                  \
+	     $$ISONAME "$$e"                                                 \
+	  && $(LN) -f $$ISONAME $(OBJ_BASE)/images/.current.iso
 endef
 
 grub1iso:

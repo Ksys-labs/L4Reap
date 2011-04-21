@@ -252,39 +252,53 @@ PUBLIC
 virtual void *
 slab_cache_anon::alloc()	// request initialized member from cache
 {
-  Lock_guard<Lock> guard(&lock);
-
-  if (! _first_available_slab)
+  void *unused_block = 0;
+  void *ret;
     {
-      char *m = (char*)block_alloc(_slab_size, _slab_size);
-      if (!m)
-	return 0;
+      Lock_guard<Lock> guard(&lock);
 
-      slab *s = new (m + _slab_size - sizeof(slab)) slab(this, m);
-
-      _first_available_slab = s;
-
-      if (_last_slab)
+      if (EXPECT_FALSE(!_first_available_slab))
 	{
-	  assert(_last_slab->is_full());
+	  guard.release();
 
-	  _first_available_slab->enqueue(_last_slab);
-	  _last_slab = _first_available_slab;
+	  char *m = (char*)block_alloc(_slab_size, _slab_size);
+	  if (!m)
+	    return 0;
+
+	  slab *s = new (m + _slab_size - sizeof(slab)) slab(this, m);
+
+	  guard.lock(&lock);
+
+	  if (EXPECT_TRUE(!_first_available_slab))
+	    {
+	      _first_available_slab = s;
+
+	      if (_last_slab)
+		{
+		  assert(_last_slab->is_full());
+
+		  _first_available_slab->enqueue(_last_slab);
+		  _last_slab = _first_available_slab;
+		}
+	      else			// this was the first slab we allocated
+		_first_slab = _last_slab = _first_available_slab;
+	    }
+	  else
+	    unused_block = m;
 	}
-      else			// this was the first slab we allocated
-	_first_slab = _last_slab = _first_available_slab;
+
+      assert(_first_available_slab && ! _first_available_slab->is_full());
+      assert(! _first_available_slab->prev() || _first_available_slab->prev()->is_full());
+
+      ret = _first_available_slab->alloc();
+      assert(ret);
+
+      if (_first_available_slab->is_full())
+	_first_available_slab = _first_available_slab->next();
     }
 
-  assert(_first_available_slab
-	 && ! _first_available_slab->is_full());
-  assert(! _first_available_slab->prev()
-	 || _first_available_slab->prev()->is_full());
-
-  void *ret = _first_available_slab->alloc();
-  assert(ret);
-
-  if (_first_available_slab->is_full())
-    _first_available_slab = _first_available_slab->next();
+  if (unused_block)
+    block_free(unused_block, _slab_size);
 
   return ret;
 }

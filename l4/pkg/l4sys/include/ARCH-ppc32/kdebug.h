@@ -84,15 +84,6 @@ l4_sys_sti(void);
 L4_INLINE void
 l4_kdebug_imb(void);
 
-EXTERN_C long int
-l4_atomic_add(volatile long int* mem, long int offset) L4_NOTHROW;
-
-EXTERN_C long int
-l4_atomic_cmpxchg(volatile long int* mem, long int oldval, long int newval) L4_NOTHROW;
-
-EXTERN_C long int
-l4_atomic_xchg(volatile long int* mem, long int newval) L4_NOTHROW;
-
 L4_INLINE int
 l4_irq_enabled(void);
 

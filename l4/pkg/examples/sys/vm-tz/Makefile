@@ -3,10 +3,7 @@ L4DIR		?= $(PKGDIR)/../..
 
 TARGET		= vm-tz
 SYSTEMS		= arm-l4f
-
-MODE_USE_C    = y
 SRC_CC		= main.cc
-
-LIBS		+= -lsigma0
+REQUIRES_LIBS   = libsigma0 l4re_c-util
 
 include $(L4DIR)/mk/prog.mk

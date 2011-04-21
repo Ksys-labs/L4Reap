@@ -24,6 +24,7 @@ PREPROCESS_PARTS-$(CONFIG_ARM_926)                  += armv5 926 vcache
 PREPROCESS_PARTS-$(CONFIG_ARM_V6PLUS)               += armv6plus
 PREPROCESS_PARTS-$(CONFIG_ARM_V6)                   += armv6
 PREPROCESS_PARTS-$(CONFIG_ARM_V7)                   += armv7
+PREPROCESS_PARTS-$(CONFIG_ARM_1136)                 += arm1136
 PREPROCESS_PARTS-$(CONFIG_ARM_1176)                 += arm1176
 PREPROCESS_PARTS-$(CONFIG_ARM_MPCORE)               += mpcore
 PREPROCESS_PARTS-$(CONFIG_ARM_CORTEX_A8)            += armca8
@@ -241,13 +242,13 @@ ifneq ($(CONFIG_JDB_GZIP),)
   INTERFACES_KERNEL	+= jdb_gzip
  endif
 endif
+
+INTERFACES_JDB		+= $(INTERFACES_JDB-y)
 endif
 
 CXXSRC_KERNEL		:= kernel_panic.cc libc_backend_lock.cc
-ASSRC_KERNEL	  	:= ivt.S
-ifeq ($(CONFIG_MP),y)
-ASSRC_KERNEL		+= tramp-mp.S
-endif
+ASSRC_KERNEL	  	:= ivt.S $(if $(CONFIG_MP),tramp-mp.S)
+CPPFLAGS                += $(if $(CONFIG_MP),-DMPCORE_PHYS_BASE=$(MPCORE_PHYS_BASE))
 
 NOOPT			+= $(filter jdb%,\
 			     $(foreach in,$(INTERFACES_KERNEL), \
@@ -329,6 +330,12 @@ VPATH += kern/arm/bsp/$(BSP_NAME) kern/arm/bsp
 
 ifeq ("$(filter LIBUART, $(SUBSYSTEMS))","LIBUART")
   LIBUART			:= uart/libuart.a
+endif
+
+ifneq ($(CONFIG_MP),)
+ifeq ($(MPCORE_PHYS_BASE),)
+$(error $(MODULES_FILE_BSP) needs to set MPCORE_PHYS_BASE variable)
+endif
 endif
 
 MODULES_FILES = $(MODULES_FILE) $(MODULES_FILE_BSP)

@@ -7,17 +7,17 @@ IMPLEMENTATION[ia32,ux,amd64]:
 
 PUBLIC
 void
-Jdb_kern_info_cpu::show_f_bits (unsigned features, const char *const *table,
-				unsigned first_pos, unsigned &last_pos,
-				unsigned &colon)
+Jdb_kern_info_cpu::show_f_bits(unsigned features, const char *const *table,
+                               unsigned first_pos, unsigned &last_pos,
+                               unsigned &colon)
 {
   unsigned i, count;
 
-  for (i=count=0; *table != (char *) -1; i++, table++)
+  for (i = count = 0; *table != (char *)-1; i++, table++)
     if ((features & (1 << i)) && *table)
       {
 	int slen = strlen(*table);
-	if (last_pos+colon+slen > 78)
+	if (last_pos+colon + slen > 78)
 	  {
 	    colon = 0;
 	    last_pos = first_pos;
@@ -33,7 +33,7 @@ PUBLIC
 void
 Jdb_kern_info_cpu::show_features()
 {
-  static const char *const simple[] = 
+  static const char *const simple[] =
   {
     "fpu (fpu on chip)",
     "vme (virtual-8086 mode enhancements)",
@@ -84,6 +84,12 @@ Jdb_kern_info_cpu::show_features()
     NULL, NULL,
     "cmpxchg16b",
     "xtpr (send task priority messages)",
+    NULL, NULL, NULL, NULL,
+    "sse41", "sse42",
+    NULL, NULL,
+    "popcnt", NULL,
+    "aes", "xsave", "osxsave",
+    "avx", "f16c",
     (char *)(-1)
   };
   static const char *const ext_81_ecx[] =
@@ -91,7 +97,8 @@ Jdb_kern_info_cpu::show_features()
     NULL, NULL, "svm (secure virtual machine)", NULL, NULL,
     "abm (adv bit manipulation)", "SSE4A", NULL,
     NULL, "OSVW (OS visible workaround)", NULL, NULL,
-    "SKINIT", "WDT (watchdog timer support)",
+    "SKINIT", "WDT (watchdog timer support)", NULL,
+    "lwp", "fmaa", NULL, NULL, "nodeid", NULL, "tbm", "topext",
     (char *)(-1)
   };
   static const char *const ext_81_edx[] =
@@ -130,12 +137,6 @@ void
 Jdb_kern_info_misc::show_pdir()
 {
   Mem_space *s = current_mem_space();
-  // printf ("%s"L4_PTR_FMT" (taskno=%x, chief=%x)\n",
-  //   	  Jdb_screen::Root_page_table,
-  //	  (Address) s->dir(),
-  //	  unsigned (s->id()),
-  //	  unsigned (s->chief()));
-  printf ("%s"L4_PTR_FMT"\n",
-      	  Jdb_screen::Root_page_table,
-	  (Address) s->dir());
+  printf("%s" L4_PTR_FMT "\n",
+         Jdb_screen::Root_page_table, (Address)s->dir());
 }

@@ -11,12 +11,18 @@
 namespace Mag_gfx {
 
 void
-Canvas::draw_rect(Rect const &r, Rgba32::Color color)
+Canvas::draw_rect(Rect const &r, Rgba32::Color color, int width)
 {
-  draw_box(r.top(1), color);
-  draw_box(r.bottom(1), color);
-  draw_box(r.left(1), color);
-  draw_box(r.right(1), color);
+  Rect_tuple t;
+  if (width > 0)
+    t = r - r.offset(width, width, -width, -width);
+  else
+    t = r.offset(width, width, -width, -width) - r;
+
+  draw_box(t[0], color);
+  draw_box(t[1], color);
+  draw_box(t[2], color);
+  draw_box(t[3], color);
 }
 
 }

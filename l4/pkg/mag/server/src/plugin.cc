@@ -13,14 +13,22 @@
 #include <lua.h>
 #include <lauxlib.h>
 
+#include <l4/cxx/string>
+#include <l4/mag/server/session>
+#include <l4/re/error_helper>
+
+#include <algorithm>
+#include <cstring>
+
 
 namespace Mag_server {
 
 Plugin *Plugin::_first;
 
-Core_api::Core_api(Registry *r, lua_State *lua, User_state *u,
-                   L4::Cap<void> rcvc, L4::Cap<L4Re::Video::Goos> fb)
-: _reg(r), _ust(u), _rcv_cap(rcvc), _fb(fb), _lua(lua)
+Core_api::Core_api(lua_State *lua, User_state *u,
+                   L4::Cap<void> rcvc, L4::Cap<L4Re::Video::Goos> fb,
+		   Mag_gfx::Font const *label_font)
+: _ust(u), _rcv_cap(rcvc), _fb(fb), _lua(lua), _label_font(label_font)
 {
   lua_pushlightuserdata(_lua, this);
   lua_newtable(_lua);
@@ -34,17 +42,55 @@ Core_api::get_refs_table() const
   lua_rawget(_lua, LUA_REGISTRYINDEX);
 }
 
+namespace {
+  Session::Property_handler const _default_session_props[] =
+    { { "l",     true, &Session::set_label_prop },
+      { "label", true, &Session::set_label_prop },
+      { "col",   true, &Session::set_color_prop },
+      { 0, 0, 0 }
+    };
 
-void
-Core_api::add_input_source(Input_source *i)
-{
-  i->_next_active = _input;
-  _input = i;
-  get_refs_table();
-  i->add_lua_input_source(_lua, -1);
-  lua_pop(_lua, 1);
+  static bool handle_option(Session *s, Session::Property_handler const *p, cxx::String const &a)
+  {
+    for (; p && p->tag; ++p)
+      {
+	cxx::String::Index v = a.starts_with(p->tag);
+	if (v && (!p->value_property || a[v] == '='))
+	  {
+	    p->handler(s, p, a.substr(v + 1));
+	    return true;
+	  }
+      }
+    return false;
+  }
 }
 
+void
+Core_api::set_session_options(Session *s, L4::Ipc::Istream &ios,
+                              Session::Property_handler const *extra) const
+{
+  L4::Ipc::Varg opt;
+  while (ios.get(&opt))
+    {
+      if (!opt.is_of<char const *>())
+	{
+	  printf("skipping non string argument for session!\n");
+	  continue;
+	}
+
+      cxx::String a(opt.value<char const *>(), opt.length());
+
+      if (!handle_option(s, _default_session_props, a)
+	  && !handle_option(s, extra, a))
+	{
+	  printf("unknown session option '%.*s'\n", a.len(), a.start());
+	  L4Re::chksys(-L4_EINVAL, "parsing session options");
+	}
+    }
+
+  if (!s->label())
+    s->set_label_prop(s, 0, "<empty>");
+}
 
 }
 

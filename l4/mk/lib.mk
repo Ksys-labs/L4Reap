@@ -74,9 +74,6 @@ LDFLAGS += $(addprefix -L, $(if $(LINK_WITH_NOEXC_LIBS_$@),$(L4LIBDIR_NOEXC),$(L
 LDFLAGS += $(LIBCLIBDIR)
 LDFLAGS_SO ?= -shared -nostdlib
 
-LDFLAGS += --defsym __L4_KIP_ADDR__=$(L4_KIP_ADDR) \
-           --defsym __L4_STACK_ADDR__=$(L4_STACK_ADDR)
-
 BID_LDFLAGS_FOR_LINKING_DYN_LD  = $(LDFLAGS)
 BID_LDFLAGS_FOR_GCC_DYN         = $(filter     -static -shared -nostdlib -Wl$(BID_COMMA)% -L% -l%,$(LDFLAGS))
 BID_LDFLAGS_FOR_LD_DYN          = $(filter-out -static -shared -nostdlib -Wl$(BID_COMMA)% -L% -l%,$(LDFLAGS))

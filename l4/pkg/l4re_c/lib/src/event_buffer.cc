@@ -55,22 +55,22 @@ l4re_event_buffer_next(l4re_event_buffer_consumer_t *evbuf) L4_NOTHROW
 
 L4_CV void
 l4re_event_buffer_consumer_foreach_available_event
-  (l4re_event_buffer_consumer_t *evbuf,
-   L4_CV void (*cb)(l4re_event_t *ev)) L4_NOTHROW
+  (l4re_event_buffer_consumer_t *evbuf, void *data,
+   L4_CV void (*cb)(l4re_event_t *ev, void *data)) L4_NOTHROW
 {
-  void (*_cb)(L4Re::Event_buffer::Event*)
-    = (void (*)(L4Re::Event_buffer::Event*))cb;
-  cast(evbuf)->foreach_available_event(_cb);
+  void (*_cb)(L4Re::Event_buffer::Event*, void *)
+    = (void (*)(L4Re::Event_buffer::Event*, void *))cb;
+  cast(evbuf)->foreach_available_event(_cb, data);
 }
 
 L4_CV void
 l4re_event_buffer_consumer_process(l4re_event_buffer_consumer_t *evbuf,
-                                   l4_cap_idx_t irq, l4_cap_idx_t thread,
-                                   L4_CV void (*cb)(l4re_event_t *ev)) L4_NOTHROW
+                                   l4_cap_idx_t irq, l4_cap_idx_t thread, void *data,
+                                   L4_CV void (*cb)(l4re_event_t *ev, void *)) L4_NOTHROW
 {
   L4::Cap<L4::Irq> i(irq);
   L4::Cap<L4::Thread> t(thread);
-  void (*_cb)(L4Re::Event_buffer::Event*)
-    = (void (*)(L4Re::Event_buffer::Event*))cb;
-  cast(evbuf)->process(i, t, _cb);
+  void (*_cb)(L4Re::Event_buffer::Event*, void *)
+    = (void (*)(L4Re::Event_buffer::Event*, void *))cb;
+  cast(evbuf)->process(i, t, _cb, data);
 }

@@ -96,13 +96,13 @@ public:
    *
    * \param cb  Function callback.
    */
-  template< typename CB >
-  void foreach_available_event(CB const &cb) throw()
+  template< typename CB, typename D >
+  void foreach_available_event(CB const &cb, D data = D()) throw()
   {
     typename Event_buffer_t<PAYLOAD>::Event *e;
     while ((e = Event_buffer_t<PAYLOAD>::next()))
       {
-        cb(e);
+        cb(e, data);
         e->free();
       }
   }
@@ -116,10 +116,10 @@ public:
    *
    * \note This function never returns.
    */
-  template< typename CB >
+  template< typename CB, typename D >
   void process(L4::Cap<L4::Irq> irq,
                L4::Cap<L4::Thread> thread,
-               CB const &cb) throw()
+               CB const &cb, D data = D()) throw()
   {
 
     if (l4_error(irq->attach(0, thread)))
@@ -133,7 +133,7 @@ public:
         if (r)
           continue;
 
-        foreach_available_event(cb);
+        foreach_available_event(cb, data);
       }
   }
 };

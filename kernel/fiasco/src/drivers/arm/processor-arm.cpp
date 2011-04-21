@@ -189,6 +189,23 @@ void Proc::halt()
 }
 
 //----------------------------------------------------------------
+IMPLEMENTATION[arm && arm1136]:
+
+IMPLEMENT static inline
+void Proc::pause()
+{}
+
+IMPLEMENT static inline
+void Proc::halt()
+{
+  Status f = cli_save();
+  asm volatile("mcr     p15, 0, r0, c7, c10, 4  @ DWB/DSB \n\t"
+               "mcr     p15, 0, r0, c7, c0, 4   @ WFI \n\t");
+  sti_restore(f);
+}
+
+
+//----------------------------------------------------------------
 IMPLEMENTATION[arm && (arm1176 || mpcore)]:
 
 IMPLEMENT static inline

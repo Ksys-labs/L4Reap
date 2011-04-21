@@ -36,7 +36,7 @@ public:
   /* 60 */
   Mword      sigma1_sp, sigma1_ip;
   Mword	     res3[2];
-  
+
   /* 80 */
   Mword      root_sp, root_ip;
   Mword	     res4[2];
@@ -54,15 +54,12 @@ public:
 
   /* 140 */
   volatile Cpu_time clock;
-  //Unsigned8  fill4[8];
-  volatile Cpu_time switch_time;
-  //Unsigned8  fill5[8];
+  Unsigned64 _res6;
 
   /* 160 */
   Mword      frequency_cpu;
   Mword      frequency_bus;
-  volatile Cpu_time thread_time;
-  //Unsigned8  fill6[8];
+  Unsigned64 _res7;
 
   /* 180 */
   Mword      _res8[4];
@@ -76,7 +73,6 @@ public:
   Mword      __pad[2];
 
   /* 1E0 */
-  Kernel_uart_info  kernel_uart_info;
-  Platform_info     platform_info;
+  Unsigned32 __reserved[20];
 };
 

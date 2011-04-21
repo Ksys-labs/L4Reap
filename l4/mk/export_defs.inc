@@ -11,10 +11,10 @@ OBJ_DIR = $(SRC_DIR)/build
 L4DEF_FILE_MK ?= l4defs.mk.inc
 L4DEF_FILE_SH ?= l4defs.sh.inc
 
-do_output_all   = echo '$(1) = $($(1))' >> $(L4DEF_FILE_MK); echo '$(1)="$($(1))"' >> $(L4DEF_FILE_SH)
+do_output_all   = echo '$(1) = $($(1))' >> $(L4DEF_FILE_MK); echo '$(1)="$($(1))"' >> $(L4DEF_FILE_SH);
 do_output_mk    = echo '$(1) = $($(1))' >> $(L4DEF_FILE_MK);
 
-ifeq ($(CALLED_FOR),prog)
+ifeq ($(CALLED_FOR),static)
 
 MODE = static
 
@@ -25,8 +25,8 @@ L4_CC                        = $(CC)
 L4_CXX                       = $(CXX)
 L4_CRT0_STATIC               = $(CRT0)
 L4_CRTN_STATIC               = $(CRTN)
-L4_LDFLAGS_LD                = $(filter-out -l%,$(BID_LDFLAGS_FOR_LINKING_LD))
-L4_LDFLAGS_GCC               = $(filter-out -l%,$(BID_LDFLAGS_FOR_LINKING_GCC))
+L4_LDFLAGS_LD_STATIC         = $(filter-out -l%,$(BID_LDFLAGS_FOR_LINKING_LD))
+L4_LDFLAGS_GCC_STATIC        = $(filter-out -l%,$(BID_LDFLAGS_FOR_LINKING_GCC))
 L4_LDFLAGS_DYNAMIC_LINKER_LD = $(LDFLAGS_DYNAMIC_LINKER)
 L4_LDFLAGS_DYNAMIC_LINKER_GCC= $(LDFLAGS_DYNAMIC_LINKER_GCC)
 L4_LIBDIRS                   = $(addprefix -L,$(L4LIBDIR))
@@ -45,6 +45,7 @@ L4_BID_KIP_OFFS_SYS_DEBUGGER = $(L4_KIP_OFFS_SYS_DEBUGGER)
 L4_BID_PKG_CONFIG            = $(PKG_CONFIG)
 L4_BID_PKG_CONFIG_CALL       = $(value BID_PKG_CONFIG)
 L4_BID_PKG_CONFIG_FAILED     = $(value BID_PKG_CONFIG_FAILED)
+
 
 all::
 	@echo -e $(EMPHSTART)"Creating $(L4DEF_FILE_MK)"$(EMPHSTOP)
@@ -72,8 +73,8 @@ all::
 	@$(call do_output_all,L4_CXX)
 	@$(call do_output_all,L4_CRT0_STATIC)
 	@$(call do_output_all,L4_CRTN_STATIC)
-	@$(call do_output_all,L4_LDFLAGS_LD)
-	@$(call do_output_all,L4_LDFLAGS_GCC)
+	@$(call do_output_all,L4_LDFLAGS_LD_STATIC)
+	@$(call do_output_all,L4_LDFLAGS_GCC_STATIC)
 	@$(call do_output_all,L4_LDFLAGS_DYNAMIC_LINKER_LD)
 	@$(call do_output_all,L4_LDFLAGS_DYNAMIC_LINKER_GCC)
 	@$(call do_output_all,L4_LIBDIRS_R)
@@ -91,29 +92,33 @@ all::
 	@$(call do_output_all,L4_BID_PKG_CONFIG)
 	@$(call do_output_mk,L4_BID_PKG_CONFIG_CALL)
 	@$(call do_output_mk,L4_BID_PKG_CONFIG_FAILED)
+	@$(foreach v,LIBCINCDIR REQUIRES_LIBS L4_LIBS CRT0 CRTN LDSCRIPT LDFLAGS, \
+	  $(call do_output_all,$(v)_all_static) $(call do_output_all,$(v)_all_shared))
 else
 all::
 endif
 
 include $(L4DIR)/mk/prog.mk
 
-endif # called for prog
+endif # called for static
 
 
-ifeq ($(CALLED_FOR),lib)
+ifeq ($(CALLED_FOR),shared)
+
+MODE = shared
 
 ifneq ($(SYSTEM),)
 
-L4_LDFLAGS_LD_DYN  = $(BID_LDFLAGS_FOR_LINKING_DYN_LD)
-L4_LDFLAGS_GCC_DYN = $(BID_LDFLAGS_FOR_LINKING_DYN_GCC)
-L4_CRT0_DYN        = $(CRT0_all_lib)
-L4_CRTN_DYN        = $(CRTN_all_lib)
-L4_LDS_so          = $(LDS_so)
-L4_LDS_dyn_bin     = $(LDS_dyn_bin)
+L4_LDFLAGS_LD_SHARED  = $(filter-out -l%,$(BID_LDFLAGS_FOR_LINKING_LD))
+L4_LDFLAGS_GCC_SHARED = $(filter-out -l%,$(BID_LDFLAGS_FOR_LINKING_GCC))
+L4_CRT0_DYN           = $(CRT0_all_lib)
+L4_CRTN_DYN           = $(CRTN_all_lib)
+L4_LDS_so             = $(LDS_so)
+L4_LDS_dyn_bin        = $(LDS_dyn_bin)
 
 all::
-	@$(call do_output_all,L4_LDFLAGS_LD_DYN)
-	@$(call do_output_all,L4_LDFLAGS_GCC_DYN)
+	@$(call do_output_all,L4_LDFLAGS_LD_SHARED)
+	@$(call do_output_all,L4_LDFLAGS_GCC_SHARED)
 	@$(call do_output_all,L4_CRT0_DYN)
 	@$(call do_output_all,L4_CRTN_DYN)
 	@$(call do_output_all,L4_LDS_so)
@@ -123,6 +128,6 @@ else
 all::
 endif
 
-include $(L4DIR)/mk/lib.mk
+include $(L4DIR)/mk/prog.mk
 
-endif # called for lib
+endif # called for shared

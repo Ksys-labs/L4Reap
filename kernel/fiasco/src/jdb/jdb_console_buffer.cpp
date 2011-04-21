@@ -4,13 +4,13 @@ IMPLEMENTATION:
 #include <cstring>
 #include <cstdlib>
 
-#include "cmdline.h"
 #include "config.h"
 #include "jdb_module.h"
 #include "jdb.h"
 #include "kernel_console.h"
 #include "keycodes.h"
 #include "kmem_alloc.h"
+#include "koptions.h"
 #include "static_init.h"
 
 /**
@@ -58,12 +58,10 @@ Console_buffer::Console_buffer()
   Jdb::jdb_enter.add(&enter);
   Jdb::jdb_leave.add(&leave);
 
-  size_t len = 2*Config::PAGE_SIZE;
-  char const *s;
+  size_t len = 2 * Config::PAGE_SIZE;
 
-  if (  (s = strstr(Cmdline::cmdline(), " -out_buf="))
-      ||(s = strstr(Cmdline::cmdline(), " -out_buf ")))
-    len = strtoul(s+10, 0, 0);
+  if (Koptions::o()->opt(Koptions::F_out_buf))
+    len = Koptions::o()->out_buf;
 
   alloc(len);
 }

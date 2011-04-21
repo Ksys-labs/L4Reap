@@ -7,6 +7,8 @@ IMPLEMENTATION[{ia32,amd64}-rtc_timer]:
 
 #include <cstdio>
 
+IMPLEMENT inline int Timer::irq_line() { return 8; }
+
 IMPLEMENT
 void
 Timer::init()

@@ -327,7 +327,6 @@ void print_infos_to_syscall(l4_msgtag_t *tag, ThreadId tid) {
             FOO(EXCEPTION);
             FOO(SIGMA0);
             FOO(IO_PAGE_FAULT);
-            FOO(CAP_FAULT);
             FOO(FACTORY);
             FOO(TASK);
             FOO(THREAD);

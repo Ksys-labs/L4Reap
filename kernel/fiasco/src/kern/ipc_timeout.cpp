@@ -56,7 +56,7 @@ IPC_timeout::expired()
   Receiver * const _owner = owner();
 
   // Set thread ready
-  _owner->state_change (~Thread_ipc_in_progress, Thread_ready);
+  _owner->state_change_dirty(~Thread_ipc_mask, Thread_ready | Thread_timeout);
 
   // Flag reschedule if owner's priority is higher than the current
   // thread's (own or timeslice-donated) priority.

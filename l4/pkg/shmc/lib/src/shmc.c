@@ -295,6 +295,7 @@ l4shmc_get_signal_to(l4shmc_area_t *shmarea,
 {
   char b[L4SHMC_NAME_STRINGLEN + L4SHMC_SIGNAL_NAME_SIZE + 5]; // strings + "sig-"
   l4re_namespace_t ns;
+  l4_cpu_time_t timeout;
 
   signal->_sigcap = l4re_util_cap_alloc();
 
@@ -308,8 +309,17 @@ l4shmc_get_signal_to(l4shmc_area_t *shmarea,
   snprintf(b, sizeof(b) - 1, "sig-%s", signal_name);
   b[sizeof(b) - 1] = 0;
 
-  if (l4re_ns_query_to_srv(ns, b, signal->_sigcap, timeout_ms))
-    return -L4_ENOENT;
+  timeout = l4re_kip()->clock + timeout_ms * 1000;
+  while (1)
+    {
+      int e = l4re_ns_query_to_srv(ns, b, signal->_sigcap, timeout_ms);
+      if (e != -L4_ENOENT)
+        return e;
+      if (l4re_kip()->clock < timeout)
+        l4_sleep(100);
+      else
+        break;
+    }
 
   return L4_EOK;
 }

@@ -31,6 +31,13 @@ public:
     Rs_irq_receive   = true + 1
   };
 
+  enum Abort_state
+  {
+    Abt_ipc_done,
+    Abt_ipc_cancel,
+    Abt_ipc_in_progress,
+  };
+
   Rcv_state sender_ok(const Sender* sender) const;
 
   virtual ~Receiver() {}
@@ -100,31 +107,6 @@ Receiver::partner() const
 }
 
 
-/** Restore a saved IPC state to restart a suspended IPC.
-    @param partner sender of suspended receive operation
-    @param regs registers of suspended receive operation
- */
-PROTECTED inline NEEDS[Receiver::set_partner, Receiver::set_rcv_regs]
-void
-Receiver::restore_receiver_state(Sender* partner, Syscall_frame* regs)
-{
-  set_partner(partner);
-  set_rcv_regs(regs);
-}
-
-/** Save IPC state to allow later restart a suspended IPC.
-    @param out_partner returns sender of suspended receive operation
-    @param out_regs returns pointer to IPC regs of suspended receive operation
- */
-PROTECTED inline
-void
-Receiver::save_receiver_state(Sender** out_partner, Syscall_frame** out_regs)
-{
-  *out_partner = _partner;
-  *out_regs = _rcv_regs;
-}
-
-
 // Interface for senders
 
 /** Return a reference to receiver's IPC registers.
@@ -153,7 +135,7 @@ Receiver::sender_list()
 
 // MANIPULATORS
 
-PROTECTED inline 
+PROTECTED inline
 void
 Receiver::set_rcv_regs(Syscall_frame* regs)
 {
@@ -194,27 +176,9 @@ Receiver::reset_timeout()
   _timeout = 0;
 }
 
-/** Initiates a receiving IPC and updates the ipc partner.
-    @param sender the sender that wants to establish an IPC handshake
- */
-PUBLIC inline NEEDS [Receiver::set_partner,
-		     Receiver::rcv_regs,
-		     "entry_frame.h", "sender.h", "l4_types.h"]
-void
-Receiver::ipc_init(Sender* sender)
-{
-  set_partner(sender);
-  //rcv_regs()->from (sender->id());
-  state_add_dirty(Thread_transfer_in_progress);
-}
-
 PROTECTED inline
-void Receiver::prepare_receive_dirty_1(Sender *partner,
-                                       Syscall_frame *regs)
+void Receiver::prepare_receive(Sender *partner, Syscall_frame *regs)
 {
-  // cpu lock required, or weird things will happen
-  assert (cpu_lock.test());
-
   set_rcv_regs(regs);  // message should be poked in here
   set_partner(partner);
 }
@@ -223,43 +187,21 @@ PROTECTED inline
 bool Receiver::prepared() const
 { return _rcv_regs; }
 
-
-PROTECTED inline
-void Receiver::prepare_receive_dirty_2()
+/** Set the IPC partner (sender).
+    @param partner IPC partner
+ */
+PUBLIC inline
+void
+Receiver::set_partner(Sender* partner)
 {
-  // cpu lock required, or weird things will happen
-  assert (cpu_lock.test());
-  assert (_rcv_regs);
-
-  state_change_dirty(~(Thread_ipc_sending_mask | Thread_transfer_in_progress),
-                     Thread_receiving | Thread_ipc_in_progress);
+  _partner = partner;
 }
 
 PUBLIC inline
 bool
 Receiver::in_ipc(Sender *sender)
 {
-  Mword ipc_state = (state() & (Thread_ipc_in_progress
-                               | Thread_cancel
-                               | Thread_transfer_in_progress));
-
-  if (EXPECT_TRUE
-      ((ipc_state == (Thread_transfer_in_progress | Thread_ipc_in_progress))
-       &&  _partner == sender))
-    return true;
-
-  return false;
-
-}
-
-/** Set the IPC partner (sender).
-    @param partner IPC partner
- */
-PROTECTED inline 
-void
-Receiver::set_partner(Sender* partner)
-{
-  _partner = partner;
+  return (state() & Thread_receive_in_progress) && (partner() == sender);
 }
 
 
@@ -269,16 +211,15 @@ Receiver::set_partner(Sender* partner)
     @return true if receiver is in correct state to accept a message 
                  right now (open wait, or closed wait and waiting for sender).
  */
-IMPLEMENT inline NEEDS["std_macros.h", "thread_state.h", Receiver::partner,
-                       Receiver::vcpu_async_ipc]
+IMPLEMENT inline NEEDS["std_macros.h", "thread_state.h", "sender.h",
+                       Receiver::partner, Receiver::vcpu_async_ipc]
 Receiver::Rcv_state
 Receiver::sender_ok(const Sender *sender) const
 {
-  unsigned ipc_state = state() & (Thread_receiving |
-                                  //                 Thread_send_in_progress |
-                                  Thread_ipc_in_progress);
+  unsigned ipc_state = state() & Thread_ipc_mask;
+
   // If Thread_send_in_progress is still set, we're still in the send phase
-  if (EXPECT_FALSE(ipc_state != (Thread_receiving | Thread_ipc_in_progress)))
+  if (EXPECT_FALSE(ipc_state != Thread_receive_wait))
     return vcpu_async_ipc(sender);
 
   // Check open wait; test if this sender is really the first in queue
@@ -301,7 +242,7 @@ PRIVATE inline
 Receiver::Rcv_state
 Receiver::vcpu_async_ipc(Sender const *sender) const
 {
-  if (EXPECT_FALSE(state() & Thread_ipc_sending_mask))
+  if (EXPECT_FALSE(state() & Thread_ipc_mask))
     return Rs_not_receiving;
 
   Vcpu_state *vcpu = vcpu_state().access();
@@ -314,7 +255,8 @@ Receiver::vcpu_async_ipc(Sender const *sender) const
   if (this == current())
     self->spill_user_state();
 
-  self->vcpu_enter_kernel_mode(vcpu);
+  if (self->vcpu_enter_kernel_mode(vcpu))
+    vcpu = vcpu_state().access();
 
   LOG_TRACE("VCPU events", "vcpu", this, __context_vcpu_log_fmt,
       Vcpu_log *l = tbe->payload<Vcpu_log>();
@@ -328,7 +270,7 @@ Receiver::vcpu_async_ipc(Sender const *sender) const
   self->_rcv_regs = &vcpu->_ipc_regs;
   vcpu->_ts.set_ipc_upcall();
   self->set_partner(const_cast<Sender*>(sender));
-  self->state_add_dirty(Thread_receiving | Thread_ipc_in_progress);
+  self->state_add_dirty(Thread_receive_wait);
   self->vcpu_save_state_and_upcall();
   return Rs_irq_receive;
 }
@@ -352,7 +294,7 @@ struct Ipc_remote_dequeue_request
 {
   Receiver *partner;
   Sender *sender;
-  bool was_queued;
+  Receiver::Abort_state state;
 };
 
 PRIVATE static
@@ -363,22 +305,27 @@ Receiver::handle_remote_abort_send(Drq *, Context *, void *_rq)
   if (rq->sender->in_sender_list())
     {
       // really cancled IPC
-      rq->was_queued = true;
+      rq->state = Abt_ipc_cancel;
       rq->sender->sender_dequeue(rq->partner->sender_list());
       rq->partner->vcpu_update_state();
     }
+  else if (rq->partner->in_ipc(rq->sender))
+    rq->state = Abt_ipc_in_progress;
   return 0;
 }
 
 PUBLIC
-bool
+Receiver::Abort_state
 Receiver::abort_send(Sender *sender)
 {
   Ipc_remote_dequeue_request rq;
   rq.partner = this;
   rq.sender = sender;
-  rq.was_queued = false;
-  current()->drq(handle_remote_abort_send, &rq);
-  return !rq.was_queued;
+  rq.state = Abt_ipc_done;
+  if (current_cpu() != cpu())
+    drq(handle_remote_abort_send, &rq);
+  else
+    handle_remote_abort_send(0, 0, &rq);
+  return rq.state;
 }
 

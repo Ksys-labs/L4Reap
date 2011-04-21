@@ -18,6 +18,29 @@
 # modaddr: address where modules start, relative to begin of RAM
 #   this statement is either global (before first entry statement)
 #   or per entry
+#
+# 'module' variants
+# - module file: add file
+# - module-glob /some/path/*.foo: add all file matching
+# - module-perl perl-code: Perl code returns array of files to include
+# - moe file.cfg: expands to
+#        roottask moe rom/file.cfg
+#        module file.cfg
+#
+# Define a module group:
+#  group oftenneedthose
+#  module one
+#  module two
+#  module ...
+#
+# Use a module group:
+#  entry someentry
+#  module-group oftenneedthose
+#
+# Set defaults:
+# - default-kernel: set default kernel including arguments
+# - default-sigma0: set default sigma0 including arguments
+# - default-roottask: set default roottask including arguments
 
 modaddr 0x01100000
 
@@ -34,6 +57,7 @@ module hello.cfg
 module hello
 
 entry hello-shared
+kernel fiasco -serial_esc
 roottask moe --init=rom/ex_hello_shared
 module l4re
 module ex_hello_shared

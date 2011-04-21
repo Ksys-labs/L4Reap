@@ -44,35 +44,15 @@ Ipc_sender_base::ipc_receiver_aborted()
     waiting.
  */
 PUBLIC template< typename Derived >
-virtual bool
-Ipc_sender<Derived>::ipc_receiver_ready(Receiver *recv)
+virtual void
+Ipc_sender<Derived>::ipc_send_msg(Receiver *recv)
 {
-  // we are running with ints off
-  assert_kdb(current()->state() & Thread_ready);
-  assert_kdb(current() == recv);
-
-  if(!recv->sender_ok(this))
-    return false;
-
-  recv->vcpu_disable_irqs();
-
-  recv->ipc_init(this);
-
   derived()->transfer_msg(recv);
-
-  recv->state_change(~(Thread_receiving
-                       | Thread_transfer_in_progress
-                       | Thread_ipc_in_progress),
-                     Thread_ready);
-
-  if (derived()->dequeue_sender())    // last interrupt in queue?
+  if (derived()->dequeue_sender())
     {
       sender_dequeue(recv->sender_list());
       recv->vcpu_update_state();
     }
-
-  // else remain queued if more interrupts are left
-  return true;
 }
 
 PROTECTED inline NEEDS["config.h", "globals.h", "thread_state.h"]
@@ -88,7 +68,7 @@ Ipc_sender_base::handle_shortcut(Syscall_frame *dst_regs,
         // also: no shortcut for alien threads, they need to see the
         // after-syscall exception
         && !(receiver->state()
-          & (Thread_ready_mask | Thread_delayed_deadline | Thread_alien))
+          & (Thread_ready_mask | Thread_alien))
         && !current()->schedule_in_progress()))) // no schedule in progress
     {
       // we don't need to manipulate the state in a safe way

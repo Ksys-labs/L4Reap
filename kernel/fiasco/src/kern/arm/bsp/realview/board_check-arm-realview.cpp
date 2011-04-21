@@ -43,6 +43,13 @@ Board_check::id_pair Board_check::ids[] FIASCO_INITDATA = {
 };
 
 // ------------------------------------------------------------------------
+IMPLEMENTATION [arm && realview && realview_vexpress]:
+
+Board_check::id_pair Board_check::ids[] FIASCO_INITDATA = {
+  { 0xffffff00, 0x1190f500 },
+};
+
+// ------------------------------------------------------------------------
 IMPLEMENTATION [arm && realview]:
 
 #include "kmem.h"

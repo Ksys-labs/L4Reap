@@ -35,7 +35,8 @@ namespace L4Re { namespace Video {
     {
       Info, Get_buffer, Create_buffer, Create_view,
       Delete_buffer, Delete_view,
-      View_info, View_set_info, View_stack, View_refresh
+      View_info, View_set_info, View_stack, View_refresh,
+      Screen_refresh
     };
   };
 }}

@@ -137,10 +137,9 @@ IMPLEMENTATION[i8259]:
 #include <cassert>
 
 #include "io.h"
-#include "boot_info.h"
-#include "cmdline.h"
 #include "config.h"
 #include "initcalls.h"
+#include "koptions.h"
 #include "mem_layout.h"
 
 int Pic::special_fully_nested_mode = 1; // be compatible with Jochen's L4
@@ -215,7 +214,7 @@ Pic::pic_init(unsigned char master_base, unsigned char slave_base)
   // *** VMware Workstation internal monitor error ***
   // BUG F(152):393 bugNr=4388
 
-  if (strstr (Cmdline::cmdline(), " -nosfn"))
+  if (Koptions::o()->opt(Koptions::F_nosfn))
     special_fully_nested_mode = 0;
 
   if (special_fully_nested_mode)

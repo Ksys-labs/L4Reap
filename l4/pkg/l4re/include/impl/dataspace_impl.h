@@ -67,7 +67,7 @@ Dataspace::map_region(l4_addr_t offset, unsigned long flags,
     {
       unsigned char order_mapped;
       order_mapped = order
-        = l4_fpage_max_order(order, min_addr, min_addr, max_addr);
+        = l4_fpage_max_order(order, min_addr, min_addr, max_addr, min_addr);
       err = __map(offset, &order_mapped, flags, min_addr);
       if (EXPECT_FALSE(err < 0))
 	return err;
@@ -99,7 +99,7 @@ Dataspace::map(l4_addr_t offset, unsigned long flags,
   max_addr   = l4_round_page(max_addr);
   local_addr = l4_trunc_page(local_addr);
   unsigned char order
-    = l4_fpage_max_order(L4_LOG2_PAGESIZE, local_addr, min_addr, max_addr);
+    = l4_fpage_max_order(L4_LOG2_PAGESIZE, local_addr, min_addr, max_addr, local_addr);
 
   return __map(offset, &order, flags, local_addr);
 }

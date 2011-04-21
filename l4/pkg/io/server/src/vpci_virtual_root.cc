@@ -29,6 +29,12 @@ public:
   char const *hid() const
   { return "PNP0A03"; }
 
+  void set_host(Device *d) { _host = d; }
+  Device *host() const { return _host; }
+
+private:
+  Device *_host;
+
 public:
   int cfg_read(L4::Ipc_iostream &ios);
   int cfg_write(L4::Ipc_iostream &ios);

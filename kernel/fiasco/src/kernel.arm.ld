@@ -79,6 +79,10 @@ SECTIONS {
     . = ALIGN(4K);
   }
 
+  .koptions : AT (ADDR(.koptions) - phys_offset) {
+    *(.koptions)
+  }
+
   .mp_tramp : AT (ADDR(.mp_tramp) - phys_offset) {
     KEEP(*(.mp_tramp))
   }

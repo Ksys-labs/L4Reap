@@ -18,7 +18,7 @@ public:
 //-------------------------------------------------------------------------
 INTERFACE[ia32,amd64]:
 
-EXTENSION class Boot_info 
+EXTENSION class Boot_info
 {
 private:
   static Address  _mbi_pa;
@@ -30,12 +30,13 @@ private:
 
 
 //-------------------------------------------------------------------------
-IMPLEMENTATION[ia32,ux,amd64]:
+IMPLEMENTATION[ux]:
 
 #include "config.h"
+#include "koptions.h"
 #include "mem_layout.h"
 
-PUBLIC static inline NEEDS ["config.h","mem_layout.h"]
+PUBLIC static
 Address
 Boot_info::kmem_start(Address mem_max)
 {
@@ -45,7 +46,7 @@ Boot_info::kmem_start(Address mem_max)
   if (end_addr > mem_max)
     end_addr = mem_max;
 
-  size = kmemsize();
+  size = Koptions::o()->kmemsize << 10;
   if (!size)
     {
       size = end_addr / 100 * Config::kernel_mem_per_cent;
@@ -68,7 +69,6 @@ IMPLEMENTATION[ia32,amd64]:
 #include <cstring>
 #include <cstdlib>
 #include "checksum.h"
-#include "cmdline.h"
 #include "mem_layout.h"
 
 // these members needs to be initialized with some
@@ -93,15 +93,15 @@ Multiboot_info Boot_info::_kmbi;
  */
 //@{
 
-PUBLIC inline static 
+PUBLIC inline static
 void Boot_info::set_flags(unsigned aflags)
 {  _flag = aflags; }
 
-PUBLIC inline static 
+PUBLIC inline static
 void Boot_info::set_checksum_ro(unsigned ro_cs)
 {  _checksum_ro = ro_cs; }
 
-PUBLIC inline static 
+PUBLIC inline static
 void Boot_info::set_checksum_rw(unsigned rw_cs)
 {  _checksum_rw = rw_cs; }
 //@}
@@ -113,26 +113,23 @@ Boot_info::init()
 {
   // we assume that we run in 1:1 mapped mode
   _kmbi = *(Multiboot_info *)mbi_phys();
-  Cmdline::init(_kmbi.flags & Multiboot_info::Cmdline 
-      ? reinterpret_cast<char*>(_kmbi.cmdline)
-      : "");
 }
 
-PUBLIC inline static 
+PUBLIC inline static
 unsigned
 Boot_info::get_flags(void)
 {
   return _flag;
 }
 
-PUBLIC inline static 
+PUBLIC inline static
 unsigned
 Boot_info::get_checksum_ro(void)
 {
   return _checksum_ro;
 }
 
-PUBLIC inline static 
+PUBLIC inline static
 unsigned
 Boot_info::get_checksum_rw(void)
 {
@@ -165,16 +162,4 @@ Multiboot_info *
 Boot_info::mbi_virt()
 {
   return &_kmbi;
-}
-
-PUBLIC static
-unsigned long
-Boot_info::kmemsize()
-{
-  const char *c;
-
-  return (  (c = strstr(Cmdline::cmdline(), " -kmemsize="))
-	  ||(c = strstr(Cmdline::cmdline(), " -kmemsize ")))
-    ? strtol(c+11, 0, 0) << 20
-    : 0;
 }

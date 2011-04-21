@@ -38,10 +38,18 @@ Lock_guard<LOCK>::Lock_guard(LOCK *l)
 
 PUBLIC template<typename LOCK>
 inline
-bool
+void
 Lock_guard<LOCK>::lock(LOCK *l)
 {
   _lock = l;
+  _state = l->test_and_set();
+}
+
+PUBLIC template<typename LOCK>
+inline
+bool
+Lock_guard<LOCK>::try_lock(LOCK *l)
+{
   _state = l->test_and_set();
   switch (_state)
     {

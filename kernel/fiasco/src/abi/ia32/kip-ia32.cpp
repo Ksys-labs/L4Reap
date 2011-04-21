@@ -58,18 +58,18 @@ public:
 
   /* A0 */
   volatile Cpu_time clock;
-  volatile Cpu_time switch_time;
+  Unsigned64 _res7;
 
   /* B0 */
   Mword      frequency_cpu;
   Mword      frequency_bus;
-  volatile Cpu_time thread_time;
+  Unsigned64 _res8;
 
   /* C0 */
-  Mword      _res8[4];
+  Mword      _res9[4];
 
   /* D0 */
-  Mword      _res9[4];
+  Mword      _res10[4];
 
   /* E0 */
   Mword      user_ptr;
@@ -77,8 +77,7 @@ public:
   char       __pad[8];
 
   /* F0 */
-  Kernel_uart_info  kernel_uart_info;
-  Platform_info     platform_info;
+  Unsigned32 __reserved[20];
 };
 
 //---------------------------------------------------------------------------

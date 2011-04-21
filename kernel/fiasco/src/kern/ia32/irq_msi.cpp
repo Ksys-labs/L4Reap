@@ -84,7 +84,8 @@ PUBLIC
 bool
 Irq_chip_msi::free(Irq_base *irq, unsigned irqnum)
 {
-  return vfree(irq, irqnum + Irq_pin_msi::Vector_offs);
+  extern char entry_int_apic_ignore[];
+  return vfree(irq, irqnum + Irq_pin_msi::Vector_offs, &entry_int_apic_ignore);
 }
 
 

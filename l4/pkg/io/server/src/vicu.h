@@ -18,6 +18,7 @@
 
 #include <l4/re/util/cap_alloc>
 
+#include "irqs.h"
 #include "vdevice.h"
 
 namespace Vi {
@@ -35,6 +36,8 @@ public:
   bool match_hw_feature(Hw::Dev_feature const *) const { return false; }
 
   bool add_irqs(Adr_resource const *r);
+  bool add_irq(unsigned n, unsigned flags, Io_irq_pin *be);
+  int alloc_irq(unsigned flags, Io_irq_pin *be);
   bool irqs_allocated(Adr_resource const *r);
 
 private:
@@ -43,54 +46,6 @@ private:
   int unmask_irq(l4_msgtag_t tag, unsigned irqn);
   int set_mode(l4_msgtag_t tag, unsigned irqn, l4_umword_t mode);
 
-  class Sw_irq_pin;
-
-  class Io_irq_pin
-  {
-  public:
-    enum Flags
-    {
-      F_shareable = 0x1,
-      F_chained   = 0x2,
-    };
-
-  private:
-    friend class Sw_irq_pin;
-    int _sw_irqs;
-    L4::Cap<L4::Irq> _irq;
-    unsigned short _flags;
-    unsigned short _max_sw_irqs;
-
-    void chg_flags(bool set, unsigned flags)
-    {
-      if (set)
-	_flags |= flags;
-      else
-	_flags &= ~flags;
-    }
-
-  protected:
-    L4::Cap<L4::Irq> irq() const { return _irq; }
-
-    Io_irq_pin() : _sw_irqs(0), _irq(), _flags(0), _max_sw_irqs(0) {}
-
-    void set_shareable(bool s)
-    { chg_flags(s, F_shareable); }
-
-    void set_chained(bool s)
-    { chg_flags(s, F_chained); }
-
-  public:
-    void add_sw_irq() { ++_max_sw_irqs; }
-    virtual int bind(L4::Cap<L4::Irq> irq, unsigned mode) = 0;
-    virtual int unmask() = 0;
-    virtual int unbind() = 0;
-    virtual ~Io_irq_pin() {}
-
-    bool shared() const { return _max_sw_irqs > 1; }
-    bool shareable() const { return _flags & F_shareable; }
-    bool chained() const { return _flags & F_chained; }
-  };
 
   class Sw_irq_pin : public cxx::Avl_tree_node
   {
@@ -147,25 +102,19 @@ private:
     void allocate_master_irq();
   };
 
-
-  class Real_irq_pin : public Io_irq_pin
-  {
-  public:
-    Real_irq_pin() : Io_irq_pin() {}
-    int bind(L4::Cap<L4::Irq> irq, unsigned mode);
-    int unmask();
-    int unbind();
-  };
-
-  static Real_irq_pin *real_irq(unsigned n);
-  static Real_irq_pin _real_irqs[];
-
+  static Kernel_irq_pin *real_irq(unsigned n);
+  static Kernel_irq_pin *_real_irqs[];
 
   typedef cxx::Avl_tree<Sw_irq_pin, Sw_irq_pin> Irq_set;
   Irq_set _irqs;
-  //cxx::Bitmap<512> _allowed;
+
 public:
   static void *irq_loop(void*);
+  void set_host(Device *d) { _host = d; }
+  Device *host() const { return _host; }
+
+private:
+  Device *_host;
 };
 
 }

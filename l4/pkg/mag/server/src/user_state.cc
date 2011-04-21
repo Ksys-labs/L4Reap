@@ -147,10 +147,7 @@ static int user_state_post_event(lua_State *l)
   if (top >= 8 && lua_toboolean(l, 8))
     ust->vstack()->update_all_views();
 
-  if (ust->vstack()->mode().kill())
-    return 0;
-
-  if (v)
+  if (v && (!ust->vstack()->mode().kill() || v->super_view()))
     v->handle_event(e, ust->mouse_pos());
 
   return 0;
@@ -159,15 +156,16 @@ static int user_state_post_event(lua_State *l)
 static int user_state_post_pointer_event(lua_State *l)
 {
   User_state *ust = lua_check_class<Lua_user_state>(l, 1)->u;
-  
-  if (ust->vstack()->mode().kill())
-    return 0;
+ 
 
   View *v = ust->kbd_focus();
   if (!lua_isnil(l, 2))
     v = lua_check_class<Lua_view_proxy>(l, 2)->view();
 
   if (!v)
+    return 0;
+
+  if (ust->vstack()->mode().kill() && !v->super_view())
     return 0;
 
   Point m = ust->mouse_pos();
@@ -323,9 +321,6 @@ struct Lua_register_ops<Lua_user_state>
     lua_setfield(l, -2, "width");
     lua_pushinteger(l, sz.h());
     lua_setfield(l, -2, "height");
-
-    lua_alloc_class<Lua_view_proxy>(l, u->u);
-    lua_setfield(l, -2, "focused_view");
   }
 };
 
@@ -365,6 +360,9 @@ User_state::forget_view(View *v)
 
   if (_keyboard_focus == v)
     _keyboard_focus = 0;
+
+  if (_vstack->focused() == v)
+    _vstack->set_focused(0);
 }
 
 bool
@@ -376,6 +374,8 @@ User_state::set_focus(View *v)
   if (_keyboard_focus)
     _keyboard_focus->set_focus(false);
   _keyboard_focus = v;
+  _vstack->set_focused(v);
+
   if (v)
     v->set_focus(true);
 

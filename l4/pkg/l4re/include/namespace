@@ -55,7 +55,7 @@ namespace L4Re {
  * are resolved component wise by the client itself.
  */
 class L4_EXPORT Namespace :
-  public L4::Kobject_t<Namespace, L4::Kobject, L4Re::Protocol::Namespace> 
+  public L4::Kobject_t<Namespace, L4::Kobject, L4Re::Protocol::Namespace>
 {
   L4_KOBJECT(Namespace)
 

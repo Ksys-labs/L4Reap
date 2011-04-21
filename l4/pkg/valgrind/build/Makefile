@@ -9,8 +9,8 @@ VALGRIND_SRC = $(shell find $(PKGDIR)/src/ -name valgrind-$(VALGRIND_VERSION))
 VALGRIND_BUILD = $(OBJ_DIR)/OBJ-$(SYSTEM)/vg
 
 # basic BID settings
-MODE_USE_C = y
 L4_MULTITHREADED = y
+REQUIRES_LIBS    = l4re_c-util
 
 # variables used for passing to Valgrind's build system
 # gcc need a "," after defsym and a "=" after dynamic-linker
@@ -66,7 +66,7 @@ valgrind_conf :
 		echo OBJ: $(VALGRIND_BUILD) && \
 		mkdir -p $(VALGRIND_BUILD) && \
 		cd $(VALGRIND_BUILD) &&  \
-		AR="$(AR)" CC="$(CC)" CXX="$(CXX)" STTRIP="$(STRIP)" RANLIB="$(RANLIB)"\
+		AR="$(AR)" CC="$(CC)" CXX="$(CXX)" STRIP="$(STRIP)" RANLIB="$(RANLIB)"\
 		$(VALGRIND_SRC)/configure \
 						  --enable-maintainer-mode \
 						  --host=i386-l4re \
@@ -77,7 +77,7 @@ valgrind_conf :
 # this rule checks whether the modified file copies from other l4 packages
 # are still up-to-date
 check_rediff:
-	@cd $(PKGDIR)/.. && sha1sum -c $(SRC_DIR)/ext-checksums
+	@cd $(PKGDIR)/.. && shasum -c $(SRC_DIR)/ext-checksums
 
 .PHONY = valgrind_conf valgrind
 

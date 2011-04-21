@@ -45,10 +45,18 @@ class Vcon :
 
 public:
   /**
-   * \copydoc l4_vcon_write()
+   * \copydoc l4_vcon_send()
    * \note \a vcon is the implicit \a this pointer.
    */
   l4_msgtag_t
+  send(char const *buf, int size, l4_utcb_t *utcb = l4_utcb()) const throw()
+  { return l4_vcon_send_u(cap(), buf, size, utcb); }
+
+  /**
+   * \copydoc l4_vcon_write()
+   * \note \a vcon is the implicit \a this pointer.
+   */
+  long
   write(char const *buf, int size, l4_utcb_t *utcb = l4_utcb()) const throw()
   { return l4_vcon_write_u(cap(), buf, size, utcb); }
 
@@ -56,7 +64,8 @@ public:
    * \copydoc l4_vcon_read()
    * \note \a vcon is the implicit \a this pointer.
    */
-  int read(char *buf, int size, l4_utcb_t *utcb = l4_utcb()) const throw()
+  int
+  read(char *buf, int size, l4_utcb_t *utcb = l4_utcb()) const throw()
   { return l4_vcon_read_u(cap(), buf, size, utcb); }
 
   /**

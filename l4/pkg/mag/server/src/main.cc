@@ -37,15 +37,16 @@
 #include "input_driver"
 #include "object_gc.h"
 
-#include "plugin"
+#include "core_api"
 
 #include <dlfcn.h>
 
 using namespace Mag_server;
 
-static Core_api *_core_api;
+static Core_api_impl *_core_api;
 extern char const _binary_mag_lua_start[];
 extern char const _binary_mag_lua_end[];
+extern char const _binary_default_tff_start[];
 
 namespace Mag_server {
 
@@ -107,7 +108,7 @@ public:
 
 
 static void
-poll_input(Core_api *core)
+poll_input(Core_api_impl *core)
 {
   for (Input_source *i = core->input_sources(); i; i = i->next())
       i->poll_events();
@@ -134,6 +135,7 @@ public:
     {
       poll_input(_core_api);
       _core_api->user_state()->vstack()->flush();
+      _core_api->tick();
       to += 40000;
       while (to - 10000 < l4re_kip()->clock)
 	to += 20000;
@@ -327,10 +329,10 @@ int run(int argc, char const *argv[])
     }
 
   lua_pop(lua, lua_gettop(lua));
-
-  static View_stack vstack(screen, screen_view, &bg);
+  static Font label_font(&_binary_default_tff_start[0]);
+  static View_stack vstack(screen, screen_view, &bg, &label_font);
   static User_state user_state(lua, &vstack, cursor);
-  static Core_api core_api(&registry, lua, &user_state, rcv_cap, fb);
+  static Core_api_impl core_api(&registry, lua, &user_state, rcv_cap, fb, &label_font);
 
   Plugin_manager::start_plugins(&core_api);
 

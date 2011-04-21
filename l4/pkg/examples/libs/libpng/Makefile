@@ -3,9 +3,8 @@ L4DIR		?= $(PKGDIR)/../..
 
 TARGET		= ex_libpng
 SRC_C		= main.c
-MODE_USE_C      = y
 L4_MULTITHREADED = y
 DEPENDS_PKGS    = libpng zlib
-REQUIRES_LIBS   = libl4png_wrap
+REQUIRES_LIBS   = libl4png_wrap l4re_c-util
 
 include $(L4DIR)/mk/prog.mk

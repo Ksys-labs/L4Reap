@@ -95,10 +95,22 @@ class Jdb_kobject_irq : public Jdb_kobject_handler
 {
 };
 
+
+/* This macro does kind of hacky magic, It uses heuristics to compare
+ * If a C++ object object has a desired type. Therefore the vtable pointer
+ * (*z) of an object is compared to a desired vtable pointer (with some fuzz).
+ * The fuzz is necessary because there is usually a prefix data structure
+ * in each vtable and the size depends on the compiler.
+ * We use a range from x to x + 6 * wordsize.
+ *
+ * It is generally uncritical if this macro delivers a false negative. In
+ * such a case the JDB may deliver less information to the user. However, it
+ * critical to have a false positive, because JDB would probably crash.
+ */
 #define FIASCO_JDB_CMP_VTABLE(n, o) \
   extern char n[]; \
   char const *const *z = reinterpret_cast<char const* const*>(o); \
-  return *z == n + 3 * sizeof(Mword) ? (o) : 0
+  return (*z >= n && *z <= n + 6 * sizeof(Mword)) ? (o) : 0
 
 
 PUBLIC static
@@ -118,7 +130,7 @@ Jdb_kobject_irq::dcast_h(Irq_muxer *i)
 PUBLIC template<typename T>
 static
 T
-Jdb_kobject_irq::dcast(Kobject *o)
+Jdb_kobject_irq::dcast(Kobject_common *o)
 {
   Irq *i = Kobject::dcast<Irq*>(o);
   if (!i)
@@ -146,30 +158,19 @@ PUBLIC
 bool
 Jdb_kobject_irq::handle_key(Kobject_common *o, int key)
 {
-  if (key != 'x')
-    return false;
-
-  Irq *t = Kobject::dcast<Irq*>(o);
-
-  if (!t)
-    return true;
-
-  Irq_sender *i = static_cast<Irq_sender*>(t);
-
-  printf("IRQ: owner = %p\n     cnt = %d\n", i->owner(), i->queued());
-
-  Jdb::getchar();
-
-  return true;
+  (void)o; (void)key;
+  return false;
 }
+
 
 
 PUBLIC
 Kobject_common *
 Jdb_kobject_irq::follow_link(Kobject_common *o)
 {
-  Irq_sender *t = Kobject::dcast<Irq_sender*>(o);
-  return t ? Kobject::pointer_to_obj(t->owner()) : 0;
+  Irq_sender *t = Jdb_kobject_irq::dcast<Irq_sender*>(o);
+  Kobject_common *k = t ? Kobject::pointer_to_obj(t->owner()) : 0;
+  return k ? k : o;
 }
 
 PUBLIC
@@ -181,12 +182,15 @@ PUBLIC
 int
 Jdb_kobject_irq::show_kobject_short(char *buf, int max, Kobject_common *o)
 {
-  Irq_sender *t = Kobject::dcast<Irq_sender*>(o);
+  Irq *i = Kobject::dcast<Irq*>(o);
   Kobject_common *w = follow_link(o);
-  return snprintf(buf, max, " I=%3lx %s L=%lx T=%lx F=%x",
-                  t->irq(), t->pin()->pin_type(), t->obj_id(),
-                  w ? w->dbg_info()->dbg_id() : 0,
-		  (unsigned)t->pin()->flags());
+  Irq_sender *t = Jdb_kobject_irq::dcast<Irq_sender*>(o);
+
+  return snprintf(buf, max, " I=%3lx %s L=%lx T=%lx F=%x Q=%d",
+                  i->irq(), i->pin()->pin_type(), i->obj_id(),
+                  w != o ?  w->dbg_info()->dbg_id() : 0,
+		  (unsigned)i->pin()->flags(),
+                  t ? t->queued() : -1);
 }
 
 static

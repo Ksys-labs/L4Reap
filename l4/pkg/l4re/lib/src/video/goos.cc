@@ -93,4 +93,12 @@ Goos::delete_view(View const &v) const throw()
   return l4_error(io.call(cap(), L4Re::Protocol::Goos));
 }
 
+int
+Goos::refresh(int x, int y, int w, int h) throw()
+{
+  L4::Ipc_iostream io(l4_utcb());
+  io << Opcode(Goos_::Screen_refresh) << x << y << w << h;
+  return l4_error(io.call(cap(), L4Re::Protocol::Goos));
+}
+
 }}

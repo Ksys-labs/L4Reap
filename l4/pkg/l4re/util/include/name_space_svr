@@ -217,7 +217,7 @@ public:
   Entry *find(Name const &name) const  { return _tree.find_node(name); }
   Entry *remove(Name const &name) { return _tree.remove(name); }
   Entry *find_iter(Name const &name) const;
-  int insert(Entry *e)  { return _tree.insert(e).second; }
+  bool insert(Entry *e)  { return _tree.insert(e).second; }
 
   void dump(bool rec = false, int indent = 0) const;
 

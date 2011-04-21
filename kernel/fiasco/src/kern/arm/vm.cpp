@@ -59,7 +59,9 @@ class Vm : public Kobject, public Ref_cnt_obj
       Mword cp15_prim_region_remap;
       Mword cp15_norm_region_remap;
       Mword cp15_cid;
-     
+      Mword cp15_tls[3];
+      Mword cp10_fpexc;
+
       Mword pfs;
       Mword pfa;
       Mword exit_reason;

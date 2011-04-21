@@ -46,7 +46,7 @@ public:
   int get_stream_info_for_id(l4_umword_t, L4Re::Event_stream_info *)
   { return -L4_EINVAL; }
   int get_axis_info(l4_umword_t, unsigned /*naxes*/, unsigned * /*axes*/,
-                    L4Re::Event_absinfo *infos)
+                    L4Re::Event_absinfo *)
   { return -L4_EINVAL; }
 };
 

@@ -30,6 +30,13 @@ Irq_chip *
 Icu::chip(bool msi)
 { return msi ?  Irq_chip::hw_chip_msi : Irq_chip::hw_chip; }
 
+PUBLIC void
+Icu::operator delete (void *)
+{
+  printf("WARNING: tried to delete kernel ICU object.\n"
+         "         The system is now useless\n");
+}
+
 PUBLIC inline NEEDS[Icu::chip]
 Irq_base *
 Icu::icu_get_irq(unsigned irqnum)

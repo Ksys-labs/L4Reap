@@ -36,6 +36,7 @@
 #include <l4/re/log-sys.h>
 #include <l4/util/util.h>
 #include <l4/re/util/icu_svr>
+#include <l4/re/util/vcon_svr>
 #include <l4/sys/typeinfo_svr>
 
 #include <pthread-l4.h>
@@ -67,10 +68,12 @@ static L4::Cap<void> rcv_cap()
 
 
 class Terminal : public L4::Server_object,
-                 public L4Re::Util::Icu_cap_array_svr<Terminal>
+                 public L4Re::Util::Icu_cap_array_svr<Terminal>,
+                 public L4Re::Util::Vcon_svr<Terminal>
 {
 public:
   typedef L4Re::Util::Icu_cap_array_svr<Terminal> Icu_svr;
+  typedef L4Re::Util::Vcon_svr<Terminal>          Vcon_svr;
 
   explicit Terminal();
   int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
@@ -78,6 +81,11 @@ public:
   void trigger() { _irq.trigger(); }
 
   static L4::Cap<void> rcv_cap() { return ::rcv_cap(); }
+
+  unsigned vcon_read(char *buf, unsigned size) throw();
+  void vcon_write(const char *buf, unsigned size) throw();
+  int vcon_set_attr(l4_vcon_attr_t const *attr) throw();
+  int vcon_get_attr(l4_vcon_attr_t *attr) throw();
 
 private:
   Icu_svr::Irq _irq;
@@ -110,6 +118,7 @@ termstate_t *term_init(int cols, int rows, int hist)
   // explizitely init. these, as they may be freed in init_termstate
   term->text = 0;
   term->attrib = 0;
+  term->newline = 1;
 
   // init termstate
   if ((vt100_init(term, cols, rows, hist)))
@@ -397,6 +406,51 @@ Terminal::Terminal()
 {
 }
 
+void
+Terminal::vcon_write(const char *buf, unsigned len) throw()
+{
+  char mbuf[len];
+  memcpy(mbuf, buf, len);
+
+  //printf("%d: %.*s\n", len, (int)len, mbuf);
+
+  if (term)
+    vt100_write(term, mbuf, len);
+  else
+    L4Re::Env::env()->log()->printn(mbuf, len);
+}
+
+unsigned
+Terminal::vcon_read(char *buf, unsigned len) throw()
+{
+  int c = 0;
+  char *b = buf;
+  while (len && (c = vt100_trygetchar(term)) != -1)
+    {
+      *b = c;
+      ++b;
+      --len;
+    }
+  return b - buf;
+}
+
+int
+Terminal::vcon_set_attr(l4_vcon_attr_t const *attr) throw()
+{
+  term->echo    = attr->l_flags & L4_VCON_ECHO;
+  term->newline = attr->o_flags & L4_VCON_ONLCR;
+  return -L4_EOK;
+}
+
+int
+Terminal::vcon_get_attr(l4_vcon_attr_t *attr) throw()
+{
+  attr->l_flags = term->echo ? L4_VCON_ECHO : 0;
+  attr->o_flags = term->newline ? L4_VCON_ONLCR : 0;
+  attr->i_flags = 0;
+  return -L4_EOK;
+}
+
 int
 Terminal::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
 {
@@ -410,58 +464,10 @@ Terminal::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
     case L4::Irq::Protocol:
       return Icu_svr::dispatch(obj, ios);
     case L4::Vcon::Protocol:
-      break;
+      return Vcon_svr::dispatch(obj, ios);
     default:
       return -L4_EBADPROTO;
     }
-
-  L4::Opcode op;
-  ios >> op;
-
-  if (op == L4_VCON_WRITE_OP)
-    {
-      unsigned long len
-        = L4_UTCB_GENERIC_DATA_SIZE * sizeof(l4_utcb_mr()->mr[0]);
-      char buf[len];
-
-      ios >> L4::ipc_buf_cp_in(buf, len);
-
-      //printf("%.*s\n", (int)len, buf);
-
-      if (term)
-        vt100_write(term, buf, len);
-      else
-        L4Re::Env::env()->log()->printn(buf, len);
-
-      return -L4_EOK;
-    }
-
-  // read
-  l4_umword_t size = op >> 16;
-  int c = 0;
-
-  if (size > L4_UTCB_GENERIC_DATA_SIZE * sizeof(l4_utcb_mr()->mr[0]))
-    size = L4_UTCB_GENERIC_DATA_SIZE * sizeof(l4_utcb_mr()->mr[0]);
-  char _buf[size];
-  char *buf = _buf;
-
-  while (size && (c = vt100_trygetchar(term)) != -1)
-    {
-      *buf = c;
-      ++buf;
-      --size;
-    }
-  size = buf - _buf;
-
-  // 1 << 31 that the other side should do a wait-for-irq again, we
-  // do this if we read -1 out of trygetchar
-  if (c == -1)
-    size |= 1UL << 31;
-
-  ios << size;
-  ios.put((char const *)_buf, size & ~(1UL << 31));
-
-  return -L4_EOK;
 }
 
 class Controller : public L4::Server_object

@@ -1,7 +1,8 @@
 #include <l4/libpng/l4png_wrap.h>
-#include <l4/libpng/png.h>
-#include <stdlib.h>
 #include <l4/sys/l4int.h>
+#include <stdlib.h>
+#include <png.h>
+#include <pngstruct.h>
 
 #ifndef png_jmpbuf
 #  define png_jmpbuf(png_ptr) ((png_ptr)->jmpbuf)

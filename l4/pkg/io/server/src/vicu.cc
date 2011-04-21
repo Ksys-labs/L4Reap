@@ -13,6 +13,7 @@
 #include "vbus_factory.h"
 #include "server.h"
 #include "main.h"
+#include "debug.h"
 
 #include <l4/re/util/cap_alloc>
 #include <l4/re/namespace>
@@ -33,16 +34,20 @@ using L4Re::Util::Auto_cap;
 using L4Re::chksys;
 using L4Re::chkcap;
 
+enum { MAX_HW_IRQS = 256 };
 
-Sw_icu::Real_irq_pin Sw_icu::_real_irqs[256];
+Kernel_irq_pin *Sw_icu::_real_irqs[MAX_HW_IRQS];
 
-Sw_icu::Real_irq_pin *
+Kernel_irq_pin *
 Sw_icu::real_irq(unsigned n)
 {
   if (n >= sizeof(_real_irqs)/sizeof(_real_irqs[0]))
     return 0;
 
-  return &_real_irqs[n];
+  if (!_real_irqs[n])
+    _real_irqs[n] = new Kernel_irq_pin(n);
+
+  return _real_irqs[n];
 }
 
 
@@ -63,16 +68,15 @@ Sw_icu::bind_irq(l4_msgtag_t tag, unsigned irqn, L4::Snd_fpage const &/*irqc*/)
   if (tag.items() < 1)
     return -L4_EINVAL;
 
+  d_printf(DBG_ALL, "%s[%p]: bind_irq(%d, ...)\n", name(), this, irqn);
 
-  // printf("%s[%p]: bind_irq(%d, ...)\n", name(), this, irqn);
-
-  Irq_set::iterator i = _irqs.find(irqn);
+  Irq_set::Iterator i = _irqs.find(irqn);
   if (i == _irqs.end())
     return -L4_ENOENT;
 
   int err = i->bind(rcv_cap);
   if (err < 0)
-    printf("ERROR: binding irq %d, result is %d (%s)\n", irqn, err, l4sys_errtostr(err));
+    d_printf(DBG_ERR, "ERROR: binding irq %d, result is %d (%s)\n", irqn, err, l4sys_errtostr(err));
 
   return err;
 }
@@ -82,9 +86,10 @@ Sw_icu::unbind_irq(l4_msgtag_t tag, unsigned irqn, L4::Snd_fpage const &/*irqc*/
 {
   if (tag.items() < 1)
     return -L4_EINVAL;
-  // printf("%s[%p]: unbind_irq(%d, ...)\n", name(), this, irqn);
 
-  Irq_set::iterator i = _irqs.find(irqn);
+  d_printf(DBG_ALL, "%s[%p]: unbind_irq(%d, ...)\n", name(), this, irqn);
+
+  Irq_set::Iterator i = _irqs.find(irqn);
   if (i == _irqs.end())
     return -L4_ENOENT;
 
@@ -95,13 +100,13 @@ Sw_icu::unbind_irq(l4_msgtag_t tag, unsigned irqn, L4::Snd_fpage const &/*irqc*/
 int
 Sw_icu::set_mode(l4_msgtag_t /*tag*/, unsigned irqn, l4_umword_t mode)
 {
-  Irq_set::iterator i = _irqs.find(irqn);
+  Irq_set::Iterator i = _irqs.find(irqn);
   if (i == _irqs.end())
     return -L4_ENOENT;
 
   if (i->l4_type() != (mode & 0x6))
     {
-      printf("Changing type of IRQ %d from %x to %lx prohibited\n",
+      d_printf(DBG_WARN, "WARNING: Changing type of IRQ %d from %x to %lx prohibited\n",
              irqn, i->l4_type(), mode);
       return 0;
     }
@@ -111,7 +116,7 @@ Sw_icu::set_mode(l4_msgtag_t /*tag*/, unsigned irqn, l4_umword_t mode)
 int
 Sw_icu::unmask_irq(l4_msgtag_t /*tag*/, unsigned irqn)
 {
-  Irq_set::iterator i = _irqs.find(irqn);
+  Irq_set::Iterator i = _irqs.find(irqn);
   if (i == _irqs.end())
     return -L4_ENOENT;
 
@@ -146,6 +151,33 @@ Sw_icu::add_irqs(Adr_resource const *r)
       _irqs.insert(irq);
     }
   return true;
+}
+
+bool
+Sw_icu::add_irq(unsigned n, unsigned flags, Io_irq_pin *be)
+{
+  if (_irqs.find(n) == _irqs.end())
+    return false;
+
+  Sw_irq_pin *irq = new Sw_irq_pin(be, n, flags);
+  _irqs.insert(irq);
+  return true;
+}
+
+int
+Sw_icu::alloc_irq(unsigned flags, Io_irq_pin *be)
+{
+  unsigned i;
+  for (i = 1; i < 1000; ++i)
+    if (_irqs.find(i) == _irqs.end())
+      break;
+
+  if (i == 1000)
+    return -1;
+
+  Sw_irq_pin *irq = new Sw_irq_pin(be, i, flags);
+  _irqs.insert(irq);
+  return i;
 }
 
 
@@ -203,51 +235,6 @@ Sw_icu::Sw_irq_pin::trigger() const
   return l4_error(_irq->trigger());
 }
 
-int
-Sw_icu::Real_irq_pin::unbind()
-{
-  unsigned n = this - real_irq(0);
-  if (n & 0x80)
-    n = (n - 0x80) | L4::Icu::F_msi;
-
-  int err = l4_error(system_icu()->icu->unbind(n, irq()));
-  set_shareable(false);
-  return err;
-}
-
-int
-Sw_icu::Real_irq_pin::bind(L4::Cap<L4::Irq> irq, unsigned mode)
-{
-  unsigned n = this - real_irq(0);
-  if (n & 0x80)
-    n = (n - 0x80) | L4::Icu::F_msi;
-
-  int err = l4_error(system_icu()->icu->bind(n, irq));
-
-  // allow sharing if IRQ must be acknowledged via the IRQ object 
-  if (err == 0)
-    set_shareable(true);
-
-  if (err < 0)
-    return err;
-
-  // printf(" IRQ[%x]: mode=%x ... ", n, mode);
-  err = l4_error(system_icu()->icu->set_mode(n, mode));
-  // printf("result=%d\n", err);
-
-  return err;
-}
-
-int
-Sw_icu::Real_irq_pin::unmask()
-{
-  unsigned n = this - real_irq(0);
-  if (n & 0x80)
-    n = (n - 0x80) | L4::Icu::F_msi;
-
-  system_icu()->icu->unmask(n);
-  return -L4_EINVAL;
-}
 
 unsigned
 Sw_icu::Sw_irq_pin::l4_type() const
@@ -266,56 +253,10 @@ Sw_icu::Sw_irq_pin::allocate_master_irq()
   // printf("IRQ mode = %x -> %x\n", type(), l4_type());
   chksys(L4Re::Env::env()->factory()->create(lirq.get(), L4_PROTO_IRQ) << l4_umword_t(1), "allocating IRQ");
   chksys(_master->bind(lirq.get(), l4_type()), "binding IRQ");
-  _master->_irq  = lirq.release();
+  _master->irq(lirq.release());
   _master->set_chained(true);
 }
 
-#if 0
-int
-Sw_icu::Sw_irq_pin::share(Auto_cap<L4::Irq>::Cap const &irq)
-{
-  if (!_master->shareable())
-    {
-      printf("WARNING: IRQ %d cannot be shared\n", irqn());
-      return -L4_EINVAL;
-    }
-
-  try
-    {
-      // the second irq shall be attached to a single hw irq
-      printf("IRQ %d -> proxy -> 2 clients\n", irqn());
-      Auto_cap<L4::Irq>::Cap lirq(L4Re::Util::cap_alloc.alloc<L4::Irq>());
-      if (!lirq.get().is_valid())
-	return -L4_ENOMEM;
-
-      int err = l4_error(L4Re::Env::env()->factory()->create_irq(lirq.get()));
-
-      if (err < 0)
-	return err;
-
-      //enter_kdebug("XX");
-      // XXX: level low is a hack
-      L4Re::chksys(lirq->chain(l4_umword_t(_master), L4::Irq::F_level_low, _master->_irq));
-      L4Re::chksys(lirq->chain(l4_umword_t(_master), L4::Irq::F_level_low, irq.get()));
-      L4Re::chksys(lirq->set_mode(L4::Irq::F_level_low), "set mode");
-      L4Re::chksys(err = _master->bind(lirq.get()));
-      //enter_kdebug("XX");
-
-      // do the internal list enqueuing and resource management
-      _state |= S_bound;
-      _master->_irq = lirq.release();
-      _master->_sw_irqs++;
-      _master->set_chained(true);
-      _irq = irq;
-      return 0;
-    }
-  catch (L4::Runtime_error const &e)
-    {
-      _master->bind(_master->_irq);
-      return e.err_no();
-    }
-}
-#endif
 
 int
 Sw_icu::Sw_irq_pin::bind(L4::Cap<void> rc)
@@ -327,12 +268,7 @@ Sw_icu::Sw_irq_pin::bind(L4::Cap<void> rc)
 
       _unbind();
     }
-#if 0
-  Real_irq_pin *ri;
 
-  if (!(ri = real_irq(irqn())))
-    return -L4_EPERM;
-#endif
   if (bound())
     return -L4_EPERM;
 
@@ -341,7 +277,7 @@ Sw_icu::Sw_irq_pin::bind(L4::Cap<void> rc)
 
   irq.get().move(L4::cap_cast<L4::Irq>(rc));
 
-  if (_master->shared() && !_master->chained() && _master->_sw_irqs == 0)
+  if (_master->shared() && !_master->chained() && _master->sw_irqs() == 0)
     {
       allocate_master_irq();
       assert (_master->chained());
@@ -350,27 +286,27 @@ Sw_icu::Sw_irq_pin::bind(L4::Cap<void> rc)
   if (!_master->chained())
     {
       // the first irq shall be attached to a hw irq
-      // printf("IRQ %d -> client\n", irqn());
-      // printf("IRQ mode = %x -> %x\n", type(), l4_type());
+      d_printf(DBG_DEBUG2, "IRQ %d -> client\nIRQ mode = %x -> %x\n",
+              irqn(), type(), l4_type());
       int err = _master->bind(irq.get(), l4_type());
       if (err < 0)
 	return err;
 
       _irq = irq;
-      _master->_irq = _irq.get();
-      ++_master->_sw_irqs;
+      _master->irq(_irq.get());
+      _master->inc_sw_irqs();
       _state |= S_bound;
       if (err == 1)
 	_state |= S_unmask_via_icu;
 
-      // printf("  bound irq %u -> err=%d\n", irqn(), err);
+      d_printf(DBG_DEBUG2, "  bound irq %u -> err=%d\n", irqn(), err);
       return err;
     }
 
-  // printf("IRQ %d -> proxy -> %d clients\n", irqn(), _master->_sw_irqs + 1);
-  L4Re::chksys(_master->_irq->chain(l4_umword_t(_master), irq.get()), "attach");
+  d_printf(DBG_DEBUG2, "IRQ %d -> proxy -> %d clients\n", irqn(), _master->sw_irqs() + 1);
+  L4Re::chksys(_master->irq()->chain(l4_umword_t(_master), irq.get()), "attach");
   _irq = irq;
-  _master->_sw_irqs++;
+  _master->inc_sw_irqs();
 
   return 0;
 }
@@ -379,13 +315,13 @@ int
 Sw_icu::Sw_irq_pin::_unbind()
 {
   int err = 0;
-  --(_master->_sw_irqs);
-  if (_master->_sw_irqs == 0)
+  _master->dec_sw_irqs();
+  if (_master->sw_irqs() == 0)
     {
       if (_master->chained())
-	L4Re::Util::cap_alloc.free(_master->_irq);
+	L4Re::Util::cap_alloc.free(_master->irq());
 
-      _master->_irq = L4::Cap<L4::Irq>::Invalid;
+      _master->irq(L4::Cap<L4::Irq>::Invalid);
       _master->set_chained(false);
     }
 
@@ -401,7 +337,7 @@ Sw_icu::Sw_irq_pin::unbind()
   if (!_master)
     return -L4_EINVAL;
 
-  if (!_master->_sw_irqs)
+  if (!_master->sw_irqs())
     return -L4_EINVAL;
 
   return _unbind();

@@ -1,3 +1,21 @@
+1.2.11:
+Thomas Klausner - Wed Jan 19 19:31:25 PST 2011
+ * Fixed compiling with libpng 1.4
+Sam Lantinga - Mon May 10 22:42:53 PDT 2010
+ * Fixed loading HAM6 images with stencil mask
+Mark Tucker - Fri, 27 Nov 2009 12:38:21 -0500
+ * Fixed bug loading 15 and 16 bit BMP images
+
+1.2.10:
+Sam Lantinga - Sat Nov 14 11:22:14 PST 2009
+ * Fixed bug loading multiple images
+
+1.2.9:
+Sam Lantinga - Tue Nov 10 00:29:20 PST 2009
+ * Fixed alpha premultiplication on Mac OS X and iPhone OS
+Sam Lantinga - Sun Nov  8 07:52:11 PST 2009
+ * Fixed checking for IMG_Init() return value in image loaders
+
 1.2.8:
 Sam Lantinga - Sun Oct  4 13:12:54 PDT 2009
  * Added support for uncompressed PCX files

@@ -74,13 +74,11 @@ Object::~Object()
 
 
 
-
 class Registry : protected L4Re::Util::Object_registry
 {
 public:
   L4::Cap<void> register_obj(cxx::Ref_ptr<Object> o)
   {
-
     L4::Cap<void> r = L4Re::Util::Object_registry::register_obj(o.ptr());
 
     if (r)
@@ -102,7 +100,6 @@ public:
   virtual void add_gc_obj(Object *o) = 0;
 
   using L4Re::Util::Object_registry::dispatch;
-
 };
 
 }

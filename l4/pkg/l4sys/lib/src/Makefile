@@ -9,6 +9,9 @@ PC_LIBS_l4sys                = -ll4sys
 PC_LIBS_l4sys-direct         = -ll4sys-direct
 PC_LIBS_l4sys-l4x            = -ll4sys-l4x
 
+CXXFLAGS                    += -DL4_NO_RTTI -fno-rtti -fno-exceptions
+
+SRC_CC                       = kobject.cc
 SRC_S_libl4sys-arm          += ARCH-arm/atomic_ops_s.S
 SRC_C_libl4sys-ppc32        += ARCH-ppc32/atomic_ops.c
 SRC_S_libl4sys-sparc        += ARCH-sparc/atomic_ops.S

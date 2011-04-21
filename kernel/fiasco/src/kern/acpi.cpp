@@ -117,10 +117,56 @@ private:
 IMPLEMENTATION:
 
 #include "kmem.h"
+#include <cctype>
 
 Acpi_rsdt const *Acpi::_rsdt;
 Acpi_xsdt const *Acpi::_xsdt;
 bool Acpi::_init_done;
+
+
+static void
+print_acpi_id(char const *id, unsigned len)
+{
+  char ID[len];
+  for (unsigned i = 0; i < len; ++i)
+    ID[i] = isalnum(id[i]) ? id[i] : '.';
+  printf("%.*s", len, ID);
+}
+
+PUBLIC void
+Acpi_rsdp::print_info() const
+{
+  printf("ACPI: RSDP[%p]\tr%02x OEM:", this, rev);
+  print_acpi_id(oem, 6);
+  printf("\n");
+}
+
+PUBLIC void
+Acpi_table_head::print_info() const
+{
+  printf("ACPI: ");
+  print_acpi_id(signature, 4);
+  printf("[%p]\tr%02x OEM:", this, rev);
+  print_acpi_id(oem_id, 6);
+  printf(" OEMTID:");
+  print_acpi_id(oem_tid, 8);
+  printf("\n");
+}
+
+PUBLIC template< typename T >
+void
+Acpi_sdt<T>::print_summary() const
+{
+  for (unsigned i = 0; i < ((len-sizeof(Acpi_table_head))/sizeof(ptrs[0])); ++i)
+    {
+      Acpi_table_head const *t = Kmem::dev_map.map((Acpi_table_head const*)ptrs[i]);
+      if (t == (Acpi_table_head const *)~0UL)
+	continue;
+
+      t->print_info();
+    }
+}
+
 
 PUBLIC static
 void
@@ -139,11 +185,7 @@ Acpi::init_virt()
       return;
     }
 
-  printf("ACPI: RSDP = %p   pRSDT = %08x   pXSDT = %16llx\n",
-         rsdp, rsdp->rsdt_phys, rsdp->xsdt_phys);
-  printf("ACPI: OEM: %c%c%c%c%c%c\n",
-         rsdp->oem[0], rsdp->oem[1], rsdp->oem[2],
-         rsdp->oem[3], rsdp->oem[4], rsdp->oem[5]);
+  rsdp->print_info();
 
   if (rsdp->rev && rsdp->xsdt_phys)
     {
@@ -153,7 +195,10 @@ Acpi::init_virt()
       else if (!x->checksum_ok())
         printf("ACPI: Checksum mismatch in XSDT\n");
       else
-        _xsdt = x;
+        {
+          _xsdt = x;
+          x->print_info();
+        }
     }
 
   if (rsdp->rsdt_phys)
@@ -164,8 +209,16 @@ Acpi::init_virt()
       else if (!r->checksum_ok())
         printf("ACPI: Checksum mismatch in RSDT\n");
       else
-        _rsdt = r;
+        {
+          _rsdt = r;
+          r->print_info();
+        }
     }
+
+  if (_xsdt)
+    _xsdt->print_summary();
+  else if (_rsdt)
+    _rsdt->print_summary();
 }
 
 PUBLIC static
@@ -238,7 +291,7 @@ Acpi_sdt<T>::find(char const sig[4]) const
 {
   for (unsigned i = 0; i < ((len-sizeof(Acpi_table_head))/sizeof(ptrs[0])); ++i)
     {
-      Acpi_table_head const *t = Kmem::dev_map.lookup((Acpi_table_head const*)ptrs[i]);
+      Acpi_table_head const *t = Kmem::dev_map.map((Acpi_table_head const*)ptrs[i]);
       if (t == (Acpi_table_head const *)~0UL)
 	continue;
 

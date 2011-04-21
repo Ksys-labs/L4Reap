@@ -28,7 +28,7 @@
 #define L4_SYSCALL_ENTER_KDEBUG		(-0x00000020-L4_SYSCALL_MAGIC_OFFSET)
 
 
-#define enter_kdebug(text...) do { } while (1) 
+#define enter_kdebug(text...) do { } while (1)
 
 L4_INLINE void
 outnstring(const char* x, unsigned len);
@@ -71,12 +71,6 @@ l4_sys_sti(void);
 
 L4_INLINE void
 l4_kdebug_imb(void);
-
-EXTERN_C long int
-l4_atomic_add(volatile long int* mem, long int offset) L4_NOTHROW;
-
-EXTERN_C long int
-l4_atomic_cmpxchg(volatile long int* mem, long int oldval, long int newval) L4_NOTHROW;
 
 L4_INLINE int
 l4_irq_enabled(void);

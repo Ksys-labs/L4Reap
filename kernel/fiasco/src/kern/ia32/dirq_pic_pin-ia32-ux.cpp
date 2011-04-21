@@ -26,7 +26,7 @@ public:
     unsigned nr_irqs() const { return 16; }
 
     bool valloc(Irq_base *irq, unsigned vector);
-    static bool vfree(Irq_base *irq, unsigned vector);
+    static bool vfree(Irq_base *irq, unsigned vector, void *handler);
     virtual void disable_irq(unsigned vector);
 
   protected:
@@ -210,12 +210,12 @@ Dirq_pic_pin::Chip::free(Irq_base *irq, unsigned irqn)
     return false;
 
   unsigned v = vector(irqn);
-  return vfree(irq, v);
+  return vfree(irq, v, 0);
 }
 
 IMPLEMENT
 bool
-Dirq_pic_pin::Chip::vfree(Irq_base *irq, unsigned v)
+Dirq_pic_pin::Chip::vfree(Irq_base *irq, unsigned v, void *handler)
 {
   if (v >= APIC_IRQ_BASE - 0x10)
     return false;
@@ -228,7 +228,7 @@ Dirq_pic_pin::Chip::vfree(Irq_base *irq, unsigned v)
 
   _entry_code[v-0x20].free();
 
-  Idt::set_entry(v, 0, false);
+  Idt::set_entry(v, (Address)handler, false);
   return true;
 }
 
@@ -286,41 +286,6 @@ Dirq_pic_pin::disable()
   _entry_code[vector -0x20].free();
 }
 
-#if 0
-PUBLIC
-void
-Dirq_pic_pin::setup()
-{
-  extern char __generic_irq_entry[];
-  unsigned vector = this->vector();
-
-  if (vector == Config::scheduler_irq_vector)
-    return;
-
-  // push %eax/%rdi
-  _entry_code[vector -0x20][0] = 0x50 + Register_arg0;
-
-  // mov imm32, %eax/%rdi
-  _entry_code[vector -0x20][1] = 0xb8 + Register_arg0;
-  *(Unsigned32 *)(_entry_code[vector -0x20] + 2) = Mword(Irq::self(this));
-
-  // jmp __generic_irq_entry
-  _entry_code[vector -0x20][6] = 0xe9;
-  *(Unsigned32 *)(_entry_code[vector -0x20] + 7)
-    = (Address)__generic_irq_entry - (Address)_entry_code[vector -0x20] - 11;
-
-  if (vector >= APIC_IRQ_BASE - 0x10)
-    {
-      printf("could not assign IRQ vector for DIRQ %u\n", irq());
-      return;
-    }
-
-  // force code to memory before setting IDT entry
-  asm volatile ( "" : : : "memory" );
-
-  Idt::set_entry(vector, (Address)_entry_code[vector -0x20], false);
-}
-#endif
 
 IMPLEMENT FIASCO_INIT
 void

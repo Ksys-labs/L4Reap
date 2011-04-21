@@ -16,11 +16,10 @@ IMPLEMENTATION:
 #include <cstring>
 #include <panic.h>
 
-#include "boot_info.h"
-#include "cmdline.h"
 #include "config.h"
 #include "cpu.h"
 #include "jdb_ktrace.h"
+#include "koptions.h"
 #include "mem_layout.h"
 #include "vmem_alloc.h"
 
@@ -38,14 +37,12 @@ void Jdb_tbuf_init::init()
     {
       init_done = 1;
 
-      const char *c;
       unsigned n;
       unsigned want_entries = Config::tbuf_entries;
 
-      if (  (c = strstr(Cmdline::cmdline(), " -tbuf_entries="))
-	  ||(c = strstr(Cmdline::cmdline(), " -tbuf_entries ")))
-	want_entries = strtol(c+15, 0, 0);
-      
+      if (Koptions::o()->opt(Koptions::F_tbuf_entries))
+	want_entries = Koptions::o()->tbuf_entries;
+
       // minimum: 8KB (  2 pages), maximum: 2MB (512 pages)
       // must be a power of 2 (for performance reasons)
       for (n = Config::PAGE_SIZE/sizeof(Tb_entry);

@@ -14,12 +14,12 @@ class Mux_console : public Console
 public:
 
   enum
-    { 
-      SIZE = 8  ///< The maximum number of consoles to be multiplexed.
-    };
+  {
+    SIZE = 8  ///< The maximum number of consoles to be multiplexed.
+  };
 
-  int  write( char const *str, size_t len );
-  int  getchar( bool blocking = true );
+  int  write(char const *str, size_t len);
+  int  getchar(bool blocking = true);
   int  char_avail() const;
 
 private:

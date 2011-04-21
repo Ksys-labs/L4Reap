@@ -50,7 +50,7 @@ public:
   virtual void buffer(void *buffer) = 0;
   virtual int bytes_per_line() const = 0;
 
-  void draw_rect(Rect const &r, Rgba32::Color color);
+  void draw_rect(Rect const &r, Rgba32::Color color, int width = 1);
 
 };
 

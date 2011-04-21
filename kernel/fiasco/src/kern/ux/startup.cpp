@@ -10,6 +10,7 @@ IMPLEMENTATION:
 #include "idt.h"
 #include "initcalls.h"
 #include "jdb.h"
+#include "kernel_console.h"
 #include "kernel_task.h"
 #include "kip_init.h"
 #include "kmem.h"
@@ -30,6 +31,7 @@ STATIC_INITIALIZER_P(startup_system2, STARTUP_INIT_PRIO);
 static void FIASCO_INIT
 startup_system1()
 {
+  Kconsole::init();
   Usermode::init(0);
   Boot_info::init();
   Config::init();

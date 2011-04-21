@@ -1,0 +1,78 @@
+// vi:ft=cpp
+/*
+ * (c) 2011 Alexander Warg <warg@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
+ *
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ *
+ * As a special exception, you may use this file as part of a free software
+ * library without restriction.  Specifically, if other files instantiate
+ * templates or use macros or inline functions from this file, or you compile
+ * this file and link it with other files to produce an executable, this
+ * file does not by itself cause the resulting executable to be covered by
+ * the GNU General Public License.  This exception does not however
+ * invalidate any other reasons why the executable file might be covered by
+ * the GNU General Public License.
+ */
+
+#pragma once
+
+namespace cxx {
+
+template< typename T > class H_list;
+
+template< typename T >
+class H_list_item
+{
+private:
+  friend class H_list<T>;
+
+  H_list_item *_n, **_pn;
+
+public:
+  H_list_item() : _n(0), _pn(0) {}
+
+  T *l_next() const { return static_cast<T*>(_n); }
+  void l_remove()
+  {
+    if (!_pn)
+      return;
+
+    *_pn = _n;
+    if (_n) 
+      _n->_pn = _pn;
+
+    _pn = 0;
+  }
+
+  bool l_in_list() const { return _pn; }
+
+  ~H_list_item() { l_remove(); }
+};
+
+template< typename T >
+class H_list
+{
+private:
+  H_list_item<T> *_f;
+
+public:
+  typedef T Item;
+
+  H_list() : _f(0) {}
+
+  T *first() const { return static_cast<T*>(_f); }
+  static T *next(T *c) { return c->l_next(); }
+  void add(T *e)
+  {
+    if (_f)
+      _f->_pn = &e->_n;
+    e->_n = _f;
+    e->_pn = &_f;
+    _f = e;
+  }
+};
+
+}

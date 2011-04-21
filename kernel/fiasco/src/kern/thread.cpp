@@ -60,10 +60,6 @@ public:
   enum Control_flags
   {
     Ctl_set_pager       = 0x0010000,
-    Ctl_set_scheduler   = 0x0020000,
-    Ctl_set_mcp         = 0x0040000,
-    Ctl_set_prio        = 0x0080000,
-    Ctl_set_quantum     = 0x0100000,
     Ctl_bind_task       = 0x0200000,
     Ctl_alien_thread    = 0x0400000,
     Ctl_ux_native       = 0x0800000,
@@ -687,49 +683,6 @@ Thread::control(Thread_ptr const &pager, Thread_ptr const &exc_handler)
   return 0;
 }
 
-
-PRIVATE static inline
-bool FIASCO_WARN_RESULT
-Thread::copy_utcb_to_utcb(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
-                          unsigned char rights)
-{
-  assert (cpu_lock.test());
-
-  Utcb *snd_utcb = snd->utcb().access();
-  Utcb *rcv_utcb = rcv->utcb().access();
-  Mword s = tag.words();
-  Mword r = Utcb::Max_words;
-
-  Mem::memcpy_mwords (rcv_utcb->values, snd_utcb->values, r < s ? r : s);
-
-  bool success = true;
-  if (tag.items())
-    success = transfer_msg_items(tag, snd, snd_utcb, rcv, rcv_utcb, rights);
-
-  if (tag.transfer_fpu() && rcv_utcb->inherit_fpu() && (rights & L4_fpage::W))
-    snd->transfer_fpu(rcv);
-
-  return success;
-}
-
-
-PUBLIC inline NEEDS[Thread::copy_utcb_to_ts, Thread::copy_utcb_to_utcb,
-                    Thread::copy_ts_to_utcb]
-bool FIASCO_WARN_RESULT
-Thread::copy_utcb_to(L4_msg_tag const &tag, Thread* receiver,
-                     unsigned char rights)
-{
-  // we cannot copy trap state to trap state!
-  assert_kdb (!this->_utcb_handler || !receiver->_utcb_handler);
-  if (EXPECT_FALSE(this->_utcb_handler != 0))
-    return copy_ts_to_utcb(tag, this, receiver, rights);
-  else if (EXPECT_FALSE(receiver->_utcb_handler != 0))
-    return copy_utcb_to_ts(tag, this, receiver, rights);
-  else
-    return copy_utcb_to_utcb(tag, this, receiver, rights);
-}
-
-
 PUBLIC static inline
 bool
 Thread::is_tcb_address(Address a)
@@ -743,7 +696,7 @@ void
 Thread::assert_irq_entry()
 {
   assert_kdb(current_thread()->schedule_in_progress()
-             || current_thread()->state() & (Thread_ready_mask | Thread_drq_wait | Thread_waiting));
+             || current_thread()->state() & (Thread_ready_mask | Thread_drq_wait | Thread_waiting | Thread_ipc_transfer));
 }
 
 

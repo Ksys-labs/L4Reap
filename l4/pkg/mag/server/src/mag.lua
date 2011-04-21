@@ -853,7 +853,7 @@ function Input_device:find_device_type()
 
   local have_keys = self.info:get_evbit(1);
   if (have_keys and self.info:get_evbit(2)) then
-    -- we have relative axes, can ba a mouse
+    -- we have relative axes, can be a mouse
     if (self.info:get_relbit(0) and self.info:get_relbit(1)
         and self.info:get_keybit(0x110)) then
       -- x and y axis and at least the left mouse button found
@@ -935,7 +935,10 @@ function create_input_device(device, stream)
   local pdev;
   function pdev(dh)
     local a, b, c, d = dh.info:get_device_id();
-    return Input_device.Bus[a], b, c, d;
+    if Input_device.Bus[a] then
+      return Input_device.Bus[a], b, c, d;
+    end
+    return "bus " .. a, b, c, d;
   end
 
   print (string.format([==[Input: new %s device (src='%s' stream='%s')

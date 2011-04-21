@@ -7,6 +7,7 @@
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
  */
+#include "debug.h"
 #include "hw_device.h"
 #include "pci.h"
 #include "main.h"
@@ -67,19 +68,19 @@ Pci_iomem_root_bridge::init()
 {
   if (_iobase_phys == ~0UL)
     {
-      printf("ERROR: Pci_root_bridge: 'iobase' not set.\n");
+      d_printf(DBG_ERR, "ERROR: Pci_root_bridge: 'iobase' not set.\n");
       return;
     }
 
   if (_iosize == 0U)
     {
-      printf("ERROR: Pci_root_bridge: 'iosize' not set.\n");
+      d_printf(DBG_ERR, "ERROR: Pci_root_bridge: 'iosize' not set.\n");
       return;
     }
 
   if (_dev_start == ~0UL || _dev_end == ~0UL)
     {
-      printf("ERROR: Pci_root_bridge: 'dev_start' and/or 'dev_end' not set.\n");
+      d_printf(DBG_ERR, "ERROR: Pci_root_bridge: 'dev_start' and/or 'dev_end' not set.\n");
       return;
     }
 
@@ -137,8 +138,7 @@ Pci_iomem_root_bridge::cfg_read(unsigned bus, l4_uint32_t devfn,
     case Pci::Cfg_long: *value = *(volatile unsigned int *)a; break;
     }
 
-  if (0)
-    printf("Pci_iomem_root_bridge::cfg_read(%x, %x, %x, %x, %d)\n",
+  d_printf(DBG_ALL, "Pci_iomem_root_bridge::cfg_read(%x, %x, %x, %x, %d)\n",
            bus, devfn, reg, *value, order);
 
   return 0;
@@ -154,8 +154,7 @@ Pci_iomem_root_bridge::cfg_write(unsigned bus, l4_uint32_t devfn,
   if (!_iobase_virt)
     return -1;
 
-  if (0)
-    printf("Pci_iomem_root_bridge::cfg_write(%x, %x, %x, %x, %d)\n",
+  d_printf(DBG_ALL, "Pci_iomem_root_bridge::cfg_write(%x, %x, %x, %x, %d)\n",
            bus, devfn, reg, value, order);
 
   l4_uint32_t a = _iobase_virt + pci_conf_addr0(bus, devfn >> 16, devfn & 0xffff, reg);

@@ -129,7 +129,7 @@ U_semaphore::block_locked(L4_timeout const &to, L4_semaphore *sem, Utcb *u)
 
   c->wait_queue(&_queue);
   c->sender_enqueue(&_queue, c->sched_context()->prio());
-  c->state_change_dirty(~Thread_ready, Thread_ipc_in_progress);
+  c->state_change_dirty(~Thread_ready, Thread_send_wait);
 
   IPC_timeout timeout;
   if (t)
@@ -141,6 +141,7 @@ U_semaphore::block_locked(L4_timeout const &to, L4_semaphore *sem, Utcb *u)
   c->schedule();
   // We go here by: (a) a wakeup, (b) a timeout, (c) wait_queue delete,
   // (d) ex_regs
+  c->state_del_dirty(~Thread_ipc_mask);
 
   // The wait_queue was destroyed
   if (EXPECT_FALSE(!_valid))
@@ -183,7 +184,7 @@ U_semaphore::wakeup_locked(L4_semaphore *sem, bool yield)
 
   Thread *w = static_cast<Thread*>(Sender::cast(h));
   w->sender_dequeue(&_queue);
-  w->state_change_dirty(~Thread_ipc_in_progress, Thread_ready);
+  w->state_change_dirty(~Thread_ipc_mask, Thread_ready);
 
   w->reset_timeout();
   w->wait_queue(0);
@@ -226,7 +227,7 @@ U_semaphore::~U_semaphore()
     {
       Thread *w = static_cast<Thread*>(Sender::cast(h));
       w->sender_dequeue(&_queue);
-      w->state_change_safely(~Thread_ipc_in_progress, Thread_ready);
+      w->state_change_safely(~Thread_ipc_mask, Thread_ready);
       w->ready_enqueue();
       w->reset_timeout();
     }

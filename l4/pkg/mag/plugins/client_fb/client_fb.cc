@@ -13,48 +13,156 @@
 #include <l4/mag-gfx/texture>
 
 #include <l4/mag/server/view_stack>
+#include <l4/mag/server/factory>
 
 #include <l4/re/env>
 #include <l4/re/event_enums.h>
 #include <l4/re/error_helper>
+#include <l4/re/util/cap_alloc>
 #include <l4/sys/factory>
 #include <l4/re/util/meta>
 #include <l4/re/console>
 
 #include <l4/mag/server/user_state>
 #include <cstdio>
+#include <cstring>
 
 
 namespace Mag_server {
 
 using L4Re::chksys;
 using L4Re::chkcap;
+using L4Re::Util::Auto_cap;
 
 enum { Bar_height = 16 };
 
-Client_fb::Client_fb(Core_api const *core, Rect const &pos, Point const &offs,
-                     Texture *fb, L4::Cap<L4Re::Dataspace> const &fb_ds)
-: View(pos.offset(0, 0, 0, Bar_height), F_need_frame),
+Client_fb::Client_fb(Core_api const *core)
+: View(Rect(), F_need_frame),
   Icu_svr(1, &_ev_irq),
-  _core(core), _offs(offs), _fb(fb),
-  _bar_size(pos.w(), Bar_height)
+  _core(core), _fb(0),
+  _bar_height(Bar_height),
+  _flags(0)
+{}
+
+void
+Client_fb::set_geometry_prop(Session *_s, Property_handler const *, cxx::String const &v)
+{
+  Client_fb *s = static_cast<Client_fb*>(_s);
+  // ignore multiple geometry properties
+  if (s->_fb)
+    return;
+
+  int w, h, x=50, y=50;
+  int r;
+
+  cxx::String a = v;
+
+  r = a.from_dec(&w);
+  if (r >= a.len() || a[r] != 'x')
+    L4Re::chksys(-L4_EINVAL, "invalid geometry format");
+
+  a = a.substr(r + 1);
+  r = a.from_dec(&h);
+
+  if (r < a.len() && a[r] == '+')
+    {
+      a = a.substr(r + 1);
+      r = a.from_dec(&x);
+    }
+
+  if (r < a.len() && a[r] == '+')
+    {
+      a = a.substr(r + 1);
+      r = a.from_dec(&y);
+    }
+
+  if (w <= 0 || h <= 0 || w >= 10000 || h >= 10000)
+    L4Re::chksys(-L4_ERANGE, "invalid geometry (too big)");
+
+  Area sz = s->_core->user_state()->vstack()->canvas()->size();
+
+  if (x < 10 - w)
+    x = 10 - w;
+
+  if (x >= sz.w())
+    x = sz.w() - 10;
+
+  if (y < 10 - h)
+    y = 10 - h;
+
+  if (y >= sz.h())
+    y = sz.h() - 10;
+
+  s->set_geometry(Rect(Point(x, y), Area(w, h)));
+}
+
+void
+Client_fb::set_flags_prop(Session *_s, Property_handler const *p, cxx::String const &)
+{
+  Client_fb *s = static_cast<Client_fb*>(_s);
+
+  if (!strcmp(p->tag, "focus"))
+    s->_flags |= F_fb_focus;
+
+  if (!strcmp(p->tag, "shaded"))
+    s->_flags |= F_fb_shaded;
+
+  if (!strcmp(p->tag, "fixed"))
+    s->_flags |= F_fb_fixed_location;
+}
+
+void
+Client_fb::set_bar_height_prop(Session *_s, Property_handler const *, cxx::String const &v)
+{
+  Client_fb *s = static_cast<Client_fb*>(_s);
+  int r = v.from_dec(&s->_bar_height);
+  if (r < v.len())
+    L4Re::chksys(-L4_EINVAL, "invalid bar height format");
+
+  s->_bar_height = std::max(std::min(s->_bar_height, 100), 4);
+}
+
+int
+Client_fb::setup()
 {
   using L4Re::Video::View;
   using L4Re::Video::Color_component;
   using L4Re::Video::Goos;
 
-  _fb_ds = fb_ds;
+  Area res(size());
+
+  Auto_cap<L4Re::Dataspace>::Cap ds(
+      L4Re::Util::cap_alloc.alloc<L4Re::Dataspace>());
+
+  Screen_factory *sf = dynamic_cast<Screen_factory*>(_core->user_state()->vstack()->canvas()->type()->factory);
+  //Screen_factory *sf = dynamic_cast<Screen_factory*>(Rgb16::type()->factory);
+
+  L4Re::chksys(L4Re::Env::env()->mem_alloc()->alloc(sf->get_texture_size(res),
+                                                    ds.get()));
+
+  L4Re::Rm::Auto_region<void *> dsa;
+  L4Re::chksys(L4Re::Env::env()->rm()->attach(&dsa, ds->size(), L4Re::Rm::Search_addr, ds.get(), 0, L4_SUPERPAGESHIFT));
+
+  _fb = sf->create_texture(res, dsa.get());
+
+  set_geometry(Rect(p1(), visible_size()));
+  dsa.release();
+  _fb_ds = ds.release();
+
+  if (_flags & F_fb_focus)
+    _core->user_state()->set_focus(this);
+
   _view_info.flags = View::F_none;
 
   _view_info.view_index = 0;
   _view_info.xpos = 0;
   _view_info.ypos = 0;
-  _view_info.width = fb->size().w();
-  _view_info.height = fb->size().h();
+  _view_info.width = _fb->size().w();
+  _view_info.height = _fb->size().h();
   _view_info.buffer_offset = 0;
   _view_info.buffer_index = 0;
-  _view_info.bytes_per_line = _view_info.width * fb->type()->bytes_per_pixel();
-  _view_info.pixel_info = *fb->type();
+  _view_info.bytes_per_line = _view_info.width * _fb->type()->bytes_per_pixel();
+  _view_info.pixel_info = *_fb->type();
 
   _screen_info.flags = Goos::F_pointer;
   _screen_info.width = _view_info.width;
@@ -67,10 +175,14 @@ Client_fb::Client_fb(Core_api const *core, Rect const &pos, Point const &offs,
   L4Re::Env const *e = L4Re::Env::env();
   _ev_ds = L4Re::Util::cap_alloc.alloc<L4Re::Dataspace>();
 
+
   chksys(e->mem_alloc()->alloc(L4_PAGESIZE, _ev_ds.get()));
   chksys(e->rm()->attach(&_ev_ds_m, L4_PAGESIZE, L4Re::Rm::Search_addr, _ev_ds.get(), 0, L4_PAGESHIFT));
 
   _events = L4Re::Event_buffer(_ev_ds_m.get(), L4_PAGESIZE);
+
+  calc_label_sz(_core->label_font());
+  return 0;
 }
 
 void
@@ -102,19 +214,31 @@ Client_fb::draw(Canvas *canvas, View_stack const *, Mode mode) const
     return;
 
   /* draw view content */
-  Rgb32::Color mix_color = mode.kill() ? kill_color() : Rgb32::Black;
+  Rgb32::Color mix_color = /*mode.kill() ? kill_color() :*/ session()->color();
 
-  canvas->draw_box(Rect(p1(), _bar_size), Rgb32::Color(56, 68,88));
+  canvas->draw_box(top(_bar_height), Rgb32::Color(56, 68, 88));
 
-  canvas->draw_texture(_fb, mix_color, _offs + p1() + Point(0, _bar_size.h()), op);
+  canvas->draw_texture(_fb, mix_color, p1() + Point(0, _bar_height), op);
+}
 
-#if 0
-  if (mode.flat())
-    return;
+Area
+Client_fb::visible_size() const
+{
+  if (_flags & F_fb_shaded)
+    return Area(_fb->size().w(), _bar_height);
 
-  /* draw label */
-  draw_label(canvas, _label_rect.p1(), _session->label(), WHITE, _title, frame_color);
-#endif
+  return _fb->size() + Area(0, _bar_height);
+}
+
+
+void
+Client_fb::toggle_shaded()
+{
+  Rect r = *this;
+  _flags ^= F_fb_shaded;
+  Rect n = Rect(p1(), visible_size());
+  set_geometry(n);
+  _core->user_state()->vstack()->refresh_view(0, 0, r | n);
 }
 
 void
@@ -131,6 +255,8 @@ Client_fb::handle_event(L4Re::Event_buffer::Event const &e,
       return;
     }
 
+  Rect bar = top(_bar_height);
+
   if (e.payload.type == L4RE_EV_KEY)
     {
       View_stack *_stack = _core->user_state()->vstack();
@@ -138,7 +264,9 @@ Client_fb::handle_event(L4Re::Event_buffer::Event const &e,
           !_stack->on_top(this))
 	_stack->push_top(this);
 
-      if (e.payload.code == L4RE_BTN_LEFT && Rect(p1(), _bar_size).contains(mouse))
+      if (e.payload.code == L4RE_BTN_LEFT
+          && bar.contains(mouse)
+          && !(_flags & F_fb_fixed_location))
 	{
 	  if (e.payload.value == 1)
 	    left_drag = mouse;
@@ -146,6 +274,14 @@ Client_fb::handle_event(L4Re::Event_buffer::Event const &e,
 	    left_drag = Point();
 	  return;
 	}
+
+      if (e.payload.code == L4RE_BTN_MIDDLE
+          && bar.contains(mouse)
+          && e.payload.value == 1)
+        {
+          toggle_shaded();
+          return;
+        }
     }
 
   if (e.payload.type == L4RE_EV_ABS && e.payload.code <= L4RE_ABS_Y)
@@ -154,11 +290,11 @@ Client_fb::handle_event(L4Re::Event_buffer::Event const &e,
       if (e.payload.type == L4RE_ABS_X)
 	return;
 
-      Rect r = (*this - Rect(p1(), _bar_size)).b;
+      Rect r = (*this - bar).b();
       if (!r.contains(mouse))
 	return;
 
-      Point mp = p1() + Point(0, _bar_size.h());
+      Point mp = p1() + Point(0, _bar_height);
       mp = Point(_fb->size()).min(Point(0,0).max(mouse - mp));
       L4Re::Event_buffer::Event ne;
       ne.time = e.time;
@@ -174,6 +310,10 @@ Client_fb::handle_event(L4Re::Event_buffer::Event const &e,
       return;
     }
 
+  // no events if window is shaded
+  if (_flags & F_fb_shaded)
+    return;
+
   if (_events.put(e))
     _ev_irq.trigger();
 
@@ -183,7 +323,7 @@ Client_fb::handle_event(L4Re::Event_buffer::Event const &e,
 int
 Client_fb::refresh(int x, int y, int w, int h)
 {
-  _core->user_state()->vstack()->refresh_view(this, 0, Rect(p1() + Point(x, y + _bar_size.h()), Area(w, h)));
+  _core->user_state()->vstack()->refresh_view(this, 0, Rect(p1() + Point(x, y + _bar_height), Area(w, h)));
   return 0;
 }
 

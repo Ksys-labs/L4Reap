@@ -63,8 +63,11 @@
 	sub	lr, lr, #\adjust
 .endif
 #ifdef CONFIG_ARM_V6PLUS
-	clrex
+#ifdef CONFIG_ARM_1136
 	// todo: do clrex with strex for CPUs without clrex
+#else
+	clrex
+#endif
 #endif
 .if \atomic_fixup
         atomic_fixup lr 0
@@ -322,7 +325,7 @@ prefetch_abort: @ A real prefetch abort occured --- handled as a page fault
 	mrc     p15, 0, r1, c5, c0, 1	@ Load IFSR into r1
 	bic	r1, r1, #0x00ff0000
 	orr	r1, r1, #0x00330000     @ Set read bit and prefetch abort
-#if defined(CONFIG_ARM_V6PLUS)
+#if defined(CONFIG_ARM_V6PLUS) && !defined(CONFIG_ARM_1136)
 	mrc	p15, 0, r0, c6, c0, 2   @ Read fault address, for T2: pfa != pc
 #else
 	ldr	r0, [sp, #RF(PC, 5*4)]  @ Get PC from RF and use as pfa
@@ -865,6 +868,19 @@ kern_kdebug_ipi_entry:
 	mrc	p15, 0, r1, c13, c0, 1	@ read CP15_CID
 	stmia	r0!, {r1}
 
+	// tls regs are banked
+	mrc	p15, 0, r1, c13, c0, 2	@ read CP15_TLS1
+	stmia	r0!, {r1}
+
+	mrc	p15, 0, r1, c13, c0, 3	@ read CP15_TLS2
+	stmia	r0!, {r1}
+
+	mrc	p15, 0, r1, c13, c0, 4	@ read CP15_TLS3
+	stmia	r0!, {r1}
+
+	mrc	p10, 7, r1, cr8, cr0, 0 @ fpexc
+	stmia	r0!, {r1}
+
 	// switch to secure world
 	mov	r1, #0
 	mcr	p15, 0, r1, c1, c1, 0
@@ -933,7 +949,7 @@ kern_kdebug_ipi_entry:
 	and	r1, r1, #0x1c0
 	mcr	p15, 0, r1, c12, c1, 1
 
-#if 0
+#if 1
 	// switch to non-secure world
 	mov	r1, #1
 	mcr	p15, 0, r1, c1, c1, 0
@@ -975,12 +991,23 @@ kern_kdebug_ipi_entry:
 	ldmia	r0!, {r1}
 	mcr	p15, 0, r1, c13, c0, 1	@ write CP15_CID
 
+	// tls regs are banked
+	ldmia	r0!, {r1}
+	mcr	p15, 0, r1, c13, c0, 2	@ write CP15_TLS1
+
+	ldmia	r0!, {r1}
+	mcr	p15, 0, r1, c13, c0, 3	@ write CP15_TLS2
+
+	ldmia	r0!, {r1}
+	mcr	p15, 0, r1, c13, c0, 4	@ write CP15_TLS3
+
+	ldmia	r0!, {r1}
+        mcr p10, 7, r1, cr8, cr0, 0     @ fpexc
+
 	// switch to secure world
 	mov	r1, #0
 	mcr	p15, 0, r1, c1, c1, 0
 	ISB_OP	r1
-
-	xxx
 #endif
 
 	// load gen-regs

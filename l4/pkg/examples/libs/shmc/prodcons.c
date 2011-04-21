@@ -23,7 +23,7 @@
 #include <l4/sys/thread.h>
 
 // a small helper
-#define CHK(func) if (func) { return (void *)-1; }
+#define CHK(func) if (func) { printf("failure: %d\n", __LINE__); return (void *)-1; }
 
 static const char some_data[] = "Hi consumer!";
 

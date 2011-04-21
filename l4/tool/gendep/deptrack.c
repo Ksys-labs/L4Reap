@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__FreeBSD__)
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <unistd.h>
@@ -311,7 +311,7 @@ static void get_executable_name (void)
     cmd[i++] = c;
 
   cmd[i++] = 0;
-#elif defined(__APPLE__)
+#elif defined(__APPLE__) || defined(__FreeBSD__)
   int mib[3], arglen;
   size_t size;
   char *procargs, *cmd;
@@ -327,6 +327,7 @@ static void get_executable_name (void)
 
   /* get a copy of the process argument space */
   mib[0] = CTL_KERN;
+#if defined(__APPLE__)
   mib[1] = KERN_PROCARGS2;
   mib[2] = getpid();
   size = (size_t)arglen;
@@ -334,23 +335,33 @@ static void get_executable_name (void)
     free(procargs);
     exit(-1);
   }
-  
+#else
+  mib[1] = KERN_PROC;
+  mib[2] = KERN_PROC_ARGS;
+  mib[3] = getpid();
+  size = (size_t)arglen;
+  if (sysctl(mib, 4, procargs, &size, NULL, 0) == -1) {
+    free(procargs);
+    exit(-1);
+  }
+#endif
+
   /* jump over the argument count */
   cmd = procargs + sizeof(int);
 #else
 #  error "Retrieving the executable name is not implemented for your platform."
 #endif
-  
+
   /* ugh.  man 3 basename -> ?  */
   basename_p =  strrchr (cmd, '/');
   if (basename_p)
     basename_p++;
   else
     basename_p = cmd;
-  
+
   executable_name = xstrdup (basename_p);
-  
-#ifdef __APPLE__
+
+#if defined(__APPLE__) || defined(__FreeBSD__)
   free(procargs);
 #endif
 }

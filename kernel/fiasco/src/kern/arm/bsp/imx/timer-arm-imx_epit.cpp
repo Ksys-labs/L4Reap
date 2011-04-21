@@ -19,6 +19,7 @@ private:
     EPITCR_OCIEN                   = 1 << 2, // output compare irq enable
     EPITCR_RLD                     = 1 << 3, // reload
     EPITCR_SWR                     = 1 << 16, // software reset
+    EPITCR_WAITEN                  = 1 << 19, // wait enabled
     EPITCR_CLKSRC_IPG_CLK          = 1 << 24,
     EPITCR_CLKSRC_IPG_CLK_HIGHFREQ = 2 << 24,
     EPITCR_CLKSRC_IPG_CLK_32K      = 3 << 24,
@@ -56,6 +57,7 @@ void Timer::init()
 
   Io::write<Mword>(EPITCR_CLKSRC_IPG_CLK_32K
                    | (0 << EPITCR_PRESCALER_SHIFT)
+		   | EPITCR_WAITEN
 		   | EPITCR_RLD
 		   | EPITCR_OCIEN
 		   | EPITCR_ENMOD,
@@ -114,7 +116,6 @@ Unsigned64
 Timer::system_clock()
 {
   if (Config::scheduler_one_shot)
-    //return Kip::k()->clock + timer_to_us(Io::read<Unsigned32>(OSCR));
     return 0;
   else
     return Kip::k()->clock;

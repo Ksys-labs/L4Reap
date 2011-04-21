@@ -10,7 +10,6 @@ SRC_C_python-mod/operator.so = Modules/operator.c
 
 
 PC_FILENAME :=
-MODE_USE_C = y
 L4_MULTITHREADED = y
 
 CXXFLAGS := -fno-strict-aliasing

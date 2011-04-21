@@ -150,7 +150,7 @@ Io_apic::init()
       printf("Could not find APIC in RSDT nor XSDT, skipping init\n");
       return false;
     }
-  printf("MADT = %p\n", _madt);
+  printf("IO-APIC: MADT = %p\n", _madt);
 
   int n_apics = 0;
 

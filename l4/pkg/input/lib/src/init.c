@@ -119,11 +119,10 @@ int l4input_init(int prio, void (*handler)(struct l4input *))
 		l4input_internal_l4bus_init();
 #endif
 #if defined(ARCH_x86) || defined(ARCH_amd64)
-                // reprogrammes PIT, enables when you know what you're doing
+                // reprogrammes PIT, only enable when you think you
+                // know what you're doing
 		//CHECK(l4input_internal_pcspkr_init());
 #endif
-	        CHECK(l4input_internal_proxy_init(prio));
-
 		if (!(ops = l4input_internal_l4evdev_init(handler))) {
 			printf("L4INPUT: evdev initialization failed\n");
 			return -L4_ENODEV;

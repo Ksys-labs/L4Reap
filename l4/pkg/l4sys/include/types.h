@@ -59,7 +59,6 @@ enum l4_msgtag_protocol
   L4_PROTO_EXCEPTION     =  -5L, ///< Exception
   L4_PROTO_SIGMA0        =  -6L, ///< Sigma0 protocol
   L4_PROTO_IO_PAGE_FAULT =  -8L, ///< I/O page fault message
-  L4_PROTO_CAP_FAULT     =  -9L, ///< Capability fault message
   L4_PROTO_KOBJECT       = -10L, ///< Protocol for messages to a a generic kobject
   L4_PROTO_TASK          = -11L, ///< Protocol for messages to a task object
   L4_PROTO_THREAD        = -12L, ///< Protocol for messages to a thread object
@@ -175,8 +174,6 @@ typedef struct l4_msgtag_t
    * #l4_msgtag_flags.
    */
   unsigned flags() const throw() { return raw & 0xf000; }
-  /// Test if protocol indicates IRQ protocol.
-  bool is_irq() const throw() { return label() == L4_PROTO_IRQ; }
   /// Test if protocol indicates page-fault protocol.
   bool is_page_fault() const throw() { return label() == L4_PROTO_PAGE_FAULT; }
   /// Test if protocol indicates preemption protocol.
@@ -189,8 +186,6 @@ typedef struct l4_msgtag_t
   bool is_sigma0() const throw() { return label() == L4_PROTO_SIGMA0; }
   /// Test if protocol indicates IO-page-fault protocol.
   bool is_io_page_fault() const throw() { return label() == L4_PROTO_IO_PAGE_FAULT; }
-  /// Test if protocol indicates capability-fault protocol.
-  bool is_cap_fault() const throw() { return label() == L4_PROTO_CAP_FAULT; }
   /// Test if flags indicate an error.
   unsigned has_error() const throw() { return raw & L4_MSGTAG_ERROR; }
 #endif
@@ -260,14 +255,6 @@ L4_INLINE unsigned l4_msgtag_flags(l4_msgtag_t t) L4_NOTHROW;
 L4_INLINE unsigned l4_msgtag_has_error(l4_msgtag_t t) L4_NOTHROW;
 
 /**
- * \brief Test for IRQ protocol.
- * \ingroup l4_msgtag_api
- * \param t the tag
- * \return Boolean value
- */
-L4_INLINE unsigned l4_msgtag_is_irq(l4_msgtag_t t) L4_NOTHROW;
-
-/**
  * \brief Test for page-fault protocol.
  * \ingroup l4_msgtag_api
  * \param t the tag
@@ -314,15 +301,6 @@ L4_INLINE unsigned l4_msgtag_is_sigma0(l4_msgtag_t t) L4_NOTHROW;
  * \return Boolean value
  */
 L4_INLINE unsigned l4_msgtag_is_io_page_fault(l4_msgtag_t t) L4_NOTHROW;
-
-/**
- * \brief Test for capability-fault protocol.
- * \ingroup l4_msgtag_api
- * \param t the tag
- * \return Boolean value
- */
-L4_INLINE unsigned l4_msgtag_is_cap_fault(l4_msgtag_t t) L4_NOTHROW;
-
 
 /**
  * \defgroup l4_cap_api Capabilities
@@ -417,9 +395,6 @@ unsigned l4_msgtag_has_error(l4_msgtag_t t) L4_NOTHROW
 
 
 
-L4_INLINE unsigned l4_msgtag_is_irq(l4_msgtag_t t) L4_NOTHROW
-{ return l4_msgtag_label(t) == L4_PROTO_IRQ; }
-
 L4_INLINE unsigned l4_msgtag_is_page_fault(l4_msgtag_t t) L4_NOTHROW
 { return l4_msgtag_label(t) == L4_PROTO_PAGE_FAULT; }
 
@@ -437,6 +412,3 @@ L4_INLINE unsigned l4_msgtag_is_sigma0(l4_msgtag_t t) L4_NOTHROW
 
 L4_INLINE unsigned l4_msgtag_is_io_page_fault(l4_msgtag_t t) L4_NOTHROW
 { return l4_msgtag_label(t) == L4_PROTO_IO_PAGE_FAULT; }
-
-L4_INLINE unsigned l4_msgtag_is_cap_fault(l4_msgtag_t t) L4_NOTHROW
-{ return l4_msgtag_label(t) == L4_PROTO_CAP_FAULT; }

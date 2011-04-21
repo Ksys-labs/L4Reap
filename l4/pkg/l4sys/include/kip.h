@@ -26,20 +26,6 @@
 #include <l4/sys/compiler.h>
 #include <l4/sys/l4int.h>
 
-enum l4_kip_kernel_uart_info_types
-{
-  L4_KIP_KERNEL_UART_INFO_INVALID = 0,
-  L4_KIP_KERNEL_UART_INFO_IOPORT,
-  L4_KIP_KERNEL_UART_INFO_MMIO,
-};
-
-struct l4_kip_kernel_uart_info
-{
-  l4_uint32_t type;
-  l4_uint32_t irqno;
-  l4_uint64_t base;
-};
-
 struct l4_kip_platform_info
 {
   char name[16];

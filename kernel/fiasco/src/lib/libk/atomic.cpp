@@ -207,10 +207,17 @@ mp_cas_arch(Mword *m, Mword o, Mword n)
   Mword tmp, res;
 
   asm volatile
-    ("ldrex   %[tmp], [%[m]]       \n"
-     "mov     %[res], #1           \n"
+    ("mov     %[res], #1           \n"
+     "1:                           \n"
+     "ldr     %[tmp], [%[m]]       \n"
+     "teq     %[tmp], %[o]         \n"
+     "bne     2f                   \n"
+     "ldrex   %[tmp], [%[m]]       \n"
      "teq     %[tmp], %[o]         \n"
      "strexeq %[res], %[n], [%[m]] \n"
+     "teq     %[res], #1           \n"
+     "beq     1b                   \n"
+     "2:                           \n"
      : [tmp] "=&r" (tmp), [res] "=&r" (res), "+m" (*m)
      : [n] "r" (n), [m] "r" (m), [o] "r" (o)
      : "cc");
@@ -232,11 +239,20 @@ mp_cas2_arch(char *m, Mword o1, Mword o2, Mword n1, Mword n2)
   Mword res;
 
   asm volatile
-    ("ldrexd   %[tmp1], [%[m]]        \n"
+    ("mov      %[res], #1             \n"
+     "1:                              \n"
+     "ldrd     %[tmp1], [%[m]]        \n"
+     "teq      %[tmp1], %[o1]         \n"
+     "teqeq    %[tmp2], %[o2]         \n"
+     "bne      2f                     \n"
+     "ldrexd   %[tmp1], [%[m]]        \n"
      "mov      %[res], #1             \n"
      "teq      %[tmp1], %[o1]         \n"
      "teqeq    %[tmp2], %[o2]         \n"
      "strexdeq %[res], %[n1], [%[m]]  \n"
+     "teq      %[res], #1             \n"
+     "beq      1b                     \n"
+     "2:                              \n"
      : [tmp1] "=r" (tmp1), [tmp2] "=r" (tmp2),
        [res] "=&r" (res), "+m" (*m), "+m" (*(m + 1))
      : "0" (tmp1), "1" (tmp2),

@@ -6,6 +6,9 @@
  *  Copyright 2009 __MyCompanyName__. All rights reserved.
  *
  */
+
+#if defined(__APPLE__) && !defined(SDL_IMAGE_USE_COMMON_BACKEND)
+
 #include "SDL_image.h"
 
 // For ImageIO framework and also LaunchServices framework (for UTIs)
@@ -146,7 +149,7 @@ static CGImageRef CreateCGImageFromCGImageSource(CGImageSourceRef image_source)
 {
 	CGImageRef image_ref = NULL;
 	
-    if(NULL == image_source)
+	if(NULL == image_source)
 	{
 		return NULL;
 	}
@@ -154,6 +157,10 @@ static CGImageRef CreateCGImageFromCGImageSource(CGImageSourceRef image_source)
 	// Get the first item in the image source (some image formats may
 	// contain multiple items).
 	image_ref = CGImageSourceCreateImageAtIndex(image_source, 0, NULL);
+	if(NULL == image_ref)
+	{
+		IMG_SetError("CGImageSourceCreateImageAtIndex() failed");
+	}
 	return image_ref;
 }
 
@@ -226,163 +233,91 @@ static SDL_Surface* Create_SDL_Surface_From_CGImage(CGImageRef image_ref)
 	 * non-RGBA image formats so I'm making the rest up.
 	 * All this code should be scrutinized.
 	 */
-	
-	size_t the_width = CGImageGetWidth(image_ref);
-	size_t the_height = CGImageGetHeight(image_ref);
-	CGRect the_rect = {{0, 0}, {the_width, the_height}};
-	
-	size_t bits_per_pixel = CGImageGetBitsPerPixel(image_ref);
-	size_t bytes_per_row = CGImageGetBytesPerRow(image_ref);
-	//	size_t bits_per_component = CGImageGetBitsPerComponent(image_ref);
-	size_t bits_per_component = 8;
-	
-//	CGImageAlphaInfo alpha_info = CGImageGetAlphaInfo(image_ref);
-	
 
-	SDL_Surface* sdl_surface = NULL;
+	size_t w = CGImageGetWidth(image_ref);
+	size_t h = CGImageGetHeight(image_ref);
+	CGRect rect = {{0, 0}, {w, h}};
+
+	CGImageAlphaInfo alpha = CGImageGetAlphaInfo(image_ref);
+	//size_t bits_per_pixel = CGImageGetBitsPerPixel(image_ref);
+	size_t bits_per_component = 8;
+
+	SDL_Surface* surface;
+	Uint32 Amask;
 	Uint32 Rmask;
 	Uint32 Gmask;
 	Uint32 Bmask;
-	Uint32 Amask;
 
-	
-	CGContextRef bitmap_context = NULL;
-	
-	CGColorSpaceRef color_space = NULL;
-	CGBitmapInfo bitmap_info = CGImageGetBitmapInfo(image_ref);
+	CGContextRef bitmap_context;
+	CGBitmapInfo bitmap_info;
+	CGColorSpaceRef color_space = CGColorSpaceCreateDeviceRGB();
 
-	
-	switch(bits_per_pixel)
-	{
-		case 8:
-		{
-			bytes_per_row = the_width*4;
-			//				color_space = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
-			color_space = CGColorSpaceCreateDeviceRGB();
-			//				bitmap_info = kCGImageAlphaPremultipliedFirst;
-#if __BIG_ENDIAN__
-			bitmap_info = kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Big; /* XRGB Big Endian */
-#else
-			bitmap_info = kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little; /* XRGB Little Endian */
-#endif
-
-			Rmask = 0x00FF0000;
-			Gmask = 0x0000FF00;
-			Bmask = 0x000000FF;
-			Amask = 0x00000000;
-
-			sdl_surface = SDL_CreateRGBSurface(SDL_SWSURFACE,
-											   the_width, the_height, 32, Rmask, Gmask, Bmask, Amask);
-
-
-			
-			break;
-		}
-		case 15:
-		case 16:
-		{
-			bytes_per_row = the_width*4;
-
-			color_space = CGColorSpaceCreateDeviceRGB();
-
-#if __BIG_ENDIAN__
-			bitmap_info = kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Big; /* XRGB Big Endian */
-#else
-			bitmap_info = kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little; /* XRGB Little Endian */
-#endif
-			Rmask = 0x00FF0000;
-			Gmask = 0x0000FF00;
-			Bmask = 0x000000FF;
-			Amask = 0x00000000;
-
-
-			sdl_surface = SDL_CreateRGBSurface(SDL_SWSURFACE,
-											   the_width, the_height, 32, Rmask, Gmask, Bmask, Amask);
-
-			break;
-		}
-		case 24:
-		{
-			bytes_per_row = the_width*4;
-			//			color_space = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
-			color_space = CGColorSpaceCreateDeviceRGB();
-			//			bitmap_info = kCGImageAlphaNone;
-#if __BIG_ENDIAN__
-			bitmap_info = kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Big; /* XRGB Big Endian */
-#else
-			bitmap_info = kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little; /* XRGB Little Endian */
-#endif
-			Rmask = 0x00FF0000;
-			Gmask = 0x0000FF00;
-			Bmask = 0x000000FF;
-			Amask = 0x00000000;
-
-			sdl_surface = SDL_CreateRGBSurface(SDL_SWSURFACE,
-											   the_width, the_height, 32, Rmask, Gmask, Bmask, Amask);
-
-			break;
-		}
-		case 32:
-		{
-						
-			bytes_per_row = the_width*4;
-			//			color_space = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
-			color_space = CGColorSpaceCreateDeviceRGB();
-			//			bitmap_info = kCGImageAlphaPremultipliedFirst;
-#if __BIG_ENDIAN__
-			bitmap_info = kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Big; /* XRGB Big Endian */
-#else
-			bitmap_info = kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little; /* XRGB Little Endian */
-#endif 
-
-			Amask = 0xFF000000;
-			Rmask = 0x00FF0000;
-			Gmask = 0x0000FF00;
-			Bmask = 0x000000FF;
-
-			sdl_surface = SDL_CreateRGBSurface(SDL_SWSURFACE,
-											   the_width, the_height, 32, Rmask, Gmask, Bmask, Amask);
-			break;
-		}
-		default:
-		{
-            sdl_surface = NULL;
-            break;
-		}
-			
+	if (alpha == kCGImageAlphaNone ||
+	    alpha == kCGImageAlphaNoneSkipFirst ||
+	    alpha == kCGImageAlphaNoneSkipLast) {
+		bitmap_info = kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Host; /* XRGB */
+		Amask = 0x00000000;
+	} else {
+		/* kCGImageAlphaFirst isn't supported */
+		//bitmap_info = kCGImageAlphaFirst | kCGBitmapByteOrder32Host; /* ARGB */
+		bitmap_info = kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host; /* ARGB */
+		Amask = 0xFF000000;
 	}
 
-	if(NULL == sdl_surface)
+	Rmask = 0x00FF0000;
+	Gmask = 0x0000FF00;
+	Bmask = 0x000000FF;
+
+	surface = SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, 32, Rmask, Gmask, Bmask, Amask);
+	if (surface)
 	{
-		if(color_space != NULL)
-		{
-			CGColorSpaceRelease(color_space);			
+		// Sets up a context to be drawn to with surface->pixels as the area to be drawn to
+		bitmap_context = CGBitmapContextCreate(
+															surface->pixels,
+															surface->w,
+															surface->h,
+															bits_per_component,
+															surface->pitch,
+															color_space,
+															bitmap_info
+															);
+
+		// Draws the image into the context's image_data
+		CGContextDrawImage(bitmap_context, rect, image_ref);
+
+		CGContextRelease(bitmap_context);
+
+		// FIXME: Reverse the premultiplied alpha
+		if ((bitmap_info & kCGBitmapAlphaInfoMask) == kCGImageAlphaPremultipliedFirst) {
+			int i, j;
+			Uint8 *p = (Uint8 *)surface->pixels;
+			for (i = surface->h * surface->pitch/4; i--; ) {
+#if __LITTLE_ENDIAN__
+				Uint8 A = p[3];
+				if (A) {
+					for (j = 0; j < 3; ++j) {
+						p[j] = (p[j] * 255) / A;
+					}
+				}
+#else
+				Uint8 A = p[0];
+				if (A) {
+					for (j = 1; j < 4; ++j) {
+						p[j] = (p[j] * 255) / A;
+					}
+				}
+#endif /* ENDIAN */
+				p += 4;
+			}
 		}
-		return NULL;
 	}
 
+	if (color_space)
+	{
+		CGColorSpaceRelease(color_space);			
+	}
 
-	// Sets up a context to be drawn to with sdl_surface->pixels as the area to be drawn to
-	bitmap_context = CGBitmapContextCreate(
-														sdl_surface->pixels,
-														the_width,
-														the_height,
-														bits_per_component,
-														bytes_per_row,
-														color_space,
-														bitmap_info
-														);
-	
-	// Draws the image into the context's image_data
-	CGContextDrawImage(bitmap_context, the_rect, image_ref);
-	
-	CGContextRelease(bitmap_context);
-	CGColorSpaceRelease(color_space);
-	
-	return sdl_surface;
-	
-	
-	
+	return surface;
 }
 
 
@@ -449,6 +384,32 @@ static SDL_Surface* LoadImageFromFile(const char* file)
 	return sdl_surface;	
 }
 
+int IMG_InitJPG()
+{
+	return 0;
+}
+
+void IMG_QuitJPG()
+{
+}
+
+int IMG_InitPNG()
+{
+	return 0;
+}
+
+void IMG_QuitPNG()
+{
+}
+
+int IMG_InitTIF()
+{
+	return 0;
+}
+
+void IMG_QuitTIF()
+{
+}
 
 int IMG_isCUR(SDL_RWops *src)
 {
@@ -552,3 +513,4 @@ SDL_Surface* IMG_Load(const char *file)
 	return sdl_surface;
 }
 
+#endif /* defined(__APPLE__) && !defined(SDL_IMAGE_USE_COMMON_BACKEND) */

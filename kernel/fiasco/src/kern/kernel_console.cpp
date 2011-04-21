@@ -9,10 +9,11 @@ public:
   int  getchar(bool blocking = true);
   void getchar_chance();
 
-  static Mux_console *console() FIASCO_CONST;
+  static Mux_console *console() FIASCO_CONST
+  { return _c.get(); }
 
 private:
-  static bool initialized;
+  static Static_object<Kconsole> _c;
 };
 
 IMPLEMENTATION:
@@ -29,7 +30,7 @@ int Kconsole::getchar(bool blocking)
   if (!blocking)
     return Mux_console::getchar(false);
 
-  while(1)
+  while (1)
     {
       int c;
       if ((c = Mux_console::getchar(false)) != -1)
@@ -44,38 +45,20 @@ int Kconsole::getchar(bool blocking)
     }
 }
 
+Static_object<Kconsole> Kconsole::_c;
 
 
-bool Kconsole::initialized;
-
-PUBLIC static
+PUBLIC static FIASCO_NOINLINE
 void
-Kconsole::activate()
-{
-  if (!initialized)
-    {
-      initialized = true;
-      Console::stdout = console();
-      Console::stderr = Console::stdout;
-      Console::stdin  = Console::stdout;
-    }
-}
+Kconsole::init()
+{ _c.init(); }
 
-PUBLIC
-virtual bool
-Kconsole::register_console(Console *c, int pos = 0)
-{
-  bool b = Mux_console::register_console(c, pos);
-  if (b) 
-    activate();
-  
-  return b;
-}
 
-IMPLEMENT 
-Mux_console *Kconsole::console()
+PUBLIC inline
+Kconsole::Kconsole()
 {
-  static Kconsole cons;
-  return &cons;
+  Console::stdout = this;
+  Console::stderr = this;
+  Console::stdin  = this;
 }
 

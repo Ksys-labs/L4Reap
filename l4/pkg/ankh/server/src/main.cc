@@ -101,6 +101,8 @@ int Ankh_server::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
 				}
 
 				strncpy(buf, opt.value<char const*>(), size);
+				unsigned len = opt.length();
+				buf[len] = 0;
 
 				Ankh::ServerSession *ret = Ankh::Session_factory::get()->create(buf);
 				if (ret != 0)

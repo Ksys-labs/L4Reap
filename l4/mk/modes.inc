@@ -20,6 +20,10 @@ ifeq ($(MODE),l4linux)
   endif
 endif
 
+ifneq ($(MODE_USE_C),)
+  $(error MODE_USE_C is obsolete, add and l4re_c and/or l4re_c-util to REQUIRES_LIBS as needed)
+endif
+
 ifeq ($(ARCH),sparc)
 CRTBEGIN_so       = $(GCCLIBDIR)/crtbegin.o
 CRTBEGIN_stat_bin = $(GCCLIBDIR)/crtbegin.o
@@ -75,8 +79,7 @@ LIBC_INCLUDE   = -nostdinc                                  \
 BID_SUPPORTED_all_sigma0        = y
 LIBCINCDIR_all_sigma0           = $(LIBC_INCLUDE)
 REQUIRES_LIBS_all_sigma0        = l4util l4util l4sys                   \
-                                  $(LIBC_IMPLEMENTATION)                \
-                                  $(if $(MODE_USE_C),l4re_c-util)
+                                  $(LIBC_IMPLEMENTATION)
 L4_LIBS_all_sigma0		= -static -nostdlib                     \
                                   $(GCCLIB) $(GCCLIB_EH) -lcrt0         \
 				  $(EXTRA_LIBS)
@@ -93,8 +96,7 @@ LDFLAGS_all_sigma0              = -Bstatic
 BID_SUPPORTED_all_static        = y
 LIBCINCDIR_all_static           = $(LIBC_INCLUDE)
 REQUIRES_LIBS_all_static        = l4re-main l4re-util stdlibs      \
-                                  $(LIBC_IMPLEMENTATION)           \
-                                  $(if $(MODE_USE_C),l4re_c-util)
+                                  $(LIBC_IMPLEMENTATION)
 L4_LIBS_all_static		= -static -nostdlib  $(GCCLIB) $(GCCLIB_EH) \
                                   $(EXTRA_LIBS)
 CRT0_all_static                 = $(CRTI_stat_bin) $(CRTBEGIN_stat_bin) $(CRT1_stat_bin)
@@ -111,8 +113,7 @@ CRT0_all_shared                 = $(CRTI_dyn_bin) $(CRTBEGIN_dyn_bin) $(CRT1_dyn
 CRTN_all_shared                 = $(CRTN_dyn_bin)
 LDSCRIPT_all_shared             = $(LDS_dyn_bin)
 REQUIRES_LIBS_all_shared        = l4re-main l4re-util ldso stdlibs-sh  \
-                                  $(LIBC_IMPLEMENTATION)  \
-                                  $(if $(MODE_USE_C),l4re_c-util)
+                                  $(LIBC_IMPLEMENTATION)
 L4_LIBS_all_shared             += -nostdlib $(GCCLIB) $(GCCLIB_EH)    \
 				  $(EXTRA_LIBS)
 LDFLAGS_all_shared              = --eh-frame-hdr
@@ -133,7 +134,6 @@ L4_LIBS_all_l4linux		= -l4re_main                        \
                                   -ll4util                          \
 				  -lcxx_base -lcxx_io               \
 				  -lcxx_libc_io
-L4_LIBS_all_l4linux_USE_C-$(MODE_USE_C) = -l4re-c -l4re-c-util
 CRT0_all_l4linux                 =
 CRTN_all_l4linux                 =
 LDSCRIPT_all_l4linux             =

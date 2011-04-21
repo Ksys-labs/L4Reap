@@ -6,9 +6,9 @@ TARGET            = mag
 PRIVATE_INCDIR    = $(SRC_DIR)/../../include/server
 SRC_CC           := big_mouse.cc main.cc screen.cc view_stack.cc \
                     user_state.cc plugin.cc input_driver.cc object_gc.cc \
-                    input_source.cc
+                    input_source.cc session.cc core_api.cc
 OBJS             += mag.lua.bin.o
-#OBJS             += binary_default.tff.o
+OBJS             += default.tff.bin.o
 
 #MODE		 := shared
 
@@ -24,8 +24,6 @@ REQUIRES_LIBS += $(STATIC_PLUGINS)
 CPPFLAGS += -fvisibility=hidden
 
 L4_MULTITHREADED = y
-
-vpath %.ttf $(SRC_DIR)
 
 include $(L4DIR)/mk/prog.mk
 

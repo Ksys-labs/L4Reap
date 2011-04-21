@@ -287,7 +287,7 @@ Ipc_gate::block(Thread *ct, L4_timeout const &to, Utcb *u)
       ct->wait_queue(&_wait_q);
       ct->sender_enqueue(&_wait_q, ct->sched_context()->prio());
     }
-  ct->state_change_dirty(~Thread_ready, Thread_ipc_in_progress | Thread_send_in_progress);
+  ct->state_change_dirty(~Thread_ready, Thread_send_wait);
 
   IPC_timeout timeout;
   if (t)
@@ -298,7 +298,7 @@ Ipc_gate::block(Thread *ct, L4_timeout const &to, Utcb *u)
 
   ct->schedule();
 
-  ct->state_change(~(Thread_ipc_in_progress | Thread_send_in_progress), Thread_ready);
+  ct->state_change(~Thread_ipc_mask, Thread_ready);
   ct->reset_timeout();
 
   if (EXPECT_FALSE(ct->in_sender_list() && timeout.has_hit()))

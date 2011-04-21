@@ -172,6 +172,8 @@ jdb_tcb_IMPL		:= jdb_tcb jdb_tcb-ppc32
 jdb_entry_frame_IMPL	:= jdb_entry_frame-ppc32
 jdb_bp			:= jdb_bp
 thread_IMPL		+= thread-debug 
+
+INTERFACES_JDB		+= $(INTERFACES_JDB-y)
 endif
 
 CXXSRC_KERNEL		:= kernel_panic.cc libc_backend_lock.cc

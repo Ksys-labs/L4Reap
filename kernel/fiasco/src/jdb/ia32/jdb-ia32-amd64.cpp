@@ -107,7 +107,6 @@ IMPLEMENTATION[ia32,amd64]:
 #include "apic.h"
 #include "boot_info.h"
 #include "checksum.h"
-#include "cmdline.h"
 #include "config.h"
 #include "cpu.h"
 #include "initcalls.h"
@@ -120,6 +119,7 @@ IMPLEMENTATION[ia32,amd64]:
 #include "kernel_uart.h"
 #include "kernel_task.h"
 #include "kmem.h"
+#include "koptions.h"
 #include "logdefs.h"
 #include "mem_layout.h"
 #include "pic.h"
@@ -128,7 +128,7 @@ IMPLEMENTATION[ia32,amd64]:
 #include "regdefs.h"
 #include "static_init.h"
 #include "terminate.h"
-#include "thread.h" 
+#include "thread.h"
 #include "thread_state.h"
 #include "timer.h"
 #include "trap_state.h"
@@ -172,10 +172,10 @@ STATIC_INITIALIZE_P(Jdb,JDB_INIT_PRIO);
 IMPLEMENT FIASCO_INIT FIASCO_NOINLINE
 void Jdb::init()
 {
-  if (strstr (Cmdline::cmdline(), " -nojdb"))
+  if (Koptions::o()->opt(Koptions::F_nojdb))
     return;
 
-  if (strstr (Cmdline::cmdline(), " -jdb_never_stop"))
+  if (Koptions::o()->opt(Koptions::F_jdb_never_stop))
     never_break = 1;
 
   init_serial_console();

@@ -585,7 +585,7 @@ Jdb_thread_list::list_threads_show_thread(Thread *t)
     printf(" %5lx ", get_space_dbgid(t));
 
 
-  if (t->state(false) & Thread_receiving)
+  if ((t->state(false) & Thread_ipc_mask) == Thread_receive_wait)
     {
       Jdb_thread::print_partner(t, 5);
       waiting_for = 1;

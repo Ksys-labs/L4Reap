@@ -9,12 +9,12 @@
 #include <l4/sys/compiler.h>
 #include <l4/sigma0/sigma0.h>
 
+#include "debug.h"
+
 __BEGIN_DECLS
 #include "acpi.h"
 #include "acpiosxf.h"
 __END_DECLS
-
-#include <cstdio>
 
 #include "pci.h"
 #include "res.h"
@@ -32,8 +32,8 @@ AcpiOsReadPort (
 	UINT32                         *value,
 	UINT32                          width)
 {
-  if(0 && DEBUG_OSL_PORT_IO)
-    printf("IN: adr=0x%x, width=%i\n", address, width);
+  if(DEBUG_OSL_PORT_IO)
+    d_printf(DBG_ALL, "IN: adr=0x%x, width=%i\n", address, width);
 
   if (address == 0x80)
     return AE_OK;
@@ -59,7 +59,7 @@ AcpiOsReadPort (
       return AE_BAD_PARAMETER;
     }
   if(DEBUG_OSL_PORT_IO)
-    printf("\tport(0x%x)=>0x%x\n",address,*value);
+    d_printf(DBG_ALL, "\tport(0x%x)=>0x%x\n",address,*value);
   return AE_OK;
 }
 
@@ -70,7 +70,7 @@ AcpiOsWritePort (
 	UINT32                          width)
 {
   if(DEBUG_OSL_PORT_IO)
-    printf("\tport(0x%x)<=0x%x\n",address,value);
+    d_printf(DBG_ALL, "\tport(0x%x)<=0x%x\n",address,value);
 
   if (address == 0x80)
     return AE_OK;
@@ -125,7 +125,7 @@ AcpiOsMapMemory (
 {
   void *virt = (void*)res_map_iomem(where, length);
 
-  printf("%s(%x, %x) = %lx\n", __func__, where, length, (unsigned long)virt);
+  d_printf(DBG_DEBUG, "%s(%x, %x) = %lx\n", __func__, where, length, (unsigned long)virt);
 
   return virt;
 }

@@ -3,6 +3,7 @@
 PREPROCESS_PARTS        += tegra2 16550 pic_gic mptimer
 CONFIG_KERNEL_LOAD_ADDR := 0x0
 INTERFACES_KERNEL       += gic boot_mp
+MPCORE_PHYS_BASE        := 0x50040000
 
 uart_IMPL             += uart-16550 uart-16550-arm-tegra2
 config_IMPL           += config-arm-tegra2

@@ -4,7 +4,7 @@ L4DIR         ?= $(PKGDIR)/../..
 
 DDE_SYSTEMS    = x86 arm
 
-REQUIRES_LIBS  = slab ddekit dde-linux26 dde-linux26_net libio l4util l4re_c
+REQUIRES_LIBS  = slab ddekit dde-linux26 dde-linux26_net libio l4util l4re_c-util
 
 -include $(PKGDIR_OBJ)/Makeconf
 

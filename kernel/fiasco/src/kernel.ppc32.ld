@@ -10,6 +10,7 @@ PHDRS {
   etextcommon PT_LOAD;
   phys PT_LOAD;
   kip PT_LOAD;
+  koptions PT_LOAD;
   ktext PT_LOAD;
   kdata PT_LOAD;
   kitext PT_LOAD;
@@ -37,6 +38,10 @@ SECTIONS {
     _initkip_end = .;
     . = ALIGN(4K);
   } : kip = 0
+
+  .koptions : AT (ADDR(.koptions)) {
+    *(.koptions)
+  } : koptions = 0
 
   .mp_tramp : AT (ADDR(.mp_tramp)) {
       KEEP(*(.mp_tramp))

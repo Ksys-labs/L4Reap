@@ -9,12 +9,12 @@ L4DIR	?= $(PKGDIR)/../..
 SYSTEMS = x86-l4f
 
 all::
-	make -C build
+	PWD=$(PWD)/build make -C build
 
 clean::
-	make -C build $@
+	PWD=$(PWD)/build make -C build $@
 
 cleanall::
-	make -C build $@
+	PWD=$(PWD)/build make -C build $@
 
 include $(L4DIR)/mk/subdir.mk

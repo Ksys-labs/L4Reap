@@ -27,6 +27,7 @@
 #include <l4/re/env>
 #include <l4/re/rm>
 #include <l4/re/util/event_buffer>
+#include <l4/sys/factory>
 
 namespace L4Re { namespace Util {
 
@@ -36,7 +37,8 @@ namespace L4Re { namespace Util {
  * After calling init() the class supplies the event-buffer and the
  * associated IRQ object.
  */
-class Event
+template< typename PAYLOAD >
+class Event_t
 {
 public:
   /**
@@ -58,13 +60,54 @@ public:
    */
   int init(L4::Cap<L4Re::Event> event, Mode mode = Mode_irq,
            L4Re::Env const *env = L4Re::Env::env(),
-           L4Re::Cap_alloc *ca = L4Re::Cap_alloc::get_cap_alloc(L4Re::Util::cap_alloc));
+           L4Re::Cap_alloc *ca = L4Re::Cap_alloc::get_cap_alloc(L4Re::Util::cap_alloc))
+  {
+    Auto_cap<L4Re::Dataspace>::Cap ev_ds = ca->alloc<L4Re::Dataspace>();
+    if (!ev_ds.is_valid())
+      return -L4_ENOMEM;
+
+    int r;
+
+    Auto_del_cap<L4::Irq>::Cap ev_irq;
+
+    if (mode == Mode_irq)
+      {
+        ev_irq = ca->alloc<L4::Irq>();
+        if (!ev_irq.is_valid())
+          return -L4_ENOMEM;
+
+        if ((r = l4_error(env->factory()->create_irq(ev_irq.get()))))
+          return r;
+
+        if ((r = l4_error(event->bind(0, ev_irq.get()))))
+          return r;
+      }
+
+    if ((r = event->get_buffer(ev_ds.get())))
+      return r;
+
+    long sz = ev_ds->size();
+    if (sz < 0)
+      return sz;
+
+    Rm::Auto_region<void*> buf;
+
+    if ((r = env->rm()->attach(&buf, sz, L4Re::Rm::Search_addr, ev_ds.get())))
+      return r;
+
+    _ev_buffer = L4Re::Event_buffer_t<PAYLOAD>(buf.get(), sz);
+    _ev_ds     = ev_ds;
+    _ev_irq    = ev_irq;
+    _buf       = buf;
+
+    return 0;
+  }
 
   /**
    * \brief Get event buffer.
    * \return Event buffer object.
    */
-  L4Re::Event_buffer &buffer() { return _ev_buffer; }
+  L4Re::Event_buffer_t<PAYLOAD> &buffer() { return _ev_buffer; }
 
   /**
    * \brief Get event IRQ.
@@ -75,8 +118,10 @@ public:
 private:
   Auto_cap<L4Re::Dataspace>::Cap _ev_ds;
   Auto_del_cap<L4::Irq>::Cap _ev_irq;
-  L4Re::Event_buffer _ev_buffer;
+  L4Re::Event_buffer_t<PAYLOAD> _ev_buffer;
   Rm::Auto_region<void*> _buf;
 };
+
+typedef Event_t<Default_event_payload> Event;
 
 }}

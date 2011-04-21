@@ -13,6 +13,11 @@ config PF_IMX_21
 	help
 	  Choose for i.MX21
 
+config PF_IMX_35
+	bool "i.MX35"
+	depends on PF_IMX
+	select CAN_ARM_CPU_1136
+
 config PF_IMX_51
 	bool "i.MX51"
 	depends on PF_IMX
@@ -25,4 +30,5 @@ endchoice
 config PF_IMX_RAM_PHYS_BASE
 	hex
 	default 0xc0000000 if PF_IMX_21
+	default 0x80000000 if PF_IMX_35
 	default 0x90000000 if PF_IMX_51

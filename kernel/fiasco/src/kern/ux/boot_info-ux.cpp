@@ -16,9 +16,7 @@ private:
   static pid_t                          _pid;           // Process ID
   static char **                        _args;          // Cmd Line Parameters
   static bool                           _irq0_disabled;
-  static bool                           _wait;
   static unsigned long                  _input_size;
-  static unsigned long                  _kmemsize;
   static unsigned long                  _fb_size;
   static Address                        _fb_virt;
   static Address                        _fb_phys;
@@ -30,7 +28,6 @@ private:
   static const char *                   _net_program;
   static void *                         _mbi_vbe;
   static const char *                   _irq0_program;
-  static const char *                   _jdb_cmd;
   static struct option                  _long_options[];
   static char                           _help[];
   static char const *                   _modules[];
@@ -64,6 +61,7 @@ IMPLEMENTATION[ux]:
 #include "config.h"
 #include "initcalls.h"
 #include "kernel_console.h"
+#include "koptions.h"
 #include "loader.h"
 #include "mem_layout.h"
 
@@ -71,9 +69,7 @@ int                     Boot_info::_fd;
 pid_t                   Boot_info::_pid;
 char **                 Boot_info::_args;
 bool                    Boot_info::_irq0_disabled;
-bool                    Boot_info::_wait;
 unsigned long           Boot_info::_input_size;
-unsigned long           Boot_info::_kmemsize;
 unsigned long           Boot_info::_fb_size;
 Address                 Boot_info::_fb_virt = 0xc0000000;
 Address                 Boot_info::_fb_phys;
@@ -85,7 +81,6 @@ bool                    Boot_info::_net;
 const char *            Boot_info::_net_program = "ux_net";
 void *                  Boot_info::_mbi_vbe;
 const char *            Boot_info::_irq0_program = "irq0";
-const char *            Boot_info::_jdb_cmd;
 bool			Boot_info::_emulate_clisti;
 unsigned long           Boot_info::_sigma0_start;
 unsigned long           Boot_info::_sigma0_end;
@@ -127,7 +122,7 @@ char Boot_info::_help[] FIASCO_INITDATA =
   "-f file     : Specify the location of the physical memory backing store\n"
   "-l module   : Specify a module\n"
   "-j jdb cmds : Specify non-interactive Jdb commands to be executed at startup\n"
-  "-k kmemsize : Specify size in MB to be reserved for kernel\n"
+  "-k kmemsize : Specify size in KiB to be reserved for kernel\n"
   "-m memsize  : Specify physical memory size in MB (currently up to 1024)\n"
   "-q          : Suppress any startup message\n"
   "-t number   : Specify the number of trace buffer entries (up to 32768)\n"
@@ -223,11 +218,11 @@ Boot_info::init()
         break;
 
       case 'j':
-        _jdb_cmd = optarg;
+	set_jdb_cmd(optarg);
         break;
 
       case 'k':
-        _kmemsize = atol (optarg) << 20;
+        kmemsize(atol(optarg) << 10);
         break;
 
       case 'm':
@@ -244,7 +239,7 @@ Boot_info::init()
         break;
 
       case 'w':
-        _wait = true;
+        set_wait();
         break;
 
       case '0':
@@ -526,11 +521,11 @@ Boot_info::mbi_vbe()
 }
 
 PUBLIC static inline
-unsigned long 
+unsigned long
 Boot_info::mbi_size()
 {
-  return (unsigned long)mbi_vbe() 
-    + sizeof (Multiboot_vbe_controller) + sizeof (Multiboot_vbe_mode) 
+  return (unsigned long)mbi_vbe()
+    + sizeof (Multiboot_vbe_controller) + sizeof (Multiboot_vbe_mode)
     - (unsigned long)mbi_virt();
 }
 
@@ -553,11 +548,6 @@ PUBLIC static inline
 bool
 Boot_info::irq0_disabled()
 { return _irq0_disabled; }
-
-PUBLIC static inline
-bool
-Boot_info::wait()
-{ return _wait; }
 
 PUBLIC static inline
 unsigned long
@@ -620,16 +610,6 @@ Boot_info::irq0_path()
 { return _irq0_program; }
 
 PUBLIC static inline
-const char *
-Boot_info::jdb_cmd()
-{ return _jdb_cmd; }
-
-PUBLIC static inline
-unsigned long
-Boot_info::kmemsize()
-{ return _kmemsize; }
-
-PUBLIC static inline
 bool
 Boot_info::emulate_clisti()
 { return _emulate_clisti; }
@@ -668,4 +648,23 @@ PUBLIC inline static
 unsigned
 Boot_info::get_checksum_rw(void)
 { return 0; }
+
+
+PUBLIC static
+void
+Boot_info::set_wait()
+{ Koptions::o()->flags |= Koptions::F_wait; }
+
+PUBLIC static
+void
+Boot_info::kmemsize(unsigned int k)
+{ Koptions::o()->kmemsize = k; }
+
+PUBLIC static
+void
+Boot_info::set_jdb_cmd(const char *j)
+{
+  strncpy(Koptions::o()->jdb_cmd, j, sizeof(Koptions::o()->jdb_cmd));
+  Koptions::o()->jdb_cmd[sizeof(Koptions::o()->jdb_cmd) - 1] = 0;
+}
 

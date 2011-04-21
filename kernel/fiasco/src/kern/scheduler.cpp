@@ -50,6 +50,13 @@ FIASCO_DEFINE_KOBJ(Scheduler);
 
 static Scheduler scheduler;
 
+PUBLIC void
+Scheduler::operator delete (void *)
+{
+  printf("WARNING: tried to delete kernel scheduler object.\n"
+         "         The system is now useless\n");
+}
+
 PUBLIC inline
 Scheduler::Scheduler()
 {

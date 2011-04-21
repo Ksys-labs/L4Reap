@@ -64,7 +64,6 @@ public:
   static const bool fine_grained_cputime = false;
 #endif
 
-  static bool irq_ack_in_kernel;
   static bool esc_hack;
 
   static unsigned tbuf_entries;
@@ -215,9 +214,9 @@ IMPLEMENTATION:
 
 #include <cstring>
 #include <cstdlib>
-#include "cmdline.h"
 #include "feature.h"
 #include "initcalls.h"
+#include "koptions.h"
 #include "panic.h"
 
 KIP_KERNEL_ABI_VERSION(STRINGIFY(FIASCO_KERNEL_SUBVERSION));
@@ -227,7 +226,6 @@ bool Config::esc_hack = false;
 #ifdef CONFIG_SERIAL
 int  Config::serial_esc = Config::SERIAL_NO_ESC;
 #endif
-bool Config::irq_ack_in_kernel = false;
 
 #ifdef CONFIG_PROFILE
 bool Config::profiling = false;
@@ -241,28 +239,23 @@ IMPLEMENTATION [!arm && !ppc32]:
 IMPLEMENT FIASCO_INIT
 void Config::init()
 {
-  char const *cmdline = Cmdline::cmdline();
-
   init_arch();
 
-  if (strstr(cmdline, " -esc"))
+  if (Koptions::o()->opt(Koptions::F_esc))
     esc_hack = true;
 
 #ifdef CONFIG_PROFILE
-  if (strstr(cmdline, " -profile"))
+  if (Koptions::o()->opt(Koptions::F_profile))
     profiling = true;
 #endif
 
-  if (strstr(cmdline, " -always_irqack"))
-    irq_ack_in_kernel = true;
-
 #ifdef CONFIG_SERIAL
-  if (    strstr(cmdline, " -serial_esc")
-      && !strstr(cmdline, " -noserial")
+  if (    Koptions::o()->opt(Koptions::F_serial_esc)
+      && !Koptions::o()->opt(Koptions::F_noserial)
 # ifdef CONFIG_KDB
-      &&  strstr(cmdline, " -nokdb")
+      &&  Koptions::o()->opt(Koptions::F_nokdb)
 # endif
-      && !strstr(cmdline, " -nojdb"))
+      && !Koptions::o()->opt(Koptions::F_nojdb))
     {
       serial_esc = SERIAL_ESC_IRQ;
     }
@@ -276,7 +269,7 @@ IMPLEMENTATION[rotext]:
 PUBLIC static
 bool
 Config::rotext()
-{ return strstr(Cmdline::cmdline()," -rotext"); }
+{ return Koptions::o()->opt(Koptions::F_rotext); }
 
 //----------------------------------------------------------------------------
 IMPLEMENTATION[!rotext]:

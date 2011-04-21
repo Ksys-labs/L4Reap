@@ -59,6 +59,8 @@ public:
     F_set_pixel          = 0x08, ///< pixel type can be set
     F_set_position       = 0x10, ///< position on screen can be set
     F_dyn_allocated      = 0x20, ///< View is dynamically allocated
+    F_set_background     = 0x40, ///< Set view as background for session
+    F_set_flags          = 0x80, ///< Set view flags (\see V_flags)
 
     /** Flags for a fully dynamic view */
     F_fully_dynamic      =   F_set_buffer | F_set_buffer_offset | F_set_bytes_per_line
@@ -66,11 +68,23 @@ public:
   };
 
   /**
+   * \brief Property flags of a view.
+   *
+   * Such flags can be set or deleted with the #F_set_flags operation using
+   * the set_info() method.
+   */
+  enum V_flags
+  {
+    F_above              = 0x1000,  ///< Flag the view as stay on top
+    F_flags_mask         = 0xff000, ///< Mask containing all possible property flags
+  };
+
+  /**
    * \brief Information structure of a view.
    */
   struct Info
   {
-    unsigned flags;                 ///< Flags, see \a Flags
+    unsigned flags;                 ///< Flags, \see \a Flags and \a V_flags
     unsigned view_index;            ///< Index of the view
 
     unsigned long xpos;             ///< X position in pixels of the view in the goos
@@ -153,11 +167,11 @@ public:
 
   /** Make this view the top-most view */
   int push_top() const throw()
-  { return stack(View(), false); }
+  { return stack(View(), true); }
 
   /** Push this view the back */
   int push_bottom() const throw()
-  { return stack(View(), true); }
+  { return stack(View(), false); }
 
   /**
    * \brief Refresh/Redraw the view.

@@ -36,7 +36,7 @@
  */
 
 /**
- * \brief Write data to virtual console.
+ * \brief Send data to virtual console.
  * \ingroup l4_vcon_api
  *
  * \param vcon    Vcon object.
@@ -48,12 +48,32 @@
  * \note Size must not exceed L4_VCON_WRITE_SIZE.
  */
 L4_INLINE l4_msgtag_t
-l4_vcon_write(l4_cap_idx_t vcon, char const *buf, int size) L4_NOTHROW;
+l4_vcon_send(l4_cap_idx_t vcon, char const *buf, int size) L4_NOTHROW;
 
 /**
  * \internal
  */
 L4_INLINE l4_msgtag_t
+l4_vcon_send_u(l4_cap_idx_t vcon, char const *buf, int size, l4_utcb_t *utcb) L4_NOTHROW;
+
+
+/**
+ * \brief Write data to virtual console.
+ * \ingroup l4_vcon_api
+ *
+ * \param vcon    Vcon object.
+ * \param buf     Pointer to data buffer.
+ * \param size    Size of buffer in bytes.
+ *
+ * \return Number of bytes written to the virtual console.
+ */
+L4_INLINE long
+l4_vcon_write(l4_cap_idx_t vcon, char const *buf, int size) L4_NOTHROW;
+
+/**
+ * \internal
+ */
+L4_INLINE long
 l4_vcon_write_u(l4_cap_idx_t vcon, char const *buf, int size, l4_utcb_t *utcb) L4_NOTHROW;
 
 /**
@@ -184,7 +204,7 @@ enum L4_vcon_ops
 /******* Implementations ********************/
 
 L4_INLINE l4_msgtag_t
-l4_vcon_write_u(l4_cap_idx_t vcon, char const *buf, int size, l4_utcb_t *utcb) L4_NOTHROW
+l4_vcon_send_u(l4_cap_idx_t vcon, char const *buf, int size, l4_utcb_t *utcb) L4_NOTHROW
 {
   l4_msg_regs_t *mr = l4_utcb_mr_u(utcb);
   mr->mr[0] = L4_VCON_WRITE_OP;
@@ -195,6 +215,33 @@ l4_vcon_write_u(l4_cap_idx_t vcon, char const *buf, int size, l4_utcb_t *utcb) L
                                2 + (size + sizeof(l4_umword_t) - 1) / sizeof(l4_umword_t),
                                0, L4_MSGTAG_SCHEDULE),
                                L4_IPC_NEVER);
+}
+
+L4_INLINE l4_msgtag_t
+l4_vcon_send(l4_cap_idx_t vcon, char const *buf, int size) L4_NOTHROW
+{
+  return l4_vcon_send_u(vcon, buf, size, l4_utcb());
+}
+
+L4_INLINE long
+l4_vcon_write_u(l4_cap_idx_t vcon, char const *buf, int size, l4_utcb_t *utcb) L4_NOTHROW
+{
+  l4_msgtag_t t;
+
+  if (size > L4_VCON_WRITE_SIZE)
+    size = L4_VCON_WRITE_SIZE;
+
+  t = l4_vcon_send_u(vcon, buf, size, utcb);
+  if (l4_msgtag_has_error(t))
+    return l4_error(t);
+
+  return size;
+}
+
+L4_INLINE long
+l4_vcon_write(l4_cap_idx_t vcon, char const *buf, int size) L4_NOTHROW
+{
+  return l4_vcon_write_u(vcon, buf, size, l4_utcb());
 }
 
 L4_INLINE int
@@ -226,12 +273,6 @@ l4_vcon_read_u(l4_cap_idx_t vcon, char *buf, int size, l4_utcb_t *utcb) L4_NOTHR
 
   __builtin_memcpy(buf, &mr->mr[1], r);
   return ret;
-}
-
-L4_INLINE l4_msgtag_t
-l4_vcon_write(l4_cap_idx_t vcon, char const *buf, int size) L4_NOTHROW
-{
-  return l4_vcon_write_u(vcon, buf, size, l4_utcb());
 }
 
 L4_INLINE int

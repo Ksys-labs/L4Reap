@@ -10,10 +10,10 @@
 #pragma once
 
 #include "main.h"
+#include "debug.h"
 
 #include <l4/cxx/avl_map>
 #include <string>
-#include <cstdio>
 #include <typeinfo>
 
 #include "hw_device.h"
@@ -38,10 +38,11 @@ protected:
   }
 
 public:
-  static VI *create(HW *f);
+  static VI *create(HW *f, bool warn = true);
 };
 
 typedef Generic_type_factory<Dev_feature, Hw::Dev_feature> Feature_factory;
+typedef Generic_type_factory<Resource, Resource> Resource_factory;
 
 class Dev_factory
 : public Generic_type_factory<Device, Hw::Device>
@@ -95,6 +96,11 @@ public:
 template< typename VI, typename HW >
 class Feature_factory_t
 : public Generic_factory_t<VI, Hw::Dev_feature, HW, Feature_factory >
+{};
+
+template< typename VI, typename HW >
+class Resource_factory_t
+: public Generic_factory_t<VI, Resource, HW, Resource_factory >
 {};
 
 template< typename V_DEV, typename HW_DEV = void >
@@ -153,7 +159,7 @@ public:
 
 template< typename VI, typename HW >
 VI *
-Generic_type_factory<VI, HW>::create(HW *f)
+Generic_type_factory<VI, HW>::create(HW *f, bool warn)
 {
   if (!f)
     return 0;
@@ -162,8 +168,9 @@ Generic_type_factory<VI, HW>::create(HW *f)
   typename Type_map::const_iterator i = tm.find(&typeid(*f));
   if (i == tm.end())
     {
-      printf("WARNING: cannot fabricate buddy object for '%s'\n",
-             typeid(*f).name());
+      if (warn)
+        d_printf(DBG_WARN, "WARNING: cannot fabricate buddy object for '%s'\n",
+                typeid(*f).name());
       return 0;
     }
 

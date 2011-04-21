@@ -83,6 +83,12 @@ Vlog::Vlog()
   initial_kobjects.register_obj(this, 5);
 }
 
+PUBLIC void
+Vlog::operator delete (void *)
+{
+  printf("WARNING: tried to delete kernel Vlog object.\n");
+}
+
 PUBLIC
 void
 Vlog::unbind_irq()

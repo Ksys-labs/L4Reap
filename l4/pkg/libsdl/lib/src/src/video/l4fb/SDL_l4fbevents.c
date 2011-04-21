@@ -122,10 +122,12 @@ void L4FB_InitOSKeymap(_THIS) {
 
 
 
-static void event_callback(l4re_event_t *e) {
+static void event_callback(l4re_event_t *e, void *data) {
 	long code;
 	Uint8 state;
 	SDL_keysym key;
+
+	(void)data;
 	memset(&key, 0, sizeof(key));
 	switch (e->type) {
 		case L4RE_EV_KEY:
@@ -139,7 +141,7 @@ static void event_callback(l4re_event_t *e) {
 			if (code>0 && code < L4RE_KEY_MAX)
 				key.sym = keymap[code];
 			// or try to decode ascii
-#if 0			
+#if 0
 			if (!key.sym) {
 				if (this->hidden->have_app) {
 					key.sym = dope_get_ascii(this->hidden->app_id, code);
@@ -172,31 +174,24 @@ static void event_callback(l4re_event_t *e) {
 				/* because we only get x OR y pos we have to remember the last
 				 * y OR x value ... */
 				static Sint16 my_x, my_y;
-				
+
 				switch (e->code) {
 
-					case L4RE_ABS_X: 
-					{
+					case L4RE_ABS_X:
 						my_x = e->value - dev->hidden->x_offset;
 						break;
-					}
 					case L4RE_ABS_Y:
-					{
 						my_y = e->value- dev->hidden->y_offset;
 						break;
-					}
-
 				}
-				
 				SDL_PrivateMouseMotion(0, 0, my_x, my_y);
 			}
 			break;
 		case L4RE_EV_REL:
 			{
-
 				switch (e->code)
 					{
-						case L4RE_REL_X: 
+						case L4RE_REL_X:
 							SDL_PrivateMouseMotion(0, 1, e->value, 0);
 							break;
 						case L4RE_REL_Y:
@@ -204,6 +199,11 @@ static void event_callback(l4re_event_t *e) {
 					}
 				break;
 			}
+                case L4RE_EV_SYN:
+                        {
+                          // ignore SYNs
+                          break;
+                        }
 
 
 //		case L4RE_EVENT_TYPE_COMMAND:
@@ -242,7 +242,7 @@ static void * ev_loop(void * data)
 	l4re_event_buffer_consumer_process(&d->hidden->ev_buf,
 	                                   d->hidden->ev_irq,
 	                                   pthread_getl4cap(d->hidden->ev_thread),
-	                                   event_callback);
+	                                   NULL, event_callback);
 	printf("Input handler terminates\n");
 	return 0;
 }

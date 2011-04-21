@@ -24,11 +24,12 @@ protected:
   {
     Ok = 0,
     Queued = 2,
-    Receive_in_progress = 4,
+    Done = 4,
     Failed = 1,
   };
 
   Syscall_frame *_snd_regs;
+  unsigned char _ipc_send_rights;
 };
 
 class Buf_utcb_saver
@@ -116,29 +117,46 @@ Thread::ipc_receiver_aborted()
   receiver()->vcpu_update_state();
   set_receiver(0);
 
-  if (!(state() & Thread_ipc_in_progress))
-    return;
-
-  state_add_dirty(Thread_ready);
-  sched()->deblock(cpu());
+  remote_ready_enqueue();
 }
 
-/** Receiver-ready callback.  
-    Receivers make sure to call this function on waiting senders when
-    they get ready to receive a message from that sender. Senders need
-    to overwrite this interface.
-
-    Class Thread's implementation wakes up the sender if it is still in
-    sender-wait state.
- */
-PUBLIC virtual
-bool
-Thread::ipc_receiver_ready(Receiver *recv)
+PUBLIC inline
+void
+Thread::ipc_receiver_ready()
 {
+  vcpu_disable_irqs();
+  state_change_dirty(~Thread_ipc_mask, Thread_receive_in_progress);
+}
+
+PRIVATE
+void
+Thread::ipc_send_msg(Receiver *recv)
+{
+  Syscall_frame *regs = _snd_regs;
+  bool success = transfer_msg(regs->tag(), nonull_static_cast<Thread*>(recv), regs,
+                              _ipc_send_rights);
+  sender_dequeue(recv->sender_list());
+  recv->vcpu_update_state();
+  //printf("  done\n");
+  regs->tag(L4_msg_tag(regs->tag(), success ? 0 : L4_msg_tag::Error));
+
+  Mword state_del = Thread_ipc_mask | Thread_ipc_transfer;
+  Mword state_add = Thread_ready;
+  if (Receiver::prepared())
+    // same as in Receiver::prepare_receive_dirty_2
+    state_add |= Thread_receive_wait;
+
   if (cpu() == current_cpu())
-    return ipc_local_receiver_ready(recv);
+    {
+      state_change_dirty(~state_del, state_add);
+      if (current_sched()->deblock(cpu(), current_sched(), true))
+	recv->switch_to_locked(this);
+    }
   else
-    return ipc_remote_receiver_ready(recv);
+    {
+      drq_state_change(~state_del, state_add);
+      current()->schedule_if(current()->handle_drq());
+    }
 }
 
 PUBLIC virtual
@@ -161,34 +179,6 @@ Thread::modify_label(Mword const *todo, int cnt)
 	  return;
 	}
     }
-}
-
-PRIVATE inline
-bool
-Thread::ipc_local_receiver_ready(Receiver *recv)
-{
-  assert_kdb (receiver());
-  assert_kdb (receiver() == recv);
-  assert_kdb (receiver() == current());
-
-  if (!(state() & Thread_ipc_in_progress))
-    return false;
-
-  if (!recv->sender_ok(this))
-    return false;
-
-  recv->ipc_init(this);
-
-  state_add_dirty(Thread_ready | Thread_transfer_in_progress);
-
-  sched()->deblock(cpu());
-  sender_dequeue(recv->sender_list());
-  recv->vcpu_update_state();
-
-  // put receiver into sleep
-  receiver()->state_del_dirty(Thread_ready);
-
-  return true;
 }
 
 PRIVATE inline
@@ -220,8 +210,7 @@ Thread::handle_page_fault_pager(Thread_ptr const &_pager,
     }
 #endif
 
-  if (EXPECT_FALSE((state() & Thread_alien)
-                   && !(state() & Thread_ipc_in_progress)))
+  if (EXPECT_FALSE((state() & Thread_alien)))
     return false;
 
   Lock_guard<Cpu_lock> guard(&cpu_lock);
@@ -231,10 +220,10 @@ Thread::handle_page_fault_pager(Thread_ptr const &_pager,
 
   if (!pager)
     {
-      WARN ("CPU%d: Pager of %lx is invalid (pfa=" L4_PTR_FMT
-	    ", errorcode=" L4_PTR_FMT ") to %lx (pc=%lx)\n",
-	    current_cpu(), dbg_id(), pfa, error_code,
-            _pager.raw(), regs()->ip());
+      WARN("CPU%d: Pager of %lx is invalid (pfa=" L4_PTR_FMT
+	   ", errorcode=" L4_PTR_FMT ") to %lx (pc=%lx)\n",
+	   current_cpu(), dbg_id(), pfa, error_code,
+           _pager.raw(), regs()->ip());
 
 
       LOG_TRACE("Page fault invalid pager", "pf", this,
@@ -264,23 +253,6 @@ Thread::handle_page_fault_pager(Thread_ptr const &_pager,
   utcb->values[1] = regs()->ip(); //PF::pc_to_msgword1 (regs()->ip(), error_code));
 
   L4_timeout_pair timeout(L4_timeout::Never, L4_timeout::Never);
-  
-  // This might be a page fault in midst of a long-message IPC operation.
-  // Save the current IPC state and restore it later.
-  Sender *orig_partner;
-  Syscall_frame *orig_rcv_regs;
-  save_receiver_state (&orig_partner, &orig_rcv_regs);
-
-  Receiver *orig_snd_partner = receiver();
-  Timeout *orig_timeout = _timeout;
-  if (orig_timeout)
-    orig_timeout->reset();
-
-  unsigned orig_ipc_state = state() & Thread_ipc_mask;
-
-  state_del(orig_ipc_state);
-  if (orig_ipc_state)
-    timeout = utcb->xfer;	// in long IPC -- use pagefault timeout
 
   L4_msg_tag tag(2, 0, 0, protocol);
 
@@ -321,14 +293,6 @@ Thread::handle_page_fault_pager(Thread_ptr const &_pager,
   // restore previous IPC state
 
   saved_utcb_fields.restore(utcb);
-
-  set_receiver(orig_snd_partner);
-  restore_receiver_state(orig_partner, orig_rcv_regs);
-  state_add(orig_ipc_state);
-
-  if (orig_timeout)
-    orig_timeout->set_again(cpu());
-
   return success;
 }
 
@@ -363,35 +327,29 @@ Thread::check_sender(Thread *sender, bool timeout)
 PRIVATE inline NEEDS["timer.h"]
 void Thread::goto_sleep(L4_timeout const &t, Sender *sender, Utcb *utcb)
 {
-  if (EXPECT_FALSE
-     ((state() & (Thread_receiving | Thread_ipc_in_progress | Thread_cancel))
-      != (Thread_receiving | Thread_ipc_in_progress)))
-    return;
-
   IPC_timeout timeout;
 
   if (EXPECT_FALSE(t.is_finite() && !_timeout))
     {
-
       state_del_dirty(Thread_ready);
 
-      Unsigned64 tval = t.microsecs(Timer::system_clock(), utcb);
+      Unsigned64 sysclock = Timer::system_clock();
+      Unsigned64 tval = t.microsecs(sysclock, utcb);
 
-      if (EXPECT_TRUE((tval != 0)))
+      if (EXPECT_TRUE((tval > sysclock)))
 	{
 	  set_timeout(&timeout);
 	  timeout.set(tval, cpu());
 	}
       else // timeout already hit
-	state_change_dirty(~Thread_ipc_in_progress, Thread_ready);
-
+	state_change_dirty(~Thread_ipc_mask, Thread_ready | Thread_timeout);
     }
   else
     {
       if (EXPECT_TRUE(t.is_never()))
 	state_del_dirty(Thread_ready);
       else
-	state_change_dirty(~Thread_ipc_in_progress, Thread_ready);
+	state_change_dirty(~Thread_ipc_mask, Thread_ready | Thread_timeout);
     }
 
   if (sender == this)
@@ -410,7 +368,6 @@ void Thread::goto_sleep(L4_timeout const &t, Sender *sender, Utcb *utcb)
 
 
 
-
 /**
  * @pre cpu_lock must be held
  */
@@ -425,52 +382,12 @@ Thread::handshake_receiver(Thread *partner, L4_timeout snd_t)
     case Failed:
       return Failed;
     case Queued:
-      state_add_dirty(Thread_send_in_progress | Thread_ipc_in_progress);
+      state_add_dirty(Thread_send_wait);
       return Queued;
     default:
+      partner->state_change_dirty(~(Thread_ipc_mask | Thread_ready), Thread_ipc_transfer);
       return Ok;
     }
-}
-
-
-PRIVATE inline
-void
-Thread::wake_receiver(Thread *receiver)
-{
-  // If neither IPC partner is delayed, just update the receiver's state
-  if (1) // rt:EXPECT_TRUE(!((state() | receiver->state()) & Thread_delayed_ipc)))
-    {
-      receiver->state_change_dirty(~(Thread_ipc_receiving_mask
-                                     | Thread_ipc_in_progress),
-                                   Thread_ready);
-      return;
-    }
-
-  // Critical section if either IPC partner is delayed until its next period
-  assert_kdb (cpu_lock.test());
-#if 0 // rt ext
-  // Sender has no receive phase and deadline timeout already hit
-  if ( (state() & (Thread_receiving |
-		   Thread_delayed_deadline | Thread_delayed_ipc)) ==
-      Thread_delayed_ipc)
-    {
-      state_change_dirty (~Thread_delayed_ipc, 0);
-      switch_sched (sched_context()->next());
-      _deadline_timeout.set (Timer::system_clock() + period(), cpu());
-    }
-
-  // Receiver's deadline timeout already hit
-  if ( (receiver->state() & (Thread_delayed_deadline |
-                             Thread_delayed_ipc) ==
-                             Thread_delayed_ipc))
-    {
-      receiver->state_change_dirty (~Thread_delayed_ipc, 0);
-      receiver->switch_sched (receiver->sched_context()->next());
-      receiver->_deadline_timeout.set (Timer::system_clock() +
-                                       receiver->period(), receiver->cpu());
-    }
-#endif
-  receiver->state_change_dirty(~(Thread_ipc_mask | Thread_delayed_ipc), Thread_ready);
 }
 
 PRIVATE inline
@@ -481,140 +398,27 @@ Thread::set_ipc_error(L4_error const &e, Thread *rcv)
   rcv->utcb().access()->error = L4_error(e, L4_error::Rcv);
 }
 
-PRIVATE inline NEEDS [Thread::do_send_wait]
-bool
-Thread::do_ipc_send(L4_msg_tag const &tag, Thread *partner,
-                    bool have_receive,
-                    L4_timeout_pair t, Syscall_frame *regs,
-                    bool *do_switch, unsigned char rights)
+
+PRIVATE inline
+Sender *
+Thread::get_next_sender(Sender *sender)
 {
-  unsigned result;
-
-  state_add_dirty(Thread_send_in_progress);
-  set_ipc_send_rights(rights);
-
-  if (EXPECT_FALSE(partner->cpu() != current_cpu()) ||
-      ((result = handshake_receiver(partner, t.snd)) == Failed
-       && partner->drq_pending()))
+  if (sender_list()->head())
     {
-      *do_switch = false;
-      result = remote_handshake_receiver(tag, partner, have_receive, t.snd,
-                                         regs, rights);
-    }
-
-  if (EXPECT_FALSE(result & Queued))
-    {
-      L4_timeout snd_t;
-      if (result & Receive_in_progress)
-	snd_t = L4_timeout::Never;
-      else
-	snd_t = t.snd;
-
-      // set _snd_regs, we may become a remote IPC while waiting
-      snd_regs(regs);
-
-      if (!do_send_wait(partner, snd_t))
-	return false;
-    }
-  else if (EXPECT_FALSE(result == Failed))
-    {
-      state_del_dirty(Thread_ipc_sending_mask
-                      | Thread_transfer_in_progress
-                      | Thread_ipc_in_progress);
-      return false;
-    }
-
-  // Case 1: The handshake told us it was Ok
-  // Case 2: The send_wait told us it had finished w/o error
-
-  // in The X-CPU IPC case the IPC has been already finished here
-  if (EXPECT_FALSE(partner->cpu() != current_cpu()
-                   || (!(state() & Thread_send_in_progress))))
-    {
-      state_del_dirty(Thread_ipc_sending_mask | Thread_transfer_in_progress);
-      return true;
-    }
-
-  assert_kdb (!(state() & Thread_polling));
-
-  partner->ipc_init(this);
-
-  // mmh, we can reset the receivers timeout
-  // ping pong with timeouts will profit from it, because
-  // it will require much less sorting overhead
-  // if we dont reset the timeout, the possibility is very high
-  // that the receiver timeout is in the timeout queue
-  partner->reset_timeout();
-
-  bool success = transfer_msg(tag, partner, regs, rights);
-
-  if (success && this->partner() == partner)
-    partner->set_caller(this, rights);
-
-  if (!tag.do_switch() || partner->state() & Thread_suspended)
-    *do_switch = false;
-
-  if (EXPECT_FALSE(!success || !have_receive))
-    {
-      bool do_direct_switch = false;
-      // make the ipc partner ready if still engaged in ipc with us
-      if (partner->in_ipc(this))
+      if (sender) // closed wait
 	{
-	  wake_receiver(partner);
-	  do_direct_switch = *do_switch;
+	  if (sender->in_sender_list() && this == sender->receiver())
+	    return sender;
 	}
-
-      if (do_direct_switch)
-	check (!switch_exec_locked(partner, Context::Not_Helping));
-      else if (partner->sched()->deblock(current_cpu(), sched(), true))
-	switch_to_locked(partner);
-
-      state_del(Thread_ipc_sending_mask
-                | Thread_transfer_in_progress
-                | Thread_ipc_in_progress);
-
-      return success;
+      else // open wait
+	{
+	  Sender *next = Sender::cast(sender_list()->head());
+	  assert_kdb (next->in_sender_list());
+	  set_partner(next);
+	  return next;
+	}
     }
-
-  // possible preemption point
-
-  if (EXPECT_TRUE(!partner->in_ipc(this)))
-    {
-      state_del(Thread_ipc_sending_mask
-                | Thread_transfer_in_progress
-                | Thread_ipc_in_progress);
-      sender_dequeue(partner->sender_list());
-      partner->vcpu_update_state();
-      utcb().access()->error = L4_error::Aborted;
-      return false;
-    }
-
-  wake_receiver(partner);
-  prepare_receive_dirty_2();
-  return true;
-}
-
-PRIVATE inline NOEXPORT
-void
-Thread::handle_abnormal_termination(Syscall_frame *regs)
-{
-  if (EXPECT_TRUE (!(state() & Thread_ipc_receiving_mask)))
-    return;
-
-  Utcb *utcb = this->utcb().access(true);
-  // the IPC has not been finished.  could be timeout or cancel
-  // XXX should only modify the error-code part of the status code
-
-  if (EXPECT_FALSE(state() & Thread_cancel))
-    {
-      // we've presumably been reset!
-      if (state() & Thread_transfer_in_progress)
-	regs->tag(commit_error(utcb, L4_error::R_aborted, regs->tag()));
-      else
-	regs->tag(commit_error(utcb, L4_error::R_canceled, regs->tag()));
-    }
-  else
-    regs->tag(commit_error(utcb, L4_error::R_timeout, regs->tag()));
+  return 0;
 }
 
 
@@ -637,151 +441,149 @@ Thread::do_ipc(L4_msg_tag const &tag, bool have_send, Thread *partner,
   assert_kdb (cpu_lock.test());
   assert_kdb (this == current());
 
-  bool do_switch = true;
-  //LOG_MSG_3VAL(this, "ipc", (Mword) partner, (Mword) sender, cpu());
-  assert_kdb (!(state() & Thread_ipc_sending_mask));
+  bool do_switch = false;
 
-  prepare_receive_dirty_1(sender, have_receive ? regs : 0);
+  assert_kdb (!(state() & Thread_ipc_mask));
+
+  prepare_receive(sender, have_receive ? regs : 0);
+  bool activate_partner = false;
 
   if (have_send)
     {
       assert_kdb(!in_sender_list());
-      bool ok = do_ipc_send(tag, partner, have_receive, t, regs, &do_switch, rights);
+      do_switch = tag.do_switch();
+
+      bool ok;
+      unsigned result;
+
+      set_ipc_send_rights(rights);
+
+      if (EXPECT_FALSE(partner->cpu() != current_cpu()) ||
+	  ((result = handshake_receiver(partner, t.snd)) == Failed
+	   && partner->drq_pending()))
+	{
+	  // we have either per se X-CPU IPC or we ran into a
+	  // IPC during migration (indicated by the pending DRQ)
+	  do_switch = false;
+	  result = remote_handshake_receiver(tag, partner, have_receive, t.snd,
+	                                     regs, rights);
+	}
+
+      switch (__builtin_expect(result, Ok))
+	{
+	case Done:
+	  ok = true;
+	  break;
+
+	case Queued:
+	  // set _snd_regs, to enable active receiving
+	  snd_regs(regs);
+	  ok = do_send_wait(partner, t.snd); // --- blocking point ---
+	  break;
+
+	case Failed:
+	  state_del_dirty(Thread_ipc_mask);
+	  ok = false;
+	  break;
+
+	default:
+	  // mmh, we can reset the receivers timeout
+	  // ping pong with timeouts will profit from it, because
+	  // it will require much less sorting overhead
+	  // if we dont reset the timeout, the possibility is very high
+	  // that the receiver timeout is in the timeout queue
+	  partner->reset_timeout();
+
+	  ok = transfer_msg(tag, partner, regs, rights);
+
+	  // switch to receiving state
+	  state_del_dirty(Thread_ipc_mask);
+	  if (ok && have_receive)
+	    state_add_dirty(Thread_receive_wait);
+
+	  activate_partner = partner != this;
+	  break;
+	}
+
       if (EXPECT_FALSE(!ok))
         {
+	  // send failed, so do not switch to receiver directly and skip receive phase
+          have_receive = false;
           regs->tag(L4_msg_tag(0, 0, L4_msg_tag::Error, 0));
-          assert_kdb (!in_sender_list());
-          return;
-        }
-
-      if (!have_receive)
-        {
-          regs->tag(L4_msg_tag(0,0,0,0));
-          assert_kdb (!in_sender_list());
-          return;
         }
     }
   else
     {
       assert_kdb (have_receive);
-      prepare_receive_dirty_2();
+      state_add_dirty(Thread_receive_wait);
     }
 
-  assert_kdb (!in_sender_list());
-  assert_kdb (!(state() & Thread_ipc_sending_mask));
+  // only do direct switch on closed wait (call) or if we run on a foreign
+  // scheduling context
+  Sender *next = 0;
 
-  while (EXPECT_TRUE
-         ((state() & (Thread_receiving | Thread_ipc_in_progress | Thread_cancel))
-          == (Thread_receiving | Thread_ipc_in_progress)) )
+  have_receive = state() & Thread_receive_wait;
+
+  if (have_receive)
     {
-      Sender *next = 0;
+      assert_kdb (!in_sender_list());
+      assert_kdb (!(state() & Thread_send_wait));
+      next = get_next_sender(sender);
+    }
 
-      if (EXPECT_FALSE((long)sender_list()->head()))
+  if (activate_partner)
+    {
+      if (partner->cpu() == current_cpu())
 	{
-	  if (sender) // closed wait
-	    {
-	      if (sender->in_sender_list()
-		  && this == sender->receiver()
-		  && sender->ipc_receiver_ready(this))
-		next = sender;
-	    }
-	  else // open wait
-	    {
-
-	      next = Sender::cast(sender_list()->head());
-
-              assert_kdb (next->in_sender_list());
-
-	      if (!next->ipc_receiver_ready(this)) 
-		{
-		  next->sender_dequeue_head(sender_list());
-		  vcpu_update_state();
-		  Proc::preemption_point();
-		  continue;
-		}
-	    }
-	}
-
-      assert_kdb (cpu_lock.test());
-
-      // XXX: I'm not sure that EXPECT_FALSE ist the right here
-      if (EXPECT_FALSE((long) next))
-	{
-
-	  assert_kdb (!(state() & Thread_ipc_in_progress)
-		 || !(state() & Thread_ready));
-
-	  // maybe switch_exec should return an bool to avoid testing the 
-	  // state twice
-	  if (have_send) 
-	    {
-	      assert_kdb (partner);
-	      assert_kdb (partner->sched());
-	    }
-	  /* do_switch == false for xCPU */
-	  if (EXPECT_TRUE(have_send && do_switch
-			  && (partner->state() & Thread_ready)
-			  && (next->sender_prio() <= partner->sched()->prio())))
-	    switch_exec_schedule_locked(partner,  Context::Not_Helping);
-	  else
-	    {
-	      if (have_send && partner->cpu() == cpu()
-                  && (partner->state() & Thread_ready))
-	        partner->sched()->deblock(cpu());
-	      schedule();
-	    }
-
-	  assert_kdb (state() & Thread_ready);
+	  Sched_context *cs = Sched_context::rq(cpu()).current_sched();
+	  do_switch = do_switch && ((have_receive && sender) || cs->context() != this)
+	              && !(next && current_sched()->dominates(cs));
+	  partner->state_change_dirty(~Thread_ipc_transfer, Thread_ready);
+	  if (do_switch)
+	    schedule_if(handle_drq() || switch_exec_locked(partner, Context::Not_Helping));
+	  else if (partner->current_sched()->deblock(current_cpu(), current_sched(), true))
+	    switch_to_locked(partner);
 	}
       else
-	{
-	  if (EXPECT_TRUE(have_send && partner->cpu() == cpu()
-	                  && (partner->state() & Thread_ready)))
-	    {
-	      have_send = false;
-	      if (do_switch)
-		{
-		  switch_exec_locked(partner,  Context::Not_Helping);
-		  // We have to retry if there are possible senders in our
-		  // sender queue, because a sender from a remote CPU may
-		  // have been enqueued in handle_drq, in switch_exec_locked
-		  continue;
-		}
-	      else
-	        partner->sched()->deblock(cpu());
-	    }
-
-	  goto_sleep(t.rcv, sender, utcb().access(true));
-	  have_send = false;
-	  // LOG_MSG_3VAL(this, "ipcrw", Mword(sender), state(), 0);
-	}
+	partner->drq_state_change(~Thread_ipc_transfer, Thread_ready);
     }
 
-  assert_kdb (!(state() & Thread_ipc_sending_mask));
-
-  // if the receive operation was canceled/finished before we 
-  // switched to the old receiver, finish the send
-  if (have_send && partner->cpu() == cpu()
-      && (partner->state() & Thread_ready))
+  if (next)
     {
-      if (do_switch && EXPECT_TRUE(partner != this))
-        switch_exec_schedule_locked(partner,  Context::Not_Helping);
-      else
-        partner->sched()->deblock(cpu());
+      ipc_receiver_ready();
+      next->ipc_send_msg(this);
+      state_del_dirty(Thread_ipc_mask);
     }
-
-  // fast out if ipc is already finished
-  if (EXPECT_TRUE((state() & ~(Thread_transfer_in_progress | Thread_fpu_owner|Thread_cancel)) == Thread_ready))
+  else if (have_receive)
     {
-      state_del(Thread_transfer_in_progress);
-      return;
+      if ((state() & Thread_full_ipc_mask) == Thread_receive_wait)
+	goto_sleep(t.rcv, sender, utcb().access(true));
     }
-  assert_kdb (!(state() & (Thread_ipc_sending_mask)));
 
-  // abnormal termination?
-  handle_abnormal_termination(regs);
+  if (EXPECT_TRUE (!(state() & Thread_full_ipc_mask)))
+    return;
 
-  state_del(Thread_ipc_mask);
+  while (EXPECT_FALSE(state() & Thread_ipc_transfer))
+    {
+      state_del_dirty(Thread_ready);
+      schedule();
+    }
+
+  if (EXPECT_TRUE (!(state() & Thread_full_ipc_mask)))
+    return;
+
+  Utcb *utcb = this->utcb().access(true);
+  // the IPC has not been finished.  could be timeout or cancel
+  // XXX should only modify the error-code part of the status code
+
+  if (EXPECT_FALSE(state() & Thread_cancel))
+    {
+      // we've presumably been reset!
+      regs->tag(commit_error(utcb, L4_error::R_canceled, regs->tag()));
+    }
+  else
+    regs->tag(commit_error(utcb, L4_error::R_timeout, regs->tag()));
+  state_del(Thread_full_ipc_mask);
 }
 
 
@@ -796,6 +598,11 @@ Thread::transfer_msg(L4_msg_tag tag, Thread *receiver,
   tag.set_error(!success);
   dst_regs->tag(tag);
   dst_regs->from(sender_regs->from_spec());
+
+  // setup the reply capability in case of a call
+  if (success && partner() == receiver)
+    receiver->set_caller(this, rights);
+
   return success;
 }
 
@@ -1004,6 +811,46 @@ Thread::try_transfer_local_id(L4_buf_iter::Item const *const buf,
   return false;
 }
 
+PRIVATE static inline
+bool FIASCO_WARN_RESULT
+Thread::copy_utcb_to_utcb(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
+                          unsigned char rights)
+{
+  assert (cpu_lock.test());
+
+  Utcb *snd_utcb = snd->utcb().access();
+  Utcb *rcv_utcb = rcv->utcb().access();
+  Mword s = tag.words();
+  Mword r = Utcb::Max_words;
+
+  Mem::memcpy_mwords(rcv_utcb->values, snd_utcb->values, r < s ? r : s);
+
+  bool success = true;
+  if (tag.items())
+    success = transfer_msg_items(tag, snd, snd_utcb, rcv, rcv_utcb, rights);
+
+  if (tag.transfer_fpu() && rcv_utcb->inherit_fpu() && (rights & L4_fpage::W))
+    snd->transfer_fpu(rcv);
+
+  return success;
+}
+
+
+PUBLIC inline NEEDS[Thread::copy_utcb_to_ts, Thread::copy_utcb_to_utcb,
+                    Thread::copy_ts_to_utcb]
+bool FIASCO_WARN_RESULT
+Thread::copy_utcb_to(L4_msg_tag const &tag, Thread* receiver,
+                     unsigned char rights)
+{
+  // we cannot copy trap state to trap state!
+  assert_kdb (!this->_utcb_handler || !receiver->_utcb_handler);
+  if (EXPECT_FALSE(this->_utcb_handler != 0))
+    return copy_ts_to_utcb(tag, this, receiver, rights);
+  else if (EXPECT_FALSE(receiver->_utcb_handler != 0))
+    return copy_utcb_to_ts(tag, this, receiver, rights);
+  else
+    return copy_utcb_to_utcb(tag, this, receiver, rights);
+}
 
 PRIVATE static
 bool
@@ -1118,17 +965,17 @@ Thread::transfer_msg_items(L4_msg_tag const &tag, Thread* snd, Utcb *snd_utcb,
 /**
  * \pre Runs on the sender CPU
  */
-PRIVATE inline NEEDS[Thread::do_remote_abort_send]
+PRIVATE inline
 bool
 Thread::abort_send(L4_error const &e, Thread *partner)
 {
-  state_del_dirty(Thread_send_in_progress | Thread_polling | Thread_ipc_in_progress
-                  | Thread_transfer_in_progress);
+  state_del_dirty(Thread_full_ipc_mask);
 
   if (_timeout && _timeout->is_set())
     _timeout->reset();
 
   set_timeout(0);
+  Abort_state abt = Abt_ipc_done;
 
   if (partner->cpu() == current_cpu())
     {
@@ -1136,13 +983,32 @@ Thread::abort_send(L4_error const &e, Thread *partner)
 	{
 	  sender_dequeue(partner->sender_list());
 	  partner->vcpu_update_state();
-	}
+	  abt = Abt_ipc_cancel;
 
+	}
+      else if (partner->in_ipc(this))
+	abt = Abt_ipc_in_progress;
+    }
+  else
+    abt = partner->Receiver::abort_send(this);
+
+  switch (abt)
+    {
+    default:
+    case Abt_ipc_done:
+      return true;
+    case Abt_ipc_cancel:
       utcb().access()->error = e;
+      return false;
+    case Abt_ipc_in_progress:
+      state_add_dirty(Thread_ipc_transfer);
+      while (state() & Thread_ipc_transfer)
+	{
+	  state_del_dirty(Thread_ready);
+	  schedule();
+	}
       return true;
     }
-
-  return do_remote_abort_send(e, partner);
 }
 
 
@@ -1154,8 +1020,6 @@ PRIVATE inline
 bool
 Thread::do_send_wait(Thread *partner, L4_timeout snd_t)
 {
-  state_add_dirty(Thread_polling);
-
   IPC_timeout timeout;
 
   if (EXPECT_FALSE(snd_t.is_finite()))
@@ -1169,60 +1033,18 @@ Thread::do_send_wait(Thread *partner, L4_timeout snd_t)
       timeout.set(tval, cpu());
     }
 
-  while (1)
+  register Mword ipc_state;
+
+  while (((ipc_state = state() & (Thread_send_wait | Thread_ipc_abort_mask))) == Thread_send_wait)
     {
-      if ((state() & (Thread_ipc_in_progress | Thread_polling
-                      | Thread_cancel | Thread_transfer_in_progress))
-           == (Thread_ipc_in_progress | Thread_polling))
-        {
-          state_del_dirty(Thread_ready);
-          schedule();
-        }
-
-      // ipc handshake bit is set
-      if ((state() & (Thread_transfer_in_progress | Thread_receiving
-	              | Thread_ipc_in_progress))
-	  != Thread_ipc_in_progress)
-	break;
-
-      if (EXPECT_FALSE(state() & Thread_cancel))
-	return abort_send(L4_error::Canceled, partner);
-
-      // FIXME: existence check
-#if 0
-      if (EXPECT_FALSE(0 && partner->is_invalid()))
-	{
-	  state_del_dirty(Thread_send_in_progress | Thread_polling
-	      | Thread_ipc_in_progress | Thread_transfer_in_progress);
-
-	  if (_timeout && _timeout->is_set())
-	    _timeout->reset();
-
-	  set_timeout(0);
-
-          utcb().access()->error = L4_error::Not_existent;
-	  return false;
-	}
-#endif
-
-      // Make sure we're really still in IPC
-      assert_kdb (state() & Thread_ipc_in_progress);
-
-      state_add_dirty(Thread_polling);
+      state_del_dirty(Thread_ready);
+      schedule();
     }
 
-  state_del_dirty(Thread_polling);
-
-  if (EXPECT_FALSE((state() & (Thread_send_in_progress | Thread_cancel))
-        == (Thread_send_in_progress | Thread_cancel)))
+  if (EXPECT_FALSE(ipc_state == (Thread_cancel | Thread_send_wait)))
     return abort_send(L4_error::Canceled, partner);
 
-  // reset is only an simple dequeing operation from an double
-  // linked list, so we dont need an extra preemption point for this
-
-  if (EXPECT_FALSE(timeout.has_hit() && (state() & (Thread_send_in_progress
-                               | Thread_ipc_in_progress)) ==
-      Thread_send_in_progress))
+  if (EXPECT_FALSE(ipc_state == (Thread_timeout | Thread_send_wait)))
     return abort_send(L4_error::Timeout, partner);
 
   timeout.reset();
@@ -1231,14 +1053,15 @@ Thread::do_send_wait(Thread *partner, L4_timeout snd_t)
   return true;
 }
 
+PRIVATE inline
+void
+Thread::set_ipc_send_rights(unsigned char c)
+{
+  _ipc_send_rights = c;
+}
 
 //---------------------------------------------------------------------
 IMPLEMENTATION [!mp]:
-
-PRIVATE inline
-void
-Thread::set_ipc_send_rights(unsigned char)
-{}
 
 PRIVATE inline NEEDS ["l4_types.h"]
 unsigned
@@ -1249,25 +1072,8 @@ Thread::remote_handshake_receiver(L4_msg_tag const &, Thread *,
   return Failed;
 }
 
-PRIVATE inline
-bool
-Thread::ipc_remote_receiver_ready(Receiver *)
-{ kdb_ke("Remote IPC in UP kernel"); return false; }
-
-
-PRIVATE inline
-bool
-Thread::do_remote_abort_send(L4_error const &, Thread *)
-{ kdb_ke("Remote abort send on UP kernel"); return false; }
-
 //---------------------------------------------------------------------
 INTERFACE [mp]:
-
-EXTENSION class Thread
-{
-private:
-  unsigned char _ipc_send_rights;
-};
 
 struct Ipc_remote_request;
 
@@ -1283,8 +1089,6 @@ struct Ipc_remote_request
   unsigned result;
 };
 
-struct Ready_queue_request;
-
 struct Ready_queue_request
 {
   Thread *thread;
@@ -1299,82 +1103,12 @@ struct Ready_queue_request
 IMPLEMENTATION [mp]:
 
 
-PRIVATE inline
-void
-Thread::set_ipc_send_rights(unsigned char c)
-{
-  _ipc_send_rights = c;
-}
-
-
-PRIVATE inline
-bool
-Thread::do_remote_abort_send(L4_error const &e, Thread *partner)
-{
-  if (partner->Receiver::abort_send(current_thread()))
-    return true;
-
-  utcb().access()->error = e;
-  schedule_if(handle_drq());
-  return false;
-}
-
-/**
- *
- * Runs on the receiver CPU in the context of recv.
- * The 'this' pointer is the sender.
- */
-PRIVATE inline
-bool
-Thread::ipc_remote_receiver_ready(Receiver *recv)
-{
-  //printf(" remote ready: %x.%x \n", id().task(), id().lthread());
-  //LOG_MSG_3VAL(this, "recvr", Mword(recv), 0, 0);
-  assert_kdb (recv->cpu() == current_cpu());
-
-  recv->ipc_init(this);
-
-  Syscall_frame *regs = _snd_regs;
-
-  recv->vcpu_disable_irqs();
-  //printf("  transfer to %p\n", recv);
-  bool success = transfer_msg(regs->tag(), nonull_static_cast<Thread*>(recv), regs, _ipc_send_rights);
-  //printf("  done\n");
-  regs->tag(L4_msg_tag(regs->tag(), success ? 0 : L4_msg_tag::Error));
-  if (success && partner() == nonull_static_cast<Thread*>(recv))
-    nonull_static_cast<Thread*>(recv)->set_caller(this, _ipc_send_rights);
-
-
-  recv->state_del_dirty(Thread_ipc_receiving_mask | Thread_ipc_in_progress);
-
-  // dequeue sender from receiver's sending queue
-  sender_dequeue(recv->sender_list());
-  recv->vcpu_update_state();
-
-  Ready_queue_request rq;
-  rq.thread = this;
-  rq.state_add = Thread_transfer_in_progress;
-  if (Receiver::prepared())
-    { // same as in Receiver::prepare_receive_dirty_2
-      rq.state_del = Thread_ipc_sending_mask;
-      rq.state_add |= Thread_receiving;
-    }
-  else
-    rq.state_del = 0;
-
-  drq(handle_remote_ready_enqueue, &rq);
-  current()->schedule_if(current()->handle_drq());
-  //printf("  wakeup sender done\n");
-
-  return true;
-}
-
 PRIVATE inline NOEXPORT
 bool
 Thread::remote_ipc_send(Context *src, Ipc_remote_request *rq)
 {
   (void)src;
-  //LOG_MSG_3VAL(this, "rse", current_cpu(), (Mword)src, 0);
+  // LOG_MSG_3VAL(this, "rse", current_cpu(), (Mword)src, (Mword)this);
 #if 0
   LOG_MSG_3VAL(this, "rsend", (Mword)src, 0, 0);
   printf("CPU[%u]: remote IPC send ...\n"
@@ -1387,7 +1121,6 @@ Thread::remote_ipc_send(Context *src, Ipc_remote_request *rq)
 	 rq->regs,
 	 rq->timeout);
 #endif
-  rq->result = Ok;
 
   switch (__builtin_expect(rq->partner->check_sender(this, rq->timeout), Ok))
     {
@@ -1406,24 +1139,16 @@ Thread::remote_ipc_send(Context *src, Ipc_remote_request *rq)
   // thread code. However, this induces a overhead of two extra IPIs.
   if (rq->tag.items())
     {
-      set_receiver(rq->partner);
-      sender_enqueue(rq->partner->sender_list(), sched_context()->prio());
-      rq->partner->vcpu_set_irq_pending();
-
       //LOG_MSG_3VAL(rq->partner, "pull", dbg_id(), 0, 0);
-      rq->result = Queued | Receive_in_progress;
-      rq->partner->state_add_dirty(Thread_ready);
-      rq->partner->sched()->deblock(current_cpu());
+      rq->partner->state_change_dirty(~(Thread_ipc_mask | Thread_ready), Thread_ipc_transfer);
+      rq->result = Ok;
       return true;
     }
   rq->partner->vcpu_disable_irqs();
   bool success = transfer_msg(rq->tag, rq->partner, rq->regs, _ipc_send_rights);
-  rq->result = success ? Ok : Failed;
+  rq->result = success ? Done : Failed;
 
-  if (success && partner() == rq->partner)
-    rq->partner->set_caller(this, _ipc_send_rights);
-
-  rq->partner->state_change_dirty(~(Thread_ipc_receiving_mask | Thread_ipc_in_progress), Thread_ready);
+  rq->partner->state_change_dirty(~Thread_ipc_mask, Thread_ready);
   // hm, should be done by lazy queueing: rq->partner->ready_enqueue();
   return true;
 }
@@ -1437,30 +1162,6 @@ Thread::handle_remote_ipc_send(Drq *src, Context *, void *_rq)
   //LOG_MSG_3VAL(src, "rse<", current_cpu(), (Mword)src, r);
   return r ? Drq::Need_resched : 0;
 }
-
-
-PRIVATE static
-unsigned
-Thread::handle_remote_ready_enqueue(Drq *, Context *self, void *_rq)
-{
-  Ready_queue_request *rq = (Ready_queue_request*)_rq;
-  Context *c = self;
-  //LOG_MSG_3VAL(current(), "rre", rq->state_add, rq->state_del, c->state());
-
-  c->state_add_dirty(rq->state_add);
-  c->state_del_dirty(rq->state_del);
-  rq->result = Ready_queue_request::Done;
-
-  if (EXPECT_FALSE(c->state() & Thread_ready))
-    return Drq::Need_resched;
-
-  c->state_add_dirty(Thread_ready);
-  // hm, should be done by our lazy queueing: c->ready_enqueue();
-  return Drq::Need_resched;
-}
-
-
-
 
 /**
  * \pre Runs on the sender CPU
@@ -1486,11 +1187,10 @@ Thread::remote_handshake_receiver(L4_msg_tag const &tag, Thread *partner,
 
   set_receiver(partner);
 
-  state_add_dirty(Thread_send_in_progress | Thread_ipc_in_progress);
+  state_add_dirty(Thread_send_wait);
 
   partner->drq(handle_remote_ipc_send, &rq,
                remote_prepare_receive);
-
 
   return rq.result;
 }
@@ -1503,15 +1203,16 @@ Thread::remote_prepare_receive(Drq *src, Context *, void *arg)
   Ipc_remote_request *rq = (Ipc_remote_request*)arg;
   //printf("CPU[%2u:%p]: remote_prepare_receive (err=%x)\n", current_cpu(), c, rq->err.error());
 
-  if (EXPECT_FALSE(rq->result & Queued))
+  // No atomic switch to receive state if we are queued, or the IPC must be done by
+  // the sender's CPU
+  if (EXPECT_FALSE(rq->result == Queued || rq->result == Ok))
     return 0;
 
-  c->state_del(Thread_send_in_progress);
+  c->state_del(Thread_ipc_mask);
   if (EXPECT_FALSE((rq->result & Failed) || !rq->have_rcv))
     return 0;
 
-  Thread *t = nonull_static_cast<Thread*>(c);
-  t->prepare_receive_dirty_2();
+  c->state_add_dirty(Thread_receive_wait);
   return 0;
 }
 

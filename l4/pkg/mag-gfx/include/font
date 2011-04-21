@@ -38,9 +38,12 @@ struct Font
    */
   int str_w(char const *_str) const
   {
+    if (!_str)
+      return 0;
+
     unsigned char const *str = (unsigned char const *)_str;
     int res = 0;
-    for (; str && *str; ++str)
+    for (; *str; ++str)
       res += wtab[*str];
 
     return res;
@@ -48,9 +51,12 @@ struct Font
 
   int str_w(char const *_str, int len) const
   {
+    if (!_str)
+      return 0;
+
     unsigned char const *str = (unsigned char const *)_str;
     int res = 0;
-    for (; str && *str && len; ++str, --len)
+    for (; *str && len; ++str, --len)
       res += wtab[*str];
 
     return res;

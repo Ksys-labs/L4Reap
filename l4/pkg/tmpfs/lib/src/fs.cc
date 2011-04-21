@@ -138,7 +138,7 @@ public:
   Pers_dir(const char *name, mode_t mode)
     : Node(name, (mode & 0777) | __S_IFDIR) {}
   Ref_ptr<Node> find_path(cxx::String);
-  int add_node(Ref_ptr<Node> const &);
+  bool add_node(Ref_ptr<Node> const &);
 
   typedef Tree::Const_iterator Const_iterator;
   Const_iterator begin() const { return _tree.begin(); }
@@ -150,10 +150,10 @@ Ref_ptr<Node> Pers_dir::find_path(cxx::String path)
   return cxx::ref_ptr(_tree.find_node(path));
 }
 
-int Pers_dir::add_node(Ref_ptr<Node> const &n)
+bool Pers_dir::add_node(Ref_ptr<Node> const &n)
 {
-  int e = _tree.insert(n.ptr()).second;
-  if (!e)
+  bool e = _tree.insert(n.ptr()).second;
+  if (e)
     n->add_ref();
   return e;
 }
@@ -306,9 +306,9 @@ Tmpfs_dir::get_entry(const char *name, int flags, mode_t mode,
     {
       Ref_ptr<Node> node(new Pers_file(n.start(), mode));
       // when ENOENT is return, path is always a directory
-      int e = cxx::ref_ptr_static_cast<Pers_dir>(path)->add_node(node);
-      if (e)
-        return e;
+      bool e = cxx::ref_ptr_static_cast<Pers_dir>(path)->add_node(node);
+      if (!e)
+        return -ENOMEM;
       path = node;
     }
 
@@ -452,7 +452,7 @@ Tmpfs_dir::mkdir(const char *name, mode_t mode) throw()
   Ref_ptr<Pers_dir> dnode = cxx::ref_ptr_static_cast<Pers_dir>(node);
 
   Ref_ptr<Pers_dir> dir(new Pers_dir(last.start(), mode));
-  return dnode->add_node(dir);
+  return dnode->add_node(dir) ? 0 : -EEXIST;
 }
 
 int

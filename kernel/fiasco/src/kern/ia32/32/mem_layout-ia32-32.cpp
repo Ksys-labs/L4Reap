@@ -92,14 +92,14 @@ Address Mem_layout::pmem_size;
 
 PUBLIC static inline
 void
-Mem_layout::kphys_base (Address base)
+Mem_layout::kphys_base(Address base)
 {
   physmem_offs = (Address)Physmem - base;
 }
 
 PUBLIC static inline NEEDS[<cassert>]
 Address
-Mem_layout::pmem_to_phys (Address addr)
+Mem_layout::pmem_to_phys(Address addr)
 {
   assert (in_pmem(addr));
   return addr - physmem_offs;
@@ -107,7 +107,7 @@ Mem_layout::pmem_to_phys (Address addr)
 
 PUBLIC static inline NEEDS[<kdb_ke.h>]
 Address
-Mem_layout::pmem_to_phys (const void *ptr)
+Mem_layout::pmem_to_phys(const void *ptr)
 {
   Address addr = reinterpret_cast<Address>(ptr);
 

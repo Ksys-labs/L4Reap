@@ -107,9 +107,31 @@ Rm::_detach(l4_addr_t addr, unsigned long size, L4::Cap<Dataspace> *mem,
   if (!task.is_valid())
     return err;
 
-  for (unsigned long p = 0; p < rsize; p += L4_PAGESIZE)
+  rsize = l4_round_page(rsize);
+  unsigned order = L4_LOG2_PAGESIZE;
+  unsigned long sz = (1UL << order);
+  for (unsigned long p = start; rsize; p += sz, rsize -= sz)
     {
-      task->unmap(l4_fpage(start + p, L4_LOG2_PAGESIZE, L4_FPAGE_RWX),
+      while (sz > rsize)
+	{
+	  --order;
+	  sz >>= 1;
+	}
+
+      for (;;)
+	{
+	  unsigned long m = sz << 1;
+	  if (m > rsize)
+	    break;
+
+	  if (p & (m - 1))
+	    break;
+
+	  ++order;
+	  sz <<= 1;
+	}
+
+      task->unmap(l4_fpage(p, order, L4_FPAGE_RWX),
                   L4_FP_ALL_SPACES);
     }
 

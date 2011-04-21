@@ -26,11 +26,6 @@ void
 Context::fill_user_state()
 {}
 
-PUBLIC inline
-Vcpu_state *
-Context::access_vcpu(bool = false) const
-{ return vcpu_state(); }
-
 IMPLEMENT inline
 void
 Context::switch_cpu(Context *t)

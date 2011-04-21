@@ -193,6 +193,8 @@ extern "C" int ioctl(int fd, unsigned long request, ...) L4_NOTHROW
 
 extern "C" int fcntl64(int fd, int cmd, ...)
 {
+  Ops *o = L4Re::Vfs::vfs_ops;
+  Ref_ptr<File> f = o->get_file(fd);
   switch (cmd)
     {
     case F_DUPFD:
@@ -206,7 +208,7 @@ extern "C" int fcntl64(int fd, int cmd, ...)
       return 0;
 
     case F_GETFL:
-      return 0;
+      return f->get_status_flags();
     case F_SETFL:
       return 0;
 

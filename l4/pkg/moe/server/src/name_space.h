@@ -44,7 +44,7 @@ class Name_space : public Moe::Server_object,
 public:
 
   int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
-  { 
+  {
     enum { Max_name = 2048 };
     static char buffer[Max_name];
 
@@ -53,7 +53,7 @@ public:
 
   Name_space();
   ~Name_space();
- 
+
   // server support ----------------------------------------
   int get_capability(L4::Snd_fpage const &cap_fp, L4::Cap<void> *cap,
                      L4::Server_object **lo);
@@ -67,11 +67,14 @@ public:
                    bool dyn = false)
   {
     Entry *n = new Entry(name, o, dyn);
-    int err = insert(n);
-    if (err < 0)
-      delete n;
+    bool b = insert(n);
+    if (!b)
+      {
+        delete n;
+        return -L4_EEXIST;
+      }
 
-    return err;
+    return 0;
   }
 
   void *operator new (size_t size) throw();

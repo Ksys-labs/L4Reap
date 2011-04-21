@@ -6,6 +6,7 @@ INTERFACE:
 class Timer
 {
 public:
+  static int irq_line() FIASCO_INIT;
   /**
    * Static constructor for the interval timer.
    *

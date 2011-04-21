@@ -4,7 +4,7 @@ L4DIR  ?= $(PKGDIR)/../..
 TARGET = libinput.a
 SRC_S  = jiffie_hack.S
 SRC_C = emul_time.c emul_irq.c emul_wait.c emul_res.c \
-        l4evdev.c init.c proxy.c l4drv.c l4drv_reg.c l4bus.c
+        l4evdev.c init.c l4drv.c l4drv_reg.c l4bus.c
 REQUIRES_LIBS = libio libirq l4util libc
 
 PRIVATE_INCDIR = $(PKGDIR)/lib/include

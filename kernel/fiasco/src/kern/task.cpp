@@ -403,22 +403,29 @@ Task::sys_map(unsigned char rights, Syscall_frame *f, Utcb *utcb)
   if (!from)
     return commit_result(-L4_err::EInval);
 
-  // enforce lock order to prevent deadlocks.
-  // always take lock from task with the lower memory address first
-  Lock_guard_2<Lock> guard;
+  Reap_list rl;
+  L4_error ret;
 
-  if (!guard.lock(&existence_lock, &from->existence_lock))
-    return commit_result(-L4_err::EInval);
+    {
+      // enforce lock order to prevent deadlocks.
+      // always take lock from task with the lower memory address first
+      Lock_guard_2<Lock> guard;
+
+      // FIXME: avoid locking the current task, it is not needed
+      if (!guard.lock(&existence_lock, &from->existence_lock))
+        return commit_result(-L4_err::EInval);
+
+      cpu_lock.clear();
+
+      ret = fpage_map(from, L4_fpage(utcb->values[2]), this,
+                      L4_fpage::all_spaces(), utcb->values[1], &rl);
+      cpu_lock.lock();
+    }
 
   cpu_lock.clear();
-
-  Reap_list rl;
-
-  L4_error ret = fpage_map(from, L4_fpage(utcb->values[2]), this, L4_fpage::all_spaces(), utcb->values[1], &rl);
-
   rl.del();
-
   cpu_lock.lock();
+
   // FIXME: treat reaped stuff
   if (ret.ok())
     return commit_result(0);
@@ -431,10 +438,8 @@ PRIVATE inline NOEXPORT
 L4_msg_tag
 Task::sys_unmap(Syscall_frame *f, Utcb *utcb)
 {
-  Lock_guard<Lock> guard;
-
-  if (!guard.lock(&existence_lock))
-    return commit_error(utcb, L4_error::Not_existent);
+  Reap_list rl;
+  unsigned words = f->tag().words();
 
   LOG_TRACE("Task unmap", "unm", ::current(), __task_unmap_fmt,
             Log_unmap *lu = tbe->payload<Log_unmap>();
@@ -442,21 +447,29 @@ Task::sys_unmap(Syscall_frame *f, Utcb *utcb)
             lu->mask  = utcb->values[1];
             lu->fpage = utcb->values[2]);
 
-  cpu_lock.clear();
-
-  Reap_list rl;
-  L4_map_mask m(utcb->values[1]);
-  unsigned words = f->tag().words();
-
-  for (unsigned i = 2; i < words; ++i)
     {
-      unsigned const flushed = fpage_unmap(this, L4_fpage(utcb->values[i]), m, rl.list());
-      utcb->values[i] = (utcb->values[i] & ~0xfUL) | flushed;
+      Lock_guard<Lock> guard;
+
+      // FIXME: avoid locking the current task, it is not needed
+      if (!guard.try_lock(&existence_lock))
+        return commit_error(utcb, L4_error::Not_existent);
+
+      cpu_lock.clear();
+
+      L4_map_mask m(utcb->values[1]);
+
+      for (unsigned i = 2; i < words; ++i)
+        {
+          unsigned const flushed = fpage_unmap(this, L4_fpage(utcb->values[i]), m, rl.list());
+          utcb->values[i] = (utcb->values[i] & ~0xfUL) | flushed;
+        }
+      cpu_lock.lock();
     }
 
+  cpu_lock.clear();
   rl.del();
-
   cpu_lock.lock();
+
   return commit_result(0, words);
 }
 

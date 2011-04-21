@@ -14,34 +14,9 @@ $(BOOT).elf: $(KERNEL)
 	cp $(KERNEL) $(BOOT).elf
 	$(STRIP) $(BOOT).elf
 
-
-ifeq (a,b)
-$(BOOT).elf: $(srcdir)/boot.arm.ld $(CRT0) kernel.o $(OBJ_BOOT) $(ABI) $(DRIVERS) $(CXXLIB) $(MINILIBC) 
-	@echo "  ... Building boot image"
-	$(LINK_MESSAGE) 
-	$(VERBOSE)$(LD) $(LDFLAGS) -T $< -Ttext $(CONFIG_BOOT_LOAD_ADDR) \
-	-o $@.unstripped $(filter-out $< libgluedriverslibc.a, $^) libgluedriverslibc.a $(LIBGCC)
-	$(VERBOSE)$(LD) $(LDFLAGS) -T $< -Ttext $(CONFIG_BOOT_LOAD_ADDR) \
-	-o $@ $(filter-out $< libgluedriverslibc.a, $^) libgluedriverslibc.a $(LIBGCC) -s --gc-sections
-endif
-
 %.img.o: %.elf
 	$(OBJCOPY) -S $< $*
 	$(OBJCOPY) -B arm -I binary -O elf32-littlearm $* $@
-
-
-#%.img.o: %.elf
-#	$(OBJCOPY) -S $< $*
-#	$(OBJCOPY) -B arm -I binary -O elf32-littlearm $* $@.ex
-#	echo 'asm(".section .rodata.modules;      '\
-#	     '_bin_$(basename $*)_name:           '\
-#	     '.ascii \"$(basename $*)\"; .byte 0; '\
-#	     '.section .modules; .word _binary_$(basename $*)_start; '\
-#	     '.word _binary_$(basename $*)_size; '\
-#	     '.word _bin_$(basename $*)_name; ");' > $@.ex.c
-#	$(CC) -c $@.ex.c -o $@.ex.o
-#	$(LD) -r $@.ex.o $@.ex -o $@	
-#	#$(RM) -f $@.ex $@.ex.c $@.ex.o
 
 kernel.o: $(KERNEL) 
 	$(OBJCOPY) -S $(KERNEL) $(@:.o=)

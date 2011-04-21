@@ -530,7 +530,7 @@ whole_screen:
 
   putstr("rcv descr: ");
 
-  if (t->state(false) & Thread_ipc_receiving_mask)
+  if ((t->state(false) & Thread_ipc_mask) == Thread_receive_wait)
     printf("%08lx", t->rcv_regs()->from_spec());
   else
     putstr("        ");
@@ -852,12 +852,19 @@ Jdb_tcb::show_kobject(Kobject_common *o, int level)
   return show(t, level);
 }
 
+PRIVATE static
+bool
+Jdb_tcb::is_current(Thread *t)
+{
+  return t == Jdb::get_thread(t->cpu());
+}
+
 PUBLIC
 int
 Jdb_tcb::show_kobject_short(char *buf, int max, Kobject_common *o)
 {
   Thread *t = Kobject::dcast<Thread_object *>(Kobject::from_dbg(o->dbg_info()));
-  Thread *cur_t = Jdb::get_current_active();
+  bool is_current = Jdb_tcb::is_current(t);
   int cnt = 0;
   if (t->space() == Kernel_task::kernel_task())
     {
@@ -867,12 +874,12 @@ Jdb_tcb::show_kobject_short(char *buf, int max, Kobject_common *o)
     }
   if (t->space() == Kernel_task::kernel_task())
     return cnt + snprintf(buf, max, " R=%ld%s", t->ref_cnt(),
-                          cur_t == t ? " "JDB_ANSI_COLOR(green)"current"JDB_ANSI_END : "");
+                          is_current ? " "JDB_ANSI_COLOR(green)"current"JDB_ANSI_END : "");
 
   return cnt + snprintf(buf, max, " C=%u S=D:%lx R=%ld %s", t->cpu(),
                         Kobject_dbg::pointer_to_id(t->space()),
                         t->ref_cnt(),
-                        cur_t == t ? " "JDB_ANSI_COLOR(green)"current"JDB_ANSI_END : "");
+                        is_current ? " "JDB_ANSI_COLOR(green)"current"JDB_ANSI_END : "");
 }
 
 PUBLIC

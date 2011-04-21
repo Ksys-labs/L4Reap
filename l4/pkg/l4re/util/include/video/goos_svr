@@ -126,36 +126,34 @@ Goos_svr::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
   if (tag.label() != L4Re::Protocol::Goos)
     return -L4_EBADPROTO;
 
+  unsigned idx = 0;
   L4::Opcode op;
   ios >> op;
   switch (op)
     {
     case L4Re::Video::Goos_::View_info:
-	{
-	  unsigned idx;
-	  ios >> idx;
-	  if (idx != 0)
-	    return -L4_ERANGE;
-	}
+      ios >> idx;
+      if (idx != 0)
+	return -L4_ERANGE;
+
       ios.put(_view_info);
       return L4_EOK;
     case L4Re::Video::Goos_::Info:
       ios.put(_screen_info);
       return L4_EOK;
     case L4Re::Video::Goos_::Get_buffer:
-	{
-	  unsigned idx;
-	  ios >> idx;
-	  if (idx != 0)
-	    return -L4_ERANGE;
-	}
+      ios >> idx;
+      if (idx != 0)
+	return -L4_ERANGE;
       ios << L4::Ipc::Snd_fpage(_fb_ds, L4_CAP_FPAGE_RW);
       return L4_EOK;
     case L4Re::Video::Goos_::View_refresh:
+      ios >> idx;
+      // fall through
+    case L4Re::Video::Goos_::Screen_refresh:
 	{
-	  unsigned idx;
 	  int x,y,w,h;
-	  ios >> idx >> x >> y >> w >> h;
+	  ios >> x >> y >> w >> h;
 	  if (idx != 0)
 	    return -L4_ERANGE;
 

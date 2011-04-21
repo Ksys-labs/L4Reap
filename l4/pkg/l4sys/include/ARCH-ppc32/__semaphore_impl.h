@@ -22,9 +22,7 @@
 #pragma once
 
 #include <l4/sys/utcb.h>
-// dumb, however atomic sequences are defined in kdebug.h
-#include <l4/sys/kdebug.h>
-
+#include <l4/sys/atomic.h>
 #include <l4/sys/compiler.h>
 #include <l4/sys/ipc.h>
 

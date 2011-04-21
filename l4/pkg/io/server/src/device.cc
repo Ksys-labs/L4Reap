@@ -1,5 +1,5 @@
 /*
- * (c) 2010 Alexander Warg <warg@os.inf.tu-dresden.de>
+ * (c) 2011 Alexander Warg <warg@os.inf.tu-dresden.de>
  *     economic rights: Technische Universität Dresden (Germany)
  *
  * This file is part of TUD:OS and distributed under the terms of the
@@ -7,6 +7,7 @@
  * Please see the COPYING-GPL-2 file for details.
  */
 #include "device.h"
+#include "debug.h"
 
 #include <cassert>
 #include <set>
@@ -35,10 +36,10 @@ Generic_device::alloc_child_resource(Resource *r, Device *cld)
 
       if (br->provided()->alloc(*br, this, r, cld, parent() && !parent()->resource_allocated(*br)))
 	{
-#if 0
-	  printf("allocated resource: ");
-	  r->dump();
-#endif
+	  d_printf(DBG_ALL, "allocated resource: ");
+	  if (dlevel(DBG_ALL))
+	    r->dump();
+
 	  return true;
 	}
     }
@@ -46,8 +47,11 @@ Generic_device::alloc_child_resource(Resource *r, Device *cld)
   if (!found_as && parent())
     return parent()->alloc_child_resource(r, cld);
 
-  printf("ERROR: could not reserve physical space for resource\n");
-  r->dump();
+
+  d_printf(DBG_ERR, "ERROR: could not reserve resource\n");
+  if (dlevel(DBG_ERR))
+    r->dump();
+
   r->disable();
   return false;
 }

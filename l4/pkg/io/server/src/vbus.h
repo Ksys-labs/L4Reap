@@ -56,8 +56,12 @@ public:
   Resource_set const *resource_set() const { return &_resources; }
   Resource_set *resource_set() { return &_resources; }
 
+  void set_host(Device *d) { _host = d; }
+  Device *host() const { return _host; }
+
 private:
   Resource_set _resources;
+  Device *_host;
 };
 
 }

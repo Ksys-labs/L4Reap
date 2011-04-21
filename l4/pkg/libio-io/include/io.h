@@ -141,7 +141,10 @@ L4_CV long L4_EXPORT
 l4io_release_ioport(unsigned portnum, unsigned len);
 
 
-
+/**
+ * \brief Check if a resource is available.
+ *
+ */
 
 
 /* -------------- Device handling --------------------- */
@@ -226,6 +229,20 @@ l4io_request_resource_iomem(l4io_device_handle_t devhandle,
 L4_CV void L4_EXPORT
 l4io_request_all_ioports(void);
 
+/**
+ * \brief Check if a resource is available.
+ * \ingroup api_l4io
+ *
+ * \param type  Type of resource
+ * \param start Minimal value.
+ * \param end   Maximum value.
+ */
+L4_CV int L4_EXPORT
+l4io_has_resource(enum l4io_resource_types_t type,
+                  l4vbus_paddr_t start, l4vbus_paddr_t end);
+
+/* ------------------------------------------------------- */
+/* Implementations */
 
 L4_INLINE
 l4io_device_handle_t l4io_get_root_device(void)

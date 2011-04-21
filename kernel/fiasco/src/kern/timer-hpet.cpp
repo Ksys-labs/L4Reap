@@ -5,6 +5,7 @@ class Irq_base;
 EXTENSION class Timer
 {
   static Irq_base *irq;
+  static int hpet_irq;
 };
 
 IMPLEMENTATION [hpet_timer]:
@@ -21,18 +22,19 @@ IMPLEMENTATION [hpet_timer]:
 #include <cstdio>
 
 Irq_base *Timer::irq;
+int Timer::hpet_irq;
 
 IMPLEMENT
 void
 Timer::init()
 {
+  hpet_irq = -1;
   if (!Hpet::init())
     return;
 
-  int hpet_irq = Hpet::int_num();
+  hpet_irq = Hpet::int_num();
   if (hpet_irq == 0 && Hpet::int_avail(2))
     hpet_irq = 2;
-  Config::scheduler_irq_vector = hpet_irq + 0x20;
 
   if (Config::scheduler_one_shot)
     {
@@ -54,10 +56,12 @@ Timer::init()
   Hpet::enable();
   Hpet::dump();
 
-  printf("Using HPET timer on IRQ %d / vector %x (%s Mode) for scheduling\n",
-         hpet_irq, Config::scheduler_irq_vector,
+  printf("Using HPET timer on IRQ %d (%s Mode) for scheduling\n",
+         hpet_irq,
          Config::scheduler_one_shot ? "One-Shot" : "Periodic");
 }
+
+IMPLEMENT inline int Timer::irq_line() { return hpet_irq; }
 
 IMPLEMENT inline NEEDS["irq_pin.h"]
 void

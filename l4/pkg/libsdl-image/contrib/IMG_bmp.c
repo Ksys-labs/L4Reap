@@ -20,6 +20,8 @@
     slouken@libsdl.org
 */
 
+#if !defined(__APPLE__) || defined(SDL_IMAGE_USE_COMMON_BACKEND)
+
 /* This is a BMP image file loading framework */
 /* ICO/CUR file support is here as well since it uses similar internal
  * representation */
@@ -47,7 +49,7 @@ int IMG_isBMP(SDL_RWops *src)
 			is_BMP = 1;
 		}
 	}
-	SDL_RWseek(src, start, SEEK_SET);
+	SDL_RWseek(src, start, RW_SEEK_SET);
 	return(is_BMP);
 }
 
@@ -70,7 +72,7 @@ static int IMG_isICOCUR(SDL_RWops *src, int type)
     bfCount = SDL_ReadLE16(src);
     if ((bfReserved == 0) && (bfType == type) && (bfCount != 0)) 
     	is_ICOCUR = 1;
-	SDL_RWseek(src, start, SEEK_SET);
+	SDL_RWseek(src, start, RW_SEEK_SET);
 
 	return (is_ICOCUR);
 }
@@ -237,7 +239,7 @@ static SDL_Surface *LoadBMP_RW (SDL_RWops *src, int freesrc)
 		goto done;
 	}
 	if ( strncmp(magic, "BM", 2) != 0 ) {
-		SDL_SetError("File is not a Windows BMP file");
+		IMG_SetError("File is not a Windows BMP file");
 		was_error = SDL_TRUE;
 		goto done;
 	}
@@ -338,6 +340,10 @@ static SDL_Surface *LoadBMP_RW (SDL_RWops *src, int freesrc)
 			switch (biBitCount) {
 				case 15:
 				case 16:
+					Rmask = SDL_ReadLE32(src);
+					Gmask = SDL_ReadLE32(src);
+					Bmask = SDL_ReadLE32(src);
+					break;
 				case 32:
 					Rmask = SDL_ReadLE32(src);
 					Gmask = SDL_ReadLE32(src);
@@ -361,7 +367,7 @@ static SDL_Surface *LoadBMP_RW (SDL_RWops *src, int freesrc)
 	/* Load the palette, if any */
 	palette = (surface->format)->palette;
 	if ( palette ) {
-		if ( SDL_RWseek(src, fp_offset+14+biSize, SEEK_SET) < 0 ) {
+		if ( SDL_RWseek(src, fp_offset+14+biSize, RW_SEEK_SET) < 0 ) {
 			SDL_Error(SDL_EFSEEK);
 			was_error = SDL_TRUE;
 			goto done;
@@ -393,14 +399,14 @@ static SDL_Surface *LoadBMP_RW (SDL_RWops *src, int freesrc)
 	}
 
 	/* Read the surface pixels.  Note that the bmp image is upside down */
-	if ( SDL_RWseek(src, fp_offset+bfOffBits, SEEK_SET) < 0 ) {
+	if ( SDL_RWseek(src, fp_offset+bfOffBits, RW_SEEK_SET) < 0 ) {
 		SDL_Error(SDL_EFSEEK);
 		was_error = SDL_TRUE;
 		goto done;
 	}
 	if ((biCompression == BI_RLE4) || (biCompression == BI_RLE8)) {
 		was_error = readRlePixels(surface, src, biCompression == BI_RLE8);
-		if (was_error) SDL_SetError("Error reading from BMP");
+		if (was_error) IMG_SetError("Error reading from BMP");
 		goto done;
 	}
 	top = (Uint8 *)surface->pixels;
@@ -433,7 +439,7 @@ static SDL_Surface *LoadBMP_RW (SDL_RWops *src, int freesrc)
 			for ( i=0; i<surface->w; ++i ) {
 				if ( i%(8/ExpandBMP) == 0 ) {
 					if ( !SDL_RWread(src, &pixel, 1, 1) ) {
-						SDL_SetError(
+						IMG_SetError(
 					"Error reading from BMP");
 						was_error = SDL_TRUE;
 						goto done;
@@ -489,7 +495,7 @@ static SDL_Surface *LoadBMP_RW (SDL_RWops *src, int freesrc)
 done:
 	if ( was_error ) {
 		if ( src ) {
-			SDL_RWseek(src, fp_offset, SEEK_SET);
+			SDL_RWseek(src, fp_offset, RW_SEEK_SET);
 		}
 		if ( surface ) {
 			SDL_FreeSurface(surface);
@@ -562,7 +568,7 @@ LoadICOCUR_RW(SDL_RWops * src, int type, int freesrc)
     bfType = SDL_ReadLE16(src);
     bfCount = SDL_ReadLE16(src);
     if ((bfReserved != 0) || (bfType != type) || (bfCount == 0)) {
-        SDL_SetError("File is not a Windows %s file", type == 1 ? "ICO" : "CUR");
+        IMG_SetError("File is not a Windows %s file", type == 1 ? "ICO" : "CUR");
         was_error = SDL_TRUE;
         goto done;
     }
@@ -615,7 +621,7 @@ LoadICOCUR_RW(SDL_RWops * src, int type, int freesrc)
         biClrUsed = SDL_ReadLE32(src);
         biClrImportant = SDL_ReadLE32(src);
     } else {
-        SDL_SetError("Unsupported ICO bitmap format");
+        IMG_SetError("Unsupported ICO bitmap format");
         was_error = SDL_TRUE;
         goto done;
     }
@@ -646,13 +652,13 @@ LoadICOCUR_RW(SDL_RWops * src, int type, int freesrc)
             ExpandBMP = 0;
             break;
         default:
-            SDL_SetError("ICO file with unsupported bit count");
+            IMG_SetError("ICO file with unsupported bit count");
             was_error = SDL_TRUE;
             goto done;
         }
         break;
     default:
-        SDL_SetError("Compressed ICO files not supported");
+        IMG_SetError("Compressed ICO files not supported");
         was_error = SDL_TRUE;
         goto done;
     }
@@ -711,7 +717,7 @@ LoadICOCUR_RW(SDL_RWops * src, int type, int freesrc)
                 for (i = 0; i < surface->w; ++i) {
                     if (i % (8 / ExpandBMP) == 0) {
                         if (!SDL_RWread(src, &pixel, 1, 1)) {
-                            SDL_SetError("Error reading from ICO");
+                            IMG_SetError("Error reading from ICO");
                             was_error = SDL_TRUE;
                             goto done;
                         }
@@ -752,7 +758,7 @@ LoadICOCUR_RW(SDL_RWops * src, int type, int freesrc)
         for (i = 0; i < surface->w; ++i) {
             if (i % (8 / ExpandBMP) == 0) {
                 if (!SDL_RWread(src, &pixel, 1, 1)) {
-                    SDL_SetError("Error reading from ICO");
+                    IMG_SetError("Error reading from ICO");
                     was_error = SDL_TRUE;
                     goto done;
                 }
@@ -839,3 +845,5 @@ SDL_Surface *IMG_LoadICO_RW(SDL_RWops *src)
 }
 
 #endif /* LOAD_BMP */
+
+#endif /* !defined(__APPLE__) || defined(SDL_IMAGE_USE_COMMON_BACKEND) */

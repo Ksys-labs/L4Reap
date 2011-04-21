@@ -110,8 +110,8 @@ typedef struct {
 
 typedef spinlock_t rwlock_t;
 
-#define SPIN_LOCK_UNLOCKED  (spinlock_t) { .ddekit_lock = NULL, .need_init = 1 }
-#define RW_LOCK_UNLOCKED  (spinlock_t) { .ddekit_lock = NULL, .need_init = 1 }
+#define SPIN_LOCK_UNLOCKED { .ddekit_lock = NULL, .need_init = 1 }
+#define RW_LOCK_UNLOCKED   { .ddekit_lock = NULL, .need_init = 1 }
 
 #define __SPIN_LOCK_UNLOCKED(name)   SPIN_LOCK_UNLOCKED
 #define __RW_LOCK_UNLOCKED(name)     RW_LOCK_UNLOCKED

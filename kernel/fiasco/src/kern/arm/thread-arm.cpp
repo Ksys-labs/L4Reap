@@ -88,7 +88,7 @@ Thread::user_invoke()
   Trap_state *ts = nonull_static_cast<Trap_state*>
     (nonull_static_cast<Return_frame*>(current()->regs()));
 
-  static_assert(sizeof(ts->r[0]), sizeof(Mword));
+  static_assert(sizeof(ts->r[0]) == sizeof(Mword), "Size mismatch");
   Mem::memset_mwords(&ts->r[0], 0, sizeof(ts->r) / sizeof(ts->r[0]));
 
   if (current()->space() == sigma0_task)

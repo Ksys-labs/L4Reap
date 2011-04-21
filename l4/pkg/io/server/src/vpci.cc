@@ -17,6 +17,7 @@
 #include <l4/io/pciids.h>
 #include <l4/sys/err.h>
 
+#include "debug.h"
 #include "pci.h"
 #include "vpci.h"
 #include "vbus_factory.h"
@@ -129,18 +130,21 @@ Pci_proxy_dev::Pci_proxy_dev(Hw::Pci::If *hwf)
 int
 Pci_proxy_dev::irq_enable(Irq_info *irq)
 {
-  for (Resource_list::iterator i = hwf()->host()->resources()->begin();
-      i != hwf()->host()->resources()->end(); ++i)
+  for (Resource_list::iterator i = host()->resources()->begin();
+      i != host()->resources()->end(); ++i)
     {
       Adr_resource *res = dynamic_cast<Adr_resource*>(*i);
       if (!res)
 	continue;
 
-      if (res->type() == Adr_resource::Irq_res /* && (res->start() & 0x80) */)
+      if (res->type() == Adr_resource::Irq_res)
 	{
 	  irq->irq = res->start();
 	  irq->trigger = !(res->flags() & Resource::Irq_info_base);
 	  irq->polarity = !!(res->flags() & (Resource::Irq_info_base * 2));
+	  d_printf(DBG_DEBUG, "Enable IRQ: %d %x %x\n", irq->irq, irq->trigger, irq->polarity);
+	  if (dlevel(DBG_DEBUG2))
+	    dump();
 	  return 0;
 	}
     }
@@ -152,7 +156,7 @@ Pci_proxy_dev::irq_enable(Irq_info *irq)
 l4_uint32_t
 Pci_proxy_dev::read_bar(int bar)
 {
-  //printf("   read bar[%x]: %08x\n", bar, _vbars[bar]);
+  // d_printf(DBG_ALL, "   read bar[%x]: %08x\n", bar, _vbars[bar]);
   return _vbars[bar];
 }
 
@@ -303,6 +307,11 @@ public:
   bool match_hw_feature(const Hw::Dev_feature*) const { return false; }
   int dispatch(l4_umword_t, l4_uint32_t, L4::Ipc_iostream&)
   { return -L4_ENOSYS; }
+  void set_host(Device *d) { _host = d; }
+  Device *host() const { return _host; }
+
+private:
+  Device *_host;
 };
 
 

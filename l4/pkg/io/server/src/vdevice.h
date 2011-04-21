@@ -27,12 +27,16 @@ class Adr_resource;
 
 namespace Vi {
 
+class Device;
+
 class Dev_feature
 {
 public:
   virtual ~Dev_feature() {}
   virtual bool match_hw_feature(Hw::Dev_feature const *) const = 0;
   virtual int dispatch(l4_umword_t obj, l4_uint32_t func, L4::Ipc_iostream &ios) = 0;
+  virtual Device *host() const = 0;
+  virtual void set_host(Device *d) = 0;
 };
 
 
@@ -51,7 +55,10 @@ public:
   Feature_list const *features() const { return &_features; }
 
   void add_feature(Dev_feature *f)
-  { _features.push_back(f); }
+  {
+    f->set_host(this);
+    _features.push_back(f);
+  }
 
   template< typename FT >
   FT *find_feature()

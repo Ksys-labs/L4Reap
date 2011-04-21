@@ -11,13 +11,16 @@
 #define SERIAL_H
 
 #include <l4/sys/compiler.h>
+#include "koptions-def.h"
 
 EXTERN_C_BEGIN
 
 void com_cons_putchar(int ch);
 int  com_cons_try_getchar(void);
 int  com_cons_char_avail(void);
-int  com_cons_init(int com_port);
+int  com_cons_init(int com_port, int com_irq,
+                   L4_kernel_options::Uart *kuart,
+                   unsigned int *kuart_flags);
 
 EXTERN_C_END
 

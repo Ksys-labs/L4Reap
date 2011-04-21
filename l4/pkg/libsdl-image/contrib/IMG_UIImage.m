@@ -21,162 +21,91 @@ static SDL_Surface* Create_SDL_Surface_From_CGImage(CGImageRef image_ref)
 	 * non-RGBA image formats so I'm making the rest up.
 	 * All this code should be scrutinized.
 	 */
-	
-	size_t the_width = CGImageGetWidth(image_ref);
-	size_t the_height = CGImageGetHeight(image_ref);
-	CGRect the_rect = {{0, 0}, {the_width, the_height}};
-	
-	size_t bits_per_pixel = CGImageGetBitsPerPixel(image_ref);
-	size_t bytes_per_row = CGImageGetBytesPerRow(image_ref);
-	//	size_t bits_per_component = CGImageGetBitsPerComponent(image_ref);
-	size_t bits_per_component = 8;
-	
-//	CGImageAlphaInfo alpha_info = CGImageGetAlphaInfo(image_ref);
-	
 
-	SDL_Surface* sdl_surface = NULL;
+	size_t w = CGImageGetWidth(image_ref);
+	size_t h = CGImageGetHeight(image_ref);
+	CGRect rect = {{0, 0}, {w, h}};
+
+	CGImageAlphaInfo alpha = CGImageGetAlphaInfo(image_ref);
+	//size_t bits_per_pixel = CGImageGetBitsPerPixel(image_ref);
+	size_t bits_per_component = 8;
+
+	SDL_Surface* surface;
+	Uint32 Amask;
 	Uint32 Rmask;
 	Uint32 Gmask;
 	Uint32 Bmask;
-	Uint32 Amask;
 
-	
-	CGContextRef bitmap_context = NULL;
-	
-	CGColorSpaceRef color_space = NULL;
-	CGBitmapInfo bitmap_info = CGImageGetBitmapInfo(image_ref);
+	CGContextRef bitmap_context;
+	CGBitmapInfo bitmap_info;
+	CGColorSpaceRef color_space = CGColorSpaceCreateDeviceRGB();
 
-	
-	switch(bits_per_pixel)
-	{
-		case 8:
-		{
-			bytes_per_row = the_width*4;
-			//				color_space = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
-			color_space = CGColorSpaceCreateDeviceRGB();
-			//				bitmap_info = kCGImageAlphaPremultipliedFirst;
-#if __BIG_ENDIAN__
-			bitmap_info = kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Big; /* XRGB Big Endian */
-#else
-			bitmap_info = kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little; /* XRGB Little Endian */
-#endif
-
-			Rmask = 0x00FF0000;
-			Gmask = 0x0000FF00;
-			Bmask = 0x000000FF;
-			Amask = 0x00000000;
-
-			sdl_surface = SDL_CreateRGBSurface(SDL_SWSURFACE,
-											   the_width, the_height, 32, Rmask, Gmask, Bmask, Amask);
-
-
-			
-			break;
-		}
-		case 15:
-		case 16:
-		{
-			bytes_per_row = the_width*4;
-
-			color_space = CGColorSpaceCreateDeviceRGB();
-
-#if __BIG_ENDIAN__
-			bitmap_info = kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Big; /* XRGB Big Endian */
-#else
-			bitmap_info = kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little; /* XRGB Little Endian */
-#endif
-			Rmask = 0x00FF0000;
-			Gmask = 0x0000FF00;
-			Bmask = 0x000000FF;
-			Amask = 0x00000000;
-
-
-			sdl_surface = SDL_CreateRGBSurface(SDL_SWSURFACE,
-											   the_width, the_height, 32, Rmask, Gmask, Bmask, Amask);
-
-			break;
-		}
-		case 24:
-		{
-			bytes_per_row = the_width*4;
-			//			color_space = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
-			color_space = CGColorSpaceCreateDeviceRGB();
-			//			bitmap_info = kCGImageAlphaNone;
-#if __BIG_ENDIAN__
-			bitmap_info = kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Big; /* XRGB Big Endian */
-#else
-			bitmap_info = kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little; /* XRGB Little Endian */
-#endif
-			Rmask = 0x00FF0000;
-			Gmask = 0x0000FF00;
-			Bmask = 0x000000FF;
-			Amask = 0x00000000;
-
-			sdl_surface = SDL_CreateRGBSurface(SDL_SWSURFACE,
-											   the_width, the_height, 32, Rmask, Gmask, Bmask, Amask);
-
-			break;
-		}
-		case 32:
-		{
-						
-			bytes_per_row = the_width*4;
-			//			color_space = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
-			color_space = CGColorSpaceCreateDeviceRGB();
-			//			bitmap_info = kCGImageAlphaPremultipliedFirst;
-#if __BIG_ENDIAN__
-			bitmap_info = kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Big; /* XRGB Big Endian */
-#else
-			bitmap_info = kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little; /* XRGB Little Endian */
-#endif 
-			Amask = 0xFF000000;
-			Rmask = 0x00FF0000;
-			Gmask = 0x0000FF00;
-			Bmask = 0x000000FF;
-
-			sdl_surface = SDL_CreateRGBSurface(SDL_SWSURFACE,
-											   the_width, the_height, 32, Rmask, Gmask, Bmask, Amask);
-			break;
-		}
-		default:
-		{
-            sdl_surface = NULL;
-            break;
-		}
-			
+	if (alpha == kCGImageAlphaNone ||
+	    alpha == kCGImageAlphaNoneSkipFirst ||
+	    alpha == kCGImageAlphaNoneSkipLast) {
+		bitmap_info = kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Host; /* XRGB */
+		Amask = 0x00000000;
+	} else {
+		/* kCGImageAlphaFirst isn't supported */
+		//bitmap_info = kCGImageAlphaFirst | kCGBitmapByteOrder32Host; /* ARGB */
+		bitmap_info = kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host; /* ARGB */
+		Amask = 0xFF000000;
 	}
 
-	if(NULL == sdl_surface)
+	Rmask = 0x00FF0000;
+	Gmask = 0x0000FF00;
+	Bmask = 0x000000FF;
+
+	surface = SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, 32, Rmask, Gmask, Bmask, Amask);
+	if (surface)
 	{
-		if(color_space != NULL)
-		{
-			CGColorSpaceRelease(color_space);			
+		// Sets up a context to be drawn to with surface->pixels as the area to be drawn to
+		bitmap_context = CGBitmapContextCreate(
+															surface->pixels,
+															surface->w,
+															surface->h,
+															bits_per_component,
+															surface->pitch,
+															color_space,
+															bitmap_info
+															);
+
+		// Draws the image into the context's image_data
+		CGContextDrawImage(bitmap_context, rect, image_ref);
+
+		CGContextRelease(bitmap_context);
+
+		// FIXME: Reverse the premultiplied alpha
+		if ((bitmap_info & kCGBitmapAlphaInfoMask) == kCGImageAlphaPremultipliedFirst) {
+			int i, j;
+			Uint8 *p = (Uint8 *)surface->pixels;
+			for (i = surface->h * surface->pitch/4; i--; ) {
+#if __LITTLE_ENDIAN__
+				Uint8 A = p[3];
+				if (A) {
+					for (j = 0; j < 3; ++j) {
+						p[j] = (p[j] * 255) / A;
+					}
+				}
+#else
+				Uint8 A = p[0];
+				if (A) {
+					for (j = 1; j < 4; ++j) {
+						p[j] = (p[j] * 255) / A;
+					}
+				}
+#endif /* ENDIAN */
+				p += 4;
+			}
 		}
-		return NULL;
 	}
 
+	if (color_space)
+	{
+		CGColorSpaceRelease(color_space);			
+	}
 
-	// Sets up a context to be drawn to with sdl_surface->pixels as the area to be drawn to
-	bitmap_context = CGBitmapContextCreate(
-														sdl_surface->pixels,
-														the_width,
-														the_height,
-														bits_per_component,
-														bytes_per_row,
-														color_space,
-														bitmap_info
-														);
-	
-	// Draws the image into the context's image_data
-	CGContextDrawImage(bitmap_context, the_rect, image_ref);
-	
-	CGContextRelease(bitmap_context);
-	CGColorSpaceRelease(color_space);
-	
-	return sdl_surface;
-	
-	
-	
+	return surface;
 }
 
 static SDL_Surface* LoadImageFromRWops(SDL_RWops* rw_ops, CFStringRef uti_string_hint)
@@ -185,7 +114,6 @@ static SDL_Surface* LoadImageFromRWops(SDL_RWops* rw_ops, CFStringRef uti_string
 	SDL_Surface* sdl_surface;
 	UIImage* ui_image;
 
-	CGImageRef image_ref = NULL;
 	int bytes_read = 0;
 	// I don't know what a good size is. 
 	// Max recommended texture size is 1024x1024 on iPhone so maybe base it on that?
@@ -200,11 +128,6 @@ static SDL_Surface* LoadImageFromRWops(SDL_RWops* rw_ops, CFStringRef uti_string
 		bytes_read = SDL_RWread(rw_ops, temp_buffer, 1, block_size);
 		[ns_data appendBytes:temp_buffer length:bytes_read];
 	} while(bytes_read > 0);
-
-	if(NULL == image_ref)
-	{
-		return NULL;
-	}
 
 	ui_image = [[UIImage alloc] initWithData:ns_data];
 	
@@ -227,8 +150,10 @@ static SDL_Surface* LoadImageFromFile(const char *file)
 	
 	ns_string = [[NSString alloc] initWithUTF8String:file];
 	ui_image = [[UIImage alloc] initWithContentsOfFile:ns_string];
-	
-	sdl_surface = Create_SDL_Surface_From_CGImage([ui_image CGImage]);
+	if(ui_image != NULL)
+	{
+		sdl_surface = Create_SDL_Surface_From_CGImage([ui_image CGImage]);
+	}
 	
 	[ui_image release];
 	[ns_string release];
@@ -265,6 +190,32 @@ SDL_Surface *IMG_Load(const char *file)
 }
 
 
+int IMG_InitJPG()
+{
+	return 0;
+}
+
+void IMG_QuitJPG()
+{
+}
+
+int IMG_InitPNG()
+{
+	return 0;
+}
+
+void IMG_QuitPNG()
+{
+}
+
+int IMG_InitTIF()
+{
+	return 0;
+}
+
+void IMG_QuitTIF()
+{
+}
 
 /* Copied straight from other files so I don't have to alter them. */
 static int IMG_isICOCUR(SDL_RWops *src, int type)

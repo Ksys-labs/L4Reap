@@ -30,11 +30,9 @@ public:
     _t(static_cast<Mem::Texture<PT> const *>(t))
   {}
 
-  void draw(Canvas *canvas, View_stack const *s, Mode) const
+  void draw(Canvas *canvas, View_stack const *, Mode) const
   {
     Clip_guard g(canvas, *this);
-
-    s->draw_recursive(View::next(), 0, *this);
     canvas->draw_texture(_t, Rgb32::Black, p1(), Canvas::Masked);
   }
 

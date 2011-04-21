@@ -10,6 +10,7 @@
 #include "boot_cpu.h"
 #include "boot_paging.h"
 #include "boot_console.h"
+#include "kernel_console.h"
 #include "checksum.h"
 #include "config.h"
 #include "globalconfig.h"
@@ -63,7 +64,7 @@ bootstrap (Multiboot_info *mbi, unsigned int flag)
 
   assert(flag == Multiboot_header::Valid);
 
-  // setup stuff for base_paging_init() 
+  // setup stuff for base_paging_init()
   base_cpu_setup();
   // now do base_paging_init(): sets up paging with one-to-one mapping
   base_paging_init();
@@ -71,6 +72,7 @@ bootstrap (Multiboot_info *mbi, unsigned int flag)
   asm volatile ("" ::: "memory");
 
   Kip::init_global_kip(&my_kernel_info_page);
+  Kconsole::init();
   Boot_console::init();
   printf("Boot: KIP @ %p\n", Kip::k());
 

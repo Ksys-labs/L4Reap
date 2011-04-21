@@ -19,7 +19,7 @@ class Jdb_kern_info_idt : public Jdb_kern_info_module
 {
 };
 
-static Jdb_kern_info_idt k_I INIT_PRIORITY(JDB_MODULE_INIT_PRIO+1);
+static Jdb_kern_info_idt k_I INIT_PRIORITY(JDB_MODULE_INIT_PRIO + 1);
 
 PUBLIC
 Jdb_kern_info_idt::Jdb_kern_info_idt()
@@ -54,12 +54,35 @@ Jdb_kern_info_idt::show()
     }
 }
 
+class Jdb_kern_info_test_tsc_scaler : public Jdb_kern_info_module
+{
+};
+
+static Jdb_kern_info_test_tsc_scaler k_tts INIT_PRIORITY(JDB_MODULE_INIT_PRIO+1);
+
+PUBLIC
+Jdb_kern_info_test_tsc_scaler::Jdb_kern_info_test_tsc_scaler()
+  : Jdb_kern_info_module('T', "Test TSC scaler")
+{
+  Jdb_kern_info::register_subcmd(this);
+}
+
+PUBLIC
+void
+Jdb_kern_info_test_tsc_scaler::show()
+{
+  while (Kconsole::console()->getchar(false) == -1)
+    {
+      Unsigned64 t;
+      t = Cpu::boot_cpu()->ns_to_tsc(Cpu::boot_cpu()->tsc_to_ns(Cpu::rdtsc()));
+      printf("Diff (press any key to stop): %lld\n", Cpu::rdtsc() - t);
+    }
+}
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION[ia32,amd64]:
 
 #include "io.h"
-
 
 class Jdb_kern_info_pic_state : public Jdb_kern_info_module
 {
@@ -79,9 +102,9 @@ Jdb_kern_info_pic_state::show()
 {
   int i;
   static char const hex[] = "0123456789ABCDEF";
-	  
+
   // show important I/O ports
-  Io::out8_p(Pic::OCW_TEMPLATE | Pic::READ_NEXT_RD | Pic::READ_IS_ONRD, 
+  Io::out8_p(Pic::OCW_TEMPLATE | Pic::READ_NEXT_RD | Pic::READ_IS_ONRD,
 	     Pic::MASTER_ICW );
   unsigned in_service = Io::in8(Pic::MASTER_ICW);
   Io::out8_p(Pic::OCW_TEMPLATE | Pic::READ_NEXT_RD | Pic::READ_IR_ONRD,
@@ -98,11 +121,11 @@ Jdb_kern_info_pic_state::show()
   for (i=7; i>=0; i--)
     putchar((mask & (1<<i)) ? hex[i] : '-');
   putchar('\n');
-	  
-  Io::out8_p( Pic::OCW_TEMPLATE | Pic::READ_NEXT_RD | Pic::READ_IS_ONRD, 
+
+  Io::out8_p( Pic::OCW_TEMPLATE | Pic::READ_NEXT_RD | Pic::READ_IS_ONRD,
 	      Pic::SLAVES_ICW);
   in_service = Io::in8(Pic::SLAVES_ICW);
-  Io::out8_p( Pic::OCW_TEMPLATE | Pic::READ_NEXT_RD | Pic::READ_IR_ONRD, 
+  Io::out8_p( Pic::OCW_TEMPLATE | Pic::READ_NEXT_RD | Pic::READ_IR_ONRD,
 	      Pic::SLAVES_ICW);
   requested = Io::in8(Pic::SLAVES_ICW);
   mask = Jdb::pic_status >> 8;
@@ -123,7 +146,7 @@ class Jdb_kern_info_misc : public Jdb_kern_info_module
 {
 };
 
-static Jdb_kern_info_misc k_i INIT_PRIORITY(JDB_MODULE_INIT_PRIO+1);
+static Jdb_kern_info_misc k_i INIT_PRIORITY(JDB_MODULE_INIT_PRIO + 1);
 
 PUBLIC
 Jdb_kern_info_misc::Jdb_kern_info_misc()
@@ -165,9 +188,9 @@ Jdb_kern_info_misc::show()
   if(Cpu::get_tr() != 0)
     {
       Gdt_entry *e = Cpu::boot_cpu()->get_gdt()->entries() + (Cpu::boot_cpu()->get_tr() >> 3);
-      printf(": "L4_PTR_FMT"-"L4_PTR_FMT", iobitmap at "L4_PTR_FMT, 
-	  e->base(), e->base()+ e->size(),
-	  e->base() + (reinterpret_cast<Tss *>(e->base())->_io_bit_map_offset));
+      printf(": "L4_PTR_FMT"-"L4_PTR_FMT", iobitmap at "L4_PTR_FMT,
+	     e->base(), e->base()+ e->size(),
+	     e->base() + (reinterpret_cast<Tss *>(e->base())->_io_bit_map_offset));
     }
   printf("\n"
 	 "cr0 : "L4_PTR_FMT"\n"
@@ -179,7 +202,7 @@ class Jdb_kern_info_cpu : public Jdb_kern_info_module
 {
 };
 
-static Jdb_kern_info_cpu k_c INIT_PRIORITY(JDB_MODULE_INIT_PRIO+1);
+static Jdb_kern_info_cpu k_c INIT_PRIORITY(JDB_MODULE_INIT_PRIO + 1);
 
 PUBLIC
 Jdb_kern_info_cpu::Jdb_kern_info_cpu()
@@ -196,7 +219,8 @@ Jdb_kern_info_cpu::show()
   char cpu_mhz[32];
   char time[32];
   unsigned hz;
-  static char const * const scheduler_mode[] = { "PIT", "RTC", "APIC" };
+  static char const * const scheduler_mode[]
+    = { "PIT", "RTC", "APIC", "HPET" };
 
   cpu_mhz[0] = '\0';
   if ((hz = Cpu::boot_cpu()->frequency()))
@@ -221,7 +245,7 @@ Jdb_kern_info_cpu::show()
       sec -= hour * 3600;
       min  = sec  / 60;
       sec -= min  * 60;
-      snprintf(time, sizeof(time), "%02d:%02d:%02d.%06d", 
+      snprintf(time, sizeof(time), "%02d:%02d:%02d.%06d",
 	       hour, min, sec, ns/1000);
     }
   else
@@ -236,7 +260,7 @@ Jdb_kern_info_cpu::show()
 	 scheduler_mode[Config::scheduler_mode],
 	 Config::scheduler_irq_vector,
 	 perf_type ? perf_type : "no",
-	 Cpu::boot_cpu()->lbr_type() != Cpu::Lbr_unsupported 
+	 Cpu::boot_cpu()->lbr_type() != Cpu::Lbr_unsupported
 	    ? Cpu::boot_cpu()->lbr_type() == Cpu::Lbr_pentium_4 ? "P4" : "P6"
 	    : "no",
 	 Cpu::boot_cpu()->bts_type() != Cpu::Bts_unsupported
@@ -246,14 +270,13 @@ Jdb_kern_info_cpu::show()
 	 );
 }
 
-
 class Jdb_kern_info_gdt : public Jdb_kern_info_module
 {
 private:
   static unsigned line;
 };
 
-static Jdb_kern_info_gdt k_g INIT_PRIORITY(JDB_MODULE_INIT_PRIO+1);
+static Jdb_kern_info_gdt k_g INIT_PRIORITY(JDB_MODULE_INIT_PRIO + 1);
 
 unsigned Jdb_kern_info_gdt::line;
 
@@ -296,4 +319,81 @@ Jdb_kern_info_gdt::show()
 {
   line = 0;
   Jdb::foreach_cpu(&show_gdt);
+}
+
+// ------------------------------------------------------------------------
+IMPLEMENTATION [(ia32 || amd64) && hpet_timer]:
+
+#include "hpet.h"
+
+class Jdb_kern_info_hpet_smm : public Jdb_kern_info_module
+{};
+
+static Jdb_kern_info_hpet_smm ki_smm INIT_PRIORITY(JDB_MODULE_INIT_PRIO + 1);
+
+PUBLIC
+Jdb_kern_info_hpet_smm::Jdb_kern_info_hpet_smm()
+  : Jdb_kern_info_module('S', "SMM loop using HPET")
+{
+  Jdb_kern_info::register_subcmd(this);
+}
+
+PUBLIC
+void
+Jdb_kern_info_hpet_smm::show()
+{
+  const unsigned config_spin_loops = 10000;
+  const unsigned config_hist_loops = 60;
+  unsigned delta = 1;
+  Mword counter_good = 0;
+  Mword histsum = 0;
+  Mword hist_loops = config_hist_loops;
+
+  printf("HPET SMM Check: Press key to stop.\n");
+  printf("HPET SMM Check Loop testing (loops=%d)\n", config_spin_loops);
+
+  Hpet::hpet()->dump();
+  Hpet::hpet()->enable();
+  while (1)
+    {
+      Unsigned64 x1 = Hpet::hpet()->counter_val;
+
+      int i = config_spin_loops;
+      while (i--)
+        asm volatile("" : : : "memory");
+
+      Unsigned64 diff = Hpet::hpet()->counter_val - x1;
+
+      if (hist_loops)
+        {
+	  histsum += diff;
+	  --hist_loops;
+
+	  if (hist_loops == 0)
+	    {
+	      delta = (histsum + histsum / 9) / config_hist_loops;
+              printf("HPET SMM Check threshold=%dhpet-clks %lldus\n",
+		     delta,
+		     (delta * Hpet::hpet()->counter_clk_period()) / 1000000000ULL);
+	    }
+        }
+      else
+	{
+	  if (diff > delta && diff < (~0UL - delta * 2))
+	    {
+	      printf("%lld  %lldus (before %ld good iterations)\n", diff,
+		     (diff * Hpet::hpet()->counter_clk_period()) / 1000000000ULL,
+		     counter_good);
+	      counter_good = 0;
+              if (Kconsole::console()->getchar(false) != -1)
+		break;
+	    }
+	  else
+	    ++counter_good;
+
+          if (counter_good % 30000 == 2)
+            if (Kconsole::console()->getchar(false) != -1)
+              break;
+	}
+    }
 }

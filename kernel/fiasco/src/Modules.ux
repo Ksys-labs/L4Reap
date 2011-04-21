@@ -79,10 +79,10 @@ KERNEL_EXTRA            += $(KERNEL_EXTRA-y)
 # modules that _directly_ precede M and that M does not include).
 
 INTERFACES_KERNEL	:= mem_region simpleio kernel_console panic warn \
-			   bitmap buddy_alloc irq_pin pages \
+			   bitmap buddy_alloc irq_pin pages koptions      \
 			   mem_layout per_cpu_data globals loader vhw     \
 			   kip_init ipi queue_item queue cpu_mask rcupdate \
-			   boot_info cmdline config jdb_symbol jdb_util	  \
+			   boot_info config jdb_symbol jdb_util	          \
 			   tb_entry perf_cnt jdb_tbuf x86desc		  \
 			   emulation pic usermode cpu trampoline cpu_lock \
 			   spin_lock					  \

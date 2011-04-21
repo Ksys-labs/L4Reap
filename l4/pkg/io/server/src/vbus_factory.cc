@@ -6,6 +6,7 @@
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
  */
+#include "debug.h"
 #include "vbus_factory.h"
 
 namespace Vi {
@@ -17,7 +18,7 @@ Dev_factory::create(std::string const &_class)
   Name_map::iterator i = m.find(_class);
   if (i == m.end())
     {
-      printf("WARNING: cannot create virtual device: '%s'\n",
+      d_printf(DBG_WARN, "WARNING: cannot create virtual device: '%s'\n",
              _class.c_str());
       return 0;
     }

@@ -437,11 +437,6 @@ Cap<T> cap_reinterpret_cast(Cap<F> const &c) throw()
  */
 #define L4_KOBJECT(_class) L4_KOBJECT_DISABLE_COPY(_class)
 
-/**
- * \internal
- * \brief L4Re dynamic type information for \c void.
- */
-static Type_info const kobject__m = { L4_KOBJECT_META_RTTI(void), 0, 0, 0 };
 
 /**
  * \ingroup l4_kernel_object_api
@@ -463,6 +458,7 @@ private:
   template<typename T>
   friend Type_info const *kobject_typeid();
 
+protected:
   /**
    * \internal
    * \brief Get a pointer to the L4Re dynamic type information
@@ -470,10 +466,8 @@ private:
    *
    * \note This function is used by L4::kobject_typeid().
    */
-  static Type_info const *__kobject_typeid()
-  { return &kobject__m; }
+  struct __Kobject_typeid { static Type_info const _m; };
 
-protected:
   /**
    * \brief Return capability selector.
    * \return Capability selector.
@@ -519,7 +513,6 @@ Cap_base::validate(Cap<Task> task, l4_utcb_t *u) const throw()
 inline l4_msgtag_t
 Cap_base::validate(l4_utcb_t *u) const throw()
 { return l4_task_cap_valid_u(L4_BASE_TASK_CAP, _c, u);  }
-
 
 }; // namespace L4
 

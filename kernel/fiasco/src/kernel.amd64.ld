@@ -22,6 +22,7 @@ PHDRS {
   btext PT_LOAD;
   bdata PT_LOAD;
   kip PT_LOAD;
+  koptions PT_LOAD;
   ktext PT_LOAD;
   kdata PT_LOAD;
   kitext PT_LOAD;
@@ -66,6 +67,10 @@ SECTIONS {
     _initkip_end = .;
     . = ALIGN(4K);
   } : kip = 0
+
+  .koptions : AT (ADDR(.koptions) - _fiasco_image_offset) {
+    *(.koptions)
+  } : koptions = 0
 
 #ifdef CONFIG_ALLOW_RO_TEXT
   . = ALIGN(4K);

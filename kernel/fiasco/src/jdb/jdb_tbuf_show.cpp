@@ -839,14 +839,24 @@ restart:
 		}
 	      break;
 	    case KEY_RETURN: // disassemble eip of current entry
-	      if (Jdb_disasm::avail())
-		{
+                {
 		  Thread const *t = 0;
 		  Mword eip;
 		  if (Jdb_tbuf_output::thread_ip(_absy+addy, &t, &eip))
                     {
-                      if (!Jdb_disasm::show(eip, t->space(), 1, 1))
-			goto exit;
+                      if (Jdb_disasm::avail())
+                        {
+                          if (!Jdb_disasm::show(eip, t->space(), 1, 1))
+                            goto exit;
+                        }
+                      else
+                        { // hacky, we should get disasm working for arm too
+                          // (at least without the disassembly itself)
+                          printf("\n==========================\n"
+                                 "   ip=%lx                 \n"
+                                 "==========================\n", eip);
+	                  Jdb_core::getchar();
+                        }
 		      redraw = true;
 		    }
 		}

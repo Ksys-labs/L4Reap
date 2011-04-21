@@ -12,36 +12,35 @@ INTERFACE:
 class Console
 {
 public:
-
   enum Console_state
-    {
-      DISABLED    =     0,
-      INENABLED   =     1, ///< output channel of console enabled
-      OUTENABLED  =     2, ///< input channel of console enabled
-      DISABLED_INIT =   4, ///< the console remains disabled during boot
-    };
+  {
+    DISABLED    =     0,
+    INENABLED   =     1, ///< output channel of console enabled
+    OUTENABLED  =     2, ///< input channel of console enabled
+    DISABLED_INIT =   4, ///< the console remains disabled during boot
+  };
 
   enum Console_attr
-    {
-      // universal attributes
-      INVALID     =     0,
-      OUT         =   0x1, ///< output to console is possible
-      IN          =   0x2, ///< input from console is possible
-      // attributes to identify a specific console
-      DIRECT      =   0x4, ///< output to screen or input from keyboard
-      UART        =   0x8, ///< output to/input from serial serial line
-      UX          =  0x10, ///< filtered input console for UX
-      PUSH        =  0x20, ///< input console
-      GZIP        =  0x40, ///< gzip+uuencode output and sent to uart console
-      BUFFER      =  0x80, ///< ring buffer
-      DEBUG       = 0x100, ///< kdb interface
-      FAILED      = 0x200, ///< initialization failed
-    };
+  {
+    // universal attributes
+    INVALID     =     0,
+    OUT         =   0x1, ///< output to console is possible
+    IN          =   0x2, ///< input from console is possible
+    // attributes to identify a specific console
+    DIRECT      =   0x4, ///< output to screen or input from keyboard
+    UART        =   0x8, ///< output to/input from serial serial line
+    UX          =  0x10, ///< filtered input console for UX
+    PUSH        =  0x20, ///< input console
+    GZIP        =  0x40, ///< gzip+uuencode output and sent to uart console
+    BUFFER      =  0x80, ///< ring buffer
+    DEBUG       = 0x100, ///< kdb interface
+    FAILED      = 0x200, ///< initialization failed
+  };
 
   /**
    * modify console state
    */
-  virtual void state( Mword new_state );
+  virtual void state(Mword new_state);
 
   /**
    * Write a string of len chacters to the output.
@@ -51,8 +50,8 @@ public:
    * This method must be implemented in every implementation, but
    * can simply do nothing for input only consoles.
    */
-  virtual int write( char const *str, size_t len );
-  
+  virtual int write(char const *str, size_t len);
+
   /**
    * read a charcater from the input.
    * @param blocking if true getchar blocks til a charcater is available.
@@ -60,7 +59,7 @@ public:
    * This method must be implemented in every implementation, but
    * can simply return -1 for output only consoles.
    */
-  virtual int getchar( bool blocking = true );
+  virtual int getchar(bool blocking = true);
 
   /**
    * Is input available?
@@ -80,7 +79,6 @@ public:
   virtual ~Console();
 
 public:
-
   /**
    * Disables the stdout, stdin, and stderr console.
    */
@@ -94,8 +92,10 @@ public:
   static Console *stdin;
 
 protected:
-
   Mword  _state;
+
+public:
+  void *operator new (size_t, void *p) throw() { return p; }
 };
 
 
@@ -105,9 +105,9 @@ IMPLEMENTATION:
 #include <cstring>
 #include <cctype>
 
-Console *Console::stdout = 0;
-Console *Console::stderr = 0;
-Console *Console::stdin  = 0;
+Console *Console::stdout;
+Console *Console::stderr;
+Console *Console::stdin;
 
 IMPLEMENT Console::~Console()
 {}
@@ -157,7 +157,7 @@ int Console::write(char const *, size_t len)
 }
 
 IMPLEMENT
-int Console::getchar( bool /* blocking */ )
+int Console::getchar(bool /* blocking */)
 {
   return -1; /* no input */
 }

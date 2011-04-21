@@ -176,7 +176,7 @@ Hpet::init()
   Address a = _acpi_hpet->base_address.addr;
   Address va = Mem_layout::alloc_io_vmem(Config::PAGE_SIZE);
   assert (va);
- 
+
   Kmem::map_phys_page(a, va, false, true, &offs);
 
   Kip::k()->add_mem_region(Mem_desc(a, a + 1023, Mem_desc::Reserved));
@@ -215,7 +215,16 @@ Hpet::init()
     }
 
   _hpet_timer = t;
+
   _hpet->dump();
 
   return true;
 }
+
+// ------------------------------------------------------------------------
+IMPLEMENTATION [debug]:
+
+PUBLIC static
+Hpet_device *
+Hpet::hpet()
+{ return _hpet; }

@@ -1,6 +1,6 @@
 /* 
  * Two Levels Segregate Fit memory allocator (TLSF)
- * Version 2.4.4
+ * Version 2.4.6
  *
  * Written by Miguel Masmano Tello <mimastel@doctor.upv.es>
  *
@@ -41,7 +41,7 @@
  * - Added rtl_realloc and rtl_calloc function
  * - Implemented realloc clever support.
  * - Added some test code in the example directory.
- *        
+ * - Bug fixed (discovered by the rockbox project: www.rockbox.org).       
  *
  * (Oct 23 2006) Adam Scislowicz: 
  *
@@ -52,7 +52,10 @@
 /*#define USE_SBRK        (0) */
 /*#define USE_MMAP        (0) */
 
-#include <stdio.h>
+#ifndef USE_PRINTF
+#define USE_PRINTF      (1)
+#endif
+
 #include <string.h>
 
 #ifndef TLSF_USE_LOCKS
@@ -164,8 +167,18 @@
 #define PAGE_SIZE (getpagesize())
 #endif
 
-#define PRINT_MSG(fmt, args...) printf(fmt, ## args)
-#define ERROR_MSG(fmt, args...) printf(fmt, ## args)
+#ifdef USE_PRINTF
+#include <stdio.h>
+# define PRINT_MSG(fmt, args...) printf(fmt, ## args)
+# define ERROR_MSG(fmt, args...) printf(fmt, ## args)
+#else
+# if !defined(PRINT_MSG)
+#  define PRINT_MSG(fmt, args...)
+# endif
+# if !defined(ERROR_MSG)
+#  define ERROR_MSG(fmt, args...)
+# endif
+#endif
 
 typedef unsigned int u32_t;     /* NOTE: Make sure that this type is 4 bytes long on your computer */
 typedef unsigned char u8_t;     /* NOTE: Make sure that this type is 1 byte on your computer */
@@ -397,6 +410,12 @@ static __inline__ void *get_new_area(size_t * size)
     if (((void *)sbrk(*size)) != ((void *) -1))
         return area;
 #endif
+
+#ifndef MAP_ANONYMOUS
+/* https://dev.openwrt.org/ticket/322 */
+# define MAP_ANONYMOUS MAP_ANON
+#endif
+
 
 #if USE_MMAP
     *size = ROUNDUP(*size, PAGE_SIZE);
@@ -848,8 +867,10 @@ void *realloc_ex(void *ptr, size_t new_size, void *mem_pool)
         }
     }
 
-    ptr_aux = malloc_ex(new_size, mem_pool);
-
+    if (!(ptr_aux = malloc_ex(new_size, mem_pool))){
+        return NULL;
+    }      
+    
     cpsize = ((b->size & BLOCK_SIZE) > new_size) ? new_size : (b->size & BLOCK_SIZE);
 
     memcpy(ptr_aux, ptr, cpsize);

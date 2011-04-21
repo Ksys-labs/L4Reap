@@ -11,7 +11,7 @@ syn clear
 syn case match
 
 setlocal iskeyword+=-
-syn keyword l4modsStatement       modaddr module kernel sigma0 roottask module-group module-glob module-perl module-shell bootstrap initrd set
+syn keyword l4modsStatement       modaddr module kernel sigma0 roottask moe default-kernel default-sigma0 default-roottask default-bootstrap module-group module-glob module-perl module-shell bootstrap initrd set
 syn keyword l4modsStatementTitle  entry group contained
 syn match   l4modsTitle           /^ *\(entry\|group\).*/ contains=l4modsStatementTitle
 syn match   l4modsComment         /#.*/

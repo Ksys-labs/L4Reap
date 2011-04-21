@@ -338,6 +338,7 @@ PUBLIC
 void
 Irq_sender::destroy(Kobject ***rl)
 {
+  Lock_guard<Cpu_lock> g(&cpu_lock);
   if (_irq_thread)
     free(_irq_thread);
 
@@ -749,7 +750,7 @@ void
 Irq::log_timer_irq(int nr)
 {
   Context *c = current();
-  LOG_TRACE("Kernel Timer Events", "timer", c, __irq_log_fmt,
+  LOG_TRACE("Timer IRQs (kernel scheduling)", "timer", c, __irq_log_fmt,
       Irq::Irq_log *l = tbe->payload<Irq::Irq_log>();
       l->irq_number = nr;
       l->user_ip    = c->regs()->ip(),

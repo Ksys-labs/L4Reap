@@ -13,6 +13,7 @@
 
 #include <l4/sys/thread>
 #include <l4/sys/factory>
+#include <l4/sys/scheduler>
 #include <l4/sys/ipc.h>
 
 #include <l4/util/util.h>
@@ -33,7 +34,6 @@ namespace cxx {
 
   L4::Cap<void> Thread::_pager;
   L4::Cap<void> Thread::_master;
-  L4::Cap<void> Thread::_preempter;
 
   Thread::Thread( bool /*initiate*/ )
     : _cap(L4Re::Env::env()->main_thread()), _state(Running)
@@ -43,7 +43,6 @@ namespace cxx {
     L4::Thread::Attr attr;
     _cap->control(attr);
     _pager = attr.pager();
-    _preempter = attr.scheduler();
     _utcb_base = l4_addr_t(l4_utcb());
   }
 
@@ -56,7 +55,6 @@ namespace cxx {
 
     L4::Thread::Attr attr(l4_utcb());
     attr.pager(_pager);
-    attr.scheduler(_preempter);
     attr.bind((l4_utcb_t*)_next_free_utcb, L4Re::This_task);
     _next_free_utcb += L4_UTCB_OFFSET;
     return _cap->control(attr).label();
@@ -80,6 +78,10 @@ namespace cxx {
       _state = Running;
       run();
     } else {
+
+      L4Re::Env::env()->scheduler()->
+	    run_thread(_cap, l4_sched_param(0xff, 0));
+
       *(--((l4_umword_t*&)_stack)) = (l4_umword_t)this;
       *(--((l4_umword_t*&)_stack)) = 0;
       _cap->ex_regs((l4_umword_t)start_cxx_thread,

@@ -336,3 +336,26 @@ l4io_request_all_ioports(void)
 {
   __l4io_get_all_ports(l4io_get_root_device());
 }
+
+int
+l4io_has_resource(enum l4io_resource_types_t type,
+                  l4vbus_paddr_t start, l4vbus_paddr_t end)
+{
+  l4io_device_handle_t dh = l4io_get_root_device();
+  l4io_device_t dev;
+  l4io_resource_handle_t reshandle;
+
+  while (1)
+    {
+      l4io_resource_t res;
+
+      if (l4io_iterate_devices(&dh, &dev, &reshandle))
+        break;
+
+      if (dev.num_resources)
+        while (!l4io_lookup_resource(dh, type, &reshandle, &res))
+          if (start >= res.start && end <= res.end)
+            return 1;
+    }
+  return 0;
+}

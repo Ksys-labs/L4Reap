@@ -45,61 +45,17 @@ void Service::start(Core_api *core)
 }
 
 
-int
-Service::create(char const *_msg, L4::Ipc_iostream &ios)
-{
-  int w, h;
-
-  if (sscanf(_msg, "%dx%d", &w, &h) != 2)
-    return -L4_EINVAL;
-
-  if (w <= 0 || h <= 0 || h >= 10000 || w >= 10000)
-    return -L4_ERANGE;
-
-  int px = 50, py = 50;
-
-  if (char *a = strstr(_msg, "pos="))
-    {
-      char *endp;
-      px = strtol(a + 4, &endp, 0);
-      if (*endp == ',')
-        py = strtol(endp + 1, 0, 0);
-    }
-
-  if (px < 10 - w)
-    px = 10 - w;
-  if (px >= ust()->vstack()->canvas()->size().w())
-    px = ust()->vstack()->canvas()->size().w() - 10;
-  if (py < 0)
-    py = 0;
-  if (py >= ust()->vstack()->canvas()->size().h())
-    py = ust()->vstack()->canvas()->size().h() - 10;
-
-  Area res(w, h);
-  Auto_cap<L4Re::Dataspace>::Cap ds(
-      L4Re::Util::cap_alloc.alloc<L4Re::Dataspace>());
-
-  Screen_factory *sf = dynamic_cast<Screen_factory*>(ust()->vstack()->canvas()->type()->factory);
-
-  L4Re::chksys(L4Re::Env::env()->mem_alloc()->alloc(sf->get_texture_size(res), ds.get()));
-
-  L4Re::Rm::Auto_region<void *> dsa;
-  L4Re::chksys(L4Re::Env::env()->rm()->attach(&dsa, ds->size(), L4Re::Rm::Search_addr, ds.get(), 0, L4_SUPERPAGESHIFT));
-
-  Texture *smpl = sf->create_texture(res, dsa.get());
-
-  cxx::Ref_ptr<Client_fb> x(new Client_fb(_core, Rect(Point(px, py), res), Point(0, 0), smpl, ds.get()));
-
-  reg()->register_obj(x);
-  x->obj_cap()->dec_refcnt(1);
-
-  ust()->vstack()->push_top(x.ptr());
-
-  ds.release();
-  dsa.release();
-  ios << x->obj_cap();
-  return 0;
-}
+namespace {
+  Session::Property_handler const _client_fb_opts[] =
+    { { "g",         true,  &Client_fb::set_geometry_prop },
+      { "geometry",  true,  &Client_fb::set_geometry_prop },
+      { "focus",     false, &Client_fb::set_flags_prop },
+      { "shaded",    false, &Client_fb::set_flags_prop },
+      { "fixed",     false, &Client_fb::set_flags_prop },
+      { "barheight", true,  &Client_fb::set_bar_height_prop },
+      { 0, 0, 0 }
+    };
+};
 
 int
 Service::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
@@ -115,20 +71,17 @@ Service::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
       if (L4::kobject_typeid<L4Re::Console>()->
 	    has_proto(L4::Ipc::read<L4::Factory::Proto>(ios)))
 	{
-	  L4::Ipc::Varg opt;
-	  ios.get(&opt);
+	  L4::Ipc::Istream_copy cp_is = ios;
+	  cxx::Ref_ptr<Client_fb> x(new Client_fb(_core));
+	  _core->set_session_options(x.get(), cp_is, _client_fb_opts);
+	  x->setup();
 
-	  if (!opt.is_of<char const *>())
-	    return -L4_EINVAL;
-
-	  char _msg[50];
-	  int _l = sizeof(_msg) - 1;
-
-          _l =  std::min(_l, opt.length());
-	  strncpy(_msg, opt.value<char const *>(), _l);
-          _msg[_l] = 0;
-
-	  return create(_msg, ios);
+	  _core->register_session(x.get());
+	  reg()->register_obj(x);
+	  x->obj_cap()->dec_refcnt(1);
+	  ust()->vstack()->push_top(x.ptr());
+	  ios << x->obj_cap();
+	  return 0;
 	}
       return -L4_ENODEV;
     default:

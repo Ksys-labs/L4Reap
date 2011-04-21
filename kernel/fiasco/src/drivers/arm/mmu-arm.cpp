@@ -168,7 +168,7 @@ FIASCO_NOINLINE void Mmu<Flush_area, Ram>::inv_dcache(void const *start, void co
 }
 
 //-----------------------------------------------------------------------------
-IMPLEMENTATION [arm && (mpcore || arm1176 || armca8 || armca9)]:
+IMPLEMENTATION [arm && (mpcore || arm1136 || arm1176 || armca8 || armca9)]:
 
 IMPLEMENT inline
 template< unsigned long Flush_area, bool Ram >
@@ -245,7 +245,7 @@ void Mmu<Flush_area, Ram>::inv_dcache(void const *start, void const *end)
 }
 
 //-----------------------------------------------------------------------------
-IMPLEMENTATION [arm && (mpcore || arm1176)]:
+IMPLEMENTATION [arm && (mpcore || arm1136 || arm1176)]:
 
 IMPLEMENT
 template< unsigned long Flush_area, bool Ram >

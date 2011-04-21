@@ -42,25 +42,6 @@ public:
   // returns the 1st address beyond all available physical memory
   Address main_memory_high() const;
 
-  enum Kernel_uart_info_type
-  {
-    Kernel_uart_info_invalid = 0,
-    Kernel_uart_info_ioport,
-    Kernel_uart_info_mmio,
-  };
-
-  struct Kernel_uart_info
-  {
-    Unsigned32 type;
-    Unsigned32 irqno;
-    Unsigned64 base;
-  };
-
-  struct Platform_info
-  {
-    char name[16];
-  };
-
 private:
   static Kip *global_kip asm ("GLOBAL_KIP");
 };

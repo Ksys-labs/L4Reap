@@ -1,7 +1,7 @@
 IMPLEMENTATION[ia32,amd64]:
 
 #include <cstring>
-#include "cmdline.h"
+#include "koptions.h"
 #include "perf_cnt.h"
 #include "static_init.h"
 
@@ -15,8 +15,6 @@ PUBLIC static
 void FIASCO_INIT_CPU
 Loadcnt::init()
 {
-  if (!strstr(Cmdline::cmdline(), " -loadcnt"))
-    return;
-
-  Perf_cnt::setup_loadcnt();
+  if (Koptions::o()->opt(Koptions::F_loadcnt))
+    Perf_cnt::setup_loadcnt();
 }

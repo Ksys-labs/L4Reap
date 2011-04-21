@@ -57,28 +57,6 @@ Gic Gic_pin::_gic[2];
 //-------------------------------------------------------------------
 IMPLEMENTATION [arm && pic_gic && realview && (realview_pb11mp || (realview_eb && (mpcore || (armca9 && mp))))]:
 
-PRIVATE static inline
-void
-Pic::init_gic_other()
-{
-  Gic_pin::_gic[1].init(Kmem::Gic1_cpu_map_base,
-                        Kmem::Gic1_dist_map_base);
-}
-
-//-------------------------------------------------------------------
-IMPLEMENTATION [arm && pic_gic && realview && realview_pbx]:
-
-PRIVATE static inline
-void
-Pic::init_gic_other()
-{
-  Gic_pin::_gic[1].init(Kmem::Gic2_cpu_map_base,
-                        Kmem::Gic2_dist_map_base);
-}
-
-//-------------------------------------------------------------------
-IMPLEMENTATION [arm && pic_gic && realview && (realview_pbx || realview_pb11mp || (realview_eb && (mpcore || (armca9 && mp))))]:
-
 #include "irq_chip_generic.h"
 
 class Irq_chip_arm_rv : public Irq_chip_gen
@@ -99,7 +77,8 @@ PRIVATE static inline
 void
 Pic::init_other_gics()
 {
-  init_gic_other();
+  Gic_pin::_gic[1].init(Kmem::Gic1_cpu_map_base,
+                        Kmem::Gic1_dist_map_base);
 
   static Gic_cascade_irq casc_irq(&Gic_pin::_gic[1], 32);
 
@@ -109,8 +88,15 @@ Pic::init_other_gics()
   casc_irq.pin()->unmask();
 }
 
+PRIVATE static inline
+void
+Pic::init_ap_other_gics()
+{
+  Gic_pin::_gic[1].init_ap();
+}
+
 //-------------------------------------------------------------------
-IMPLEMENTATION [arm && pic_gic && !(realview && (realview_pbx || realview_pb11mp || (realview_eb && (mpcore || (armca9 && mp)))))]:
+IMPLEMENTATION [arm && pic_gic && !(realview && (realview_pb11mp || (realview_eb && (mpcore || (armca9 && mp)))))]:
 
 #include "irq_chip_generic.h"
 
@@ -129,6 +115,11 @@ Irq_chip_arm_rv::setup(Irq_base *irq, unsigned irqnum)
 PRIVATE static inline
 void
 Pic::init_other_gics()
+{}
+
+PRIVATE static inline
+void
+Pic::init_ap_other_gics()
 {}
 
 //-------------------------------------------------------------------
@@ -172,7 +163,7 @@ PUBLIC static
 void Pic::init_ap()
 {
   Gic_pin::_gic[0].init_ap();
-  Gic_pin::_gic[1].init_ap();
+  init_ap_other_gics();
 }
 
 //-------------------------------------------------------------------

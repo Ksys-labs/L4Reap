@@ -65,8 +65,7 @@ public:
   char _res8[8];
 
   /* 0xF0 */
-  Kernel_uart_info  kernel_uart_info;
-  Platform_info     platform_info;
+  Unsigned32 __reserved[20];
 };
 
 //---------------------------------------------------------------------------

@@ -16,10 +16,12 @@
 #include <cstdio>
 #include <typeinfo>
 
+#include "debug.h"
 #include "main.h"
 #include "pci.h"
 #include "phys_space.h"
 #include "cfg.h"
+#include "hw_msi.h"
 
 static Pci_root_bridge *__pci_root_bridge;
 static unsigned _last_msi;
@@ -496,7 +498,7 @@ Pci_dev::discover_pci_caps()
     {
       l4_uint32_t id;
       cfg_read(cap_ptr, &id, Cfg_byte);
-      //printf("  PCI-cap: %x\n", id);
+      // printf("  PCI-cap: %x %s %s\n", id, Io_config::cfg->transparent_msi(host()) ? "yes" : "no", system_icu()->info.supports_msi() ? "yes" : "no" );
       if (id == 0x05 && Io_config::cfg->transparent_msi(host())
 	  && system_icu()->info.supports_msi())
 	{
@@ -525,14 +527,14 @@ Pci_dev::discover_pci_caps()
 	  unsigned msi = _last_msi++;
 	  if (msi >= system_icu()->info.nr_msis)
 	    {
-	      printf("WARNING: run out of MSI vectors, use normal IRQ\n");
+	      d_printf(DBG_WARN, "WARNING: run out of MSI vectors, use normal IRQ\n");
 	      continue;
 	    }
 
 	  l4_umword_t msg = 0;
 	  if (l4_error(system_icu()->icu->msi_info(msi, &msg)) < 0)
 	    {
-	      printf("WARNING: could not get MSI message, use normal IRQ\n");
+	      d_printf(DBG_WARN, "WARNING: could not get MSI message, use normal IRQ\n");
 	      continue;
 	    }
 
@@ -540,9 +542,18 @@ Pci_dev::discover_pci_caps()
 
 	  cfg_write(cap_ptr + 2, ctl | 1, Cfg_short);
 
-	  printf("  MSI cap: %x %llx %x\n", ctl, addr, data);
-	  msi |= 0x80;
-	  Adr_resource *res = new Adr_resource(Resource::Irq_res | Resource::Irq_edge, msi, msi);
+	  d_printf(DBG_DEBUG2, "  MSI cap: %x %llx %x\n", ctl, addr, data);
+	  for (Resource_list::iterator i = host()->resources()->begin();
+	       i != host()->resources()->end(); ++i)
+	    {
+	      if ((*i)->type() == Resource::Irq_res)
+		{
+		  (*i)->set_empty(true);
+		  (*i)->add_flags(Resource::F_disabled);
+		}
+	    }
+
+	  Adr_resource *res = new Hw::Msi_resource(msi);
 	  flags |= F_msi;
 	  _host->add_resource(res);
 	}
@@ -610,7 +621,7 @@ Pci_dev::setup_resources(Hw::Device *)
       l4_uint32_t v;
       cfg_read(reg, &v, Cfg_long);
       if (l4_uint32_t(v & ~0x7f) != l4_uint32_t(s & 0xffffffff))
-	printf("ERROR: could not set PCI BAR %d\n", i);
+	d_printf(DBG_ERR, "ERROR: could not set PCI BAR %d\n", i);
 
       // printf("%08x: set BAR[%d] to %08x\n", adr(), i, v);
     }

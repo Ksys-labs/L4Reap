@@ -20,6 +20,8 @@
     slouken@libsdl.org
 */
 
+#if !defined(__APPLE__) || defined(SDL_IMAGE_USE_COMMON_BACKEND)
+
 /* This is a TIFF image file loading framework */
 
 #include <stdio.h>
@@ -168,9 +170,9 @@ static toff_t tiff_size(thandle_t fd)
 	toff_t size;
 
 	save_pos = SDL_RWtell((SDL_RWops*)fd);
-	SDL_RWseek((SDL_RWops*)fd, 0, SEEK_END);
+	SDL_RWseek((SDL_RWops*)fd, 0, RW_SEEK_END);
         size = SDL_RWtell((SDL_RWops*)fd);
-	SDL_RWseek((SDL_RWops*)fd, save_pos, SEEK_SET);
+	SDL_RWseek((SDL_RWops*)fd, save_pos, RW_SEEK_SET);
 	return size;
 }
 
@@ -196,7 +198,7 @@ int IMG_isTIF(SDL_RWops* src)
 			is_TIF = 1;
 		}
 	}
-	SDL_RWseek(src, start, SEEK_SET);
+	SDL_RWseek(src, start, RW_SEEK_SET);
 	return(is_TIF);
 }
 
@@ -216,7 +218,7 @@ SDL_Surface* IMG_LoadTIF_RW(SDL_RWops* src)
 	}
 	start = SDL_RWtell(src);
 
-	if ( IMG_Init(IMG_INIT_TIF) < 0 ) {
+	if ( !IMG_Init(IMG_INIT_TIF) ) {
 		return NULL;
 	}
 
@@ -261,7 +263,7 @@ SDL_Surface* IMG_LoadTIF_RW(SDL_RWops* src)
 	return surface;
 
 error:
-	SDL_RWseek(src, start, SEEK_SET);
+	SDL_RWseek(src, start, RW_SEEK_SET);
 	if ( surface ) {
 		SDL_FreeSurface(surface);
 	}
@@ -293,3 +295,5 @@ SDL_Surface *IMG_LoadTIF_RW(SDL_RWops *src)
 }
 
 #endif /* LOAD_TIF */
+
+#endif /* !defined(__APPLE__) || defined(SDL_IMAGE_USE_COMMON_BACKEND) */

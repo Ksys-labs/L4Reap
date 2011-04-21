@@ -542,15 +542,15 @@ gfxbitmap_fill(l4_uint8_t *vfb, l4re_video_view_info_t *vi,
   unsigned bwidth = vi->bytes_per_line;
   OFFSET(x, y, vfb, vi->pixel_info.bytes_per_pixel);
 
-  switch (l4re_video_bits_per_pixel(&vi->pixel_info))
+  switch (vi->pixel_info.bytes_per_pixel)
     {
-    case 24:
-      _fill24(vfb, w, h, color, vi->bytes_per_line);
-      break;
-    case 32:
+    case 4:
       _fill32(vfb, w, h, color, vi->bytes_per_line);
       break;
-    case 16:
+    case 3:
+      _fill24(vfb, w, h, color, vi->bytes_per_line);
+      break;
+    case 2:
     default:
       _fill16(vfb, w, h, color, vi->bytes_per_line);
     }
@@ -568,30 +568,30 @@ gfxbitmap_bmap(l4_uint8_t *vfb, l4re_video_view_info_t *vi,
   switch (mode)
     {
     case pSLIM_BMAP_START_MSB:
-      switch (l4re_video_bits_per_pixel(&vi->pixel_info))
+      switch (vi->pixel_info.bytes_per_pixel)
         {
-        case 32:
+        case 4:
           _bmap32msb(vfb, bmap, fgc, bgc, w, h, offset, bwidth);
           break;
-        case 24:
+        case 3:
           _bmap24msb(vfb, bmap, fgc, bgc, w, h, offset, bwidth);
           break;
-        case 16:
+        case 2:
         default:
           _bmap16msb(vfb, bmap, fgc, bgc, w, h, offset, bwidth);
         }
       break;
     case pSLIM_BMAP_START_LSB:
     default:	/* `start at least significant' bit is default */
-      switch (l4re_video_bits_per_pixel(&vi->pixel_info))
+      switch (vi->pixel_info.bytes_per_pixel)
         {
-        case 32:
+        case 4:
           _bmap32lsb(vfb, bmap, fgc, bgc, w, h, offset, bwidth);
           break;
-        case 24:
+        case 3:
           _bmap24lsb(vfb, bmap, fgc, bgc, w, h, offset, bwidth);
           break;
-        case 16:
+        case 2:
         default:
           _bmap16lsb(vfb, bmap, fgc, bgc, w, h, offset, bwidth);
         }
@@ -609,15 +609,15 @@ gfxbitmap_set(l4_uint8_t *vfb, l4re_video_view_info_t *vi,
 
   OFFSET(x+xoffs, y+yoffs, vfb, vi->pixel_info.bytes_per_pixel);
 
-  switch (l4re_video_bits_per_pixel(&vi->pixel_info))
+  switch (vi->pixel_info.bytes_per_pixel)
     {
-    case 32:
+    case 4:
       _set32(vfb, pmap, w, h, offset, bwidth, pwidth);
       break;
-    case 24:
+    case 3:
       _set24(vfb, pmap, w, h, offset, bwidth, pwidth);
       break;
-    case 16:
+    case 2:
     default:
       _set16(vfb, pmap, w, h, offset, bwidth, pwidth);
     }
@@ -627,15 +627,15 @@ void
 gfxbitmap_copy(l4_uint8_t *dest, l4_uint8_t *src, l4re_video_view_info_t *vi,
                int x, int y, int w, int h, int dx, int dy)
 {
-  switch (l4re_video_bits_per_pixel(&vi->pixel_info))
+  switch (vi->pixel_info.bytes_per_pixel)
     {
-    case 32:
+    case 4:
       _copy32(dest, src, x, y, dx, dy, w, h, vi->bytes_per_line);
       break;
-    case 24:
+    case 3:
       _copy24(dest, src, x, y, dx, dy, w, h, vi->bytes_per_line);
       break;
-    case 16:
+    case 2:
     default:
       _copy16(dest, src, x, y, dx, dy, w, h, vi->bytes_per_line);
     }

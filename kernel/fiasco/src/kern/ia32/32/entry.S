@@ -697,6 +697,7 @@ leave_by_vcpu_upcall:
 	mov %edx, 12(%esp)
 	mov -VAL__SIZEOF_TRAP_STATE + 20 + OFS__VCPU_STATE__ENTRY_IP(%ecx), %edx
 	mov %edx, 0(%esp)
+	movl $EFLAGS_IF, 8(%esp)
 	iret
 	
 	.p2align

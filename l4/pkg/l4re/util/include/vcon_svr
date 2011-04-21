@@ -43,6 +43,7 @@ template< typename SVR >
 class Vcon_svr
 {
 public:
+
   /**
    * \brief Server dispatch function.
    *
@@ -52,6 +53,16 @@ public:
    * \return error code.
    */
   int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+
+  unsigned vcon_read(char *buf, unsigned size) throw();
+  void vcon_write(const char *buf, unsigned size) throw();
+  int vcon_set_attr(l4_vcon_attr_t const *) throw()
+  { return -L4_EOK; }
+  int vcon_get_attr(l4_vcon_attr_t *attr) throw()
+  {
+    attr->l_flags = attr->o_flags = attr->i_flags = 0;
+    return -L4_EOK;
+  }
 
 private:
   SVR const *this_vcon() const { return static_cast<SVR const *>(this); }
@@ -71,13 +82,35 @@ Vcon_svr<SVR>::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
   L4::Opcode op;
   ios >> op;
 
-  if (op == L4_VCON_WRITE_OP)
+  switch (op)
     {
-      unsigned long size = 0;
-      char *buf = 0;
-      ios >> L4::Ipc::Buf_in<char>(buf, size);
-      this_vcon()->vcon_write(buf, size);
-      return -L4_ENOREPLY;
+    case L4_VCON_WRITE_OP:
+        {
+          unsigned long size = 0;
+          char *buf = 0;
+          ios >> L4::Ipc::Buf_in<char>(buf, size);
+          this_vcon()->vcon_write(buf, size);
+          return -L4_ENOREPLY;
+        }
+    case L4_VCON_SET_ATTR_OP:
+        {
+	  l4_vcon_attr_t a;
+	  ios.get(a);
+	  return this_vcon()->vcon_set_attr(&a);
+	}
+    case L4_VCON_GET_ATTR_OP:
+        {
+	  l4_vcon_attr_t a;
+	  int e = this_vcon()->vcon_get_attr(&a);
+	  if (e == L4_EOK)
+	    {
+	      ios << l4_umword_t(0);
+	      ios.put(a);
+	    }
+	  return e;
+	}
+    default:
+      break;
     }
 
   unsigned size = op >> 16;

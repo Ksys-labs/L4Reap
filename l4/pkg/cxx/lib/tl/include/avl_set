@@ -40,11 +40,11 @@ namespace cxx {
  * \param Node_op the type used to determine the direction of the iterator.
  */
 template< typename Node, typename Key, typename Node_op >
-class __Avl_set_iter : public __Avl_tree_iter_b<Node, Node_op>
+class __Avl_set_iter : public Bits::__Bst_iter_b<Node, Node_op>
 {
 private:
   /// Super-class type
-  typedef __Avl_tree_iter_b<Node, Node_op> Base;
+  typedef Bits::__Bst_iter_b<Node, Node_op> Base;
 
   using Base::_n;
   using Base::_r;
@@ -179,7 +179,7 @@ public:
   typedef Alloc<_Node> Node_allocator;
 
 private:
-  typedef Avl_tree<_Node, Get_key, Compare, false> Tree;
+  typedef Avl_tree<_Node, Get_key, Compare> Tree;
   Tree _tree;
   /// The allocator for new nodes
   Node_allocator _alloc;
@@ -333,7 +333,7 @@ Avl_set<Item,Compare,Alloc>::Avl_set(Avl_set const &o)
 
 /* Insert new _Node. */
 template< typename Item, class Compare, template< typename A > class Alloc >
-cxx::Pair<typename Avl_set<Item,Compare,Alloc>::Iterator, int>
+Pair<typename Avl_set<Item,Compare,Alloc>::Iterator, int>
 Avl_set<Item,Compare,Alloc>::insert(Item const &item)
 {
   _Node *n = _alloc.alloc();
@@ -341,11 +341,11 @@ Avl_set<Item,Compare,Alloc>::insert(Item const &item)
     return cxx::pair(end(), -E_nomem);
 
   new (n, Nothrow()) _Node(item);
-  cxx::Pair<typename Tree::Iterator, int> err = _tree.insert(n);
-  if (err.second == -E_exist)
+  Pair<_Node *, bool> err = _tree.insert(n);
+  if (!err.second)
     _alloc.free(n);
 
-  return cxx::Pair<Iterator, int>(err.first, err.second);
+  return cxx::pair(Iterator(typename Tree::Iterator(err.first, err.first)), err.second ? 0 : -E_exist);
 }
 
 }

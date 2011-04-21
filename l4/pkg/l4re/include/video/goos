@@ -122,6 +122,11 @@ public:
    * \return The view.
    */
   View view(unsigned index) const throw();
+
+  /**
+   * \brief Trigger refreshing of the given area on the virtual screen.
+   */
+  int refresh(int x, int y, int w, int h) throw();
 };
 
 inline View

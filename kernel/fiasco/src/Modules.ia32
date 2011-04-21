@@ -226,6 +226,8 @@ jdb_tcb_IMPL		:= jdb_tcb jdb_tcb-ia32-ux
 jdb_trace_set_IMPL	:= jdb_trace_set jdb_trace_set-ia32-ux
 
 INTERFACES_JDB-$(CONFIG_JDB_MISC)	+= jdb_tetris
+
+INTERFACES_JDB		+= $(INTERFACES_JDB-y)
 endif
 
 

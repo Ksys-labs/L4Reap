@@ -44,7 +44,8 @@ _tramp_mp_entry:
 	msr cpsr_c, r0
 
 	// enable SMP
-	mov r0, #0x1f000000
+	adr r0, .Lmpcore_phys_base
+	ldr r0, [r0]
 	ldr r1, [r0]
 	orr r1, #1
 	str r1, [r0]
@@ -95,6 +96,9 @@ _tramp_mp_entry:
 	mov pc, r0
 1:
 	.long _tramp_mp_virt
+
+.Lmpcore_phys_base:
+	.long MPCORE_PHYS_BASE
 
 	// we run paged now
 _tramp_mp_virt:

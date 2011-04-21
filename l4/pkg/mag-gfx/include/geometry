@@ -66,6 +66,15 @@ public:
 
   R operator / (int d) const
   { return R(_x / d, _y / d); }
+
+  R operator * (int d) const
+  { return R(_x * d, _y * d); }
+
+  R operator / (R const &o) const
+  { return R(_x / o._x, _y / o._y); }
+
+  R operator * (R const &o) const
+  { return R(_x * o._x, _y * o._y); }
 };
 
 class Point : public Vector_2d<Point>
@@ -74,7 +83,7 @@ private:
   typedef Vector_2d<Point> B;
 public:
   Point(int x, int y) : B(x, y) {}
-  Point() : B(-1, -1) {}
+  Point() : B(0, 0) {}
 
   explicit Point(Vector_2d_base const &o) : B(o) {}
 
@@ -219,10 +228,16 @@ public:
 
 struct Rect_tuple
 {
-  Rect t, l, r, b;
+  Rect _r[4];
+  Rect_tuple() {}
   Rect_tuple(Rect const &t, Rect const &l, Rect const &r, Rect const &b)
-  : t(t), l(l), r(r), b(b)
-  {}
+  { _r[0] = t; _r[1] = l; _r[2] = r; _r[3] = b; }
+
+  Rect const &operator [] (unsigned i) const { return _r[i]; }
+  Rect const &t() const { return _r[0]; }
+  Rect const &l() const { return _r[1]; }
+  Rect const &r() const { return _r[2]; }
+  Rect const &b() const { return _r[3]; }
 };
 
 inline

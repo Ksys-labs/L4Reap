@@ -5,6 +5,7 @@ SHARED_FLAGS-$(CONFIG_ARM_PXA)    += -mcpu=xscale
 SHARED_FLAGS-$(CONFIG_ARM_SA)     += -mcpu=strongarm1100
 SHARED_FLAGS-$(CONFIG_ARM_920T)   += -mcpu=arm920t
 SHARED_FLAGS-$(CONFIG_ARM_926)    += -mcpu=arm926ej-s
+SHARED_FLAGS-$(CONFIG_ARM_1136)   += -mcpu=arm1136jf-s
 SHARED_FLAGS-$(CONFIG_ARM_1176)   += -mcpu=arm1176jzf-s
 SHARED_FLAGS-$(CONFIG_ARM_MPCORE) += -mcpu=mpcore
 SHARED_FLAGS-$(CONFIG_ARM_CORTEX_A8) += $(call CHECKCC,-mcpu=cortex-a8)

@@ -23,7 +23,7 @@ sub write_alias_pcfile($@)
 {
   my $alias = shift;
 
-  die "Path for pc-file not set, use '-P dir'"
+  die "Path for pc-files not set, use '-P dir'"
     unless defined $pcfiledir_for_aliases;
 
   open(U, ">$pcfiledir_for_aliases/$alias.pc")
@@ -201,6 +201,13 @@ sub generate_dep_makefile($)
             }
         }
       print "\n";
+    }
+
+  # delete those packages that do not have dependencies, to avoid circular
+  # 'make' deps
+  foreach (keys %p)
+    {
+      delete $p{$_} if $_ eq $p{$_};
     }
 
   print "\n";

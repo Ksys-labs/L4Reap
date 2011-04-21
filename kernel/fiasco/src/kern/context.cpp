@@ -510,7 +510,7 @@ Context::is_invalid() const
  */
 PUBLIC inline NEEDS ["atomic.h"]
 void
-Context::state_add(Mword const bits)
+Context::state_add(Mword bits)
 {
   assert_kdb(cpu() == current_cpu());
   atomic_or(&_state, bits);
@@ -537,7 +537,7 @@ Context::state_add_dirty(Mword bits)
  */
 PUBLIC inline NEEDS ["atomic.h"]
 void
-Context::state_del(Mword const bits)
+Context::state_del(Mword bits)
 {
   assert_kdb (current_cpu() == cpu());
   atomic_and(&_state, ~bits);
@@ -569,7 +569,7 @@ Context::state_del_dirty(Mword bits, bool check = true)
  */
 PUBLIC inline NEEDS ["atomic.h"]
 Mword
-Context::state_change_safely(Mword const mask, Mword const bits)
+Context::state_change_safely(Mword mask, Mword bits)
 {
   assert_kdb (current_cpu() == cpu());
   Mword old;
@@ -592,7 +592,7 @@ Context::state_change_safely(Mword const mask, Mword const bits)
  */
 PUBLIC inline NEEDS ["atomic.h"]
 Mword
-Context::state_change(Mword const mask, Mword const bits)
+Context::state_change(Mword mask, Mword bits)
 {
   assert_kdb (current_cpu() == cpu());
   return atomic_change(&_state, mask, bits);
@@ -607,7 +607,7 @@ Context::state_change(Mword const mask, Mword const bits)
  */
 PUBLIC inline
 void
-Context::state_change_dirty(Mword const mask, Mword const bits, bool check = true)
+Context::state_change_dirty(Mword mask, Mword bits, bool check = true)
 {
   (void)check;
   assert_kdb(!check || cpu() == current_cpu());
@@ -1496,7 +1496,7 @@ Context::handle_drq()
 
   try_finish_migration();
 
-  if (!drq_pending())
+  if (EXPECT_TRUE(!drq_pending()))
     return false;
 
   Mem::barrier();

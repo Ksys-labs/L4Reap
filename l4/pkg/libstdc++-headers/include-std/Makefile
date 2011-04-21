@@ -37,7 +37,7 @@ STDCXX_CSTD_HEADERS := \
 
 STDCXX_CSTD_HEADERS += $(patsubst std_%.h,%,$(notdir $(wildcard $(INCSRC_DIR)/std/*)))
 
-STDCXX_STD_DIRS     := std c_std c_global
+STDCXX_STD_DIRS     := std c_std c_global tr1
 
 
 INSTALL_INCDIR_X = $(INSTALLDIR_LOCAL)/$(INSTALL_INC_PREFIX)

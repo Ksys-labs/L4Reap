@@ -2,9 +2,8 @@
 
 TARGET		= con
 
-REQUIRES_LIBS   += libio input libirq libgfxbitmap l4util
+REQUIRES_LIBS   += libio input libirq libgfxbitmap l4util l4re_c-util
 PRIVATE_INCDIR	= $(SRC_DIR)
-MODE_USE_C      = y
 L4_MULTITHREADED = y
 LIBS_x86	= -lclxfux.o -lx86emu_int10 -lx86emu
 LIBS_amd64	=            -lx86emu_int10 -lx86emu

@@ -93,7 +93,6 @@ private:
 //--------------------------------------------------------------------------
 IMPLEMENTATION [ia32, amd64]:
 
-#include "cmdline.h"
 #include "cpu.h"
 #include "l4_types.h"
 #include "mapped_alloc.h"
@@ -208,14 +207,14 @@ Kmem::io_bitmap_delimiter_page()
  */
 IMPLEMENT inline NEEDS["paging.h","std_macros.h","mem_layout.h"]
 Address
-Kmem::virt_to_phys (const void *addr)
+Kmem::virt_to_phys(const void *addr)
 {
   Address a = reinterpret_cast<Address>(addr);
 
-  if (EXPECT_TRUE (Mem_layout::in_pmem(a)))
+  if (EXPECT_TRUE(Mem_layout::in_pmem(a)))
     return Mem_layout::pmem_to_phys(a);
 
-  if (EXPECT_TRUE (Mem_layout::in_kernel_image(a)))
+  if (EXPECT_TRUE(Mem_layout::in_kernel_image(a)))
     return a - Mem_layout::Kernel_image_offset;
 
   return kdir->virt_to_phys(a);
@@ -252,14 +251,14 @@ Kmem::map_phys_page_tmp(Address phys, Mword idx)
 
 PUBLIC static inline
 Address Kmem::kernel_image_start()
-{ return virt_to_phys (&Mem_layout::image_start) & Config::PAGE_MASK; }
+{ return virt_to_phys(&Mem_layout::image_start) & Config::PAGE_MASK; }
 
 IMPLEMENT inline Address Kmem::kcode_start()
-{ return virt_to_phys (&Mem_layout::start) & Config::PAGE_MASK; }
+{ return virt_to_phys(&Mem_layout::start) & Config::PAGE_MASK; }
 
 IMPLEMENT inline Address Kmem::kcode_end()
 {
-  return (virt_to_phys (&Mem_layout::end) + Config::PAGE_SIZE)
+  return (virt_to_phys(&Mem_layout::end) + Config::PAGE_SIZE)
          & Config::PAGE_MASK;
 }
 

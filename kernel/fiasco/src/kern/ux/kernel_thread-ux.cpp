@@ -13,9 +13,9 @@ IMPLEMENTATION[ux]:
 
 #include <unistd.h>
 #include <sys/mman.h>
-#include "boot_info.h"
 #include "fb.h"
 #include "kdb_ke.h"
+#include "koptions.h"
 #include "net.h"
 #include "mem_layout.h"
 #include "pic.h"
@@ -48,11 +48,8 @@ Kernel_thread::bootstrap_arch()
   nested_trap_handler      = Trap_state::base_handler;
   Trap_state::base_handler = thread_handle_trap;
 
-  if (Boot_info::jdb_cmd())
-    kdb_ke_sequence(Boot_info::jdb_cmd());
-
-  if (Boot_info::wait())
-    kdb_ke("Wait");
+  if (Koptions::o()->opt(Koptions::F_jdb_cmd))
+    kdb_ke_sequence(Koptions::o()->jdb_cmd);
 
   boot_app_cpus();
 }

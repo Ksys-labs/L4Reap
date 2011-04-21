@@ -50,8 +50,8 @@ void *Vmem_alloc::page_alloc(void *address, Zero_fill zf, unsigned mode)
   void *vpage;
 
   vpage = Mapped_allocator::allocator()->alloc(Config::PAGE_SHIFT);
-  
-  if (EXPECT_FALSE(!vpage)) 
+
+  if (EXPECT_FALSE(!vpage))
     return 0;
 
   page = Kmem_space::kdir()->walk(vpage, 0, false, 0).phys(vpage);

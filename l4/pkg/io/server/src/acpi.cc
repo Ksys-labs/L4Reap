@@ -1,5 +1,5 @@
 /*
- * (c) 2010 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
+ * (c) 2011 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
  *          Alexander Warg <warg@os.inf.tu-dresden.de>
  *     economic rights: Technische Universität Dresden (Germany)
  *
@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "debug.h"
 #include "pci.h"
 #include "acpi_l4.h"
 #include "__acpi.h"
@@ -60,11 +61,14 @@ bool
 Acpi_pci_irq_router_rs::request(Resource *parent, Device *,
                                 Resource *child, Device *cdev)
 {
-#if 0
-  printf("requesting IRQ resource: ");
-  child->dump();
-  printf(" at ACPI IRQ routing resource\n");
-#endif
+  if (dlevel(DBG_ALL))
+    {
+      printf("requesting IRQ resource: ");
+      cdev->dump(2);
+      child->dump(2);
+      printf(" at ACPI IRQ routing resource\n");
+    }
+
   Adr_resource *cr = dynamic_cast<Adr_resource*>(child);
 
   if (!cr)
@@ -153,20 +157,19 @@ Acpi_pci_irq_router_rs::add_prt_entry(ACPI_HANDLE obj,
   if (e->Source[0])
     {
       ACPI_HANDLE link;
-      if (Io_config::cfg->verbose() >= 2)
-        printf(" (dev[%s][%d]) ", e->Source, e->SourceIndex);
+      d_printf(DBG_DEBUG, " (dev[%s][%d]) ", e->Source, e->SourceIndex);
       ACPI_STATUS status;
       status = AcpiGetHandle(obj, e->Source, &link);
       if (ACPI_FAILURE(status))
 	{
-	  printf("\nWarning: Could not find PCI IRQ Link Device...\n");
+	  d_printf(DBG_WARN, "\nWARNING: Could not find PCI IRQ Link Device...\n");
 	  return -ENODEV;
 	}
 
       status = AcpiWalkResources(link, (char*)"_CRS", get_irq_cb, &ne->irq);
       if (ACPI_FAILURE(status))
 	{
-	  printf("\nWarning: Could not evaluate _CRS of PCI IRQ Link Device\n");
+	  d_printf(DBG_WARN, "\nWARNING: Could not evaluate _CRS of PCI IRQ Link Device\n");
 	  return -ENODEV;
 	}
     }
@@ -223,11 +226,11 @@ static int acpi_bus_init_irq(void)
       message = "platform specific model";
       break;
     default:
-      printf("Unknown interrupt routing model\n");
+      d_printf(DBG_ERR, "ERROR: Unknown interrupt routing model\n");
       return -1;
   }
 
-  printf("Using %s for interrupt routing\n", message);
+  d_printf(DBG_INFO, "Using %s for interrupt routing\n", message);
 
   arg.Integer.Value = acpi_irq_model;
 
@@ -298,7 +301,7 @@ Acpi_res_discover::discover_prt(Hw::Device *host)
 
   if (ACPI_FAILURE(status))
     {
-      printf("ERROR: while getting PRT for [%s]\n", "buffer");
+      d_printf(DBG_ERR, "ERROR: while getting PRT for [%s]\n", "buffer");
       Resource *r = new Pci_irq_router_res<Pci_pci_bridge_irq_router_rs>();
       host->add_resource(r);
       return;
@@ -398,9 +401,9 @@ Acpi_res_discover::discover_crs(Hw::Device *host)
 	  flags |= (!!d->ExtendedIrq.Polarity) * Resource::Irq_info_base * 2;
 	  if (d->ExtendedIrq.ResourceSource.StringPtr)
 	    {
-	      printf("hoo indirect IRQ resource found src=%s idx=%d\n",
-		     d->ExtendedIrq.ResourceSource.StringPtr,
-		     d->ExtendedIrq.ResourceSource.Index);
+	      d_printf(DBG_DEBUG2, "hoo indirect IRQ resource found src=%s idx=%d\n",
+		      d->ExtendedIrq.ResourceSource.StringPtr,
+		      d->ExtendedIrq.ResourceSource.Index);
 	    }
 	  else
 	    {
@@ -453,7 +456,7 @@ Acpi_res_discover::discover_crs(Hw::Device *host)
 	  break;
 
 	default:
-	  printf("IGNORE ACPI RES: %d\n", r->Type);
+	  d_printf(DBG_WARN, "WARNING: ignoring ACPI recource (unkown type: %d)\n", r->Type);
 	  break;
 
 
@@ -571,7 +574,7 @@ discover_pre_cb(ACPI_HANDLE obj, UINT32 nl, void *ctxt, void **)
   // hm, this seems very specific for PCI
   if (pci_rb)
     {
-      printf("Found PCI root bridge...\n");
+      d_printf(DBG_DEBUG, "Found PCI root bridge...\n");
       if (Pci_root_bridge *rb = pci_root_bridge(0))
 	{
 	  if (rb->host())
@@ -586,7 +589,7 @@ discover_pre_cb(ACPI_HANDLE obj, UINT32 nl, void *ctxt, void **)
 	  nd->set_discover_bus_if(rb);
 	}
       else
-	printf("ERROR: there is no PCI bus driver for this platform\n");
+	d_printf(DBG_ERR, "ERROR: there is no PCI bus driver for this platform\n");
     }
 
   nd->add_resource_discoverer(new Acpi_res_discover(obj));
@@ -611,7 +614,7 @@ discover_post_cb(ACPI_HANDLE, UINT32 nl, void *ctxt, void **)
 
 int acpica_init()
 {
-  printf("Hello from L4-ACPICA\n");
+  d_printf(DBG_INFO, "Hello from L4-ACPICA\n");
 
   pci_register_root_bridge(0, new Pci_port_root_bridge(0));
 
@@ -655,23 +658,23 @@ int acpica_init()
   if(ACPI_FAILURE(status))
     return status;
 
-  printf("enable ACPI subsystem\n");
+  d_printf(DBG_DEBUG, "enable ACPI subsystem\n");
   status = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
 
   if (ACPI_FAILURE(status))
     {
-      printf("Unable to start the ACPI Interpreter\n");
+      d_printf(DBG_ERR, "Unable to start the ACPI Interpreter\n");
       exit(status);
     }
 
-  printf("initialize ACPI objects\n");
+  d_printf(DBG_DEBUG, "initialize ACPI objects\n");
   status = AcpiInitializeObjects(ACPI_FULL_INITIALIZATION);
   if (ACPI_FAILURE(status)) {
-      printf("Unable to initialize ACPI objects\n");
+      d_printf(DBG_ERR, "Unable to initialize ACPI objects\n");
       exit(status);
   }
 
-  printf("Interpreter enabled\n");
+  d_printf(DBG_DEBUG, "Interpreter enabled\n");
 
   Discover_ctxt c;
   c.last_device = system_bus();
@@ -679,7 +682,7 @@ int acpica_init()
   c.level = 1;
 
 
-  printf("scanning for PCI root bridge\n");
+  d_printf(DBG_DEBUG, "scanning for PCI root bridge\n");
   status = AcpiWalkNamespace(ACPI_TYPE_DEVICE, ACPI_ROOT_OBJECT,
                              ACPI_UINT32_MAX,
                              discover_pre_cb, discover_post_cb, &c, 0);
@@ -690,16 +693,15 @@ int acpica_init()
   int result = acpi_bus_init_irq();
   if (result)
     {
-      printf("Could not initialize ACPI IRQ stuff\n");
+      d_printf(DBG_ERR, "Could not initialize ACPI IRQ stuff\n");
       exit(1);
     }
   status = AcpiSubsystemStatus();
 
   if (ACPI_FAILURE(status))
       exit(status);
-  else if (Io_config::cfg->verbose() > 1)
-    printf("acpi_subsystem initialized\n");
 
+  d_printf(DBG_INFO, "ACPI subsystem initialized\n");
 
   ACPI_BUFFER ret_buffer;
   ret_buffer.Length = ACPI_ALLOCATE_BUFFER;

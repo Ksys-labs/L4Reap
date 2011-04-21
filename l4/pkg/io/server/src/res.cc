@@ -22,6 +22,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "debug.h"
 #include "res.h"
 #include "cfg.h"
 
@@ -176,8 +177,7 @@ l4_addr_t res_map_iomem(l4_addr_t phys, l4_addr_t size)
 
 	  io_set.insert(iomem);
 
-          if (Io_config::cfg->verbose())
-            printf("new iomem region: p=%lx v=%lx s=%lx (bmb=%p)\n",
+	  d_printf(DBG_DEBUG, "new iomem region: p=%lx v=%lx s=%lx (bmb=%p)\n",
                    iomem->phys, iomem->virt, iomem->size,
                    iomem->pages.bit_buffer());
 	  break;
@@ -215,8 +215,8 @@ l4_addr_t res_map_iomem(l4_addr_t phys, l4_addr_t size)
 	  int res = map_iomem_range(iomem->phys + min, iomem->virt + min,
 	      max - min);
 
-          if (Io_config::cfg->verbose() > 1)
-            printf("map mem: p=%lx v=%lx s=%lx: %s\n", iomem->phys + min,
+	  d_printf(DBG_DEBUG2, "map mem: p=%lx v=%lx s=%lx: %s\n",
+	           iomem->phys + min,
                    iomem->virt + min, max - min,
                    res < 0 ? "failed" : "done");
 

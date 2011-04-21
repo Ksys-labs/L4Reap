@@ -15,6 +15,47 @@ a nonull_static_cast( b p )
   return reinterpret_cast<a>( reinterpret_cast<Address>(p) + d);
 }
 
+template< typename T >
+class Static_object
+{
+public:
+  T *get()
+  {
+    Address i = (Address)_i;
+    return reinterpret_cast<T*>(i);
+  }
+
+  T *operator -> ()
+  { return get(); }
+
+  void init()
+  { new ((void*)_i) T; }
+
+  template<typename A1>
+  void init(A1 a1)
+  { new ((void*)_i) T(a1); }
+
+  template<typename A1, typename A2>
+  void init(A1 a1, A2 a2)
+  { new ((void*)_i) T(a1, a2); }
+
+  template<typename A1, typename A2, typename A3>
+  void init(A1 a1, A2 a2, A3 a3)
+  { new ((void*)_i) T(a1, a2, a3); }
+
+  template<typename A1, typename A2, typename A3, typename A4>
+  void init(A1 a1, A2 a2, A3 a3, A4 a4)
+  { new ((void*)_i) T(a1, a2, a3, a4); }
+
+  template<typename A1, typename A2, typename A3, typename A4, typename A5>
+  void init(A1 a1, A2 a2, A3 a3, A4 a4, A5 a5)
+  { new ((void*)_i) T(a1, a2, a3, a4, a5); }
+
+private:
+  char __attribute__((aligned(sizeof(Mword)))) _i[sizeof(T)];
+};
+
+
 template< typename VALUE, typename TARGET >
 class Number
 {

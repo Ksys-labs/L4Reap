@@ -100,7 +100,7 @@
 #define __UCLIBC_HAS_THREADS__ 1
 #define __LINUXTHREADS_OLD__ 1
 #else
-#undef __UCLIBC_HAS_THREADS
+#undef __UCLIBC_HAS_THREADS__
 #endif
 #define __UCLIBC_HAS_LFS__ 1
 #define __UCLIBC_STATIC_LDCONFIG__ 1

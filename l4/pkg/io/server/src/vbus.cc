@@ -24,7 +24,10 @@
 
 #include <cstdio>
 
+#include "debug.h"
+#include "hw_msi.h"
 #include "vbus.h"
+#include "vmsi.h"
 #include "vicu.h"
 #include "server.h"
 #include "res.h"
@@ -56,14 +59,53 @@ public:
 	_bus->add_child(_icu);
       }
 
+    d_printf(DBG_DEBUG2, "Add IRQ resources to vbus: ");
+    if (dlevel(DBG_DEBUG2))
+      child->dump();
+
     _icu->add_irqs(r);
     _bus->resource_set()->insert(r);
 
     return true;
   };
 
-  bool alloc(Resource *, Device *, Resource *, Device *, bool)
-  { return false; }
+  bool alloc(Resource *parent, Device *, Resource *child, Device *, bool)
+  {
+    d_printf(DBG_DEBUG2, "Allocate virtual IRQ resource ...\n");
+    if (dlevel(DBG_DEBUG2))
+      child->dump();
+
+    Vi::Msi_resource *msi = dynamic_cast<Vi::Msi_resource*>(child);
+    if (!msi || !parent)
+      return false;
+
+    d_printf(DBG_DEBUG2, "  Allocate Virtual MSI...\n");
+
+    if (!_icu)
+      {
+	_icu = new Vi::Sw_icu();
+	_bus->add_child(_icu);
+      }
+
+    int nr = _icu->alloc_irq(msi->flags(), msi->hw_msi());
+    if (nr < 0)
+      {
+	d_printf(DBG_ERR, "ERROR: cannot allocate MSI resource\n");
+	return false;
+      }
+
+    msi->start_end(nr, nr);
+    msi->del_flags(Resource::F_disabled);
+
+    if (dlevel(DBG_DEBUG2))
+      {
+	msi->dump(4);
+	msi->hw_msi()->dump(4);
+      }
+
+    _bus->resource_set()->insert(msi);
+    return true;
+  }
 
   ~Root_irq_rs() {}
 };
@@ -150,7 +192,7 @@ System_bus::request_resource(L4::Ipc_iostream &ios)
   ios.get(res);
 
   ::Adr_resource ires(res.type, res.start, res.end);
-  if (Io_config::cfg->verbose() > 1)
+  if (dlevel(DBG_DEBUG2))
     {
       printf("request resource: ");
       Adr_resource(ires).dump();

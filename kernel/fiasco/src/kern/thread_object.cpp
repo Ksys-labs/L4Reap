@@ -543,8 +543,7 @@ Thread_object::ex_regs(Address ip, Address sp,
 
   else if (ops & Exr_cancel)
     // cancel ongoing IPC or other activity
-    state_change_dirty(~(Thread_ipc_in_progress | Thread_delayed_deadline |
-                       Thread_delayed_ipc), Thread_cancel | Thread_ready, false);
+    state_add_dirty(Thread_cancel | Thread_ready);
 
   if (ops & Exr_trigger_exception)
     {

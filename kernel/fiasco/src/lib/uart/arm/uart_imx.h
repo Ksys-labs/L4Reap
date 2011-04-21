@@ -1,5 +1,7 @@
 /*
- * (c) 2008-2009 Technische Universität Dresden
+ * (c) 2008-2009 Adam Lackorzynski <adam@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
+ *
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
@@ -14,7 +16,7 @@ namespace L4
   class Uart_imx : public Uart
   {
   public:
-    enum platform_type { Type_imx21, Type_imx51 };
+    enum platform_type { Type_imx21, Type_imx35, Type_imx51 };
     Uart_imx(int rx_irq, int tx_irq, enum platform_type type)
        : Uart(rx_irq, tx_irq), _base(~0UL), _type(type) {}
     bool startup(unsigned long base);
@@ -40,6 +42,13 @@ namespace L4
   public:
     Uart_imx21(int rx_irq, int tx_irq)
        : Uart_imx(rx_irq, tx_irq, Type_imx21) {}
+  };
+
+  class Uart_imx35 : public Uart_imx
+  {
+  public:
+    Uart_imx35(int rx_irq, int tx_irq)
+       : Uart_imx(rx_irq, tx_irq, Type_imx35) {}
   };
 
   class Uart_imx51 : public Uart_imx

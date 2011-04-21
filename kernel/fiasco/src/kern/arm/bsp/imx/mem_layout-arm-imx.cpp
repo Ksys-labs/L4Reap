@@ -4,8 +4,9 @@ EXTENSION class Mem_layout
 {
 public:
   enum Virt_layout_imx {
-    Device_map_base      = 0xef100000,
-    Device_map_base_2    = 0xef200000,
+    Device_map_base_1    = Registers_map_start,
+    Device_map_base_2    = Registers_map_start + 0x100000,
+    Device_map_base_3    = Registers_map_start + 0x200000,
   };
 
   enum Phys_layout {
@@ -29,7 +30,7 @@ public:
   };
 
   enum Phys_layout_imx21 {
-    Device_phys_base     = 0x10000000,
+    Device_phys_base_1   = 0x10000000,
 
     Timer_phys_base      = 0x10003000,
     Uart_phys_base       = 0x1000a000,
@@ -38,6 +39,32 @@ public:
     Pic_phys_base        = 0x10040000,
   };
 };
+
+INTERFACE [arm && imx && imx35]: // ---------------------------------------
+
+EXTENSION class Mem_layout
+{
+public:
+  enum Virt_layout_imx35 {
+    Uart_map_base        = Device_map_base_1 + 0x90000,
+    Timer_map_base       = Device_map_base_2 + 0x94000,
+    Watchdog_map_base    = Device_map_base_2 + 0xdc000,
+    Pic_map_base         = Device_map_base_3 + 0x0,
+    Uart_base            = Uart_map_base,
+  };
+
+  enum Phys_layout_imx35 {
+    Device_phys_base_1   = 0x43f00000,
+    Device_phys_base_2   = 0x53f00000,
+    Device_phys_base_3   = 0x68000000,
+
+    Timer_phys_base      = 0x53f94000, // epit1
+    Uart_phys_base       = 0x43f90000, // uart1
+    Watchdog_phys_base   = 0x53fdc000, // wdog
+    Pic_phys_base        = 0x68000000,
+  };
+};
+
 
 INTERFACE [arm && imx && imx51]: // ---------------------------------------
 

@@ -2,11 +2,11 @@
 IMPLEMENTATION[ia32,amd64]:
 
 #include "apic.h"
-#include "cmdline.h"
 #include "config.h"
 #include "cpu.h"
 #include "io_apic.h"
 #include "irq_chip.h"
+#include "koptions.h"
 #include "mem_layout.h"
 #include "pic.h"
 #include "profile.h"
@@ -44,7 +44,7 @@ Kernel_thread::bootstrap_arch()
     }
 
   // initialize the profiling timer
-  bool user_irq0 = strstr (Cmdline::cmdline(), "irq0");
+  bool user_irq0 = Koptions::o()->opt(Koptions::F_irq0);
 
   if (Config::scheduler_mode == Config::SCHED_PIT && user_irq0)
     panic("option -irq0 not possible since irq 0 is used for scheduling");
@@ -52,14 +52,14 @@ Kernel_thread::bootstrap_arch()
   if (Config::profiling)
     {
       if (user_irq0)
-    	panic("options -profile and -irq0 don't mix");
+	panic("options -profile and -irq0 don't mix");
       if (Config::scheduler_mode == Config::SCHED_PIT)
 	panic("option -profile' not available since PIT is used as "
               "source for timer tick");
 
       Irq_chip::hw_chip->reserve(0); // reserve IRQ 0
       Profile::init();
-      if (strstr (Cmdline::cmdline(), " -profstart"))
+      if (Koptions::o()->opt(Koptions::F_profstart))
         Profile::start();
     }
   else

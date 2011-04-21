@@ -18,6 +18,8 @@ IMPLEMENTATION[{ia32,amd64}-pit_timer]:
 
 Irq_base *Timer::irq;
 
+IMPLEMENT inline int Timer::irq_line() { return 0; }
+
 IMPLEMENT
 void
 Timer::init()

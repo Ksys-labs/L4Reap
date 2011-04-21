@@ -324,6 +324,30 @@ static int __task_wait(lua_State *l)
   return 1;
 }
 
+static int __task_kill(lua_State *l)
+{
+  App_ptr &t = check_at(l, 1);
+
+  if (!t)
+    {
+      lua_pushnil(l);
+      return 1;
+    }
+
+  if (t->state() == App_task::Zombie)
+    {
+      lua_pushinteger(l, t->exit_code());
+      t = 0; // zap task
+      return 1;
+    }
+
+  t->terminate();
+  t = 0; // kill task
+  lua_pushstring(l, "killed");
+
+  return 1;
+}
+
 static int __task_gc(lua_State *l)
 {
   App_ptr &t = check_at(l, 1);
@@ -359,6 +383,7 @@ static const luaL_Reg _task_ops[] = {
     { "state", __task_state },
     { "exit_code", __task_exit_code },
     { "wait", __task_wait },
+    { "kill", __task_kill },
     { NULL, NULL }
 };
 

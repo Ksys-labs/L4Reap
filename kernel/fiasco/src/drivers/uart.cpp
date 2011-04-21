@@ -5,8 +5,7 @@ INTERFACE:
 /**
  * Platform independent UART stub.
  */
-class Uart 
-  : public Console
+class Uart : public Console
 {
 public:
   /**

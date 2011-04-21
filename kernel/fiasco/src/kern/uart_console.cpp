@@ -3,7 +3,6 @@ IMPLEMENTATION:
 #include <cstdio>
 #include <cstring>
 
-#include "cmdline.h"
 #include "config.h"
 #include "filter_console.h"
 #include "kernel_console.h"
@@ -11,18 +10,7 @@ IMPLEMENTATION:
 #include "static_init.h"
 #include "irq.h"
 
-STATIC_INITIALIZER_P(uart_console_init_stage1, UART_INIT_PRIO);
 STATIC_INITIALIZER  (uart_console_init_stage2);
-
-static void uart_console_init_stage1()
-{
-  if (strstr (Cmdline::cmdline(), " -noserial")) // do not use serial uart
-    return;
-
-  static Filter_console fcon(Kernel_uart::uart());
-
-  Kconsole::console()->register_console(&fcon, 0);
-}
 
 static void uart_console_init_stage2()
 {

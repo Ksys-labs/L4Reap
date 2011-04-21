@@ -20,12 +20,6 @@
 #include <l4/re/env.h>
 #include <l4/util/macros.h>
 
-#if 0
-#ifndef ARCH_arm
-#include <l4/util/thread_time.h>
-#endif
-#endif
-
 #include "timer.h"
 
 int init_timer(struct dope_services *d);
@@ -37,11 +31,7 @@ int init_timer(struct dope_services *d);
 
 /*** RETURN CURRENT SYSTEM TIME COUNTER IN MICROSECONDS ***/
 static u32 get_time(void) {
-//#ifdef ARCH_arm
 	return (u32)l4re_kip()->clock;
-//#else
-//	return l4_tsc_to_us(l4util_thread_time(l4re_kip()));
-//#endif
 }
 
 

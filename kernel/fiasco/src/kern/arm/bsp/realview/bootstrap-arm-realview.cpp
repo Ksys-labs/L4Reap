@@ -31,6 +31,15 @@ static void map_hw2(void *pd)
 }
 
 //-----------------------------------------------------------------------------
+IMPLEMENTATION [arm && realview && realview_vexpress]:
+
+static void map_hw2(void *pd)
+{
+  map_1mb(pd, Mem_layout::Devices1_map_base, Mem_layout::Devices1_phys_base,
+          false, false);
+}
+
+//-----------------------------------------------------------------------------
 IMPLEMENTATION [arm && realview]:
 
 void

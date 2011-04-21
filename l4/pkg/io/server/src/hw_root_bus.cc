@@ -7,10 +7,12 @@
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
  */
+
+#include "cfg.h"
+#include "debug.h"
 #include "hw_root_bus.h"
 #include "phys_space.h"
 #include "resource.h"
-#include "cfg.h"
 
 namespace {
 
@@ -75,10 +77,10 @@ Root_mmio_rs::request(Resource *parent, Device *, Resource *child, Device *)
       return true;
     }
 
-#if 1
-  printf("WARNING: phys mmio resource allocation failed\n");
-  child->dump();
-#endif
+  d_printf(DBG_WARN, "WARNING: phys mmio resource allocation failed\n");
+  if (dlevel(DBG_WARN))
+    child->dump();
+
   return false;
 }
 
@@ -108,7 +110,7 @@ Root_mmio_rs::alloc(Resource *parent, Device *, Resource *child, Device *,
   cld->start(phys.start());
   child->parent(parent);
 
-  if (Io_config::cfg->verbose())
+  if (dlevel(DBG_DEBUG))
     {
       printf("allocated resource: ");
       cld->dump();

@@ -149,8 +149,7 @@ Pin_io_apic_level::disable()
 {
   extern char entry_int_apic_ignore[];
   unsigned vector = Dirq_pic_pin::Chip::vector(gsi());
-  Dirq_pic_pin::Chip::vfree(Irq_base::self(this), vector);
-  Idt::set_entry(vector, Address(&entry_int_apic_ignore), false);
+  Dirq_pic_pin::Chip::vfree(Irq_base::self(this), vector, &entry_int_apic_ignore);
 }
 
 PUBLIC void

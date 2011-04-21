@@ -85,17 +85,17 @@ struct Type_info
 template<typename T>
 inline
 Type_info const *kobject_typeid()
-{ return T::__kobject_typeid(); }
+{ return &T::__Kobject_typeid::_m; }
 
 
 /**
  * \internal
  */
 #define L4____GEN_TI(t...)                             \
-Type_info const t::_m =                                \
+Type_info const t::__Kobject_typeid::_m =                                \
 {                                                      \
   L4_KOBJECT_META_RTTI(Derived),                       \
-  &t::_b[0], sizeof(t::_b) / sizeof(t::_b[0]), PROTO   \
+  &t::__Kobject_typeid::_b[0], sizeof(t::__Kobject_typeid::_b) / sizeof(t::__Kobject_typeid::_b[0]), PROTO   \
 }
 
 /**
@@ -104,9 +104,10 @@ Type_info const t::_m =                                \
 #define L4____GEN_TI_MEMBERS()                                     \
 private:                                                           \
   template< typename T > friend Type_info const *kobject_typeid(); \
+protected: \
+  struct __Kobject_typeid { \
   static Type_info const *const _b[];                              \
-  static Type_info const _m;                                       \
-  static Type_info const *__kobject_typeid() { return &_m; }       \
+  static Type_info const _m;    };                                 \
 public:                                                            \
   static long const Protocol = PROTO;
 
@@ -138,8 +139,8 @@ class Kobject_t : public Base
 
 
 template< typename Derived, typename Base, long PROTO >
-Type_info const *const Kobject_t<Derived, Base, PROTO>::_b[] =
-{ kobject_typeid<Base>() };
+Type_info const *const Kobject_t<Derived, Base, PROTO>::__Kobject_typeid::_b[] =
+{ &Base::__Kobject_typeid::_m };
 
 /**
  * \internal
@@ -176,10 +177,10 @@ class Kobject_2t : public Base1, public Base2
 
 
 template< typename Derived, typename Base1, typename Base2, long PROTO >
-Type_info const *const  Kobject_2t<Derived, Base1, Base2, PROTO>::_b[] =
+Type_info const *const  Kobject_2t<Derived, Base1, Base2, PROTO>::__Kobject_typeid::_b[] =
 {
-  kobject_typeid<Base1>(),
-  kobject_typeid<Base2>()
+  &Base1::__Kobject_typeid::_m,
+  &Base2::__Kobject_typeid::_m
 };
 
 /**

@@ -459,7 +459,9 @@ int l4_lwip_init(int *argc, char **argv)
 #endif
     dhcp_start(&ankh_netif);
     while(!netif_is_up(&ankh_netif)) {
-        printf("dhcp pending\n");
+#if DEBUG_L4LWIP_INIT
+        //printf("dhcp pending\n");
+#endif
         l4_sleep(1000);
     }
     printf("IP: "); print_ip(&ankh_netif.ip_addr); printf("\n");

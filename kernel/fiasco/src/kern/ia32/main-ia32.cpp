@@ -8,12 +8,12 @@ IMPLEMENTATION[ia32,amd64]:
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
-#include "cmdline.h"
 #include "config.h"
 #include "io.h"
 #include "idt.h"
 #include "kdb_ke.h"
 #include "kernel_console.h"
+#include "koptions.h"
 #include "pic.h"
 #include "processor.h"
 #include "reset.h"
@@ -131,7 +131,7 @@ int boot_ap_cpu(unsigned _cpu)
   cpu.print();
   cpu.show_cache_tlb_info("");
 
-  if (strstr(Cmdline::cmdline(), " -loadcnt"))
+  if (Koptions::o()->opt(Koptions::F_loadcnt))
     Perf_cnt::init_ap();
 
   puts("");

@@ -40,6 +40,7 @@ public:
   int fstat64(struct stat64 *buf) const throw();
   int get_status_flags() const throw() { return O_RDONLY; }
   int set_status_flags(long) throw() { return 0; }
+  int ioctl(unsigned long request, va_list args) throw();
 
   ~Vcon_stream() throw() {}
   void operator delete (void *) {}

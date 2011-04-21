@@ -5,7 +5,6 @@ use strict;
 
 my %sym_tab = (new Math::BigInt(0) => "ERRRRRRROR");
 my $sections = "BdDdTtVvWwuU";
-my $img = shift;
 my %sec_tab;
 
 my %test;
@@ -18,29 +17,33 @@ sub as_hex($)
   return $h;
 }
 
-if (!defined $img)
+if (!defined $ARGV[0])
 {
-  print "$0 image\n";
+  print "$0 image(s)\n";
   print " input is read from stdin\n";
   exit 1;
 }
 
 my $nm = 'nm';
 $nm = "$ENV{'SYSTEM_TARGET'}$nm" if defined $ENV{"SYSTEM_TARGET"};
-$nm = 'arm-softfloat-elf-nm' if !(system("file -L $img | grep -qw ARM") >> 8);
+$nm = 'arm-softfloat-elf-nm' if !(system("file -L $ARGV[0] | grep -qw ARM") >> 8);
 
-foreach my $l (split('\n', qx{$nm $img | c++filt}))
-{
-  if ($l =~ /^([0-9a-fA-F]*)\s+([$sections])\s+(.*)$/)
+while (@ARGV)
   {
-    my ($addr, $sec, $sym) = (new Math::BigInt("0x$1"), $2, $3);
-    if (defined $addr && ref $addr && !$addr->is_nan())
-    {
-      $sym_tab{as_hex($addr)} = $sym;
-      $sec_tab{as_hex($addr)} = $sec;
-    }
+    my $img = shift;
+    foreach my $l (split('\n', qx{$nm $img | c++filt}))
+      {
+	if ($l =~ /^([0-9a-fA-F]*)\s+([$sections])\s+(.*)$/)
+	  {
+	    my ($addr, $sec, $sym) = (new Math::BigInt("0x$1"), $2, $3);
+	    if (defined $addr && ref $addr && !$addr->is_nan())
+	      {
+		$sym_tab{as_hex($addr)} = $sym;
+		$sec_tab{as_hex($addr)} = $sec;
+	      }
+	  }
+      }
   }
-}
 my @sorted_sym_tab_keys = sort keys %sym_tab;
 my $min_addr = $sorted_sym_tab_keys[0];
 my $max_addr = $sorted_sym_tab_keys[@sorted_sym_tab_keys - 1];

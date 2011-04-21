@@ -46,6 +46,7 @@
 #include "patch.h"
 #include "loader_mbi.h"
 #include "startup.h"
+#include "koptions.h"
 #if defined (ARCH_x86) || defined(ARCH_amd64)
 #include "ARCH-x86/serial.h"
 #endif
@@ -71,7 +72,8 @@ static l4util_mb_vbe_mode_t __mb_vbe;
 static l4util_mb_vbe_ctrl_t __mb_ctrl;
 #endif
 
-l4_kip_kernel_uart_info kip_kernel_uart_info;
+static L4_kernel_options::Uart kuart;
+static unsigned int kuart_flags;
 
 /*
  * IMAGE_MODE means that all boot modules are linked together to one
@@ -175,6 +177,22 @@ void *find_kip()
     panic("could not find kernel info page, maybe your kernel is too old");
 
   return k;
+}
+
+static
+L4_kernel_options::Options *find_kopts(void *kip)
+{
+  unsigned long a = (unsigned long)kip + sizeof(l4_kernel_info_t);
+
+  // kernel-option directly follow the KIP page
+  a = (a + 4096 - 1) & ~0xfff;
+
+  L4_kernel_options::Options *ko = (L4_kernel_options::Options *)a;
+
+  if (ko->magic != L4_kernel_options::Magic)
+    panic("Could not find kernel options page");
+
+  return ko;
 }
 
 const char *get_cmdline(l4util_mb_info_t *mbi)
@@ -926,21 +944,25 @@ init_pc_serial(l4util_mb_info_t *mbi)
 #if defined(ARCH_x86) || defined(ARCH_amd64)
   const char *s;
   int comport = -1;
+  int comirq = -1;
   int pci = 0;
+
+  if ((s = check_arg(mbi, "-comirq")))
+    {
+      s += 8;
+      comirq = strtoul(s, 0, 0);
+    }
 
   if ((s = check_arg(mbi, "-comport")))
     {
-      char const *a = s + 9;
-      if (!strncmp(a, "pci:", 4))
-	{
-	  pci = 1;
-	  a = a + 4;
-	}
-    
-      comport = strtoul(a, 0, 0);
+      s += 9;
+      if ((pci = !strncmp(s, "pci:", 4)))
+        s += 4;
+
+      comport = strtoul(s, 0, 0);
     }
 
-  if (check_arg(mbi, "-serial"))
+  if (!check_arg(mbi, "-noserial"))
     {
       if (pci)
         {
@@ -956,12 +978,11 @@ init_pc_serial(l4util_mb_info_t *mbi)
       if (comport == -1)
         comport = 1;
 
-      com_cons_init(comport);
+      com_cons_init(comport, comirq, &kuart, &kuart_flags);
     }
 #else
   (void)mbi;
 #endif
-
 }
 
 #ifdef ARCH_arm
@@ -1267,6 +1288,12 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
       fill_mem(fill_value);
     }
 
+  L4_kernel_options::Options *lko = find_kopts(l4i);
+  kcmdline_parse(L4_CONST_CHAR_PTR(mb_mod[kernel_module].cmdline), lko);
+  lko->uart   = kuart;
+  lko->flags |= kuart_flags;
+
+
   /* setup the L4 kernel info page before booting the L4 microkernel:
    * patch ourselves into the booter task addresses */
   unsigned long api_version = get_api_version(l4i);
@@ -1278,7 +1305,6 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
     case 0x03: // Version X.0 and X.1
     case 0x87: // Fiasco
       init_kip_v2(l4i, &boot_info, mb_info, &ram, &regions);
-      //init_kip_kuart_info(l4i, &kip_kernel_uart_info);
       break;
     case 0x84:
     case 0x04:

@@ -20,10 +20,8 @@ class Core_api;
 
 class Input_source
 {
-private:
-  friend class Core_api;
+public:
   Input_source *_next_active;
-
   void add_lua_input_source(lua_State *l, int ref_table);
 
 protected:

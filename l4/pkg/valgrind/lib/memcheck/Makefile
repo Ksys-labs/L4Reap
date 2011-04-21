@@ -20,6 +20,4 @@ DEFINES = -DVGO_l4re -DVGP_x86_l4re -DVGA_x86
 
 CPPFLAGS += -Wno-pointer-sign -Wno-unused-parameter
 
-MODE_USE_C = y
-
 include $(L4DIR)/mk/lib.mk

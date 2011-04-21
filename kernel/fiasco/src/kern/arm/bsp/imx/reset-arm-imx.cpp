@@ -25,7 +25,7 @@ pc_reset(void)
 }
 
 // ------------------------------------------------------------------------
-IMPLEMENTATION [arm && imx51]:
+IMPLEMENTATION [arm && (imx35 || imx51)]:
 
 #include "io.h"
 #include "kmem.h"

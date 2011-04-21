@@ -47,8 +47,9 @@ static l4re_event_buffer_consumer_t ev_buf;
 
 /** brief Key event handling -> distribution and switch */
 static void
-handle_event(struct l4input *ev)
+handle_event(struct l4input *ev, void *data)
 {
+  (void)data;
   static int altgr_down;
   static int shift_down;
   static struct l4input special_ev = { .type = 0xff };
@@ -186,8 +187,8 @@ static void *ev_thread(void *d)
 {
   (void)d;
   l4re_event_buffer_consumer_process(&ev_buf, ev_irq,
-                                     pthread_getl4cap(pthread_self()),
-                                     (void (*)(l4re_event_t *))handle_event);
+                                     pthread_getl4cap(pthread_self()), NULL,
+                                     (void (*)(l4re_event_t *, void *))handle_event);
   return NULL;
 }
 
@@ -218,7 +219,7 @@ ev_init()
       l4re_util_cap_free_um(ev_irq);
 
       printf("Using l4input\n");
-      l4input_init(254, handle_event);
+      l4input_init(254, (void (*)(struct l4input *))handle_event);
       return;
     }
 

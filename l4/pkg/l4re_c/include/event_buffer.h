@@ -42,12 +42,12 @@ l4re_event_buffer_next(l4re_event_buffer_consumer_t *evbuf) L4_NOTHROW;
 
 L4_CV void
 l4re_event_buffer_consumer_foreach_available_event
-  (l4re_event_buffer_consumer_t *evbuf,
-   L4_CV void (*cb)(l4re_event_t *ev)) L4_NOTHROW;
+  (l4re_event_buffer_consumer_t *evbuf, void *data,
+   L4_CV void (*cb)(l4re_event_t *ev, void *data)) L4_NOTHROW;
 
 L4_CV void
 l4re_event_buffer_consumer_process(l4re_event_buffer_consumer_t *evbuf,
-                                   l4_cap_idx_t irq, l4_cap_idx_t thread,
-                                   L4_CV void (*cb)(l4re_event_t *ev)) L4_NOTHROW;
+                                   l4_cap_idx_t irq, l4_cap_idx_t thread, void *data,
+                                   L4_CV void (*cb)(l4re_event_t *ev, void *data)) L4_NOTHROW;
 
 EXTERN_C_END

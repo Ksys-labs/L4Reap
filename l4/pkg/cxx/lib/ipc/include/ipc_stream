@@ -700,7 +700,7 @@ public:
   }
 
 
-  int get(Ipc::Varg *va)
+  bool get(Ipc::Varg *va)
   {
     Ipc::Varg::Tag t;
     if (!has_more<Ipc::Varg::Tag>())
@@ -712,7 +712,7 @@ public:
     va->tag(t);
     get(msg_ptr(va->data()), va->length());
 
-    return 0;
+    return 1;
   }
 
   /**
@@ -800,6 +800,21 @@ protected:
   char *_current_msg;
   unsigned _pos;
   unsigned char _current_buf;
+};
+
+class Istream_copy : public Istream
+{
+private:
+  l4_msg_regs_t _mrs;
+
+public:
+  Istream_copy(Istream const &o) : Istream(o), _mrs(*l4_utcb_mr_u(o.utcb()))
+  {
+    // do some reverse mr to utcb trickery
+    _utcb = (l4_utcb_t*)((l4_addr_t)&_mrs - (l4_addr_t)l4_utcb_mr_u((l4_utcb_t*)0));
+    _current_msg = reinterpret_cast<char*>(l4_utcb_mr_u(_utcb)->mr);
+  }
+
 };
 
 template< typename T >

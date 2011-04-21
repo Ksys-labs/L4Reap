@@ -6,22 +6,19 @@ INTERFACE:
 class Filter_console : public Console
 {
 public:
-
-  Filter_console( Console *o, int to = 10 );
-  ~Filter_console();
-
-  int write( char const *str, size_t len );
-  int getchar( bool blocking = true );
-  int char_avail() const;
+  ~Filter_console() {}
 
 private:
   Console *const _o;
   int csi_timeout;
-  enum {
+  enum State
+  {
     NORMAL,
     UNKNOWN_ESC,
     GOT_CSI, ///< control sequence introducer
-  } state;
+  };
+
+  State state;
   unsigned pos;
   char ibuf[32];
   unsigned arg;
@@ -38,38 +35,35 @@ IMPLEMENTATION:
 #include "delayloop.h"
 
 
-IMPLEMENT 
+PUBLIC
 int Filter_console::char_avail() const
 {
-  switch(state)
+  switch (state)
     {
     case NORMAL:
     case UNKNOWN_ESC:
-      if(pos) 
+      if (pos)
 	return 1;
       else
 	return _o->char_avail();
-      
+
     default:
       return -1;
-
-    } 
+    }
 }
 
-IMPLEMENT 
-Filter_console::Filter_console( Console *o, int to )
+PUBLIC inline explicit
+Filter_console::Filter_console(Console *o, int to = 10)
   : _o(o), csi_timeout(to), state(NORMAL), pos(0), arg(0)
 {
   if (o->failed())
     fail();
 }
 
-IMPLEMENT
-Filter_console::~Filter_console()
-{}
 
-IMPLEMENT
-int Filter_console::write( char const *str, size_t len )
+PUBLIC
+int
+Filter_console::write(char const *str, size_t len)
 {
   char const *start = str;
   char const *stop  = str;
@@ -77,58 +71,63 @@ int Filter_console::write( char const *str, size_t len )
   static char seq[18];
   char const *const home = "\033[H";
   char const *const cel  = "\033[K";
-  
-  for(;stop < str + len; ++stop ) {
-    switch(*stop) {
-    case 1:
-      if(stop-start)
-	_o->write(start, stop-start);
-      start = stop + 1;
-      _o->write(home,3);
-      break;
-    case 5:
-      if(stop-start)
-	_o->write(start, stop-start);
-      start = stop + 1;
-      _o->write(cel,3);
-      break;
-    case 6:
-      if(stop-start)
-	_o->write(start, stop-start);
-      if(stop + 2 < str+len) {
-	snprintf(seq, sizeof(seq), "\033[%d;%dH", stop[1]+1,stop[2]+1);
-	_o->write(seq,strlen(seq));
-      }
-      stop += 2;
-      start = stop + 1;
-      break;
-    }
-  }
 
-  if(stop-start)
+  for (;stop < str + len; ++stop)
+    {
+      switch (*stop)
+	{
+	case 1:
+	  if (stop-start)
+	    _o->write(start, stop-start);
+	  start = stop + 1;
+	  _o->write(home,3);
+	  break;
+	case 5:
+	  if (stop-start)
+	    _o->write(start, stop-start);
+	  start = stop + 1;
+	  _o->write(cel,3);
+	  break;
+	case 6:
+	  if (stop-start)
+	    _o->write(start, stop-start);
+	  if (stop + 2 < str+len)
+	    {
+	      snprintf(seq, sizeof(seq), "\033[%d;%dH", stop[1]+1,stop[2]+1);
+	      _o->write(seq,strlen(seq));
+	    }
+	  stop += 2;
+	  start = stop + 1;
+	  break;
+      }
+    }
+
+  if (stop-start)
     _o->write(start, stop-start);
 
   return len;
 }
 
 PRIVATE inline
-int Filter_console::getchar_timeout( unsigned timeout )
+int
+Filter_console::getchar_timeout(unsigned timeout)
 {
   int c;
-  while((c= _o->getchar(false)) == -1 && timeout--)
+  while ((c= _o->getchar(false)) == -1 && timeout--)
     Delay::delay(1);
   return c;
 }
 
 
-IMPLEMENT
-int Filter_console::getchar( bool b )
+PUBLIC
+int
+Filter_console::getchar(bool b = true)
 {
   unsigned loop_count = 100;
   int ch;
-    
+
  get_char:
-  if(state==UNKNOWN_ESC && pos)
+  if (state==UNKNOWN_ESC && pos)
     {
       ch = ibuf[0];
       memmove(ibuf,ibuf+1,--pos);
@@ -136,39 +135,39 @@ int Filter_console::getchar( bool b )
   else
     ch = _o->getchar(b);
 
-  if(!pos) 
+  if (!pos)
     state = NORMAL;
 
-  if(ch==-1)
+  if (ch==-1)
     {
-      if(state == NORMAL) 
+      if (state == NORMAL)
 	return -1;
-      else if( !b && loop_count-- )
+      else if (!b && loop_count--)
 	goto get_char;
       else
 	return -1;
     }
 
-  switch(state)
+  switch (state)
     {
     case UNKNOWN_ESC:
       return ch;
 
     case NORMAL:
-      if(ch==27)
+      if (ch==27)
 	{
 	  ibuf[pos++] = 27;
 	  int nc = getchar_timeout(csi_timeout);
-	  if(nc==-1)
+	  if (nc==-1)
 	    {
 	      pos = 0;
 	      return 27;
 	    }
-	  else 
+	  else
 	    {
-	      if(pos < sizeof(ibuf))
+	      if (pos < sizeof(ibuf))
 		ibuf[pos++] = nc;
-	      if(nc=='[' || nc=='O')
+	      if (nc=='[' || nc=='O')
 		{
 		  arg = 0;
 		  memset(args,0,sizeof(args));
@@ -180,30 +179,30 @@ int Filter_console::getchar( bool b )
 		  state = UNKNOWN_ESC;
 		  goto get_char;
 		}
-	    }	    
+	    }
 	}
       return ch;
 
     case GOT_CSI:
-      if(isdigit(ch))
+      if (isdigit(ch))
 	{
-	  if(pos < sizeof(ibuf))
+	  if (pos < sizeof(ibuf))
 	    ibuf[pos++] = ch;
 
-	  if(arg < (sizeof(args)/sizeof(int)))
+	  if (arg < (sizeof(args)/sizeof(int)))
 	    args[arg] = args[arg]*10 + (ch-'0');
 	}
-      else if(ch==';')
+      else if (ch==';')
 	{
-	  if(pos < sizeof(ibuf))
+	  if (pos < sizeof(ibuf))
 	    ibuf[pos++] = ch;
 
 	  arg++;
 	}
-      else 
+      else
 	{
 	  state = NORMAL;
-	  if(pos < sizeof(ibuf))
+	  if (pos < sizeof(ibuf))
 	    ibuf[pos++] = ch;
 	  
 	  switch(ch)
@@ -216,7 +215,7 @@ int Filter_console::getchar( bool b )
 	    case 'F': pos = 0; return KEY_CURSOR_END;
 	    case '~':
 	      pos = 0;
-	      switch(args[0])
+	      switch (args[0])
 		{
 		case  7:
 		case  1: return KEY_CURSOR_HOME;
@@ -230,9 +229,9 @@ int Filter_console::getchar( bool b )
 
 		default:
 		  arg = 0;
-		  if(b)
+		  if (b)
 		    goto get_char;
-		  else if(loop_count)
+		  else if (loop_count)
 		    {
 		      --loop_count;
 		      goto get_char;
@@ -256,9 +255,8 @@ int Filter_console::getchar( bool b )
       loop_count --;
       goto get_char;
     }
-  else
-    return -1;
 
+  return -1;
 }
 
 

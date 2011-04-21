@@ -122,7 +122,7 @@ Context * NO_INSTRUMENT
 Switch_lock::lock_owner() const
 {
   Lock_guard<Cpu_lock> guard(&cpu_lock);
-  return (EXPECT_TRUE(valid())) ? (Context*)_lock_owner : 0;
+  return (Context*)(_lock_owner & ~1UL);
 }
 
 /** Is lock set?.
@@ -137,7 +137,7 @@ Switch_lock::test() const
   Lock_guard<Cpu_lock> guard(&cpu_lock);
   if (EXPECT_FALSE(!valid()))
     return Invalid;
-  return _lock_owner  & ~1UL ? Locked : Not_locked;
+  return (_lock_owner  & ~1UL) ? Locked : Not_locked;
 }
 
 /** Try to acquire the lock.
@@ -198,7 +198,7 @@ Switch_lock::lock_dirty()
     return Invalid;
 
   // have we already the lock?
-  if (Address(_lock_owner) & ~1UL == Address(current()))
+  if ((_lock_owner & ~1UL) == Address(current()))
     return Locked;
 
   while (test())
@@ -372,7 +372,7 @@ Switch_lock::wait_free()
   assert (!valid());
 
   // have we already the lock?
-  if (lock_owner() == current())
+  if ((_lock_owner & ~1UL) == (Address)current())
     {
       set_lock_owner(0);
       current()->dec_lock_cnt();

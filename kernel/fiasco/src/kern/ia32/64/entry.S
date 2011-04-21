@@ -490,6 +490,7 @@ leave_by_vcpu_upcall:
 	mov %rax, 24(%rsp)
 	mov -VAL__SIZEOF_TRAP_STATE + 40 + OFS__VCPU_STATE__ENTRY_IP(%rcx), %rax
 	mov %rax, 0(%rsp)
+	movq $EFLAGS_IF, 16(%rsp)
 	iretq
 
 	.p2align

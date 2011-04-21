@@ -12,6 +12,7 @@ Thread::fast_return_to_user(Mword ip, Mword sp, T arg)
 
   regs()->ip(ip);
   regs()->sp(sp);
+  regs()->flags(EFLAGS_IF);
   asm volatile
     ("mov %0, %%rsp \t\n"
      "iretq         \t\n"

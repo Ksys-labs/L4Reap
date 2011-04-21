@@ -6,7 +6,7 @@ SRC_CC := main.cc pci.cc res.cc phys_space.cc resource.cc hw_device.cc \
           hw_root_bus.cc device.cc vdevice.cc vproxy_dev.cc \
           vpci.cc vpci_virtual_root.cc vpci_pci_bridge.cc vbus_factory.cc \
           cfg_scanner.cc cfg_scan.cc cfg_parser.tab.cc vbus.cc vicu.cc \
-          server.cc pci_iomem_root_bridge.cc
+          server.cc pci_iomem_root_bridge.cc vmsi.cc irqs.cc debug.cc
 
 SRC_CC_x86    = acpi.cc ux.cc acpi_osl.cc
 SRC_CC_amd64  = acpi.cc ux.cc acpi_osl.cc

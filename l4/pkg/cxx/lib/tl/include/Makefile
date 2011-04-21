@@ -7,9 +7,12 @@ EXTRA_TARGET := \
   avl_set     \
   avl_map     \
   bitmap      \
+  dlist       \
+  hlist       \
   list        \
   list_alloc  \
   minmax      \
+  observer    \
   pair        \
   ref_ptr     \
   slab_alloc  \

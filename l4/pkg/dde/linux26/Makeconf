@@ -46,8 +46,6 @@ MY_LINUX26_INCDIR = $(OBJ_BASE)/include/$(ARCH)/l4/dde/linux26/linux-headers \
 CHECKCC     = $(shell if $(CC)  $(1) -S -o /dev/null -xc   /dev/null \
               > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi ;)
 
-# Linux always uses C...
-MODE_USE_C = y
 L4_MULTITHREADED = y
 
 # arch-specific stuff

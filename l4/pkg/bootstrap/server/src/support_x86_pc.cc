@@ -304,7 +304,9 @@ int pci_handle_serial_dev(unsigned char bus, l4_uint32_t dev,
                           l4_uint32_t subdev, bool scan_only,
                           Serial_board *board)
 {
+#if 0
   bool dev_enabled = false;
+#endif
 
 
   // read bars
@@ -413,7 +415,7 @@ static unsigned long _search_pci_serial_devs(Serial_board *board, bool scan_only
 {
   l4_umword_t bus, buses, dev;
 
-  for (bus=0, buses=1; bus<buses; bus++)
+  for (bus=0, buses=20; bus<buses; bus++)
     {
       for (dev = 0; dev < 32; dev++)
         {

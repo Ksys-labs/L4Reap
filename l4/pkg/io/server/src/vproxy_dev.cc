@@ -34,7 +34,11 @@ Proxy_dev::Proxy_dev(Hw::Device *d)
       if (i->disabled())
 	continue;
 
-      add_resource(*i);
+      Resource *vr = Resource_factory::create(*i, false);
+      if (!vr)
+	vr = *i;
+
+      add_resource(vr);
     }
 }
 

@@ -30,7 +30,7 @@ static inline void do_reset()
 }
 
 // ------------------------------------------------------------------------
-IMPLEMENTATION [arm && realview && realview_pbx]:
+IMPLEMENTATION [arm && realview && (realview_pbx || realview_vexpress)]:
 
 static inline void do_reset()
 {

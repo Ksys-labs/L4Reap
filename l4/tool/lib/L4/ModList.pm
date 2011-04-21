@@ -7,6 +7,24 @@ use vars qw(@ISA @EXPORT);
 
 my @internal_searchpaths;
 
+my $arglen = 200;
+
+sub get_command_and_cmdline($)
+{
+  my ($file, $args) = split /\s+/, $_[0], 2;
+
+  my $full = $file;
+  $full .= " $args" if defined $args;
+  $full =~ s/"/\\"/g;
+
+  if (length($full) > $arglen) {
+    print "$line: \"$full\" too long...\n";
+    exit 1;
+  }
+
+  ($file, $full);
+}
+
 # extract an entry with modules from a modules.list file
 sub get_module_entry($$)
 {
@@ -35,7 +53,6 @@ sub get_module_entry($$)
   $mods[1] = { command => 'sigma0',   cmdline => 'sigma0',   type => 'bin'};
   $mods[2] = { command => 'roottask', cmdline => 'moe',      type => 'bin'};
 
-  my $arglen = 200;
   my $line = 0;
   my $process_mode = undef;
   my $found_entry = 0;
@@ -80,6 +97,26 @@ sub get_module_entry($$)
       $process_mode = 'group';
       $current_group_name = (split /\s+/, $remaining)[0];
       next;
+    } elsif ($type eq 'default-bootstrap') {
+      my ($file, $full) = get_command_and_cmdline($remaining);
+      $bootstrap_command = $file;
+      $bootstrap_cmdline = $full;
+      next;
+    } elsif ($type eq 'default-kernel') {
+      my ($file, $full) = get_command_and_cmdline($remaining);
+      $mods[0]{command}  = $file;
+      $mods[0]{cmdline}  = $full;
+      next;
+    } elsif ($type eq 'default-sigma0') {
+      my ($file, $full) = get_command_and_cmdline($remaining);
+      $mods[1]{command}  = $file;
+      $mods[1]{cmdline}  = $full;
+      next;
+    } elsif ($type eq 'default-roottask') {
+      my ($file, $full) = get_command_and_cmdline($remaining);
+      $mods[2]{command}  = $file;
+      $mods[2]{cmdline}  = $full;
+      next;
     }
 
     next unless $process_mode;
@@ -87,7 +124,7 @@ sub get_module_entry($$)
     my @valid_types = ( 'bin', 'data', 'bin-nostrip', 'data-nostrip',
 	                'bootstrap', 'roottask', 'kernel', 'sigma0',
                         'module-perl', 'module-shell', 'module-glob',
-			'module-group', 'initrd', 'set');
+			'module-group', 'moe', 'initrd', 'set');
     die "$line: Invalid type \"$type\""
       unless grep(/^$type$/, @valid_types);
 
@@ -116,21 +153,17 @@ sub get_module_entry($$)
         push @m, @{$groups{$_}};
       }
       $type = 'bin';
+    } elsif ($type eq 'moe') {
+      $mods[2]{command}  = 'moe';
+      $mods[2]{cmdline}  = "moe rom/$remaining";
+      $type = 'bin';
+      @m = ($remaining);
     }
 
     if ($process_mode eq 'entry') {
       foreach my $m (@m) {
 
-	my ($file, $args) = split /\s+/, $m, 2;
-
-	my $full = $file;
-	$full .= " $args" if defined $args;
-	$full =~ s/"/\\"/g;
-
-	if (length($full) > $arglen) {
-	  print "$line: \"$full\" too long...\n";
-	  exit 1;
-	}
+        my ($file, $full) = get_command_and_cmdline($m);
 
 	# special cases
 	if ($type eq 'bootstrap') {

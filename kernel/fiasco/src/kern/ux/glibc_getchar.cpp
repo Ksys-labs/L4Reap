@@ -40,4 +40,4 @@ glibc_flt_getchar_init()
   Kconsole::console()->register_console(&fcon);
 }
 
-STATIC_INITIALIZER_P(glibc_flt_getchar_init, UART_INIT_PRIO);
+STATIC_INITIALIZER_P(glibc_flt_getchar_init, GDB_INIT_PRIO);

@@ -15,7 +15,7 @@
 
 #ifdef __GNUC__
 
-#include <l4/sys/kdebug.h>
+#include <l4/sys/atomic.h>
 
 EXTERN_C_BEGIN
 

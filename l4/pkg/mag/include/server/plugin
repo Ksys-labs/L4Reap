@@ -10,46 +10,56 @@
 #pragma once
 
 #include <l4/mag/server/object>
-#include <l4/mag/server/input_source>
+#include <l4/mag/server/session>
 #include <l4/re/video/goos>
 
+#include <l4/cxx/hlist>
+#include <l4/cxx/observer>
+
 struct lua_State;
+
+namespace Mag_gfx {
+class Font;
+}
 
 namespace Mag_server {
 
 class User_state;
-class Core_api;
-
+class Input_source;
 
 class Core_api
 {
 private:
-  Input_source *_input;
-  Registry *_reg;
   User_state *_ust;
   L4::Cap<void> _rcv_cap;
   L4::Cap<L4Re::Video::Goos> _fb;
   lua_State *_lua;
+  Mag_gfx::Font const *_label_font;
 
   // not instanziatable
   Core_api(Core_api const &);
   void operator = (Core_api const &);
 
+protected:
+  Core_api(lua_State *lua, User_state *u, L4::Cap<void> rcvc,
+           L4::Cap<L4Re::Video::Goos> fb, Mag_gfx::Font const *label_font);
+
 public:
-  Core_api(Registry *r, lua_State *lua, User_state *u, L4::Cap<void> rcvc,
-           L4::Cap<L4Re::Video::Goos> fb);
-
-  Registry *registry() const { return _reg; }
   User_state *user_state() const { return _ust; }
-  Input_source *input_sources() const { return _input; }
   L4::Cap<L4Re::Video::Goos> backend_fb() const { return _fb; }
-
-  void get_refs_table() const;
-  void add_input_source(Input_source *i);
-
+  Mag_gfx::Font const *label_font() const { return _label_font; }
   lua_State *lua_state() const { return _lua; }
-
   L4::Cap<void> rcv_cap() const { return _rcv_cap; }
+
+  virtual Registry *registry() const = 0;
+  virtual void set_session_options(Session *s, L4::Ipc::Istream &ios,
+                                   Session::Property_handler const *extra = 0) const;
+  virtual void get_refs_table() const;
+  virtual void add_input_source(Input_source *i) = 0;
+  virtual void register_session(Session *) const = 0;
+  virtual Session_list *sessions() const = 0;
+  virtual void add_session_observer(cxx::Observer *) const = 0;
+  virtual void get_ticks(cxx::Observer *) const = 0;
 };
 
 class Plugin

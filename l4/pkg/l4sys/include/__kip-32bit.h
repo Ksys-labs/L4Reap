@@ -143,34 +143,20 @@ typedef struct l4_kernel_info_t
 
   /* offset 0xA0 */
   volatile l4_cpu_time_t clock;               ///< L4 system clock (µs)
-  volatile l4_cpu_time_t switch_time;         /**< timestamp of last l4 thread
-                                               **  switch (cycles)
-                                               **  - only valid if
-                                               **    FINE_GRAINED_CPU_TIME is
-                                               **    available
-                                               **/
+  l4_umword_t            _res05[2];           ///< reserved \internal
 
   /* offset 0xB0 */
   l4_umword_t            frequency_cpu;       ///< CPU frequency in kHz
   l4_umword_t            frequency_bus;       ///< Bus frequency
-  volatile l4_cpu_time_t thread_time;         /**< accumulated thread time for
-                                               ** currently running thread at
-                                               ** last l4 thread switch (in
-                                               ** cycles)
-                                               **  - only valid if
-                                               **    FINE_GRAINED_CPU_TIME is
-                                               **    available
-                                               **/
 
-  /* offset 0xC0 */
-  l4_umword_t            _res05[8];           ///< reserved \internal
+  /* offset 0xB8 */
+  l4_umword_t            _res06[10];          ///< reserved \internal
 
   /* offset 0xE0 */
   l4_umword_t		 user_ptr;            ///< user_ptr
   l4_umword_t		 vhw_offset;          ///< offset to vhw structure
-  l4_umword_t            __res06[2];
+  l4_umword_t            _res07[2];
 
   /* offset 0xF0 */
-  struct l4_kip_kernel_uart_info kernel_uart_info;
   struct l4_kip_platform_info    platform_info;
 } l4_kernel_info_t;

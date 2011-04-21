@@ -117,23 +117,6 @@ public:
      { return Cap<void>(l4_utcb_mr_u(_u)->mr[2]); }
 
      /**
-      * \brief Set the scheduler capability selector.
-      * \param pager the capability selector that shall be used for scheduling
-      *              messages. This capability selector must be
-      *              valid within the task the thread is bound to.
-      */
-     void scheduler(Cap<void> const &scheduler) throw()
-     { l4_thread_control_scheduler_u(scheduler.cap(), _u); }
-
-     /**
-      * \brief Get the capability selector used for scheduling messages.
-      * \return the capability selector used to send scheduling messages. The
-      *         selector is valid in the task the thread is bound to.
-      */
-     Cap<void> scheduler() throw()
-     { return Cap<void>(l4_utcb_mr_u(_u)->mr[2]); }
-
-     /**
       * \brief Bind the thread to a task.
       * \param thread_utcb the UTCB address of the thread within the task
       *                    specified by \a task.

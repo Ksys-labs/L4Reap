@@ -65,7 +65,6 @@ namespace cxx {
 
   private:
     static L4::Cap<void> _pager;
-    static L4::Cap<void> _preempter;
     static L4::Cap<void> _master;
   };
   

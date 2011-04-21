@@ -104,9 +104,9 @@ void dump(Device *d)
       printf("%s: %s \"%s\"\n",
              type_name(*i), i->name(),
              i->hid() ? i->hid() : "");
-      if (Io_config::cfg->verbose() >= 1)
+      if (dlevel(DBG_INFO))
         i->dump(i->depth() * 2);
-      if (Io_config::cfg->verbose() >= 2)
+      if (dlevel(DBG_DEBUG))
         for (Resource_list::iterator r = i->resources()->begin();
              r != i->resources()->end(); ++r)
           if (*r)
@@ -131,7 +131,7 @@ struct Add_system_bus
     Vi::System_bus *b = dynamic_cast<Vi::System_bus*>(dev);
     if (!b)
       {
-        printf("ERROR: found non system-bus device as root device, ignored\n");
+        d_printf(DBG_ERR, "ERROR: found non system-bus device as root device, ignored\n");
 	return;
       }
 
@@ -140,7 +140,7 @@ struct Add_system_bus
     b->setup_resources();
     if (!registry->register_obj(b, b->name()).is_valid())
       {
-	printf("Service registration failed: '%s'\n", b->name());
+	d_printf(DBG_WARN, "WARNING: Service registration failed: '%s'\n", b->name());
 	return;
       }
   }
@@ -151,29 +151,28 @@ read_config(char const *cfg_file)
 {
   Vi::Device *vdev = 0;
 
-  if (Io_config::cfg->verbose() >= 2)
-    printf("Loading: config '%s'\n", cfg_file);
+  d_printf(DBG_INFO, "Loading: config '%s'\n", cfg_file);
 
 
   int fd = open(cfg_file, O_RDONLY);
 
   if (fd < 0)
     {
-      printf("failed to open config file '%s'\n", cfg_file);
+      d_printf(DBG_ERR, "ERROR: failed to open config file '%s'\n", cfg_file);
       exit(1);
     }
 
   struct stat sd;
   if (fstat(fd, &sd))
     {
-      printf("failed to stat config file '%s'\n", cfg_file);
+      d_printf(DBG_ERR, "ERROR: failed to stat config file '%s'\n", cfg_file);
       exit(1);
     }
 
   void *adr = mmap(NULL, sd.st_size, PROT_READ, MAP_SHARED, fd, 0);
   if (adr == MAP_FAILED)
     {
-      printf("failed to mmap config file '%s'\n", cfg_file);
+      d_printf(DBG_ERR, "ERROR: failed to mmap config file '%s'\n", cfg_file);
       exit(1);
     }
 
@@ -188,10 +187,10 @@ read_config(char const *cfg_file)
   if (!vdev)
     return;
 
-  if (Io_config::cfg->verbose() >= 1)
-    dump(vdev);
-
   std::for_each(Vi::Device::iterator(0, vdev, 0), Vi::Device::end(), Add_system_bus());
+
+  if (dlevel(DBG_DEBUG))
+    dump(vdev);
 }
 
 
@@ -221,7 +220,7 @@ arg_init(int argc, char * const *argv, Io_config_x *cfg)
           _my_cfg.inc_verbosity();
           break;
         case 1:
-	  printf("Enabling transparent MSIs\n");
+	  d_printf(DBG_INFO, "Enabling transparent MSIs\n");
           cfg->set_transparent_msi(true);
           break;
         }
@@ -236,13 +235,13 @@ run(int argc, char * const *argv)
   int argfileidx = arg_init(argc, argv, &_my_cfg);
 
   printf("Io service\n");
+  set_debug_level(Io_config::cfg->verbose());
 
-  if (Io_config::cfg->verbose())
-    printf("Verboseness level: %d\n", Io_config::cfg->verbose());
+  d_printf(DBG_ERR, "Verboseness level: %d\n", Io_config::cfg->verbose());
 
   res_init();
 
-  if (Io_config::cfg->verbose() > 1)
+  if (dlevel(DBG_DEBUG))
     Phys_space::space.dump();
 
 #if defined(ARCH_x86) || defined(ARCH_amd64)
@@ -264,7 +263,7 @@ run(int argc, char * const *argv)
   for (; argfileidx < argc; ++argfileidx)
     read_config(argv[argfileidx]);
 
-  if (Io_config::cfg->verbose() >= 1)
+  if (dlevel(DBG_DEBUG))
     {
       printf("Real Hardware -----------------------------------\n");
       dump(system_bus());

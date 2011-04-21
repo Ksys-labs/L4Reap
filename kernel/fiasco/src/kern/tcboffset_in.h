@@ -61,10 +61,6 @@
   DUMP_CAST_OFFSET (Thread, Sender)
 
   DUMP_MEMBER1 (KIP, Kip, processor_info,  PROCESSOR_INFO)
-#ifdef CONFIG_IA32
-  DUMP_MEMBER1 (KIP, Kip, switch_time,     SWITCH_TIME)
-  DUMP_MEMBER1 (KIP, Kip, thread_time,     THREAD_TIME)
-#endif
 
   DUMP_CONSTANT (SIZEOF_TRAP_STATE, sizeof(Trap_state))
   DUMP_MEMBER1 (VCPU_STATE, Vcpu_state, _entry_ip, ENTRY_IP)

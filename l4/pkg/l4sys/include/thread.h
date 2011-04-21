@@ -166,7 +166,6 @@ l4_thread_ex_regs_ret_u(l4_cap_idx_t thread, l4_addr_t *ip, l4_addr_t *sp,
  * After this functions any of following functions may be called in any order.
  * - l4_thread_control_pager()
  * - l4_thread_control_exc_handler()
- * - l4_thread_control_scheduler()
  * - l4_thread_control_bind()
  * - l4_thread_control_alien()
  * - l4_thread_control_ux_host_syscall() (Fiasco-UX only)
@@ -227,25 +226,6 @@ l4_thread_control_exc_handler(l4_cap_idx_t exc_handler) L4_NOTHROW;
 L4_INLINE void
 l4_thread_control_exc_handler_u(l4_cap_idx_t exc_handler,
                                 l4_utcb_t *utcb) L4_NOTHROW;
-
-/**
- * \brief Set the scheduler.
- * \ingroup l4_thread_control_api
- *
- * \param scheduler Capability selector invoked to send a scheduling IPC.
- *
- * \note The scheduler capability selector is interpreted in the task the
- *       thread is bound to (executes in).
- */
-L4_INLINE void
-l4_thread_control_scheduler(l4_cap_idx_t scheduler) L4_NOTHROW;
-
-/**
- * \internal
- * \ingroup l4_thread_control_api
- */
-L4_INLINE void
-l4_thread_control_scheduler_u(l4_cap_idx_t scheduler, l4_utcb_t *utcb) L4_NOTHROW;
 
 /**
  * \brief Bind the thread to a task.
@@ -631,8 +611,6 @@ enum L4_thread_control_flags
 {
   /** The pager will be given. */
   L4_THREAD_CONTROL_SET_PAGER       = 0x0010000,
-  /** The scheduler will be given. */
-  L4_THREAD_CONTROL_SET_SCHEDULER   = 0x0020000,
   /** The task to bind the thread to will be given. */
   L4_THREAD_CONTROL_BIND_TASK       = 0x0200000,
   /** Alien state of the thread is set. */
@@ -657,7 +635,6 @@ enum L4_thread_control_mr_indices
   L4_THREAD_CONTROL_MR_IDX_FLAGS       = 0, /**< \see #L4_thread_control_flags. */
   L4_THREAD_CONTROL_MR_IDX_PAGER       = 1, /**< Index for pager cap */
   L4_THREAD_CONTROL_MR_IDX_EXC_HANDLER = 2, /**< Index for exception handler */
-  L4_THREAD_CONTROL_MR_IDX_SCHEDULER   = 3, /**< Index for scheduler */
   L4_THREAD_CONTROL_MR_IDX_FLAG_VALS   = 4, /**< Index for feature values */
   L4_THREAD_CONTROL_MR_IDX_BIND_UTCB   = 5, /**< Index for UTCB address for bind */
   L4_THREAD_CONTROL_MR_IDX_BIND_TASK   = 6, /**< Index for task flex-page for bind */
@@ -728,14 +705,6 @@ l4_thread_control_exc_handler_u(l4_cap_idx_t exc_handler,
   l4_msg_regs_t *v = l4_utcb_mr_u(utcb);
   v->mr[L4_THREAD_CONTROL_MR_IDX_FLAGS]       |= L4_THREAD_CONTROL_SET_EXC_HANDLER;
   v->mr[L4_THREAD_CONTROL_MR_IDX_EXC_HANDLER]  = exc_handler;
-}
-
-L4_INLINE void
-l4_thread_control_scheduler_u(l4_cap_idx_t scheduler, l4_utcb_t *utcb) L4_NOTHROW
-{
-  l4_msg_regs_t *v = l4_utcb_mr_u(utcb);
-  v->mr[L4_THREAD_CONTROL_MR_IDX_FLAGS]     |= L4_THREAD_CONTROL_SET_SCHEDULER;
-  v->mr[L4_THREAD_CONTROL_MR_IDX_SCHEDULER]  = scheduler;
 }
 
 L4_INLINE void
@@ -845,12 +814,6 @@ L4_INLINE void
 l4_thread_control_exc_handler(l4_cap_idx_t exc_handler) L4_NOTHROW
 {
   l4_thread_control_exc_handler_u(exc_handler, l4_utcb());
-}
-
-L4_INLINE void
-l4_thread_control_scheduler(l4_cap_idx_t scheduler) L4_NOTHROW
-{
-  l4_thread_control_scheduler_u(scheduler, l4_utcb());
 }
 
 

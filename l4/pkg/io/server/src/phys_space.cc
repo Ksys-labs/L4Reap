@@ -13,8 +13,9 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "phys_space.h"
+#include "debug.h"
 #include "cfg.h"
+#include "phys_space.h"
 
 void *operator new (size_t sz, cxx::Nothrow const &) throw()
 { return malloc(sz); }
@@ -47,13 +48,9 @@ Phys_space::Phys_space()
 	      Phys_region re(l4_trunc_page(md->start()),
 	                     l4_round_page(md->end())-1);
 	      bool r = reserve(re);
-              if (Io_config::cfg->verbose())
-                {
-                  printf("  reserve phys memory space %014lx-%014lx (%s)\n",
-                         md->start(), md->end(), r ? "ok" : "failed");
-                }
-              else
-                (void)r;
+	      d_printf(DBG_INFO, "  reserve phys memory space %014lx-%014lx (%s)\n",
+                       md->start(), md->end(), r ? "ok" : "failed");
+	      (void)r;
 	    }
 	  break;
 	default:

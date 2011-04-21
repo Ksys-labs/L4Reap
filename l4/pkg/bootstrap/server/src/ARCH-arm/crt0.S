@@ -101,8 +101,24 @@ do_cpuid:
 	orr r0, #0xd3
 	msr cpsr_c, r0
 
+#ifdef PLATFORM_TYPE_rv
 	// enable GIC CPU interface + prio mask for IRQs
-	mov	r4, #0x1f000000
+
+	// get board ID and retrieve MPCore-base from table
+	mov	r5, #0x10000000
+	ldr	r5, [r5]
+	bic	r5, #0xff
+	adr	r6, .Lmpcore_base_table
+2:
+	ldr	r4, [r6]
+	cmp	r4, #0
+	cmpne	r4, r5
+	ldreq	r4, [r6, #4]
+	beq	3f
+	add	r6, #8
+	b	2b
+
+3:
 	add	r4, r4, #0x100
 	mov	r0, #0x1
 	str	r0, [r4, #0]
@@ -110,7 +126,7 @@ do_cpuid:
 	str	r0, [r4, #4]
 
 1:
-	mov	r5,#0x10000000
+	mov	r5, #0x10000000
 	ldr	r6, [r5, #0x30]
 	cmp	r6, #0
 	movne	pc, r6
@@ -118,6 +134,21 @@ do_cpuid:
 	ldr	r0, [r4, #12]
 	str	r0, [r4, #16]
 	b	1b
+
+.Lmpcore_base_table:
+	/* VExpress */
+	.word	0x1190f500 /* Board ID */
+	.word	0x1e000000 /* MPCore base */
+
+	/* Default value (with #0) must come last! */
+	/* Realview */
+	.word	0
+	.word	0x1f000000
+
+#else
+1:	.word 0xe320f003 /* wfi */
+	b	1b
+#endif
 
 do_bootstrap:
 	ldr 	r3, .LCcrt0_tramppage      /* Load address of tramppage var */

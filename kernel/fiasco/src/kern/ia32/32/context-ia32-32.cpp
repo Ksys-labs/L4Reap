@@ -34,7 +34,7 @@ IMPLEMENTATION [ia32 || ux]:
 IMPLEMENT inline NEEDS [Context::update_consumed_time,
 			Context::store_segments]
 void
-Context::switch_cpu (Context *t)
+Context::switch_cpu(Context *t)
 {
   Mword dummy1, dummy2, dummy3, dummy4;
 

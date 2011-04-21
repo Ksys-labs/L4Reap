@@ -1,11 +1,11 @@
 IMPLEMENTATION:
 
 #include "config.h"
-#include "cmdline.h"
 #include "factory.h"
 #include "initcalls.h"
 #include "ipc_gate.h"
 #include "irq.h"
+#include "koptions.h"
 #include "map_util.h"
 #include "mem_layout.h"
 #include "mem_space_sigma0.h"
@@ -44,21 +44,17 @@ void
 Kernel_thread::init_workload()
 {
   Lock_guard<Cpu_lock> g(&cpu_lock);
-  //
-  // create sigma0
-  //
 
-  char const *s;
   if (Config::Jdb &&
-      (!strstr (Cmdline::cmdline(), " -nojdb")) &&
-      ((s = strstr (Cmdline::cmdline(), " -jdb_cmd="))))
+      !Koptions::o()->opt(Koptions::F_nojdb) &&
+      Koptions::o()->opt(Koptions::F_jdb_cmd))
     {
       // extract the control sequence from the command line
       char ctrl[128];
+      char const *s = Koptions::o()->jdb_cmd;
       char *d;
 
-      for (s=s+10, d=ctrl;
-	   d < ctrl+sizeof(ctrl)-1 && *s && *s != ' '; *d++ = *s++)
+      for (d=ctrl; d < ctrl+sizeof(ctrl)-1 && *s && *s != ' '; *d++ = *s++)
 	;
       *d = '\0';
       printf("JDB: exec cmd '%s'\n", ctrl);
@@ -66,21 +62,20 @@ Kernel_thread::init_workload()
     }
 
   // kernel debugger rendezvous
-  if (strstr (Cmdline::cmdline(), " -wait"))
+  if (Koptions::o()->opt(Koptions::F_wait))
     kdb_ke("Wait");
 
-#if 0
-    {
-      Lock_guard<Cpu_lock> g(&cpu_lock);
-      kdb_ke("Wait");
-    }
-#endif
-
+  //
+  // create sigma0
+  //
 
   Task *sigma0 = Task::create(Sigma0_space_factory(), Ram_quota::root,
       L4_fpage::mem(Mem_layout::Utcb_addr, Config::PAGE_SHIFT));
   sigma0_task = sigma0;
   assert(sigma0_task);
+
+  // prevent deletion of this thing
+  sigma0->inc_ref();
 
   check (sigma0->initialize());
   check (map(sigma0,          sigma0->obj_space(), sigma0, C_task, 0));
@@ -98,14 +93,15 @@ Kernel_thread::init_workload()
   Thread_object *sigma0_thread = new (Ram_quota::root) Thread_object();
 
   assert_kdb(sigma0_thread);
+
+  // prevent deletion of this thing
+  sigma0_thread->inc_ref();
   check (map(sigma0_thread, sigma0->obj_space(), sigma0, C_thread, 0));
 
   Address sp = init_workload_s0_stack();
   check (sigma0_thread->control(Thread_ptr(false), Thread_ptr(false)) == 0);
   check (sigma0_thread->bind(sigma0, User<Utcb>::Ptr((Utcb*)Mem_layout::Utcb_addr)));
   check (sigma0_thread->ex_regs(Kip::k()->sigma0_ip, sp));
-
-  //sigma0_thread->thread_lock()->clear();
 
   //
   // create the boot task
@@ -117,9 +113,15 @@ Kernel_thread::init_workload()
 
   check (boot_task->initialize());
 
+  // prevent deletion of this thing
+  boot_task->inc_ref();
+
   Thread_object *boot_thread = new (Ram_quota::root) Thread_object();
 
   assert_kdb (boot_thread);
+
+  // prevent deletion of this thing
+  boot_thread->inc_ref();
 
   check (map(boot_task,   boot_task->obj_space(), boot_task, C_task, 0));
   check (map(boot_thread, boot_task->obj_space(), boot_task, C_thread, 0));

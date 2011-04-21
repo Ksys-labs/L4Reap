@@ -34,17 +34,6 @@ my_snprintf(char *&buf, int &maxlen, const char *format, ...)
   maxlen -= len;
 }
 
-#if 0
-static
-const char*
-trim(const char *s)
-{
-  if (s)
-    for (; *s==' '; s++)
-      ;
-  return s;
-}
-#endif
 
 // timeout => x.x{
 static
@@ -232,90 +221,10 @@ formatter_ipc(Tb_entry *tb, const char *tidstr, unsigned tidlen,
             format_timeout((Mword)to.rcv.microsecs_rel(0), buf, maxlen);
 	}
     }
-#if 0
-  if (e->dst().next_period())
-    my_snprintf(buf, maxlen, " left:%lld",
-		(Unsigned64)e->dword(0) + ((Unsigned64)e->dword(1) << 32));
-#endif
 
   return maxlen;
 }
 
-#if 0
-// short-cut ipc operation failed
-static
-unsigned
-formatter_sc_failed(Tb_entry *tb, const char *tidstr, unsigned tidlen,
-		    char *buf, int maxlen)
-{
-  Tb_entry_ipc_sfl *e = static_cast<Tb_entry_ipc_sfl*>(tb);
-  const char *m;
-#if 0
-  my_snprintf(buf, maxlen, "!sc: %-*s ", tidlen, tidstr);
-     
-  if (!e->dst().is_nil())
-    m = (e->rcv_desc().has_receive())
-      ? (e->rcv_desc().open_wait()) ? "repl->" : "call->"
-      : "snd->";
-  else
-    m = (e->rcv_desc().open_wait()) ? "waits" : "recv from";
-
-  my_snprintf(buf, maxlen, "%s", m);
-
-  // print dst id
-  if (!(e->rcv_desc().open_wait()) || (e->snd_desc().has_snd()))
-    {
-      if (e->dst().is_nil())
-	my_snprintf(buf, maxlen, " -");
-      else if (e->dst().is_irq())
-	my_snprintf(buf, maxlen, " irq %02lx", e->dst().irq());
-      else
-      	my_snprintf(buf, maxlen, " %x.%02x", 
-	    e->dst().task(), e->dst().lthread());
-    }
-
-  my_snprintf(buf, maxlen, " @ "L4_PTR_FMT" (rsn: ", e->ip());
-
-  m = "unknown";
-
-  if (e->dst_ok())
-    m = "!dest sender_ok";
-  else if (e->dst_lck())
-    m = "dest locked";
-  else if (!e->snd_desc().has_snd())
-    m = "no send";
-  else if (e->snd_desc().is_long_ipc())
-    m = "long send";
-  else if (e->dst().is_invalid())
-    m = "dest invalid";
-  else if (e->dst().is_nil())
-    m = "dest nil";
-#if 0
-  else if (e->dst().next_period())
-    m = "next period";
-#endif
-  else if (e->rcv_desc().has_receive())
-    {
-      if (!e->rcv_desc().is_register_ipc())
-	m = "long recv";
-      else if (e->snd_desc().noswitch())
-	m = "don't switch to recv";
-      else if (!e->timeout().rcv.is_never() && !e->timeout().rcv.is_zero())
-	m = "to != (0, inf)";
-      else if (e->rcv_desc().open_wait())
-	{
-	  if (e->is_irq())
-	    m = "irq attached";
-	  else if (e->snd_lst())
-	    m = "sender queued";
-	}
-    }
-
-  my_snprintf(buf, maxlen, "%s)", m);
-#endif
-  return maxlen;
-}
-#endif
 // result of ipc
 static
 unsigned
@@ -472,12 +381,8 @@ formatter_ctx_switch(Tb_entry *tb, const char *tidstr, unsigned tidlen,
   Mword dst;
   Mword dst_orig;
 
-  if (Jdb_util::is_mapped(e->from_sched())
-      && Jdb_util::is_mapped(e->from_sched()->context()))
-    {
-      sctx = e->from_sched()->context();
-      sctxid = static_cast<Thread*>(sctx)->dbg_id();
-    }
+  sctx = e->from_sched()->context();
+  sctxid = static_cast<Thread*>(sctx)->dbg_id();
 
   src = static_cast<Thread const *>(e->ctx())->dbg_id();
   dst = static_cast<Thread const *>(e->dst())->dbg_id();

@@ -2,7 +2,7 @@ PKGDIR          ?= ../..
 L4DIR           ?= $(PKGDIR)/../..
 
 TARGET           = l4dope
-REQUIRES_LIBS    = input libio
+REQUIRES_LIBS    = input libio l4re_c-util
 L4_MULTITHREADED = y
 
 include $(L4DIR)/mk/Makeconf
@@ -10,7 +10,6 @@ include $(L4DIR)/mk/Makeconf
 PRIVATE_LIBDIR   = $(PKGDIR_OBJ)/server/common/OBJ-$(SYSTEM) \
                    $(PKGDIR_OBJ)/server/gfx/OBJ-$(SYSTEM)
 
-MODE_USE_C       = y
 EXTRA_LIBS      += -ldope_common -ldope_gfx
 
 PRIVATE_INCDIR   = $(PKGDIR_ABS)/server/include

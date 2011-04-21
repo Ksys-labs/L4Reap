@@ -22,12 +22,12 @@ Jdb_thread::print_state_long(Thread *t, unsigned cut_on_len = 0)
 {
   static char const * const state_names[] =
     {
-      "ready",         "drq_rdy",       "rcv",         "poll",
-      "ipc_progr",     "snd_progr",     "cancel",      "<unk>",
-      "<unk>",         "dead",          "suspended",   "<unk>",
-      "<unk>",         "delayed_deadl", "delayed_ipc", "fpu",
-      "alien",         "dealien",       "exc_progr",   "transfer",
-      "drq",           "lock_wait",     "vcpu",        "",
+      "ready",         "drq_rdy",       "send",        "rcv_wait",
+      "rcv_in_progr",  "transfer",      "<unk>",       "cancel",
+      "timeout",       "dead",          "suspended",   "<unk>",
+      "<unk>",         "<unk>",         "<unk>",       "fpu",
+      "alien",         "dealien",       "exc_progr",   "<unk>",
+      "drq",           "lock_wait",     "vcpu",        "<unk>",
       "vcpu_fpu_disabled", "vcpu_ext"
     };
 
@@ -64,7 +64,7 @@ PUBLIC static
 void
 Jdb_thread::print_snd_partner(Thread *t, int task_format = 0)
 {
-  if (t->state(false) & Thread_send_in_progress)
+  if (t->state(false) & Thread_send_wait)
     Jdb_kobject::print_uid(static_cast<Thread*>(t->receiver()), task_format);
   else
     // receiver() not valid
@@ -77,7 +77,7 @@ Jdb_thread::print_partner(Thread *t, int task_format = 0)
 {
   Sender *p = t->partner();
 
-  if (!(t->state(false) & Thread_receiving))
+  if ((t->state(false) & Thread_ipc_mask) != Thread_receive_wait)
     {
       printf("%*s ", task_format, " ");
       return;

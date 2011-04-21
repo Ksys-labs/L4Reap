@@ -8,6 +8,7 @@
  * Please see the COPYING-GPL-2 file for details.
  */
 #include <l4/mag/server/input_driver>
+#include <l4/mag/server/input_source>
 
 #include <l4/input/libinput.h>
 

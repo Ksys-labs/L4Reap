@@ -40,7 +40,7 @@ IMPLEMENTATION:
  */
 PRIVATE static
 void
-Idt::set_writable (bool writable)
+Idt::set_writable(bool writable)
 {
   Pdir::Iter e = Kmem::dir()->walk(Virt_addr(_idt));
 
@@ -79,14 +79,13 @@ PUBLIC static FIASCO_INIT
 void
 Idt::init()
 {
-  if (!Vmem_alloc::page_alloc ((void *) _idt, Vmem_alloc::ZERO_FILL))
-    panic ("IDT allocation failure");
+  if (!Vmem_alloc::page_alloc((void *) _idt, Vmem_alloc::ZERO_FILL))
+    panic("IDT allocation failure");
 
   init_table((Idt_init_entry*)&idt_init_table);
-  set_vectors_run();
   load();
 
-  set_writable (false);
+  set_writable(false);
 }
 
 
@@ -95,7 +94,7 @@ void
 Idt::load()
 {
   Pseudo_descriptor desc(_idt, _idt_max*sizeof(Idt_entry)-1);
-  set (&desc);
+  set(&desc);
 }
 
 /**
@@ -112,7 +111,7 @@ Idt::set_entry(unsigned vector, Address entry, bool user)
 {
   assert (vector < _idt_max);
 
-  set_writable (true);
+  set_writable(true);
 
   Idt_entry *entries = (Idt_entry*)_idt;
   if (entry)
@@ -123,7 +122,7 @@ Idt::set_entry(unsigned vector, Address entry, bool user)
   else
     entries[vector].clear();
 
-  set_writable (false);
+  set_writable(false);
 }
 
 PUBLIC static
@@ -156,14 +155,14 @@ IMPLEMENTATION[ia32 | amd64]:
   */  
 PUBLIC static inline
 void
-Idt::set (Pseudo_descriptor *desc)
+Idt::set(Pseudo_descriptor *desc)
 {
   asm volatile ("lidt %0" : : "m" (*desc));
 }
 
 PUBLIC static inline
 void
-Idt::get (Pseudo_descriptor *desc)
+Idt::get(Pseudo_descriptor *desc)
 {
   asm volatile ("sidt %0" : "=m" (*desc) : : "memory");
 }
@@ -187,7 +186,7 @@ Idt::set_vectors_run()
 		    ? (Address)entry_int_timer_slow // slower for debugging
 		    : (Address)entry_int_timer;     // non-debugging
 
-  set_entry (Config::scheduler_irq_vector, func, false);
+  set_entry(Config::scheduler_irq_vector, func, false);
   if (!Irq_chip::hw_chip->is_free(0x7))
     Irq_chip::hw_chip->reset(0x07);
 
@@ -207,16 +206,15 @@ Idt::set_vectors_stop()
   Timer::acknowledge();
 
   // set timer interrupt to dummy doing nothing
-  set_entry(Config::scheduler_irq_vector, 
-	    (Address) entry_int_timer_stop, false);
+  set_entry(Config::scheduler_irq_vector, (Address)entry_int_timer_stop, false);
 
   // From ``8259A PROGRAMMABLE INTERRUPT CONTROLLER (8259A 8259A-2)'': If no
   // interrupt request is present at step 4 of either sequence (i. e. the
   // request was too short in duration) the 8259A will issue an interrupt
   // level 7. Both the vectoring bytes and the CAS lines will look like an
   // interrupt level 7 was requested.
-  set_entry(0x27, (Address) entry_int_pic_ignore, false);
-  set_entry(0x2f, (Address) entry_int_pic_ignore, false);
+  set_entry(0x27, (Address)entry_int_pic_ignore, false);
+  set_entry(0x2f, (Address)entry_int_pic_ignore, false);
 }
 
 
@@ -227,16 +225,16 @@ IMPLEMENTATION[ux]:
 
 PUBLIC static
 void
-Idt::set (Pseudo_descriptor *desc)
+Idt::set(Pseudo_descriptor *desc)
 {
-  Emulation::lidt (desc);
+  Emulation::lidt(desc);
 }
 
 PUBLIC static
 void
-Idt::get (Pseudo_descriptor *desc)
+Idt::get(Pseudo_descriptor *desc)
 {
-  Emulation::sidt (desc);
+  Emulation::sidt(desc);
 }
 
 PUBLIC static
@@ -244,5 +242,5 @@ void
 Idt::set_vectors_run()
 {
   extern char entry_int_timer[];
-  set_entry (Config::scheduler_irq_vector, (Address)entry_int_timer, false);
+  set_entry(Config::scheduler_irq_vector, (Address)entry_int_timer, false);
 }

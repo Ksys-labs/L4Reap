@@ -14,7 +14,7 @@ public:
   /** Receiver-ready callback.  Receivers make sure to call this
       function on waiting senders when they get ready to receive a
       message from that sender.  Senders need to overwrite this interface. */
-  virtual bool ipc_receiver_ready(Receiver *) = 0;
+  virtual void ipc_send_msg(Receiver *) = 0;
   virtual void ipc_receiver_aborted() = 0;
   virtual void modify_label(Mword const *todo, int cnt) = 0;
 
@@ -52,14 +52,14 @@ IMPLEMENTATION:
 PROTECTED inline
 explicit
 Sender::Sender (int /*ignored*/)
-: _receiver (0)
+: _receiver(0)
 {}
 
 
 /** Current receiver.
     @return receiver this sender is currently trying to send a message to.
  */
-PUBLIC inline 
+PUBLIC inline
 Receiver *
 Sender::receiver() const
 {
@@ -71,7 +71,7 @@ Sender::receiver() const
  */
 PROTECTED inline
 void
-Sender::set_receiver (Receiver* receiver)
+Sender::set_receiver(Receiver* receiver)
 {
   _receiver = receiver;
 }
@@ -82,7 +82,7 @@ unsigned short Sender::sender_prio()
   return Prio_list_elem::prio();
 }
 
-/** Sender in a queue of senders?.  
+/** Sender in a queue of senders?.
     @return true if sender has enqueued in a receiver's list of waiting 
             senders
  */

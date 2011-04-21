@@ -12,6 +12,21 @@ public:
   };
 };
 
+INTERFACE [arm && imx35]:
+
+#define TARGET_NAME "i.MX35"
+
+EXTENSION class Config
+{
+public:
+  enum
+  {
+    Scheduling_irq       = 28,
+    Max_num_dirqs        = 64,
+  };
+};
+
+
 INTERFACE [arm && imx51]:
 
 #define TARGET_NAME "i.MX51"

@@ -6,9 +6,9 @@ IMPLEMENTATION [ia32,ux,amd64]:
 
 #include <cstdio>
 
-#include "boot_info.h"
 #include "kip.h"
 #include "kmem.h"
+#include "koptions.h"
 #include "mem_region.h"
 #include "panic.h"
 #include "types.h"
@@ -28,7 +28,7 @@ Kmem_alloc::base_init()
 
   available_size = create_free_map(Kip::k(), &map);
 
-  requested_size = Boot_info::kmemsize();
+  requested_size = Koptions::o()->kmemsize << 10;
   if (!requested_size)
     {
       requested_size = available_size / 100 * Config::kernel_mem_per_cent;

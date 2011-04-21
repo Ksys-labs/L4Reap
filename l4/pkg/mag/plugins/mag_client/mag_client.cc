@@ -26,6 +26,7 @@
 
 #include <l4/mag/server/plugin>
 #include <l4/mag/server/object>
+#include <l4/mag/server/session>
 #include <l4/mag/server/user_state>
 #include <l4/mag-gfx/clip_guard>
 #include <l4/mag-gfx/texture>
@@ -66,7 +67,7 @@ class Client_buffer;
 class Client_view;
 
 class Mag_goos
-: public Object,
+: public Session, public Object,
   public L4Re::Util::Icu_cap_array_svr<Mag_goos>
 {
 private:
@@ -80,7 +81,6 @@ private:
 
   typedef std::vector<cxx::Ref_ptr<Client_buffer> >  Buffer_vector;
   typedef std::vector<cxx::Auto_ptr<Client_view> > View_vector;
-
 
   Buffer_vector _buffers;
   View_vector _views;
@@ -97,7 +97,6 @@ public:
   L4::Cap<void> rcv_cap() const { return _core->rcv_cap(); }
 
   void destroy();
-
 };
 
 
@@ -149,6 +148,8 @@ public:
   void get_info(L4Re::Video::View::Info *inf) const;
   void set_info(L4Re::Video::View::Info const &inf,
                 cxx::Ref_ptr<Client_buffer> const &b);
+
+  Session *session() const { return _screen; }
 };
 
 Client_view::Client_view(Core_api const *core, Mag_goos *screen)
@@ -159,10 +160,26 @@ Client_view::Client_view(Core_api const *core, Mag_goos *screen)
 
   _front_txt = pi->factory->create_texture(Area(0,0), (void*)1);
   _back_txt = pi->factory->create_texture(Area(0,0), (void*)1);
+  calc_label_sz(core->label_font());
 }
 
 Client_view::~Client_view()
 {
+  if (_screen && _screen->background() == this)
+    {
+      // look for other background views below
+      View_stack *vs = _core->user_state()->vstack();
+      // We can either search below this view in the stack, or
+      // we can search from the top of the stack to find the uppermost
+      // view of our session that is tagged as background
+      View *v = vs->next_view(this); // search below this view
+      // View *v = vs->top(); // Search from the top of the stack
+      for (; v; v = vs->next_view(v))
+	if (v != this && v->session() == _screen && v->background())
+	  break;
+      _screen->background(v);
+    }
+
   _core->user_state()->forget_view(this);
   delete _back_txt;
   delete _front_txt;
@@ -176,6 +193,9 @@ Client_view::get_info(L4Re::Video::View::Info *inf) const
   inf->flags = L4Re::Video::View::F_fully_dynamic;
   // we do not support chaning the pixel format
   inf->flags &= ~L4Re::Video::View::F_set_pixel;
+  if (above())
+    inf->flags |= L4Re::Video::View::F_above;
+
   inf->xpos = x1();
   inf->ypos = y1();
   inf->width = w();
@@ -205,6 +225,16 @@ Client_view::set_info(L4Re::Video::View::Info const &inf,
   _back_txt->size(_front_txt->size());
   _back_txt->pixels(_front_txt->pixels());
 
+  if (inf.flags & L4Re::Video::View::F_set_flags)
+    set_above(inf.flags & L4Re::Video::View::F_above);
+
+  if (inf.flags & L4Re::Video::View::F_set_background)
+    {
+      _core->user_state()->vstack()->push_bottom(this);
+      set_as_background();
+      _screen->background(this);
+    }
+
   if (inf.has_set_bytes_per_line())
     {
       _back_txt->size(Area(inf.bytes_per_line / pi->bytes_per_pixel(), 0));
@@ -218,14 +248,22 @@ Client_view::set_info(L4Re::Video::View::Info const &inf,
       recalc_height = true;
     }
 
-  if (inf.has_set_buffer_offset())
+  if (!_buffer)
+    {
+      _back_txt->size(Area(0, 0));
+      _back_txt->pixels((char *)0);
+      _front_txt->size(Area(0, 0));
+      _front_txt->pixels((char *)0);
+    }
+
+  if (inf.has_set_buffer_offset() && _buffer)
     {
       _back_txt->pixels((char *)_buffer->local_addr() + inf.buffer_offset);
       _buf_offset = inf.buffer_offset;
       recalc_height = true;
     }
 
-  if (recalc_height)
+  if (recalc_height && _buffer)
     {
       unsigned long w = _back_txt->size().w();
       unsigned long bw = w * pi->bytes_per_pixel();
@@ -295,8 +333,12 @@ Mag_client::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
       if (L4::kobject_typeid<L4Re::Console>()->
 	    has_proto(L4::Ipc::read<L4::Factory::Proto>(ios)))
 	{
+	  L4::Ipc::Istream_copy cp_is = ios;
+	  
 	  cxx::Ref_ptr<Mag_goos> cf(new Mag_goos(_core));
+	  _core->set_session_options(cf.get(), cp_is);
 
+	  _core->register_session(cf.get());
 	  _core->registry()->register_obj(cf);
 	  cf->obj_cap()->dec_refcnt(1);
 
@@ -399,8 +441,28 @@ Mag_goos::screen_dispatch(l4_umword_t, L4::Ipc_iostream &ios)
     case L4Re::Video::Goos_::Create_view:
         {
 	  cxx::Auto_ptr<Client_view> v(new Client_view(_core, this));
+	  unsigned idx = 0;
+	  for (View_vector::iterator i = _views.begin(); i != _views.end();
+	       ++i, ++idx)
+	    if (!*i)
+	      {
+		*i = v;
+		return idx;
+	      }
+
 	  _views.push_back(v);
           return _views.size() - 1;
+        }
+
+    case L4Re::Video::Goos_::Delete_view:
+        {
+	  unsigned idx;
+	  ios >> idx;
+	  if (idx >= _views.size())
+	    return -L4_ERANGE;
+
+	  _views[idx].reset(0);
+	  return 0;
         }
 
     case L4Re::Video::Goos_::Get_buffer:
@@ -475,7 +537,7 @@ Mag_goos::screen_dispatch(l4_umword_t, L4::Ipc_iostream &ios)
 
           if (!pivot)
             {
-              if (behind)
+              if (!behind)
                 _core->user_state()->vstack()->push_bottom(cv);
               else
                 _core->user_state()->vstack()->push_top(cv);
@@ -497,6 +559,16 @@ Mag_goos::screen_dispatch(l4_umword_t, L4::Ipc_iostream &ios)
 
 	  Client_view *cv = _views[idx].get();
 	  _core->user_state()->vstack()->refresh_view(cv, 0, Rect(cv->p1() + Point(x,y), Area(w,h)));
+
+	  return L4_EOK;
+	}
+
+    case L4Re::Video::Goos_::Screen_refresh:
+        {
+	  int x, y, w, h;
+	  ios >> x >> y >> w >> h;
+
+	  _core->user_state()->vstack()->refresh_view(0, 0, Rect(Point(x,y), Area(w,h)));
 
 	  return L4_EOK;
 	}
@@ -545,16 +617,25 @@ Client_view::draw(Canvas *c, View_stack const *, Mode mode) const
   if (mode.xray() && !mode.kill() && focused())
     op = Canvas::Solid;
 
-  if (!_buffer)
-    return;
-
   Clip_guard cg(c, *this);
 
   if (!c->clip_valid())
     return;
 
-  Rgb32::Color mix_color = mode.kill() ? kill_color() : Rgb32::Black;
-  c->draw_texture(_front_txt, mix_color, p1(), op);
+  Rgb32::Color mix_color = /*mode.kill() ? kill_color() :*/ session()->color();
+  Area s(0, 0);
+  if (_buffer)
+    {
+      c->draw_texture(_front_txt, mix_color, p1(), op);
+      s = _front_txt->size();
+    }
+
+  Area r = size() - s;
+  if (r.h() > 0)
+    c->draw_box(Rect(p1() + Point(0, s.h()), Area(size().w(), r.h())), mix_color);
+
+  if (r.w() > 0 && size().h() != r.h())
+    c->draw_box(Rect(p1() + Point(s.w(), 0), Area(r.w(), s.h())), mix_color);
 }
 
 void

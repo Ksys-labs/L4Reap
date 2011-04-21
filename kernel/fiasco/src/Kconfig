@@ -83,6 +83,9 @@ config CAN_ARM_CPU_920T
 config CAN_ARM_CPU_926
 	bool
 
+config CAN_ARM_CPU_1136
+	bool
+
 config CAN_ARM_CPU_1176
 	bool
 
@@ -118,6 +121,10 @@ config ARM_920T
 config ARM_926
 	bool "ARM 926 Processor"
 	depends on CAN_ARM_CPU_926
+
+config ARM_1136
+	bool "ARM 1136 CPU"
+	depends on CAN_ARM_CPU_1136
 
 config ARM_1176
 	bool "ARM 1176 CPU"
@@ -761,7 +768,7 @@ config BIT64
 	def_bool y if AMD64
 
 config ARM_V6
-	def_bool y if ARM_1176 || ARM_MPCORE
+	def_bool y if ARM_1136 || ARM_1176 || ARM_MPCORE
 
 config ARM_V7
 	def_bool y if ARM_CORTEX_A8 || ARM_CORTEX_A9

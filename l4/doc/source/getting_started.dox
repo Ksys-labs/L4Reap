@@ -12,28 +12,30 @@ consists of the following components:
 
 The guide assumes that you already compiled the base components and describes
 how to generate an ISO image, with GRUB 1 or GRUB 2 as a boot loader, that
-can be booted within QEMU.
+can for example be booted within QEMU.
 
 First you need a \c modules.list file that contains an entry for the scenario.
 
 \code
+modaddr  0x002000000
+
 entry hello
-  modaddr  0x002000000
   kernel   fiasco -serial_esc
-  roottask moe rom/hello.lua
+  roottask moe rom/hello.cfg
   module   l4re
   module   ned
-  module   hello.lua
+  module   hello.cfg
   module   hello
 \endcode
 
 This file describes all the binaries and scripts to put into the ISO image,
 and also describes the GRUB \c menu.lst contents.  What you need to do is to
 set the \c make variable \c MODULE_SEARCH_PATH to contain the path to your
-Fiasco.OC build directory and the directory containing your \c hello.lua
+Fiasco.OC build directory and the directory containing your \c hello.cfg
 script.
 
-The \c hello.lua script should look like the following.
+The \c hello.cfg script should look like the following. A ready to use
+version can be found in l4/conf/examples.
 
 \code
 require("L4");
@@ -51,7 +53,7 @@ name space is in turn available as 'rom' to the init process
 
 Now you can go to your L4Re build directory and run the following command.
 \note The example assumes that you have created the \c modules.list and \c
-      hello.lua files in the /tmp directory. Adapt if you created them
+      hello.cfg files in the /tmp directory. Adapt if you created them
       somewhere else.
 
 \code
@@ -77,15 +79,20 @@ enter the Fiasco.OC kernel debugger... Have fun.
 \subpage Customizations
 
 A basic set of bootable entries can be found in \c l4/conf/modules.list. This file
-is the default for any image creation as shown above. Local modifications can be done in a
-\c Makeconf.local file located in the \c l4 directory. Put the \c MODULES_LIST and
-\c MODULE_SEARCH_PATH definitions there to have them always set. A \c make call
-is then reduced to:
+is the default for any image creation as shown above. It is recommeded that
+local modification regarding image creation are done in
+\c conf/Makeconf.boot. Initially you may copy \c Makeconf.boot.example to
+\c Makeconf.boot. You can overwrite \c MODULES_LIST to set your own
+modules-list file. Set \c MODULE_SEARCH_PATH to your setup according to the
+examples given in the file.
+When configured a \c make call is reduced to:
 
 \code
 make grub2iso E=hello
 \endcode
 
 
+All other local configuration can be done in a
+\c Makeconf.local file located in the \c l4 directory.
 
 */

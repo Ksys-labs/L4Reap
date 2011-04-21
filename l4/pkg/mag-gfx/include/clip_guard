@@ -23,9 +23,18 @@ private:
   void operator = (Clip_guard const &);
 
 public:
+  Clip_guard() : _c(0), _o() {}
+
   Clip_guard(Canvas *canvas, Rect const &n)
   : _c(canvas), _o(_c->clip())
   { _c->set_clipping(_o & n); }
+
+  void init(Canvas *c, Rect const &n)
+  {
+    _c = c;
+    _o = c->clip();
+    _c->set_clipping(_o & n);
+  }
 
   ~Clip_guard() { _c->set_clipping(_o); }
 

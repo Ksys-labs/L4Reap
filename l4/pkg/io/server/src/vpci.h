@@ -77,7 +77,11 @@ public:
 
   Pci_virtual_dev();
 
+  void set_host(Device *d) { _host = d; }
+  Device *host() const { return _host; }
+
 protected:
+  Device *_host;
   unsigned char *_h;
   unsigned _h_len;
 
@@ -133,7 +137,11 @@ public:
   int dispatch(l4_umword_t, l4_uint32_t, L4::Ipc_iostream&)
   { return -L4_ENOSYS; }
 
+  void set_host(Device *d) { _host = d; }
+  Device *host() const { return _host; }
+
 private:
+  Device *_host;
   Hw::Pci::If *_hwf;
 
   l4_uint32_t _vbars[6];

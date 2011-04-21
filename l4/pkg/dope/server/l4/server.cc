@@ -52,6 +52,7 @@
 #include <l4/re/util/event_buffer>
 #include <l4/re/c/event.h>
 #include <l4/re/video/goos>
+#include <l4/cxx/string>
 
 #include <l4/sys/debugger.h>
 #include <pthread-l4.h>
@@ -367,30 +368,75 @@ class Dope_fb : public L4Re::Util::Video::Goos_svr,
                 public Dope_base
 {
 public:
-  explicit Dope_fb(const char *configstr);
+  explicit Dope_fb(L4::Ipc::Istream &is);
   int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
 
   virtual int refresh(int x, int y, int w, int h);
 };
 
-Dope_fb::Dope_fb(const char *configstr)
+Dope_fb::Dope_fb(L4::Ipc::Istream &is)
 {
-  unsigned long val;
-  unsigned xpos = 20, ypos = 20, w, h;
+  L4::Ipc::Varg opt;
 
-  dope_registry->register_obj(this);
+  unsigned xpos = 20, ypos = 20;
+  char appname[80] = "fb";
 
   _screen_info.width     = 300;
   _screen_info.height    = 200;
 
-  if (sscanf(configstr, "%dx%d", &w, &h) == 2)
-    {
-      _screen_info.width = w;
-      _screen_info.height = h;
-    }
+  dope_registry->register_obj(this);
 
-  if (char *a = strstr(configstr, "pos="))
-    sscanf(a + 4, "%d,%d", &xpos, &ypos);
+  while (is.get(&opt))
+    {
+      if (!opt.is_of<char const *>())
+        {
+          printf("skipping non string argument for session!\n");
+          continue;
+        }
+
+      cxx::String a(opt.value<char const *>(), opt.length());
+
+      cxx::String::Index v;
+      if (   (v = a.starts_with("g="))
+          || (v = a.starts_with("geometry=")))
+        {
+          a = a.substr(v);
+          int r = a.from_dec(&_screen_info.width);
+          if (r >= a.len() || a[r] != 'x')
+            {
+              printf("Invalid geometry format\n");
+              continue;
+            }
+          a = a.substr(r + 1);
+          r = a.from_dec(&_screen_info.height);
+
+          if (r < a.len() && a[r] == '+')
+            {
+              a = a.substr(r + 1);
+              r = a.from_dec(&xpos);
+            }
+
+          if (r < a.len() && a[r] == '+')
+            {
+              a = a.substr(r + 1);
+              r = a.from_dec(&ypos);
+            }
+
+          if (_screen_info.width <= 0 || _screen_info.height <= 0
+              || _screen_info.width >= 10000
+              || _screen_info.height >= 10000)
+            {
+              printf("invalid geometry (too big)\n");
+            }
+        }
+      else if (   (v = a.starts_with("l="))
+               || (v = a.starts_with("label=")))
+        {
+          a = a.substr(v);
+          strncpy(appname, v, a.end() - v);
+          appname[a.end() - v] = 0;
+        }
+    }
 
   L4Re::Video::Pixel_info pixinfo(16, 5, 11, 6, 5, 5, 0);
   pixinfo.bytes_per_pixel(2);
@@ -403,18 +449,6 @@ Dope_fb::Dope_fb(const char *configstr)
   init_infos();
   _view_info.bytes_per_line = _screen_info.width * 2;
   _view_info.buffer_offset  = 0;
-
-  const char *appname = "fb";
-  //const char *listener = "listener";
-  char *s;
-  char buf[80];
-
-  if (get_string(configstr, "name=", &s, &val))
-    {
-      strncpy(buf, s, val);
-      buf[val] = 0;
-      appname = buf;
-    }
 
   app_id = appman->reg_app(appname);
   register_appid(app_id, this);
@@ -434,6 +468,7 @@ Dope_fb::Dope_fb(const char *configstr)
   if (int r = create_event())
     throw (L4::Runtime_error(r));
 
+  char buf[80];
   cmd("x=new Window()");
   cmd("y=new VScreen()");
   snprintf(buf, sizeof(buf), "y.setmode(%ld,%ld,\"RGB16\")",
@@ -524,15 +559,7 @@ Controller::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
     }
 
   L4::Factory::Proto op;
-  L4::Ipc::Varg arg;
-  ios >> op >> arg;
-  if (!arg.is_of<char const*>())
-    return -L4_EINVAL;
-
-  unsigned long size = 100;
-  char s[size];
-  strncpy(s, arg.value<char const*>(), cxx::min<int>(size, arg.length()));
-  s[size] = 0;
+  ios >> op;
 
   try
     {
@@ -544,12 +571,21 @@ Controller::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
 
 	case L4Re::Video::Goos::Protocol:
 	    {
-	      Dope_fb *x = new Dope_fb(s);
+              L4::Ipc::Istream_copy cp_is = ios;
+	      Dope_fb *x = new Dope_fb(cp_is);
 	      ios << x->obj_cap();
 	      return L4_EOK;
 	    }
 	case 0: // dope iface
 	    {
+              L4::Ipc::Varg arg;
+              ios >> arg;
+              if (!arg.is_of<char const*>())
+                return -L4_EINVAL;
+              unsigned long size = 100;
+              char s[size];
+              strncpy(s, arg.value<char const*>(), cxx::min<int>(size, arg.length()));
+              s[size] = 0;
 	      Dope_app *x = new Dope_app(s);
 	      ios << x->obj_cap();
 	      return L4_EOK;

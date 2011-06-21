@@ -3,7 +3,6 @@ L4DIR ?=	$(PKGDIR)/../..
 
 TARGET           = ex_libio
 SRC_C            = main.c
-L4_MULTITHREADED = y
 DEPENDS_PKGS     = libio
 REQUIRES_LIBS    = libio libirq
 

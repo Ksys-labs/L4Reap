@@ -86,7 +86,7 @@ extern UInt  x86g_calculate_eflags_all (
                 UInt cc_op, UInt cc_dep1, UInt cc_dep2, UInt cc_ndep 
              );
 
-__attribute((regparm(3)))
+VEX_REGPARM(3)
 extern UInt  x86g_calculate_eflags_c ( 
                 UInt cc_op, UInt cc_dep1, UInt cc_dep2, UInt cc_ndep 
              );
@@ -107,6 +107,8 @@ extern ULong x86g_calculate_RCL (
              );
 
 extern UInt x86g_calculate_daa_das_aaa_aas ( UInt AX_and_flags, UInt opcode );
+
+extern UInt x86g_calculate_aad_aam ( UInt AX_and_flags, UInt opcode );
 
 extern ULong x86g_check_fldcw ( UInt fpucw );
 

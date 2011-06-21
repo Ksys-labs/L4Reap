@@ -63,6 +63,22 @@ const unsigned int mem[] = {
       ); \
   printf("%s, #" #imm " :: Qd 0x%08x 0x%08x\n", \
       instruction, out[1], out[0]); \
+} \
+{ \
+   unsigned int out[2];   \
+   unsigned int addr = 0; \
+   \
+   __asm__ volatile( \
+	 "mov %1, %2\n\t" \
+	 "vldmia %1!, {" #QD "}\n\t" \
+	 instruction ", #" #imm "\n\t" \
+	 "vstmia %0, {" #QD "}\n\t" \
+	 : \
+	 : "r" (out), "r" (addr), "r" (mem) \
+	 : #QD, "%2", "memory" \
+	 ); \
+   printf("%s, #" #imm " :: Qd 0x%08x 0x%08x\n", \
+	 instruction, out[1], out[0]); \
 }
 
 #define TESTINSN_un(instruction, QD, QM, QMtype, QMval) \
@@ -80,6 +96,24 @@ const unsigned int mem[] = {
       ); \
   printf("%s :: Qd 0x%08x 0x%08x  Qm (" #QMtype ")0x%08x\n", \
       instruction, out[1], out[0], QMval); \
+} \
+{ \
+   unsigned int out[2]; \
+   unsigned int addr = 0; \
+   \
+   __asm__ volatile( \
+	 "mov %2, %3\n\t" \
+	 "vldmia %2!, {" #QD "}\n\t" \
+	 "vldmia %2!, {" #QM "}\n\t" \
+	 instruction "\n\t" \
+	 "vstmia %0, {" #QD "}\n\t" \
+	 "vstmia %0, {" #QD "}\n\t" \
+	 : \
+	 : "r" (out), "r" (QMval), "r" (addr), "r" (mem) \
+	 : #QD, #QM, "%2", "memory" \
+	 ); \
+   printf("%s :: Qd 0x%08x 0x%08x  Qm (" #QMtype ")0x%08x\n", \
+	 instruction, out[1], out[0], QMval ); \
 }
 
 #define TESTINSN_un_q(instruction, QD, QM, QMtype, QMval) \
@@ -102,6 +136,28 @@ const unsigned int mem[] = {
       ); \
   printf("%s :: Qd 0x%08x 0x%08x  Qm (" #QMtype ")0x%08x  fpscr %08x\n", \
       instruction, out[1], out[0], QMval, fpscr); \
+} \
+{ \
+   unsigned int out[2]; \
+   unsigned int fpscr; \
+   unsigned int addr = 0; \
+   \
+   __asm__ volatile( \
+	 "vmov.i8 " #QD ", #0x55" "\n\t" \
+	 "mov r4, #0\n\t" \
+	 MOVE_to_FPSCR_from_R4 \
+	 "mov %3, %4\n\t" \
+	 "vldmia %3!, {" #QM "}\n\t" \
+	 instruction "\n\t" \
+	 "vstmia %1, {" #QD "}\n\t" \
+	 MOVE_to_R4_from_FPSCR \
+	 "mov %0, r4" \
+	 : "=r" (fpscr) \
+	 : "r" (out), "r" (QMval), "r" (addr), "r" (mem) \
+	 : #QD, #QM, "memory", "r4" \
+	 ); \
+   printf("%s :: Qd 0x%08x 0x%08x  Qm (" #QMtype ")0x%08x  fpscr %08x\n", \
+	 instruction, out[1], out[0], QMval, fpscr); \
 }
 
 #define TESTINSN_core_to_scalar(instruction, QD, QM, QMval) \
@@ -140,7 +196,7 @@ const unsigned int mem[] = {
 
 #define TESTINSN_VLDn(instruction, QD1, QD2, QD3, QD4) \
 { \
-  unsigned int out[8]; \
+  unsigned int out[9]; \
 \
   __asm__ volatile( \
       "vmov.i8 " #QD1 ", #0x55" "\n\t" \
@@ -153,20 +209,21 @@ const unsigned int mem[] = {
       "vstmia %0!, {" #QD2 "}\n\t" \
       "vstmia %0!, {" #QD3 "}\n\t" \
       "vstmia %0!, {" #QD4 "}\n\t" \
+      "str %1, [%2]\n\t" \
       "mov %0, r4\n\t" \
       : \
-      : "r" (out), "r" (mem) \
+      : "r" (out), "r" (mem), "r"(&out[8]) \
       : #QD1, #QD2, #QD3, #QD4, "memory", "r4" \
       ); \
   printf("%s :: Result 0x%08x 0x%08x 0x%08x 0x%08x "\
-          "0x%08x 0x%08x 0x%08x 0x%08x\n", \
+          "0x%08x 0x%08x 0x%08x 0x%08x  delta %d\n", \
       instruction, out[0], out[1], out[2], out[3], out[4],\
-          out[5], out[6], out[7]); \
+          out[5], out[6], out[7], (int)out[8]-(int)mem); \
 }
 
 #define TESTINSN_VSTn(instruction, QD1, QD2, QD3, QD4) \
 { \
-  unsigned int out[8]; \
+  unsigned int out[9]; \
 \
   memset(out, 0x55, 8 * (sizeof(unsigned int)));\
   __asm__ volatile( \
@@ -177,14 +234,126 @@ const unsigned int mem[] = {
       "vldmia %1!, {" #QD4 "}\n\t" \
       "mov %1, r4\n\t" \
       instruction ", [%0]\n\t" \
+      "str %0, [%2]\n\t" \
       : \
-      : "r" (out), "r" (mem) \
+      : "r" (out), "r" (mem), "r"(&out[8]) \
       : #QD1, #QD2, #QD3, #QD4, "memory", "r4" \
       ); \
   printf("%s :: Result 0x%08x 0x%08x 0x%08x 0x%08x "\
-          "0x%08x 0x%08x 0x%08x 0x%08x\n", \
+          "0x%08x 0x%08x 0x%08x 0x%08x  delta %d\n", \
       instruction, out[0], out[1], out[2], out[3], out[4],\
-          out[5], out[6], out[7]); \
+          out[5], out[6], out[7], (int)out[8]-(int)out); \
+}
+
+#define TESTINSN_VLDn_WB(instruction, QD1, QD2, QD3, QD4) \
+{ \
+   unsigned int out[9]; \
+   unsigned int addr = 0; \
+   \
+   __asm__ volatile( \
+	 "mov %0, %2\n\t" \
+	 "vmov.i8 " #QD1 ", #0x55" "\n\t" \
+	 "vmov.i8 " #QD2 ", #0x55" "\n\t" \
+	 "vmov.i8 " #QD3 ", #0x55" "\n\t" \
+	 "vmov.i8 " #QD4 ", #0x55" "\n\t" \
+	 instruction ", [%0]!\n\t" \
+	 "mov r4, %1\n\t" \
+	 "vstmia %1!, {" #QD1 "}\n\t" \
+	 "vstmia %1!, {" #QD2 "}\n\t" \
+	 "vstmia %1!, {" #QD3 "}\n\t" \
+	 "vstmia %1!, {" #QD4 "}\n\t" \
+	 "str %0, [%3]\n\t" \
+	 "mov %1, r4\n\t" \
+	 : "+r" (addr) \
+	 : "r" (out), "r" (mem), "r"(&out[8]) \
+	 : #QD1, #QD2, #QD3, #QD4, "memory", "r4" \
+	 ); \
+   printf("%s :: Result 0x%08x 0x%08x 0x%08x 0x%08x "\
+	 "0x%08x 0x%08x 0x%08x 0x%08x  delta %d\n", \
+	 instruction, out[0], out[1], out[2], out[3], out[4],\
+	 out[5], out[6], out[7], (int)out[8]-(int)mem); \
+}
+
+#define TESTINSN_VSTn_WB(instruction, QD1, QD2, QD3, QD4) \
+{ \
+   unsigned int out[9]; \
+   unsigned int addr = 0;    \
+   \
+   memset(out, 0x55, 8 * (sizeof(unsigned int)));\
+   __asm__ volatile( \
+	 "mov %0, %1\n\t" \
+	 "mov r4, %2\n\t" \
+	 "vldmia r4!, {" #QD1 "}\n\t" \
+	 "vldmia r4!, {" #QD2 "}\n\t" \
+	 "vldmia r4!, {" #QD3 "}\n\t" \
+	 "vldmia r4!, {" #QD4 "}\n\t" \
+	 instruction ", [%0]!\n\t" \
+	 "str %0, [%3]\n\t" \
+	 : "+r" (addr) \
+	 : "r" (out), "r" (mem), "r"(&out[8]) \
+	 : #QD1, #QD2, #QD3, #QD4, "memory", "r4", "0" \
+	 ); \
+   printf("%s :: Result 0x%08x 0x%08x 0x%08x 0x%08x "\
+	 "0x%08x 0x%08x 0x%08x 0x%08x  delta %d\n", \
+	 instruction, out[0], out[1], out[2], out[3], out[4],\
+	 out[5], out[6], out[7], (int)out[8]-(int)out); \
+}
+
+#define TESTINSN_VLDn_RI(instruction, QD1, QD2, QD3, QD4, RM, RMval) \
+{ \
+   unsigned int out[9];  \
+   unsigned int addr = 0;    \
+   \
+   __asm__ volatile( \
+	 "mov %0, %2\n\t" \
+	 "vmov.i8 " #QD1 ", #0x55" "\n\t" \
+	 "vmov.i8 " #QD2 ", #0x55" "\n\t" \
+	 "vmov.i8 " #QD3 ", #0x55" "\n\t" \
+	 "vmov.i8 " #QD4 ", #0x55" "\n\t" \
+	 "mov " #RM ", %4\n\t" \
+	 instruction ", [%0], " #RM "\n\t" \
+	 "mov r4, %1\n\t" \
+	 "vstmia %1!, {" #QD1 "}\n\t" \
+	 "vstmia %1!, {" #QD2 "}\n\t" \
+	 "vstmia %1!, {" #QD3 "}\n\t" \
+	 "vstmia %1!, {" #QD4 "}\n\t" \
+	 "str %0, [%3]\n\t" \
+	 "mov %1, r4\n\t" \
+	 : "+r" (addr) \
+	 : "r" (out), "r" (mem), "r"(&out[8]), "r"(RMval) \
+	 : #QD1, #QD2, #QD3, #QD4, "memory", "r4", #RM \
+	 ); \
+   printf("%s :: Result 0x%08x 0x%08x 0x%08x 0x%08x "\
+	 "0x%08x 0x%08x 0x%08x 0x%08x  delta %d\n", \
+	 instruction, out[0], out[1], out[2], out[3], out[4],\
+	 out[5], out[6], out[7], (int)out[8]-(int)addr); \
+}
+
+
+#define TESTINSN_VSTn_RI(instruction, QD1, QD2, QD3, QD4, RM, RMval) \
+{ \
+   unsigned int out[9]; \
+   unsigned int addr = 0;    \
+   \
+   memset(out, 0x55, 8 * (sizeof(unsigned int)));\
+   __asm__ volatile( \
+	 "mov %0, %1\n\t" \
+	 "mov r4, %2\n\t" \
+	 "vldmia r4!, {" #QD1 "}\n\t" \
+	 "vldmia r4!, {" #QD2 "}\n\t" \
+	 "vldmia r4!, {" #QD3 "}\n\t" \
+	 "vldmia r4!, {" #QD4 "}\n\t" \
+	 "mov " #RM ", %4\n\t" \
+	 instruction ", [%0], " #RM "\n\t" \
+	 "str %0, [%3]\n\t" \
+	 : "+r" (addr) \
+	 : "r" (out), "r" (mem), "r"(&out[8]), "r"(#RMval) \
+	 : #QD1, #QD2, #QD3, #QD4, "memory", "r4", #RM \
+	 ); \
+   printf("%s :: Result 0x%08x 0x%08x 0x%08x 0x%08x "\
+	 "0x%08x 0x%08x 0x%08x 0x%08x  delta %d\n", \
+	 instruction, out[0], out[1], out[2], out[3], out[4],\
+	 out[5], out[6], out[7], (int)out[8]-(int)out); \
 }
 
 #define TESTINSN_bin(instruction, QD, QM, QMtype, QMval, QN, QNtype, QNval) \
@@ -204,6 +373,25 @@ const unsigned int mem[] = {
   printf("%s :: Qd 0x%08x 0x%08x  Qm (" #QMtype ")0x%08x" \
       "  Qn (" #QNtype ")0x%08x\n", \
       instruction, out[1], out[0], QMval, QNval); \
+} \
+{ \
+   unsigned int out[2]; \
+   unsigned int addr = 0; \
+   \
+   __asm__ volatile( \
+	 "mov %0, %4\n\t" \
+	 "vldmia %0!, {" #QM "}\n\t" \
+	 "vmov.i8 " #QD ", #0x55" "\n\t" \
+	 "vdup." #QNtype " " #QN ", %3\n\t" \
+	 instruction "\n\t" \
+	 "vstmia %1, {" #QD "}\n\t" \
+	 : "+r" (addr) \
+	 : "r" (out), "r" (QMval), "r" (QNval), "r" (mem) \
+	 : #QD, #QM, #QN, "memory" \
+	 ); \
+   printf("%s :: Qd 0x%08x 0x%08x  Qm (" #QMtype ")0x%08x" \
+	 "  Qn (" #QNtype ")0x%08x\n", \
+	 instruction, out[1], out[0], QMval, QNval); \
 }
 
 #define TESTINSN_bin_f(instruction, QD, QM, QMtype, QMval, QN, QNtype, QNval) \
@@ -223,6 +411,25 @@ const unsigned int mem[] = {
   printf("%s :: Qd 0x%08x 0x%08x  Qm (" #QMtype ")0x%08x" \
       "  Qn (" #QNtype ")0x%08x\n", \
       instruction, out[1], out[0], QMval, QNval); \
+} \
+{ \
+     unsigned int out[2]; \
+     unsigned int addr = 0; \
+   \
+     __asm__ volatile( \
+	         "vdup.i32 " #QD ", %3\n\t" \
+	         "mov %4, %5\n\t" \
+	         "vldmia %4!, {" #QM "}\n\t" \
+	         "vdup." #QNtype " " #QN ", %2\n\t" \
+	         instruction "\n\t" \
+	         "vstmia %0, {" #QD "}\n\t" \
+	         : \
+	         : "r" (out), "r" (QMval), "r" (QNval), "r"(0x3f800000), "r" (addr), "r" (mem) \
+	         : #QD, #QM, #QN, "memory" \
+	         ); \
+     printf("%s :: Qd 0x%08x 0x%08x  Qm (" #QMtype ")0x%08x" \
+	         "  Qn (" #QNtype ")0x%08x\n", \
+	         instruction, out[1], out[0], QMval, QNval); \
 }
 
 #define TESTINSN_tbl(instruction, QD, QM, QMtype, QMval, QN1, QN1type, QN1val, \
@@ -250,7 +457,34 @@ const unsigned int mem[] = {
       "  Qn3 (" #QN3type ")0x%08x" \
       "  Qn4 (" #QN4type ")0x%08x\n", \
       instruction, out[1], out[0], QMval, QN1val, QN2val, QN3val, QN4val); \
+} \
+{ \
+   unsigned int out[2]; \
+   unsigned int addr = 0; \
+   \
+   __asm__ volatile( \
+	 "mov %6, %7\n\t" \
+	 "vmov.i8 " #QD ", #0x55" "\n\t" \
+	 "vdup." #QMtype " " #QM ", %1\n\t" \
+	 "vldmia %6!, {" #QN1 "}\n\t" \
+	 "vdup." #QN2type " " #QN2 ", %3\n\t" \
+	 "vldmia %6!, {" #QN3 "}\n\t" \
+	 "vdup." #QN4type " " #QN4 ", %5\n\t" \
+	 instruction "\n\t" \
+	 "vstmia %0, {" #QD "}\n\t" \
+	 : \
+	 : "r" (out), "r" (QMval), "r" (QN1val), "r" (QN2val), "r" (QN3val), \
+	 "r" (QN4val), "r" (addr), "r" (mem) \
+	 : #QD, #QM, #QN1, #QN2, #QN3, #QN4, "memory" \
+	 ); \
+   printf("%s :: Qd 0x%08x 0x%08x  Qm (" #QMtype ")0x%08x" \
+	 "  Qn1 (" #QN1type ")0x%08x" \
+	 "  Qn2 (" #QN2type ")0x%08x" \
+	 "  Qn3 (" #QN3type ")0x%08x" \
+	 "  Qn4 (" #QN4type ")0x%08x\n", \
+	 instruction, out[1], out[0], QMval, QN1val, QN2val, QN3val, QN4val); \
 }
+
 #define TESTINSN_tbl_1(instruction, QD, QM, QMtype, QMval, QN1, QN1type, QN1val) \
     TESTINSN_tbl(instruction, QD, QM, QMtype, QMval, QN1, QN1type, QN1val, \
             QN1, QN1type, QN1val, QN1, QN1type, QN1val, QN1, QN1type, QN1val)
@@ -289,46 +523,72 @@ const unsigned int mem[] = {
   printf("%s :: Qd 0x%08x 0x%08x  Qm (" #QMtype ")0x%08x" \
       "  Qn (" #QNtype ")0x%08x  fpscr: %08x\n", \
       instruction, out[1], out[0], QMval, QNval, fpscr); \
+} \
+{ \
+     unsigned int out[2]; \
+     unsigned int fpscr; \
+     unsigned int addr = 0; \
+   \
+     __asm__ volatile( \
+	         "vmov.i8 " #QD ", #0x55" "\n\t" \
+	         "mov r4, #0\n\t" \
+	         MOVE_to_FPSCR_from_R4 \
+	         "mov %4, %5\n\t" \
+	         "vldmia %4!, {" #QM "}\n\t" \
+	         "vdup." #QNtype " " #QN ", %3\n\t" \
+	         instruction "\n\t" \
+	         "vstmia %1, {" #QD "}\n\t" \
+	         MOVE_to_R4_from_FPSCR \
+	         "mov %0, r4" \
+	         : "=r" (fpscr) \
+	         : "r" (out), "r" (QMval), "r" (QNval), "r" (addr), "r" (mem)  \
+	         : #QD, #QM, #QN, "memory", "r4" \
+	         ); \
+     printf("%s :: Qd 0x%08x 0x%08x  Qm (" #QMtype ")0x%08x" \
+	         "  Qn (" #QNtype ")0x%08x  fpscr: %08x\n", \
+	         instruction, out[1], out[0], QMval, QNval, fpscr); \
 }
 
 #define TESTINSN_dual(instruction, QM, QMtype, QMval, QN, QNtype, QNval) \
 { \
-  unsigned int out1[2]; \
-  unsigned int out2[2]; \
-\
-  __asm__ volatile( \
-      "vdup." #QMtype " " #QM ", %2\n\t" \
-      "vdup." #QNtype " " #QN ", %3\n\t" \
-      instruction "\n\t" \
-      "vstmia %0, {" #QM "}\n\t" \
-      "vstmia %1, {" #QN "}\n\t" \
-      : \
-      : "r" (out1), "r" (out2), "r" (QMval), "r" (QNval) \
-      : #QM, #QN, "memory" \
-      ); \
-  printf("%s :: Qm 0x%08x 0x%08x  Qn 0x%08x 0x%08x  Qm (" #QMtype ")0x%08x" \
-      "  Qn (" #QNtype ")0x%08x\n", \
-      instruction, out1[1], out1[0], out2[1], out2[0], QMval, QNval); \
-}
-
-// Ditto TESTING_bin(), but in QD all zeros
-#define TESTINSN_bin_0s(instruction, QD, QM, QMtype, QMval, QN, QNtype, QNval) \
+   unsigned int out1[2]; \
+   unsigned int out2[2]; \
+   unsigned int addr = 0;    \
+   \
+   __asm__ volatile( \
+	 "mov %4, %5\n\t" \
+	 "vldmia %4!, {" #QM "}\n\t" \
+	 "vdup." #QNtype " " #QN ", %3\n\t" \
+	 instruction "\n\t" \
+	 "vstmia %0, {" #QM "}\n\t" \
+	 "vstmia %1, {" #QN "}\n\t" \
+	 : \
+	 : "r" (out1), "r" (out2), "r" (QMval), "r" (QNval), "r" (addr), "r" (mem) \
+	 : #QM, #QN, "memory" \
+	 ); \
+   printf("%s :: Qm 0x%08x 0x%08x  Qn 0x%08x 0x%08x  Qm (" #QMtype ")0x%08x" \
+	 "  Qn (" #QNtype ")0x%08x\n", \
+	 instruction, out1[1], out1[0], out2[1], out2[0], QMval, QNval); \
+} \
 { \
-  unsigned int out[2]; \
-\
-  __asm__ volatile( \
-      "vmov.i8 " #QD ", #0x00" "\n\t" \
-      "vdup." #QMtype " " #QM ", %1\n\t" \
-      "vdup." #QNtype " " #QN ", %2\n\t" \
-      instruction "\n\t" \
-      "vstmia %0, {" #QD "}\n\t" \
-      : \
-      : "r" (out), "r" (QMval), "r" (QNval) \
-      : #QD, #QM, #QN, "memory" \
-      ); \
-  printf("%s :: Qd 0x%08x 0x%08x  Qm (" #QMtype ")0x%08x" \
-      "  Qn (" #QNtype ")0x%08x\n", \
-      instruction, out[1], out[0], QMval, QNval); \
+     unsigned int out1[2]; \
+     unsigned int out2[2]; \
+     unsigned int addr = 0;    \
+   \
+     __asm__ volatile( \
+	         "mov %4, %5\n\t" \
+	         "vldmia %4!, {" #QM "}\n\t" \
+	         "vdup." #QNtype " " #QN ", %3\n\t" \
+	         instruction "\n\t" \
+	         "vstmia %0, {" #QM "}\n\t" \
+	         "vstmia %1, {" #QN "}\n\t" \
+	         : \
+	         : "r" (out1), "r" (out2), "r" (QMval), "r" (QNval), "r" (addr), "r" (mem) \
+	         : #QM, #QN, "%4", "memory" \
+	         ); \
+     printf("%s :: Qm 0x%08x 0x%08x  Qn 0x%08x 0x%08x  Qm (" #QMtype ")0x%08x" \
+	         "  Qn (" #QNtype ")0x%08x\n", \
+	         instruction, out1[1], out1[0], out2[1], out2[0], QMval, QNval); \
 }
 
 #if 0
@@ -1733,6 +1993,618 @@ int main(int argc, char **argv)
     TESTINSN_VSTn("vst4.8 {d0[2],d1[2],d2[2],d3[2]}", d0, d1, d2, d3);
     TESTINSN_VSTn("vst4.8 {d17[1],d18[1],d19[1],d20[1]}", d17, d18, d19, d20);
     TESTINSN_VSTn("vst4.8 {d28[0],d29[0],d30[0],d31[0]}", d28, d29, d30, d31);
+
+    printf("---- VLD1 (multiple single elements) ----\n");
+    TESTINSN_VLDn_WB("vld1.8 {d0}", d0, d0, d0, d0);
+    TESTINSN_VLDn_WB("vld1.16 {d0}", d0, d0, d0, d0);
+    TESTINSN_VLDn_WB("vld1.32 {d0}", d0, d0, d0, d0);
+    TESTINSN_VLDn_WB("vld1.64 {d0}", d0, d0, d0, d0);
+    TESTINSN_VLDn_WB("vld1.8 {d9}", d9, d9, d9, d9);
+    TESTINSN_VLDn_WB("vld1.16 {d17}", d17, d17, d17, d17);
+    TESTINSN_VLDn_WB("vld1.32 {d31}", d31, d31, d31, d31);
+    TESTINSN_VLDn_WB("vld1.64 {d14}", d14, d14, d14, d14);
+    TESTINSN_VLDn_WB("vld1.8 {d0-d1}", d0, d1, d0, d1);
+    TESTINSN_VLDn_WB("vld1.16 {d0-d1}", d0, d1, d0, d1);
+    TESTINSN_VLDn_WB("vld1.32 {d5-d6}", d5, d6, d5, d6);
+    TESTINSN_VLDn_WB("vld1.64 {d30-d31}", d30, d31, d30, d31);
+    TESTINSN_VLDn_WB("vld1.8 {d0-d2}", d0, d1, d2, d0);
+    TESTINSN_VLDn_WB("vld1.16 {d0-d2}", d0, d1, d2, d0);
+    TESTINSN_VLDn_WB("vld1.32 {d0-d2}", d0, d1, d2, d0);
+    TESTINSN_VLDn_WB("vld1.64 {d0-d2}", d0, d1, d2, d0);
+    TESTINSN_VLDn_WB("vld1.8 {d0-d3}", d0, d1, d2, d3);
+    TESTINSN_VLDn_WB("vld1.16 {d0-d3}", d0, d1, d2, d3);
+    TESTINSN_VLDn_WB("vld1.32 {d0-d3}", d0, d1, d2, d3);
+    TESTINSN_VLDn_WB("vld1.64 {d0-d3}", d0, d1, d2, d3);
+
+    printf("---- VLD1 (single element to one lane) ----\n");
+    TESTINSN_VLDn_WB("vld1.32 {d0[0]}", d0, d0, d0, d0);
+    TESTINSN_VLDn_WB("vld1.32 {d0[1]}", d0, d0, d0, d0);
+    TESTINSN_VLDn_WB("vld1.16 {d1[0]}", d1, d1, d1, d1);
+    TESTINSN_VLDn_WB("vld1.16 {d1[1]}", d1, d1, d1, d1);
+    TESTINSN_VLDn_WB("vld1.16 {d1[2]}", d1, d1, d1, d1);
+    TESTINSN_VLDn_WB("vld1.16 {d1[3]}", d1, d1, d1, d1);
+    TESTINSN_VLDn_WB("vld1.8 {d0[7]}", d0, d0, d0, d0);
+    TESTINSN_VLDn_WB("vld1.8 {d1[6]}", d1, d1, d1, d1);
+    TESTINSN_VLDn_WB("vld1.8 {d0[5]}", d0, d0, d0, d0);
+    TESTINSN_VLDn_WB("vld1.8 {d0[4]}", d0, d0, d0, d0);
+    TESTINSN_VLDn_WB("vld1.8 {d20[3]}", d20, d20, d20, d20);
+    TESTINSN_VLDn_WB("vld1.8 {d0[2]}", d0, d0, d0, d0);
+    TESTINSN_VLDn_WB("vld1.8 {d17[1]}", d17, d17, d17, d17);
+    TESTINSN_VLDn_WB("vld1.8 {d30[0]}", d30, d30, d30, d30);
+
+    printf("---- VLD1 (single element to all lanes) ----\n");
+    TESTINSN_VLDn_WB("vld1.8 {d0[]}", d0, d0, d0, d0);
+    TESTINSN_VLDn_WB("vld1.16 {d0[]}", d0, d0, d0, d0);
+    TESTINSN_VLDn_WB("vld1.32 {d0[]}", d0, d0, d0, d0);
+    TESTINSN_VLDn_WB("vld1.8 {d9[]}", d9, d9, d9, d9);
+    TESTINSN_VLDn_WB("vld1.16 {d17[]}", d17, d17, d17, d17);
+    TESTINSN_VLDn_WB("vld1.32 {d31[]}", d31, d31, d31, d31);
+    TESTINSN_VLDn_WB("vld1.8 {d0[],d1[]}", d0, d1, d0, d1);
+    TESTINSN_VLDn_WB("vld1.16 {d0[],d1[]}", d0, d1, d0, d1);
+    TESTINSN_VLDn_WB("vld1.32 {d5[],d6[]}", d5, d6, d5, d6);
+
+    printf("---- VLD2 (multiple 2-elements) ----\n");
+    TESTINSN_VLDn_WB("vld2.8 {d30-d31}", d30, d31, d30, d31);
+    TESTINSN_VLDn_WB("vld2.16 {d0-d1}", d0, d1, d0, d1);
+    TESTINSN_VLDn_WB("vld2.32 {d0-d1}", d0, d1, d0, d1);
+    TESTINSN_VLDn_WB("vld2.8 {d10,d12}", d10, d12, d10, d12);
+    TESTINSN_VLDn_WB("vld2.16 {d20,d22}", d20, d22, d20, d22);
+    TESTINSN_VLDn_WB("vld2.32 {d0,d2}", d0, d2, d0, d2);
+    TESTINSN_VLDn_WB("vld2.8 {d0-d3}", d0, d1, d2, d3);
+    TESTINSN_VLDn_WB("vld2.16 {d20-d23}", d20, d21, d22, d23);
+    TESTINSN_VLDn_WB("vld2.32 {d0-d3}", d0, d1, d2, d3);
+
+    printf("---- VLD2 (single 2-element structure to one lane) ----\n");
+    TESTINSN_VLDn_WB("vld2.32 {d0[0],d1[0]}", d0, d1, d0, d1);
+    TESTINSN_VLDn_WB("vld2.32 {d0[1],d1[1]}", d0, d1, d0, d1);
+    TESTINSN_VLDn_WB("vld2.32 {d0[0],d2[0]}", d0, d2, d0, d2);
+    TESTINSN_VLDn_WB("vld2.32 {d0[1],d2[1]}", d0, d2, d0, d2);
+    TESTINSN_VLDn_WB("vld2.16 {d1[0],d2[0]}", d1, d2, d1, d2);
+    TESTINSN_VLDn_WB("vld2.16 {d1[1],d2[1]}", d1, d2, d1, d2);
+    TESTINSN_VLDn_WB("vld2.16 {d1[2],d2[2]}", d1, d2, d1, d2);
+    TESTINSN_VLDn_WB("vld2.16 {d1[3],d2[3]}", d1, d2, d1, d2);
+    TESTINSN_VLDn_WB("vld2.16 {d1[0],d3[0]}", d1, d3, d1, d3);
+    TESTINSN_VLDn_WB("vld2.16 {d1[1],d3[1]}", d1, d3, d1, d3);
+    TESTINSN_VLDn_WB("vld2.16 {d1[2],d3[2]}", d1, d3, d1, d3);
+    TESTINSN_VLDn_WB("vld2.16 {d1[3],d3[3]}", d1, d3, d1, d3);
+    TESTINSN_VLDn_WB("vld2.8 {d0[7],d1[7]}", d0, d1, d0, d1);
+    TESTINSN_VLDn_WB("vld2.8 {d1[6],d2[6]}", d1, d2, d1, d2);
+    TESTINSN_VLDn_WB("vld2.8 {d0[5],d1[5]}", d0, d1, d0, d1);
+    TESTINSN_VLDn_WB("vld2.8 {d0[4],d1[4]}", d0, d1, d0, d1);
+    TESTINSN_VLDn_WB("vld2.8 {d20[3],d21[3]}", d20, d21, d20, d21);
+    TESTINSN_VLDn_WB("vld2.8 {d0[2],d1[2]}", d0, d1, d0, d1);
+    TESTINSN_VLDn_WB("vld2.8 {d17[1],d18[1]}", d17, d18, d17, d18);
+    TESTINSN_VLDn_WB("vld2.8 {d30[0],d31[0]}", d30, d31, d30, d31);
+
+    printf("---- VLD2 (2-elements to all lanes) ----\n");
+    TESTINSN_VLDn_WB("vld2.8 {d0[],d1[]}", d0, d1, d0, d1);
+    TESTINSN_VLDn_WB("vld2.16 {d0[],d1[]}", d0, d1, d0, d1);
+    TESTINSN_VLDn_WB("vld2.32 {d0[],d1[]}", d0, d1, d0, d1);
+    TESTINSN_VLDn_WB("vld2.8 {d9[],d11[]}", d9, d11, d9, d11);
+    TESTINSN_VLDn_WB("vld2.16 {d17[],d18[]}", d17, d18, d17, d18);
+    TESTINSN_VLDn_WB("vld2.32 {d30[],d31[]}", d30, d31, d30, d31);
+    TESTINSN_VLDn_WB("vld2.8 {d0[],d2[]}", d0, d2, d0, d2);
+    TESTINSN_VLDn_WB("vld2.16 {d0[],d2[]}", d0, d2, d0, d2);
+    TESTINSN_VLDn_WB("vld2.32 {d5[],d7[]}", d5, d7, d5, d7);
+
+    printf("---- VLD3 (multiple 3-elements) ----\n");
+    TESTINSN_VLDn_WB("vld3.8 {d20-d22}", d20, d21, d22, d20);
+    TESTINSN_VLDn_WB("vld3.16 {d0-d2}", d0, d1, d2, d0);
+    TESTINSN_VLDn_WB("vld3.32 {d0-d2}", d0, d1, d2, d0);
+    TESTINSN_VLDn_WB("vld3.8 {d0,d2,d4}", d0, d2, d4, d0);
+    TESTINSN_VLDn_WB("vld3.16 {d20,d22,d24}", d20, d22, d24, d20);
+    TESTINSN_VLDn_WB("vld3.32 {d0,d2,d4}", d0, d2, d4, d0);
+
+    printf("---- VLD3 (single 3-element structure to one lane) ----\n");
+    TESTINSN_VLDn_WB("vld3.32 {d0[0],d1[0],d2[0]}", d0, d1, d2, d1);
+    TESTINSN_VLDn_WB("vld3.32 {d0[1],d1[1],d2[1]}", d0, d1, d2, d1);
+    TESTINSN_VLDn_WB("vld3.32 {d0[0],d2[0],d4[0]}", d0, d2, d4, d2);
+    TESTINSN_VLDn_WB("vld3.32 {d0[1],d2[1],d4[1]}", d0, d2, d4, d2);
+    TESTINSN_VLDn_WB("vld3.16 {d1[0],d2[0],d3[0]}", d1, d2, d3, d2);
+    TESTINSN_VLDn_WB("vld3.16 {d1[1],d2[1],d3[1]}", d1, d2, d3, d2);
+    TESTINSN_VLDn_WB("vld3.16 {d1[2],d2[2],d3[2]}", d1, d2, d3, d2);
+    TESTINSN_VLDn_WB("vld3.16 {d1[3],d2[3],d3[3]}", d1, d2, d3, d2);
+    TESTINSN_VLDn_WB("vld3.16 {d1[0],d3[0],d5[0]}", d1, d3, d3, d5);
+    TESTINSN_VLDn_WB("vld3.16 {d1[1],d3[1],d5[1]}", d1, d3, d3, d5);
+    TESTINSN_VLDn_WB("vld3.16 {d1[2],d3[2],d5[2]}", d1, d3, d3, d5);
+    TESTINSN_VLDn_WB("vld3.16 {d1[3],d3[3],d5[3]}", d1, d3, d3, d5);
+    TESTINSN_VLDn_WB("vld3.8 {d0[7],d1[7],d2[7]}", d0, d1, d2, d1);
+    TESTINSN_VLDn_WB("vld3.8 {d1[6],d2[6],d3[6]}", d1, d2, d3, d2);
+    TESTINSN_VLDn_WB("vld3.8 {d0[5],d1[5],d2[5]}", d0, d1, d2, d1);
+    TESTINSN_VLDn_WB("vld3.8 {d0[4],d1[4],d2[4]}", d0, d1, d2, d1);
+    TESTINSN_VLDn_WB("vld3.8 {d20[3],d21[3],d22[3]}", d20, d21, d22, d21);
+    TESTINSN_VLDn_WB("vld3.8 {d0[2],d1[2],d2[2]}", d0, d1, d2, d1);
+    TESTINSN_VLDn_WB("vld3.8 {d17[1],d18[1],d19[1]}", d17, d18, d19, d18);
+    TESTINSN_VLDn_WB("vld3.8 {d29[0],d30[0],d31[0]}", d30, d31, d29, d31);
+
+    printf("---- VLD3 (3-elements to all lanes) ----\n");
+    TESTINSN_VLDn_WB("vld3.8 {d0[],d1[],d2[]}", d0, d1, d2, d1);
+    TESTINSN_VLDn_WB("vld3.16 {d0[],d1[],d2[]}", d0, d1, d2, d1);
+    TESTINSN_VLDn_WB("vld3.32 {d0[],d1[],d2[]}", d0, d1, d2, d1);
+    TESTINSN_VLDn_WB("vld3.8 {d9[],d11[],d13[]}", d9, d11, d13, d11);
+    TESTINSN_VLDn_WB("vld3.16 {d17[],d18[],d19[]}", d17, d18, d19, d18);
+    TESTINSN_VLDn_WB("vld3.32 {d29[],d30[],d31[]}", d29, d30, d30, d31);
+    TESTINSN_VLDn_WB("vld3.8 {d0[],d2[],d4[]}", d0, d2, d4, d2);
+    TESTINSN_VLDn_WB("vld3.16 {d0[],d2[],d4[]}", d0, d2, d4, d2);
+    TESTINSN_VLDn_WB("vld3.32 {d5[],d7[],d9[]}", d5, d7, d9, d7);
+
+    printf("---- VLD4 (multiple 3-elements) ----\n");
+    TESTINSN_VLDn_WB("vld4.8 {d0-d3}", d0, d1, d2, d3);
+    TESTINSN_VLDn_WB("vld4.16 {d20-d23}", d20, d21, d22, d23);
+    TESTINSN_VLDn_WB("vld4.32 {d0-d3}", d0, d1, d2, d3);
+    TESTINSN_VLDn_WB("vld4.8 {d0,d2,d4,d6}", d0, d2, d4, d6);
+    TESTINSN_VLDn_WB("vld4.16 {d1,d3,d5,d7}", d1, d3, d5, d7);
+    TESTINSN_VLDn_WB("vld4.32 {d20,d22,d24,d26}", d20, d22, d24, d26);
+
+    printf("---- VLD4 (single 4-element structure to one lane) ----\n");
+    TESTINSN_VLDn_WB("vld4.32 {d0[0],d1[0],d2[0],d3[0]}", d0, d1, d2, d3);
+    TESTINSN_VLDn_WB("vld4.32 {d0[1],d1[1],d2[1],d3[1]}", d0, d1, d2, d4);
+    TESTINSN_VLDn_WB("vld4.32 {d0[0],d2[0],d4[0],d6[0]}", d0, d2, d4, d6);
+    TESTINSN_VLDn_WB("vld4.32 {d0[1],d2[1],d4[1],d6[1]}", d0, d2, d4, d6);
+    TESTINSN_VLDn_WB("vld4.16 {d1[0],d2[0],d3[0],d4[0]}", d1, d2, d3, d4);
+    TESTINSN_VLDn_WB("vld4.16 {d1[1],d2[1],d3[1],d4[1]}", d1, d2, d3, d4);
+    TESTINSN_VLDn_WB("vld4.16 {d1[2],d2[2],d3[2],d4[2]}", d1, d2, d3, d4);
+    TESTINSN_VLDn_WB("vld4.16 {d1[3],d2[3],d3[3],d4[3]}", d1, d2, d3, d4);
+    TESTINSN_VLDn_WB("vld4.16 {d1[0],d3[0],d5[0],d7[0]}", d1, d3, d5, d7);
+    TESTINSN_VLDn_WB("vld4.16 {d1[1],d3[1],d5[1],d7[1]}", d1, d3, d5, d7);
+    TESTINSN_VLDn_WB("vld4.16 {d1[2],d3[2],d5[2],d7[2]}", d1, d3, d5, d7);
+    TESTINSN_VLDn_WB("vld4.16 {d1[3],d3[3],d5[3],d7[3]}", d1, d3, d5, d7);
+    TESTINSN_VLDn_WB("vld4.8 {d0[7],d1[7],d2[7],d3[7]}", d0, d1, d2, d3);
+    TESTINSN_VLDn_WB("vld4.8 {d1[6],d2[6],d3[6],d4[6]}", d1, d2, d3, d4);
+    TESTINSN_VLDn_WB("vld4.8 {d0[5],d1[5],d2[5],d3[5]}", d0, d1, d2, d3);
+    TESTINSN_VLDn_WB("vld4.8 {d0[4],d1[4],d2[4],d3[4]}", d0, d1, d2, d3);
+    TESTINSN_VLDn_WB("vld4.8 {d20[3],d21[3],d22[3],d23[3]}", d20, d21, d22, d23);
+    TESTINSN_VLDn_WB("vld4.8 {d0[2],d1[2],d2[2],d3[2]}", d0, d1, d2, d3);
+    TESTINSN_VLDn_WB("vld4.8 {d17[1],d18[1],d19[1],d20[1]}", d17, d18, d19, d20);
+    TESTINSN_VLDn_WB("vld4.8 {d28[0],d29[0],d30[0],d31[0]}", d28, d29, d30, d31);
+
+    printf("---- VLD4 (4-elements to all lanes) ----\n");
+    TESTINSN_VLDn_WB("vld4.8 {d0[],d1[],d2[],d3[]}", d0, d1, d2, d3);
+    TESTINSN_VLDn_WB("vld4.16 {d0[],d1[],d2[],d3[]}", d0, d1, d2, d3);
+    TESTINSN_VLDn_WB("vld4.32 {d0[],d1[],d2[],d3[]}", d0, d1, d2, d3);
+    TESTINSN_VLDn_WB("vld4.8 {d9[],d11[],d13[],d15[]}", d9, d11, d13, d15);
+    TESTINSN_VLDn_WB("vld4.16 {d17[],d18[],d19[],d20[]}", d17, d18, d19, d20);
+    TESTINSN_VLDn_WB("vld4.32 {d28[],d29[],d30[],d31[]}", d28, d29, d30, d31);
+    TESTINSN_VLDn_WB("vld4.8 {d0[],d2[],d4[],d6[]}", d0, d2, d4, d6);
+    TESTINSN_VLDn_WB("vld4.16 {d0[],d2[],d4[],d6[]}", d0, d2, d4, d6);
+    TESTINSN_VLDn_WB("vld4.32 {d5[],d7[],d9[],d11[]}", d5, d7, d9, d11);
+
+    printf("---- VST1 (multiple single elements) ----\n");
+    TESTINSN_VSTn_WB("vst1.8 {d0}", d0, d0, d0, d0);
+    TESTINSN_VSTn_WB("vst1.16 {d0}", d0, d0, d0, d0);
+    TESTINSN_VSTn_WB("vst1.32 {d0}", d0, d0, d0, d0);
+    TESTINSN_VSTn_WB("vst1.64 {d0}", d0, d0, d0, d0);
+    TESTINSN_VSTn_WB("vst1.8 {d9}", d9, d9, d9, d9);
+    TESTINSN_VSTn_WB("vst1.16 {d17}", d17, d17, d17, d17);
+    TESTINSN_VSTn_WB("vst1.32 {d31}", d31, d31, d31, d31);
+    TESTINSN_VSTn_WB("vst1.64 {d14}", d14, d14, d14, d14);
+    TESTINSN_VSTn_WB("vst1.8 {d0-d1}", d0, d1, d0, d1);
+    TESTINSN_VSTn_WB("vst1.16 {d0-d1}", d0, d1, d0, d1);
+    TESTINSN_VSTn_WB("vst1.32 {d5-d6}", d5, d6, d5, d6);
+    TESTINSN_VSTn_WB("vst1.64 {d30-d31}", d30, d31, d30, d31);
+    TESTINSN_VSTn_WB("vst1.8 {d0-d2}", d0, d1, d2, d0);
+    TESTINSN_VSTn_WB("vst1.16 {d0-d2}", d0, d1, d2, d0);
+    TESTINSN_VSTn_WB("vst1.32 {d0-d2}", d0, d1, d2, d0);
+    TESTINSN_VSTn_WB("vst1.64 {d0-d2}", d0, d1, d2, d0);
+    TESTINSN_VSTn_WB("vst1.8 {d0-d3}", d0, d1, d2, d3);
+    TESTINSN_VSTn_WB("vst1.16 {d0-d3}", d0, d1, d2, d3);
+    TESTINSN_VSTn_WB("vst1.32 {d0-d3}", d0, d1, d2, d3);
+    TESTINSN_VSTn_WB("vst1.64 {d0-d3}", d0, d1, d2, d3);
+
+    printf("---- VST1 (single element from one lane) ----\n");
+    TESTINSN_VSTn_WB("vst1.32 {d0[0]}", d0, d0, d0, d0);
+    TESTINSN_VSTn_WB("vst1.32 {d0[1]}", d0, d0, d0, d0);
+    TESTINSN_VSTn_WB("vst1.16 {d1[0]}", d1, d1, d1, d1);
+    TESTINSN_VSTn_WB("vst1.16 {d1[1]}", d1, d1, d1, d1);
+    TESTINSN_VSTn_WB("vst1.16 {d1[2]}", d1, d1, d1, d1);
+    TESTINSN_VSTn_WB("vst1.16 {d1[3]}", d1, d1, d1, d1);
+    TESTINSN_VSTn_WB("vst1.8 {d0[7]}", d0, d0, d0, d0);
+    TESTINSN_VSTn_WB("vst1.8 {d1[6]}", d1, d1, d1, d1);
+    TESTINSN_VSTn_WB("vst1.8 {d0[5]}", d0, d0, d0, d0);
+    TESTINSN_VSTn_WB("vst1.8 {d0[4]}", d0, d0, d0, d0);
+    TESTINSN_VSTn_WB("vst1.8 {d20[3]}", d20, d20, d20, d20);
+    TESTINSN_VSTn_WB("vst1.8 {d0[2]}", d0, d0, d0, d0);
+    TESTINSN_VSTn_WB("vst1.8 {d17[1]}", d17, d17, d17, d17);
+    TESTINSN_VSTn_WB("vst1.8 {d30[0]}", d30, d30, d30, d30);
+
+    printf("---- VST2 (multiple 2-elements) ----\n");
+    TESTINSN_VSTn_WB("vst2.8 {d30-d31}", d30, d31, d30, d31);
+    TESTINSN_VSTn_WB("vst2.16 {d0-d1}", d0, d1, d0, d1);
+    TESTINSN_VSTn_WB("vst2.32 {d0-d1}", d0, d1, d0, d1);
+    TESTINSN_VSTn_WB("vst2.8 {d10,d12}", d10, d12, d10, d12);
+    TESTINSN_VSTn_WB("vst2.16 {d20,d22}", d20, d22, d20, d22);
+    TESTINSN_VSTn_WB("vst2.32 {d0,d2}", d0, d2, d0, d2);
+    TESTINSN_VSTn_WB("vst2.8 {d0-d3}", d0, d1, d2, d3);
+    TESTINSN_VSTn_WB("vst2.16 {d20-d23}", d20, d21, d22, d23);
+    TESTINSN_VSTn_WB("vst2.32 {d0-d3}", d0, d1, d2, d3);
+
+    printf("---- VST2 (single 2-element structure from one lane) ----\n");
+    TESTINSN_VSTn_WB("vst2.32 {d0[0],d1[0]}", d0, d1, d0, d1);
+    TESTINSN_VSTn_WB("vst2.32 {d0[1],d1[1]}", d0, d1, d0, d1);
+    TESTINSN_VSTn_WB("vst2.32 {d0[0],d2[0]}", d0, d2, d0, d2);
+    TESTINSN_VSTn_WB("vst2.32 {d0[1],d2[1]}", d0, d2, d0, d2);
+    TESTINSN_VSTn_WB("vst2.16 {d1[0],d2[0]}", d1, d2, d1, d2);
+    TESTINSN_VSTn_WB("vst2.16 {d1[1],d2[1]}", d1, d2, d1, d2);
+    TESTINSN_VSTn_WB("vst2.16 {d1[2],d2[2]}", d1, d2, d1, d2);
+    TESTINSN_VSTn_WB("vst2.16 {d1[3],d2[3]}", d1, d2, d1, d2);
+    TESTINSN_VSTn_WB("vst2.16 {d1[0],d3[0]}", d1, d3, d1, d3);
+    TESTINSN_VSTn_WB("vst2.16 {d1[1],d3[1]}", d1, d3, d1, d3);
+    TESTINSN_VSTn_WB("vst2.16 {d1[2],d3[2]}", d1, d3, d1, d3);
+    TESTINSN_VSTn_WB("vst2.16 {d1[3],d3[3]}", d1, d3, d1, d3);
+    TESTINSN_VSTn_WB("vst2.8 {d0[7],d1[7]}", d0, d1, d0, d1);
+    TESTINSN_VSTn_WB("vst2.8 {d1[6],d2[6]}", d1, d2, d1, d2);
+    TESTINSN_VSTn_WB("vst2.8 {d0[5],d1[5]}", d0, d1, d0, d1);
+    TESTINSN_VSTn_WB("vst2.8 {d0[4],d1[4]}", d0, d1, d0, d1);
+    TESTINSN_VSTn_WB("vst2.8 {d20[3],d21[3]}", d20, d21, d20, d21);
+    TESTINSN_VSTn_WB("vst2.8 {d0[2],d1[2]}", d0, d1, d0, d1);
+    TESTINSN_VSTn_WB("vst2.8 {d17[1],d18[1]}", d17, d18, d17, d18);
+    TESTINSN_VSTn_WB("vst2.8 {d30[0],d31[0]}", d30, d31, d30, d31);
+
+    printf("---- VST3 (multiple 3-elements) ----\n");
+    TESTINSN_VSTn_WB("vst3.8 {d20-d22}", d20, d21, d22, d20);
+    TESTINSN_VSTn_WB("vst3.16 {d0-d2}", d0, d1, d2, d0);
+    TESTINSN_VSTn_WB("vst3.32 {d0-d2}", d0, d1, d2, d0);
+    TESTINSN_VSTn_WB("vst3.8 {d0,d2,d4}", d0, d2, d4, d0);
+    TESTINSN_VSTn_WB("vst3.16 {d20,d22,d24}", d20, d22, d24, d20);
+    TESTINSN_VSTn_WB("vst3.32 {d0,d2,d4}", d0, d2, d4, d0);
+
+    printf("---- VST3 (single 3-element structure from one lane) ----\n");
+    TESTINSN_VSTn_WB("vst3.32 {d0[0],d1[0],d2[0]}", d0, d1, d2, d1);
+    TESTINSN_VSTn_WB("vst3.32 {d0[1],d1[1],d2[1]}", d0, d1, d2, d1);
+    TESTINSN_VSTn_WB("vst3.32 {d0[0],d2[0],d4[0]}", d0, d2, d4, d2);
+    TESTINSN_VSTn_WB("vst3.32 {d0[1],d2[1],d4[1]}", d0, d2, d4, d2);
+    TESTINSN_VSTn_WB("vst3.16 {d1[0],d2[0],d3[0]}", d1, d2, d3, d2);
+    TESTINSN_VSTn_WB("vst3.16 {d1[1],d2[1],d3[1]}", d1, d2, d3, d2);
+    TESTINSN_VSTn_WB("vst3.16 {d1[2],d2[2],d3[2]}", d1, d2, d3, d2);
+    TESTINSN_VSTn_WB("vst3.16 {d1[3],d2[3],d3[3]}", d1, d2, d3, d2);
+    TESTINSN_VSTn_WB("vst3.16 {d1[0],d3[0],d5[0]}", d1, d3, d3, d5);
+    TESTINSN_VSTn_WB("vst3.16 {d1[1],d3[1],d5[1]}", d1, d3, d3, d5);
+    TESTINSN_VSTn_WB("vst3.16 {d1[2],d3[2],d5[2]}", d1, d3, d3, d5);
+    TESTINSN_VSTn_WB("vst3.16 {d1[3],d3[3],d5[3]}", d1, d3, d3, d5);
+    TESTINSN_VSTn_WB("vst3.8 {d0[7],d1[7],d2[7]}", d0, d1, d2, d1);
+    TESTINSN_VSTn_WB("vst3.8 {d1[6],d2[6],d3[6]}", d1, d2, d3, d2);
+    TESTINSN_VSTn_WB("vst3.8 {d0[5],d1[5],d2[5]}", d0, d1, d2, d1);
+    TESTINSN_VSTn_WB("vst3.8 {d0[4],d1[4],d2[4]}", d0, d1, d2, d1);
+    TESTINSN_VSTn_WB("vst3.8 {d20[3],d21[3],d22[3]}", d20, d21, d22, d21);
+    TESTINSN_VSTn_WB("vst3.8 {d0[2],d1[2],d2[2]}", d0, d1, d2, d1);
+    TESTINSN_VSTn_WB("vst3.8 {d17[1],d18[1],d19[1]}", d17, d18, d19, d18);
+    TESTINSN_VSTn_WB("vst3.8 {d29[0],d30[0],d31[0]}", d30, d31, d29, d31);
+
+    printf("---- VST4 (multiple 4-elements) ----\n");
+    TESTINSN_VSTn_WB("vst4.8 {d0-d3}", d0, d1, d2, d3);
+    TESTINSN_VSTn_WB("vst4.16 {d20-d23}", d20, d21, d22, d23);
+    TESTINSN_VSTn_WB("vst4.32 {d0-d3}", d0, d1, d2, d3);
+    TESTINSN_VSTn_WB("vst4.8 {d0,d2,d4,d6}", d0, d2, d4, d6);
+    TESTINSN_VSTn_WB("vst4.16 {d1,d3,d5,d7}", d1, d3, d5, d7);
+    TESTINSN_VSTn_WB("vst4.32 {d20,d22,d24,d26}", d20, d22, d24, d26);
+
+    printf("---- VST4 (single 4-element structure from one lane) ----\n");
+    TESTINSN_VSTn_WB("vst4.32 {d0[0],d1[0],d2[0],d3[0]}", d0, d1, d2, d3);
+    TESTINSN_VSTn_WB("vst4.32 {d0[1],d1[1],d2[1],d3[1]}", d0, d1, d2, d4);
+    TESTINSN_VSTn_WB("vst4.32 {d0[0],d2[0],d4[0],d6[0]}", d0, d2, d4, d6);
+    TESTINSN_VSTn_WB("vst4.32 {d0[1],d2[1],d4[1],d6[1]}", d0, d2, d4, d6);
+    TESTINSN_VSTn_WB("vst4.16 {d1[0],d2[0],d3[0],d4[0]}", d1, d2, d3, d4);
+    TESTINSN_VSTn_WB("vst4.16 {d1[1],d2[1],d3[1],d4[1]}", d1, d2, d3, d4);
+    TESTINSN_VSTn_WB("vst4.16 {d1[2],d2[2],d3[2],d4[2]}", d1, d2, d3, d4);
+    TESTINSN_VSTn_WB("vst4.16 {d1[3],d2[3],d3[3],d4[3]}", d1, d2, d3, d4);
+    TESTINSN_VSTn_WB("vst4.16 {d1[0],d3[0],d5[0],d7[0]}", d1, d3, d5, d7);
+    TESTINSN_VSTn_WB("vst4.16 {d1[1],d3[1],d5[1],d7[1]}", d1, d3, d5, d7);
+    TESTINSN_VSTn_WB("vst4.16 {d1[2],d3[2],d5[2],d7[2]}", d1, d3, d5, d7);
+    TESTINSN_VSTn_WB("vst4.16 {d1[3],d3[3],d5[3],d7[3]}", d1, d3, d5, d7);
+    TESTINSN_VSTn_WB("vst4.8 {d0[7],d1[7],d2[7],d3[7]}", d0, d1, d2, d3);
+    TESTINSN_VSTn_WB("vst4.8 {d1[6],d2[6],d3[6],d4[6]}", d1, d2, d3, d4);
+    TESTINSN_VSTn_WB("vst4.8 {d0[5],d1[5],d2[5],d3[5]}", d0, d1, d2, d3);
+    TESTINSN_VSTn_WB("vst4.8 {d0[4],d1[4],d2[4],d3[4]}", d0, d1, d2, d3);
+    TESTINSN_VSTn_WB("vst4.8 {d20[3],d21[3],d22[3],d23[3]}", d20, d21, d22, d23);
+    TESTINSN_VSTn_WB("vst4.8 {d0[2],d1[2],d2[2],d3[2]}", d0, d1, d2, d3);
+    TESTINSN_VSTn_WB("vst4.8 {d17[1],d18[1],d19[1],d20[1]}", d17, d18, d19, d20);
+    TESTINSN_VSTn_WB("vst4.8 {d28[0],d29[0],d30[0],d31[0]}", d28, d29, d30, d31);
+
+    printf("---- VLD1 (multiple single elements) ----\n");
+    TESTINSN_VLDn_RI("vld1.8 {d0}", d0, d0, d0, d0, r5, 13);
+    TESTINSN_VLDn_RI("vld1.16 {d0}", d0, d0, d0, d0, r8, 13);
+    TESTINSN_VLDn_RI("vld1.32 {d0}", d0, d0, d0, d0, r5, 42);
+    TESTINSN_VLDn_RI("vld1.64 {d0}", d0, d0, d0, d0, r5, 0);
+    TESTINSN_VLDn_RI("vld1.8 {d9}", d9, d9, d9, d9, r5, 13);
+    TESTINSN_VLDn_RI("vld1.16 {d17}", d17, d17, d17, d17, r6, 13);
+    TESTINSN_VLDn_RI("vld1.32 {d31}", d31, d31, d31, d31, r5, -3);
+    TESTINSN_VLDn_RI("vld1.64 {d14}", d14, d14, d14, d14, r5, 13);
+    TESTINSN_VLDn_RI("vld1.8 {d0-d1}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld1.16 {d0-d1}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld1.32 {d5-d6}", d5, d6, d5, d6, r5, 13);
+    TESTINSN_VLDn_RI("vld1.64 {d30-d31}", d30, d31, d30, d31, r5, 13);
+    TESTINSN_VLDn_RI("vld1.8 {d0-d2}", d0, d1, d2, d0, r5, 13);
+    TESTINSN_VLDn_RI("vld1.16 {d0-d2}", d0, d1, d2, d0, r5, 13);
+    TESTINSN_VLDn_RI("vld1.32 {d0-d2}", d0, d1, d2, d0, r5, 13);
+    TESTINSN_VLDn_RI("vld1.64 {d0-d2}", d0, d1, d2, d0, r5, 13);
+    TESTINSN_VLDn_RI("vld1.8 {d0-d3}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VLDn_RI("vld1.16 {d0-d3}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VLDn_RI("vld1.32 {d0-d3}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VLDn_RI("vld1.64 {d0-d3}", d0, d1, d2, d3, r5, 13);
+
+    printf("---- VLD1 (single element to one lane) ----\n");
+    TESTINSN_VLDn_RI("vld1.32 {d0[0]}", d0, d0, d0, d0, r5, 13);
+    TESTINSN_VLDn_RI("vld1.32 {d0[1]}", d0, d0, d0, d0, r9, 42);
+    TESTINSN_VLDn_RI("vld1.16 {d1[0]}", d1, d1, d1, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld1.16 {d1[1]}", d1, d1, d1, d1, r1, 0);
+    TESTINSN_VLDn_RI("vld1.16 {d1[2]}", d1, d1, d1, d1, r5, -3);
+    TESTINSN_VLDn_RI("vld1.16 {d1[3]}", d1, d1, d1, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld1.8 {d0[7]}", d0, d0, d0, d0, r5, 13);
+    TESTINSN_VLDn_RI("vld1.8 {d1[6]}", d1, d1, d1, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld1.8 {d0[5]}", d0, d0, d0, d0, r5, 13);
+    TESTINSN_VLDn_RI("vld1.8 {d0[4]}", d0, d0, d0, d0, r5, 13);
+    TESTINSN_VLDn_RI("vld1.8 {d20[3]}", d20, d20, d20, d20, r5, 13);
+    TESTINSN_VLDn_RI("vld1.8 {d0[2]}", d0, d0, d0, d0, r5, 13);
+    TESTINSN_VLDn_RI("vld1.8 {d17[1]}", d17, d17, d17, d17, r5, 13);
+    TESTINSN_VLDn_RI("vld1.8 {d30[0]}", d30, d30, d30, d30, r5, 13);
+
+    printf("---- VLD1 (single element to all lanes) ----\n");
+    TESTINSN_VLDn_RI("vld1.8 {d0[]}", d0, d0, d0, d0, r5, 13);
+    TESTINSN_VLDn_RI("vld1.16 {d0[]}", d0, d0, d0, d0, r9, 42);
+    TESTINSN_VLDn_RI("vld1.32 {d0[]}", d0, d0, d0, d0, r1, 0);
+    TESTINSN_VLDn_RI("vld1.8 {d9[]}", d9, d9, d9, d9, r5, -3);
+    TESTINSN_VLDn_RI("vld1.16 {d17[]}", d17, d17, d17, d17, r5, 13);
+    TESTINSN_VLDn_RI("vld1.32 {d31[]}", d31, d31, d31, d31, r5, 13);
+    TESTINSN_VLDn_RI("vld1.8 {d0[],d1[]}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld1.16 {d0[],d1[]}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld1.32 {d5[],d6[]}", d5, d6, d5, d6, r5, 13);
+
+    printf("---- VLD2 (multiple 2-elements) ----\n");
+    TESTINSN_VLDn_RI("vld2.8 {d30-d31}", d30, d31, d30, d31, r5, 13);
+    TESTINSN_VLDn_RI("vld2.16 {d0-d1}", d0, d1, d0, d1, r9, 42);
+    TESTINSN_VLDn_RI("vld2.32 {d0-d1}", d0, d1, d0, d1, r1, 0);
+    TESTINSN_VLDn_RI("vld2.8 {d10,d12}", d10, d12, d10, d12, r5, -3);
+    TESTINSN_VLDn_RI("vld2.16 {d20,d22}", d20, d22, d20, d22, r5, 13);
+    TESTINSN_VLDn_RI("vld2.32 {d0,d2}", d0, d2, d0, d2, r5, 13);
+    TESTINSN_VLDn_RI("vld2.8 {d0-d3}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VLDn_RI("vld2.16 {d20-d23}", d20, d21, d22, d23, r5, 13);
+    TESTINSN_VLDn_RI("vld2.32 {d0-d3}", d0, d1, d2, d3, r5, 13);
+
+    printf("---- VLD2 (single 2-element structure to one lane) ----\n");
+    TESTINSN_VLDn_RI("vld2.32 {d0[0],d1[0]}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld2.32 {d0[1],d1[1]}", d0, d1, d0, d1, r9, 42);
+    TESTINSN_VLDn_RI("vld2.32 {d0[0],d2[0]}", d0, d2, d0, d2, r1, 0);
+    TESTINSN_VLDn_RI("vld2.32 {d0[1],d2[1]}", d0, d2, d0, d2, r5, -3);
+    TESTINSN_VLDn_RI("vld2.16 {d1[0],d2[0]}", d1, d2, d1, d2, r5, 13);
+    TESTINSN_VLDn_RI("vld2.16 {d1[1],d2[1]}", d1, d2, d1, d2, r5, 13);
+    TESTINSN_VLDn_RI("vld2.16 {d1[2],d2[2]}", d1, d2, d1, d2, r5, 13);
+    TESTINSN_VLDn_RI("vld2.16 {d1[3],d2[3]}", d1, d2, d1, d2, r5, 13);
+    TESTINSN_VLDn_RI("vld2.16 {d1[0],d3[0]}", d1, d3, d1, d3, r5, 13);
+    TESTINSN_VLDn_RI("vld2.16 {d1[1],d3[1]}", d1, d3, d1, d3, r5, 13);
+    TESTINSN_VLDn_RI("vld2.16 {d1[2],d3[2]}", d1, d3, d1, d3, r5, 13);
+    TESTINSN_VLDn_RI("vld2.16 {d1[3],d3[3]}", d1, d3, d1, d3, r5, 13);
+    TESTINSN_VLDn_RI("vld2.8 {d0[7],d1[7]}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld2.8 {d1[6],d2[6]}", d1, d2, d1, d2, r5, 13);
+    TESTINSN_VLDn_RI("vld2.8 {d0[5],d1[5]}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld2.8 {d0[4],d1[4]}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld2.8 {d20[3],d21[3]}", d20, d21, d20, d21, r5, 13);
+    TESTINSN_VLDn_RI("vld2.8 {d0[2],d1[2]}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld2.8 {d17[1],d18[1]}", d17, d18, d17, d18, r5, 13);
+    TESTINSN_VLDn_RI("vld2.8 {d30[0],d31[0]}", d30, d31, d30, d31, r5, 13);
+
+    printf("---- VLD2 (2-elements to all lanes) ----\n");
+    TESTINSN_VLDn_RI("vld2.8 {d0[],d1[]}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld2.16 {d0[],d1[]}", d0, d1, d0, d1, r9, 42);
+    TESTINSN_VLDn_RI("vld2.32 {d0[],d1[]}", d0, d1, d0, d1, r1, 0);
+    TESTINSN_VLDn_RI("vld2.8 {d9[],d11[]}", d9, d11, d9, d11, r5, -3);
+    TESTINSN_VLDn_RI("vld2.16 {d17[],d18[]}", d17, d18, d17, d18, r5, 13);
+    TESTINSN_VLDn_RI("vld2.32 {d30[],d31[]}", d30, d31, d30, d31, r5, 13);
+    TESTINSN_VLDn_RI("vld2.8 {d0[],d2[]}", d0, d2, d0, d2, r5, 13);
+    TESTINSN_VLDn_RI("vld2.16 {d0[],d2[]}", d0, d2, d0, d2, r5, 13);
+    TESTINSN_VLDn_RI("vld2.32 {d5[],d7[]}", d5, d7, d5, d7, r5, 13);
+
+    printf("---- VLD3 (multiple 3-elements) ----\n");
+    TESTINSN_VLDn_RI("vld3.8 {d20-d22}", d20, d21, d22, d20, r5, 13);
+    TESTINSN_VLDn_RI("vld3.16 {d0-d2}", d0, d1, d2, d0, r9, 42);
+    TESTINSN_VLDn_RI("vld3.32 {d0-d2}", d0, d1, d2, d0, r1, 0);
+    TESTINSN_VLDn_RI("vld3.8 {d0,d2,d4}", d0, d2, d4, d0, r5, -3);
+    TESTINSN_VLDn_RI("vld3.16 {d20,d22,d24}", d20, d22, d24, d20, r5, 13);
+    TESTINSN_VLDn_RI("vld3.32 {d0,d2,d4}", d0, d2, d4, d0, r5, 13);
+
+    printf("---- VLD3 (single 3-element structure to one lane) ----\n");
+    TESTINSN_VLDn_RI("vld3.32 {d0[0],d1[0],d2[0]}", d0, d1, d2, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld3.32 {d0[1],d1[1],d2[1]}", d0, d1, d2, d1, r9, 42);
+    TESTINSN_VLDn_RI("vld3.32 {d0[0],d2[0],d4[0]}", d0, d2, d4, d2, r1, 0);
+    TESTINSN_VLDn_RI("vld3.32 {d0[1],d2[1],d4[1]}", d0, d2, d4, d2, r5, -3);
+    TESTINSN_VLDn_RI("vld3.16 {d1[0],d2[0],d3[0]}", d1, d2, d3, d2, r5, 13);
+    TESTINSN_VLDn_RI("vld3.16 {d1[1],d2[1],d3[1]}", d1, d2, d3, d2, r5, 13);
+    TESTINSN_VLDn_RI("vld3.16 {d1[2],d2[2],d3[2]}", d1, d2, d3, d2, r5, 13);
+    TESTINSN_VLDn_RI("vld3.16 {d1[3],d2[3],d3[3]}", d1, d2, d3, d2, r5, 13);
+    TESTINSN_VLDn_RI("vld3.16 {d1[0],d3[0],d5[0]}", d1, d3, d3, d5, r5, 13);
+    TESTINSN_VLDn_RI("vld3.16 {d1[1],d3[1],d5[1]}", d1, d3, d3, d5, r5, 13);
+    TESTINSN_VLDn_RI("vld3.16 {d1[2],d3[2],d5[2]}", d1, d3, d3, d5, r5, 13);
+    TESTINSN_VLDn_RI("vld3.16 {d1[3],d3[3],d5[3]}", d1, d3, d3, d5, r5, 13);
+    TESTINSN_VLDn_RI("vld3.8 {d0[7],d1[7],d2[7]}", d0, d1, d2, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld3.8 {d1[6],d2[6],d3[6]}", d1, d2, d3, d2, r5, 13);
+    TESTINSN_VLDn_RI("vld3.8 {d0[5],d1[5],d2[5]}", d0, d1, d2, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld3.8 {d0[4],d1[4],d2[4]}", d0, d1, d2, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld3.8 {d20[3],d21[3],d22[3]}", d20, d21, d22, d21, r5, 13);
+    TESTINSN_VLDn_RI("vld3.8 {d0[2],d1[2],d2[2]}", d0, d1, d2, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld3.8 {d17[1],d18[1],d19[1]}", d17, d18, d19, d18, r5, 13);
+    TESTINSN_VLDn_RI("vld3.8 {d29[0],d30[0],d31[0]}", d30, d31, d29, d31, r5, 13);
+
+    printf("---- VLD3 (3-elements to all lanes) ----\n");
+    TESTINSN_VLDn_RI("vld3.8 {d0[],d1[],d2[]}", d0, d1, d2, d1, r5, 13);
+    TESTINSN_VLDn_RI("vld3.16 {d0[],d1[],d2[]}", d0, d1, d2, d1, r9, 42);
+    TESTINSN_VLDn_RI("vld3.32 {d0[],d1[],d2[]}", d0, d1, d2, d1, r1, 0);
+    TESTINSN_VLDn_RI("vld3.8 {d9[],d11[],d13[]}", d9, d11, d13, d11, r5, -3);
+    TESTINSN_VLDn_RI("vld3.16 {d17[],d18[],d19[]}", d17, d18, d19, d18, r5, 13);
+    TESTINSN_VLDn_RI("vld3.32 {d29[],d30[],d31[]}", d29, d30, d30, d31, r5, 13);
+    TESTINSN_VLDn_RI("vld3.8 {d0[],d2[],d4[]}", d0, d2, d4, d2, r5, 13);
+    TESTINSN_VLDn_RI("vld3.16 {d0[],d2[],d4[]}", d0, d2, d4, d2, r5, 13);
+    TESTINSN_VLDn_RI("vld3.32 {d5[],d7[],d9[]}", d5, d7, d9, d7, r5, 13);
+
+    printf("---- VLD4 (multiple 3-elements) ----\n");
+    TESTINSN_VLDn_RI("vld4.8 {d0-d3}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VLDn_RI("vld4.16 {d20-d23}", d20, d21, d22, d23, r9, 0);
+    TESTINSN_VLDn_RI("vld4.32 {d0-d3}", d0, d1, d2, d3, r0, 42);
+    TESTINSN_VLDn_RI("vld4.8 {d0,d2,d4,d6}", d0, d2, d4, d6, r5, -3);
+    TESTINSN_VLDn_RI("vld4.16 {d1,d3,d5,d7}", d1, d3, d5, d7, r5, 13);
+    TESTINSN_VLDn_RI("vld4.32 {d20,d22,d24,d26}", d20, d22, d24, d26, r5, 13);
+
+    printf("---- VLD4 (single 4-element structure to one lane) ----\n");
+    TESTINSN_VLDn_RI("vld4.32 {d0[0],d1[0],d2[0],d3[0]}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VLDn_RI("vld4.32 {d0[1],d1[1],d2[1],d3[1]}", d0, d1, d2, d4, r9, 42);
+    TESTINSN_VLDn_RI("vld4.32 {d0[0],d2[0],d4[0],d6[0]}", d0, d2, d4, d6, r1, 0);
+    TESTINSN_VLDn_RI("vld4.32 {d0[1],d2[1],d4[1],d6[1]}", d0, d2, d4, d6, r5, -3);
+    TESTINSN_VLDn_RI("vld4.16 {d1[0],d2[0],d3[0],d4[0]}", d1, d2, d3, d4, r5, 13);
+    TESTINSN_VLDn_RI("vld4.16 {d1[1],d2[1],d3[1],d4[1]}", d1, d2, d3, d4, r5, 13);
+    TESTINSN_VLDn_RI("vld4.16 {d1[2],d2[2],d3[2],d4[2]}", d1, d2, d3, d4, r5, 13);
+    TESTINSN_VLDn_RI("vld4.16 {d1[3],d2[3],d3[3],d4[3]}", d1, d2, d3, d4, r5, 13);
+    TESTINSN_VLDn_RI("vld4.16 {d1[0],d3[0],d5[0],d7[0]}", d1, d3, d5, d7, r5, 13);
+    TESTINSN_VLDn_RI("vld4.16 {d1[1],d3[1],d5[1],d7[1]}", d1, d3, d5, d7, r5, 13);
+    TESTINSN_VLDn_RI("vld4.16 {d1[2],d3[2],d5[2],d7[2]}", d1, d3, d5, d7, r5, 13);
+    TESTINSN_VLDn_RI("vld4.16 {d1[3],d3[3],d5[3],d7[3]}", d1, d3, d5, d7, r5, 13);
+    TESTINSN_VLDn_RI("vld4.8 {d0[7],d1[7],d2[7],d3[7]}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VLDn_RI("vld4.8 {d1[6],d2[6],d3[6],d4[6]}", d1, d2, d3, d4, r5, 13);
+    TESTINSN_VLDn_RI("vld4.8 {d0[5],d1[5],d2[5],d3[5]}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VLDn_RI("vld4.8 {d0[4],d1[4],d2[4],d3[4]}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VLDn_RI("vld4.8 {d20[3],d21[3],d22[3],d23[3]}", d20, d21, d22, d23, r5, 13);
+    TESTINSN_VLDn_RI("vld4.8 {d0[2],d1[2],d2[2],d3[2]}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VLDn_RI("vld4.8 {d17[1],d18[1],d19[1],d20[1]}", d17, d18, d19, d20, r5, 13);
+    TESTINSN_VLDn_RI("vld4.8 {d28[0],d29[0],d30[0],d31[0]}", d28, d29, d30, d31, r5, 13);
+
+    printf("---- VLD4 (4-elements to all lanes) ----\n");
+    TESTINSN_VLDn_RI("vld4.8 {d0[],d1[],d2[],d3[]}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VLDn_RI("vld4.16 {d0[],d1[],d2[],d3[]}", d0, d1, d2, d3, r9, 42);
+    TESTINSN_VLDn_RI("vld4.32 {d0[],d1[],d2[],d3[]}", d0, d1, d2, d3, r1, 0);
+    TESTINSN_VLDn_RI("vld4.8 {d9[],d11[],d13[],d15[]}", d9, d11, d13, d15, r5, -3);
+    TESTINSN_VLDn_RI("vld4.16 {d17[],d18[],d19[],d20[]}", d17, d18, d19, d20, r5, 13);
+    TESTINSN_VLDn_RI("vld4.32 {d28[],d29[],d30[],d31[]}", d28, d29, d30, d31, r5, 13);
+    TESTINSN_VLDn_RI("vld4.8 {d0[],d2[],d4[],d6[]}", d0, d2, d4, d6, r5, 13);
+    TESTINSN_VLDn_RI("vld4.16 {d0[],d2[],d4[],d6[]}", d0, d2, d4, d6, r5, 13);
+    TESTINSN_VLDn_RI("vld4.32 {d5[],d7[],d9[],d11[]}", d5, d7, d9, d11, r5, 13);
+
+    printf("---- VST1 (multiple single elements) ----\n");
+    TESTINSN_VSTn_RI("vst1.8 {d0}", d0, d0, d0, d0, r5, 13);
+    TESTINSN_VSTn_RI("vst1.16 {d0}", d0, d0, d0, d0, r9, 42);
+    TESTINSN_VSTn_RI("vst1.32 {d0}", d0, d0, d0, d0, r5, 0);
+    TESTINSN_VSTn_RI("vst1.64 {d0}", d0, d0, d0, d0, r5, -3);
+    TESTINSN_VSTn_RI("vst1.8 {d9}", d9, d9, d9, d9, r5, 13);
+    TESTINSN_VSTn_RI("vst1.16 {d17}", d17, d17, d17, d17, r5, 13);
+    TESTINSN_VSTn_RI("vst1.32 {d31}", d31, d31, d31, d31, r5, 13);
+    TESTINSN_VSTn_RI("vst1.64 {d14}", d14, d14, d14, d14, r5, 13);
+    TESTINSN_VSTn_RI("vst1.8 {d0-d1}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VSTn_RI("vst1.16 {d0-d1}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VSTn_RI("vst1.32 {d5-d6}", d5, d6, d5, d6, r5, 13);
+    TESTINSN_VSTn_RI("vst1.64 {d30-d31}", d30, d31, d30, d31, r5, 13);
+    TESTINSN_VSTn_RI("vst1.8 {d0-d2}", d0, d1, d2, d0, r5, 13);
+    TESTINSN_VSTn_RI("vst1.16 {d0-d2}", d0, d1, d2, d0, r5, 13);
+    TESTINSN_VSTn_RI("vst1.32 {d0-d2}", d0, d1, d2, d0, r5, 13);
+    TESTINSN_VSTn_RI("vst1.64 {d0-d2}", d0, d1, d2, d0, r5, 13);
+    TESTINSN_VSTn_RI("vst1.8 {d0-d3}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VSTn_RI("vst1.16 {d0-d3}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VSTn_RI("vst1.32 {d0-d3}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VSTn_RI("vst1.64 {d0-d3}", d0, d1, d2, d3, r5, 13);
+
+    printf("---- VST1 (single element from one lane) ----\n");
+    TESTINSN_VSTn_RI("vst1.32 {d0[0]}", d0, d0, d0, d0, r5, 13);
+    TESTINSN_VSTn_RI("vst1.32 {d0[1]}", d0, d0, d0, d0, r9, 42);
+    TESTINSN_VSTn_RI("vst1.16 {d1[0]}", d1, d1, d1, d1, r1, 0);
+    TESTINSN_VSTn_RI("vst1.16 {d1[1]}", d1, d1, d1, d1, r5, -3);
+    TESTINSN_VSTn_RI("vst1.16 {d1[2]}", d1, d1, d1, d1, r5, 13);
+    TESTINSN_VSTn_RI("vst1.16 {d1[3]}", d1, d1, d1, d1, r5, 13);
+    TESTINSN_VSTn_RI("vst1.8 {d0[7]}", d0, d0, d0, d0, r5, 13);
+    TESTINSN_VSTn_RI("vst1.8 {d1[6]}", d1, d1, d1, d1, r5, 13);
+    TESTINSN_VSTn_RI("vst1.8 {d0[5]}", d0, d0, d0, d0, r5, 13);
+    TESTINSN_VSTn_RI("vst1.8 {d0[4]}", d0, d0, d0, d0, r5, 13);
+    TESTINSN_VSTn_RI("vst1.8 {d20[3]}", d20, d20, d20, d20, r5, 13);
+    TESTINSN_VSTn_RI("vst1.8 {d0[2]}", d0, d0, d0, d0, r5, 13);
+    TESTINSN_VSTn_RI("vst1.8 {d17[1]}", d17, d17, d17, d17, r5, 13);
+    TESTINSN_VSTn_RI("vst1.8 {d30[0]}", d30, d30, d30, d30, r5, 13);
+
+    printf("---- VST2 (multiple 2-elements) ----\n");
+    TESTINSN_VSTn_RI("vst2.8 {d30-d31}", d30, d31, d30, d31, r5, 13);
+    TESTINSN_VSTn_RI("vst2.16 {d0-d1}", d0, d1, d0, d1, r9, 42);
+    TESTINSN_VSTn_RI("vst2.32 {d0-d1}", d0, d1, d0, d1, r1, 0);
+    TESTINSN_VSTn_RI("vst2.8 {d10,d12}", d10, d12, d10, d12, r5, -3);
+    TESTINSN_VSTn_RI("vst2.16 {d20,d22}", d20, d22, d20, d22, r5, 13);
+    TESTINSN_VSTn_RI("vst2.32 {d0,d2}", d0, d2, d0, d2, r5, 13);
+    TESTINSN_VSTn_RI("vst2.8 {d0-d3}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VSTn_RI("vst2.16 {d20-d23}", d20, d21, d22, d23, r5, 13);
+    TESTINSN_VSTn_RI("vst2.32 {d0-d3}", d0, d1, d2, d3, r5, 13);
+
+    printf("---- VST2 (single 2-element structure from one lane) ----\n");
+    TESTINSN_VSTn_RI("vst2.32 {d0[0],d1[0]}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VSTn_RI("vst2.32 {d0[1],d1[1]}", d0, d1, d0, d1, r9, 42);
+    TESTINSN_VSTn_RI("vst2.32 {d0[0],d2[0]}", d0, d2, d0, d2, r1, 0);
+    TESTINSN_VSTn_RI("vst2.32 {d0[1],d2[1]}", d0, d2, d0, d2, r5, -3);
+    TESTINSN_VSTn_RI("vst2.16 {d1[0],d2[0]}", d1, d2, d1, d2, r5, 13);
+    TESTINSN_VSTn_RI("vst2.16 {d1[1],d2[1]}", d1, d2, d1, d2, r5, 13);
+    TESTINSN_VSTn_RI("vst2.16 {d1[2],d2[2]}", d1, d2, d1, d2, r5, 13);
+    TESTINSN_VSTn_RI("vst2.16 {d1[3],d2[3]}", d1, d2, d1, d2, r5, 13);
+    TESTINSN_VSTn_RI("vst2.16 {d1[0],d3[0]}", d1, d3, d1, d3, r5, 13);
+    TESTINSN_VSTn_RI("vst2.16 {d1[1],d3[1]}", d1, d3, d1, d3, r5, 13);
+    TESTINSN_VSTn_RI("vst2.16 {d1[2],d3[2]}", d1, d3, d1, d3, r5, 13);
+    TESTINSN_VSTn_RI("vst2.16 {d1[3],d3[3]}", d1, d3, d1, d3, r5, 13);
+    TESTINSN_VSTn_RI("vst2.8 {d0[7],d1[7]}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VSTn_RI("vst2.8 {d1[6],d2[6]}", d1, d2, d1, d2, r5, 13);
+    TESTINSN_VSTn_RI("vst2.8 {d0[5],d1[5]}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VSTn_RI("vst2.8 {d0[4],d1[4]}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VSTn_RI("vst2.8 {d20[3],d21[3]}", d20, d21, d20, d21, r5, 13);
+    TESTINSN_VSTn_RI("vst2.8 {d0[2],d1[2]}", d0, d1, d0, d1, r5, 13);
+    TESTINSN_VSTn_RI("vst2.8 {d17[1],d18[1]}", d17, d18, d17, d18, r5, 13);
+    TESTINSN_VSTn_RI("vst2.8 {d30[0],d31[0]}", d30, d31, d30, d31, r5, 13);
+
+    printf("---- VST3 (multiple 3-elements) ----\n");
+    TESTINSN_VSTn_RI("vst3.8 {d20-d22}", d20, d21, d22, d20, r5, 13);
+    TESTINSN_VSTn_RI("vst3.16 {d0-d2}", d0, d1, d2, d0, r9, 42);
+    TESTINSN_VSTn_RI("vst3.32 {d0-d2}", d0, d1, d2, d0, r1, 0);
+    TESTINSN_VSTn_RI("vst3.8 {d0,d2,d4}", d0, d2, d4, d0, r5, -3);
+    TESTINSN_VSTn_RI("vst3.16 {d20,d22,d24}", d20, d22, d24, d20, r5, 13);
+    TESTINSN_VSTn_RI("vst3.32 {d0,d2,d4}", d0, d2, d4, d0, r5, 13);
+
+    printf("---- VST3 (single 3-element structure from one lane) ----\n");
+    TESTINSN_VSTn_RI("vst3.32 {d0[0],d1[0],d2[0]}", d0, d1, d2, d1, r5, 13);
+    TESTINSN_VSTn_RI("vst3.32 {d0[1],d1[1],d2[1]}", d0, d1, d2, d1, r9, 42);
+    TESTINSN_VSTn_RI("vst3.32 {d0[0],d2[0],d4[0]}", d0, d2, d4, d2, r1, 0);
+    TESTINSN_VSTn_RI("vst3.32 {d0[1],d2[1],d4[1]}", d0, d2, d4, d2, r5, -3);
+    TESTINSN_VSTn_RI("vst3.16 {d1[0],d2[0],d3[0]}", d1, d2, d3, d2, r5, 13);
+    TESTINSN_VSTn_RI("vst3.16 {d1[1],d2[1],d3[1]}", d1, d2, d3, d2, r5, 13);
+    TESTINSN_VSTn_RI("vst3.16 {d1[2],d2[2],d3[2]}", d1, d2, d3, d2, r5, 13);
+    TESTINSN_VSTn_RI("vst3.16 {d1[3],d2[3],d3[3]}", d1, d2, d3, d2, r5, 13);
+    TESTINSN_VSTn_RI("vst3.16 {d1[0],d3[0],d5[0]}", d1, d3, d3, d5, r5, 13);
+    TESTINSN_VSTn_RI("vst3.16 {d1[1],d3[1],d5[1]}", d1, d3, d3, d5, r5, 13);
+    TESTINSN_VSTn_RI("vst3.16 {d1[2],d3[2],d5[2]}", d1, d3, d3, d5, r5, 13);
+    TESTINSN_VSTn_RI("vst3.16 {d1[3],d3[3],d5[3]}", d1, d3, d3, d5, r5, 13);
+    TESTINSN_VSTn_RI("vst3.8 {d0[7],d1[7],d2[7]}", d0, d1, d2, d1, r5, 13);
+    TESTINSN_VSTn_RI("vst3.8 {d1[6],d2[6],d3[6]}", d1, d2, d3, d2, r5, 13);
+    TESTINSN_VSTn_RI("vst3.8 {d0[5],d1[5],d2[5]}", d0, d1, d2, d1, r5, 13);
+    TESTINSN_VSTn_RI("vst3.8 {d0[4],d1[4],d2[4]}", d0, d1, d2, d1, r5, 13);
+    TESTINSN_VSTn_RI("vst3.8 {d20[3],d21[3],d22[3]}", d20, d21, d22, d21, r5, 13);
+    TESTINSN_VSTn_RI("vst3.8 {d0[2],d1[2],d2[2]}", d0, d1, d2, d1, r5, 13);
+    TESTINSN_VSTn_RI("vst3.8 {d17[1],d18[1],d19[1]}", d17, d18, d19, d18, r5, 13);
+    TESTINSN_VSTn_RI("vst3.8 {d29[0],d30[0],d31[0]}", d30, d31, d29, d31, r5, 13);
+
+    printf("---- VST4 (multiple 4-elements) ----\n");
+    TESTINSN_VSTn_RI("vst4.8 {d0-d3}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VSTn_RI("vst4.16 {d20-d23}", d20, d21, d22, d23, r9, 42);
+    TESTINSN_VSTn_RI("vst4.32 {d0-d3}", d0, d1, d2, d3, r1, 0);
+    TESTINSN_VSTn_RI("vst4.8 {d0,d2,d4,d6}", d0, d2, d4, d6, r5, -3);
+    TESTINSN_VSTn_RI("vst4.16 {d1,d3,d5,d7}", d1, d3, d5, d7, r5, 13);
+    TESTINSN_VSTn_RI("vst4.32 {d20,d22,d24,d26}", d20, d22, d24, d26, r5, 13);
+
+    printf("---- VST4 (single 4-element structure from one lane) ----\n");
+    TESTINSN_VSTn_RI("vst4.32 {d0[0],d1[0],d2[0],d3[0]}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VSTn_RI("vst4.32 {d0[1],d1[1],d2[1],d3[1]}", d0, d1, d2, d4, r9, 42);
+    TESTINSN_VSTn_RI("vst4.32 {d0[0],d2[0],d4[0],d6[0]}", d0, d2, d4, d6, r1, 0);
+    TESTINSN_VSTn_RI("vst4.32 {d0[1],d2[1],d4[1],d6[1]}", d0, d2, d4, d6, r5, -3);
+    TESTINSN_VSTn_RI("vst4.16 {d1[0],d2[0],d3[0],d4[0]}", d1, d2, d3, d4, r5, 13);
+    TESTINSN_VSTn_RI("vst4.16 {d1[1],d2[1],d3[1],d4[1]}", d1, d2, d3, d4, r5, 13);
+    TESTINSN_VSTn_RI("vst4.16 {d1[2],d2[2],d3[2],d4[2]}", d1, d2, d3, d4, r5, 13);
+    TESTINSN_VSTn_RI("vst4.16 {d1[3],d2[3],d3[3],d4[3]}", d1, d2, d3, d4, r5, 13);
+    TESTINSN_VSTn_RI("vst4.16 {d1[0],d3[0],d5[0],d7[0]}", d1, d3, d5, d7, r5, 13);
+    TESTINSN_VSTn_RI("vst4.16 {d1[1],d3[1],d5[1],d7[1]}", d1, d3, d5, d7, r5, 13);
+    TESTINSN_VSTn_RI("vst4.16 {d1[2],d3[2],d5[2],d7[2]}", d1, d3, d5, d7, r5, 13);
+    TESTINSN_VSTn_RI("vst4.16 {d1[3],d3[3],d5[3],d7[3]}", d1, d3, d5, d7, r5, 13);
+    TESTINSN_VSTn_RI("vst4.8 {d0[7],d1[7],d2[7],d3[7]}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VSTn_RI("vst4.8 {d1[6],d2[6],d3[6],d4[6]}", d1, d2, d3, d4, r5, 13);
+    TESTINSN_VSTn_RI("vst4.8 {d0[5],d1[5],d2[5],d3[5]}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VSTn_RI("vst4.8 {d0[4],d1[4],d2[4],d3[4]}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VSTn_RI("vst4.8 {d20[3],d21[3],d22[3],d23[3]}", d20, d21, d22, d23, r5, 13);
+    TESTINSN_VSTn_RI("vst4.8 {d0[2],d1[2],d2[2],d3[2]}", d0, d1, d2, d3, r5, 13);
+    TESTINSN_VSTn_RI("vst4.8 {d17[1],d18[1],d19[1],d20[1]}", d17, d18, d19, d20, r5, 13);
+    TESTINSN_VSTn_RI("vst4.8 {d28[0],d29[0],d30[0],d31[0]}", d28, d29, d30, d31, r5, 13);
 
     printf("---- VMOVN ----\n");
     TESTINSN_bin("vmovn.i32 d0, q0", d0, d0, i32, 0x32, d1, i32, 0x24);

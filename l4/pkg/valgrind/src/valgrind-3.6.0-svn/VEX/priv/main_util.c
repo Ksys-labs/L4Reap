@@ -51,7 +51,7 @@
    MByte/sec.  Once the size increases enough to fall out of the cache
    into memory, the rate falls by about a factor of 3. 
 */
-#define N_TEMPORARY_BYTES 4000000
+#define N_TEMPORARY_BYTES 5000000
 
 static HChar  temporary[N_TEMPORARY_BYTES] __attribute__((aligned(8)));
 static HChar* temporary_first = &temporary[0];
@@ -235,7 +235,7 @@ void vpanic ( HChar* str )
    New code for vex_util.c should go above this point. */
 #include <stdarg.h>
 
-static Int vex_strlen ( const HChar* str )
+Int vex_strlen ( const HChar* str )
 {
    Int i = 0;
    while (str[i] != 0) i++;

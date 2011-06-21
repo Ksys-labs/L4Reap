@@ -70,14 +70,15 @@ typedef Int ArenaId;
 // minimum alignment.  Must be a power of 2 greater than 4, and should be
 // greater than 8.
 #if   defined(VGP_x86_linux)   || \
-      defined(VGP_ppc32_linux) || \
       defined(VGP_arm_linux)   || \
       defined(VGP_x86_l4re)
 #  define VG_MIN_MALLOC_SZB        8
 // Nb: We always use 16 bytes for Darwin, even on 32-bits, so it can be used
 // for any AltiVec- or SSE-related type.  This matches the Darwin libc.
 #elif defined(VGP_amd64_linux) || \
+      defined(VGP_ppc32_linux) || \
       defined(VGP_ppc64_linux) || \
+      defined(VGP_s390x_linux) || \
       defined(VGP_ppc64_aix5)  || \
       defined(VGP_ppc32_aix5)  || \
       defined(VGP_x86_darwin)  || \

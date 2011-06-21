@@ -12,7 +12,13 @@ usage: valgrind [options] prog-and-args
     --trace-children=no|yes   Valgrind-ise child processes (follow execve)? [no]
     --trace-children-skip=patt1,patt2,...    specifies a list of executables
                               that --trace-children=yes should not trace into
+    --trace-children-skip-by-arg=patt1,patt2,...   same as --trace-children-skip=
+                              but check the argv[] entries for children, rather
+                              than the exe name, to make a follow/no-follow decision
     --child-silent-after-fork=no|yes omit child output between fork & exec? [no]
+    --vgdb=no|yes|full        activate gdbserver? [yes]
+                              full is slower but provides precise watchpoint/step
+    --vgdb-error=<number>     invoke gdbserver after <number> errors [999999999] 
     --track-fds=no|yes        track open file descriptors? [no]
     --time-stamp=no|yes       add timestamps to log messages? [no]
     --log-fd=<number>         log messages to file descriptor [2=stderr]
@@ -45,12 +51,21 @@ usage: valgrind [options] prog-and-args
     --alignment=<number>      set minimum alignment of heap allocations [...]
 
   uncommon user options for all Valgrind tools:
+    --fullpath-after=         (with nothing after the '=')
+                              show full source paths in call stacks
+    --fullpath-after=string   like --fullpath-after=, but only show the
+                              part of the path after 'string'.  Allows removal
+                              of path prefixes.  Use this flag multiple times
+                              to specify a set of prefixes to remove.
     --smc-check=none|stack|all  checks for self-modifying code: none,
                               only for code found in stacks, or all [stack]
     --read-var-info=yes|no    read debug info on stack and global variables
                               and use it to print better error messages in
                               tools that make use of it (Memcheck, Helgrind,
                               DRD) [no]
+    --vgdb-poll=<number>      gdbserver poll max every <number> basic blocks [5000] 
+    --vgdb-shadow-registers=no|yes   let gdb see the shadow registers [no]
+    --vgdb-prefix=<prefix>    prefix for vgdb FIFOs [/tmp/vgdb-pipe]
     --run-libc-freeres=no|yes free up glibc memory at exit on Linux? [yes]
     --sim-hints=hint1,hint2,...  known hints:
                                  lax-ioctls, enable-outer [none]
@@ -119,7 +134,7 @@ usage: valgrind [options] prog-and-args
 
   Nulgrind is Copyright (C) 2002-2010, and GNU GPL'd, by Nicholas Nethercote.
   Valgrind is Copyright (C) 2000-2010, and GNU GPL'd, by Julian Seward et al.
-  LibVEX is Copyright (C) 2004-2010, and GNU GPL'd, by OpenWorks LLP.
+  LibVEX is Copyright (C) 2004-2010, and GNU GPL'd, by OpenWorks LLP et al.
 
   Bug reports, feedback, admiration, abuse, etc, to: www.valgrind.org.
 

@@ -96,8 +96,10 @@ Char *VG_(getenv)(Char *varname)
 
 void  VG_(env_unsetenv) ( Char **env, const Char *varname )
 {
-   Char **from;
-   Char **to = NULL;
+   Char **from, **to;
+   vg_assert(env);
+   vg_assert(varname);
+   to = NULL;
    Int len = VG_(strlen)(varname);
 
    for (from = to = env; from && *from; from++) {
@@ -310,6 +312,7 @@ Char **VG_(env_clone) ( Char **oldenv )
    Char **newenv;
    Int  envlen;
 
+   vg_assert(oldenv);
    for (oldenvp = oldenv; oldenvp && *oldenvp; oldenvp++);
 
    envlen = oldenvp - oldenv + 1;
@@ -437,6 +440,21 @@ Int VG_(setrlimit) (Int resource, const struct vki_rlimit *rlim)
    res = VG_(do_syscall2)(__NR_setrlimit, resource, (UWord)rlim);
    return sr_isError(res) ? -1 : sr_Res(res);
 #endif
+}
+
+/* Support for prctl. */
+Int VG_(prctl) (Int option, 
+                ULong arg2, ULong arg3, ULong arg4, ULong arg5)
+{
+   SysRes res = VG_(mk_SysRes_Error)(VKI_ENOSYS);
+#  if defined(VGO_linux)
+   /* res = prctl( option, arg2, arg3, arg4, arg5 ); */
+   res = VG_(do_syscall5)(__NR_prctl, (UWord) option,
+                          (UWord) arg2, (UWord) arg3, (UWord) arg4,
+                          (UWord) arg5);
+#  endif
+
+   return sr_isError(res) ? -1 : sr_Res(res);
 }
 
 /* ---------------------------------------------------------------------
@@ -592,7 +610,7 @@ Int VG_(getgroups)( Int size, UInt* list )
 #  elif defined(VGP_amd64_linux) || defined(VGP_ppc64_linux)  \
         || defined(VGP_arm_linux)                             \
         || defined(VGP_ppc32_aix5) || defined(VGP_ppc64_aix5) \
-        || defined(VGO_darwin)
+        || defined(VGO_darwin) || defined(VGP_s390x_linux)
    SysRes sres;
    sres = VG_(do_syscall2)(__NR_getgroups, size, (Addr)list);
    if (sr_isError(sres))

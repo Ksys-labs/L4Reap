@@ -901,6 +901,9 @@ static void invalidate_icache ( void *ptr, Int nbytes )
 #  elif defined(VGA_amd64)
    /* no need to do anything, hardware provides coherence */
 
+#  elif defined(VGA_s390x)
+   /* no need to do anything, hardware provides coherence */
+
 #  elif defined(VGP_arm_linux)
    /* ARM cache flushes are privileged, so we must defer to the kernel. */
    Addr startaddr = (Addr) ptr;
@@ -1556,7 +1559,7 @@ void VG_(init_tt_tc) ( void )
 
    /* Ensure the calculated value is not way crazy. */
    vg_assert(tc_sector_szQ >= 2 * N_TTES_PER_SECTOR_USABLE);
-   vg_assert(tc_sector_szQ <= 80 * N_TTES_PER_SECTOR_USABLE);
+   vg_assert(tc_sector_szQ <= 100 * N_TTES_PER_SECTOR_USABLE);
 
    /* Initialise the sectors */
    youngest_sector = 0;

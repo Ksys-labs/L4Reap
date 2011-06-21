@@ -470,6 +470,19 @@ Jdb::leave_getchar()
     tcsetattr (fileno (stdin), TCSAFLUSH, &raw);
 }
 
+PROTECTED static inline
+template< typename T >
+void
+Jdb::set_monitored_address(T *dest, T val)
+{ *dest = val; }
+
+PROTECTED static inline
+template< typename T >
+T Jdb::monitor_address(unsigned, T volatile *addr)
+{
+  return *addr;
+}
+
 //----------------------------------------------------------------------------
 IMPLEMENTATION [ux && mp]:
 

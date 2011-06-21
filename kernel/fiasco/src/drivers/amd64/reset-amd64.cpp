@@ -5,7 +5,7 @@ IMPLEMENTATION[amd64]:
 
 // reset PC
 void __attribute__ ((noreturn))
-pc_reset()
+platform_reset()
 {
   // i8042: store the next byte at port 0x60 as command byte
   while (Io::in8 (0x64) & 0x2)

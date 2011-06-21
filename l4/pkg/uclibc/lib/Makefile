@@ -1,9 +1,6 @@
 PKGDIR	?= ..
 L4DIR	?= $(PKGDIR)/../..
 
-TARGET = uclibc backends
-# libpthread is built via uclibc_r
+TARGET = uclibc libpthread
 
 include $(L4DIR)/mk/subdir.mk
-
-backends: uclibc

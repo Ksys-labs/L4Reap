@@ -35,6 +35,7 @@
 #include "pub_core_basics.h"
 #include "pub_core_vki.h"
 #include "pub_core_vkiscnums.h"
+#include "pub_core_libcsetjmp.h"
 #include "pub_core_threadstate.h"
 #include "pub_core_aspacemgr.h"
 #include "pub_core_debuglog.h"
@@ -60,9 +61,9 @@
 #include "priv_syswrap-main.h"
 
 #if defined(VGO_l4re)
-#include <l4/sys/types.h> 
-#include <l4/sys/thread.h> 
-#include <l4/sys/utcb.h> 
+#include <l4/sys/types.h>
+#include <l4/sys/thread.h>
+#include <l4/sys/utcb.h>
 #include <l4/sys/ipc.h>
 #include <l4/util/util.h>
 #include <l4/sys/consts.h>
@@ -110,7 +111,7 @@ asm(
 static void setup_child ( ThreadArchState*, ThreadArchState*, Bool, Word );
 static SysRes sys_set_thread_area ( ThreadId, vki_modify_ldt_t* );
 
-/* 
+/*
    When a client creates a new thread, we need to keep track of the new thread.  This means:
    1. allocate a ThreadId+ThreadState+stack for the the thread
 
@@ -121,8 +122,8 @@ static SysRes sys_set_thread_area ( ThreadId, vki_modify_ldt_t* );
    but using the scheduler entrypoint for EIP, and a separate stack
    for ESP.
  */
-static SysRes do_create_new_thread ( ThreadId ptid, 
-                                     Addr esp, 
+static SysRes do_create_new_thread ( ThreadId ptid,
+                                     Addr esp,
                                      l4_umword_t flags,
                                      Word client_ip)
 {
@@ -161,7 +162,7 @@ static SysRes do_create_new_thread ( ThreadId ptid,
    */
    /* Note: the clone call done by the Quadrics Elan3 driver specifies
       clone flags of 0xF00, and it seems to rely on the assumption
-      that the child inherits a copy of the parent's GDT.  
+      that the child inherits a copy of the parent's GDT.
       setup_child takes care of setting that up. */
    setup_child( &ctst->arch, &ptst->arch, True, client_ip );
 
@@ -219,16 +220,16 @@ static SysRes do_create_new_thread ( ThreadId ptid,
    /* Therefore Valgrind doesn't lose control over the client thread
     * a special function is called in valgrinds context */
    vg_eip = (l4_umword_t) &ML_(start_thread_NORETURN);
-   
-   *stack =  (UWord) &VG_(threads)[ctid]; 
+
+   *stack =  (UWord) &VG_(threads)[ctid];
    stack--;
- 
+
    vg_stack = (l4_umword_t) stack;
 
    VG_(debugLog)(0, "syswrap", "creating new thread\n"
                                "\t\t\t  (vg) ip    = 0x%08lx\n"
                                "\t\t\t  (vg) stack = 0x%08x\n"
-                               "\t\t\t  (cl) ip    = 0x%08x\n" 
+                               "\t\t\t  (cl) ip    = 0x%08x\n"
                                "\t\t\t  (cl) stack = 0x%08x\n"
                                "\t\t\t       flags = 0x%08x\n",
                                vg_eip,
@@ -243,12 +244,12 @@ static SysRes do_create_new_thread ( ThreadId ptid,
                             (l4_umword_t *) &flags,   /* flags */
                             l4_utcb_wrap());
 
-   /* Every thread in Valgrind gets a name - a nice feature 
+   /* Every thread in Valgrind gets a name - a nice feature
     * of the fiasco micro kernel, good for debugging */
 
    if (VG_(snprintf)(thread_name, 15, "VG::thread%d", ctid) > 0)
      l4_debugger_set_object_name(ptst->arch.vex.guest_EDX, thread_name);
-   
+
    eax = 1;
    res = VG_(mk_SysRes_x86_l4re)( eax );
   out:
@@ -270,10 +271,10 @@ static SysRes do_create_new_thread ( ThreadId ptid,
 void VG_(cleanup_thread) ( ThreadArchState* arch )
 {
    /* Release arch-specific resources held by this thread. */
-}  
+}
 
 
-static void setup_child ( /*OUT*/ ThreadArchState *child, 
+static void setup_child ( /*OUT*/ ThreadArchState *child,
                           /*IN*/  ThreadArchState *parent,
                           Bool inherit_parents_GDT,
                           Word client_ip)
@@ -285,7 +286,7 @@ static void setup_child ( /*OUT*/ ThreadArchState *child,
    /* In L4Re creating a new thread means not cloning like in linux,
     * instead a new instruction pointer is required */
    child->vex.guest_EIP = client_ip;
-}  
+}
 
 
 /* ---------------------------------------------------------------------
@@ -298,13 +299,13 @@ static void setup_child ( /*OUT*/ ThreadArchState *child,
 #define FOO(name)       case L4_PROTO_##name : VG_(printf)(#name); break;
 enum
 {
-	L4_PROTO_DATASPACE = 0x4000,
-	L4_PROTO_NAMESPACE,
-	L4_PROTO_PARENT,
-	L4_PROTO_GOOS,
-	L4_PROTO_MEMALLOC,
-	L4_PROTO_RM,
-	L4_PROTO_EVENT,
+    L4_PROTO_DATASPACE = 0x4000,
+    L4_PROTO_NAMESPACE,
+    L4_PROTO_PARENT,
+    L4_PROTO_GOOS,
+    L4_PROTO_MEMALLOC,
+    L4_PROTO_RM,
+    L4_PROTO_EVENT,
 };
 /*
  * print some informations about current syscall
@@ -332,13 +333,13 @@ void print_infos_to_syscall(l4_msgtag_t *tag, ThreadId tid) {
             FOO(THREAD);
             FOO(LOG);
             FOO(SCHEDULER);
-			FOO(DATASPACE);
-			FOO(NAMESPACE);
-			FOO(PARENT);
-			FOO(GOOS);
-			FOO(RM);
-			FOO(MEMALLOC);
-			FOO(EVENT);
+            FOO(DATASPACE);
+            FOO(NAMESPACE);
+            FOO(PARENT);
+            FOO(GOOS);
+            FOO(RM);
+            FOO(MEMALLOC);
+            FOO(EVENT);
             default:               VG_(printf)("unknown");
                                    break;
         }
@@ -347,6 +348,81 @@ void print_infos_to_syscall(l4_msgtag_t *tag, ThreadId tid) {
 }
 
 #undef FOO
+
+/*
+ * Determine if system call arguments indicate task termination.
+ */
+Bool syscall_is_exit(SyscallArgs* args)
+{
+    return (args->arg4 /* EDX */ == (L4_INVALID_CAP | L4_SYSF_RECV))
+        && (args->arg3 /* ECX */ == L4_IPC_NEVER.raw );
+}
+
+/*
+ * Determine if syscall arguments are for thread_ex_regs
+ */
+Bool syscall_is_threadexregs(SyscallArgs *args, l4_msg_regs_t *mr, l4_msgtag_t tag)
+{
+    return (l4_msgtag_label(tag) == L4_PROTO_THREAD)
+        && (mr->mr[0] & L4_THREAD_EX_REGS_OP);
+}
+
+
+/*
+ * Determine if system call would perform a GDT set.
+ */
+Bool syscall_is_setgdt(l4_msg_regs_t *mr, l4_msgtag_t tag)
+{
+    return (l4_msgtag_label(tag) == L4_PROTO_THREAD)
+        && (mr->mr[0] == L4_THREAD_GDT_X86_OP);
+}
+
+
+/*
+ * Determine if syscall is a PARENT signal IPC.
+ */
+Bool syscall_is_parentsignal(l4_msg_regs_t *mr, l4_msgtag_t tag)
+{
+   return (l4_msgtag_label(tag) == L4_PROTO_PARENT)
+       && (mr->mr[1] == 0);
+}
+
+
+/*
+ * Handle GDT set system call.
+ *
+ * This code basically does what Fiasco does, but uses the guest_GDT
+ * that was allocated upon thread creation instead of performing a
+ * system call.
+ */
+int handle_gdt_set(l4_msg_regs_t *mr, l4_msgtag_t tag, ThreadState *ts)
+{
+    enum { GDT_USER_ENTRY1 = 0x48 };
+    unsigned idx        = mr->mr[1];
+    unsigned words      = l4_msgtag_words(tag);
+    Addr gdt_user_start = (Addr)(ts->arch.vex.guest_GDT + GDT_USER_ENTRY1);
+
+    if (words == 0) {
+        return 1; // invalid
+    }
+    if (words == 1) { // case 1: read entry
+        mr->mr[0] = *(unsigned int *)gdt_user_start;
+    } else {
+        words -= 2; // -2 words are opcode and index
+
+        VG_(memcpy)(gdt_user_start + 2 * idx,
+                    &mr->mr[2], words * sizeof(unsigned));
+
+        /*
+         * Return value is a msgtag with the label set to the proper GDT entry.
+         * This needs to be correct as it will later on be used to index the GDT.
+         */
+        ts->arch.vex.guest_EAX = ((idx << 3) + GDT_USER_ENTRY1 + 3) << 16;
+    }
+
+    return 0;
+}
+
 
 PRE(generic)
 {
@@ -357,8 +433,8 @@ PRE(generic)
     l4_msgtag_t *tag;
     if (0) VG_(printf)("PRE_generic: sysno = %08lx arg0 = %8lx arg1 = %8lx arg2 = %8lx\n"
                        "             arg3  = %8lx arg4 = %8lx arg5 = %8lx arg6 = %8lx\n",
-            arrghs->sysno, arrghs->arg1, arrghs->arg2, arrghs->arg3, arrghs->arg4,
-            arrghs->arg5, arrghs->arg6, arrghs->arg7);
+                       arrghs->sysno, arrghs->arg1, arrghs->arg2, arrghs->arg3, arrghs->arg4,
+                       arrghs->arg5, arrghs->arg6, arrghs->arg7);
     /* get access to virtual utcb of client */
     u = ts_utcb(&VG_(threads)[tid]);
     v = l4_utcb_mr_u(u);
@@ -370,18 +446,14 @@ PRE(generic)
     print_infos_to_syscall(tag, tid);
     VG_(get_and_pp_StackTrace)( tid, VG_(clo_backtrace_size) );
 #endif
-    if ((arrghs->arg4 /* EDX */ == (L4_INVALID_CAP | L4_SYSF_RECV)) &&
-        (arrghs->arg3 /* ECX */ == L4_IPC_NEVER.raw ) ) {
+    if (syscall_is_exit(arrghs)) {
         /* l4_sleep_forever */
         tst->exitreason = VgSrc_ExitThread;
         tst->os_state.exitcode = 1;
         SET_STATUS_Success(0);
         //enter_kdebug("l4_sleep_forever");
-    } else
 
-    if ((l4_msgtag_label(*tag) == L4_PROTO_THREAD) &&
-        (v->mr[0] & L4_THREAD_EX_REGS_OP) )
-    {
+    } else if (syscall_is_threadexregs(arrghs, v, *tag)) {
         // TODO is this really a thread-create??
         // TODO store thread cap
         // catch cap mappings
@@ -393,27 +465,30 @@ PRE(generic)
                                     "\t\t\t  (cl) ip = 0x%x\n"
                                     "\t\t\t  (cl) sp = 0x%x\n"
                                     "\t\t\t    flags = 0x%x\n",
-                                    (unsigned int) v->mr[1], 
+                                    (unsigned int) v->mr[1],
                                     (unsigned int) v->mr[2],
                                     (unsigned int) v->mr[0]);
 #endif
         if (0) enter_kdebug("before thread create");
-        
-        do_create_new_thread ( tid, 
+
+        do_create_new_thread ( tid,
                                v->mr[2], /*stack pointer*/
                                v->mr[0], /*flags*/
                                v->mr[1]  /*instruction pointer*/
                              );
-        
+
         if (0) enter_kdebug("after thread create");
         SET_STATUS_Success(0);
         *flags |= SfYieldAfter;
-   } else if ((l4_msgtag_label(*tag) == L4_PROTO_PARENT) &&
-              (v->mr[1] == 0)) {
+
+    } else if (syscall_is_setgdt(v, *tag)) {
+        SET_STATUS_Success(handle_gdt_set(v, *tag, tst));
+
+    } else if (syscall_is_parentsignal(v, *tag)) {
         /* the guest signals his parent that he would exit now */
 #if DEBUG_MYSELF
-        VG_(debugLog)(0, "syswrap", "The client would like to exit\n"); 
-        VG_(debugLog)(0, "syswrap", "exit code = 0x%x\n", (unsigned int) v->mr[2]); 
+        VG_(debugLog)(0, "syswrap", "The client would like to exit\n");
+        VG_(debugLog)(0, "syswrap", "exit code = 0x%x\n", (unsigned int) v->mr[2]);
 #endif
         tst->exitreason = VgSrc_ExitThread;
         tst->os_state.exitcode = v->mr[2];
@@ -435,7 +510,11 @@ PRE(generic)
             }
         }
         SET_STATUS_Success(0);
+
     } else {
+        /*
+         * In all other cases this might be a "normal" IPC and thus might block.
+         */
         *flags |= SfMayBlock;
     }
 #undef DEBUG_MYSELF
@@ -463,7 +542,7 @@ POST(dummy) { }
    ------------------------------------------------------------------ */
 
 /* Add an x86-l4re specific wrapper to a syscall table. */
-#define PLAX_(sysno, name)    WRAPPER_ENTRY_X_(x86_l4re, sysno, name) 
+#define PLAX_(sysno, name)    WRAPPER_ENTRY_X_(x86_l4re, sysno, name)
 #define PLAXY(sysno, name)    WRAPPER_ENTRY_XY(x86_l4re, sysno, name)
 
 
@@ -484,7 +563,7 @@ const SyscallTableEntry ML_(syscall_table)[] = {
   PLAXY(SYS_ARTIFICIAL, dummy),
 };
 
-const UInt ML_(syscall_table_size) = 
+const UInt ML_(syscall_table_size) =
             sizeof(ML_(syscall_table)) / sizeof(ML_(syscall_table)[0]);
 
 /*--------------------------------------------------------------------*/

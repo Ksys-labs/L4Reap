@@ -60,6 +60,9 @@ public:
 
   ssize_t readv(const struct iovec*, int iovcnt) throw();
   ssize_t writev(const struct iovec*, int iovcnt) throw();
+  ssize_t preadv(const struct iovec *iov, int iovcnt, off64_t offset) throw();
+  ssize_t pwritev(const struct iovec *iov, int iovcnt, off64_t offset) throw();
+
   off64_t lseek64(off64_t, int) throw();
   int fstat64(struct stat64 *buf) const throw();
 
@@ -234,6 +237,24 @@ Ux_file::writev(const struct iovec *iov, int cnt) throw()
   return lx_writev(_fd, (struct lx_iovec*)iov, cnt);
 }
 
+ssize_t
+Ux_file::preadv(const struct iovec *iov, int iovcnt, off64_t offset) throw()
+{
+  for (int i = 0; i < iovcnt; ++i)
+    l4_touch_rw(iov[i].iov_base, iov[i].iov_len);
+
+  return lx_preadv(_fd, (struct lx_iovec*)iov, iovcnt, offset, offset << 32);
+}
+
+ssize_t
+Ux_file::pwritev(const struct iovec *iov, int iovcnt, off64_t offset) throw()
+{
+  for (int i = 0; i < iovcnt; ++i)
+    l4_touch_ro(iov[i].iov_base, iov[i].iov_len);
+
+  return lx_pwritev(_fd, (struct lx_iovec*)iov, iovcnt, offset, offset << 32);
+}
+
 off64_t
 Ux_file::lseek64(off64_t offset, int whence) L4_NOTHROW
 {
@@ -292,6 +313,6 @@ public:
   }
 };
 
-static Ux_fs _ux_fs;
+static Ux_fs _ux_fs L4RE_VFS_FILE_SYSTEM_ATTRIBUTE;
 
 }

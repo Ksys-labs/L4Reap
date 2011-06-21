@@ -30,16 +30,16 @@ SECTIONS
     *(.module_info)
     _module_info_end = .;
 
-    . = ALIGN(4K);
+    . = ALIGN(4096);
     _modules_start = .;
     *(.module.data)
-    . = ALIGN(4K);
+    . = ALIGN(4096);
     _modules_end = .;
     
   } : data
   _edata  =  .;
   PROVIDE (edata = .);
-  . = ALIGN(4K);
+  . = ALIGN(4096);
   __bss_start = .;
   .bss :
   {

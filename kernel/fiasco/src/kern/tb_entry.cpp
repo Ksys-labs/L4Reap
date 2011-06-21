@@ -41,7 +41,7 @@ struct Tb_log_table_entry
 };
 
 extern Tb_log_table_entry _log_table[];
-extern Tb_log_table_entry _log_table_end[];
+extern Tb_log_table_entry _log_table_end;
 
 class Context;
 class Space;
@@ -454,7 +454,7 @@ Tb_entry_ipc::set_sc(Context const *ctx, Mword ip, Syscall_frame *ipc_regs,
 PUBLIC inline
 Mword
 Tb_entry_ipc::ipc_type() const
-{ return payload<Payload>()->_dst.flags(); }
+{ return payload<Payload>()->_dst.op(); }
 
 PUBLIC inline
 Mword

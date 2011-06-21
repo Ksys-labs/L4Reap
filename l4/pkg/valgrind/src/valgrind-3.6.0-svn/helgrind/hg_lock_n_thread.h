@@ -54,8 +54,13 @@ typedef  WordSet  WordSetID;
 /* Synchronisation Objects, exported abstractly by libhb. */
 typedef  struct _SO  SO;
 
-/* Thr, libhb's private thread record, exported abstractly */
+/* Thr, libhb's private thread record, exported abstractly.  Thr's are
+   allocated and never deallocated (simply leaked).  Also ThrID, which
+   is a small integer which uniquely identifies a Thr and which is
+   used in ScalarTS because it is smaller than a Thr*.  There is a 1-1
+   mapping between Thr's and ThrIDs. */
 typedef  struct _Thr  Thr;
+typedef  UInt         ThrID;
 
 
 /* Stores information about a thread.  Addresses of these also serve
@@ -78,8 +83,8 @@ typedef
       /* ADMIN */
       struct _Thread* admin;
       UInt            magic;
-      Thr*            hbthr;
-      ThreadId        coretid;
+      Thr*            hbthr; /* which in turn points back here .. */
+      ThreadId        coretid;  /* .. via its hgthread field */
       /* USEFUL */
       WordSetID locksetA; /* WordSet of Lock* currently held by thread */
       WordSetID locksetW; /* subset of locksetA held in w-mode */
@@ -114,7 +119,8 @@ typedef
 typedef
    struct _Lock {
       /* ADMIN */
-      struct _Lock* admin;
+      struct _Lock* admin_next; /* fields for a double linked */
+      struct _Lock* admin_prev; /* list of these locks */
       ULong         unique; /* used for persistence-hashing */
       UInt          magic;  /* LockN_MAGIC or LockP_MAGIC */
       /* EXPOSITION */

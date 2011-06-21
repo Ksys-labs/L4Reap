@@ -27,9 +27,6 @@ typedef struct l4re_event_buffer_consumer_t
   unsigned long _obj_buf[8];
 } l4re_event_buffer_consumer_t;
 
-//typedef void l4re_event_buffer_consumer_obj_t;
-//typedef unsigned long l4re_event_buffer_consumer_obj_store_t[8];
-
 L4_CV void
 l4re_event_free(l4re_event_t *e) L4_NOTHROW;
 
@@ -40,14 +37,16 @@ l4re_event_buffer_attach(l4re_event_buffer_consumer_t *evbuf,
 L4_CV l4re_event_t *
 l4re_event_buffer_next(l4re_event_buffer_consumer_t *evbuf) L4_NOTHROW;
 
+typedef L4_CV void l4re_event_buffer_cb_t(l4re_event_t *ev, void *data);
+
 L4_CV void
-l4re_event_buffer_consumer_foreach_available_event
-  (l4re_event_buffer_consumer_t *evbuf, void *data,
-   L4_CV void (*cb)(l4re_event_t *ev, void *data)) L4_NOTHROW;
+l4re_event_buffer_consumer_foreach_available_event(l4re_event_buffer_consumer_t *evbuf,
+    void *data, l4re_event_buffer_cb_t *cb);
+
 
 L4_CV void
 l4re_event_buffer_consumer_process(l4re_event_buffer_consumer_t *evbuf,
                                    l4_cap_idx_t irq, l4_cap_idx_t thread, void *data,
-                                   L4_CV void (*cb)(l4re_event_t *ev, void *data)) L4_NOTHROW;
+                                   l4re_event_buffer_cb_t *cb);
 
 EXTERN_C_END

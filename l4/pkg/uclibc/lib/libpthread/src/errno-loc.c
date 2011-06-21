@@ -22,6 +22,9 @@
 #include "internals.h"
 #include <pt-machine.h>
 //#include <sysdep-cancel.h>
+#if defined USE_TLS && USE_TLS
+#define USE___THREAD 1
+#endif
 
 #define SINGLE_THREAD_P \
   __builtin_expect (THREAD_GETMEM (thread_self(),				      \

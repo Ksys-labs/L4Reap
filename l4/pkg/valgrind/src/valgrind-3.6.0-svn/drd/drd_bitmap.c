@@ -1,8 +1,8 @@
-/* -*- mode: C; c-basic-offset: 3; -*- */
+/* -*- mode: C; c-basic-offset: 3; indent-tabs-mode: nil; -*- */
 /*
   This file is part of drd, a thread error detector.
 
-  Copyright (C) 2006-2010 Bart Van Assche <bart.vanassche@gmail.com>.
+  Copyright (C) 2006-2011 Bart Van Assche <bvanassche@acm.org>.
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -129,7 +129,7 @@ void DRD_(bm_access_range_load)(struct bitmap* const bm, Addr a1, Addr a2)
    Addr b, b_next;
 
    tl_assert(bm);
-   tl_assert(a1 < a2);
+   tl_assert(a1 <= a2);
    tl_assert(a2 < first_address_with_higher_msb(a2));
    tl_assert(a1 == first_address_with_same_lsb(a1));
    tl_assert(a2 == first_address_with_same_lsb(a2));
@@ -226,7 +226,7 @@ void DRD_(bm_access_range_store)(struct bitmap* const bm,
    Addr b, b_next;
 
    tl_assert(bm);
-   tl_assert(a1 < a2);
+   tl_assert(a1 <= a2);
    tl_assert(a2 < first_address_with_higher_msb(a2));
    tl_assert(a1 == first_address_with_same_lsb(a1));
    tl_assert(a2 == first_address_with_same_lsb(a2));

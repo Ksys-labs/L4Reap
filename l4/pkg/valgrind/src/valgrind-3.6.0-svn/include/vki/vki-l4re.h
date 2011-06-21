@@ -7,7 +7,7 @@
    This file is part of Valgrind, a dynamic binary instrumentation
    framework.
 
-   Copyright (C) 2000-2009 Julian Seward 
+   Copyright (C) 2000-2010 Julian Seward 
       jseward@acm.org
 
    This program is free software; you can redistribute it and/or
@@ -84,6 +84,34 @@
 #else
 #  error Unknown platform
 #endif
+
+//----------------------------------------------------------------------
+// VKI_STATIC_ASSERT(). Inspired by BUILD_BUG_ON() from
+// linux-2.6.34/include/linux/kernel.h
+//----------------------------------------------------------------------
+
+/*
+ * Evaluates to zero if 'expr' is true and forces a compilation error if
+ * 'expr' is false. Can be used in a context where no comma expressions
+ * are allowed.
+ */
+#ifdef __cplusplus
+template <bool b> struct vki_static_assert { int m_bitfield:(2*b-1); };
+#define VKI_STATIC_ASSERT(expr)                         \
+    (sizeof(vki_static_assert<(expr)>) - sizeof(int))
+#else
+#define VKI_STATIC_ASSERT(expr) (sizeof(struct { int:-!(expr); }))
+#endif
+
+//----------------------------------------------------------------------
+// Based on _IOC_TYPECHECK() from linux-2.6.34/asm-generic/ioctl.h
+//----------------------------------------------------------------------
+
+/* provoke compile error for invalid uses of size argument */
+#define _VKI_IOC_TYPECHECK(t)                                           \
+    (VKI_STATIC_ASSERT((sizeof(t) == sizeof(t[1])                       \
+                        && sizeof(t) < (1 << _VKI_IOC_SIZEBITS)))       \
+     + sizeof(t))
 
 //----------------------------------------------------------------------
 // From linux-2.6.8.1/include/linux/compiler.h
@@ -1260,10 +1288,17 @@ struct vki_dirent {
 // From linux-2.6.8.1/include/linux/fcntl.h
 //----------------------------------------------------------------------
 
-#define VKI_F_SETLEASE	(VKI_F_LINUX_SPECIFIC_BASE+0)
-#define VKI_F_GETLEASE	(VKI_F_LINUX_SPECIFIC_BASE+1)
+#define VKI_F_SETLEASE      (VKI_F_LINUX_SPECIFIC_BASE + 0)
+#define VKI_F_GETLEASE      (VKI_F_LINUX_SPECIFIC_BASE + 1)
 
-#define VKI_F_NOTIFY	(VKI_F_LINUX_SPECIFIC_BASE+2)
+#define VKI_F_CANCELLK      (VKI_F_LINUX_SPECIFIC_BASE + 5)
+
+#define VKI_F_DUPFD_CLOEXEC (VKI_F_LINUX_SPECIFIC_BASE + 6)
+
+#define VKI_F_NOTIFY        (VKI_F_LINUX_SPECIFIC_BASE + 2)
+
+#define VKI_F_SETPIPE_SZ    (VKI_F_LINUX_SPECIFIC_BASE + 7)
+#define VKI_F_GETPIPE_SZ    (VKI_F_LINUX_SPECIFIC_BASE + 8)
 
 //----------------------------------------------------------------------
 // From linux-2.6.8.1/include/linux/sysctl.h
@@ -1408,6 +1443,7 @@ struct vki_shmid_ds {
 };
 
 #define VKI_SHM_RDONLY  010000  /* read-only access */
+#define VKI_SHM_RND     020000  /* round attach address to SHMLBA boundary */
 
 #define VKI_SHM_STAT 	13
 #define VKI_SHM_INFO 	14
@@ -1860,6 +1896,7 @@ struct vki_cdrom_generic_command
 #define VKI_SNDCTL_DSP_SETFRAGMENT	_VKI_SIOWR('P',10, int)
 
 #define VKI_SNDCTL_DSP_GETFMTS		_VKI_SIOR ('P',11, int) /* Returns a mask */
+#define VKI_SNDCTL_DSP_SETFMT		_VKI_SIOWR('P', 5, int) /* Selects ONE fmt */
 
 typedef struct vki_audio_buf_info {
 			int fragments;	/* # of available fragments (partially usend ones not counted) */

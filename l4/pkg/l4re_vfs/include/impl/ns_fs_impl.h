@@ -179,6 +179,7 @@ Ns_dir::getdents(char *buf, size_t sz) throw()
             l = sizeof(d->d_name);
 
           unsigned n = offsetof (struct dirent64, d_name) + l;
+          n = (n + sizeof(long) - 1) & ~(sizeof(long) - 1);
 
           if (n > sz)
             break;
@@ -361,6 +362,7 @@ Env_dir::getdents(char *buf, size_t sz) throw()
         l = sizeof(d->d_name);
 
       unsigned n = offsetof (struct dirent64, d_name) + l;
+      n = (n + sizeof(long) - 1) & ~(sizeof(long) - 1);
 
       if (n <= sz)
         {

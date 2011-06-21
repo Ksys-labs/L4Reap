@@ -4,7 +4,6 @@ L4DIR           ?= $(PKGDIR)/../..
 TARGET           = wget_clnt
 SYSTEMS          = x86-l4f arm-l4f
 REQUIRES_LIBS    = ankh_lwip libc_be_fs_noop libc_support_misc libc_be_sig
-L4_MULTITHREADED = y
 
 PRIVATE_INCDIR  += $(SRC_DIR)/contrib/src
 CFLAGS          += -DHAVE_CONFIG_H -Wno-sign-compare -Wno-unused

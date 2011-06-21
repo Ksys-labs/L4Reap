@@ -233,3 +233,11 @@ PUBLIC static
 void
 Jdb::write_tsc(Signed64 /*tsc*/, char * /*buf*/, int /*maxlen*/, bool /*sign*/)
 {}
+
+PROTECTED static inline
+template< typename T >
+void
+Jdb::set_monitored_address(T *dest, T val)
+{
+  *dest = val;
+}

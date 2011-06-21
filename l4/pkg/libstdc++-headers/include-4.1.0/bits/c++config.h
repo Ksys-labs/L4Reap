@@ -15,8 +15,10 @@
 #define _GLIBCXX_GTHREAD_USE_WEAK 1
 #endif 
 
+#if !defined(L4_MINIMAL_LIBC)
 #define _GLIBCXX_HAVE_MBSTATE_T 1
 #define _GLIBCXX_HAVE_WCHAR_H 1
+#endif
 
 
 // Macros for visibility.
@@ -276,7 +278,7 @@ _GLIBCXX_END_NAMESPACE
 
 
 #define _GLIBCXX_HOSTED 1
-#ifdef L4_THREAD_SAFE
+#ifndef L4_MINIMAL_LIBC
 # define _GLIBCXX__PTHREADS 1
 #endif
 #define _GLIBCXX_HAVE_UNISTD_H 1

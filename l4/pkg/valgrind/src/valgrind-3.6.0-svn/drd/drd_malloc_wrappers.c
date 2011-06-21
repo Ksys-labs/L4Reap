@@ -1,8 +1,8 @@
-/* -*- mode: C; c-basic-offset: 3; -*- */
+/* -*- mode: C; c-basic-offset: 3; indent-tabs-mode: nil; -*- */
 /*
   This file is part of drd, a thread error detector.
 
-  Copyright (C) 2006-2010 Bart Van Assche <bart.vanassche@gmail.com>.
+  Copyright (C) 2006-2011 Bart Van Assche <bvanassche@acm.org>.
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -109,19 +109,18 @@ void DRD_(malloclike_block)(const ThreadId tid, const Addr p, const SizeT size)
 
 static void handle_free(ThreadId tid, void* p)
 {
-   tl_assert(p);
+   Bool success;
 
-   if (DRD_(freelike_block)(tid, (Addr)p))
-      VG_(cli_free)(p);
-   else
-      tl_assert(False);
+   tl_assert(p);
+   success = DRD_(freelike_block)(tid, (Addr)p, True);
+   tl_assert(success);
 }
 
 /**
  * Remove the information that was stored by DRD_(malloclike_block)() about
  * a memory block.
  */
-Bool DRD_(freelike_block)(const ThreadId tid, const Addr p)
+Bool DRD_(freelike_block)(const ThreadId tid, const Addr p, const Bool dealloc)
 {
    DRD_Chunk* mc;
 
@@ -129,12 +128,15 @@ Bool DRD_(freelike_block)(const ThreadId tid, const Addr p)
 
    s_cmalloc_n_frees++;
 
-   mc = VG_(HT_remove)(s_malloc_list, (UWord)p);
+   mc = VG_(HT_lookup)(s_malloc_list, (UWord)p);
    if (mc)
    {
       tl_assert(p == mc->data);
+      if (dealloc)
+	 VG_(cli_free)((void*)p);
       if (mc->size > 0)
          s_stop_using_mem_callback(mc->data, mc->size);
+      VG_(HT_remove)(s_malloc_list, (UWord)p);
       VG_(free)(mc);
       return True;
    }

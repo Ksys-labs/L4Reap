@@ -75,7 +75,7 @@ module libc_be_l4re.so
 module r/libsupc++.so
 module r/libuc_c.so
 
-entry L4linux ARM
+entry L4Linux ARM
 roottask moe rom/l4lx.cfg
 module l4re
 module ned

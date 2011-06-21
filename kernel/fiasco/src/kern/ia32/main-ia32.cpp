@@ -27,11 +27,11 @@ extern "C" void __attribute__ ((noreturn))
 _exit(int)
 {
   if (exit_question_active)
-    pc_reset();
+    platform_reset();
 
-  while(1)
-    { 
-      Proc::halt(); 
+  while (1)
+    {
+      Proc::halt();
       Proc::pause();
     }
 }

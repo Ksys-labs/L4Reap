@@ -56,6 +56,8 @@
 #define __NR_unlinkat           301
 #define __NR_renameat           302
 #define __NR_faccessat          307
+#define __NR_preadv             333
+#define __NR_pwritev            334
 
 
 /* Some stuff pilfered from linux/include/asm-i386/unistd.h */
@@ -226,6 +228,8 @@ __lx_syscall3(int, mkdirat, int, fd, const char *, name, int, mode);
 __lx_syscall3(int, unlinkat, int, fd, const char *, name, int, flags);
 __lx_syscall4(int, renameat, int, ofd, const char *, oname, int, nfd, const char *, nname);
 __lx_syscall3(int, faccessat, int, dfd, const char *, filename, int, mode);
+__lx_syscall5(lx_ssize_t, preadv, int, fd, const struct lx_iovec*, iov, int, cnt, unsigned long, pl, unsigned long, ph);
+__lx_syscall5(lx_ssize_t, pwritev, int, fd, const struct lx_iovec*, iov, int, cnt, unsigned long, pl, unsigned long, ph);
 
 #ifdef __i386__
 int lx_ftruncate64(int, unsigned long long);

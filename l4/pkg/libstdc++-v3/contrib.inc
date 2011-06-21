@@ -17,6 +17,8 @@ __GCCSUBVER= $(wordlist 1, $(GCCSUBVERSION), $(__NUMBERS))
 
 SDTCXX_0x = n
 
+STDCXX_AVAILABLE_VERSIONS = 4.1.0 4.3.3 4.5 4.6
+
 ifeq ("$(GCCMAJORVERSION)", "4")
   ifeq ("$(GCCMINORVERSION)", "3")
     STDCXX_CONTRIB_VERSION := 4.3.3
@@ -26,6 +28,11 @@ ifeq ("$(GCCMAJORVERSION)", "4")
   endif
   ifeq ("$(GCCMINORVERSION)", "5")
     STDCXX_CONTRIB_VERSION := 4.5
+    STDCXX_0x = y
+  endif
+  ifeq ("$(GCCMINORVERSION)", "6")
+    STDCXX_CONTRIB_VERSION := 4.6
+    STDCXX_CONTRIB_VERSION_4.6_PLUS := y
     STDCXX_0x = y
   endif
   ifneq ("$(call gte, $(__GCCMINOR), $(call n, 1))", "")

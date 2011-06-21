@@ -283,6 +283,7 @@ luaL_Reg const Lua_view_proxy::_ops[] =
 
 }
 
+#if 0
 static void dump_stack(lua_State *l)
 {
   int i = lua_gettop(l);
@@ -308,6 +309,7 @@ static void dump_stack(lua_State *l)
       --i;
     }
 }
+#endif
 
 template<>
 struct Lua_register_ops<Lua_user_state>

@@ -123,7 +123,8 @@ static Lock* mk_LockP_from_LockN ( Lock* lkn )
    if (!VG_(lookupFM)( map_LockN_to_P, NULL, (Word*)&lkp, (Word)lkn)) {
       lkp = HG_(zalloc)( "hg.mLPfLN.2", sizeof(Lock) );
       *lkp = *lkn;
-      lkp->admin = NULL;
+      lkp->admin_next = NULL;
+      lkp->admin_prev = NULL;
       lkp->magic = LockP_MAGIC;
       /* Forget about the bag of lock holders - don't copy that.
          Also, acquired_at should be NULL whenever heldBy is, and vice
@@ -340,7 +341,7 @@ UInt HG_(update_extra) ( Error* err )
             Thread* threadp;
             tl_assert(wherep);
             tl_assert(thrp);
-            threadp = libhb_get_Thr_opaque( thrp );
+            threadp = libhb_get_Thr_hgthread( thrp );
             tl_assert(threadp);
             xe->XE.Race.h2_ct_accEC  = wherep;
             xe->XE.Race.h2_ct        = threadp;
@@ -473,8 +474,7 @@ void HG_(record_error_LockOrder)(
 {
    XError xe;
    tl_assert( HG_(is_sane_Thread)(thr) );
-   if (!HG_(clo_track_lockorders))
-      return;
+   tl_assert(HG_(clo_track_lockorders));
    init_XError(&xe);
    xe.tag = XE_LockOrder;
    xe.XE.LockOrder.thr       = thr;

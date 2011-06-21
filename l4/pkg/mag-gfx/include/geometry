@@ -269,7 +269,7 @@ public:
   Flags(E e) : _v(e) {}
   Flags(Flags const &o) : _v(o._v) {}
 
-  operator Private_bool * () const { return (Private_bool *)_v; }
+  operator Private_bool * () const { return (Private_bool *)(long)_v; }
   bool operator ! () const { return !_v; }
   Flags operator | (Flags const &o) const { return Flags(_v | o._v, true); }
   Flags operator | (Enum e) const { return Flags(_v | (unsigned)e, true); }

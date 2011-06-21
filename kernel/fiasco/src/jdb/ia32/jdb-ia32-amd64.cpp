@@ -203,15 +203,26 @@ Jdb::connected()
 }
 
 PROTECTED static inline
+template< typename T >
 void
-Jdb::monitor_address(unsigned current_cpu, void *addr)
+Jdb::set_monitored_address(T *dest, T val)
 {
-  if (Cpu::cpus.cpu(current_cpu).has_monitor_mwait())
+  *dest = val;
+}
+
+PROTECTED static inline
+template< typename T >
+T
+Jdb::monitor_address(unsigned current_cpu, T *addr)
+{
+  if (!*addr && Cpu::cpus.cpu(current_cpu).has_monitor_mwait())
     {
       asm volatile ("monitor \n" : : "a"(addr), "c"(0), "d"(0) );
       Mword irq_sup = Cpu::cpus.cpu(current_cpu).has_monitor_mwait_irq() ? 1 : 0;
       asm volatile ("mwait   \n" : : "a"(0x00), "c"(irq_sup) );
     }
+
+  return *addr;
 }
 
 

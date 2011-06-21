@@ -69,15 +69,26 @@ public:
   Fd_store() throw();
 };
 
+// for internal Vcon_streams we want to have a placement new operator, so
+// inherit and add one
+class Std_stream : public L4Re::Core::Vcon_stream
+{
+public:
+  inline void *operator new (size_t, void *p) throw() { return p; }
+  Std_stream(L4::Cap<L4::Vcon> c) : L4Re::Core::Vcon_stream(c) {}
+};
 
 Fd_store::Fd_store() throw()
 {
-  static L4Re::Core::Vcon_stream s(L4Re::Env::env()->log());
+  // use this strange way to prevent deletion of the stdio object
+  // this depends on Fd_store to being a singleton !!!
+  static char m[sizeof(Std_stream)] __attribute__((aligned(sizeof(long))));
+  Std_stream *s = new (m) Std_stream(L4Re::Env::env()->log());
   // make sure that we never delete the static io stream thing
-  s.add_ref();
-  set(0, cxx::ref_ptr(&s)); // stdin
-  set(1, cxx::ref_ptr(&s)); // stdout
-  set(2, cxx::ref_ptr(&s)); // stderr
+  s->add_ref();
+  set(0, cxx::ref_ptr(s)); // stdin
+  set(1, cxx::ref_ptr(s)); // stdout
+  set(2, cxx::ref_ptr(s)); // stderr
 }
 
 class Root_mount_tree : public L4Re::Vfs::Mount_tree
@@ -93,6 +104,7 @@ private:
   bool _early_oom;
 
 public:
+  void *operator new (size_t, void *p) throw() { return p; }
   Vfs()
   : _early_oom(true), _root_mount(), _root(L4Re::Env::env()),
     _annon_size(0x10000000)
@@ -746,12 +758,18 @@ int
 Vfs::madvise(void *, size_t, int) L4_NOTHROW
 { return 0; }
 
-static Vfs vfs __attribute__((init_priority(1000)));
+namespace {
+// use this container construct here to prevent a destructor for
+// our VFS main object is ever called!
+static char vfs_cnt[sizeof(Vfs)] __attribute__((aligned(sizeof(long))));
+static void init_vfs() { new (vfs_cnt) Vfs(); }
+L4_DECLARE_CONSTRUCTOR(init_vfs, INIT_PRIO_EARLY);
+}
 
 }
 
 //L4Re::Vfs::Ops *__ldso_posix_vfs_ops = &vfs;
-void *__rtld_l4re_env_posix_vfs_ops = &vfs;
+void *__rtld_l4re_env_posix_vfs_ops = &vfs_cnt;
 extern void *l4re_env_posix_vfs_ops __attribute__((alias("__rtld_l4re_env_posix_vfs_ops"), visibility("default")));
 
 

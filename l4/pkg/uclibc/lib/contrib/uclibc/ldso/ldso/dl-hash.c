@@ -268,8 +268,8 @@ _dl_lookup_sysv_hash(struct elf_resolve *tpnt, ElfW(Sym) *symtab, unsigned long 
  * This function resolves externals, and this is either called when we process
  * relocations or when we call an entry in the PLT table for the first time.
  */
-char *_dl_lookup_hash(const char *name, struct dyn_elf *rpnt, struct elf_resolve *mytpnt,
-	int type_class, struct elf_resolve **tpntp)
+char *_dl_find_hash(const char *name, struct dyn_elf *rpnt, struct elf_resolve *mytpnt,
+	int type_class, struct symbol_ref *sym_ref)
 {
 	struct elf_resolve *tpnt = NULL;
 	ElfW(Sym) *symtab;
@@ -283,6 +283,15 @@ char *_dl_lookup_hash(const char *name, struct dyn_elf *rpnt, struct elf_resolve
 	unsigned long gnu_hash_number = _dl_gnu_hash((const unsigned char *)name);
 #endif
 
+	/* aw11: added STB_LOCAL case to prevent searching locally linked symbols in
+	 *       other object files. This happens when we have TLS stuff with local
+	 *       linkage.
+	 */
+	if ((sym_ref) && (sym_ref->sym) && ((ELF32_ST_VISIBILITY(sym_ref->sym->st_other) == STV_PROTECTED) || (ELF32_ST_BIND(sym_ref->sym->st_info) == STB_LOCAL))) {
+			sym = sym_ref->sym;
+		if (mytpnt)
+			tpnt = mytpnt;
+	} else
 	for (; rpnt; rpnt = rpnt->next) {
 		tpnt = rpnt->dyn;
 
@@ -337,9 +346,8 @@ char *_dl_lookup_hash(const char *name, struct dyn_elf *rpnt, struct elf_resolve
 		/* At this point we have found the requested symbol, do binding */
 #if defined(USE_TLS) && USE_TLS
 		if (ELF_ST_TYPE(sym->st_info) == STT_TLS) {
-			_dl_assert(tpntp != NULL);
-			*tpntp = tpnt;
-
+			_dl_assert(sym_ref != NULL);
+			sym_ref->tpnt = tpnt;
 			return (char *)sym->st_value;
 		}
 #endif
@@ -354,9 +362,10 @@ char *_dl_lookup_hash(const char *name, struct dyn_elf *rpnt, struct elf_resolve
 				break;
 #endif
 			case STB_GLOBAL:
+			case 10: /* DAS IS VON MIR GNU STB UNIQUE aw11 L4 und so, eigentlich muss das anders */
 #ifdef __FDPIC__
-				if (tpntp)
-					*tpntp = tpnt;
+			if (sym_ref)
+				sym_ref->tpnt = tpnt;
 #endif
 				return (char *)DL_FIND_HASH_VALUE(tpnt, type_class, sym);
 			default:	/* Local symbols not handled here */
@@ -364,8 +373,8 @@ char *_dl_lookup_hash(const char *name, struct dyn_elf *rpnt, struct elf_resolve
 		}
 	}
 #ifdef __FDPIC__
-	if (tpntp)
-		*tpntp = tpnt;
+	if (sym_ref)
+		sym_ref->tpnt = tpnt;
 #endif
 	return weak_result;
 }

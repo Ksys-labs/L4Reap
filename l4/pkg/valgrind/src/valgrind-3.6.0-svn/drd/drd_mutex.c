@@ -1,8 +1,8 @@
-/* -*- mode: C; c-basic-offset: 3; -*- */
+/* -*- mode: C; c-basic-offset: 3; indent-tabs-mode: nil; -*- */
 /*
   This file is part of drd, a thread error detector.
 
-  Copyright (C) 2006-2010 Bart Van Assche <bart.vanassche@gmail.com>.
+  Copyright (C) 2006-2011 Bart Van Assche <bvanassche@acm.org>.
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -49,7 +49,7 @@ static void mutex_delete_thread(struct mutex_info* p, const DrdThreadId tid);
 static Bool s_trace_mutex;
 static ULong s_mutex_lock_count;
 static ULong s_mutex_segment_creation_count;
-static UInt s_mutex_lock_threshold_ms = 1000 * 1000;
+static UInt s_mutex_lock_threshold_ms;
 
 
 /* Function definitions. */

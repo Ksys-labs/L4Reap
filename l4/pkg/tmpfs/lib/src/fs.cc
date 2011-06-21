@@ -19,7 +19,6 @@
 
 #include <cstdio>
 
-
 namespace {
 
 using namespace L4Re::Vfs;
@@ -181,41 +180,39 @@ private:
   Pers_dir::Const_iterator _getdents_iter;
 };
 
-class Tmpfs_file : public Be_file
+class Tmpfs_file : public Be_file_pos
 {
 public:
   explicit Tmpfs_file(Ref_ptr<Pers_file> const &f) throw()
-    : Be_file(), _file(f), _pos(0) {}
+    : Be_file_pos(), _file(f) {}
 
-  ssize_t readv(const struct iovec*, int iovcnt) throw();
-  ssize_t writev(const struct iovec*, int iovcnt) throw();
-  off64_t lseek64(off64_t, int) throw();
+  off64_t size() const throw();
   int fstat64(struct stat64 *buf) const throw();
   int ioctl(unsigned long, va_list) throw();
   int utime(const struct utimbuf *) throw();
   int fchmod(mode_t) throw();
 
 private:
+  ssize_t preadv(const struct iovec *v, int iovcnt, off64_t p) throw();
+  ssize_t pwritev(const struct iovec *v, int iovcnt, off64_t p) throw();
   Ref_ptr<Pers_file> _file;
-  off64_t _pos;
 };
 
-ssize_t Tmpfs_file::readv(const struct iovec *v, int iovcnt) throw()
+ssize_t Tmpfs_file::preadv(const struct iovec *v, int iovcnt, off64_t p) throw()
 {
   if (iovcnt < 0)
     return -EINVAL;
 
-
   ssize_t sum = 0;
   for (int i = 0; i < iovcnt; ++i)
     {
-      sum  += _file->data().get(_pos, v[i].iov_len, v[i].iov_base);
-      _pos += v[i].iov_len;
+      sum  += _file->data().get(p, v[i].iov_len, v[i].iov_base);
+      p += v[i].iov_len;
     }
   return sum;
 }
 
-ssize_t Tmpfs_file::writev(const struct iovec *v, int iovcnt) throw()
+ssize_t Tmpfs_file::pwritev(const struct iovec *v, int iovcnt, off64_t p) throw()
 {
   if (iovcnt < 0)
     return -EINVAL;
@@ -223,8 +220,8 @@ ssize_t Tmpfs_file::writev(const struct iovec *v, int iovcnt) throw()
   ssize_t sum = 0;
   for (int i = 0; i < iovcnt; ++i)
     {
-      sum  += _file->data().put(_pos, v[i].iov_len, v[i].iov_base);
-      _pos += v[i].iov_len;
+      sum  += _file->data().put(p, v[i].iov_len, v[i].iov_base);
+      p += v[i].iov_len;
     }
   return sum;
 }
@@ -236,21 +233,8 @@ int Tmpfs_file::fstat64(struct stat64 *buf) const throw()
   return 0;
 }
 
-off64_t Tmpfs_file::lseek64(off64_t offset, int whence) throw()
-{
-  switch (whence)
-    {
-    case SEEK_SET: _pos = offset; break;
-    case SEEK_CUR: _pos += offset; break;
-    case SEEK_END: _pos = _file->data().size() + offset; break;
-    default: return -EINVAL;
-    };
-
-  if (_pos < 0)
-    return -EINVAL;
-
-  return _pos;
-}
+off64_t Tmpfs_file::size() const throw()
+{ return _file->data().size(); }
 
 int
 Tmpfs_file::ioctl(unsigned long v, va_list args) throw()
@@ -259,7 +243,7 @@ Tmpfs_file::ioctl(unsigned long v, va_list args) throw()
     {
     case FIONREAD: // return amount of data still available
       int *available = va_arg(args, int *);
-      *available = _file->data().size() - _pos;
+      *available = _file->data().size() - pos();
       return 0;
     };
   return -EINVAL;
@@ -348,6 +332,7 @@ Tmpfs_dir::getdents(char *buf, size_t sz) throw()
         l = sizeof(d->d_name);
 
       unsigned n = offsetof (struct dirent64, d_name) + l;
+      n = (n + sizeof(long) - 1) & ~(sizeof(long) - 1);
 
       if (n > sz)
         break;
@@ -397,7 +382,19 @@ Tmpfs_dir::walk_path(cxx::String const &_s,
 
   while (1)
     {
+      if (s.len() == 0)
+        {
+          *ret = p;
+          return 0;
+        }
+
       cxx::String::Index sep = s.find("/");
+
+      if (sep - s.start() == 1 && *s.start() == '.')
+        {
+          s = s.substr(s.start() + 2);
+          continue;
+        }
 
       n = p->find_path(s.head(sep - s.start()));
 
@@ -436,6 +433,16 @@ Tmpfs_dir::mkdir(const char *name, mode_t mode) throw()
   cxx::String p = cxx::String(name);
   cxx::String path, last = p;
   cxx::String::Index s = p.rfind("/");
+
+  // trim /'s at the end
+  while (p.len() && s == p.end() - 1)
+    {
+      p.len(p.len() - 1);
+      s = p.rfind("/");
+    }
+
+  //printf("MKDIR '%s' p=%p %p\n", name, p.start(), s);
+
   if (s != p.end())
     {
       path = p.head(s);
@@ -448,6 +455,10 @@ Tmpfs_dir::mkdir(const char *name, mode_t mode) throw()
 
   if (!node->is_dir())
     return -ENOTDIR;
+
+  // due to path walking we can end up with an empty name
+  if (p.len() == 0 || p == cxx::String("."))
+    return 0;
 
   Ref_ptr<Pers_dir> dnode = cxx::ref_ptr_static_cast<Pers_dir>(node);
 
@@ -494,6 +505,6 @@ public:
   }
 };
 
-static Tmpfs_fs _tmpfs;
+static Tmpfs_fs _tmpfs L4RE_VFS_FILE_SYSTEM_ATTRIBUTE;
 
 }

@@ -91,7 +91,11 @@ View_stack::next_view(View const *v, View const *bg) const
       if (!v)
 	return 0;
 
-      if (v->session() && v->session()->ignore())
+      unsigned sf = 0;
+      if (v->session())
+        sf = v->session()->flags();
+
+      if (sf & Session::F_ignore)
 	continue;
 
       if (!v->background())
@@ -99,6 +103,9 @@ View_stack::next_view(View const *v, View const *bg) const
 
       if (v == _background || v == bg)
 	return v;
+
+      if (!bg && (sf & Session::F_default_background))
+        return v;
     }
 
   return 0;

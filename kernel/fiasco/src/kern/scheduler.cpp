@@ -196,7 +196,7 @@ L4_msg_tag
 Scheduler::kinvoke(L4_obj_ref, Mword rights, Syscall_frame *f,
                    Utcb const *iutcb, Utcb *outcb)
 {
-  if (EXPECT_FALSE(f->tag().proto() != L4_msg_tag::Label_cpu))
+  if (EXPECT_FALSE(f->tag().proto() != L4_msg_tag::Label_scheduler))
     return commit_result(-L4_err::EBadproto);
 
   switch (iutcb->values[0])

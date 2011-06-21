@@ -32,7 +32,6 @@ exec_load_elf(exec_handler_func_t *handler,
   ElfW(Ehdr) *x = t->mod_start;
   ElfW(Phdr) *phdr, *ph;
   int i;
-  int result;
 
   /* Read the ELF header.  */
 
@@ -57,7 +56,7 @@ exec_load_elf(exec_handler_func_t *handler,
 	  if (ph->p_flags & PF_R) type |= EXEC_SECTYPE_READ;
 	  if (ph->p_flags & PF_W) type |= EXEC_SECTYPE_WRITE;
 	  if (ph->p_flags & PF_X) type |= EXEC_SECTYPE_EXECUTE;
-	  result = (*handler)(handle,
+	  (*handler)(handle,
 	            ph->p_offset, ph->p_filesz,
 		    ph->p_paddr, ph->p_vaddr, ph->p_memsz, type);
 	}

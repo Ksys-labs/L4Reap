@@ -23,7 +23,6 @@
 #include <l4/sys/scheduler>
 #include <l4/sys/thread>
 
-
 #include <cstdlib>
 #include <cstring>
 
@@ -61,21 +60,66 @@ public:
   }
 };
 
+extern "C"
+void *__libc_alloc_initial_tls(unsigned long size)
+{
+  using namespace L4;
+  using namespace L4Re;
+  Cap<Dataspace> ds(Env::env()->first_free_cap() << L4_CAP_SHIFT);
+  ::l4re_global_env->first_free_cap += 1;
+  if (Env::env()->mem_alloc()->alloc(size, ds, 0) < 0)
+    return NULL;
+
+  void *addr = (void*)0xb0000000;
+  if(Env::env()->rm()->attach(&addr, size, Rm::Search_addr,
+                              ds, 0, 0) < 0)
+    return NULL;
+
+  return addr;
+}
 
 static L4::Server<Loop_hooks> server(l4_utcb());
 
-static void insert_regions(l4re_aux_t *a)
+static void insert_regions()
 {
-  unsigned long n = a->cnt;
-  for (unsigned long i = 0; i < n; ++i)
+  using L4Re::Rm;
+  using L4Re::Env;
+  int n;
+  l4_addr_t addr = 0;
+  Rm::Region *rl;
+  while ((n = L4Re::Env::env()->rm()->get_regions(addr, &rl)) > 0)
     {
-      void *x = __local_rm.attach((void*)a->vm[i].start, a->vm[i].size,
-	  Region_handler(L4::cap_reinterpret_cast<L4Re::Dataspace>(L4Re::Env::env()->rm()),
-	                 L4_INVALID_CAP, 0, L4Re::Rm::Pager), 0);
-      if (!x)
+      for (int i = 0; i < n; ++i)
 	{
-	  L4::cerr << "l4re: error while initializing region mapper\n";
-	  exit(1);
+	  Rm::Region const *r = &rl[i];
+	  void *x = __local_rm.attach((void*)r->start, r->end - r->start +1,
+	  Region_handler(L4::cap_reinterpret_cast<L4Re::Dataspace>(Env::env()->rm()),
+	                 L4_INVALID_CAP, 0, Rm::Pager), 0);
+	  if (!x)
+	    {
+	      L4::cerr << "l4re: error while initializing region mapper\n";
+	      exit(1);
+	    }
+
+	  addr = r->end + 1;
+	}
+
+    }
+
+  Rm::Area *al;
+  while ((n = L4Re::Env::env()->rm()->get_areas(addr, &al)) > 0)
+    {
+      for (int i = 0; i < n; ++i)
+	{
+	  Rm::Area const *r = &al[i];
+	  l4_addr_t x = __local_rm.attach_area(r->start, r->end - r->start +1);
+	  if (!x)
+	    {
+	      L4::cerr << "l4re: error while initializing region mapper\n";
+	      exit(1);
+	    }
+
+	  addr = r->end + 1;
 	}
     }
 }
@@ -168,7 +212,7 @@ int main(int argc, char const *argv[])
   boot.printf("setup local region mapping\n");
   __local_rm.init();
   boot.printf("adding regions from remote region mapper\n");
-  insert_regions(Global::l4re_aux);
+  insert_regions();
 
   boot.printf("initializing local page allocator\n");
   Single_page_alloc_base::init_local_rm(Global::local_rm);

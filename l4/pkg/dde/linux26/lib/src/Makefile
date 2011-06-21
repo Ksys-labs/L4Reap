@@ -54,8 +54,8 @@ LINK_INCR_ONLYGLOBSYMFILE_$(TARGET_DDE) = $(SRC_DIR)/global-symbols.all \
                                           $(SRC_DIR)/global-symbols.$(ARCH)
 
 # contrib sources are in $(CONTRIB)
-vpath %.c     $(CONTRIB)
-vpath %.S    $(CONTRIB)
+vpath %.c $(CONTRIB)
+vpath %.S $(CONTRIB)
 
 PRIVATE_INCDIR += $(CONTRIB)/drivers/pci $(PKGDIR)/linux26/lib/src/arch/l4 \
                   $(CONTRIB)/$(ARCH_DIR)/pci $(CONTRIB)/drivers/base/ \
@@ -100,7 +100,8 @@ SRC_S_$(TARGET_DDE) += $(ARCH_DIR)/lib/io-writesl.S
 SRC_S_$(TARGET_DDE) += $(ARCH_DIR)/lib/io-writesw-armv4.S
 #SRC_C_$(TARGET_DDE) += $(ARCH_DIR)/kernel/semaphore.c
 SRC_C_$(TARGET_DDE) += $(ARCH_DIR)/kernel/traps.c
-SRC_C $(TARGET_DDE) += $(ARCH_DIR)/mm/flush.c
+SRC_C_$(TARGET_DDE) += $(ARCH_DIR)/kernel/io.c
+#SRC_C_$(TARGET_DDE) += $(ARCH_DIR)/mm/flush.c
 SRC_C_$(TARGET_DDE) += lib/rwsem-spinlock.c
 SRC_C_$(TARGET_DDE) += drivers/amba/bus.c
 endif

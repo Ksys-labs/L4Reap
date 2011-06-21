@@ -11,7 +11,7 @@
 #include <l4/util/util.h>
 
 static inline int width(void) { return 1280; }
-static inline int height(void) { return 900; }
+static inline int height(void) { return 1024; }
 static inline int bytes_per_pixel(void) { return 2; }
 
 static unsigned int fbmem_size(void)

@@ -96,5 +96,5 @@ Thread::handle_double_fault (void)
     }
 
   puts ("\033[1mRebooting...\033[0m");
-  pc_reset();
+  platform_reset();
 }

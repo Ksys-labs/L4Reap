@@ -51,14 +51,312 @@
 */
 
 
-
-/* generalised left-shifter */
-static inline UInt lshift ( UInt x, Int n )
+/* Calculate the N flag from the supplied thunk components, in the
+   least significant bit of the word.  Returned bits 31:1 are zero. */
+static
+UInt armg_calculate_flag_n ( UInt cc_op, UInt cc_dep1,
+                             UInt cc_dep2, UInt cc_dep3 )
 {
-   if (n >= 0)
-      return x << n;
-   else
-      return x >> (-n);
+   switch (cc_op) {
+      case ARMG_CC_OP_COPY: {
+         /* (nzcv:28x0, unused, unused) */
+         UInt nf   = (cc_dep1 >> ARMG_CC_SHIFT_N) & 1;
+         return nf;
+      }
+      case ARMG_CC_OP_ADD: {
+         /* (argL, argR, unused) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt res  = argL + argR;
+         UInt nf   = res >> 31;
+         return nf;
+      }
+      case ARMG_CC_OP_SUB: {
+         /* (argL, argR, unused) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt res  = argL - argR;
+         UInt nf   = res >> 31;
+         return nf;
+      }
+      case ARMG_CC_OP_ADC: {
+         /* (argL, argR, oldC) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt oldC = cc_dep3;
+         vassert((oldC & ~1) == 0);
+         UInt res  = argL + argR + oldC;
+         UInt nf   = res >> 31;
+         return nf;
+      }
+      case ARMG_CC_OP_SBB: {
+         /* (argL, argR, oldC) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt oldC = cc_dep3;
+         vassert((oldC & ~1) == 0);
+         UInt res  = argL - argR - (oldC ^ 1);
+         UInt nf   = res >> 31;
+         return nf;
+      }
+      case ARMG_CC_OP_LOGIC: {
+         /* (res, shco, oldV) */
+         UInt res  = cc_dep1;
+         UInt nf   = res >> 31;
+         return nf;
+      }
+      case ARMG_CC_OP_MUL: {
+         /* (res, unused, oldC:oldV) */
+         UInt res  = cc_dep1;
+         UInt nf   = res >> 31;
+         return nf;
+      }
+      case ARMG_CC_OP_MULL: {
+         /* (resLo32, resHi32, oldC:oldV) */
+         UInt resHi32 = cc_dep2;
+         UInt nf      = resHi32 >> 31;
+         return nf;
+      }
+      default:
+         /* shouldn't really make these calls from generated code */
+         vex_printf("armg_calculate_flag_n"
+                    "( op=%u, dep1=0x%x, dep2=0x%x, dep3=0x%x )\n",
+                    cc_op, cc_dep1, cc_dep2, cc_dep3 );
+         vpanic("armg_calculate_flags_n");
+   }
+}
+
+
+/* Calculate the Z flag from the supplied thunk components, in the
+   least significant bit of the word.  Returned bits 31:1 are zero. */
+static
+UInt armg_calculate_flag_z ( UInt cc_op, UInt cc_dep1,
+                             UInt cc_dep2, UInt cc_dep3 )
+{
+   switch (cc_op) {
+      case ARMG_CC_OP_COPY: {
+         /* (nzcv:28x0, unused, unused) */
+         UInt zf   = (cc_dep1 >> ARMG_CC_SHIFT_Z) & 1;
+         return zf;
+      }
+      case ARMG_CC_OP_ADD: {
+         /* (argL, argR, unused) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt res  = argL + argR;
+         UInt zf   = res == 0;
+         return zf;
+      }
+      case ARMG_CC_OP_SUB: {
+         /* (argL, argR, unused) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt res  = argL - argR;
+         UInt zf   = res == 0;
+         return zf;
+      }
+      case ARMG_CC_OP_ADC: {
+         /* (argL, argR, oldC) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt oldC = cc_dep3;
+         vassert((oldC & ~1) == 0);
+         UInt res  = argL + argR + oldC;
+         UInt zf   = res == 0;
+         return zf;
+      }
+      case ARMG_CC_OP_SBB: {
+         /* (argL, argR, oldC) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt oldC = cc_dep3;
+         vassert((oldC & ~1) == 0);
+         UInt res  = argL - argR - (oldC ^ 1);
+         UInt zf   = res == 0;
+         return zf;
+      }
+      case ARMG_CC_OP_LOGIC: {
+         /* (res, shco, oldV) */
+         UInt res  = cc_dep1;
+         UInt zf   = res == 0;
+         return zf;
+      }
+      case ARMG_CC_OP_MUL: {
+         /* (res, unused, oldC:oldV) */
+         UInt res  = cc_dep1;
+         UInt zf   = res == 0;
+         return zf;
+      }
+      case ARMG_CC_OP_MULL: {
+         /* (resLo32, resHi32, oldC:oldV) */
+         UInt resLo32 = cc_dep1;
+         UInt resHi32 = cc_dep2;
+         UInt zf      = (resHi32|resLo32) == 0;
+         return zf;
+      }
+      default:
+         /* shouldn't really make these calls from generated code */
+         vex_printf("armg_calculate_flags_z"
+                    "( op=%u, dep1=0x%x, dep2=0x%x, dep3=0x%x )\n",
+                    cc_op, cc_dep1, cc_dep2, cc_dep3 );
+         vpanic("armg_calculate_flags_z");
+   }
+}
+
+
+/* CALLED FROM GENERATED CODE: CLEAN HELPER */
+/* Calculate the C flag from the supplied thunk components, in the
+   least significant bit of the word.  Returned bits 31:1 are zero. */
+UInt armg_calculate_flag_c ( UInt cc_op, UInt cc_dep1,
+                             UInt cc_dep2, UInt cc_dep3 )
+{
+   switch (cc_op) {
+      case ARMG_CC_OP_COPY: {
+         /* (nzcv:28x0, unused, unused) */
+         UInt cf   = (cc_dep1 >> ARMG_CC_SHIFT_C) & 1;
+         return cf;
+      }
+      case ARMG_CC_OP_ADD: {
+         /* (argL, argR, unused) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt res  = argL + argR;
+         UInt cf   = res < argL;
+         return cf;
+      }
+      case ARMG_CC_OP_SUB: {
+         /* (argL, argR, unused) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt cf   = argL >= argR;
+         return cf;
+      }
+      case ARMG_CC_OP_ADC: {
+         /* (argL, argR, oldC) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt oldC = cc_dep3;
+         vassert((oldC & ~1) == 0);
+         UInt res  = argL + argR + oldC;
+         UInt cf   = oldC ? (res <= argL) : (res < argL);
+         return cf;
+      }
+      case ARMG_CC_OP_SBB: {
+         /* (argL, argR, oldC) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt oldC = cc_dep3;
+         vassert((oldC & ~1) == 0);
+         UInt cf   = oldC ? (argL >= argR) : (argL > argR);
+         return cf;
+      }
+      case ARMG_CC_OP_LOGIC: {
+         /* (res, shco, oldV) */
+         UInt shco = cc_dep2;
+         vassert((shco & ~1) == 0);
+         UInt cf   = shco;
+         return cf;
+      }
+      case ARMG_CC_OP_MUL: {
+         /* (res, unused, oldC:oldV) */
+         UInt oldC = (cc_dep3 >> 1) & 1;
+         vassert((cc_dep3 & ~3) == 0);
+         UInt cf   = oldC;
+         return cf;
+      }
+      case ARMG_CC_OP_MULL: {
+         /* (resLo32, resHi32, oldC:oldV) */
+         UInt oldC    = (cc_dep3 >> 1) & 1;
+         vassert((cc_dep3 & ~3) == 0);
+         UInt cf      = oldC;
+         return cf;
+      }
+      default:
+         /* shouldn't really make these calls from generated code */
+         vex_printf("armg_calculate_flag_c"
+                    "( op=%u, dep1=0x%x, dep2=0x%x, dep3=0x%x )\n",
+                    cc_op, cc_dep1, cc_dep2, cc_dep3 );
+         vpanic("armg_calculate_flag_c");
+   }
+}
+
+
+/* CALLED FROM GENERATED CODE: CLEAN HELPER */
+/* Calculate the V flag from the supplied thunk components, in the
+   least significant bit of the word.  Returned bits 31:1 are zero. */
+UInt armg_calculate_flag_v ( UInt cc_op, UInt cc_dep1,
+                             UInt cc_dep2, UInt cc_dep3 )
+{
+   switch (cc_op) {
+      case ARMG_CC_OP_COPY: {
+         /* (nzcv:28x0, unused, unused) */
+         UInt vf   = (cc_dep1 >> ARMG_CC_SHIFT_V) & 1;
+         return vf;
+      }
+      case ARMG_CC_OP_ADD: {
+         /* (argL, argR, unused) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt res  = argL + argR;
+         UInt vf   = ((res ^ argL) & (res ^ argR)) >> 31;
+         return vf;
+      }
+      case ARMG_CC_OP_SUB: {
+         /* (argL, argR, unused) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt res  = argL - argR;
+         UInt vf   = ((argL ^ argR) & (argL ^ res)) >> 31;
+         return vf;
+      }
+      case ARMG_CC_OP_ADC: {
+         /* (argL, argR, oldC) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt oldC = cc_dep3;
+         vassert((oldC & ~1) == 0);
+         UInt res  = argL + argR + oldC;
+         UInt vf   = ((res ^ argL) & (res ^ argR)) >> 31;
+         return vf;
+      }
+      case ARMG_CC_OP_SBB: {
+         /* (argL, argR, oldC) */
+         UInt argL = cc_dep1;
+         UInt argR = cc_dep2;
+         UInt oldC = cc_dep3;
+         vassert((oldC & ~1) == 0);
+         UInt res  = argL - argR - (oldC ^ 1);
+         UInt vf   = ((argL ^ argR) & (argL ^ res)) >> 31;
+         return vf;
+      }
+      case ARMG_CC_OP_LOGIC: {
+         /* (res, shco, oldV) */
+         UInt oldV = cc_dep3;
+         vassert((oldV & ~1) == 0);
+         UInt vf   = oldV;
+         return vf;
+      }
+      case ARMG_CC_OP_MUL: {
+         /* (res, unused, oldC:oldV) */
+         UInt oldV = (cc_dep3 >> 0) & 1;
+         vassert((cc_dep3 & ~3) == 0);
+         UInt vf   = oldV;
+         return vf;
+      }
+      case ARMG_CC_OP_MULL: {
+         /* (resLo32, resHi32, oldC:oldV) */
+         UInt oldV    = (cc_dep3 >> 0) & 1;
+         vassert((cc_dep3 & ~3) == 0);
+         UInt vf      = oldV;
+         return vf;
+      }
+      default:
+         /* shouldn't really make these calls from generated code */
+         vex_printf("armg_calculate_flag_v"
+                    "( op=%u, dep1=0x%x, dep2=0x%x, dep3=0x%x )\n",
+                    cc_op, cc_dep1, cc_dep2, cc_dep3 );
+         vpanic("armg_calculate_flag_v");
+   }
 }
 
 
@@ -69,140 +367,19 @@ static inline UInt lshift ( UInt x, Int n )
 UInt armg_calculate_flags_nzcv ( UInt cc_op, UInt cc_dep1,
                                  UInt cc_dep2, UInt cc_dep3 )
 {
-   switch (cc_op) {
-      case ARMG_CC_OP_COPY:
-         /* (nzcv, unused, unused) */
-         return cc_dep1;
-      case ARMG_CC_OP_ADD: {
-         /* (argL, argR, unused) */
-         UInt argL = cc_dep1;
-         UInt argR = cc_dep2;
-         UInt res  = argL + argR;
-         UInt nf   = lshift( res & (1<<31), ARMG_CC_SHIFT_N - 31 );
-         UInt zf   = lshift( res == 0, ARMG_CC_SHIFT_Z );
-         // CF and VF need verification
-         UInt cf   = lshift( res < argL, ARMG_CC_SHIFT_C );
-         UInt vf   = lshift( (res ^ argL) & (res ^ argR),
-                             ARMG_CC_SHIFT_V + 1 - 32 )
-                     & ARMG_CC_MASK_V;
-         //vex_printf("%08x %08x -> n %x z %x c %x v %x\n",
-         //           argL, argR, nf, zf, cf, vf);
-         return nf | zf | cf | vf;
-      }
-      case ARMG_CC_OP_SUB: {
-         /* (argL, argR, unused) */
-         UInt argL = cc_dep1;
-         UInt argR = cc_dep2;
-         UInt res  = argL - argR;
-         UInt nf   = lshift( res & (1<<31), ARMG_CC_SHIFT_N - 31 );
-         UInt zf   = lshift( res == 0, ARMG_CC_SHIFT_Z );
-         // XXX cf is inverted relative to normal sense
-         UInt cf   = lshift( argL >= argR, ARMG_CC_SHIFT_C );
-         UInt vf   = lshift( (argL ^ argR) & (argL ^ res),
-                             ARMG_CC_SHIFT_V + 1 - 32 )
-                     & ARMG_CC_MASK_V;
-         //vex_printf("%08x %08x -> n %x z %x c %x v %x\n",
-         //           argL, argR, nf, zf, cf, vf);
-         return nf | zf | cf | vf;
-      }
-      case ARMG_CC_OP_ADC: {
-         /* (argL, argR, oldC) */
-         UInt argL = cc_dep1;
-         UInt argR = cc_dep2;
-         UInt oldC = cc_dep3;
-         UInt res  = (argL + argR) + oldC;
-         UInt nf   = lshift( res & (1<<31), ARMG_CC_SHIFT_N - 31 );
-         UInt zf   = lshift( res == 0, ARMG_CC_SHIFT_Z );
-         UInt cf   = oldC ? lshift( res <= argL, ARMG_CC_SHIFT_C )
-                          : lshift( res <  argL, ARMG_CC_SHIFT_C );
-         UInt vf   = lshift( (res ^ argL) & (res ^ argR),
-                             ARMG_CC_SHIFT_V + 1 - 32 )
-                     & ARMG_CC_MASK_V;
-         //vex_printf("%08x %08x -> n %x z %x c %x v %x\n",
-         //           argL, argR, nf, zf, cf, vf);
-         return nf | zf | cf | vf;
-      }
-      case ARMG_CC_OP_SBB: {
-         /* (argL, argR, oldC) */
-         UInt argL = cc_dep1;
-         UInt argR = cc_dep2;
-         UInt oldC = cc_dep3;
-         UInt res  = argL - argR - (oldC ^ 1);
-         UInt nf   = lshift( res & (1<<31), ARMG_CC_SHIFT_N - 31 );
-         UInt zf   = lshift( res == 0, ARMG_CC_SHIFT_Z );
-         UInt cf   = oldC ? lshift( argL >= argR, ARMG_CC_SHIFT_C )
-                          : lshift( argL >  argR, ARMG_CC_SHIFT_C );
-         UInt vf   = lshift( (argL ^ argR) & (argL ^ res),
-                             ARMG_CC_SHIFT_V + 1 - 32 )
-                     & ARMG_CC_MASK_V;
-         //vex_printf("%08x %08x -> n %x z %x c %x v %x\n",
-         //           argL, argR, nf, zf, cf, vf);
-         return nf | zf | cf | vf;
-      }
-      case ARMG_CC_OP_LOGIC: {
-         /* (res, shco, oldV) */
-         UInt res  = cc_dep1;
-         UInt shco = cc_dep2;
-         UInt oldV = cc_dep3;
-         UInt nf   = lshift( res & (1<<31), ARMG_CC_SHIFT_N - 31 );
-         UInt zf   = lshift( res == 0, ARMG_CC_SHIFT_Z );
-         UInt cf   = lshift( shco & 1, ARMG_CC_SHIFT_C );
-         UInt vf   = lshift( oldV & 1, ARMG_CC_SHIFT_V );
-         return nf | zf | cf | vf;
-      }
-      case ARMG_CC_OP_MUL: {
-         /* (res, unused, oldC:oldV) */
-         UInt res  = cc_dep1;
-         UInt oldC = (cc_dep3 >> 1) & 1;
-         UInt oldV = (cc_dep3 >> 0) & 1;
-         UInt nf   = lshift( res & (1<<31), ARMG_CC_SHIFT_N - 31 );
-         UInt zf   = lshift( res == 0, ARMG_CC_SHIFT_Z );
-         UInt cf   = lshift( oldC & 1, ARMG_CC_SHIFT_C );
-         UInt vf   = lshift( oldV & 1, ARMG_CC_SHIFT_V );
-         return nf | zf | cf | vf;
-      }
-      case ARMG_CC_OP_MULL: {
-         /* (resLo32, resHi32, oldC:oldV) */
-         UInt resLo32 = cc_dep1;
-         UInt resHi32 = cc_dep2;
-         UInt oldC    = (cc_dep3 >> 1) & 1;
-         UInt oldV    = (cc_dep3 >> 0) & 1;
-         UInt nf      = lshift( resHi32 & (1<<31), ARMG_CC_SHIFT_N - 31 );
-         UInt zf      = lshift( (resHi32|resLo32) == 0, ARMG_CC_SHIFT_Z );
-         UInt cf      = lshift( oldC & 1, ARMG_CC_SHIFT_C );
-         UInt vf      = lshift( oldV & 1, ARMG_CC_SHIFT_V );
-         return nf | zf | cf | vf;
-      }
-      default:
-         /* shouldn't really make these calls from generated code */
-         vex_printf("armg_calculate_flags_nzcv"
-                    "( op=%u, dep1=0x%x, dep2=0x%x, dep3=0x%x )\n",
-                    cc_op, cc_dep1, cc_dep2, cc_dep3 );
-         vpanic("armg_calculate_flags_nzcv");
-   }
+   UInt f;
+   UInt res = 0;
+   f = armg_calculate_flag_n(cc_op, cc_dep1, cc_dep2, cc_dep3);
+   res |= (f << ARMG_CC_SHIFT_N);
+   f = armg_calculate_flag_z(cc_op, cc_dep1, cc_dep2, cc_dep3);
+   res |= (f << ARMG_CC_SHIFT_Z);
+   f = armg_calculate_flag_c(cc_op, cc_dep1, cc_dep2, cc_dep3);
+   res |= (f << ARMG_CC_SHIFT_C);
+   f = armg_calculate_flag_v(cc_op, cc_dep1, cc_dep2, cc_dep3);
+   res |= (f << ARMG_CC_SHIFT_V);
+   return res;
 }
 
-
-/* CALLED FROM GENERATED CODE: CLEAN HELPER */
-/* Calculate the C flag from the thunk components, in the lowest bit
-   of the word (bit 0). */
-UInt armg_calculate_flag_c ( UInt cc_op, UInt cc_dep1,
-                             UInt cc_dep2, UInt cc_dep3 )
-{
-   UInt r = armg_calculate_flags_nzcv(cc_op, cc_dep1, cc_dep2, cc_dep3);
-   return (r >> ARMG_CC_SHIFT_C) & 1;
-}
-
-
-/* CALLED FROM GENERATED CODE: CLEAN HELPER */
-/* Calculate the V flag from the thunk components, in the lowest bit
-   of the word (bit 0). */
-UInt armg_calculate_flag_v ( UInt cc_op, UInt cc_dep1,
-                             UInt cc_dep2, UInt cc_dep3 )
-{
-   UInt r = armg_calculate_flags_nzcv(cc_op, cc_dep1, cc_dep2, cc_dep3);
-   return (r >> ARMG_CC_SHIFT_V) & 1;
-}
 
 /* CALLED FROM GENERATED CODE: CLEAN HELPER */
 /* Calculate the QC flag from the arguments, in the lowest bit
@@ -219,15 +396,14 @@ UInt armg_calculate_flag_qc ( UInt resL1, UInt resL2,
 
 /* CALLED FROM GENERATED CODE: CLEAN HELPER */
 /* Calculate the specified condition from the thunk components, in the
-   lowest bit of the word (bit 0). */
-extern 
-UInt armg_calculate_condition ( UInt cond_n_op /* ARMCondcode << 4 | cc_op */,
+   lowest bit of the word (bit 0).  Returned bits 31:1 are zero. */
+UInt armg_calculate_condition ( UInt cond_n_op /* (ARMCondcode << 4) | cc_op */,
                                 UInt cc_dep1,
                                 UInt cc_dep2, UInt cc_dep3 )
 {
    UInt cond  = cond_n_op >> 4;
    UInt cc_op = cond_n_op & 0xF;
-   UInt nf, zf, vf, cf, nzcv, inv;
+   UInt nf, zf, vf, cf, inv;
    //   vex_printf("XXXXXXXX %x %x %x %x\n", 
    //              cond_n_op, cc_dep1, cc_dep2, cc_dep3);
 
@@ -235,47 +411,46 @@ UInt armg_calculate_condition ( UInt cond_n_op /* ARMCondcode << 4 | cc_op */,
    if (cond == ARMCondAL) return 1;
 
    inv  = cond & 1;
-   nzcv = armg_calculate_flags_nzcv(cc_op, cc_dep1, cc_dep2, cc_dep3);
 
    switch (cond) {
       case ARMCondEQ:    // Z=1         => z
       case ARMCondNE:    // Z=0
-         zf = nzcv >> ARMG_CC_SHIFT_Z;
-         return 1 & (inv ^ zf);
+         zf = armg_calculate_flag_z(cc_op, cc_dep1, cc_dep2, cc_dep3);
+         return inv ^ zf;
 
       case ARMCondHS:    // C=1         => c
       case ARMCondLO:    // C=0
-         cf = nzcv >> ARMG_CC_SHIFT_C;
-         return 1 & (inv ^ cf);
+         cf = armg_calculate_flag_c(cc_op, cc_dep1, cc_dep2, cc_dep3);
+         return inv ^ cf;
 
       case ARMCondMI:    // N=1         => n
       case ARMCondPL:    // N=0
-         nf = nzcv >> ARMG_CC_SHIFT_N;
-         return 1 & (inv ^ nf);
+         nf = armg_calculate_flag_n(cc_op, cc_dep1, cc_dep2, cc_dep3);
+         return inv ^ nf;
 
       case ARMCondVS:    // V=1         => v
       case ARMCondVC:    // V=0
-         vf = nzcv >> ARMG_CC_SHIFT_V;
-         return 1 & (inv ^ vf);
+         vf = armg_calculate_flag_v(cc_op, cc_dep1, cc_dep2, cc_dep3);
+         return inv ^ vf;
 
       case ARMCondHI:    // C=1 && Z=0   => c & ~z
       case ARMCondLS:    // C=0 || Z=1
-         cf = nzcv >> ARMG_CC_SHIFT_C;
-         zf = nzcv >> ARMG_CC_SHIFT_Z;
-         return 1 & (inv ^ (cf & ~zf));
+         cf = armg_calculate_flag_c(cc_op, cc_dep1, cc_dep2, cc_dep3);
+         zf = armg_calculate_flag_z(cc_op, cc_dep1, cc_dep2, cc_dep3);
+         return inv ^ (cf & ~zf);
 
       case ARMCondGE:    // N=V          => ~(n^v)
       case ARMCondLT:    // N!=V
-         nf = nzcv >> ARMG_CC_SHIFT_N;
-         vf = nzcv >> ARMG_CC_SHIFT_V;
-         return 1 & (inv ^ ~(nf ^ vf));
+         nf = armg_calculate_flag_n(cc_op, cc_dep1, cc_dep2, cc_dep3);
+         vf = armg_calculate_flag_v(cc_op, cc_dep1, cc_dep2, cc_dep3);
+         return inv ^ (1 & ~(nf ^ vf));
 
       case ARMCondGT:    // Z=0 && N=V   => ~z & ~(n^v)  =>  ~(z | (n^v))
       case ARMCondLE:    // Z=1 || N!=V
-         nf = nzcv >> ARMG_CC_SHIFT_N;
-         vf = nzcv >> ARMG_CC_SHIFT_V;
-         zf = nzcv >> ARMG_CC_SHIFT_Z;
-         return 1 & (inv ^ ~(zf | (nf ^ vf)));
+         nf = armg_calculate_flag_n(cc_op, cc_dep1, cc_dep2, cc_dep3);
+         vf = armg_calculate_flag_v(cc_op, cc_dep1, cc_dep2, cc_dep3);
+         zf = armg_calculate_flag_z(cc_op, cc_dep1, cc_dep2, cc_dep3);
+         return inv ^ (1 & ~(zf | (nf ^ vf)));
 
       case ARMCondAL: // handled above
       case ARMCondNV: // should never get here: Illegal instr
@@ -332,13 +507,17 @@ IRExpr* guest_arm_spechelper ( HChar*   function_name,
    /* --------- specialising "armg_calculate_condition" --------- */
 
    if (vex_streq(function_name, "armg_calculate_condition")) {
-      /* specialise calls to above "armg_calculate condition" function */
-      IRExpr *cond_n_op, *cc_dep1, *cc_dep2, *cc_dep3;
+
+      /* specialise calls to the "armg_calculate_condition" function.
+         Not sure whether this is strictly necessary, but: the
+         replacement IR must produce only the values 0 or 1.  Bits
+         31:1 are required to be zero. */
+      IRExpr *cond_n_op, *cc_dep1, *cc_dep2, *cc_ndep;
       vassert(arity == 4);
-      cond_n_op = args[0]; /* ARMCondcode << 4  |  ARMG_CC_OP_* */
+      cond_n_op = args[0]; /* (ARMCondcode << 4)  |  ARMG_CC_OP_* */
       cc_dep1   = args[1];
       cc_dep2   = args[2];
-      cc_dep3   = args[3];
+      cc_ndep   = args[3];
 
       /*---------------- SUB ----------------*/
 
@@ -385,7 +564,27 @@ IRExpr* guest_arm_spechelper ( HChar*   function_name,
                      binop(Iop_CmpLE32U, cc_dep1, cc_dep2));
       }
 
+      /*---------------- SBB ----------------*/
+
+      if (isU32(cond_n_op, (ARMCondHS << 4) | ARMG_CC_OP_SBB)) {
+         /* This seems to happen a lot in softfloat code, eg __divdf3+140 */
+         /* thunk is: (dep1=argL, dep2=argR, ndep=oldC) */
+         /* HS after SBB (same as C after SBB below)
+            --> oldC ? (argL >=u argR) : (argL >u argR)
+            --> oldC ? (argR <=u argL) : (argR <u argL)
+         */
+         return
+            IRExpr_Mux0X(
+               unop(Iop_32to8, cc_ndep),
+               /* case oldC == 0 */
+               unop(Iop_1Uto32, binop(Iop_CmpLT32U, cc_dep2, cc_dep1)),
+               /* case oldC != 0 */
+               unop(Iop_1Uto32, binop(Iop_CmpLE32U, cc_dep2, cc_dep1))
+            );
+      }
+
       /*---------------- LOGIC ----------------*/
+
       if (isU32(cond_n_op, (ARMCondEQ << 4) | ARMG_CC_OP_LOGIC)) {
          /* EQ after LOGIC --> test res == 0 */
          return unop(Iop_1Uto32,
@@ -398,6 +597,7 @@ IRExpr* guest_arm_spechelper ( HChar*   function_name,
       }
 
       /*----------------- AL -----------------*/
+
       /* A critically important case for Thumb code.
 
          What we're trying to spot is the case where cond_n_op is an
@@ -444,6 +644,126 @@ IRExpr* guest_arm_spechelper ( HChar*   function_name,
       }
    }
 
+   /* --------- specialising "armg_calculate_flag_c" --------- */
+
+   else
+   if (vex_streq(function_name, "armg_calculate_flag_c")) {
+
+      /* specialise calls to the "armg_calculate_flag_c" function.
+         Note that the returned value must be either 0 or 1; nonzero
+         bits 31:1 are not allowed.  In turn, incoming oldV and oldC
+         values (from the thunk) are assumed to have bits 31:1
+         clear. */
+      IRExpr *cc_op, *cc_dep1, *cc_dep2, *cc_ndep;
+      vassert(arity == 4);
+      cc_op   = args[0]; /* ARMG_CC_OP_* */
+      cc_dep1 = args[1];
+      cc_dep2 = args[2];
+      cc_ndep = args[3];
+
+      if (isU32(cc_op, ARMG_CC_OP_LOGIC)) {
+         /* Thunk args are (result, shco, oldV) */
+         /* C after LOGIC --> shco */
+         return cc_dep2;
+      }
+
+      if (isU32(cc_op, ARMG_CC_OP_SUB)) {
+         /* Thunk args are (argL, argR, unused) */
+         /* C after SUB --> argL >=u argR
+                        --> argR <=u argL */
+         return unop(Iop_1Uto32,
+                     binop(Iop_CmpLE32U, cc_dep2, cc_dep1));
+      }
+
+      if (isU32(cc_op, ARMG_CC_OP_SBB)) {
+         /* This happens occasionally in softfloat code, eg __divdf3+140 */
+         /* thunk is: (dep1=argL, dep2=argR, ndep=oldC) */
+         /* C after SBB (same as HS after SBB above)
+            --> oldC ? (argL >=u argR) : (argL >u argR)
+            --> oldC ? (argR <=u argL) : (argR <u argL)
+         */
+         return
+            IRExpr_Mux0X(
+               unop(Iop_32to8, cc_ndep),
+               /* case oldC == 0 */
+               unop(Iop_1Uto32, binop(Iop_CmpLT32U, cc_dep2, cc_dep1)),
+               /* case oldC != 0 */
+               unop(Iop_1Uto32, binop(Iop_CmpLE32U, cc_dep2, cc_dep1))
+            );
+      }
+
+   }
+
+   /* --------- specialising "armg_calculate_flag_v" --------- */
+
+   else
+   if (vex_streq(function_name, "armg_calculate_flag_v")) {
+
+      /* specialise calls to the "armg_calculate_flag_v" function.
+         Note that the returned value must be either 0 or 1; nonzero
+         bits 31:1 are not allowed.  In turn, incoming oldV and oldC
+         values (from the thunk) are assumed to have bits 31:1
+         clear. */
+      IRExpr *cc_op, *cc_dep1, *cc_dep2, *cc_ndep;
+      vassert(arity == 4);
+      cc_op   = args[0]; /* ARMG_CC_OP_* */
+      cc_dep1 = args[1];
+      cc_dep2 = args[2];
+      cc_ndep = args[3];
+
+      if (isU32(cc_op, ARMG_CC_OP_LOGIC)) {
+         /* Thunk args are (result, shco, oldV) */
+         /* V after LOGIC --> oldV */
+         return cc_ndep;
+      }
+
+      if (isU32(cc_op, ARMG_CC_OP_SUB)) {
+         /* Thunk args are (argL, argR, unused) */
+         /* V after SUB 
+            --> let res = argL - argR
+                in ((argL ^ argR) & (argL ^ res)) >> 31
+            --> ((argL ^ argR) & (argL ^ (argL - argR))) >> 31
+         */
+         IRExpr* argL = cc_dep1;
+         IRExpr* argR = cc_dep2;
+         return
+            binop(Iop_Shr32,
+                  binop(Iop_And32,
+                        binop(Iop_Xor32, argL, argR),
+                        binop(Iop_Xor32, argL, binop(Iop_Sub32, argL, argR))
+                  ),
+                  mkU8(31)
+            );
+      }
+
+      if (isU32(cc_op, ARMG_CC_OP_SBB)) {
+         /* This happens occasionally in softfloat code, eg __divdf3+140 */
+         /* thunk is: (dep1=argL, dep2=argR, ndep=oldC) */
+         /* V after SBB
+            --> let res = argL - argR - (oldC ^ 1)
+                in  (argL ^ argR) & (argL ^ res) & 1
+         */
+         return
+            binop(
+               Iop_And32,
+               binop(
+                  Iop_And32,
+                  // argL ^ argR
+                  binop(Iop_Xor32, cc_dep1, cc_dep2),
+                  // argL ^ (argL - argR - (oldC ^ 1))
+                  binop(Iop_Xor32,
+                        cc_dep1,
+                        binop(Iop_Sub32,
+                              binop(Iop_Sub32, cc_dep1, cc_dep2),
+                              binop(Iop_Xor32, cc_ndep, mkU32(1)))
+                  )
+               ),
+               mkU32(1)
+            );
+      }
+
+   }
+
 #  undef unop
 #  undef binop
 #  undef mkU32
@@ -478,14 +798,39 @@ void LibVEX_GuestARM_put_flags ( UInt flags_native,
 /* VISIBLE TO LIBVEX CLIENT */
 UInt LibVEX_GuestARM_get_cpsr ( /*IN*/VexGuestARMState* vex_state )
 {
-   UInt nzcv;
-   nzcv = armg_calculate_flags_nzcv(
-              vex_state->guest_CC_OP,
-              vex_state->guest_CC_DEP1,
-              vex_state->guest_CC_DEP2,
-              vex_state->guest_CC_NDEP
-           );
-   return nzcv;
+   UInt cpsr = 0;
+   // NZCV
+   cpsr |= armg_calculate_flags_nzcv(
+               vex_state->guest_CC_OP,
+               vex_state->guest_CC_DEP1,
+               vex_state->guest_CC_DEP2,
+               vex_state->guest_CC_NDEP
+            );
+   vassert(0 == (cpsr & 0x0FFFFFFF));
+   // Q
+   if (vex_state->guest_QFLAG32 > 0)
+      cpsr |= (1 << 27);
+   // GE
+   if (vex_state->guest_GEFLAG0 > 0)
+      cpsr |= (1 << 16);
+   if (vex_state->guest_GEFLAG1 > 0)
+      cpsr |= (1 << 17);
+   if (vex_state->guest_GEFLAG2 > 0)
+      cpsr |= (1 << 18);
+   if (vex_state->guest_GEFLAG3 > 0)
+      cpsr |= (1 << 19);
+   // M
+   cpsr |= (1 << 4); // 0b10000 means user-mode
+   // J,T   J (bit 24) is zero by initialisation above
+   // T  we copy from R15T[0]
+   if (vex_state->guest_R15T & 1)
+      cpsr |= (1 << 5);
+   // ITSTATE we punt on for the time being.  Could compute it
+   // if needed though.
+   // E, endianness, 0 (littleendian) from initialisation above
+   // A,I,F disable some async exceptions.  Not sure about these.
+   // Leave as zero for the time being.
+   return cpsr;
 }
 
 /* VISIBLE TO LIBVEX CLIENT */
@@ -513,6 +858,10 @@ void LibVEX_GuestARM_initialise ( /*OUT*/VexGuestARMState* vex_state )
    vex_state->guest_CC_DEP2 = 0;
    vex_state->guest_CC_NDEP = 0;
    vex_state->guest_QFLAG32 = 0;
+   vex_state->guest_GEFLAG0 = 0;
+   vex_state->guest_GEFLAG1 = 0;
+   vex_state->guest_GEFLAG2 = 0;
+   vex_state->guest_GEFLAG3 = 0;
 
    vex_state->guest_EMWARN  = 0;
    vex_state->guest_TISTART = 0;
@@ -606,7 +955,18 @@ Bool guest_arm_state_requires_precise_mem_exns ( Int minoff,
    Int r11_max = r11_min + 4 - 1;
 
    if (maxoff < r11_min || minoff > r11_max) {
-      /* no overlap with pc */
+      /* no overlap with r11 */
+   } else {
+      return True;
+   }
+
+   /* Ditto R7, particularly needed for proper stacktraces in Thumb
+      code. */
+   Int r7_min = offsetof(VexGuestARMState, guest_R7);
+   Int r7_max = r7_min + 4 - 1;
+
+   if (maxoff < r7_min || minoff > r7_max) {
+      /* no overlap with r7 */
    } else {
       return True;
    }

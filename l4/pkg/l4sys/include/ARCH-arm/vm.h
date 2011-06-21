@@ -65,7 +65,7 @@ struct l4_vm_state
 
   l4_umword_t pc;
   l4_umword_t cpsr;
-  
+
   l4_umword_t pending_events;
 
   l4_umword_t cp15_ttbr0;
@@ -79,8 +79,10 @@ struct l4_vm_state
   l4_umword_t cp15_control;
   l4_umword_t cp15_prim_region_remap;
   l4_umword_t cp15_norm_region_remap;
-  l4_umword_t cp15_cid;
-  
+  l4_umword_t cp15_cid;    // banked
+  l4_umword_t cp15_tls[3]; // banked
+  l4_umword_t cp10_fpexc;
+
   l4_umword_t pfs;
   l4_umword_t pfa;
   l4_umword_t exit_reason;

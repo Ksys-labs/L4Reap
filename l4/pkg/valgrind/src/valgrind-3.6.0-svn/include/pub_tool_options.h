@@ -54,6 +54,8 @@
       Char* val = &(qq_arg)[ VG_(strlen)(qq_option)+1 ]; \
       if      VG_STREQ(val, "yes") (qq_var) = True; \
       else if VG_STREQ(val, "no")  (qq_var) = False; \
+      else VG_(fmsg_bad_option)(qq_arg, "Invalid boolean value '%s'" \
+                                " (should be 'yes' or 'no')\n", val);    \
       True; \
     }) \
    )
@@ -145,6 +147,12 @@ extern Int  VG_(clo_verbosity);
 
 /* Show tool and core statistics */
 extern Bool VG_(clo_stats);
+
+/* wait for vgdb/gdb after reporting that amount of error.
+   Note that this is the initial value provided from the command line.
+   The real value is maintained in VG_(dyn_vgdb_error) and
+   can be changed dynamically.*/
+extern Int VG_(clo_vgdb_error);
 
 /* Emit all messages as XML? default: NO */
 /* If clo_xml is set, various other options are set in a non-default

@@ -4,7 +4,7 @@ L4DIR           ?= $(PKGDIR)/../..
 TARGET          = libSDL.a
 
 CONTRIB_INCDIR  = libsdl
-REQUIRES_LIBS   = libc_support_misc l4re_c-util
+REQUIRES_LIBS   = libc_support_misc l4re_c-util libpthread
 
 SRC_C = $(patsubst $(PKGDIR)/%.c, %.c, $(wildcard $(PKGDIR)/contrib/src/*.c)) \
 	$(patsubst $(PKGDIR)/%.c, %.c, $(wildcard $(PKGDIR)/contrib/src/events/*.c)) \

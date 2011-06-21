@@ -19,8 +19,8 @@ extern "C" void sys_ipc_log_wrapper(void)
   Syscall_frame *ipc_regs  = reinterpret_cast<Syscall_frame*>(curr->regs());
 
   Mword entry_event_num    = (Mword)-1;
-  Unsigned8 have_snd       = (ipc_regs->ref().flags() & L4_obj_ref::Ipc_send)
-                             || (ipc_regs->ref().flags() == L4_obj_ref::Ipc_call);
+  Unsigned8 have_snd       = (ipc_regs->ref().op() & L4_obj_ref::Ipc_send)
+                             || (ipc_regs->ref().op() == L4_obj_ref::Ipc_call);
   Unsigned8 is_next_period = ipc_regs->next_period();
   Utcb *utcb = curr->utcb().access(true);
   int do_log               = Jdb_ipc_trace::log() &&

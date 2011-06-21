@@ -1,6 +1,6 @@
 #
 # Automatically generated make config: don't edit
-# L4Re version: SVN
+# L4Re Configuration
 #
 # CONFIG_BUILD_ARCH_x86 is not set
 # CONFIG_BUILD_ARCH_amd64 is not set
@@ -31,6 +31,7 @@ CONFIG_PLATFORM_ARM_rv=y
 # CONFIG_PLATFORM_ARM_imx51 is not set
 # CONFIG_PLATFORM_ARM_omap3evm is not set
 # CONFIG_PLATFORM_ARM_beagleboard is not set
+# CONFIG_PLATFORM_ARM_pandaboard is not set
 # CONFIG_PLATFORM_ARM_tegra2 is not set
 # CONFIG_PLATFORM_ARM_custom is not set
 CONFIG_ARM_PLATFORM_TYPE="rv"

@@ -34,6 +34,8 @@
 #include "restart.h"
 #include "smp.h"
 #include <not-cancel.h>
+#include <link.h>
+#include <ldsodefs.h>
 
 /* Sanity check.  */
 #if !defined __SIGRTMIN || (__SIGRTMAX - __SIGRTMIN) < 3
@@ -162,8 +164,8 @@ int (*__pthread_timedsuspend)(pthread_descr, const struct timespec *) = __pthrea
 
 /* Communicate relevant LinuxThreads constants to gdb */
 
-const int __pthread_threads_max = PTHREAD_THREADS_MAX;
 #ifdef NOT_FOR_L4
+const int __pthread_threads_max = PTHREAD_THREADS_MAX;
 const int __pthread_sizeof_handle = sizeof(struct pthread_handle_struct);
 const int __pthread_offsetof_descr = offsetof(struct pthread_handle_struct,
                                               h_descr);
@@ -424,8 +426,10 @@ cannot allocate TLS data structures for initial thread\n";
      structure by hand.  This initialization must mirror the struct
      definition above.  */
   self->p_nextlive = self->p_prevlive = self;
+#if defined NOT_FOR_L4
   self->p_tid = PTHREAD_THREADS_MAX;
   self->p_lock = &__pthread_handles[0].h_lock;
+#endif
 # ifndef HAVE___THREAD
   self->p_errnop = &_errno;
   self->p_h_errnop = &_h_errno;
@@ -441,7 +445,9 @@ cannot allocate TLS data structures for initial thread\n";
   __pthread_main_thread = self;
 
   /* And fill in the pointer the the thread __pthread_handles array.  */
+#ifdef NOT_FOR_L4
   __pthread_handles[0].h_descr = self;
+#endif
 
 #else  /* USE_TLS */
 
@@ -470,7 +476,11 @@ cannot allocate TLS data structures for initial thread\n";
 # endif
 #endif
 #ifndef NOT_FOR_L4
+# ifdef USE_TLS
+  if (__pthread_l4_initialize_main_thread(self))
+# else
   if (__pthread_l4_initialize_main_thread(&__pthread_initial_thread))
+# endif
     exit(1);
 #endif
   __libc_multiple_threads_ptr = __libc_pthread_init (ptr_pthread_functions);
@@ -560,23 +570,21 @@ init_one_static_tls (pthread_descr descr, struct link_map *map)
   dtv[map->l_tls_modid].pointer.is_static = true;
 
   /* Initialize the memory.  */
-  memset (__mempcpy (dest, map->l_tls_initimage, map->l_tls_initimage_size),
+  memset (mempcpy (dest, map->l_tls_initimage, map->l_tls_initimage_size),
 	  '\0', map->l_tls_blocksize - map->l_tls_initimage_size);
 }
 
 static void
 __pthread_init_static_tls (struct link_map *map)
 {
-  size_t i;
+  pthread_descr th;
 
-  for (i = 0; i < PTHREAD_THREADS_MAX; ++i)
-    if (__pthread_handles[i].h_descr != NULL && i != 1)
-      {
-        __pthread_lock (&__pthread_handles[i].h_lock, NULL);
-	if (__pthread_handles[i].h_descr != NULL)
-	  init_one_static_tls (__pthread_handles[i].h_descr, map);
-        __pthread_unlock (&__pthread_handles[i].h_lock);
-      }
+  for (th = __pthread_main_thread->p_nextlive;
+       th != __pthread_main_thread;
+       th = th->p_nextlive)
+    {
+      init_one_static_tls(th, map);
+    }
 }
 #endif
 
@@ -595,8 +603,10 @@ static void pthread_initialize(void)
      value to signal that initialization happened.  */
   __pthread_initial_thread_bos = (void *) -1l;
 #ifdef USE_TLS
+#ifdef NOT_FOR_L4
   /* Update the descriptor for the initial thread. */
   THREAD_SETMEM (((pthread_descr) NULL), p_pid, __getpid());
+#endif
 # if !defined HAVE___THREAD && (defined __UCLIBC_HAS_IPv4__ || defined __UCLIBC_HAS_IPV6__)
   /* Likewise for the resolver state _res.  */
   THREAD_SETMEM (((pthread_descr) NULL), p_resp, __resp);
@@ -623,14 +633,6 @@ static void pthread_initialize(void)
   *__libc_dl_error_tsd () = *(*GL(dl_error_catch_tsd)) ();
   GL(dl_error_catch_tsd) = &__libc_dl_error_tsd;
 
-  /* Make __rtld_lock_{,un}lock_recursive use pthread_mutex_{,un}lock,
-     keep the lock count from the ld.so implementation.  */
-  GL(dl_rtld_lock_recursive) = (void *) __pthread_mutex_lock;
-  GL(dl_rtld_unlock_recursive) = (void *) __pthread_mutex_unlock;
-  unsigned int rtld_lock_count = GL(dl_load_lock).mutex.__m_count;
-  GL(dl_load_lock).mutex.__m_count = 0;
-  while (rtld_lock_count-- > 0)
-    __pthread_mutex_lock (&GL(dl_load_lock).mutex);
 #endif
 
 #ifdef USE_TLS
@@ -686,7 +688,8 @@ int __pthread_initialize_manager(void)
   if (__pthread_initial_thread_bos == NULL) pthread_initialize();
   /* Setup stack for thread manager */
   __pthread_manager_thread_bos = malloc(THREAD_MANAGER_STACK_SIZE);
-  if (__pthread_manager_thread_bos == NULL) return -1;
+  if (__pthread_manager_thread_bos == NULL)
+    return -1;
   __pthread_manager_thread_tos =
     __pthread_manager_thread_bos + THREAD_MANAGER_STACK_SIZE;
 #ifdef NOT_FOR_L4
@@ -702,8 +705,10 @@ int __pthread_initialize_manager(void)
   tcbp = _dl_allocate_tls (NULL);
   if (tcbp == NULL) {
     free(__pthread_manager_thread_bos);
+#ifdef NOT_FOR_L4
     close_not_cancel(manager_pipe[0]);
     close_not_cancel(manager_pipe[1]);
+#endif
     return -1;
   }
 
@@ -714,7 +719,9 @@ int __pthread_initialize_manager(void)
      returns.  */
   mgr = (pthread_descr) ((char *) tcbp - TLS_PRE_TCB_SIZE);
 # endif
+#ifdef NOT_FOR_L4
   __pthread_handles[1].h_descr = manager_thread = mgr;
+#endif
 
   /* Initialize the descriptor.  */
 #if !defined USE_TLS || !TLS_DTV_AT_TP
@@ -724,7 +731,9 @@ int __pthread_initialize_manager(void)
 #elif TLS_MULTIPLE_THREADS_IN_TCB
   mgr->p_multiple_threads = 1;
 #endif
+#ifdef NOT_FOR_L4
   mgr->p_lock = &__pthread_handles[1].h_lock;
+#endif
 # ifndef HAVE___THREAD
   mgr->p_errnop = &mgr->p_errno;
 # endif
@@ -876,7 +885,8 @@ int __pthread_create(pthread_t *thread, const pthread_attr_t *attr,
   struct pthread_request request;
   int retval;
   if (__builtin_expect (l4_is_invalid_cap(__pthread_manager_request), 0)) {
-    if (__pthread_initialize_manager() < 0) return EAGAIN;
+    if (__pthread_initialize_manager() < 0)
+      return EAGAIN;
   }
   request.req_thread = self;
   request.req_kind = REQ_CREATE;

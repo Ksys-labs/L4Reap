@@ -101,7 +101,7 @@ Map_traits<SPACE>::free_object(typename SPACE::Phys_addr,
 PUBLIC template< typename SPACE >
 static inline
 void
-Map_traits<SPACE>::attribs(Mword /*control*/, L4_fpage const &/*fp*/,
+Map_traits<SPACE>::attribs(L4_msg_item /*control*/, L4_fpage const &/*fp*/,
                            unsigned long *del_attr, unsigned long *set_attr)
 { *del_attr = 0; *set_attr = 0; }
 
@@ -201,19 +201,19 @@ Map_traits<Mem_space>::get_addr(L4_fpage const &fp)
 IMPLEMENT template<>
 inline
 void
-Map_traits<Mem_space>::attribs(Mword control, L4_fpage const &fp,
+Map_traits<Mem_space>::attribs(L4_msg_item control, L4_fpage const &fp,
     unsigned long *del_attr, unsigned long *set_attr)
 {
-  *del_attr = fp.write() ? 0 : Mem_space::Page_writable;
-  short cache = (control >> 4) & 7;
+  *del_attr = (fp.rights() & L4_fpage::W) ? 0 : Mem_space::Page_writable;
+  short cache = control.attr() & 0x70;
 
-  if (cache & L4_fpage::Caching_opt)
+  if (cache & L4_msg_item::Caching_opt)
     {
       *del_attr |= Page::Cache_mask;
 
-      if (cache == L4_fpage::Cached)
+      if (cache == L4_msg_item::Cached)
 	*set_attr = Page::CACHEABLE;
-      else if (cache == L4_fpage::Buffered)
+      else if (cache == L4_msg_item::Buffered)
 	*set_attr = Page::BUFFERED;
       else
 	*set_attr = Page::NONCACHEABLE;
@@ -254,11 +254,11 @@ Map_traits<Obj_space>::free_object(Obj_space::Phys_addr o,
 IMPLEMENT template<>
 inline
 void
-Map_traits<Obj_space>::attribs(Mword control, L4_fpage const &fp,
+Map_traits<Obj_space>::attribs(L4_msg_item control, L4_fpage const &fp,
     unsigned long *del_attr, unsigned long *set_attr)
 {
   *set_attr = 0;
-  *del_attr = (~(fp.rights() | (L4_fpage::C_weak_ref ^ (control & L4_fpage::C_ctl_rights))));
+  *del_attr = (~(fp.rights() | (L4_msg_item::C_weak_ref ^ control.attr())));
 }
 
 IMPLEMENT template<>
@@ -269,7 +269,7 @@ Map_traits<Obj_space>::apply_attribs(unsigned long attribs,
                                      unsigned long set_attr,
                                      unsigned long del_attr)
 {
-  if (attribs & del_attr & L4_fpage::C_obj_specific_rights)
+  if (attribs & del_attr & L4_msg_item::C_obj_specific_rights)
     a = a->downgrade(del_attr);
 
   return (attribs & ~del_attr) | set_attr;
@@ -295,7 +295,7 @@ Map_traits<Obj_space>::apply_attribs(unsigned long attribs,
 // inline NEEDS ["config.h", io_map]
 L4_error
 fpage_map(Space *from, L4_fpage fp_from, Space *to,
-          L4_fpage fp_to, Mword control, Reap_list *r)
+          L4_fpage fp_to, L4_msg_item control, Reap_list *r)
 {
  if (Map_traits<Mem_space>::match(fp_from, fp_to))
     return mem_map(from, fp_from, to, fp_to, control);
@@ -627,21 +627,11 @@ map(MAPDB* mapdb,
 	break;
     }
 
-  SPACE *flush_from = 0;
   if (need_tlb_flush)
-    {
-      from->tlb_flush();
-      if (SPACE::Need_xcpu_tlb_flush)
-	flush_from = from;
-    }
+    from->tlb_flush();
 
-  if (SPACE::Need_xcpu_tlb_flush)
-    {
-      SPACE *flush_to = 0;
-      if (SPACE::Need_insert_tlb_flush && need_xcpu_tlb_flush)
-	flush_to = to;
-      Context::xcpu_tlb_flush(false, to, from);
-    }
+  if (SPACE::Need_xcpu_tlb_flush && need_xcpu_tlb_flush)
+    Context::xcpu_tlb_flush(false, to, from);
 
   if (EXPECT_FALSE(no_page_mapped))
     {
@@ -680,8 +670,8 @@ unmap(MAPDB* mapdb, SPACE* space, Space *space_id,
   Page_count phys_size;
   Vaddr page_address;
 
-  bool const full_flush = rights & L4_fpage::R;
   Mword const flush_rights = SPACE::xlate_flush(rights);
+  bool const full_flush = SPACE::is_full_flush(rights);
   bool need_tlb_flush = false;
   bool need_xcpu_tlb_flush = false;
 
@@ -788,7 +778,7 @@ IMPLEMENTATION[!io || ux]:
 
 inline
 L4_error
-io_map(Space *, L4_fpage const &, Space *, L4_fpage const &, Mword)
+io_map(Space *, L4_fpage const &, Space *, L4_fpage const &, L4_msg_item)
 {
   return L4_error::None;
 }

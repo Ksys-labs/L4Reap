@@ -18,4 +18,3 @@ REQUIRES_LIBS_amd64 = acpica
 
 REQUIRES_CFLAGS = libio-vbus libio-io
 PRIVATE_INCDIR += $(SRC_DIR)
-L4_MULTITHREADED = y

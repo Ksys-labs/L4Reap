@@ -177,7 +177,8 @@ SysRes VG_(am_do_mmap_NO_NOTIFY)( Addr start, SizeT length, UInt prot,
    res = VG_(do_syscall6)(__NR_mmap2, (UWord)start, length,
                           prot, flags, fd, offset / 4096);
 #  elif defined(VGP_amd64_linux) || defined(VGP_ppc64_linux) \
-        || defined(VGP_ppc32_aix5) || defined(VGP_ppc64_aix5)
+        || defined(VGP_ppc32_aix5) || defined(VGP_ppc64_aix5) \
+        || defined(VGP_s390x_linux)
    res = VG_(do_syscall6)(__NR_mmap, (UWord)start, length, 
                          prot, flags, fd, offset);
 #  elif defined(VGP_x86_darwin)
@@ -593,15 +594,18 @@ VgStack* VG_(am_alloc_VgStack)( /*OUT*/Addr* initial_sp )
 /* Figure out how many bytes of the stack's active area have not
    been used.  Used for estimating if we are close to overflowing it. */
 
-Int VG_(am_get_VgStack_unused_szB)( VgStack* stack )
+SizeT VG_(am_get_VgStack_unused_szB)( VgStack* stack, SizeT limit )
 {
-   Int i;
+   SizeT i;
    UInt* p;
 
    p = (UInt*)&stack->bytes[VG_STACK_GUARD_SZB];
-   for (i = 0; i < VG_STACK_ACTIVE_SZB/sizeof(UInt); i++)
+   for (i = 0; i < VG_STACK_ACTIVE_SZB/sizeof(UInt); i++) {
       if (p[i] != 0xDEADBEEF)
          break;
+      if (i * sizeof(UInt) >= limit)
+         break;
+   }
 
    return i * sizeof(UInt);
 }

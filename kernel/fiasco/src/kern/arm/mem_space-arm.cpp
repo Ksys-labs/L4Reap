@@ -97,6 +97,13 @@ Mem_space::xlate_flush(unsigned char rights)
 }
 
 PUBLIC static inline
+Mword
+Mem_space::is_full_flush(unsigned char rights)
+{
+  return rights & L4_fpage::RX;
+}
+
+PUBLIC static inline
 unsigned char
 Mem_space::xlate_flush_result(Mword attribs)
 {

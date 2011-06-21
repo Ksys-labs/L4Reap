@@ -179,9 +179,6 @@ Loader<App_model_, Dbg_>::launch(App_model *am, Const_dataspace bin, Dbg_ const 
 
   void const *l4aux_ptr;
     {
-      // add all the VMAs to the region map and stack
-      char const *before_vma = stack.ptr();
-
       // load the program into memory, prepare all the VMAs
       // and stuff on the application stack
       load(am, bin, dbg);
@@ -190,7 +187,7 @@ Loader<App_model_, Dbg_>::launch(App_model *am, Const_dataspace bin, Dbg_ const 
       am->prog_reserve_utcb_area();
       am->prog_attach_kip();
 
-      l4aux_ptr = am->generate_l4aux(before_vma, am->argv.a0);
+      l4aux_ptr = am->generate_l4aux(am->argv.a0);
     }
 
   L4Re::Env *env = am->add_env();
@@ -230,16 +227,19 @@ Loader<App_model_, Dbg_>::launch(App_model *am, Const_dataspace bin, Dbg_ const 
   stack.push(l4_umword_t(0));
   stack.push(l4_umword_t(AT_EGID));
 
-  if (am->prog_info()->dyn_exec_entry)
+  if (am->prog_info()->dyn_phdrs)
     {
-      stack.push(l4_umword_t(am->prog_info()->dyn_exec_entry));
-      stack.push(l4_umword_t(AT_ENTRY));
-
       stack.push(l4_umword_t(am->prog_info()->dyn_phdrs));
       stack.push(l4_umword_t(AT_PHDR));
 
       stack.push(l4_umword_t(am->prog_info()->dyn_num_phdrs));
       stack.push(l4_umword_t(AT_PHNUM));
+    }
+
+  if (am->prog_info()->dyn_exec_entry)
+    {
+      stack.push(l4_umword_t(am->prog_info()->dyn_exec_entry));
+      stack.push(l4_umword_t(AT_ENTRY));
 
       stack.push(l4_umword_t(am->prog_info()->dyn_interp_base));
       stack.push(l4_umword_t(AT_BASE));

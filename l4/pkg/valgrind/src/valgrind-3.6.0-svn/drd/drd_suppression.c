@@ -1,8 +1,8 @@
-/* -*- mode: C; c-basic-offset: 3; -*- */
+/* -*- mode: C; c-basic-offset: 3; indent-tabs-mode: nil; -*- */
 /*
   This file is part of drd, a thread error detector.
 
-  Copyright (C) 2006-2010 Bart Van Assche <bart.vanassche@gmail.com>.
+  Copyright (C) 2006-2011 Bart Van Assche <bvanassche@acm.org>.
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -69,7 +69,7 @@ void DRD_(start_suppression)(const Addr a1, const Addr a2,
                    a1, a2 - a1, reason);
    }
 
-   tl_assert(a1 < a2);
+   tl_assert(a1 <= a2);
    DRD_(bm_access_range_store)(DRD_(s_suppressed), a1, a2);
 }
 
@@ -82,7 +82,7 @@ void DRD_(finish_suppression)(const Addr a1, const Addr a2)
       VG_(get_and_pp_StackTrace)(VG_(get_running_tid)(), 12);
    }
 
-   tl_assert(a1 < a2);
+   tl_assert(a1 <= a2);
    DRD_(bm_clear_store)(DRD_(s_suppressed), a1, a2);
 }
 
@@ -118,7 +118,7 @@ Bool DRD_(range_contains_suppression_or_hbvar)(const Addr a1, const Addr a2)
 
 void DRD_(start_tracing_address_range)(const Addr a1, const Addr a2)
 {
-   tl_assert(a1 < a2);
+   tl_assert(a1 <= a2);
 
    DRD_(bm_access_range_load)(DRD_(s_traced), a1, a2);
    if (! DRD_(g_any_address_traced))
@@ -129,7 +129,7 @@ void DRD_(start_tracing_address_range)(const Addr a1, const Addr a2)
 
 void DRD_(stop_tracing_address_range)(const Addr a1, const Addr a2)
 {
-   tl_assert(a1 < a2);
+   tl_assert(a1 <= a2);
 
    DRD_(bm_clear_load)(DRD_(s_traced), a1, a2);
    if (DRD_(g_any_address_traced))
@@ -160,7 +160,7 @@ void DRD_(suppression_stop_using_mem)(const Addr a1, const Addr a2)
       }
    }
    tl_assert(a1);
-   tl_assert(a1 < a2);
+   tl_assert(a1 <= a2);
    DRD_(bm_clear)(DRD_(s_suppressed), a1, a2);
    DRD_(bm_clear)(DRD_(s_traced), a1, a2);
 }

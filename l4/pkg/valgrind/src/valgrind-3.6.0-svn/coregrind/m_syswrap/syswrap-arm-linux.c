@@ -35,6 +35,7 @@
 #include "pub_core_basics.h"
 #include "pub_core_vki.h"
 #include "pub_core_vkiscnums.h"
+#include "pub_core_libcsetjmp.h"    // to keep _threadstate.h happy
 #include "pub_core_threadstate.h"
 #include "pub_core_aspacemgr.h"
 #include "pub_core_debuglog.h"
@@ -342,6 +343,7 @@ DECL_TEMPLATE(arm_linux, sys_sigreturn);
 DECL_TEMPLATE(arm_linux, sys_rt_sigreturn);
 DECL_TEMPLATE(arm_linux, sys_set_tls);
 DECL_TEMPLATE(arm_linux, sys_cacheflush);
+DECL_TEMPLATE(arm_linux, sys_ptrace);
 
 PRE(sys_socketcall)
 {
@@ -831,6 +833,12 @@ PRE(wrap_sys_shmat)
    PRINT("wrap_sys_shmat ( %ld, %#lx, %ld )",ARG1,ARG2,ARG3);
    PRE_REG_READ3(long, "shmat",
                  int, shmid, const void *, shmaddr, int, shmflg);
+   /* Round the attach address down to an VKI_SHMLBA boundary if the
+      client requested rounding.  See #222545.  This is necessary only
+      on arm-linux because VKI_SHMLBA is 4 * VKI_PAGE size; on all
+      other linux targets it is the same as the page size. */
+   if (ARG3 & VKI_SHM_RND)
+      ARG2 = VG_ROUNDDN(ARG2, VKI_SHMLBA);
    arg2tmp = ML_(generic_PRE_sys_shmat)(tid, ARG1,ARG2,ARG3);
    if (arg2tmp == 0)
       SET_STATUS_Failure( VKI_EINVAL );
@@ -1199,6 +1207,124 @@ PRE(sys_cacheflush)
    SET_STATUS_Success(0);
 }
 
+// ARG3 is only used for pointers into the traced process's address
+// space and for offsets into the traced process's struct
+// user_regs_struct. It is never a pointer into this process's memory
+// space, and we should therefore not check anything it points to.
+PRE(sys_ptrace)
+{
+   PRINT("sys_ptrace ( %ld, %ld, %#lx, %#lx )", ARG1,ARG2,ARG3,ARG4);
+   PRE_REG_READ4(int, "ptrace", 
+                 long, request, long, pid, long, addr, long, data);
+   switch (ARG1) {
+   case VKI_PTRACE_PEEKTEXT:
+   case VKI_PTRACE_PEEKDATA:
+   case VKI_PTRACE_PEEKUSR:
+      PRE_MEM_WRITE( "ptrace(peek)", ARG4, 
+		     sizeof (long));
+      break;
+   case VKI_PTRACE_GETREGS:
+      PRE_MEM_WRITE( "ptrace(getregs)", ARG4, 
+		     sizeof (struct vki_user_regs_struct));
+      break;
+   case VKI_PTRACE_GETFPREGS:
+      PRE_MEM_WRITE( "ptrace(getfpregs)", ARG4, 
+		     sizeof (struct vki_user_fp));
+      break;
+   case VKI_PTRACE_GETWMMXREGS:
+      PRE_MEM_WRITE( "ptrace(getwmmxregs)", ARG4, 
+		     VKI_IWMMXT_SIZE);
+      break;
+   case VKI_PTRACE_GETCRUNCHREGS:
+      PRE_MEM_WRITE( "ptrace(getcrunchregs)", ARG4, 
+		     VKI_CRUNCH_SIZE);
+      break;
+   case VKI_PTRACE_GETVFPREGS:
+      PRE_MEM_WRITE( "ptrace(getvfpregs)", ARG4, 
+                     sizeof (struct vki_user_vfp) );
+      break;
+   case VKI_PTRACE_GETHBPREGS:
+      PRE_MEM_WRITE( "ptrace(gethbpregs)", ARG4, 
+                     sizeof (unsigned long) );
+      break;
+   case VKI_PTRACE_SETREGS:
+      PRE_MEM_READ( "ptrace(setregs)", ARG4, 
+		     sizeof (struct vki_user_regs_struct));
+      break;
+   case VKI_PTRACE_SETFPREGS:
+      PRE_MEM_READ( "ptrace(setfpregs)", ARG4, 
+		     sizeof (struct vki_user_fp));
+      break;
+   case VKI_PTRACE_SETWMMXREGS:
+      PRE_MEM_READ( "ptrace(setwmmxregs)", ARG4, 
+		     VKI_IWMMXT_SIZE);
+      break;
+   case VKI_PTRACE_SETCRUNCHREGS:
+      PRE_MEM_READ( "ptrace(setcrunchregs)", ARG4, 
+		     VKI_CRUNCH_SIZE);
+      break;
+   case VKI_PTRACE_SETVFPREGS:
+      PRE_MEM_READ( "ptrace(setvfpregs)", ARG4, 
+                     sizeof (struct vki_user_vfp));
+      break;
+   case VKI_PTRACE_SETHBPREGS:
+      PRE_MEM_READ( "ptrace(sethbpregs)", ARG4, sizeof(unsigned long));
+      break;
+   case VKI_PTRACE_GET_THREAD_AREA:
+      PRE_MEM_WRITE( "ptrace(get_thread_area)", ARG4, sizeof(unsigned long));
+      break;
+   case VKI_PTRACE_GETEVENTMSG:
+      PRE_MEM_WRITE( "ptrace(geteventmsg)", ARG4, sizeof(unsigned long));
+      break;
+   case VKI_PTRACE_GETSIGINFO:
+      PRE_MEM_WRITE( "ptrace(getsiginfo)", ARG4, sizeof(vki_siginfo_t));
+      break;
+   case VKI_PTRACE_SETSIGINFO:
+      PRE_MEM_READ( "ptrace(setsiginfo)", ARG4, sizeof(vki_siginfo_t));
+      break;
+   default:
+      break;
+   }
+}
+
+POST(sys_ptrace)
+{
+   switch (ARG1) {
+   case VKI_PTRACE_PEEKTEXT:
+   case VKI_PTRACE_PEEKDATA:
+   case VKI_PTRACE_PEEKUSR:
+      POST_MEM_WRITE( ARG4, sizeof (long));
+      break;
+   case VKI_PTRACE_GETREGS:
+      POST_MEM_WRITE( ARG4, sizeof (struct vki_user_regs_struct));
+      break;
+   case VKI_PTRACE_GETFPREGS:
+      POST_MEM_WRITE( ARG4, sizeof (struct vki_user_fp));
+      break;
+   case VKI_PTRACE_GETWMMXREGS:
+      POST_MEM_WRITE( ARG4, VKI_IWMMXT_SIZE);
+      break;
+   case VKI_PTRACE_GETCRUNCHREGS:
+      POST_MEM_WRITE( ARG4, VKI_CRUNCH_SIZE);
+      break;
+   case VKI_PTRACE_GETVFPREGS:
+      POST_MEM_WRITE( ARG4, sizeof(struct vki_user_vfp));
+      break;
+   case VKI_PTRACE_GET_THREAD_AREA:
+   case VKI_PTRACE_GETHBPREGS:
+   case VKI_PTRACE_GETEVENTMSG:
+      POST_MEM_WRITE( ARG4, sizeof(unsigned long));
+      break;
+   case VKI_PTRACE_GETSIGINFO:
+      /* XXX: This is a simplification. Different parts of the
+       * siginfo_t are valid depending on the type of signal.
+       */
+      POST_MEM_WRITE( ARG4, sizeof(vki_siginfo_t));
+      break;
+   default:
+      break;
+   }
+}
 
 #undef PRE
 #undef POST
@@ -1256,7 +1382,7 @@ static SyscallTableEntry syscall_main_table[] = {
    LINX_(__NR_getuid,            sys_getuid16),       // 24 ## P
 //zz 
 //zz    //   (__NR_stime,             sys_stime),          // 25 * (SVr4,SVID,X/OPEN)
-//   PLAXY(__NR_ptrace,            sys_ptrace),         // 26
+   PLAXY(__NR_ptrace,            sys_ptrace),         // 26
    GENX_(__NR_alarm,             sys_alarm),          // 27
 //zz    //   (__NR_oldfstat,          sys_fstat),          // 28 * L -- obsolete
    GENX_(__NR_pause,             sys_pause),          // 29
@@ -1444,7 +1570,7 @@ static SyscallTableEntry syscall_main_table[] = {
    LINX_(__NR_rt_sigsuspend,     sys_rt_sigsuspend),  // 179
 
    GENXY(__NR_pread64,           sys_pread64),        // 180
-   //GENX_(__NR_pwrite64,          sys_pwrite64_on32bitplat),       // 181
+   GENX_(__NR_pwrite64,          sys_pwrite64),       // 181
    LINX_(__NR_chown,             sys_chown16),        // 182
    GENXY(__NR_getcwd,            sys_getcwd),         // 183
    LINXY(__NR_capget,            sys_capget),         // 184
@@ -1498,7 +1624,7 @@ static SyscallTableEntry syscall_main_table[] = {
 //   PLAXY(223,                    sys_syscall223),     // 223 // sys_bproc?
    LINX_(__NR_gettid,            sys_gettid),         // 224
 
-//zz    //   (__NR_readahead,         sys_readahead),      // 225 */(Linux?)
+   LINX_(__NR_readahead,         sys_readahead),      // 225 */Linux
    LINX_(__NR_setxattr,          sys_setxattr),       // 226
    LINX_(__NR_lsetxattr,         sys_lsetxattr),      // 227
    LINX_(__NR_fsetxattr,         sys_fsetxattr),      // 228
@@ -1626,7 +1752,6 @@ static SyscallTableEntry syscall_main_table[] = {
    PLAX_(__NR_shmget,            sys_shmget),         //307 
    PLAXY(__NR_shmctl,            sys_shmctl),         // 308 
 //   LINX_(__NR_pselect6,       sys_pselect6),         //
-//   LINXY(__NR_ppoll,       sys_ppoll),            // 309
 
 //   LINX_(__NR_unshare,       sys_unshare),          // 310
    LINX_(__NR_set_robust_list,    sys_set_robust_list),  // 311
@@ -1657,7 +1782,8 @@ static SyscallTableEntry syscall_main_table[] = {
    // correspond to what's in include/vki/vki-scnums-arm-linux.h.
    // From here onwards, please ensure the numbers are correct.
 
-   LINX_(__NR_pselect6,		 sys_pselect6),         // 335
+   LINX_(__NR_pselect6,          sys_pselect6),         // 335
+   LINXY(__NR_ppoll,             sys_ppoll),            // 336
 
    LINXY(__NR_signalfd4,         sys_signalfd4),        // 355
    LINX_(__NR_eventfd2,          sys_eventfd2),         // 356

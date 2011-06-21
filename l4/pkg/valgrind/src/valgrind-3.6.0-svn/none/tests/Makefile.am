@@ -19,6 +19,9 @@ endif
 if VGCONF_ARCHS_INCLUDE_ARM
 SUBDIRS += arm
 endif
+if VGCONF_ARCHS_INCLUDE_S390X
+SUBDIRS += s390x
+endif
 
 # OS-specific tests
 if VGCONF_OS_IS_LINUX
@@ -33,7 +36,7 @@ if VGCONF_PLATFORMS_INCLUDE_X86_LINUX
 SUBDIRS += x86-linux
 endif
 
-DIST_SUBDIRS = x86 amd64 ppc32 ppc64 arm linux darwin x86-linux .
+DIST_SUBDIRS = x86 amd64 ppc32 ppc64 arm s390x linux darwin x86-linux .
 
 dist_noinst_SCRIPTS = \
 	filter_cmdline0 \
@@ -211,6 +214,7 @@ AM_CXXFLAGS += $(AM_FLAG_M3264_PRI)
 
 # Extra stuff for C tests
 ansi_CFLAGS		= $(AM_CFLAGS) -ansi
+execve_CFLAGS		= $(AM_CFLAGS) @FLAG_W_NO_NONNULL@
 floored_LDADD 		= -lm
 manythreads_LDADD	= -lpthread
 if VGCONF_OS_IS_DARWIN

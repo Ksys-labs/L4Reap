@@ -139,6 +139,7 @@
 #include "pub_core_libcbase.h"
 #include "pub_core_libcassert.h"
 #include "pub_core_libcprint.h"
+#include "pub_core_libcsetjmp.h"   // setjmp facilities
 #include "pub_core_options.h"
 #include "pub_core_tooliface.h"    /* VG_(needs) */
 #include "pub_core_xarray.h"
@@ -218,15 +219,6 @@ static /*signed*/Word get_remaining_length_Cursor ( Cursor* c ) {
 static UChar* get_address_of_Cursor ( Cursor* c ) {
    vg_assert(is_sane_Cursor(c));
    return &c->region_start_img[ c->region_next ];
-}
-
-__attribute__((noreturn)) 
-static void failWith ( Cursor* c, HChar* str ) {
-   vg_assert(c);
-   vg_assert(c->barf);
-   c->barf(str);
-   /*NOTREACHED*/
-   vg_assert(0);
 }
 
 /* FIXME: document assumptions on endianness for
@@ -1952,7 +1944,10 @@ static void parse_var_DIE (
 
 typedef
    struct {
-      /* What source language?  'C'=C/C++, 'F'=Fortran, '?'=other
+      /* What source language?  'A'=Ada83/95,
+                                'C'=C/C++, 
+                                'F'=Fortran,
+                                '?'=other
          Established once per compilation unit. */
       UChar language;
       /* A stack of types which are currently under construction */
@@ -2040,6 +2035,22 @@ static void typestack_push ( CUConst* cc,
       typestack_show( parser, "after push" );
 }
 
+/* True if the subrange type being parsed gives the bounds of an array. */
+static Bool subrange_type_denotes_array_bounds ( D3TypeParser* parser,
+                                                 DW_TAG dtag ) {
+   vg_assert(dtag == DW_TAG_subrange_type);
+   /* For most languages, a subrange_type dtag always gives the 
+      bounds of an array.
+      For Ada, there are additional conditions as a subrange_type
+      is also used for other purposes. */
+   if (parser->language != 'A')
+      /* not Ada, so it definitely denotes an array bound. */
+      return True;
+   else
+      /* Extra constraints for Ada: it only denotes an array bound if .. */
+      return (! typestack_is_empty(parser)
+              && parser->qparentE[parser->sp].tag == Te_TyArray);
+}
 
 /* Parse a type-related DIE.  'parser' holds the current parser state.
    'admin' is where the completed types are dumped.  'dtag' is the tag
@@ -2123,10 +2134,12 @@ static void parse_type_DIE ( /*MOD*/XArray* /* of TyEnt */ tyents,
             case DW_LANG_Fortran77: case DW_LANG_Fortran90:
             case DW_LANG_Fortran95:
                parser->language = 'F'; break;
-            case DW_LANG_Ada83: case DW_LANG_Cobol74:
+            case DW_LANG_Ada83: case DW_LANG_Ada95: 
+               parser->language = 'A'; break;
+            case DW_LANG_Cobol74:
             case DW_LANG_Cobol85: case DW_LANG_Pascal83:
             case DW_LANG_Modula2: case DW_LANG_Java:
-            case DW_LANG_Ada95: case DW_LANG_PLI:
+            case DW_LANG_PLI:
             case DW_LANG_D: case DW_LANG_Python:
             case DW_LANG_Mips_Assembler:
                parser->language = '?'; break;
@@ -2158,6 +2171,7 @@ static void parse_type_DIE ( /*MOD*/XArray* /* of TyEnt */ tyents,
          if (attr == DW_AT_encoding && ctsSzB > 0) {
             switch (cts) {
                case DW_ATE_unsigned: case DW_ATE_unsigned_char:
+               case DW_ATE_UTF: /* since DWARF4, e.g. char16_t from C++ */
                case DW_ATE_boolean:/* FIXME - is this correct? */
                   typeE.Te.TyBase.enc = 'U'; break;
                case DW_ATE_signed: case DW_ATE_signed_char:
@@ -2277,7 +2291,11 @@ static void parse_type_DIE ( /*MOD*/XArray* /* of TyEnt */ tyents,
                                  "<anon_enum_type>" );
 
       /* Do we have something that looks sane? */
-      if (typeE.Te.TyEnum.szB == 0 /* we must know the size */)
+      if (typeE.Te.TyEnum.szB == 0 
+          /* we must know the size */
+          /* but not for Ada, which uses such dummy
+             enumerations as helper for gdb ada mode. */
+          && parser->language != 'A')
          goto bad_DIE;
       /* On't stack! */
       typestack_push( cc, parser, td3, &typeE, level );
@@ -2536,7 +2554,9 @@ static void parse_type_DIE ( /*MOD*/XArray* /* of TyEnt */ tyents,
       goto acquire_Type;
    }
 
-   if (dtag == DW_TAG_subrange_type) {
+   /* this is a subrange type defining the bounds of an array. */
+   if (dtag == DW_TAG_subrange_type 
+       && subrange_type_denotes_array_bounds(parser, dtag)) {
       Bool have_lower = False;
       Bool have_upper = False;
       Bool have_count = False;
@@ -2547,6 +2567,7 @@ static void parse_type_DIE ( /*MOD*/XArray* /* of TyEnt */ tyents,
          case 'C': have_lower = True;  lower = 0; break;
          case 'F': have_lower = True;  lower = 1; break;
          case '?': have_lower = False; break;
+         case 'A': have_lower = False; break;
          default:  vg_assert(0); /* assured us by handling of
                                     DW_TAG_compile_unit in this fn */
       }
@@ -2622,8 +2643,13 @@ static void parse_type_DIE ( /*MOD*/XArray* /* of TyEnt */ tyents,
       goto acquire_Bound;
    }
 
-   if (dtag == DW_TAG_typedef) {
-      /* We can pick up a new typedef any time. */
+   /* typedef or subrange_type other than array bounds. */
+   if (dtag == DW_TAG_typedef 
+       || (dtag == DW_TAG_subrange_type 
+           && !subrange_type_denotes_array_bounds(parser, dtag))) {
+      /* subrange_type other than array bound is only for Ada. */
+      vg_assert (dtag == DW_TAG_typedef || parser->language == 'A');
+      /* We can pick up a new typedef/subrange_type any time. */
       VG_(memset)(&typeE, 0, sizeof(typeE));
       typeE.cuOff = D3_INVALID_CUOFF;
       typeE.tag   = Te_TyTyDef;
@@ -2647,6 +2673,12 @@ static void parse_type_DIE ( /*MOD*/XArray* /* of TyEnt */ tyents,
       /* Do we have something that looks sane? */
       if (/* must have a name */
           typeE.Te.TyTyDef.name == NULL
+          /* However gcc gnat Ada generates minimal typedef
+             such as the below => accept no name for Ada.
+             <6><91cc>: DW_TAG_typedef
+                DW_AT_abstract_ori: <9066>
+          */
+          && parser->language != 'A'
           /* but the referred-to type can be absent */)
          goto bad_DIE;
       else
@@ -3759,8 +3791,11 @@ void new_dwarf3_reader_wrk (
          key.dioff = varp->absOri; /* this is what we want to find */
          found = VG_(lookupXA)( dioff_lookup_tab, &keyp,
                                 &ixFirst, &ixLast );
-         if (!found)
-            barf("DW_AT_abstract_origin can't be resolved");
+         if (!found) {
+            /* barf("DW_AT_abstract_origin can't be resolved"); */
+            TRACE_D3("  SKIP (DW_AT_abstract_origin can't be resolved)\n\n");
+            continue;
+         }
          /* If the following fails, there is more than one entry with
             the same dioff.  Which can't happen. */
          vg_assert(ixFirst == ixLast);
@@ -3918,18 +3953,14 @@ void new_dwarf3_reader_wrk (
 /*---                                                      ---*/
 /*------------------------------------------------------------*/
 
-/* --- !!! --- EXTERNAL HEADERS start --- !!! --- */
-#include <setjmp.h>   /* For jmp_buf */
-/* --- !!! --- EXTERNAL HEADERS end --- !!! --- */
-
-static Bool    d3rd_jmpbuf_valid  = False;
-static HChar*  d3rd_jmpbuf_reason = NULL;
-static jmp_buf d3rd_jmpbuf;
+static Bool               d3rd_jmpbuf_valid  = False;
+static HChar*             d3rd_jmpbuf_reason = NULL;
+static VG_MINIMAL_JMP_BUF(d3rd_jmpbuf);
 
 static __attribute__((noreturn)) void barf ( HChar* reason ) {
    vg_assert(d3rd_jmpbuf_valid);
    d3rd_jmpbuf_reason = reason;
-   __builtin_longjmp(&d3rd_jmpbuf, 1);
+   VG_MINIMAL_LONGJMP(d3rd_jmpbuf);
    /*NOTREACHED*/
    vg_assert(0);
 }
@@ -3957,7 +3988,7 @@ ML_(new_dwarf3_reader) (
    vg_assert(d3rd_jmpbuf_reason == NULL);
 
    d3rd_jmpbuf_valid = True;
-   jumped = __builtin_setjmp(&d3rd_jmpbuf);
+   jumped = VG_MINIMAL_SETJMP(d3rd_jmpbuf);
    if (jumped == 0) {
       /* try this ... */
       new_dwarf3_reader_wrk( di, barf,

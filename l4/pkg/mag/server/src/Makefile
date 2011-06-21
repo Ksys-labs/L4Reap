@@ -23,7 +23,6 @@ REQUIRES_LIBS += $(STATIC_PLUGINS)
 
 CPPFLAGS += -fvisibility=hidden
 
-L4_MULTITHREADED = y
 
 include $(L4DIR)/mk/prog.mk
 

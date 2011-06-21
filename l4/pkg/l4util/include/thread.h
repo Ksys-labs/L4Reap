@@ -38,7 +38,8 @@ EXTERN_C_BEGIN
  * \param sp          Initial value of stack pointer
  * \param pager       Pager of the thread
  * \param task        Task to put thread in
- * \param scheduler   Scheduler to use
+ * \param scheduler   Scheduler to use, specify L4_INVALID_CAP for not
+ *                    calling the scheduler.
  * \param sp          Scheduler params to use
  * \return 0 on success, <0 on error
  */

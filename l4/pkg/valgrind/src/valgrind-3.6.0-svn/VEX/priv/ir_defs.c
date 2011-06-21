@@ -56,6 +56,7 @@ void ppIRType ( IRType ty )
       case Ity_I128:    vex_printf( "I128"); break;
       case Ity_F32:     vex_printf( "F32");  break;
       case Ity_F64:     vex_printf( "F64");  break;
+      case Ity_F128:    vex_printf( "F128"); break;
       case Ity_V128:    vex_printf( "V128"); break;
       default: vex_printf("ty = 0x%x\n", (Int)ty);
                vpanic("ppIRType");
@@ -64,7 +65,7 @@ void ppIRType ( IRType ty )
 
 void ppIRConst ( IRConst* con )
 {
-   union { ULong i64; Double f64; } u;
+   union { ULong i64; Double f64; UInt i32; Float f32; } u;
    vassert(sizeof(ULong) == sizeof(Double));
    switch (con->tag) {
       case Ico_U1:   vex_printf( "%d:I1",        con->Ico.U1 ? 1 : 0); break;
@@ -72,6 +73,10 @@ void ppIRConst ( IRConst* con )
       case Ico_U16:  vex_printf( "0x%x:I16",     (UInt)(con->Ico.U16)); break;
       case Ico_U32:  vex_printf( "0x%x:I32",     (UInt)(con->Ico.U32)); break;
       case Ico_U64:  vex_printf( "0x%llx:I64",   (ULong)(con->Ico.U64)); break;
+      case Ico_F32:  u.f32 = con->Ico.F32;
+                     vex_printf( "F32{0x%x}",   u.i32);
+                     break;
+      case Ico_F32i: vex_printf( "F32i{0x%x}",   con->Ico.F32i); break;
       case Ico_F64:  u.f64 = con->Ico.F64;
                      vex_printf( "F64{0x%llx}",  u.i64);
                      break;
@@ -222,6 +227,8 @@ void ppIROp ( IROp op )
       case Iop_DivModU128to64: vex_printf("DivModU128to64"); return;
       case Iop_DivModS128to64: vex_printf("DivModS128to64"); return;
 
+      case Iop_DivModS64to64: vex_printf("DivModS64to64"); return;
+
       case Iop_16HIto8:  vex_printf("16HIto8"); return;
       case Iop_16to8:    vex_printf("16to8");   return;
       case Iop_8HLto16:  vex_printf("8HLto16"); return;
@@ -238,6 +245,14 @@ void ppIROp ( IROp op )
       case Iop_128to64:   vex_printf("128to64");   return;
       case Iop_64HLto128: vex_printf("64HLto128"); return;
 
+      case Iop_CmpF32:    vex_printf("CmpF32");    return;
+      case Iop_F32toI16S: vex_printf("F32toI16S");  return;
+      case Iop_F32toI32S: vex_printf("F32toI32S");  return;
+      case Iop_F32toI64S: vex_printf("F32toI64S");  return;
+      case Iop_I16StoF32: vex_printf("I16StoF32");  return;
+      case Iop_I32StoF32: vex_printf("I32StoF32");  return;
+      case Iop_I64StoF32: vex_printf("I64StoF32");  return;
+
       case Iop_AddF64:    vex_printf("AddF64"); return;
       case Iop_SubF64:    vex_printf("SubF64"); return;
       case Iop_MulF64:    vex_printf("MulF64"); return;
@@ -250,6 +265,32 @@ void ppIROp ( IROp op )
       case Iop_SubF32:    vex_printf("SubF32"); return;
       case Iop_MulF32:    vex_printf("MulF32"); return;
       case Iop_DivF32:    vex_printf("DivF32"); return;
+
+        /* 128 bit floating point */
+      case Iop_AddF128:   vex_printf("AddF128");  return;
+      case Iop_SubF128:   vex_printf("SubF128");  return;
+      case Iop_MulF128:   vex_printf("MulF128");  return;
+      case Iop_DivF128:   vex_printf("DivF128");  return;
+      case Iop_AbsF128:   vex_printf("AbsF128");  return;
+      case Iop_NegF128:   vex_printf("NegF128");  return;
+      case Iop_SqrtF128:  vex_printf("SqrtF128"); return;
+      case Iop_CmpF128:   vex_printf("CmpF128");  return;
+
+      case Iop_F64HLtoF128: vex_printf("F64HLtoF128"); return;
+      case Iop_F128HItoF64: vex_printf("F128HItoF64"); return;
+      case Iop_F128LOtoF64: vex_printf("F128LOtoF64"); return;
+      case Iop_I32StoF128: vex_printf("I32StoF128"); return;
+      case Iop_I64StoF128: vex_printf("I64StoF128"); return;
+      case Iop_F128toI32S: vex_printf("F128toI32S"); return;
+      case Iop_F128toI64S: vex_printf("F128toI64S"); return;
+      case Iop_F32toF128:  vex_printf("F32toF128");  return;
+      case Iop_F64toF128:  vex_printf("F64toF128");  return;
+      case Iop_F128toF64:  vex_printf("F128toF64");  return;
+      case Iop_F128toF32:  vex_printf("F128toF32");  return;
+
+        /* s390 specific */
+      case Iop_MAddF32:    vex_printf("s390_MAddF32"); return;
+      case Iop_MSubF32:    vex_printf("s390_MSubF32"); return;
 
       case Iop_ScaleF64:      vex_printf("ScaleF64"); return;
       case Iop_AtanF64:       vex_printf("AtanF64"); return;
@@ -284,6 +325,32 @@ void ppIROp ( IROp op )
       case Iop_TruncF64asF32: vex_printf("TruncF64asF32"); return;
       case Iop_CalcFPRF:      vex_printf("CalcFPRF"); return;
 
+      case Iop_Add16x2:   vex_printf("Add16x2"); return;
+      case Iop_Sub16x2:   vex_printf("Sub16x2"); return;
+      case Iop_QAdd16Sx2: vex_printf("QAdd16Sx2"); return;
+      case Iop_QAdd16Ux2: vex_printf("QAdd16Ux2"); return;
+      case Iop_QSub16Sx2: vex_printf("QSub16Sx2"); return;
+      case Iop_QSub16Ux2: vex_printf("QSub16Ux2"); return;
+      case Iop_HAdd16Ux2: vex_printf("HAdd16Ux2"); return;
+      case Iop_HAdd16Sx2: vex_printf("HAdd16Sx2"); return;
+      case Iop_HSub16Ux2: vex_printf("HSub16Ux2"); return;
+      case Iop_HSub16Sx2: vex_printf("HSub16Sx2"); return;
+
+      case Iop_Add8x4:   vex_printf("Add8x4"); return;
+      case Iop_Sub8x4:   vex_printf("Sub8x4"); return;
+      case Iop_QAdd8Sx4: vex_printf("QAdd8Sx4"); return;
+      case Iop_QAdd8Ux4: vex_printf("QAdd8Ux4"); return;
+      case Iop_QSub8Sx4: vex_printf("QSub8Sx4"); return;
+      case Iop_QSub8Ux4: vex_printf("QSub8Ux4"); return;
+      case Iop_HAdd8Ux4: vex_printf("HAdd8Ux4"); return;
+      case Iop_HAdd8Sx4: vex_printf("HAdd8Sx4"); return;
+      case Iop_HSub8Ux4: vex_printf("HSub8Ux4"); return;
+      case Iop_HSub8Sx4: vex_printf("HSub8Sx4"); return;
+      case Iop_Sad8Ux4:  vex_printf("Sad8Ux4"); return;
+
+      case Iop_CmpNEZ16x2: vex_printf("CmpNEZ16x2"); return;
+      case Iop_CmpNEZ8x4:  vex_printf("CmpNEZ8x4"); return;
+
       case Iop_CmpF64:    vex_printf("CmpF64"); return;
 
       case Iop_F64toI16S: vex_printf("F64toI16S"); return;
@@ -295,6 +362,8 @@ void ppIROp ( IROp op )
       case Iop_I16StoF64: vex_printf("I16StoF64"); return;
       case Iop_I32StoF64: vex_printf("I32StoF64"); return;
       case Iop_I64StoF64: vex_printf("I64StoF64"); return;
+      case Iop_I64UtoF64: vex_printf("I64UtoF64"); return;
+      case Iop_I64UtoF32: vex_printf("I64UtoF32"); return;
 
       case Iop_I32UtoF64: vex_printf("I32UtoF64"); return;
 
@@ -1242,6 +1311,20 @@ IRConst* IRConst_U64 ( ULong u64 )
    c->Ico.U64 = u64;
    return c;
 }
+IRConst* IRConst_F32 ( Float f32 )
+{
+   IRConst* c = LibVEX_Alloc(sizeof(IRConst));
+   c->tag     = Ico_F32;
+   c->Ico.F32 = f32;
+   return c;
+}
+IRConst* IRConst_F32i ( UInt f32i )
+{
+   IRConst* c  = LibVEX_Alloc(sizeof(IRConst));
+   c->tag      = Ico_F32i;
+   c->Ico.F32i = f32i;
+   return c;
+}
 IRConst* IRConst_F64 ( Double f64 )
 {
    IRConst* c = LibVEX_Alloc(sizeof(IRConst));
@@ -1690,6 +1773,8 @@ IRConst* deepCopyIRConst ( IRConst* c )
       case Ico_U16:  return IRConst_U16(c->Ico.U16);
       case Ico_U32:  return IRConst_U32(c->Ico.U32);
       case Ico_U64:  return IRConst_U64(c->Ico.U64);
+      case Ico_F32:  return IRConst_F32(c->Ico.F32);
+      case Ico_F32i: return IRConst_F32i(c->Ico.F32i);
       case Ico_F64:  return IRConst_F64(c->Ico.F64);
       case Ico_F64i: return IRConst_F64i(c->Ico.F64i);
       case Ico_V128: return IRConst_V128(c->Ico.V128);
@@ -1919,6 +2004,17 @@ void typeOfPrimop ( IROp op,
       case Iop_Add32: case Iop_Sub32: case Iop_Mul32:
       case Iop_Or32:  case Iop_And32: case Iop_Xor32:
       case Iop_Max32U:
+      case Iop_Add16x2: case Iop_Sub16x2:
+      case Iop_QAdd16Sx2: case Iop_QAdd16Ux2:
+      case Iop_QSub16Sx2: case Iop_QSub16Ux2:
+      case Iop_HAdd16Ux2: case Iop_HAdd16Sx2:
+      case Iop_HSub16Ux2: case Iop_HSub16Sx2:
+      case Iop_Add8x4: case Iop_Sub8x4:
+      case Iop_QAdd8Sx4: case Iop_QAdd8Ux4:
+      case Iop_QSub8Sx4: case Iop_QSub8Ux4:
+      case Iop_HAdd8Ux4: case Iop_HAdd8Sx4:
+      case Iop_HSub8Ux4: case Iop_HSub8Sx4:
+      case Iop_Sad8Ux4:
          BINARY(Ity_I32,Ity_I32, Ity_I32);
 
       case Iop_Add64: case Iop_Sub64: case Iop_Mul64:
@@ -2004,6 +2100,7 @@ void typeOfPrimop ( IROp op,
       case Iop_Not16:
          UNARY(Ity_I16, Ity_I16);
       case Iop_Not32:
+      case Iop_CmpNEZ16x2: case Iop_CmpNEZ8x4:
          UNARY(Ity_I32, Ity_I32);
 
       case Iop_Not64:
@@ -2079,6 +2176,9 @@ void typeOfPrimop ( IROp op,
 
       case Iop_DivModU128to64: case Iop_DivModS128to64:
          BINARY(Ity_I128,Ity_I64, Ity_I128);
+
+      case Iop_DivModS64to64:
+         BINARY(Ity_I64,Ity_I64, Ity_I128);
 
       case Iop_16HIto8: case Iop_16to8:
          UNARY(Ity_I16, Ity_I8);
@@ -2156,8 +2256,14 @@ void typeOfPrimop ( IROp op,
       case Iop_RoundF32toInt:
          BINARY(ity_RMode,Ity_F32, Ity_F32);
 
+      case Iop_CmpF32:
+         BINARY(Ity_F32,Ity_F32, Ity_I32);
+
       case Iop_CmpF64:
          BINARY(Ity_F64,Ity_F64, Ity_I32);
+
+      case Iop_CmpF128:
+         BINARY(Ity_F128,Ity_F128, Ity_I32);
 
       case Iop_F64toI16S: BINARY(ity_RMode,Ity_F64, Ity_I16);
       case Iop_F64toI32S: BINARY(ity_RMode,Ity_F64, Ity_I32);
@@ -2168,8 +2274,18 @@ void typeOfPrimop ( IROp op,
       case Iop_I16StoF64: UNARY(Ity_I16, Ity_F64);
       case Iop_I32StoF64: UNARY(Ity_I32, Ity_F64);
       case Iop_I64StoF64: BINARY(ity_RMode,Ity_I64, Ity_F64);
+      case Iop_I64UtoF64: BINARY(ity_RMode,Ity_I64, Ity_F64);
+      case Iop_I64UtoF32: BINARY(ity_RMode,Ity_I64, Ity_F32);
 
       case Iop_I32UtoF64: UNARY(Ity_I32, Ity_F64);
+
+      case Iop_F32toI16S: BINARY(ity_RMode,Ity_F32, Ity_I16);
+      case Iop_F32toI32S: BINARY(ity_RMode,Ity_F32, Ity_I32);
+      case Iop_F32toI64S: BINARY(ity_RMode,Ity_F32, Ity_I64);
+
+      case Iop_I16StoF32: UNARY(Ity_I16, Ity_F32);
+      case Iop_I32StoF32: BINARY(ity_RMode,Ity_I32, Ity_F32);
+      case Iop_I64StoF32: BINARY(ity_RMode,Ity_I64, Ity_F32);
 
       case Iop_F32toF64: UNARY(Ity_F32, Ity_F64);
       case Iop_F64toF32: BINARY(ity_RMode,Ity_F64, Ity_F32);
@@ -2410,6 +2526,43 @@ void typeOfPrimop ( IROp op,
       case Iop_QDMulLong16Sx4: case Iop_QDMulLong32Sx2:
          BINARY(Ity_I64, Ity_I64, Ity_V128);
 
+         /* s390 specific */
+      case Iop_MAddF32:
+      case Iop_MSubF32:
+         QUATERNARY(ity_RMode,Ity_F32,Ity_F32,Ity_F32, Ity_F32);
+
+      case Iop_F64HLtoF128:
+        BINARY(Ity_F64,Ity_F64, Ity_F128);
+
+      case Iop_F128HItoF64:
+      case Iop_F128LOtoF64:
+        UNARY(Ity_F128, Ity_F64);
+
+      case Iop_AddF128:
+      case Iop_SubF128:
+      case Iop_MulF128:
+      case Iop_DivF128:
+         TERNARY(ity_RMode,Ity_F128,Ity_F128, Ity_F128);
+
+      case Iop_NegF128:
+      case Iop_AbsF128:
+         UNARY(Ity_F128, Ity_F128);
+
+      case Iop_SqrtF128:
+         BINARY(ity_RMode,Ity_F128, Ity_F128);
+
+      case Iop_I32StoF128: UNARY(Ity_I32, Ity_F128);
+      case Iop_I64StoF128: UNARY(Ity_I64, Ity_F128);
+
+      case Iop_F128toI32S: BINARY(ity_RMode,Ity_F128, Ity_I32);
+      case Iop_F128toI64S: BINARY(ity_RMode,Ity_F128, Ity_I64);
+
+      case Iop_F32toF128: UNARY(Ity_F32, Ity_F128);
+      case Iop_F64toF128: UNARY(Ity_F64, Ity_F128);
+
+      case Iop_F128toF32: BINARY(ity_RMode,Ity_F128, Ity_F32);
+      case Iop_F128toF64: BINARY(ity_RMode,Ity_F128, Ity_F64);
+
       default:
          ppIROp(op);
          vpanic("typeOfPrimop");
@@ -2492,6 +2645,8 @@ IRType typeOfIRConst ( IRConst* con )
       case Ico_U16:   return Ity_I16;
       case Ico_U32:   return Ity_I32;
       case Ico_U64:   return Ity_I64;
+      case Ico_F32:   return Ity_F32;
+      case Ico_F32i:  return Ity_F32;
       case Ico_F64:   return Ity_F64;
       case Ico_F64i:  return Ity_F64;
       case Ico_V128:  return Ity_V128;
@@ -2551,7 +2706,7 @@ Bool isPlausibleIRType ( IRType ty )
       case Ity_INVALID: case Ity_I1:
       case Ity_I8: case Ity_I16: case Ity_I32: 
       case Ity_I64: case Ity_I128:
-      case Ity_F32: case Ity_F64:
+      case Ity_F32: case Ity_F64: case Ity_F128:
       case Ity_V128:
          return True;
       default: 
@@ -3387,6 +3542,8 @@ Bool eqIRConst ( IRConst* c1, IRConst* c2 )
       case Ico_U16: return toBool( c1->Ico.U16 == c2->Ico.U16 );
       case Ico_U32: return toBool( c1->Ico.U32 == c2->Ico.U32 );
       case Ico_U64: return toBool( c1->Ico.U64 == c2->Ico.U64 );
+      case Ico_F32: return toBool( c1->Ico.F32 == c2->Ico.F32 );
+      case Ico_F32i: return toBool( c1->Ico.F32i == c2->Ico.F32i );
       case Ico_F64: return toBool( c1->Ico.F64 == c2->Ico.F64 );
       case Ico_F64i: return toBool( c1->Ico.F64i == c2->Ico.F64i );
       case Ico_V128: return toBool( c1->Ico.V128 == c2->Ico.V128 );
@@ -3408,8 +3565,10 @@ Int sizeofIRType ( IRType ty )
       case Ity_I16:  return 2;
       case Ity_I32:  return 4;
       case Ity_I64:  return 8;
+      case Ity_I128: return 16;
       case Ity_F32:  return 4;
       case Ity_F64:  return 8;
+      case Ity_F128: return 16;
       case Ity_V128: return 16;
       default: vex_printf("\n"); ppIRType(ty); vex_printf("\n");
                vpanic("sizeofIRType");

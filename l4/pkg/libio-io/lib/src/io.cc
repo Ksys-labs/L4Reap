@@ -8,8 +8,6 @@
  * GNU Lesser General Public License 2.1.
  * Please see the COPYING-LGPL-2.1 file for details.
  */
-#include <l4/cxx/exceptions>
-#include <l4/cxx/iostream>
 #include <l4/io/io.h>
 #include <l4/vbus/vbus.h>
 #include <l4/io/types.h>
@@ -38,15 +36,15 @@ namespace {
 /***********************************************************************
  * Init
  ***********************************************************************/
+static Cap<void> _vbus(Cap<void>::No_init);
 static Cap<void> &vbus()
 {
-  static Cap<void> _vbus;
   return _vbus;
 }
 
+static Cap<L4::Icu> _icu(Cap<void>::No_init);
 static Cap<L4::Icu> &icu()
 {
-  static Cap<L4::Icu> _icu;
   return _icu;
 }
 
@@ -55,43 +53,38 @@ static Cap<L4::Icu> &icu()
 extern "C" void __attribute__((__used__))
 __internal_l4io_init()
 {
-  try
+  L4::Cap<L4Re::Rm> rm = L4Re::Env::env()->rm();
+
+  vbus() = L4Re::Env::env()->get_cap<void>("vbus");
+  if (!vbus().is_valid())
     {
-      L4::Cap<L4Re::Rm> rm = L4Re::Env::env()->rm();
-
-      vbus() = L4Re::Env::env()->get_cap<void>("vbus");
-      if (!vbus().is_valid())
-	{
-	  printf("libio: Warning: Query of 'vbus' failed!\n");
-	  return;
-	}
-
-      l4vbus_device_handle_t handle = 0;
-      int ret = l4vbus_get_device_by_hid(vbus().cap(), 0, &handle, "L40009",
-                                         L4VBUS_MAX_DEPTH, 0);
-      if (ret)
-        {
-          //printf("libio: Warning: Finding 'icu' in system bus failed with '%s'\n",
-          //       l4sys_errtostr(ret));
-	  return;
-        }
-
-      icu() = L4Re::chkcap(L4Re::Util::cap_alloc.alloc<L4::Icu>(),
-	  "allocating ICU cap");
-
-      ret = l4vbus_vicu_get_cap(vbus().cap(), handle, icu().cap());
-      if (ret)
-	{
-	  printf("libio: Warning: Getting 'icu' device failed.\n");
-	  L4Re::Util::cap_alloc.free(icu());
-	  icu().invalidate();
-	}
-    }
-  catch (L4::Runtime_error const &e)
-    {
-      L4::cerr << e;
-      printf("Libio caught exception\n");
+      printf("libio: Warning: Query of 'vbus' failed!\n");
       return;
+    }
+
+  l4vbus_device_handle_t handle = 0;
+  int ret = l4vbus_get_device_by_hid(vbus().cap(), 0, &handle, "L40009",
+      L4VBUS_MAX_DEPTH, 0);
+  if (ret)
+    {
+      printf("libio: Warning: Finding 'icu' in system bus failed with '%s'\n",
+             l4sys_errtostr(ret));
+      return;
+    }
+
+  icu() = L4Re::Util::cap_alloc.alloc<L4::Icu>();
+  if (!icu().is_valid())
+    {
+      printf("libio: cannot allocate ICU cap\n");
+      return;
+    }
+
+  ret = l4vbus_vicu_get_cap(vbus().cap(), handle, icu().cap());
+  if (ret)
+    {
+      printf("libio: Warning: Getting 'icu' device failed.\n");
+      L4Re::Util::cap_alloc.free(icu());
+      icu().invalidate();
     }
 }
 

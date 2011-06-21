@@ -7,7 +7,7 @@ IMPLEMENTATION [arm && sa1100]:
 typedef Sa1100_generic<Kmem::Timer_map_base> Sa1100;
 
 void __attribute__ ((noreturn))
-  pc_reset(void)
+platform_reset(void)
 {
   Io::write( (Mword)Sa1100::RSRR_SWR, (Address)Sa1100::RSRR );
   for (;;)

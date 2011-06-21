@@ -8,25 +8,10 @@
  */
 #pragma once
 
-#include <l4/sys/types.h>
-#include <l4/re/l4aux.h>
-#include <cstddef>
 #include <l4/libloader/remote_mem>
-
-class Region_map;
 
 namespace Moe {
 
-class Dataspace;
-
-class Stack : public Ldr::Remote_stack<>
-{
-public:
-  explicit Stack(char *p = 0) : Ldr::Remote_stack<>(p) {}
-  l4_addr_t add(l4_addr_t start, l4_umword_t size, Region_map *rm,
-                Moe::Dataspace const *m, unsigned long offs,
-                unsigned flags, unsigned char align,
-                char const *what);
-};
+typedef Ldr::Remote_stack<> Stack;
 
 }

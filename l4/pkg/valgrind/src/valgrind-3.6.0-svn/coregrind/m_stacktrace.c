@@ -30,6 +30,7 @@
 
 #include "pub_core_basics.h"
 #include "pub_core_vki.h"
+#include "pub_core_libcsetjmp.h"    // to keep _threadstate.h happy
 #include "pub_core_threadstate.h"
 #include "pub_core_debuginfo.h"     // XXX: circular dependency
 #include "pub_core_aspacemgr.h"     // For VG_(is_addressable)()
@@ -264,7 +265,7 @@ UInt VG_(get_StackTrace_wrk) ( ThreadId tid_if_known,
    // On Darwin, this kicks in for pthread-related stack traces, so they're
    // only 1 entry long which is wrong.
 #  if !defined(VGO_darwin)
-   if (fp_min + 512 >= fp_max) {
+   if (fp_min + 256 >= fp_max) {
       /* If the stack limits look bogus, don't poke around ... but
          don't bomb out either. */
       if (sps) sps[0] = uregs.xsp;
@@ -593,11 +594,12 @@ UInt VG_(get_StackTrace_wrk) ( ThreadId tid_if_known,
    vg_assert(sizeof(Addr) == sizeof(void*));
 
    D3UnwindRegs uregs;
-   uregs.r15 = startRegs->r_pc;
+   uregs.r15 = startRegs->r_pc & 0xFFFFFFFE;
    uregs.r14 = startRegs->misc.ARM.r14;
    uregs.r13 = startRegs->r_sp;
    uregs.r12 = startRegs->misc.ARM.r12;
    uregs.r11 = startRegs->misc.ARM.r11;
+   uregs.r7  = startRegs->misc.ARM.r7;
    Addr fp_min = uregs.r13;
 
    /* Snaffle IPs from the client's stack into ips[0 .. max_n_ips-1],
@@ -612,7 +614,7 @@ UInt VG_(get_StackTrace_wrk) ( ThreadId tid_if_known,
       fp_max -= sizeof(Addr);
 
    if (debug)
-      VG_(printf)("max_n_ips=%d fp_min=0x%lx fp_max_orig=0x%lx, "
+      VG_(printf)("\nmax_n_ips=%d fp_min=0x%lx fp_max_orig=0x%lx, "
                   "fp_max=0x%lx r15=0x%lx r13=0x%lx\n",
                   max_n_ips, fp_min, fp_max_orig, fp_max,
                   uregs.r15, uregs.r13);
@@ -652,11 +654,11 @@ UInt VG_(get_StackTrace_wrk) ( ThreadId tid_if_known,
       if (VG_(use_CF_info)( &uregs, fp_min, fp_max )) {
          if (sps) sps[i] = uregs.r13;
          if (fps) fps[i] = 0;
-         ips[i++] = uregs.r15 -1;
+         ips[i++] = (uregs.r15 & 0xFFFFFFFE) - 1;
          if (debug)
             VG_(printf)("USING CFI: r15: 0x%lx, r13: 0x%lx\n",
                         uregs.r15, uregs.r13);
-         uregs.r15 = uregs.r15 - 1;
+         uregs.r15 = (uregs.r15 & 0xFFFFFFFE) - 1;
          continue;
       }
       /* No luck.  We have to give up. */
@@ -667,6 +669,85 @@ UInt VG_(get_StackTrace_wrk) ( ThreadId tid_if_known,
    return n_found;
 }
 
+#endif
+
+/* ------------------------ s390x ------------------------- */
+#if defined(VGP_s390x_linux)
+UInt VG_(get_StackTrace_wrk) ( ThreadId tid_if_known,
+                               /*OUT*/Addr* ips, UInt max_n_ips,
+                               /*OUT*/Addr* sps, /*OUT*/Addr* fps,
+                               UnwindStartRegs* startRegs,
+                               Addr fp_max_orig )
+{
+   Bool  debug = False;
+   Int   i;
+   Addr  fp_max;
+   UInt  n_found = 0;
+
+   vg_assert(sizeof(Addr) == sizeof(UWord));
+   vg_assert(sizeof(Addr) == sizeof(void*));
+
+   D3UnwindRegs uregs;
+   uregs.ia = startRegs->r_pc;
+   uregs.sp = startRegs->r_sp;
+   Addr fp_min = uregs.sp;
+   uregs.fp = startRegs->misc.S390X.r_fp;
+   uregs.lr = startRegs->misc.S390X.r_lr;
+
+   fp_max = VG_PGROUNDUP(fp_max_orig);
+   if (fp_max >= sizeof(Addr))
+      fp_max -= sizeof(Addr);
+
+   if (debug)
+      VG_(printf)("max_n_ips=%d fp_min=0x%lx fp_max_orig=0x%lx, "
+                  "fp_max=0x%lx IA=0x%lx SP=0x%lx FP=0x%lx\n",
+                  max_n_ips, fp_min, fp_max_orig, fp_max,
+                  uregs.ia, uregs.sp,uregs.fp);
+
+   /* The first frame is pretty obvious */
+   ips[0] = uregs.ia;
+   if (sps) sps[0] = uregs.sp;
+   if (fps) fps[0] = uregs.fp;
+   i = 1;
+
+   /* for everything else we have to rely on the eh_frame. gcc defaults to
+      not create a backchain and all the other  tools (like gdb) also have
+      to use the CFI. */
+   while (True) {
+      if (i >= max_n_ips)
+         break;
+
+      if (VG_(use_CF_info)( &uregs, fp_min, fp_max )) {
+         if (sps) sps[i] = uregs.sp;
+         if (fps) fps[i] = uregs.fp;
+         ips[i++] = uregs.ia - 1;
+         uregs.ia = uregs.ia - 1;
+         continue;
+      }
+      /* A problem on the first frame? Lets assume it was a bad jump.
+         We will use the link register and the current stack and frame
+         pointers and see if we can use the CFI in the next round. */
+      if (i == 1) {
+         if (sps) {
+            sps[i] = sps[0];
+            uregs.sp = sps[0];
+         }
+         if (fps) {
+            fps[i] = fps[0];
+            uregs.fp = fps[0];
+         }
+         uregs.ia = uregs.lr - 1;
+         ips[i++] = uregs.lr - 1;
+         continue;
+      }
+
+      /* No luck.  We have to give up. */
+      break;
+   }
+
+   n_found = i;
+   return n_found;
+}
 #endif
 
 /*------------------------------------------------------------*/

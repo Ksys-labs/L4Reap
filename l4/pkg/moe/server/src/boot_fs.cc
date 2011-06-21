@@ -11,6 +11,8 @@
 #include <l4/util/util.h>
 #include <l4/cxx/iostream>
 #include <l4/cxx/l4iostream>
+#include <l4/sigma0/sigma0.h>
+#include <l4/util/splitlog2.h>
 
 #include "boot_fs.h"
 #include "dataspace_static.h"
@@ -18,6 +20,7 @@
 #include "globals.h"
 #include "name_space.h"
 #include "debug.h"
+
 
 #include <cstring>
 #include <cstdlib>
@@ -84,6 +87,22 @@ Moe::Boot_fs::init_stage1()
   l4_touch_ro(mbi,10);
 }
 
+static long
+s0_request_ram(l4_addr_t s, l4_addr_t, int order)
+{
+  l4_msg_regs_t *m = l4_utcb_mr();
+  l4_buf_regs_t *b = l4_utcb_br();
+  l4_msgtag_t tag = l4_msgtag(L4_PROTO_SIGMA0, 2, 0, 0);
+  m->mr[0] = SIGMA0_REQ_FPAGE_RAM;
+  m->mr[1] = l4_fpage(s, order, L4_FPAGE_RWX).raw;
+
+  b->bdr   = 0;
+  b->br[0] = L4_ITEM_MAP;
+  b->br[1] = l4_fpage(s, order, L4_FPAGE_RWX).raw;
+  tag = l4_ipc_call(Sigma0_cap, l4_utcb(), tag, L4_IPC_NEVER);
+  return 0;
+}
+
 void
 Moe::Boot_fs::init_stage2()
 {
@@ -101,20 +120,34 @@ Moe::Boot_fs::init_stage2()
   char *dirinfo = (char *)Single_page_alloc_base::_alloc(dirinfo_space, L4_PAGESHIFT);
   unsigned dirinfo_size = 0;
 
-  l4util_mb_mod_t const *modules = (l4util_mb_mod_t const *)mbi->mods_addr;
+  l4util_mb_mod_t const *modules = (l4util_mb_mod_t const *)(unsigned long)mbi->mods_addr;
   unsigned num_modules = mbi->mods_count;
+
+  l4_addr_t m_low = -1;
+  l4_addr_t m_high = 0;
   for (unsigned mod = 3; mod < num_modules; ++mod)
     {
-      l4_touch_ro((void*)modules[mod].mod_start,
-	  modules[mod].mod_end - modules[mod].mod_start);
+      l4_addr_t s = modules[mod].mod_start;
+      if (s != m_high + 1 && m_low != (l4_addr_t)-1)
+	{
+	  l4util_splitlog2_hdl(m_low, m_high, s0_request_ram);
+	  m_low = -1;
+	  m_high = 0;
+	}
+
+      if (m_low > s)
+	m_low = s;
 
       //l4_addr_t end = l4_round_page(modules[mod].mod_end);
       l4_addr_t end = modules[mod].mod_end;
 
-      Names::Name name = cmdline_to_name((char const *)modules[mod].cmdline);
+      if (m_high < l4_round_page(end))
+	m_high = l4_round_page(end);
+
+      Names::Name name = cmdline_to_name((char const *)(unsigned long)modules[mod].cmdline);
 
       Moe::Dataspace_static *rf;
-      rf = new Moe::Dataspace_static((void*)modules[mod].mod_start,
+      rf = new Moe::Dataspace_static((void*)(unsigned long)modules[mod].mod_start,
                                      end - modules[mod].mod_start,
                                      Dataspace::Cow_enabled);
       object = object_pool.cap_alloc()->alloc(rf);
@@ -143,10 +176,13 @@ Moe::Boot_fs::init_stage2()
       while (1);
 
 
-      L4::cout << "  BOOTFS: [" << (void*)modules[mod].mod_start << "-"
+      L4::cout << "  BOOTFS: [" << (void*)(unsigned long)modules[mod].mod_start << "-"
                << (void*)end << "] " << object << " "
                << name << "\n";
     }
+
+  if (m_low != (l4_addr_t)-1)
+    l4util_splitlog2_hdl(m_low, m_high, s0_request_ram);
 
   Moe::Dataspace_static *dirinfods;
   dirinfods = new Moe::Dataspace_static((void *)dirinfo,

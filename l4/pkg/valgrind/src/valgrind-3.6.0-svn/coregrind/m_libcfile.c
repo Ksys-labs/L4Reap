@@ -120,6 +120,22 @@ Bool VG_(resolve_filename) ( Int fd, HChar* buf, Int n_buf )
 #  endif
 }
 
+SysRes VG_(mknod) ( const Char* pathname, Int mode, UWord dev )
+{  
+#  if defined(VGO_linux) || defined(VGO_aix5) || defined(VGO_darwin)
+   SysRes res = VG_(do_syscall3)(__NR_mknod,
+                                 (UWord)pathname, mode, dev);
+
+#  elif defined(VGO_l4re)
+   SysRes res;
+   enter_kdebug("mknod");
+
+#  else
+#    error Unknown OS
+#  endif
+   return res;
+}
+
 SysRes VG_(open) ( const Char* pathname, Int flags, Int mode )
 {  
 #  if defined(VGO_linux) || defined(VGO_aix5)
@@ -159,12 +175,13 @@ SysRes VG_(open) ( const Char* pathname, Int flags, Int mode )
     if ((ret = open(pathname, flags, mode)) < 0) {
 		VG_(debugLog)(0, "libcfile", "error opening file %s: %d\n",
 					  pathname, ret);
-        res._isError = True;
+		res._isError = True;
 		res._err = ret;
     } else {
         Int pathname_len;
 
         res._isError = False;
+		res._res = ret;
 
 		vrm_register_filename(ret, pathname);
 		// XXX: L4Re's read-only file system does an mmap() somewhen!
@@ -198,14 +215,22 @@ SysRes VG_(open) ( const Char* pathname, Int flags, Int mode )
     VG_(debugLog)(0, "libcfile", "## %s: open %s ret=%d\n", __func__, sr_isError(res) ? "failed" : "successful", ret );
 #endif
 
-	res._isError = False;
-    res._res = ret;
 #undef DEBUG_MYSELF
 
 #  else
 #    error Unknown OS
 #  endif
    return res;
+}
+
+Int VG_(fd_open) (const Char* pathname, Int flags, Int mode)
+{
+   SysRes sr;
+   sr = VG_(open) (pathname, flags, mode);
+   if (sr_isError (sr))
+      return -1;
+   else
+      return sr_Res (sr);
 }
 
 void VG_(close) ( Int fd )
@@ -619,6 +644,19 @@ Bool VG_(get_startup_wd) ( Char* buf, SizeT size )
    return True;
 }
 
+Int    VG_(poll) (struct vki_pollfd *fds, Int nfds, Int timeout)
+{
+#ifdef VGO_l4re
+   enter_kdebug("poll");
+   return -1;
+#else
+   SysRes res;
+   res = VG_(do_syscall3)(__NR_poll, (UWord)fds, nfds, timeout);
+   return sr_isError(res) ? -1 : sr_Res(res);
+#endif
+}
+
+
 Int VG_(readlink) (const Char* path, Char* buf, UInt bufsiz)
 {
 #ifdef VGO_l4re
@@ -832,7 +870,7 @@ Int VG_(mkstemp) ( HChar* part_of_name, /*OUT*/HChar* fullname )
 
    tries = 0;
    while (True) {
-      if (tries > 10) 
+      if (tries++ > 10) 
          return -1;
       VG_(sprintf)( buf, "/tmp/valgrind_%s_%08x", 
                          part_of_name, VG_(random)( &seed ));
@@ -1015,7 +1053,7 @@ static Int parse_inet_addr_and_port ( UChar* str, UInt* ip_addr, UShort* port )
 Int VG_(socket) ( Int domain, Int type, Int protocol )
 {
 #  if defined(VGP_x86_linux) || defined(VGP_ppc32_linux) \
-      || defined(VGP_ppc64_linux)
+      || defined(VGP_ppc64_linux) || defined(VGP_s390x_linux)
    SysRes res;
    UWord  args[3];
    args[0] = domain;
@@ -1056,7 +1094,7 @@ static
 Int my_connect ( Int sockfd, struct vki_sockaddr_in* serv_addr, Int addrlen )
 {
 #  if defined(VGP_x86_linux) || defined(VGP_ppc32_linux) \
-      || defined(VGP_ppc64_linux)
+      || defined(VGP_ppc64_linux) || defined(VGP_s390x_linux)
    SysRes res;
    UWord  args[3];
    args[0] = sockfd;
@@ -1096,7 +1134,7 @@ Int VG_(write_socket)( Int sd, void *msg, Int count )
       SIGPIPE */
 
 #  if defined(VGP_x86_linux) || defined(VGP_ppc32_linux) \
-      || defined(VGP_ppc64_linux)
+      || defined(VGP_ppc64_linux) || defined(VGP_s390x_linux)
    SysRes res;
    UWord  args[4];
    args[0] = sd;
@@ -1128,7 +1166,7 @@ Int VG_(write_socket)( Int sd, void *msg, Int count )
 Int VG_(getsockname) ( Int sd, struct vki_sockaddr *name, Int *namelen)
 {
 #  if defined(VGP_x86_linux) || defined(VGP_ppc32_linux) \
-      || defined(VGP_ppc64_linux)
+      || defined(VGP_ppc64_linux) || defined(VGP_s390x_linux)
    SysRes res;
    UWord  args[3];
    args[0] = sd;
@@ -1160,7 +1198,7 @@ Int VG_(getsockname) ( Int sd, struct vki_sockaddr *name, Int *namelen)
 Int VG_(getpeername) ( Int sd, struct vki_sockaddr *name, Int *namelen)
 {
 #  if defined(VGP_x86_linux) || defined(VGP_ppc32_linux) \
-      || defined(VGP_ppc64_linux)
+      || defined(VGP_ppc64_linux) || defined(VGP_s390x_linux)
    SysRes res;
    UWord  args[3];
    args[0] = sd;
@@ -1193,7 +1231,7 @@ Int VG_(getsockopt) ( Int sd, Int level, Int optname, void *optval,
                       Int *optlen)
 {
 #  if defined(VGP_x86_linux) || defined(VGP_ppc32_linux) \
-      || defined(VGP_ppc64_linux)
+      || defined(VGP_ppc64_linux) || defined(VGP_s390x_linux)
    SysRes res;
    UWord  args[5];
    args[0] = sd;

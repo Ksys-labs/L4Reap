@@ -3,7 +3,7 @@ L4DIR  ?= $(PKGDIR)/../..
 
 TARGET         = libsqlite3.a libsqlite3.so
 SRC_C          = sqlite3.c
-REQUIRES_LIBS  = libdl
+REQUIRES_LIBS  = libdl libpthread
 CONTRIB_INCDIR = sqlite
 
 vpath %.c $(PKGDIR)/lib/contrib

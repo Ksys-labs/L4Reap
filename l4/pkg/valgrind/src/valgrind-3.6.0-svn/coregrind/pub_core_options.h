@@ -45,12 +45,36 @@
 /* The max number of --require-text-symbol= specification strings. */
 #define VG_CLO_MAX_REQ_TSYMS 100
 
+/* The max number of --fullpath-after= parameters. */
+#define VG_CLO_MAX_FULLPATH_AFTER 100
+
 /* Should we stop collecting errors if too many appear?  default: YES */
 extern Bool  VG_(clo_error_limit);
 /* Alternative exit code to hand to parent if errors were found.
    default: 0 (no, return the application's exit code in the normal
    way. */
 extern Int   VG_(clo_error_exitcode);
+
+typedef 
+   enum { 
+      Vg_VgdbNo,   // Do not activate gdbserver.
+      Vg_VgdbYes,  // Activate gdbserver (default).
+      Vg_VgdbFull, // ACtivate gdbserver in full mode, allowing
+                   // a precise handling of watchpoints and single stepping
+                   // at any moment.
+   } 
+   VgVgdb;
+/* if != Vg_VgdbNo, allows valgrind to serve vgdb/gdb. */
+extern VgVgdb VG_(clo_vgdb);
+/* if > 0, checks every VG_(clo_vgdb_poll) BBS if vgdb wants to be served. */
+extern Int VG_(clo_vgdb_poll);
+/* prefix for the named pipes (FIFOs) used by vgdb/gdb to communicate with valgrind */
+extern Char* VG_(clo_vgdb_prefix);
+/* if True, gdbserver in valgrind will expose a target description containing
+   shadow registers */
+extern Bool  VG_(clo_vgdb_shadow_registers);
+#define VG_CLO_VGDB_PREFIX_DEFAULT "/tmp/vgdb-pipe"
+
 /* Enquire about whether to attach to a debugger at errors?   default: NO */
 extern Bool  VG_(clo_db_attach);
 /* The debugger command?  default: whatever gdb ./configure found */
@@ -67,6 +91,10 @@ extern Bool  VG_(clo_trace_children);
 /* String containing comma-separated patterns for executable names
    that should not be traced into even when --trace-children=yes */
 extern HChar* VG_(clo_trace_children_skip);
+/* The same as VG_(clo_trace_children), except that these patterns are
+   tested against the arguments for child processes, rather than the
+   executable name. */
+extern HChar* VG_(clo_trace_children_skip_by_arg);
 /* After a fork, the child's output can become confusingly
    intermingled with the parent's output.  This is especially
    problematic when VG_(clo_xml) is True.  Setting
@@ -90,6 +118,10 @@ extern Int   VG_(clo_input_fd);
 extern Int   VG_(clo_n_suppressions);
 /* The names of the suppression files. */
 extern Char* VG_(clo_suppressions)[VG_CLO_MAX_SFILES];
+
+/* An array of strings harvested from --fullpath-after= flags. */
+extern Int   VG_(clo_n_fullpath_after);
+extern Char* VG_(clo_fullpath_after)[VG_CLO_MAX_FULLPATH_AFTER];
 
 /* DEBUG: print generated code?  default: 00000000 ( == NO ) */
 extern UChar VG_(clo_trace_flags);
@@ -128,6 +160,8 @@ extern Char* VG_(clo_sim_hints);
 extern Bool VG_(clo_sym_offsets);
 /* Read DWARF3 variable info even if tool doesn't ask for it? */
 extern Bool VG_(clo_read_var_info);
+/* Which prefix to strip from full source file paths, if any. */
+extern Char* VG_(clo_prefix_to_strip);
 
 /* An array of strings harvested from --require-text-symbol= 
    flags.
@@ -211,9 +245,13 @@ extern HChar* VG_(clo_kernel_variant);
 extern Bool VG_(clo_dsymutil);
 
 /* Should we trace into this child executable (across execve etc) ?
-   This involves considering --trace-children=, --trace-children-skip=
-   and the name of the executable. */
-extern Bool VG_(should_we_trace_this_child) ( HChar* child_exe_name );
+   This involves considering --trace-children=,
+   --trace-children-skip=, --trace-children-skip-by-arg=, and the name
+   of the executable.  'child_argv' must not include the name of the
+   executable itself; iow child_argv[0] must be the first arg, if any,
+   for the child. */
+extern Bool VG_(should_we_trace_this_child) ( HChar* child_exe_name,
+                                              HChar** child_argv );
 
 #endif   // __PUB_CORE_OPTIONS_H
 

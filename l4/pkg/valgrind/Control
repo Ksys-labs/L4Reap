@@ -1,3 +1,2 @@
 requires: stdlibs libpthread l4re_c-util
-provides: 
 maintainer: doebel@os.inf.tu-dresden.de

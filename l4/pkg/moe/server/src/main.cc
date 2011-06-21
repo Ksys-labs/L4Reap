@@ -71,6 +71,8 @@ static Dbg warn(Dbg::Warn);
 static
 l4_kernel_info_t const *map_kip()
 {
+  // map the KIP 1:1, because moe hast all memory 1:1 and the kip would
+  // possibly overlap with 1:1 memory if we have lots of RAM.
   _current_kip = l4sigma0_map_kip(Sigma0_cap, 0, L4_WHOLE_ADDRESS_SPACE);
 
   if (!_current_kip)
@@ -79,37 +81,34 @@ l4_kernel_info_t const *map_kip()
       exit(1);
     }
 
-
-  boot.printf("KIP @%p\n",kip());
+  boot.printf("KIP @%p\n", kip());
   return kip();
 }
 
 static
 char *my_cmdline()
 {
-  l4util_mb_info_t const *_mbi_ = (l4util_mb_info_t const *)kip()->user_ptr;
+  l4util_mb_info_t const *_mbi_ = (l4util_mb_info_t const *)(unsigned long)kip()->user_ptr;
   boot.printf("mbi @%p\n", _mbi_);
-  l4util_mb_mod_t const *modules = (l4util_mb_mod_t const *)_mbi_->mods_addr;
+  l4util_mb_mod_t const *modules = (l4util_mb_mod_t const *)(unsigned long)_mbi_->mods_addr;
   unsigned num_modules = _mbi_->mods_count;
   char *cmdline = 0;
 
   for (unsigned mod = 0; mod < num_modules; ++mod)
-    {
-      if (strstr((char const *)modules[mod].cmdline, PROG))
-	{
-	  cmdline = (char *)modules[mod].cmdline;
-	  break;
-	}
-    }
+    if (strstr((char const *)(unsigned long)modules[mod].cmdline, PROG))
+      {
+        cmdline = (char *)(unsigned long)modules[mod].cmdline;
+        break;
+      }
 
   if (!cmdline)
-    cmdline = (char *)_mbi_->cmdline;
+    cmdline = (char *)(unsigned long)_mbi_->cmdline;
 
   static char default_cmdline[] = "";
 
   if (!cmdline)
     {
-      Dbg(Dbg::Warn).printf("no command line found, use default!\n");
+      Dbg(Dbg::Warn).printf("No command line found, using default!\n");
       cmdline = default_cmdline;
     }
 

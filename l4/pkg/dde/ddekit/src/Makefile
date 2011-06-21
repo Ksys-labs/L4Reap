@@ -22,7 +22,7 @@ SRC_CC = malloc.cc \
 		 memory.cc \
 		 pci.cc
 
-REQUIRES_LIBS := libio slab
+REQUIRES_LIBS := libio slab l4re_c-util libpthread
 
 PC_FILENAME = ddekit
 

@@ -1,5 +1,19 @@
 #pragma once
 
+#include <l4/sys/types.h>
+#include <l4/sys/kip.h>
+
+extern l4_kernel_info_t *_current_kip;
+
+#ifndef __L4
+#  define __L4
+#endif
+
+#define CLOCK_TYPE l4_cpu_time_t
+#define CLOCKS_PER_SEC 1000000
+#define MS_TIME_DIFF(a,b) ((long)((a)-(b)))
+#define GET_TIME(x) x = _current_kip->clock
+
 #define OS_TYPE "L4"
 #define MARK_BIT_PER_GRANULE
 #undef MARK_BIT_PER_OBJ

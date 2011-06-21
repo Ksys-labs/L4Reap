@@ -76,6 +76,20 @@ __attribute__((noinline)) void atomic_add_8bit ( char* p, int n )
    } while (success != 1);
 #elif defined(VGA_arm)
    *p += n;
+#elif defined(VGA_s390x)
+   int dummy;
+   __asm__ __volatile__(
+      "   l	0,%0\n\t"
+      "0: st	0,%1\n\t"
+      "   icm	1,1,%1\n\t"
+      "   ar	1,%2\n\t"
+      "   stcm  1,1,%1\n\t"
+      "   l     1,%1\n\t"
+      "   cs	0,1,%0\n\t"
+      "   jl    0b\n\t"
+      : "+m" (*p), "+m" (dummy)
+      : "d" (n)
+      : "cc", "memory", "0", "1");
 #else
 # error "Unsupported arch"
 #endif
@@ -140,6 +154,20 @@ __attribute__((noinline)) void atomic_add_16bit ( short* p, int n )
    } while (success != 1);
 #elif defined(VGA_arm)
    *p += n;
+#elif defined(VGA_s390x)
+   int dummy;
+   __asm__ __volatile__(
+      "   l	0,%0\n\t"
+      "0: st	0,%1\n\t"
+      "   icm	1,3,%1\n\t"
+      "   ar	1,%2\n\t"
+      "   stcm  1,3,%1\n\t"
+      "   l     1,%1\n\t"
+      "   cs	0,1,%0\n\t"
+      "   jl    0b\n\t"
+      : "+m" (*p), "+m" (dummy)
+      : "d" (n)
+      : "cc", "memory", "0", "1");
 #else
 # error "Unsupported arch"
 #endif
@@ -200,7 +228,32 @@ __attribute__((noinline)) void atomic_add_32bit ( int* p, int n )
       );
    } while (success != 1);
 #elif defined(VGA_arm)
-   *p += n;
+   unsigned int block[3]
+      = { (unsigned int)p, (unsigned int)n, 0xFFFFFFFF };
+   do {
+      __asm__ __volatile__(
+         "mov   r5, %0"         "\n\t"
+         "ldr   r9, [r5, #0]"   "\n\t" // p
+         "ldr   r10, [r5, #4]"  "\n\t" // n
+         "ldrex r8, [r9]"       "\n\t"
+         "add   r8, r8, r10"    "\n\t"
+         "strex r11, r8, [r9]"  "\n\t"
+         "str   r11, [r5, #8]"  "\n\t"
+         : /*out*/
+         : /*in*/ "r"(&block[0])
+         : /*trash*/ "memory", "cc", "r5", "r8", "r9", "r10"
+      );
+   } while (block[2] != 0);
+#elif defined(VGA_s390x)
+   __asm__ __volatile__(
+      "   l	0,%0\n\t"
+      "0: lr	1,0\n\t"
+      "   ar	1,%1\n\t"
+      "   cs	0,1,%0\n\t"
+      "   jl    0b\n\t"
+      : "+m" (*p)
+      : "d" (n)
+      : "cc", "memory", "0", "1");
 #else
 # error "Unsupported arch"
 #endif
@@ -237,6 +290,16 @@ __attribute__((noinline)) void atomic_add_64bit ( long long int* p, int n )
          : /*trash*/ "memory", "cc", "r15"
       );
    } while (success != 1);
+#elif defined(VGA_s390x)
+   __asm__ __volatile__(
+      "   lg	0,%0\n\t"
+      "0: lgr	1,0\n\t"
+      "   agr	1,%1\n\t"
+      "   csg	0,1,%0\n\t"
+      "   jl    0b\n\t"
+      : "+m" (*p)
+      : "d" (n)
+      : "cc", "memory", "0", "1");
 #else
 # error "Unsupported arch"
 #endif

@@ -4,7 +4,7 @@ IMPLEMENTATION [arm && pxa]:
 #include "io.h"
 
 void __attribute__ ((noreturn))
-  pc_reset(void)
+platform_reset(void)
 {
   enum {
     OSCR  = Kmem::Timer_map_base + 0x10,

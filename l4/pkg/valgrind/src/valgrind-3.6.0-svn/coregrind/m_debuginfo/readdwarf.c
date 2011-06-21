@@ -860,7 +860,7 @@ void read_dwarf2_lineblock ( struct _DebugInfo* di,
             data += bytes_read;
             state_machine_regs.column = adv;
             if (di->ddump_line)
-               VG_(printf)("  DWARF2-line: set_column\n");
+               VG_(printf)("  Set column to %d\n", (Int)adv);
             break;
 
          case DW_LNS_negate_stmt:
@@ -990,7 +990,7 @@ void read_unitinfo_dwarf2( /*OUT*/UnitInfo* ui,
    UInt   acode, abcode;
    ULong  atoffs, blklen;
    Int    level;
-   UShort ver;
+   /* UShort ver; */
 
    UChar addr_size;
    UChar* p = unitblock_img;
@@ -1007,7 +1007,7 @@ void read_unitinfo_dwarf2( /*OUT*/UnitInfo* ui,
    p += ui->dw64 ? 12 : 4;
 
    /* version should be 2, 3 or 4 */
-   ver = *((UShort*)p);
+   /* ver = *((UShort*)p); */
    p += 2;
 
    /* get offset in abbrev */
@@ -1079,6 +1079,9 @@ void read_unitinfo_dwarf2( /*OUT*/UnitInfo* ui,
          /* TJH 27 Apr 10: in DWARF 4 lineptr (and loclistptr,macptr,
             rangelistptr classes) use FORM_sec_offset which is 64 bits
             in 64 bit DWARF and 32 bits in 32 bit DWARF. */
+         /* JRS 20 Apr 11: LLVM-2.9 encodes DW_AT_stmt_list using
+            FORM_addr rather than the FORM_data4 that GCC uses.  Hence
+            handle FORM_addr too. */
          switch( form ) {
             /* Those cases extract the data properly */
             case 0x05: /* FORM_data2 */     cval = *((UShort*)p); p +=2; break;
@@ -1101,13 +1104,16 @@ void read_unitinfo_dwarf2( /*OUT*/UnitInfo* ui,
                                             } else {
                                                cval = *((UInt*)p); p += 4;
                                             }; break;
+
+            case 0x07: /* FORM_data8 */     if (ui->dw64) cval = *((ULong*)p);
+                                            p += 8; break;
+                                            /* perhaps should assign
+                                               unconditionally to cval? */
+
             /* TODO : Following ones just skip data - implement if you need */
             case 0x01: /* FORM_addr */      p += addr_size; break;
             case 0x03: /* FORM_block2 */    p += *((UShort*)p) + 2; break;
             case 0x04: /* FORM_block4 */    p += *((UInt*)p) + 4; break;
-            case 0x07: /* FORM_data8 */     if (ui->dw64) cval = *((ULong*)p);
-                                            p += 8; break;
-                       /* perhaps should assign unconditionally to cval? */
             case 0x09: /* FORM_block */     p += read_leb128U( &p ); break;
             case 0x0a: /* FORM_block1 */    p += *p + 1; break;
             case 0x0c: /* FORM_flag */      p++; break;
@@ -1832,6 +1838,10 @@ void ML_(read_debuginfo_dwarf1) (
 #  define FP_REG         6
 #  define SP_REG         7
 #  define RA_REG_DEFAULT 16
+#elif defined(VGP_s390x_linux)
+#  define FP_REG         11    // sometimes s390 has a frame pointer in r11
+#  define SP_REG         15    // stack is always r15
+#  define RA_REG_DEFAULT 14    // the return address is in r14
 #elif defined(VGP_x86_l4re)
 #  define FP_REG         5
 #  define SP_REG         4
@@ -2063,6 +2073,7 @@ static void initUnwindContext ( /*OUT*/UnwindContext* ctx )
       /* ctx->state[j].reg[13].tag = RR_Same; */
       ctx->state[j].reg[14].tag = RR_Same;
       ctx->state[j].reg[12].tag = RR_Same;
+      ctx->state[j].reg[7].tag  = RR_Same;
       /* this can't be right though: R12 (IP) isn't callee saved. */
 #     endif
    }
@@ -2142,7 +2153,7 @@ static Bool summarise_context( /*OUT*/DiCfSI* si,
    else
    if (ctxs->cfa_is_regoff && ctxs->cfa_reg == SP_REG) {
       si->cfa_off = ctxs->cfa_off;
-#     if defined(VGA_x86) || defined(VGA_amd64)
+#     if defined(VGA_x86) || defined(VGA_amd64) || defined(VGA_s390x)
       si->cfa_how = CFIC_IA_SPREL;
 #     elif defined(VGA_arm)
       si->cfa_how = CFIC_ARM_R13REL;
@@ -2153,7 +2164,7 @@ static Bool summarise_context( /*OUT*/DiCfSI* si,
    else
    if (ctxs->cfa_is_regoff && ctxs->cfa_reg == FP_REG) {
       si->cfa_off = ctxs->cfa_off;
-#     if defined(VGA_x86) || defined(VGA_amd64)
+#     if defined(VGA_x86) || defined(VGA_amd64) || defined(VGA_s390x)
       si->cfa_how = CFIC_IA_BPREL;
 #     elif defined(VGA_arm)
       si->cfa_how = CFIC_ARM_R12REL;
@@ -2165,6 +2176,11 @@ static Bool summarise_context( /*OUT*/DiCfSI* si,
    else
    if (ctxs->cfa_is_regoff && ctxs->cfa_reg == 11/*??_REG*/) {
       si->cfa_how = CFIC_ARM_R11REL;
+      si->cfa_off = ctxs->cfa_off;
+   }
+   else
+   if (ctxs->cfa_is_regoff && ctxs->cfa_reg == 7/*??_REG*/) {
+      si->cfa_how = CFIC_ARM_R7REL;
       si->cfa_off = ctxs->cfa_off;
    }
 #  endif
@@ -2261,6 +2277,9 @@ static Bool summarise_context( /*OUT*/DiCfSI* si,
    SUMMARISE_HOW(si->r11_how, si->r11_off,
                               ctxs->reg[11/*FP_REG*/] );
 
+   SUMMARISE_HOW(si->r7_how, si->r7_off,
+                             ctxs->reg[7] );
+
    if (ctxs->reg[14/*LR*/].tag == RR_Same
        && ctx->ra_reg == 14/*as we expect it always to be*/) {
       /* Generate a trivial CfiExpr, which merely says "r14".  First
@@ -2298,6 +2317,55 @@ static Bool summarise_context( /*OUT*/DiCfSI* si,
    return True;
 
 
+#  elif defined(VGA_s390x)
+
+   SUMMARISE_HOW(si->ra_how, si->ra_off,
+                             ctxs->reg[ctx->ra_reg] );
+   SUMMARISE_HOW(si->fp_how, si->fp_off,
+                             ctxs->reg[FP_REG] );
+   SUMMARISE_HOW(si->sp_how, si->sp_off,
+                             ctxs->reg[SP_REG] );
+
+   /* change some defaults to consumable values */
+   if (si->sp_how == CFIR_UNKNOWN)
+      si->sp_how = CFIR_SAME;
+
+   if (si->fp_how == CFIR_UNKNOWN)
+      si->fp_how = CFIR_SAME;
+
+   if (si->cfa_how == CFIR_UNKNOWN) {
+      si->cfa_how = CFIC_IA_SPREL;
+      si->cfa_off = 160;
+   }
+   if (si->ra_how == CFIR_UNKNOWN) {
+      if (!debuginfo->cfsi_exprs)
+         debuginfo->cfsi_exprs = VG_(newXA)( ML_(dinfo_zalloc),
+                                             "di.ccCt.2a",
+                                             ML_(dinfo_free),
+                                             sizeof(CfiExpr) );
+      si->ra_how = CFIR_EXPR;
+      si->ra_off = ML_(CfiExpr_CfiReg)( debuginfo->cfsi_exprs,
+                                        Creg_S390_R14);
+   }
+
+   /* knock out some obviously stupid cases */
+   if (si->ra_how == CFIR_SAME)
+      { why = 3; goto failed; }
+
+   /* bogus looking range?  Note, we require that the difference is
+      representable in 32 bits. */
+   if (loc_start >= ctx->loc)
+      { why = 4; goto failed; }
+   if (ctx->loc - loc_start > 10000000 /* let's say */)
+      { why = 5; goto failed; }
+
+   si->base = loc_start + ctx->initloc;
+   si->len  = (UInt)(ctx->loc - loc_start);
+
+   return True;
+
+
+
 #  elif defined(VGA_ppc32) || defined(VGA_ppc64)
 #  else
 #    error "Unknown arch"
@@ -2326,7 +2394,7 @@ static Int copy_convert_CfiExpr_tree ( XArray*        dstxa,
                                        Int            srcix )
 {
    CfiExpr* src;
-   Int      cpL, cpR, cpA, dwreg;
+   Int      cpL, cpR, cpA;
    XArray*  srcxa = srcuc->exprs;
    vg_assert(srcxa);
    vg_assert(dstxa);
@@ -2354,8 +2422,9 @@ static Int copy_convert_CfiExpr_tree ( XArray*        dstxa,
          /* should not see these in input (are created only by this
             conversion step!) */
          VG_(core_panic)("copy_convert_CfiExpr_tree: CfiReg in input");
-      case Cex_DwReg:
+      case Cex_DwReg: {
          /* This is the only place where the conversion can fail. */
+         Int dwreg __attribute__((unused));
          dwreg = src->Cex.DwReg.reg;
 #        if defined(VGA_x86) || defined(VGA_amd64)
          if (dwreg == SP_REG)
@@ -2371,12 +2440,20 @@ static Int copy_convert_CfiExpr_tree ( XArray*        dstxa,
             return ML_(CfiExpr_CfiReg)( dstxa, Creg_ARM_R12 );
          if (dwreg == srcuc->ra_reg)
            return ML_(CfiExpr_CfiReg)( dstxa, Creg_ARM_R15 ); /* correct? */
+#        elif defined(VGA_s390x)
+         if (dwreg == SP_REG)
+            return ML_(CfiExpr_CfiReg)( dstxa, Creg_IA_SP );
+         if (dwreg == FP_REG)
+            return ML_(CfiExpr_CfiReg)( dstxa, Creg_IA_BP );
+         if (dwreg == srcuc->ra_reg)
+            return ML_(CfiExpr_CfiReg)( dstxa, Creg_IA_IP ); /* correct? */
 #        elif defined(VGA_ppc32) || defined(VGA_ppc64)
 #        else
 #           error "Unknown arch"
 #        endif
          /* else we must fail - can't represent the reg */
          return -1;
+      }
       default:
          VG_(core_panic)("copy_convert_CfiExpr_tree: default");
    }
@@ -2419,70 +2496,110 @@ static inline Bool host_is_little_endian ( void )
 static Short read_Short ( UChar* data )
 {
    Short r = 0;
-   vg_assert(host_is_little_endian());
-   r = data[0] 
-       | ( ((UInt)data[1]) << 8 );
+   if (host_is_little_endian()) {
+      r = data[0]
+          | ( ((UInt)data[1]) << 8 );
+   } else {
+      r = data[1]
+          | ( ((UInt)data[0]) << 8 );
+   }
    return r;
 }
 
 static Int read_Int ( UChar* data )
 {
    Int r = 0;
-   vg_assert(host_is_little_endian());
-   r = data[0] 
-       | ( ((UInt)data[1]) << 8 ) 
-       | ( ((UInt)data[2]) << 16 ) 
-       | ( ((UInt)data[3]) << 24 );
+   if (host_is_little_endian()) {
+      r = data[0]
+          | ( ((UInt)data[1]) << 8 )
+          | ( ((UInt)data[2]) << 16 )
+          | ( ((UInt)data[3]) << 24 );
+   } else {
+      r = data[3]
+          | ( ((UInt)data[2]) << 8 )
+          | ( ((UInt)data[1]) << 16 )
+          | ( ((UInt)data[0]) << 24 );
+   }
    return r;
 }
 
 static Long read_Long ( UChar* data )
 {
    Long r = 0;
-   vg_assert(host_is_little_endian());
-   r = data[0] 
-       | ( ((ULong)data[1]) << 8 ) 
-       | ( ((ULong)data[2]) << 16 ) 
-       | ( ((ULong)data[3]) << 24 )
-       | ( ((ULong)data[4]) << 32 ) 
-       | ( ((ULong)data[5]) << 40 ) 
-       | ( ((ULong)data[6]) << 48 ) 
-       | ( ((ULong)data[7]) << 56 );
+   if (host_is_little_endian()) {
+      r = data[0]
+          | ( ((ULong)data[1]) << 8 )
+          | ( ((ULong)data[2]) << 16 )
+          | ( ((ULong)data[3]) << 24 )
+          | ( ((ULong)data[4]) << 32 )
+          | ( ((ULong)data[5]) << 40 )
+          | ( ((ULong)data[6]) << 48 )
+          | ( ((ULong)data[7]) << 56 );
+   } else {
+      r = data[7]
+          | ( ((ULong)data[6]) << 8 )
+          | ( ((ULong)data[5]) << 16 )
+          | ( ((ULong)data[4]) << 24 )
+          | ( ((ULong)data[3]) << 32 )
+          | ( ((ULong)data[2]) << 40 )
+          | ( ((ULong)data[1]) << 48 )
+          | ( ((ULong)data[0]) << 56 );
+   }
    return r;
 }
 
 static UShort read_UShort ( UChar* data )
 {
    UInt r = 0;
-   vg_assert(host_is_little_endian());
-   r = data[0] 
-       | ( ((UInt)data[1]) << 8 );
+   if (host_is_little_endian()) {
+      r = data[0]
+          | ( ((UInt)data[1]) << 8 );
+   } else {
+      r = data[1]
+          | ( ((UInt)data[0]) << 8 );
+   }
    return r;
 }
 
 static UInt read_UInt ( UChar* data )
 {
    UInt r = 0;
-   vg_assert(host_is_little_endian());
-   r = data[0] 
-       | ( ((UInt)data[1]) << 8 ) 
-       | ( ((UInt)data[2]) << 16 ) 
-       | ( ((UInt)data[3]) << 24 );
+   if (host_is_little_endian()) {
+      r = data[0]
+          | ( ((UInt)data[1]) << 8 )
+          | ( ((UInt)data[2]) << 16 )
+          | ( ((UInt)data[3]) << 24 );
+   } else {
+      r = data[3]
+          | ( ((UInt)data[2]) << 8 )
+          | ( ((UInt)data[1]) << 16 )
+          | ( ((UInt)data[0]) << 24 );
+   }
    return r;
 }
 
 static ULong read_ULong ( UChar* data )
 {
    ULong r = 0;
-   vg_assert(host_is_little_endian());
-   r = data[0] 
-       | ( ((ULong)data[1]) << 8 ) 
-       | ( ((ULong)data[2]) << 16 ) 
+   if (host_is_little_endian()) {
+      r = data[0]
+       | ( ((ULong)data[1]) << 8 )
+       | ( ((ULong)data[2]) << 16 )
        | ( ((ULong)data[3]) << 24 )
-       | ( ((ULong)data[4]) << 32 ) 
-       | ( ((ULong)data[5]) << 40 ) 
-       | ( ((ULong)data[6]) << 48 ) 
+       | ( ((ULong)data[4]) << 32 )
+       | ( ((ULong)data[5]) << 40 )
+       | ( ((ULong)data[6]) << 48 )
        | ( ((ULong)data[7]) << 56 );
+   } else {
+      r = data[7]
+       | ( ((ULong)data[6]) << 8 )
+       | ( ((ULong)data[5]) << 16 )
+       | ( ((ULong)data[4]) << 24 )
+       | ( ((ULong)data[3]) << 32 )
+       | ( ((ULong)data[2]) << 40 )
+       | ( ((ULong)data[1]) << 48 )
+       | ( ((ULong)data[0]) << 56 );
+   }
    return r;
 }
 
@@ -2856,6 +2973,7 @@ static Int run_CF_instruction ( /*MOD*/UnwindContext* ctx,
    ctxs = &ctx->state[ctx->state_sp];
    if (hi2 == DW_CFA_advance_loc) {
       delta = (UInt)lo6;
+      delta *= ctx->code_a_f;
       ctx->loc += delta;
       if (di->ddump_frames)
          VG_(printf)("  DW_CFA_advance_loc: %d to %08lx\n", 
@@ -2913,6 +3031,7 @@ static Int run_CF_instruction ( /*MOD*/UnwindContext* ctx,
          break;
       case DW_CFA_advance_loc1:
          delta = (UInt)read_UChar(&instr[i]); i+= sizeof(UChar);
+         delta *= ctx->code_a_f;
          ctx->loc += delta;
          if (di->ddump_frames)
             VG_(printf)("  DW_CFA_advance_loc1: %d to %08lx\n", 
@@ -2920,6 +3039,7 @@ static Int run_CF_instruction ( /*MOD*/UnwindContext* ctx,
          break;
       case DW_CFA_advance_loc2:
          delta = (UInt)read_UShort(&instr[i]); i+= sizeof(UShort);
+         delta *= ctx->code_a_f;
          ctx->loc += delta;
          if (di->ddump_frames)
             VG_(printf)("  DW_CFA_advance_loc2: %d to %08lx\n", 
@@ -2927,6 +3047,7 @@ static Int run_CF_instruction ( /*MOD*/UnwindContext* ctx,
          break;
       case DW_CFA_advance_loc4:
          delta = (UInt)read_UInt(&instr[i]); i+= sizeof(UInt);
+         delta *= ctx->code_a_f;
          ctx->loc += delta;
          if (di->ddump_frames)
             VG_(printf)("  DW_CFA_advance_loc4: %d to %08lx\n", 
@@ -3069,7 +3190,7 @@ static Int run_CF_instruction ( /*MOD*/UnwindContext* ctx,
          ctxs->cfa_reg       = reg;
          /* ->cfa_off unchanged */
          if (di->ddump_frames)
-            VG_(printf)("  DW_CFA_def_cfa_reg: r%d\n", (Int)reg );
+            VG_(printf)("  DW_CFA_def_cfa_register: r%d\n", (Int)reg );
          break;
 
       case DW_CFA_def_cfa_offset:

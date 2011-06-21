@@ -70,7 +70,9 @@
 #  define  ElfXX_Ehdr     Elf32_Ehdr
 #  define  ElfXX_Shdr     Elf32_Shdr
 #  define  ElfXX_Phdr     Elf32_Phdr
+#  define  ElfXX_Nhdr     Elf32_Nhdr
 #  define  ElfXX_Sym      Elf32_Sym
+#  define  ElfXX_Off      Elf32_Off
 #  define  ElfXX_Word     Elf32_Word
 #  define  ElfXX_Addr     Elf32_Addr
 #  define  ElfXX_Dyn      Elf32_Dyn
@@ -81,7 +83,9 @@
 #  define  ElfXX_Ehdr     Elf64_Ehdr
 #  define  ElfXX_Shdr     Elf64_Shdr
 #  define  ElfXX_Phdr     Elf64_Phdr
+#  define  ElfXX_Nhdr     Elf64_Nhdr
 #  define  ElfXX_Sym      Elf64_Sym
+#  define  ElfXX_Off      Elf64_Off
 #  define  ElfXX_Word     Elf64_Word
 #  define  ElfXX_Addr     Elf64_Addr
 #  define  ElfXX_Dyn      Elf64_Dyn
@@ -852,6 +856,56 @@ void read_elf_symtab__ppc64_linux(
 
 
 /*
+ * Look for a build-id in an ELF image. The build-id specification
+ * can be found here:
+ *
+ * http://fedoraproject.org/wiki/RolandMcGrath/BuildID
+ */
+static
+Char *find_buildid(Addr image, UWord n_image)
+{
+   Char* buildid = NULL;
+   ElfXX_Ehdr* ehdr = (ElfXX_Ehdr*)image;
+
+#ifdef NT_GNU_BUILD_ID
+   if (n_image >= sizeof(ElfXX_Ehdr) &&
+       ML_(is_elf_object_file)(ehdr, n_image)) {
+      Word i;
+
+      for (i = 0; i < ehdr->e_phnum; i++) {
+         ElfXX_Phdr* phdr = (ElfXX_Phdr*)(image + ehdr->e_phoff + i * ehdr->e_phentsize);
+
+         if (phdr->p_type == PT_NOTE) {
+            ElfXX_Off offset =  phdr->p_offset;
+
+            while (offset < phdr->p_offset + phdr->p_filesz) {
+               ElfXX_Nhdr* note = (ElfXX_Nhdr*)(image + offset);
+               Char* name = (Char *)note + sizeof(ElfXX_Nhdr);
+               UChar *desc = (UChar *)name + ((note->n_namesz + 3) & ~3);
+               Word j;
+
+               if (VG_(strcmp)(name, ELF_NOTE_GNU) == 0 &&
+                   note->n_type == NT_GNU_BUILD_ID) {
+                  buildid = ML_(dinfo_zalloc)("di.fbi.1", note->n_descsz * 2 + 1);
+                  
+                  for (j = 0; j < note->n_descsz; j++) {
+                     VG_(sprintf)(buildid + VG_(strlen)(buildid), "%02x", desc[j]);
+                  }
+               }
+
+               offset = offset + sizeof(ElfXX_Nhdr)
+                               + ((note->n_namesz + 3) & ~3)
+                               + ((note->n_descsz + 3) & ~3);
+            }            
+         }
+      }    
+   }
+#endif
+
+   return buildid;
+}
+
+/*
  * This routine for calculating the CRC for a separate debug file
  * is GPLed code borrowed from GNU binutils.
  */
@@ -926,7 +980,7 @@ calc_gnu_debuglink_crc32(UInt crc, const UChar *buf, Int len)
  * not match the value from the main object file.
  */
 static
-Addr open_debug_file( Char* name, UInt crc, /*OUT*/UWord* size )
+Addr open_debug_file( Char* name, Char* buildid, UInt crc, /*OUT*/UWord* size )
 {
    SysRes fd, sres;
    struct vg_stat stat_buf;
@@ -943,7 +997,7 @@ Addr open_debug_file( Char* name, UInt crc, /*OUT*/UWord* size )
 
    if (VG_(clo_verbosity) > 1)
       VG_(message)(Vg_DebugMsg, "  Considering %s ..\n", name);
-
+   
    *size = stat_buf.size;
    
    sres = VG_(am_mmap_file_float_valgrind)
@@ -954,18 +1008,35 @@ Addr open_debug_file( Char* name, UInt crc, /*OUT*/UWord* size )
    if (sr_isError(sres))
       return 0;
 
-   calccrc = calc_gnu_debuglink_crc32(0, (UChar*)sr_Res(sres), *size);
-   if (calccrc != crc) {
-      SysRes res = VG_(am_munmap_valgrind)(sr_Res(sres), *size);
-      vg_assert(!sr_isError(res));
-      if (VG_(clo_verbosity) > 1)
-         VG_(message)(Vg_DebugMsg, 
-            "  .. CRC mismatch (computed %08x wanted %08x)\n", calccrc, crc);
-      return 0;
-   }
+   if (buildid) {
+      Char* debug_buildid = find_buildid(sr_Res(sres), *size);
+      if (debug_buildid == NULL || VG_(strcmp)(buildid, debug_buildid) != 0) {
+         SysRes res = VG_(am_munmap_valgrind)(sr_Res(sres), *size);
+         vg_assert(!sr_isError(res));
+         if (VG_(clo_verbosity) > 1)
+            VG_(message)(Vg_DebugMsg, 
+               "  .. build-id mismatch (found %s wanted %s)\n", debug_buildid, buildid);
+         ML_(dinfo_free)(debug_buildid);
+         return 0;
+      }
+      ML_(dinfo_free)(debug_buildid);
 
-   if (VG_(clo_verbosity) > 1)
-      VG_(message)(Vg_DebugMsg, "  .. CRC is valid\n");
+      if (VG_(clo_verbosity) > 1)
+         VG_(message)(Vg_DebugMsg, "  .. build-id is valid\n");
+   } else {
+      calccrc = calc_gnu_debuglink_crc32(0, (UChar*)sr_Res(sres), *size);
+      if (calccrc != crc) {
+         SysRes res = VG_(am_munmap_valgrind)(sr_Res(sres), *size);
+         vg_assert(!sr_isError(res));
+         if (VG_(clo_verbosity) > 1)
+            VG_(message)(Vg_DebugMsg, 
+               "  .. CRC mismatch (computed %08x wanted %08x)\n", calccrc, crc);
+         return 0;
+      }
+
+      if (VG_(clo_verbosity) > 1)
+         VG_(message)(Vg_DebugMsg, "  .. CRC is valid\n");
+   }
    
    return sr_Res(sres);
 }
@@ -975,29 +1046,49 @@ Addr open_debug_file( Char* name, UInt crc, /*OUT*/UWord* size )
  */
 static
 Addr find_debug_file( struct _DebugInfo* di,
-                      Char* objpath, Char* debugname, 
-                      UInt crc, /*OUT*/UWord* size )
+                      Char* objpath, Char* buildid,
+                      Char* debugname, UInt crc,
+                      /*OUT*/UWord* size )
 {
-   Char *objdir = ML_(dinfo_strdup)("di.fdf.1", objpath);
-   Char *objdirptr;
-   Char *debugpath;
+   Char *debugpath = NULL;
    Addr addr = 0;
-  
-   if ((objdirptr = VG_(strrchr)(objdir, '/')) != NULL)
-      *objdirptr = '\0';
 
-   debugpath = ML_(dinfo_zalloc)(
-                  "di.fdf.2",
-                  VG_(strlen)(objdir) + VG_(strlen)(debugname) + 32);
-   
-   VG_(sprintf)(debugpath, "%s/%s", objdir, debugname);
+   if (buildid != NULL) {
+      debugpath = ML_(dinfo_zalloc)(
+                     "di.fdf.1",
+                     VG_(strlen)(buildid) + 33);
 
-   if ((addr = open_debug_file(debugpath, crc, size)) == 0) {
-      VG_(sprintf)(debugpath, "%s/.debug/%s", objdir, debugname);
-      if ((addr = open_debug_file(debugpath, crc, size)) == 0) {
-         VG_(sprintf)(debugpath, "/usr/lib/debug%s/%s", objdir, debugname);
-         addr = open_debug_file(debugpath, crc, size);
+      VG_(sprintf)(debugpath, "/usr/lib/debug/.build-id/%c%c/%s.debug",
+                   buildid[0], buildid[1], buildid + 2);
+
+      if ((addr = open_debug_file(debugpath, buildid, 0, size)) == 0) {
+         ML_(dinfo_free)(debugpath);
+         debugpath = NULL;
       }
+   }
+
+   if (addr == 0 && debugname != NULL) {
+      Char *objdir = ML_(dinfo_strdup)("di.fdf.2", objpath);
+      Char *objdirptr;
+
+      if ((objdirptr = VG_(strrchr)(objdir, '/')) != NULL)
+         *objdirptr = '\0';
+
+      debugpath = ML_(dinfo_zalloc)(
+                     "di.fdf.3",
+                     VG_(strlen)(objdir) + VG_(strlen)(debugname) + 32);
+
+      VG_(sprintf)(debugpath, "%s/%s", objdir, debugname);
+
+      if ((addr = open_debug_file(debugpath, NULL, crc, size)) == 0) {
+         VG_(sprintf)(debugpath, "%s/.debug/%s", objdir, debugname);
+         if ((addr = open_debug_file(debugpath, NULL, crc, size)) == 0) {
+            VG_(sprintf)(debugpath, "/usr/lib/debug%s/%s", objdir, debugname);
+            addr = open_debug_file(debugpath, NULL, crc, size);
+         }
+      }
+
+      ML_(dinfo_free)(objdir);
    }
 
    if (addr) {
@@ -1006,8 +1097,7 @@ Addr find_debug_file( struct _DebugInfo* di,
    }
 
    ML_(dinfo_free)(debugpath);
-   ML_(dinfo_free)(objdir);
-   
+
    return addr;
 }
 
@@ -1099,6 +1189,9 @@ Bool ML_(read_elf_debug_info) ( struct _DebugInfo* di )
    Addr     rw_svma_base = 0;
    Addr     rw_svma_limit = 0;
    PtrdiffT rw_bias = 0;
+
+   /* Build ID */
+   Char* buildid = NULL;
 
    vg_assert(di);
    vg_assert(di->have_rx_map == True);
@@ -1646,7 +1739,8 @@ Bool ML_(read_elf_debug_info) ( struct _DebugInfo* di )
 
       /* PLT is different on different platforms, it seems. */
 #     if defined(VGP_x86_linux) || defined(VGP_amd64_linux) \
-         || defined(VGP_arm_linux) || defined(VGP_x86_l4re)
+         || defined(VGP_arm_linux) || defined(VGP_s390x_linux) \
+         || defined(VGP_x86_l4re)
       /* Accept .plt where mapped as rx (code) */
       if (0 == VG_(strcmp)(name, ".plt")) {
          if (inrx && size > 0 && !di->plt_present) {
@@ -1849,20 +1943,31 @@ Bool ML_(read_elf_debug_info) ( struct _DebugInfo* di )
 
 #        undef FIND
       }
-         
-      /* Did we find a debuglink section? */
-      if (debuglink_img != NULL) {
-         UInt crc_offset = VG_ROUNDUP(VG_(strlen)(debuglink_img)+1, 4);
-         UInt crc;
 
-         vg_assert(crc_offset + sizeof(UInt) <= debuglink_sz);
+      /* Look for a build-id */
+      buildid = find_buildid(oimage, n_oimage);
 
-         /* Extract the CRC from the debuglink section */
-         crc = *(UInt *)(debuglink_img + crc_offset);
+      /* Look for a debug image */
+      if (buildid != NULL || debuglink_img != NULL) {
+         /* Do have a debuglink section? */
+         if (debuglink_img != NULL) {
+            UInt crc_offset = VG_ROUNDUP(VG_(strlen)(debuglink_img)+1, 4);
+            UInt crc;
 
-         /* See if we can find a matching debug file */
-         dimage = find_debug_file( di, di->filename, debuglink_img,
-                                   crc, &n_dimage );
+            vg_assert(crc_offset + sizeof(UInt) <= debuglink_sz);
+
+            /* Extract the CRC from the debuglink section */
+            crc = *(UInt *)(debuglink_img + crc_offset);
+
+            /* See if we can find a matching debug file */
+            dimage = find_debug_file( di, di->filename, buildid,
+                                      debuglink_img, crc, &n_dimage );
+         } else {
+            /* See if we can find a matching debug file */
+            dimage = find_debug_file( di, di->filename, buildid, NULL, 0, &n_dimage );
+         }
+
+         ML_(dinfo_free)(buildid);
 
          if (dimage != 0 
              && n_dimage >= sizeof(ElfXX_Ehdr)
@@ -1881,10 +1986,10 @@ Bool ML_(read_elf_debug_info) ( struct _DebugInfo* di )
             UChar*      shdr_strtab_dimg = NULL;
 
             /* SVMAs covered by rx and rw segments and corresponding bias. */
-            Addr     rx_dsvma_base = 0;
+            /* Addr     rx_dsvma_base = 0; */ /* UNUSED */
             Addr     rx_dsvma_limit = 0;
             PtrdiffT rx_dbias = 0;
-            Addr     rw_dsvma_base = 0;
+            /* Addr     rw_dsvma_base = 0; */ /* UNUSED */
             Addr     rw_dsvma_limit = 0;
             PtrdiffT rw_dbias = 0;
 
@@ -1941,15 +2046,16 @@ Bool ML_(read_elf_debug_info) ( struct _DebugInfo* di )
                       && phdr->p_offset >= di->rx_map_foff
                       && phdr->p_offset < di->rx_map_foff + di->rx_map_size
                       && phdr->p_offset + phdr->p_filesz <= di->rx_map_foff + di->rx_map_size) {
-                     rx_dsvma_base = phdr->p_vaddr;
+                     /* rx_dsvma_base = phdr->p_vaddr; */ /* UNUSED */
                      rx_dsvma_limit = phdr->p_vaddr + phdr->p_memsz;
                      rx_dbias = di->rx_map_avma - di->rx_map_foff + phdr->p_offset - phdr->p_vaddr;
                   }
-                  else if (rw_dsvma_limit == 0
-                           && phdr->p_offset >= di->rw_map_foff
-                           && phdr->p_offset < di->rw_map_foff + di->rw_map_size
-                           && phdr->p_offset + phdr->p_filesz <= di->rw_map_foff + di->rw_map_size) {
-                     rw_dsvma_base = phdr->p_vaddr;
+                  else
+                  if (rw_dsvma_limit == 0
+                      && phdr->p_offset >= di->rw_map_foff
+                      && phdr->p_offset < di->rw_map_foff + di->rw_map_size
+                      && phdr->p_offset + phdr->p_filesz <= di->rw_map_foff + di->rw_map_size) {
+                     /* rw_dsvma_base = phdr->p_vaddr; */ /* UNUSED */
                      rw_dsvma_limit = phdr->p_vaddr + phdr->p_memsz;
                      rw_dbias = di->rw_map_avma - di->rw_map_foff + phdr->p_offset - phdr->p_vaddr;
                   }
@@ -2083,8 +2189,9 @@ Bool ML_(read_elf_debug_info) ( struct _DebugInfo* di )
 
       /* Read the stabs and/or dwarf2 debug information, if any.  It
          appears reading stabs stuff on amd64-linux doesn't work, so
-         we ignore it. */
-#     if !defined(VGP_amd64_linux)
+         we ignore it. On s390x stabs also doesnt work and we always
+         have the dwarf info in the eh_frame. */
+#     if !defined(VGP_amd64_linux)  && !defined(VGP_s390x_linux)
       if (stab_img && stabstr_img) {
          ML_(read_debuginfo_stabs) ( di, stab_img, stab_sz, 
                                          stabstr_img, stabstr_sz );
@@ -2127,6 +2234,35 @@ Bool ML_(read_elf_debug_info) ( struct _DebugInfo* di )
       }
    }
    res = True;
+
+   /* If reading Dwarf3 variable type/location info, print a line
+      showing the number of variables read for each object.
+      (Currently disabled -- is a sanity-check mechanism for
+      exp-sgcheck.) */
+   if (0 && (VG_(needs).var_info || VG_(clo_read_var_info))) {
+      UWord nVars = 0;
+      Word  j;
+      if (di->varinfo) {
+         for (j = 0; j < VG_(sizeXA)(di->varinfo); j++) {
+            OSet* /* of DiAddrRange */ scope
+               = *(OSet**)VG_(indexXA)(di->varinfo, j);
+            vg_assert(scope);
+            VG_(OSetGen_ResetIter)( scope );
+            while (True) {
+               DiAddrRange* range  = VG_(OSetGen_Next)( scope );
+               if (!range) break;
+               vg_assert(range->vars);
+               Word w = VG_(sizeXA)(range->vars);
+               vg_assert(w >= 0);
+               if (0) VG_(printf)("range %#lx %#lx %ld\n",
+                                  range->aMin, range->aMax, w);
+               nVars += (UWord)w;
+            }
+         }
+      }
+      VG_(umsg)("VARINFO: %7lu vars   %7ld text_size   %s\n",
+                nVars, di->text_size, di->filename);
+   }
 
   out: {
    SysRes m_res;

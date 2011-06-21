@@ -31,6 +31,7 @@
 #include "pub_core_basics.h"
 #include "pub_core_vki.h"
 #include "pub_core_vkiscnums.h"
+#include "pub_core_libcsetjmp.h"    // to keep threadstate.h happy
 #include "pub_core_threadstate.h"
 #include "pub_core_libcbase.h"
 #include "pub_core_libcassert.h"
@@ -116,13 +117,14 @@
       }
 #elif defined(VGP_arm_linux)
 #  define GET_STARTREGS(srP)                              \
-      { UInt block[5];                                    \
+      { UInt block[6];                                    \
         __asm__ __volatile__(                             \
            "str r15, [%0, #+0];"                          \
            "str r14, [%0, #+4];"                          \
            "str r13, [%0, #+8];"                          \
            "str r12, [%0, #+12];"                         \
            "str r11, [%0, #+16];"                         \
+           "str r7,  [%0, #+20];"                         \
            : /* out */                                    \
            : /* in */ "r"(&block[0])                      \
            : /* trash */ "memory"                         \
@@ -132,6 +134,23 @@
         (srP)->misc.ARM.r14 = block[2];                   \
         (srP)->misc.ARM.r12 = block[3];                   \
         (srP)->misc.ARM.r11 = block[4];                   \
+        (srP)->misc.ARM.r7  = block[5];                   \
+      }
+#elif defined(VGP_s390x_linux)
+#  define GET_STARTREGS(srP)                              \
+      { ULong ia, sp, fp, lr;                             \
+        __asm__ __volatile__(                             \
+           "bras %0,0f;"                                  \
+           "0: lgr %1,15;"                                \
+           "lgr %2,11;"                                   \
+           "lgr %3,14;"                                   \
+           : "=r" (ia), "=r" (sp),"=r" (fp),"=r" (lr)     \
+           /* no read & clobber */                        \
+        );                                                \
+        (srP)->r_pc = ia;                                 \
+        (srP)->r_sp = sp;                                 \
+        (srP)->misc.S390X.r_fp = fp;                      \
+        (srP)->misc.S390X.r_lr = lr;                      \
       }
 #else
 #  error Unknown platform

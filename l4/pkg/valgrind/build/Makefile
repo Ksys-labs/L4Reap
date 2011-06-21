@@ -9,12 +9,12 @@ VALGRIND_SRC = $(shell find $(PKGDIR)/src/ -name valgrind-$(VALGRIND_VERSION))
 VALGRIND_BUILD = $(OBJ_DIR)/OBJ-$(SYSTEM)/vg
 
 # basic BID settings
-L4_MULTITHREADED = y
 REQUIRES_LIBS    = l4re_c-util
 
 # variables used for passing to Valgrind's build system
 # gcc need a "," after defsym and a "=" after dynamic-linker
-L4_LDFLAGS_WITH_LIBC=`echo "$(LDFLAGS)" | sed 's/'--dynamic-linker\ '/'-Wl,--dynamic-linker\='/g' | \
+L4_LDFLAGS_WITH_LIBC=`echo "$(LDFLAGS)" | \
+            sed 's/'--dynamic-linker\ '/'-Wl,--dynamic-linker\='/g' | \
             sed 's/'--defsym\ '/'-Wl,--defsym\,'/g' | \
             sed 's/'--start-group\ '/'-Wl,--start-group\ '/g' | \
             sed 's/'--end-group\ '/'-Wl,--end-group\ '/g' | \
@@ -32,13 +32,13 @@ all :: valgrind
 ifneq ($(SYSTEM), )
 ifeq ($(BUILD_ARCH), x86)
 
-TMP_LDFLAGS = $(addprefix -L, $(L4LIBDIR_PROG_NOEXC-$(BID_INT_NOEXC)))
+TMP_LDFLAGS = $(addprefix -L, $(L4LIBDIR))
 TMP_LDFLAGS += -Wl,--start-group
 TMP_LDFLAGS += -Wl,--defsym,__L4_KIP_ADDR__=$(L4_KIP_ADDR) \
                -Wl,--defsym,__L4_STACK_ADDR__=$(L4_STACK_ADDR)
 TMP_LDFLAGS += $(REQUIRES_LIBS_LIST)
 TMP_LDFLAGS += -Wl,--end-group
-TMP_LDFLAGS += --warn-common -gc-sections
+TMP_LDFLAGS += -Wl,--warn-common -gc-sections
 L4_LDFLAGS = $(TMP_LDFLAGS)
 
 valgrind : check_rediff valgrind_conf
@@ -70,7 +70,7 @@ valgrind_conf :
 		$(VALGRIND_SRC)/configure \
 						  --enable-maintainer-mode \
 						  --host=i386-l4re \
-						  --build=i386-linux; \
+						  --build=i386-linux && \
 		touch $(VALGRIND_BUILD)/config.ready; \
 	fi
 

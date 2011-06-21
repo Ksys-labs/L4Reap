@@ -930,7 +930,11 @@ static const HChar* complain_about_stripped_glibc_ldso[]
     "for your Linux distribution to please in future ship a non-",
     "stripped ld.so (or whatever the dynamic linker .so is called)",
     "that exports the above-named function using the standard",
-    "calling conventions for this platform.",
+    "calling conventions for this platform.  The package you need",
+    "to install for fix (1) is called",
+    "",
+    "  On Debian, Ubuntu:                 libc6-dbg",
+    "  On SuSE, openSuSE, Fedora, RHEL:   glibc-debuginfo",
     NULL
   };
 
@@ -959,11 +963,23 @@ void VG_(redir_initialise) ( void )
    /* If we're using memcheck, use this intercept right from the
       start, otherwise ld.so (glibc-2.3.5) makes a lot of noise. */
    if (0==VG_(strcmp)("Memcheck", VG_(details).name)) {
+      const HChar** mandatory;
+#     if defined(GLIBC_2_2) || defined(GLIBC_2_3) || defined(GLIBC_2_4) \
+         || defined(GLIBC_2_5) || defined(GLIBC_2_6) || defined(GLIBC_2_7) \
+         || defined(GLIBC_2_8) || defined(GLIBC_2_9) \
+         || defined(GLIBC_2_10) || defined(GLIBC_2_11)
+      mandatory = NULL;
+#     else
+      /* for glibc-2.12 and later, this is mandatory - can't sanely
+         continue without it */
+      mandatory = complain_about_stripped_glibc_ldso;
+#     endif
       add_hardwired_spec(
          "ld-linux.so.2", "index",
-         (Addr)&VG_(x86_linux_REDIR_FOR_index),
-         NULL
-      );
+         (Addr)&VG_(x86_linux_REDIR_FOR_index), mandatory);
+      add_hardwired_spec(
+         "ld-linux.so.2", "strlen",
+         (Addr)&VG_(x86_linux_REDIR_FOR_strlen), mandatory);
    }
 
 #  elif defined(VGP_amd64_linux)
@@ -1104,6 +1120,9 @@ void VG_(redir_initialise) ( void )
                          (Addr)&VG_(amd64_darwin_REDIR_FOR_arc4random), NULL);
    }
 
+#  elif defined(VGP_s390x_linux)
+   /* nothing so far */
+
 #  elif defined(VGO_l4re)
    add_hardwired_active((Addr) SYSCALL_PAGE,
                         (Addr) (Addr) &VG_(x86_l4re_REDIR_FOR_syscall_page));
@@ -1219,6 +1238,7 @@ void handle_maybe_load_notifier( const UChar* soname,
 
    /* Normal load-notifier handling after here.  First, ignore all
       symbols lacking the right prefix. */
+   vg_assert(symbol); // assert rather than segfault if it is NULL
    if (0 != VG_(strncmp)(symbol, VG_NOTIFY_ON_LOAD_PREFIX, 
                                  VG_NOTIFY_ON_LOAD_PREFIX_LEN))
       /* Doesn't have the right prefix */

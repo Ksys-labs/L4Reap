@@ -52,6 +52,7 @@ noinst_PROGRAMS = drd-@VGCONF_ARCH_PRI@-@VGCONF_OS@$(EXEEXT) \
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@am__append_1 = drd-@VGCONF_ARCH_SEC@-@VGCONF_OS@
 @VGCONF_HAVE_PLATFORM_SEC_FALSE@drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_DEPENDENCIES =
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@am__append_2 = vgpreload_drd-@VGCONF_ARCH_SEC@-@VGCONF_OS@.so
+@VGCONF_OS_IS_DARWIN_TRUE@am__append_3 = drd_darwin_intercepts.c
 subdir = drd
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.in
@@ -108,11 +109,16 @@ am__objects_2 =  \
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@	$(am__objects_2)
 drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_OBJECTS =  \
 	$(am_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_OBJECTS)
-am__objects_3 = vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_pthread_intercepts.$(OBJEXT) \
+am__vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_SOURCES_DIST =  \
+	drd_pthread_intercepts.c drd_qtcore_intercepts.c \
+	drd_strmem_intercepts.c drd_darwin_intercepts.c
+@VGCONF_OS_IS_DARWIN_TRUE@am__objects_3 = vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.$(OBJEXT)
+am__objects_4 = vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_pthread_intercepts.$(OBJEXT) \
 	vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_qtcore_intercepts.$(OBJEXT) \
-	vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_strmem_intercepts.$(OBJEXT)
-am_vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_OBJECTS =  \
+	vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_strmem_intercepts.$(OBJEXT) \
 	$(am__objects_3)
+am_vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_OBJECTS =  \
+	$(am__objects_4)
 vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_OBJECTS =  \
 	$(am_vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_OBJECTS)
 vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_LDADD = $(LDADD)
@@ -123,12 +129,14 @@ vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_LINK = $(CCLD) \
 	$(LDFLAGS) -o $@
 am__vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_SOURCES_DIST =  \
 	drd_pthread_intercepts.c drd_qtcore_intercepts.c \
-	drd_strmem_intercepts.c
-am__objects_4 = vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_pthread_intercepts.$(OBJEXT) \
+	drd_strmem_intercepts.c drd_darwin_intercepts.c
+@VGCONF_OS_IS_DARWIN_TRUE@am__objects_5 = vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.$(OBJEXT)
+am__objects_6 = vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_pthread_intercepts.$(OBJEXT) \
 	vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_qtcore_intercepts.$(OBJEXT) \
-	vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_strmem_intercepts.$(OBJEXT)
+	vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_strmem_intercepts.$(OBJEXT) \
+	$(am__objects_5)
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@am_vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_OBJECTS =  \
-@VGCONF_HAVE_PLATFORM_SEC_TRUE@	$(am__objects_4)
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@	$(am__objects_6)
 vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_OBJECTS =  \
 	$(am_vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_OBJECTS)
 vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_LDADD = $(LDADD)
@@ -151,7 +159,7 @@ SOURCES = $(drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_SOURCES) \
 	$(vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_SOURCES)
 DIST_SOURCES = $(drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_SOURCES) \
 	$(am__drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_SOURCES_DIST) \
-	$(vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_SOURCES) \
+	$(am__vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_SOURCES_DIST) \
 	$(am__vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_SOURCES_DIST)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
@@ -259,6 +267,8 @@ FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
 FLAG_W_NO_FORMAT_ZERO_LENGTH = @FLAG_W_NO_FORMAT_ZERO_LENGTH@
+FLAG_W_NO_NONNULL = @FLAG_W_NO_NONNULL@
+FLAG_W_NO_OVERFLOW = @FLAG_W_NO_OVERFLOW@
 FLAG_W_NO_UNINITIALIZED = @FLAG_W_NO_UNINITIALIZED@
 GDB = @GDB@
 GENERATED_SUPP = @GENERATED_SUPP@
@@ -288,12 +298,7 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
-QTCORE_CFLAGS = @QTCORE_CFLAGS@
-QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -447,7 +452,7 @@ AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 			 	$(AM_CFLAGS_BASE) -marm
 
-AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
+AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -marm -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
 AM_CFLAGS_PPC32_AIX5 = @FLAG_MAIX32@ -mcpu=powerpc $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC32_AIX5 = $(AM_CPPFLAGS_PPC32_AIX5) \
@@ -476,6 +481,11 @@ AM_CFLAGS_X86_L4RE = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 AM_CCASFLAGS_X86_L4RE = $(L4_CPPFLAGS) @FLAG_M32@ -g
 AM_CXXFLAGS_X86_L4RE = $(L4_CXXFLAGS) @FLAG_M32@
 #AM_CPPFLAGS_X86_L4RE   = $(L4_CPPFLAGS) $(AM_CPPFLAGS_X86_L4RE)
+AM_FLAG_M3264_S390X_LINUX = @FLAG_M64@
+AM_CFLAGS_S390X_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
+AM_CCASFLAGS_S390X_LINUX = $(AM_CPPFLAGS_S390X_LINUX) -mzarch -march=z900 \
+                            @FLAG_M64@ -g
+
 
 # Flags for the primary target.  These must be used to build the
 # regtests and performance tests.  In fact, these must be used to
@@ -504,6 +514,7 @@ PRELOAD_LDFLAGS_PPC32_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX32@
 PRELOAD_LDFLAGS_PPC64_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX64@
 PRELOAD_LDFLAGS_X86_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch i386
 PRELOAD_LDFLAGS_AMD64_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch x86_64
+PRELOAD_LDFLAGS_S390X_LINUX = $(PRELOAD_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 PRELOAD_LDFLAGS_X86_L4RE = $(PRELOAD_LDFLAGS_COMMON_L4RE) @FLAG_M32@
 
 #----------------------------------------------------------------------------
@@ -555,6 +566,9 @@ TOOL_LDFLAGS_PPC64_LINUX = \
 
 TOOL_LDFLAGS_ARM_LINUX = \
 	$(TOOL_LDFLAGS_COMMON_LINUX) @FLAG_M32@
+
+TOOL_LDFLAGS_S390X_LINUX = \
+	$(TOOL_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 
 TOOL_LDFLAGS_PPC32_AIX5 = \
 	$(TOOL_LDFLAGS_COMMON_AIX5) @FLAG_MAIX32@
@@ -619,6 +633,9 @@ LIBREPLACEMALLOC_AMD64_DARWIN = \
 LIBREPLACEMALLOC_X86_L4RE = \
 	$(top_builddir)/coregrind/libreplacemalloc_toolpreload-x86-l4re.a
 
+LIBREPLACEMALLOC_S390X_LINUX = \
+	$(top_builddir)/coregrind/libreplacemalloc_toolpreload-s390x-linux.a
+
 LIBREPLACEMALLOC_LDFLAGS_X86_LINUX = \
 	-Wl,--whole-archive \
 	$(LIBREPLACEMALLOC_X86_LINUX) \
@@ -659,6 +676,11 @@ LIBREPLACEMALLOC_LDFLAGS_AMD64_DARWIN = \
 LIBREPLACEMALLOC_LDFLAGS_X86_L4RE = \
 	-Wl,--whole-archive \
 	$(LIBREPLACEMALLOC_X86_L4RE) \
+	-Wl,--no-whole-archive
+
+LIBREPLACEMALLOC_LDFLAGS_S390X_LINUX = \
+	-Wl,--whole-archive \
+	$(LIBREPLACEMALLOC_S390X_LINUX) \
 	-Wl,--no-whole-archive
 
 EXTRA_DIST = docs/drd-manual.xml
@@ -768,11 +790,9 @@ drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_LINK = \
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@	$(drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_LDFLAGS)
 
 @VGCONF_OS_IS_DARWIN_TRUE@noinst_DSYMS = $(noinst_PROGRAMS)
-VGPRELOAD_DRD_SOURCES_COMMON = \
-  drd_pthread_intercepts.c     \
-  drd_qtcore_intercepts.c      \
-  drd_strmem_intercepts.c
-
+VGPRELOAD_DRD_SOURCES_COMMON = drd_pthread_intercepts.c \
+	drd_qtcore_intercepts.c drd_strmem_intercepts.c \
+	$(am__append_3)
 vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_SOURCES = \
 	$(VGPRELOAD_DRD_SOURCES_COMMON)
 
@@ -891,9 +911,11 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@-drd_rwlock.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@-drd_semaphore.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@-drd_suppression.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_pthread_intercepts.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_qtcore_intercepts.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_strmem_intercepts.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_pthread_intercepts.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_qtcore_intercepts.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_strmem_intercepts.Po@am__quote@
@@ -1374,6 +1396,20 @@ vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_strmem_intercepts.obj: drd_st
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_CPPFLAGS) $(CPPFLAGS) $(vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_CFLAGS) $(CFLAGS) -c -o vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_strmem_intercepts.obj `if test -f 'drd_strmem_intercepts.c'; then $(CYGPATH_W) 'drd_strmem_intercepts.c'; else $(CYGPATH_W) '$(srcdir)/drd_strmem_intercepts.c'; fi`
 
+vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.o: drd_darwin_intercepts.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_CPPFLAGS) $(CPPFLAGS) $(vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_CFLAGS) $(CFLAGS) -MT vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.o -MD -MP -MF $(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.Tpo -c -o vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.o `test -f 'drd_darwin_intercepts.c' || echo '$(srcdir)/'`drd_darwin_intercepts.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.Tpo $(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='drd_darwin_intercepts.c' object='vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_CPPFLAGS) $(CPPFLAGS) $(vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_CFLAGS) $(CFLAGS) -c -o vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.o `test -f 'drd_darwin_intercepts.c' || echo '$(srcdir)/'`drd_darwin_intercepts.c
+
+vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.obj: drd_darwin_intercepts.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_CPPFLAGS) $(CPPFLAGS) $(vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_CFLAGS) $(CFLAGS) -MT vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.obj -MD -MP -MF $(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.Tpo -c -o vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.obj `if test -f 'drd_darwin_intercepts.c'; then $(CYGPATH_W) 'drd_darwin_intercepts.c'; else $(CYGPATH_W) '$(srcdir)/drd_darwin_intercepts.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.Tpo $(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='drd_darwin_intercepts.c' object='vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_CPPFLAGS) $(CPPFLAGS) $(vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_CFLAGS) $(CFLAGS) -c -o vgpreload_drd_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so-drd_darwin_intercepts.obj `if test -f 'drd_darwin_intercepts.c'; then $(CYGPATH_W) 'drd_darwin_intercepts.c'; else $(CYGPATH_W) '$(srcdir)/drd_darwin_intercepts.c'; fi`
+
 vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_pthread_intercepts.o: drd_pthread_intercepts.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_CPPFLAGS) $(CPPFLAGS) $(vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_CFLAGS) $(CFLAGS) -MT vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_pthread_intercepts.o -MD -MP -MF $(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_pthread_intercepts.Tpo -c -o vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_pthread_intercepts.o `test -f 'drd_pthread_intercepts.c' || echo '$(srcdir)/'`drd_pthread_intercepts.c
 @am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_pthread_intercepts.Tpo $(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_pthread_intercepts.Po
@@ -1415,6 +1451,20 @@ vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_strmem_intercepts.obj: drd_st
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='drd_strmem_intercepts.c' object='vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_strmem_intercepts.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_CPPFLAGS) $(CPPFLAGS) $(vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_CFLAGS) $(CFLAGS) -c -o vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_strmem_intercepts.obj `if test -f 'drd_strmem_intercepts.c'; then $(CYGPATH_W) 'drd_strmem_intercepts.c'; else $(CYGPATH_W) '$(srcdir)/drd_strmem_intercepts.c'; fi`
+
+vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.o: drd_darwin_intercepts.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_CPPFLAGS) $(CPPFLAGS) $(vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_CFLAGS) $(CFLAGS) -MT vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.o -MD -MP -MF $(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.Tpo -c -o vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.o `test -f 'drd_darwin_intercepts.c' || echo '$(srcdir)/'`drd_darwin_intercepts.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.Tpo $(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='drd_darwin_intercepts.c' object='vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_CPPFLAGS) $(CPPFLAGS) $(vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_CFLAGS) $(CFLAGS) -c -o vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.o `test -f 'drd_darwin_intercepts.c' || echo '$(srcdir)/'`drd_darwin_intercepts.c
+
+vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.obj: drd_darwin_intercepts.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_CPPFLAGS) $(CPPFLAGS) $(vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_CFLAGS) $(CFLAGS) -MT vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.obj -MD -MP -MF $(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.Tpo -c -o vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.obj `if test -f 'drd_darwin_intercepts.c'; then $(CYGPATH_W) 'drd_darwin_intercepts.c'; else $(CYGPATH_W) '$(srcdir)/drd_darwin_intercepts.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.Tpo $(DEPDIR)/vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='drd_darwin_intercepts.c' object='vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_CPPFLAGS) $(CPPFLAGS) $(vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so_CFLAGS) $(CFLAGS) -c -o vgpreload_drd_@VGCONF_ARCH_SEC@_@VGCONF_OS@_so-drd_darwin_intercepts.obj `if test -f 'drd_darwin_intercepts.c'; then $(CYGPATH_W) 'drd_darwin_intercepts.c'; else $(CYGPATH_W) '$(srcdir)/drd_darwin_intercepts.c'; fi`
 install-pkgincludeHEADERS: $(pkginclude_HEADERS)
 	@$(NORMAL_INSTALL)
 	test -z "$(pkgincludedir)" || $(MKDIR_P) "$(DESTDIR)$(pkgincludedir)"

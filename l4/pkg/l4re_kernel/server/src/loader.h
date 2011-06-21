@@ -114,7 +114,7 @@ struct L4Re_app_model : public Ldr::Base_app_model<L4Re_stack>
     return L4::Cap<L4Re::Dataspace>(Global::l4re_aux->kip_ds);
   }
 
-  void const *generate_l4aux(char const *, char const *) const
+  void const *generate_l4aux(char const *) const
   { return Global::l4re_aux; }
 
   void extra_elf_auxv();

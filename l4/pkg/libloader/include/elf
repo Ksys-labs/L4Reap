@@ -135,27 +135,6 @@ struct Phdr_load_min_max
   }
 };
 
-struct Phdr_kip
-{
-  mutable l4_addr_t kip;
-
-  explicit Phdr_kip(l4_addr_t kip_default)
-  : kip(kip_default)
-  {}
-
-  void operator () (Elf_phdr const &h) const
-  {
-    switch (h.type())
-      {
-      case PT_L4_KIP:
-	kip = h.paddr();
-	break;
-      default:
-	break;
-      }
-  }
-};
-
 template< typename Dbg >
 struct Phdr_print
 {
@@ -237,17 +216,19 @@ struct Phdr_load
 };
 
 template< typename App_model >
-struct Phdr_l4re_elf_aux_stack
+struct Phdr_l4re_elf_aux_infos
 {
   mutable l4_size_t stack_size;
   mutable l4_addr_t stack_addr;
+  mutable l4_addr_t kip_addr;
 
   typedef typename App_model::Const_dataspace Const_dataspace;
   App_model const *mm;
   Const_dataspace bin;
 
-  explicit Phdr_l4re_elf_aux_stack(App_model const *mm, Const_dataspace bin)
-  : stack_size(0x8000), stack_addr(0x80000000), mm(mm), bin(bin)
+  explicit Phdr_l4re_elf_aux_infos(App_model const *mm, Const_dataspace bin,
+                                   l4_addr_t kip_addr)
+  : stack_size(0x8000), stack_addr(0x80000000), kip_addr(kip_addr), mm(mm), bin(bin)
   {}
 
   void operator () (Elf_phdr const &h) const
@@ -276,6 +257,12 @@ struct Phdr_l4re_elf_aux_stack
 		  {
 		    l4re_elf_aux_mword_t const *v = (l4re_elf_aux_mword_t const *)e;
 		    stack_addr = v->value;
+		    break;
+		  }
+	      case L4RE_ELF_AUX_T_KIP_ADDR:
+		  {
+		    l4re_elf_aux_mword_t const *v = (l4re_elf_aux_mword_t const *)e;
+		    kip_addr = v->value;
 		    break;
 		  }
 	      default:
@@ -408,32 +395,23 @@ public:
 
     if (!eh->is_valid())
       {
-	ldr.printf("file is not an ELF binary\n");
 	chksys(-L4_EINVAL, "not an ELF binary");
       }
 
-
-    Phdr_kip stack_kip(mm->prog_info()->kip);
-#if 0
-    Phdr_kip stack_kip(info->stack.target_addr(), info->stack.stack_size(),
-	info->kip);
-#endif
-
-    eh->iterate_phdr(stack_kip);
-
-    mm->prog_info()->kip = stack_kip.kip;
-
-    Phdr_l4re_elf_aux_stack<App_model> stack_info(mm, bin);
-
+    Phdr_l4re_elf_aux_infos<App_model> stack_info(mm, bin, mm->prog_info()->kip);
     eh->iterate_phdr(stack_info);
     mm->stack()->set_target_stack(stack_info.stack_addr, stack_info.stack_size);
+
+    mm->prog_info()->kip = stack_info.kip_addr;
+    ldr.printf("  STACK: %lx (%zx)    KIP: %lx\n", stack_info.stack_addr,
+               stack_info.stack_size, stack_info.kip_addr);
 
     ldr.printf("  PHDRs: type  offset\tpaddr\tvaddr\tfilesz\tmemsz\trights\n");
     eh->iterate_phdr(Phdr_print<Dbg_log>(ldr));
     mm->local_detach_ds((l4_addr_t)eh, L4_PAGESIZE);
   }
 
-  void load(App_model *mm, Const_dataspace bin, l4_addr_t *base,
+  void load(App_model *mm, Const_dataspace bin, l4_addr_t *base, bool interpreter,
             Dbg_log const &ldr)
   {
     using L4Re::chksys;
@@ -480,6 +458,13 @@ public:
     Phdr_dynamic<App_model> dyn_info(mm, bin, _base);
     eh->iterate_phdr(dyn_info);
 
+    if (!interpreter && dyn_info.phdrs)
+      {
+	Prog_start_info *i = mm->prog_info();
+	i->dyn_phdrs = dyn_info.phdrs;
+	i->dyn_num_phdrs = eh->num_phdrs();
+      }
+
     // Load the interpreter
     if (dyn_info.is_dynamic)
       {
@@ -488,13 +473,11 @@ public:
 	Const_dataspace file = mm->open_file(dyn_info.interp);
 	l4_addr_t base = 0x400000;
 
-	load(mm, file, &base, ldr);
+	load(mm, file, &base, true, ldr);
 
 	Prog_start_info *i = mm->prog_info();
 
 	i->dyn_exec_entry = eh->entry() + _base;
-	i->dyn_phdrs = dyn_info.phdrs;
-	i->dyn_num_phdrs = eh->num_phdrs();
 	i->dyn_interp_base = base;
       }
 
@@ -506,7 +489,7 @@ public:
   void load(App_model *mm, Const_dataspace bin,
             Dbg_log const &ldr)
   {
-    load(mm, bin, 0, ldr);
+    load(mm, bin, 0, false, ldr);
   }
 
 

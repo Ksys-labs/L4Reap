@@ -58,8 +58,8 @@ Vesa_fb::Vesa_fb(l4util_mb_info_t *mbi)
 {
   if (!(mbi->flags & L4UTIL_MB_VIDEO_INFO))
     return;
-  vbe = (l4util_mb_vbe_ctrl_t*)mbi->vbe_ctrl_info;
-  vbi = (l4util_mb_vbe_mode_t*)mbi->vbe_mode_info;
+  vbe = (l4util_mb_vbe_ctrl_t*)(unsigned long)mbi->vbe_ctrl_info;
+  vbi = (l4util_mb_vbe_mode_t*)(unsigned long)mbi->vbe_mode_info;
   if (!vbe || !vbi)
     return;
 
@@ -109,7 +109,7 @@ Vesa_fb::Vesa_fb(l4util_mb_info_t *mbi)
   root_name_space()->register_obj("vesa", L4Re::Util::Names::Obj(0, this));
 
   L4::cout << "  VESAFB: " << obj_cap() << _fb_ds
-    << " @" << (void*)vbi->phys_base
+    << " @" << (void*)(unsigned long)vbi->phys_base
     << " (size=" << L4::hex << 64*1024*vbe->total_memory << ")\n" << L4::dec;
 
 }

@@ -16,6 +16,10 @@ a nonull_static_cast( b p )
 }
 
 template< typename T >
+T access_once(T const &a)
+{ return static_cast<T const volatile &>(a); }
+
+template< typename T >
 class Static_object
 {
 public:
@@ -77,6 +81,7 @@ public:
   { _v = o._v; return *static_cast<Target*>(this); }
 
   Value value() const { return _v; }
+  Value value() const volatile { return _v; }
   void set_value(Value v) { _v = v; }
 
   bool operator < (Target const &o) const { return _v < o._v; }
@@ -160,6 +165,10 @@ public:
   {}
 
   explicit Page_addr(Address a) : B(a) {}
+
+  Page_addr(Page_addr const volatile &o) : B(o.value()) {}
+  Page_addr(Page_addr const &o) : B(o.value()) {}
+
 
   Page_addr() {}
 

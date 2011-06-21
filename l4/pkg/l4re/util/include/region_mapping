@@ -168,6 +168,18 @@ public:
     return n;
   }
 
+  Node lower_bound(Key_type const &key) const throw()
+  {
+    Node n = _rm.lower_bound_node(key);
+    return n;
+  }
+
+  Node lower_bound_area(Key_type const &key) const throw()
+  {
+    Node n = _am.lower_bound_node(key);
+    return n;
+  }
+
   l4_addr_t attach_area(l4_addr_t addr, unsigned long size,
                         unsigned flags = None,
                         unsigned char align = L4_PAGESHIFT) throw()

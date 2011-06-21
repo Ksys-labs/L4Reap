@@ -52,9 +52,6 @@ TARGET_STANDARD := $(TARGET) $(TARGET_$(OSYSTEM))
 TARGET_PROFILE := $(addsuffix .pr,$(filter $(BUILD_PROFILE),$(TARGET)))
 TARGET	+= $(TARGET_$(OSYSTEM)) $(TARGET_PROFILE)
 
-L4LIBDIR_PROG_NOEXC-y = $(L4LIBDIR_NOEXC)
-L4LIBDIR_PROG_NOEXC-n = $(L4LIBDIR_R-$(L4_MULTITHREADED))
-
 LDFLAGS_DYNAMIC_LINKER     := --dynamic-linker=rom/libld-l4.so
 LDFLAGS_DYNAMIC_LINKER_GCC := $(addprefix -Wl$(BID_COMMA),$(LDFLAGS_DYNAMIC_LINKER))
 
@@ -83,7 +80,7 @@ endif
 
 ifneq ($(HOST_LINK),1)
   # linking for our L4 platform
-  LDFLAGS += $(addprefix -L, $(L4LIBDIR_PROG_NOEXC-$(BID_INT_NOEXC)))
+  LDFLAGS += $(addprefix -L, $(L4LIBDIR))
   LDFLAGS += $(addprefix -T, $(LDSCRIPT))
   LDFLAGS += --start-group $(LIBS) $(L4_LIBS) --end-group
   LDFLAGS += --warn-common
@@ -96,7 +93,7 @@ else
   else
     # linking for L4Linux, we want to look for Linux-libs before the L4-libs
     LDFLAGS += $(GCCSYSLIBDIRS)
-    LDFLAGS += $(addprefix -L, $(L4LIBDIR_PROG_NOEXC-$(BID_INT_NOEXC)))
+    LDFLAGS += $(addprefix -L, $(L4LIBDIR))
     LDFLAGS += $(LIBS) -Wl,-Bstatic $(L4_LIBS)
     # -Wl,-Bdynamic is only applicable for dynamically linked programs,
     # we need a static/dynamic flag for the l4linux mode...

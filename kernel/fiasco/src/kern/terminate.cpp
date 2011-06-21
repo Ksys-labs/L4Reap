@@ -18,13 +18,13 @@ void
 raw_exit()
 {
   // make sure that we don't acknowledg the exit question automatically
-  Kconsole::console()->change_state(Console::PUSH, 0, 
+  Kconsole::console()->change_state(Console::PUSH, 0,
                                     ~Console::INENABLED, 0);
   puts("\nPress any key to reboot.");
   Kconsole::console()->getchar();
   puts("\033[1mRebooting.\033[m");
   //  Cpu::busy_wait_ns(10000000);
-  pc_reset();
+  platform_reset();
 }
 
 
@@ -47,7 +47,7 @@ terminate (int exit_value)
   if (exit_question)
     exit_question();
 
-  puts ("\nShutting down...");
+  puts("\nShutting down...");
 
-  _exit (exit_value);
+  _exit(exit_value);
 }

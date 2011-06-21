@@ -156,5 +156,26 @@ Rm::find(l4_addr_t *addr, unsigned long *size, unsigned long *offset,
   return err;
 }
 
+int
+Rm::get_regions(l4_addr_t start, Region **regions) throw()
+{
+  L4::Ipc_iostream io(l4_utcb());
+  io << Opcode(Rm_::Get_regions) << start;
+  long err = l4_error(io.call(cap(), L4Re::Protocol::Rm));
+  if (err > 0)
+    *regions = reinterpret_cast<Region*>(&l4_utcb_mr()->mr[0]);
+  return err;
+}
+
+int
+Rm::get_areas(l4_addr_t start, Area **areas) throw()
+{
+  L4::Ipc_iostream io(l4_utcb());
+  io << Opcode(Rm_::Get_areas) << start;
+  long err = l4_error(io.call(cap(), L4Re::Protocol::Rm));
+  if (err > 0)
+    *areas = reinterpret_cast<Area*>(&l4_utcb_mr()->mr[0]);
+  return err;
+}
 
 }

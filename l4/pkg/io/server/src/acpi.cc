@@ -471,10 +471,21 @@ Acpi_res_discover::discover_crs(Hw::Device *host)
 void
 Acpi_res_discover::discover_resources(Hw::Device *host)
 {
-  if (dynamic_cast<Pci_bridge*>(host->discover_bus_if()))
+  Pci_bridge *bridge = dynamic_cast<Pci_bridge*>(host->discover_bus_if());
+  if (bridge)
     discover_prt(host);
 
   discover_crs(host);
+
+  if (bridge)
+    {
+      for (Resource_list::iterator i = host->resources()->begin();
+	  i != host->resources()->end(); ++i)
+	{
+	  if ((*i)->type() == Resource::Bus_res)
+	    bridge->num = bridge->subordinate = static_cast<Adr_resource*>(*i)->start();
+	}
+    }
 }
 
 
@@ -581,7 +592,7 @@ discover_pre_cb(ACPI_HANDLE obj, UINT32 nl, void *ctxt, void **)
 	    {
 	      // we found a second root bridge
 	      // create a new root pridge instance
-	      rb = new Pci_port_root_bridge(nd);
+	      rb = new Pci_port_root_bridge(-1, nd);
 	    }
 	  else
 	    rb->set_host(nd);
@@ -616,7 +627,7 @@ int acpica_init()
 {
   d_printf(DBG_INFO, "Hello from L4-ACPICA\n");
 
-  pci_register_root_bridge(0, new Pci_port_root_bridge(0));
+  pci_register_root_bridge(0, new Pci_port_root_bridge(0, 0));
 
   AcpiDbgLevel =
       ACPI_LV_INIT

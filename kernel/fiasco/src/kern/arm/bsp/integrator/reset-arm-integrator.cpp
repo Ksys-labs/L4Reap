@@ -4,7 +4,7 @@ IMPLEMENTATION [arm && integrator]:
 #include "kmem.h"
 
 void __attribute__ ((noreturn))
-pc_reset(void)
+platform_reset(void)
 {
   enum {
     HDR_CTRL_OFFSET = Kmem::Integrator_map_base + 0xc,

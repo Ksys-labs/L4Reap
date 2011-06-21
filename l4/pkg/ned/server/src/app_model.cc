@@ -44,7 +44,13 @@ App_model::prog_attach_ds(l4_addr_t addr, unsigned long size,
                           Const_dataspace ds, unsigned long offset,
                           unsigned flags, char const *what)
 {
-  _stack.add(addr, size, _task->rm(), ds.get(), offset, flags, 0, what);
+  unsigned rh_flags = flags;
+  // printf("attaching %s %lx... @%lx\n", what, m.cap(), rm.cap());
+  if (!ds.is_valid())
+    rh_flags |= L4Re::Rm::Reserved;
+
+  l4_addr_t _addr = addr;
+  L4Re::chksys(_task->rm()->attach(&_addr, size, rh_flags, ds.get(), offset, 0), what);
 }
 
 int

@@ -747,7 +747,7 @@ static void panic(const char *str)
 {
    VALGRIND_PRINTF_BACKTRACE("Program aborting because of call to %s\n", str);
    _exit(99);
-   *(int *)0 = 'x';
+   *(volatile int *)0 = 'x';
 }
 
 #define PANIC(soname, fnname) \
@@ -850,8 +850,6 @@ ZONE_CHECK(VG_Z_LIBC_SONAME, malloc_zone_check);
 __attribute__((constructor))
 static void init(void)
 {
-   int res;
-
    // This doesn't look thread-safe, but it should be ok... Bart says:
    //   
    //   Every program I know of calls malloc() at least once before calling
@@ -873,8 +871,8 @@ static void init(void)
 
    init_done = 1;
 
-   VALGRIND_DO_CLIENT_REQUEST(res, -1, VG_USERREQ__GET_MALLOCFUNCS, &info,
-                              0, 0, 0, 0);
+   VALGRIND_DO_CLIENT_REQUEST_EXPR(-1, VG_USERREQ__GET_MALLOCFUNCS, &info,
+                                   0, 0, 0, 0);
 }
 
 /*--------------------------------------------------------------------*/

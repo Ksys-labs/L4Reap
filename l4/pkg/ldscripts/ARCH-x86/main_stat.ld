@@ -3,8 +3,10 @@ ENTRY(_start)
 
 PHDRS
 {
-  ro PT_LOAD;
+  phdr PT_PHDR PHDRS;
+  ro PT_LOAD FILEHDR PHDRS;
   rw PT_LOAD;
+  tls PT_TLS;
   L4_DEFINE_L4PHDRS
 }
 
@@ -12,6 +14,8 @@ PHDRS
 SECTIONS
 {
   L4_DEFINE_X86_KERNEL_ENTRY_SYMS
+  PROVIDE (__executable_start = 0x0100000);
+  . = __executable_start + SIZEOF_HEADERS;
 
   /* No program code/data before _stext/_prog_img_start! */
 
@@ -74,7 +78,9 @@ SECTIONS
 
   PROVIDE (_etext = .);
   PROVIDE (etext = .);
-  .rol4re_elf_aux : { KEEP (*(.rol4re_elf_aux)) } : ro : l4re_aux
+  .rol4re_elf_aux : {
+    KEEP (*(.rol4re_elf_aux))
+  } : ro : l4re_aux
   .rodata         : { *(.rodata .rodata.* .gnu.linkonce.r.*) } : ro
   .rodata1        : { *(.rodata1) }
   .eh_frame_hdr : { *(.eh_frame_hdr) } :ro
@@ -87,6 +93,7 @@ SECTIONS
   } :ro
 
   .gcc_except_table   : ONLY_IF_RO { *(.gcc_except_table .gcc_except_table.*) }
+
 
   . = ALIGN(CONSTANT(MAXPAGESIZE));
   /* Adjust the address for the data segment.  We want to adjust up to
@@ -102,14 +109,14 @@ SECTIONS
   } :rw
   .gcc_except_table   : ONLY_IF_RW { *(.gcc_except_table .gcc_except_table.*) } :rw
   /* Thread Local Storage sections  */
-  .tdata	  : { *(.tdata .tdata.* .gnu.linkonce.td.*) } :rw
+  .tdata	  : { *(.tdata .tdata.* .gnu.linkonce.td.*) } : rw : tls
   .tbss		  : { *(.tbss .tbss.* .gnu.linkonce.tb.*) *(.tcommon) }
   .preinit_array     :
   {
     PROVIDE_HIDDEN (__preinit_array_start = .);
     KEEP (*(.preinit_array))
     PROVIDE_HIDDEN (__preinit_array_end = .);
-  }
+  } : rw
   .init_array     :
   {
      PROVIDE_HIDDEN (__init_array_start = .);

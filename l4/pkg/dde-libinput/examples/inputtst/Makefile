@@ -3,7 +3,6 @@ L4DIR  ?= $(PKGDIR)/../..
 
 DDE_SYSTEMS      = arm x86
 TARGET           = dde_inputtst
-L4_MULTITHREADED = y
 REQUIRES_LIBS    = ddekit dde-linux26 dde-linux26_char dde-libinput l4re_c-util
 SRC_C            = main.c
 

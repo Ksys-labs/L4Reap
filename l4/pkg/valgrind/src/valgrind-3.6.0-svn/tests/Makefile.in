@@ -49,7 +49,7 @@ DIST_COMMON = $(dist_noinst_SCRIPTS) $(noinst_HEADERS) \
 	$(srcdir)/vg_regtest.in $(top_srcdir)/Makefile.all.am \
 	$(top_srcdir)/Makefile.tool-tests.am
 check_PROGRAMS = arch_test$(EXEEXT) os_test$(EXEEXT) true$(EXEEXT) \
-	x86_amd64_features$(EXEEXT)
+	x86_amd64_features$(EXEEXT) s390x_features$(EXEEXT)
 subdir = tests
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.in
@@ -65,6 +65,9 @@ arch_test_LDADD = $(LDADD)
 os_test_SOURCES = os_test.c
 os_test_OBJECTS = os_test.$(OBJEXT)
 os_test_LDADD = $(LDADD)
+s390x_features_SOURCES = s390x_features.c
+s390x_features_OBJECTS = s390x_features.$(OBJEXT)
+s390x_features_LDADD = $(LDADD)
 true_SOURCES = true.c
 true_OBJECTS = true.$(OBJEXT)
 true_LDADD = $(LDADD)
@@ -83,8 +86,10 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = arch_test.c os_test.c true.c x86_amd64_features.c
-DIST_SOURCES = arch_test.c os_test.c true.c x86_amd64_features.c
+SOURCES = arch_test.c os_test.c s390x_features.c true.c \
+	x86_amd64_features.c
+DIST_SOURCES = arch_test.c os_test.c s390x_features.c true.c \
+	x86_amd64_features.c
 HEADERS = $(noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -131,6 +136,8 @@ FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
 FLAG_W_NO_FORMAT_ZERO_LENGTH = @FLAG_W_NO_FORMAT_ZERO_LENGTH@
+FLAG_W_NO_NONNULL = @FLAG_W_NO_NONNULL@
+FLAG_W_NO_OVERFLOW = @FLAG_W_NO_OVERFLOW@
 FLAG_W_NO_UNINITIALIZED = @FLAG_W_NO_UNINITIALIZED@
 GDB = @GDB@
 GENERATED_SUPP = @GENERATED_SUPP@
@@ -160,12 +167,7 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
-QTCORE_CFLAGS = @QTCORE_CFLAGS@
-QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -318,7 +320,7 @@ AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 			 	$(AM_CFLAGS_BASE) -marm
 
-AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
+AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -marm -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
 AM_CFLAGS_PPC32_AIX5 = @FLAG_MAIX32@ -mcpu=powerpc $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC32_AIX5 = $(AM_CPPFLAGS_PPC32_AIX5) \
@@ -347,6 +349,11 @@ AM_CFLAGS_X86_L4RE = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 AM_CCASFLAGS_X86_L4RE = $(L4_CPPFLAGS) @FLAG_M32@ -g
 AM_CXXFLAGS_X86_L4RE = $(L4_CXXFLAGS) @FLAG_M32@
 #AM_CPPFLAGS_X86_L4RE   = $(L4_CPPFLAGS) $(AM_CPPFLAGS_X86_L4RE)
+AM_FLAG_M3264_S390X_LINUX = @FLAG_M64@
+AM_CFLAGS_S390X_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
+AM_CCASFLAGS_S390X_LINUX = $(AM_CPPFLAGS_S390X_LINUX) -mzarch -march=z900 \
+                            @FLAG_M64@ -g
+
 
 # Flags for the primary target.  These must be used to build the
 # regtests and performance tests.  In fact, these must be used to
@@ -375,6 +382,7 @@ PRELOAD_LDFLAGS_PPC32_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX32@
 PRELOAD_LDFLAGS_PPC64_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX64@
 PRELOAD_LDFLAGS_X86_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch i386
 PRELOAD_LDFLAGS_AMD64_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch x86_64
+PRELOAD_LDFLAGS_S390X_LINUX = $(PRELOAD_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 PRELOAD_LDFLAGS_X86_L4RE = $(PRELOAD_LDFLAGS_COMMON_L4RE) @FLAG_M32@
 AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/include \
 		-I$(top_srcdir)/coregrind -I$(top_builddir)/include \
@@ -392,6 +400,7 @@ AM_CXXFLAGS = -Winline -Wall -Wshadow -g $(AM_FLAG_M3264_PRI)
 AM_CCASFLAGS = $(AM_CPPFLAGS)
 @VGCONF_OS_IS_DARWIN_TRUE@noinst_DSYMS = $(check_PROGRAMS)
 dist_noinst_SCRIPTS = \
+	check_vmx_cap \
 	filter_addresses \
 	filter_discards \
 	filter_libc \
@@ -453,6 +462,9 @@ arch_test$(EXEEXT): $(arch_test_OBJECTS) $(arch_test_DEPENDENCIES)
 os_test$(EXEEXT): $(os_test_OBJECTS) $(os_test_DEPENDENCIES) 
 	@rm -f os_test$(EXEEXT)
 	$(LINK) $(os_test_OBJECTS) $(os_test_LDADD) $(LIBS)
+s390x_features$(EXEEXT): $(s390x_features_OBJECTS) $(s390x_features_DEPENDENCIES) 
+	@rm -f s390x_features$(EXEEXT)
+	$(LINK) $(s390x_features_OBJECTS) $(s390x_features_LDADD) $(LIBS)
 true$(EXEEXT): $(true_OBJECTS) $(true_DEPENDENCIES) 
 	@rm -f true$(EXEEXT)
 	$(LINK) $(true_OBJECTS) $(true_LDADD) $(LIBS)
@@ -468,6 +480,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/arch_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/os_test.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/s390x_features.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/true.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/x86_amd64_features-x86_amd64_features.Po@am__quote@
 

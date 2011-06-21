@@ -82,6 +82,7 @@ int __pthread_l4_initialize_main_thread(pthread_descr th)
 
   th->p_lock = handle_to_lock(l4_utcb());
   th->p_tid  = l4_utcb();
+  l4_utcb_tcr()->user[0] = l4_addr_t(th);
 
   return 0;
 }

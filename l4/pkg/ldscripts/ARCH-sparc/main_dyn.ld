@@ -86,7 +86,9 @@ SECTIONS
   PROVIDE (__etext = .);
   PROVIDE (_etext = .);
   PROVIDE (etext = .);
-  .rol4re_elf_aux : { KEEP (*(.rol4re_elf_aux)) } : ro : l4re_aux
+  .rol4re_elf_aux : {
+    KEEP (*(.rol4re_elf_aux))
+  } : ro : l4re_aux
   .rodata         : { *(.rodata .rodata.* .gnu.linkonce.r.*) } : ro
   .rodata1        : { *(.rodata1) }
   .sdata2         :

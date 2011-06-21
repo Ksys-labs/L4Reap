@@ -27,11 +27,11 @@
 int sem_init(sem_t *sem, int pshared, unsigned int value)
 {
   if (value > SEM_VALUE_MAX) {
-    errno = EINVAL;
+    __set_errno(EINVAL);
     return -1;
   }
   if (pshared) {
-    errno = ENOSYS;
+    __set_errno(ENOSYS);
     return -1;
   }
   __pthread_init_lock(&sem->__sem_lock);
@@ -124,7 +124,7 @@ int sem_trywait(sem_t * sem)
 
   __pthread_lock(&sem->__sem_lock, NULL);
   if (sem->__sem_value == 0) {
-    errno = EAGAIN;
+    __set_errno(EAGAIN);
     retval = -1;
   } else {
     sem->__sem_value--;
@@ -147,7 +147,7 @@ int sem_post(sem_t * sem)
     if (sem->__sem_waiting == NULL) {
       if (sem->__sem_value >= SEM_VALUE_MAX) {
         /* Overflow */
-        errno = ERANGE;
+        __set_errno(ERANGE);
         __pthread_unlock(&sem->__sem_lock);
         return -1;
       }
@@ -167,7 +167,7 @@ int sem_post(sem_t * sem)
        the thread manager. */
     if (__pthread_manager_request < 0) {
       if (__pthread_initialize_manager() < 0) {
-        errno = EAGAIN;
+        __set_errno(EAGAIN);
         return -1;
       }
     }

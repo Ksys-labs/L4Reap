@@ -284,7 +284,7 @@ public:
   unsigned char num;
   unsigned char subordinate;
 
-  Pci_bridge() : num(0), subordinate(0) {}
+  explicit Pci_bridge(unsigned char bus) : num(bus), subordinate(bus) {}
 
   virtual int cfg_read(unsigned bus, l4_uint32_t devfn,
                        l4_uint32_t reg, l4_uint32_t *value, Cfg_width) = 0;
@@ -312,7 +312,7 @@ public:
   using Pci_bridge::cfg_read;
 
   explicit Pci_pci_bridge_basic(Hw::Device *host, Pci_bridge *bus)
-  : Pci_dev(host, bus), pri(0)
+  : Pci_bridge(0), Pci_dev(host, bus), pri(0)
   {}
 
   void increase_subordinate(int x)
@@ -363,8 +363,8 @@ private:
   Hw::Device *_host;
 
 public:
-  explicit Pci_root_bridge(Hw::Device *host)
-  : _host(host)
+  explicit Pci_root_bridge(unsigned bus_nr, Hw::Device *host)
+  : Pci_bridge(bus_nr), _host(host)
   {}
 
 
@@ -383,7 +383,8 @@ public:
 
 struct Pci_port_root_bridge : public Pci_root_bridge
 {
-  explicit Pci_port_root_bridge(Hw::Device *host) : Pci_root_bridge(host) {}
+  explicit Pci_port_root_bridge(unsigned bus_nr, Hw::Device *host)
+  : Pci_root_bridge(bus_nr, host) {}
 
   int cfg_read(unsigned  bus, l4_uint32_t devfn, l4_uint32_t reg,
                l4_uint32_t *value, Cfg_width);

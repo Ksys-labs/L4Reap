@@ -401,7 +401,11 @@ three ways we know of that an interior-pointer can occur:</para>
 <itemizedlist>
   <listitem>
     <para>The pointer might have originally been a start-pointer and have been
-    moved along deliberately (or not deliberately) by the program.</para>
+    moved along deliberately (or not deliberately) by the program.  In
+    particular, this can happen if your program uses tagged pointers, i.e.
+    if it uses the bottom one, two or three bits of a pointer, which are
+    normally always zero due to alignment, in order to store extra
+    information.</para>
   </listitem>
     
   <listitem>
@@ -763,7 +767,7 @@ criteria:</para>
 
   <varlistentry id="opt.freelist-vol" xreflabel="--freelist-vol">
     <term>
-      <option><![CDATA[--freelist-vol=<number> [default: 10000000] ]]></option>
+      <option><![CDATA[--freelist-vol=<number> [default: 20000000] ]]></option>
     </term>
     <listitem>
       <para>When the client program releases memory using
@@ -779,7 +783,7 @@ criteria:</para>
       have been freed.</para>
 
       <para>This option specifies the maximum total size, in bytes, of the
-      blocks in the queue.  The default value is ten million bytes.
+      blocks in the queue.  The default value is twenty million bytes.
       Increasing this increases the total amount of memory used by
       Memcheck but may detect invalid uses of freed
       blocks which would otherwise go undetected.</para>
@@ -1085,7 +1089,7 @@ location.  We now consider the latter question.</para>
 associated valid-value (V) bit.  In addition, all bytes in memory, but
 not in the CPU, have an associated valid-address (A) bit.  This
 indicates whether or not the program can legitimately read or write that
-location.  It does not give any indication of the validity or the data
+location.  It does not give any indication of the validity of the data
 at that location -- that's the job of the V bits -- only whether or not
 the location may be accessed.</para>
 
@@ -1153,8 +1157,8 @@ follows:</para>
     <para>Each byte in memory has 8 associated V (valid-value) bits,
     saying whether or not the byte has a defined value, and a single A
     (valid-address) bit, saying whether or not the program currently has
-    the right to read/write that address.  (But, as mentioned above, heavy
-    use of compression means the overhead is typically less than 25%.)</para>
+    the right to read/write that address.  As mentioned above, heavy
+    use of compression means the overhead is typically around 25%.</para>
   </listitem>
 
   <listitem>
@@ -1266,7 +1270,126 @@ is:</para>
 </sect2>
 </sect1>
 
+<sect1 id="mc-manual.monitor-commands" xreflabel="Memcheck Monitor Commands">
+<title>Memcheck Monitor Commands</title>
+<para>The Memcheck tool provides monitor commands handled by the Valgrind
+gdbserver (see <xref linkend="manual-core.gdbserver-commandhandling"/>).
+</para>
 
+<itemizedlist>
+  <listitem>
+    <para><varname>mc.get_vbits &lt;addr&gt; [&lt;len&gt;]</varname>
+    outputs the validity bits for the range of &lt;len&gt; (default 1)
+    bytes at &lt;addr&gt;.  The validity of each byte of the range is
+    given using two hexadecimal digits.  These hexadecimal digits are
+    encoding the validity of each bit of the corresponding byte, using
+    0 if the bit is valid and 1 if the bit is invalid. In the
+    following example, 'string10' is an array of 10 characters in
+    which one byte on two is undefined. If a byte is not addressable,
+    its validity bits are replaced by __. In the below example, the byte 6
+    is not addressable.</para>
+<programlisting><![CDATA[
+(gdb) p &string10
+$4 = (char (*)[10]) 0x8049e28
+(gdb) monitor mc.get_vbits 0x8049e28 10
+ff00ff00 ff__ff00 ff00
+(gdb) 
+]]></programlisting>
+  </listitem>
+
+  <listitem>
+    <para><varname>mc.make_memory [noaccess|undefined|defined|ifaddressabledefined] &lt;addr&gt; [&lt;len&gt;]</varname>
+    marks the range of &lt;len&gt; (default 1) bytes at &lt;addr&gt;
+    with the given accessibility. Marking with 'noaccess' changes the
+    (A) bits of the range to be not addressable.  Marking with
+    'undefined' or 'defined' are changing the definedness of the
+    range.  'ifaddressabledefined' marks the range as defined but only
+    if the range is addressable.  In the following example, the first
+    byte of the 'string10' is marked as defined.
+    </para>
+<programlisting><![CDATA[
+(gdb) monitor mc.make_memory defined 0x8049e28  1
+(gdb) monitor mc.get_vbits 0x8049e28 10
+0000ff00 ff00ff00 ff00
+(gdb) 
+]]></programlisting>
+  </listitem>
+
+  <listitem>
+    <para><varname>mc.check_memory [addressable|defined] &lt;addr&gt;
+    [&lt;len&gt;]</varname> checks that the range of &lt;len&gt;
+    (default 1) bytes at &lt;addr&gt; has the given accessibility.  It
+    then outputs a description of &lt;addr&gt;. In the below case, a
+    detailed description is given as the option --read-var-info=yes
+    was used to start Valgrind.
+    </para>
+<programlisting><![CDATA[
+(gdb) monitor mc.check_memory defined 0x8049e28  1
+Address 0x8049E28 len 1 defined
+==14698==  Location 0x8049e28 is 0 bytes inside string10[0],
+==14698==  declared at prog.c:10, in frame #0 of thread 1
+(gdb) 
+]]></programlisting>
+  </listitem>
+
+  <listitem>
+    <para><varname>mc.leak_check
+    [full*|summary] [reachable|leakpossible*|definiteleak]</varname>
+    starts a leak checking. The * in the arguments above indicates the
+    default value. </para>
+
+    <para> If the first argument is 'summary', only a summary of
+    the leak search is given.
+    </para>
+
+    <para>The second argument controls which entries are output
+    for a 'full' leak search.  The value 'definiteleak' indicates to
+    output only the definitely leaked blocks. The value 'leakpossible'
+    will output in addition the possibly leaked blocks. The value
+    'reachable' will output all blocks (reachable, possibly leaked,
+    definitely leaked).
+    </para>
+    <para>The below is an example of using the mc.leak_check monitor
+    command on the leak-cases Memcheck regression tests.</para>
+<programlisting><![CDATA[
+(gdb)  monitor mc.leak_check full leakpossible
+==14729== 16 bytes in 1 blocks are possibly lost in loss record 13 of 16
+==14729==    at 0x4006E9E: malloc (vg_replace_malloc.c:236)
+==14729==    by 0x80484D5: mk (leak-cases.c:52)
+==14729==    by 0x804855F: f (leak-cases.c:81)
+==14729==    by 0x80488F5: main (leak-cases.c:107)
+==14729== 
+==14729== LEAK SUMMARY:
+==14729==    definitely lost: 32 bytes in 2 blocks
+==14729==    indirectly lost: 16 bytes in 1 blocks
+==14729==      possibly lost: 32 bytes in 2 blocks
+==14729==    still reachable: 96 bytes in 6 blocks
+==14729==         suppressed: 0 bytes in 0 blocks
+==14729== Reachable blocks (those to which a pointer was found) are not shown.
+==14729== To see them, rerun with: --leak-check=full --show-reachable=yes
+==14729== 
+(gdb) mo mc.l
+==14729== LEAK SUMMARY:
+==14729==    definitely lost: 32 bytes in 2 blocks
+==14729==    indirectly lost: 16 bytes in 1 blocks
+==14729==      possibly lost: 32 bytes in 2 blocks
+==14729==    still reachable: 96 bytes in 6 blocks
+==14729==         suppressed: 0 bytes in 0 blocks
+==14729== Reachable blocks (those to which a pointer was found) are not shown.
+==14729== To see them, rerun with: --leak-check=full --show-reachable=yes
+==14729== 
+(gdb) 
+]]></programlisting>
+    <para>Note that when using the Valgrind gdbserver, it is not
+    needed to rerun with --leak-check=full --show-reachable=yes to see
+    the reachable blocks. You can obtain the same information without
+    rerunning by using the gdb command 'monitor mc.leak_check full
+    reachable' (or, using abbreviation: 'mo mc.l f r').
+    </para>
+  </listitem>
+</itemizedlist>
+
+</sect1>
 
 <sect1 id="mc-manual.clientreqs" xreflabel="Client requests">
 <title>Client Requests</title>
@@ -1284,31 +1407,13 @@ arguments.</para>
     <varname>VALGRIND_MAKE_MEM_DEFINED</varname>.
     These mark address ranges as completely inaccessible,
     accessible but containing undefined data, and accessible and
-    containing defined data, respectively.  Subsequent errors may
-    have their faulting addresses described in terms of these
-    blocks.  Returns a "block handle".  Returns zero when not run
-    on Valgrind.</para>
+    containing defined data, respectively.</para>
   </listitem>
 
   <listitem>
     <para><varname>VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE</varname>.
     This is just like <varname>VALGRIND_MAKE_MEM_DEFINED</varname> but only
     affects those bytes that are already addressable.</para>
-  </listitem>
-
-  <listitem>
-    <para><varname>VALGRIND_DISCARD</varname>: At some point you may
-    want Valgrind to stop reporting errors in terms of the blocks
-    defined by the previous three macros.  To do this, the above macros
-    return a small-integer "block handle".  You can pass this block
-    handle to <varname>VALGRIND_DISCARD</varname>.  After doing so,
-    Valgrind will no longer be able to relate addressing errors to the
-    user-defined block associated with the handle.  The permissions
-    settings associated with the handle remain in place; this just
-    affects how errors are reported, not whether they are reported.
-    Returns 1 for an invalid handle and 0 for a valid handle (although
-    passing invalid handles is harmless).  Always returns 0 when not run
-    on Valgrind.</para>
   </listitem>
 
   <listitem>
@@ -1366,6 +1471,30 @@ arguments.</para>
     set V bits that you have got with
     <varname>VALGRIND_GET_VBITS</varname>.  Only for those who really
     know what they are doing.</para>
+  </listitem>
+
+  <listitem>
+    <para><varname>VALGRIND_CREATE_BLOCK</varname> and 
+    <varname>VALGRIND_DISCARD</varname>.  <varname>VALGRIND_CREATE_BLOCK</varname>
+    takes an address, a number of bytes and a character string.  The
+    specified address range is then associated with that string.  When
+    Memcheck reports an invalid access to an address in the range, it
+    will describe it in terms of this block rather than in terms of
+    any other block it knows about.  Note that the use of this macro
+    does not actually change the state of memory in any way -- it
+    merely gives a name for the range.
+    </para>
+
+    <para>At some point you may want Memcheck to stop reporting errors
+    in terms of the block named
+    by <varname>VALGRIND_CREATE_BLOCK</varname>.  To make this
+    possible, <varname>VALGRIND_CREATE_BLOCK</varname> returns a
+    "block handle", which is a C <varname>int</varname> value.  You
+    can pass this block handle to <varname>VALGRIND_DISCARD</varname>.
+    After doing so, Valgrind will no longer relate addressing errors
+    in the specified range to the block.  Passing invalid handles to
+    <varname>VALGRIND_DISCARD</varname> is harmless.
+   </para>
   </listitem>
 
 </itemizedlist>

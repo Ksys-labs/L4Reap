@@ -20,9 +20,8 @@
 #include <setjmp.h>
 #include <stdint.h>
 #include <sys/types.h>
-#ifdef USE_TLS
 #include <tls.h>
-#endif
+#include <l4/sys/utcb.h>
 
 #ifdef L4_PTHREAD_USE_USEM
 #include <l4/sys/semaphore.h>

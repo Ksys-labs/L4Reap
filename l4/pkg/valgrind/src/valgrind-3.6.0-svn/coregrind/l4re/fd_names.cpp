@@ -14,7 +14,6 @@ __BEGIN_DECLS
 #include "pub_tool_libcbase.h"
 #include "pub_tool_libcfile.h"
 #include "pub_core_libcprint.h"
-#include "pub_core_vki.h"
 #include "l4re_helper.h"
 __END_DECLS
 

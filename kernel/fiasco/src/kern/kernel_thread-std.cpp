@@ -57,7 +57,7 @@ Kernel_thread::init_workload()
       for (d=ctrl; d < ctrl+sizeof(ctrl)-1 && *s && *s != ' '; *d++ = *s++)
 	;
       *d = '\0';
-      printf("JDB: exec cmd '%s'\n", ctrl);
+
       kdb_ke_sequence(ctrl);
     }
 

@@ -72,8 +72,14 @@ void __pthread_do_exit(void *retval, char *currentframe)
   }
   /* Threads other than the main one  terminate without flushing stdio streams
      or running atexit functions. */
-  l4_sleep_forever();
+
   //_exit(0);
+
+  request.req_thread = self;
+  request.req_kind = REQ_THREAD_EXIT;
+  __pthread_send_manager_rq(&request, 1);
+
+  l4_sleep_forever();
 }
 
 /* Function called by pthread_cancel to remove the thread from

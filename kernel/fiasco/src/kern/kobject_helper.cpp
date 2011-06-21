@@ -34,7 +34,7 @@ public:
   void invoke(L4_obj_ref self, Mword rights, Syscall_frame *f, Utcb *u)
   {
     L4_msg_tag res(0);
-    if (EXPECT_TRUE(self.flags() & L4_obj_ref::Ipc_send))
+    if (EXPECT_TRUE(self.op() & L4_obj_ref::Ipc_send))
       res = static_cast<T*>(this)->T::kinvoke(self, rights, f, (Utcb const *)u,
                                               self.have_recv() ? u : utcb_dummy());
 
@@ -49,7 +49,7 @@ public:
 	if (!res.do_switch())
 	  {
 	    Thread *t = current_thread();
-	    Sender *s = (self.flags() & L4_obj_ref::Ipc_open_wait) ? 0 : _sender(t, static_cast<T*>(this));
+	    Sender *s = (self.op() & L4_obj_ref::Ipc_open_wait) ? 0 : _sender(t, static_cast<T*>(this));
 	    t->do_ipc(f->tag(), 0, 0, true, s, f->timeout(), f, rights);
 	    return;
 	  }

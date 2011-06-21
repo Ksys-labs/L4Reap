@@ -115,12 +115,13 @@ struct _CommandLineOptions {
 #define MIN_LINE_SIZE   16
 
 /* Size of various buffers used for storing strings */
-#define FILENAME_LEN                    256
+#define FILENAME_LEN                    VKI_PATH_MAX
 #define FN_NAME_LEN                    4096 /* for C++ code :-) */
 #define OBJ_NAME_LEN                    256
+#define COSTS_LEN                       512 /* at least 17x 64bit values */
 #define BUF_LEN                         512
 #define COMMIFY_BUF_LEN                 128
-#define RESULTS_BUF_LEN                 128
+#define RESULTS_BUF_LEN                 256
 #define LINE_BUF_LEN                     64
 
 
@@ -778,7 +779,7 @@ call_entry* CLG_(get_call_entry)(Int n);
 
 void CLG_(push_call_stack)(BBCC* from, UInt jmp, BBCC* to, Addr sp, Bool skip);
 void CLG_(pop_call_stack)(void);
-void CLG_(unwind_call_stack)(Addr sp, Int);
+Int CLG_(unwind_call_stack)(Addr sp, Int);
 
 /* from context.c */
 void CLG_(init_fn_stack)(fn_stack*);

@@ -5,7 +5,6 @@ TARGET	         = liblwip.a liblwip.so
 PC_FILENAME      = ankh_lwip
 REQUIRES_LIBS    = ankh libpthread
 SYSTEMS          = x86-l4f arm-l4f
-L4_MULTITHREADED = y
 CONTRIB_INCDIR   = ankh_lwip \
                    ankh_lwip/contrib/src/include \
                    ankh_lwip/contrib/src/include/ipv4

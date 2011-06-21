@@ -891,14 +891,15 @@ public:
    * \param v The element to insert.
    */
   template< typename T >
-  void put(T const &v)
+  bool put(T const &v)
   {
     _pos = cxx::Type_traits<T>::align(_pos);
     if (Utcb_stream_check::check_utcb_data_offset(_pos + sizeof(T)))
-      return;
+      return false;
 
     *(reinterpret_cast<T*>(_current_msg + _pos)) = v;
     _pos += sizeof(T);
+    return true;
   }
 
   int put(Varg const &va)

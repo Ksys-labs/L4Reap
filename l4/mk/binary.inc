@@ -171,9 +171,6 @@ all::		$(TARGET)
 disasm: $(TARGET)
 	$(call DISASM_CMD,$(if $(DABIN),$(DABIN),$<))
 
-expand_libdir_noexc     = $(foreach i,$(1),$(i)/noexc $(i))
-expand_libdir_reentrant = $(foreach i,$(1),$(i)/r $(i))
-
 ifneq ($(CONFIG_USE_DROPS_STDDIR),)
 L4INCDIR ?=	$(addprefix $(OBJ_BASE)/include/$(ARCH)/,$(L4API)) \
                 $(addprefix $(OBJ_BASE)/include/,$(L4API)) \
@@ -204,10 +201,6 @@ L4LIBDIR ?=     $(addprefix $(OBJ_BASE)/lib/$(ARCH)_$(CPU)/,$(L4API)) \
                 $(OBJ_BASE)/lib/$(ARCH)_$(CPU) \
                 $(OBJ_BASE)/lib
 endif
-
-L4LIBDIR_R-y  = $(call expand_libdir_reentrant, $(L4LIBDIR))
-L4LIBDIR_R-n  = $(L4LIBDIR)
-L4LIBDIR_NOEXC= $(call expand_libdir_noexc,$(L4LIBDIR_R-$(L4_MULTITHREADED)))
 
 #
 # Variables Section
@@ -268,7 +261,6 @@ REQUIRES_LIBS += $(REQUIRES_LIBS_$(ARCH)) $(call BID_mode_var,REQUIRES_LIBS)
 #CRT0	=  $(word 1, $(CRT0_$@_$(OSYSTEM)) $(CRT0_$@) $(CRT0_$(OSYSTEM)))
 #CRTN	=  $(word 1, $(CRTN_$@_$(OSYSTEM)) $(CRTN_$@) $(CRTN_$(OSYSTEM)))
 LIBS	+= $(strip $(LIBS_$(OSYSTEM)) $(LIBS_$@) $(LIBS_$@_$(OSYSTEM)))
-LIBS    += $(REQUIRES_LIBS_LIST)
 
 LDFLAGS	+= $(strip $(LDFLAGS_$(OSYSTEM)) $(LDFLAGS_$@) $(LDFLAGS_$@_$(OSYSTEM)))
 
@@ -351,10 +343,12 @@ ifeq ($(MODE),host)
 SYSTEM_TARGET = 
 CC            = $(HOST_CC)
 CXX           = $(HOST_CXX)
+LIBS         += $(REQUIRES_LIBS_LIST)
 else
 # no architecture specific flags in host mode
-LDFLAGS += $(LDFLAGS_$(ARCH))
-OPTS	+= $(CARCHFLAGS_$(ARCH)) $(CARCHFLAGS_$(ARCH)_$(CPU))
+LDFLAGS      += $(LDFLAGS_$(ARCH))
+OPTS	     += $(CARCHFLAGS_$(ARCH)) $(CARCHFLAGS_$(ARCH)_$(CPU))
+L4_LIBS      += $(REQUIRES_LIBS_LIST)
 endif
 
 # no link address if build a lib or we're compiling a host program and using
@@ -388,7 +382,6 @@ CFLAGS  += $(CFLAGS_C99)
 ifneq ($(MODE),host)
 CFLAGS  += $(GCCNOSTACKPROTOPT)
 endif
-DEFINES-$(L4_MULTITHREADED) += -DL4_THREAD_SAFE
 DEFINES += $(DEFINES_$(OSYSTEM)) $(DEFINES_$(<F)) $(DEFINES_$(<D)) $(DEFINES_$(<F)_$(OSYSTEM))
 DEFINES += -DSYSTEM_$(subst -,_,$(SYSTEM)) -DARCH_$(ARCH) -DCPUTYPE_$(CPU) -DL4API_$(L4API)
 DEFINES += $(DEFINES-y)
@@ -416,11 +409,7 @@ ifneq ($(MODE),host)
 CPPFLAGS+= $(addprefix -I, $(L4INCDIR))
 endif
 CPPFLAGS+= $(if $(DEBUG_MODE),$(CPPFLAGS-DEBUG_MODE))
-CPPFLAGS+= $(if $(filter $(L4_MULTITHREADED),y),-DL4_THREAD_SAFE)
 CPPFLAGS+= $(LIBCINCDIR)
-
-CXXFLAGS_NOEXC = -DL4_NO_RTTI -fno-rtti -fno-exceptions
-CXXFLAGS-$(BID_INT_NOEXC) = $(CXXFLAGS_NOEXC)
 
 CXXFLAGS+= $(if $(CONFIG_BID_GCC_OMIT_FP),-fomit-frame-pointer,)
 CXXFLAGS+= $(CXXFLAGS_$(OSYSTEM))
@@ -433,7 +422,7 @@ ifneq ($(MODE),host)
 CXXFLAGS+= $(GCCNOSTACKPROTOPT)
 endif
 
-PICFLAGS = -fPIC -U__PIC__ -D__PIC__=1
+PICFLAGS += -fPIC -U__PIC__ -D__PIC__=1
 
 ASFLAGS += $(OPTS) $(ASFLAGS_$(ARCH)) $(ASFLAGS_$(@:.o=.S)) $(ASFLAGS_$(@:.o=.S)_$(OSYSTEM))
 OBJS	+= $(strip $(OBJS_$(OSYSTEM)) $(OBJS_$@) $(OBJS_$@_$(OSYSTEM)))
@@ -527,7 +516,7 @@ OBJDIRS = $(strip $(sort $(filter-out ./,$(dir 				\
 # dependencies which are dynamically generated. Unfortunately, make does
 # not support variable declarations using the foreach function. Same
 # for rules.
-$(BID_OBJ_Makefile).inc: .general.d
+$(BID_OBJ_Makefile).inc: .general.d $(BID_RAM_BASE_DEP)
 	@$(BUILD_MESSAGE)
 	@$(ECHO) "# automatically generated, do not edit!" >$@_
         # write helper variables containing the IDL-C-Sources
@@ -584,8 +573,6 @@ $(BID_OBJ_Makefile).inc: .general.d
         # create the object-dirs
 	@$(if $(OBJDIRS), $(VERBOSE)set -e; for d in $(OBJDIRS); do	\
 		[ -d "$$d" ] || $(MKDIR) $$d; done )
-	@[ -d "noexc" ] || $(MKDIR) noexc
-	@[ -d "r" ] || $(MKDIR) r
 
         #
         # write the object-dependencies for the targets
@@ -618,7 +605,7 @@ ifneq ($(wildcard $(STATICFILE)),)
 	@$(ECHO) -e '\n$@: $(firstword $(wildcard $(STATICFILE)))' >>$@_
         # we find out the relocation address here.
 	@$(ECHO) -e '$(foreach target, $(TARGET),$(strip		\
-		\nLDFLAGS_$(target)+= -Ttext=$(firstword		\
+		\nLDFLAGS_$(target)+= -Ttext=__executable_start=$(firstword		\
 			$(shell $(AWKP) -v prog=$(target)		\
 				"/^[^\#]/{if(\$$2==prog){print $$1; exit}}" \
 				< $(firstword $(wildcard $(STATICFILE)))) \
@@ -632,7 +619,7 @@ else
 		>>$@_
         # we find out the relocation address here.
 	@$(ECHO) -e '$(foreach target, $(TARGET),$(strip		\
-		\nLDFLAGS_$(target)+= -Ttext=$(firstword		\
+		\nLDFLAGS_$(target)+=  --defsym=__executable_start=$(firstword		\
 			$(call default_reloc,$(target)))))'	\
 		>>$@_
 endif # STATIC file
@@ -708,96 +695,28 @@ DEPEND_FLAG = -MD
 
 .PHONY: FORCE
 endif # CONFIG_HAVE_LDSO empty
+DEPFLAGS = -MD -MF $(@D)/.$(@F).d
 
-%.o:	%.cc
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CXX_NAME)) $(CXX) -c $(DEPEND_FLAG) $(CPPFLAGS) $(CXXFLAGS) $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
+include $(L4DIR)/mk/rules.inc
 
-%.ne.o:	%.cc
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CXX_NAME)) $(CXX) -c $(DEPEND_FLAG) $(CPPFLAGS) $(CXXFLAGS_NOEXC) $(CXXFLAGS) $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
+# generate rules to compile %.cc files to %.o, %.s.o etc
+$(eval $(call BID_GENERATE_CXX_MAKE_RULES,cc))
+# generate rules to compile %.cpp files to %.o, %.s.o etc
+$(eval $(call BID_GENERATE_CXX_MAKE_RULES,cpp))
+# generate rules to compile %.c files to %.o, %.s.o etc
+$(eval $(call BID_GENERATE_C_MAKE_RULES,c))
+# generate rules to compile %.S files to %.o, %.s.o etc
+$(eval $(call BID_GENERATE_DEFAULT_MAKE_RULES,%,%.S,AS))
 
-%.s.o:	%.cc
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CXX_NAME)) $(CXX) -c $(DEPEND_FLAG) $(CPPFLAGS) $(CXXFLAGS) $(PICFLAGS) $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
+# Reset implicit rules, mind the TAB.
+%:	%.c
+	
 
-%.s.ne.o: %.cc
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CXX_NAME)) $(CXX) -c $(DEPEND_FLAG) $(CPPFLAGS) $(CXXFLAGS_NOEXC) $(CXXFLAGS) $(PICFLAGS) $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
+%:	%.cc
+	
 
-%.pr.o:	%.cc
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CXX_NAME)) $(CXX) -c $(DEPEND_FLAG) $(CPPFLAGS) $(CXXFLAGS) -DPROFILE -pg $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
-
-%.pr.s.o: %.cc
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CXX_NAME)) $(CXX) -c $(DEPEND_FLAG) $(CPPFLAGS) $(CXXFLAGS) $(PICFLAGS) -DPROFILE -pg $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
-
-%.o:	%.cpp
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CXX_NAME)) $(CXX) -c $(DEPEND_FLAG) $(CPPFLAGS) $(CXXFLAGS) $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
-
-%.s.o:	%.cpp
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CXX_NAME)) $(CXX) -c $(DEPEND_FLAG) $(CPPFLAGS) $(CXXFLAGS) $(PICFLAGS) $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
-
-%.pr.o:	%.cpp
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CXX_NAME)) $(CXX) -c $(DEPEND_FLAG) $(CPPFLAGS) $(CXXFLAGS) -DPROFILE -pg $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
-
-%.pr.s.o: %.cpp
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CXX_NAME)) $(CXX) -c $(DEPEND_FLAG) $(CPPFLAGS) $(CXXFLAGS) $(PICFLAGS) -DPROFILE -pg $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
-
-%.o:	%.c
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CPP_NAME)) $(CC) -c $(DEPEND_FLAG) $(CPPFLAGS) $(CFLAGS) $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
-
-%.s.o:	%.c
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CPP_NAME)) $(CC) -c $(DEPEND_FLAG) $(CPPFLAGS) $(CFLAGS) $(PICFLAGS) $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
-
-%.pr.o:	%.c
-	@$(COMP_PR_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CPP_NAME)) $(CC) -c $(DEPEND_FLAG) $(CPPFLAGS) $(CFLAGS) -DPROFILE -pg $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
-
-%.pr.s.o: %.c
-	@$(COMP_PR_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CPP_NAME)) $(CC) -c $(DEPEND_FLAG) $(CPPFLAGS) $(CFLAGS) $(PICFLAGS) -DPROFILE -pg $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
-
-%.o:	%.S
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CPP_NAME)) $(CC) -c $(DEPEND_FLAG) $(CPPFLAGS) $(ASFLAGS) $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
-
-%.s.o:	%.S
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CPP_NAME)) $(CC) -c $(DEPEND_FLAG) $(CPPFLAGS) $(ASFLAGS) $(PICFLAGS) $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
-
-%.pr.o:	%.S
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CPP_NAME)) $(CC) -c $(DEPEND_FLAG) $(CPPFLAGS) $(ASFLAGS) -DPROFILE -pg $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
-
-%.pr.s.o: %.S
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(call MAKEDEP,$(INT_CPP_NAME)) $(CC) -c $(DEPEND_FLAG) $(CPPFLAGS) $(ASFLAGS) $(PICFLAGS) -DPROFILE -pg $(call absfilename,$<) -o $@
-	$(DEPEND_VERBOSE)$(call DEPEND_EXTEND_FUNC, $(*F).d, $(dir $@).$(notdir $@).d)
+%:	%.S
+	
 
 %.c:	%.y
 	@$(GEN_MESSAGE)

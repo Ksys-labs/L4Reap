@@ -17,7 +17,7 @@ DEFAULT_RELOC_ppc32 := 0x002d0000
 DEFAULT_RELOC_sparc := 0x00100000
 RELOC_PHYS          := y
 LDFLAGS              = -Bstatic
-EXTRA_GENERAL_D_DEP  = .redo-change-tracker
+EXTRA_GENERAL_D_DEP  = .redo-change-tracker $(BID_RAM_BASE_DEP)
 INCLUDE_MAKE_RULES   = $(SRC_DIR)/*/Make.rules
 BOOTSTRAP_LD_dep    := $(SRC_DIR)/ldscript.inc
 #REQUIRES_LIBS        = libbsd-lite
@@ -81,8 +81,9 @@ SUPPORT_CC_arm-sa1000     := support_sa1000.cc
 SUPPORT_CC_arm-pxa        := support_pxa.cc
 SUPPORT_CC_arm-integrator := support_integrator.cc
 SUPPORT_CC_arm-rv         := support_rv.cc
-SUPPORT_CC_arm-omap3evm   := support_omap3evm.cc
-SUPPORT_CC_arm-beagleboard:= support_beagleboard.cc
+SUPPORT_CC_arm-omap3evm   := support_omap.cc
+SUPPORT_CC_arm-beagleboard:= support_omap.cc
+SUPPORT_CC_arm-pandaboard := support_omap.cc
 SUPPORT_CC_arm-tegra2     := support_tegra2.cc
 SUPPORT_CC_arm-imx21      := support_imx.cc
 SUPPORT_CC_arm-imx35      := support_imx.cc
@@ -119,7 +120,7 @@ SRC_CC          += $(SUPPORT_CC_$(ARCH)-$(PLATFORM_TYPE))
 SRC_S		+= ARCH-$(ARCH)/crt0.S
 
 OPTS		 = -g -Os $(CARCHFLAGS_$(ARCH)) $(CARCHFLAGS_$(ARCH)_$(CPU))
-DEFINES         += -DRAM_BASE=$(RAM_BASE)
+DEFINES         += -DRAM_BASE=$(RAM_BASE) -DL4_MINIMAL_LIBC=1
 DEFINES         += -DCMDLINE="\"$(BOOTSTRAP_CMDLINE)\""
 DEFINES         += -DPLATFORM_TYPE=\"$(PLATFORM_TYPE)\"
 DEFINES         += -DPLATFORM_TYPE_$(PLATFORM_TYPE)
@@ -300,7 +301,7 @@ CPPFLAGS	+= -DMODADDR=$(MOD_ADDR)
 
 LIBS             =
 L4_LIBS          = -static -nostdlib $(DRV_LIBS) -lcxx_base -lcxx_io
-L4_LIBS         += -luc_c $(GCCLIB)
+L4_LIBS         += -luc_c_minimal $(GCCLIB)
 
 all:: $(BOOTSTRAP_RAW)
 
@@ -350,6 +351,7 @@ $(BOOTSTRAP_UIMAGE): $(BOOTSTRAP_RAW).$(BOOTSTRAP_UIMAGE_COMPRESSION)
 	$(VERBOSE)$(MKIMAGE) -e $(call default_reloc,$(ARCH)) \
 	   -a $(call default_reloc,$(ARCH)) -A $(MKIMAGE_ARCH)  \
 	   -C $(BOOTSTRAP_UIMAGE_COMPRESSION) \
+	   -n "L4 Image #$$(cat .build_nr)" \
 	   -d $^ $@
 
 $(TARGET): $(LDSCRIPT) $(OBJS_$(TARGET))
@@ -369,7 +371,7 @@ startup.o: CPPFLAGS += -DBUILD_DATE="\"$(shell date)\"" -DBUILD_NR=\"$(call incr
 
 $(LDSCRIPT): $(LDSCRIPT).in $(GENERAL_D_LOC) $(BOOTSTRAP_LD_dep)
 	@$(GEN_MESSAGE)
-	$(VERBOSE)cpp -P $(CPPFLAGS) -DLINKADDR=$(DEFAULT_RELOC_$(ARCH)) $< $@;
+	$(VERBOSE)cpp -P $(CPPFLAGS) -DLINKADDR=$(strip $(call default_reloc,$(ARCH))) $< $@;
 
 clean::
 	$(VERBOSE)$(RM) mod.make.inc mod*.bin mbi_modules.bin $(LDSCRIPT)

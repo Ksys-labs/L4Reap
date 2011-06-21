@@ -37,7 +37,17 @@
 #include <sys/time.h>
 #include <errno.h>
 #include <l4/sys/kdebug.h>
-extern int h_errno;
+
+/* ------------ Taken start ------------------ */
+/* Taken from uclibc-netdb.h because lwip has its own netdb.h... */
+/* pkg/uclibc/lib/contrib/uclibc/include/netdb.h */
+/* Error status for non-reentrant lookup functions.
+   We use a macro to access always the thread-specific `h_errno' variable.  */
+#define h_errno (*__h_errno_location ())
+
+/* Function to get address of global `h_errno' variable.  */
+extern int *__h_errno_location (void) __THROW __attribute__ ((__const__));
+/* ------------ Taken end ------------------ */
 
 /* Define generic types used in lwIP */
 typedef unsigned   char    u8_t;

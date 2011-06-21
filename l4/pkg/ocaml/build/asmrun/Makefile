@@ -4,7 +4,6 @@ L4DIR   ?= $(PKGDIR)/../..
 # no .so as amd64.S doesn't seem to like it
 TARGET      = libocaml_asmrun.a
 PC_FILENAME = libocaml_asmrun
-L4_MULTITHREADED = y
 
 CONTRIBDIR = $(PKGDIR)/contrib
 

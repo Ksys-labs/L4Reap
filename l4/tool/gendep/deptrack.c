@@ -12,11 +12,11 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <unistd.h>
 
 #if defined(__APPLE__) || defined(__FreeBSD__)
 #include <sys/types.h>
 #include <sys/sysctl.h>
-#include <unistd.h>
 #endif
 
 #include "gendep.h"
@@ -137,19 +137,24 @@ static void gendep__adddep(const char*name){
   struct strlist *dep;
   char *namecopy;
 
-  if((namecopy = trim(name))==0) return;
+  if (!(namecopy = trim(name)))
+    return;
 
   /* special detection mode ? */
-  if(detection_mode){
-    if(!strcmp(namecopy, target)){
-      detection_done=1;
+  if (detection_mode)
+    {
+      if (!strcmp(namecopy, target))
+        detection_done = 1;
+
+      free(namecopy);
+      return;
     }
-    free(namecopy);
+
+  if (!strcmp(target, name))
     return;
-  }
-  if(!strcmp(target, name)) return;
+
   for(dep=dependencies; dep; dep=dep->next){
-  	if(!strcmp(dep->name, namecopy)){
+    if(!strcmp(dep->name, namecopy)){
 	    free(namecopy);
 	    return;
 	}
@@ -168,7 +173,7 @@ static void gendep__adddep(const char*name){
 static void gendep__deldep(const char*name){
   struct strlist *dep, *old;
   char *namecopy;
-  
+
   old = 0;
   if((namecopy = trim(name))==0) return;
   for(dep=dependencies; dep; dep=dep->next){
@@ -212,7 +217,6 @@ setup_regexps (void)
   }
 
   /* standard mode of operation: catch dependencies */
-  
   if (!gendep_getenv (&wanted_executable_name, "BINARY"))
     return;
 
@@ -237,7 +241,7 @@ setup_regexps (void)
   */
   regexps.re_array = xmalloc (0);
   regexps.invert_array = xmalloc (0);
-  
+
   regexp_val = xstrdup (regexp_val);
   start = regexp_val;
   end = regexp_val + strlen (regexp_val);
@@ -290,7 +294,7 @@ setup_regexps (void)
 /*
   Try to get the name of the binary.  Is there a portable way to do this?
  */
-static void get_executable_name (void)
+static void get_executable_name(void)
 {
   char *basename_p;
 #ifdef __linux
@@ -300,13 +304,13 @@ static void get_executable_name (void)
   int i=0;
   int c;
   cmd[STRLEN-1] = 0;
- 
+
   if (!cmdline)
     {
       fprintf(stderr, "libgendep.o: cannot open %s\n", proc_cmdline);
       exit(-1);
     }
-      
+
   while ((c = fgetc(cmdline))!=EOF && c && i < STRLEN-1)
     cmd[i++] = c;
 
@@ -315,7 +319,7 @@ static void get_executable_name (void)
   int mib[3], arglen;
   size_t size;
   char *procargs, *cmd;
-  
+
   /* allocate process argument space */
   mib[0] = CTL_KERN;
   mib[1] = KERN_ARGMAX;
@@ -353,13 +357,13 @@ static void get_executable_name (void)
 #endif
 
   /* ugh.  man 3 basename -> ?  */
-  basename_p =  strrchr (cmd, '/');
+  basename_p =  strrchr(cmd, '/');
   if (basename_p)
     basename_p++;
   else
     basename_p = cmd;
 
-  executable_name = xstrdup (basename_p);
+  executable_name = xstrdup(basename_p);
 
 #if defined(__APPLE__) || defined(__FreeBSD__)
   free(procargs);
@@ -391,9 +395,9 @@ static void initialize (void)
           strncat (fn, ".d", STRLEN);
       }
       fn[STRLEN-1]=0;
-      
+
       if((output = fopen (fn, "w"))==0){
-        fprintf(stderr, "libgendep.so: cannot open %s\n", fn);
+        fprintf(stderr, "libgendep.so: cannot open %s for writing\n", fn);
         return;
       }
       write_word (target);
@@ -402,8 +406,8 @@ static void initialize (void)
 }
 
 /* Someone is opening a file.  If it is opened for reading, and
-  matches the regular expressions, write it to the dep-file. 
-  
+  matches the regular expressions, write it to the dep-file.
+
   Note that we explicitly ignore accesses to /etc/mtab and /proc/...
   as these files are inspected by libc for Linux and tend to change.
  */
@@ -418,7 +422,7 @@ gendep__register_open (char const *fn, int flags)
 	  fn == strstr(fn, "/proc/"))
 	return;
 
-      for (i =0; i<  regexps.no; i++)
+      for (i = 0; i < regexps.no; i++)
 	{
 	  int not_matched = regexec (regexps.re_array +i, fn, 0, NULL, 0);
 
@@ -456,15 +460,24 @@ static void finish (void)
       fclose (output);
       return;
     }
-  
-  if(detection_mode && detection_done && depfile_name){
-    FILE *file;
-    
-    file = fopen(depfile_name, "w");
-    if(!file) return;
-    fwrite(executable_name, strlen(executable_name), 1, file);
-    fclose(file);
-    return;
-  }
-}
 
+  if (detection_mode && detection_done && depfile_name)
+    {
+      FILE *file;
+
+      /*
+       * libgendep is called in a nested fashion (fork+execve in various
+       * wrappers), so we only write out the most inner occurence, which
+       * means we only write as long as depfile_name is not there
+       */
+      if (access(depfile_name, W_OK) == -1 && errno == ENOENT)
+        {
+          file = fopen(depfile_name, "w");
+          if (!file)
+            return;
+          fwrite(executable_name, strlen(executable_name), 1, file);
+          fclose(file);
+        }
+      return;
+    }
+}

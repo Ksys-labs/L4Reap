@@ -33,6 +33,7 @@
 #include "pub_core_basics.h"
 #include "pub_core_vki.h"
 #include "pub_core_vkiscnums.h"
+#include "pub_core_libcsetjmp.h"    // to keep _threadstate.h happy
 #include "pub_core_threadstate.h"
 #include "pub_core_aspacemgr.h"
 #include "pub_core_debuglog.h"
@@ -1046,7 +1047,7 @@ PRE(sys_rt_sigreturn)
    /* See comments on PRE(sys_rt_sigreturn) in syswrap-amd64-linux.c for
       an explanation of what follows. */
 
-   ThreadState* tst;
+   //ThreadState* tst;
    PRINT("sys_rt_sigreturn ( )");
 
    vg_assert(VG_(is_valid_tid)(tid));
@@ -1055,7 +1056,7 @@ PRE(sys_rt_sigreturn)
 
    ///* Adjust esp to point to start of frame; skip back up over handler
    //   ret addr */
-   tst = VG_(get_ThreadState)(tid);
+   //tst = VG_(get_ThreadState)(tid);
    //tst->arch.vex.guest_ESP -= sizeof(Addr);
    // Should we do something equivalent on ppc64-linux?  Who knows.
 
@@ -1379,7 +1380,7 @@ static SyscallTableEntry syscall_table[] = {
 // _____(__NR_rt_sigsuspend,     sys_rt_sigsuspend),      // 178
    GENXY(__NR_pread64,           sys_pread64),            // 179
 
-// _____(__NR_pwrite64,          sys_pwrite64),           // 180
+   GENX_(__NR_pwrite64,          sys_pwrite64),           // 180
    GENX_(__NR_chown,             sys_chown),              // 181
    GENXY(__NR_getcwd,            sys_getcwd),             // 182
    LINXY(__NR_capget,            sys_capget),             // 183
@@ -1392,7 +1393,7 @@ static SyscallTableEntry syscall_table[] = {
    GENX_(__NR_vfork,             sys_fork),               // 189 treat as fork
 
    GENXY(__NR_ugetrlimit,        sys_getrlimit),          // 190
-// _____(__NR_readahead,         sys_readahead),          // 191
+   LINX_(__NR_readahead,         sys_readahead),          // 191
 // /* #define __NR_mmap2           192     32bit only */
 // /* #define __NR_truncate64      193     32bit only */
 // /* #define __NR_ftruncate64     194     32bit only */
@@ -1494,6 +1495,8 @@ static SyscallTableEntry syscall_table[] = {
    LINX_(__NR_inotify_init,  sys_inotify_init),           // 275
    LINX_(__NR_inotify_add_watch,  sys_inotify_add_watch), // 276
    LINX_(__NR_inotify_rm_watch,   sys_inotify_rm_watch),  // 277
+
+   LINXY(__NR_ppoll,             sys_ppoll),              // 281
 
    LINXY(__NR_openat,            sys_openat),             // 286
    LINX_(__NR_mkdirat,           sys_mkdirat),            // 287

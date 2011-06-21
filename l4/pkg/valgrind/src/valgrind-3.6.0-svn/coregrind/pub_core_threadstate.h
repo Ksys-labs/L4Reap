@@ -93,6 +93,8 @@ typedef
    typedef VexGuestPPC64State VexGuestArchState;
 #elif defined(VGA_arm)
    typedef VexGuestARMState   VexGuestArchState;
+#elif defined(VGA_s390x)
+   typedef VexGuestS390XState VexGuestArchState;
 #else
 #  error Unknown architecture
 #endif
@@ -373,8 +375,8 @@ typedef struct {
    ThreadOSstate os_state;
 
    /* Per-thread jmp_buf to resume scheduler after a signal */
-   Bool    sched_jmpbuf_valid;
-   jmp_buf sched_jmpbuf;
+   Bool               sched_jmpbuf_valid;
+   VG_MINIMAL_JMP_BUF(sched_jmpbuf);
 }
 ThreadState;
 

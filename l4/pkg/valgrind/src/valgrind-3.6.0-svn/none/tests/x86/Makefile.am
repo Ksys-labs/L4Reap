@@ -21,6 +21,7 @@ endif
 ## FIXME: move lzcnt32 to SSE4 conditionalisation, when that happens.
 
 EXTRA_DIST = \
+	aad_aam.stdout.exp aad_aam.stderr.exp aad_aam.vgtest \
 	badseg.stderr.exp badseg.stdout.exp badseg.vgtest \
 	bt_everything.stderr.exp bt_everything.stdout.exp bt_everything.vgtest \
 	bt_literal.stderr.exp bt_literal.stdout.exp bt_literal.vgtest \
@@ -53,6 +54,7 @@ EXTRA_DIST = \
 	movx.stderr.exp movx.stdout.exp movx.vgtest \
 	pushpopseg.stderr.exp pushpopseg.stdout.exp pushpopseg.vgtest \
 	sbbmisc.stderr.exp sbbmisc.stdout.exp sbbmisc.vgtest \
+	shift_ndep.stderr.exp shift_ndep.stdout.exp shift_ndep.vgtest \
 	smc1.stderr.exp smc1.stdout.exp smc1.vgtest \
 	ssse3_misaligned.stderr.exp ssse3_misaligned.stdout.exp \
 	ssse3_misaligned.vgtest ssse3_misaligned.c \
@@ -61,6 +63,7 @@ EXTRA_DIST = \
 	xadd.stdout.exp xadd.stderr.exp xadd.vgtest
 
 check_PROGRAMS = \
+	aad_aam \
 	badseg \
 	bt_everything \
 	bt_literal \
@@ -72,8 +75,6 @@ check_PROGRAMS = \
 	bug152818-x86 \
 	cmpxchg8b \
 	cpuid \
-	cse_fail \
-	faultstatus \
 	fcmovnu \
 	fpu_lazy_eflags \
 	fxtract \
@@ -84,16 +85,22 @@ check_PROGRAMS = \
 	jcxz \
 	lahf \
 	looper \
-	lzcnt32 \
 	movx \
 	pushpopseg \
 	sbbmisc \
+	shift_ndep \
 	smc1 \
 	x86locked \
 	yield \
 	xadd
 if BUILD_SSSE3_TESTS
    check_PROGRAMS += ssse3_misaligned
+endif
+if BUILD_LZCNT_TESTS
+ check_PROGRAMS += lzcnt32
+endif
+if !VGCONF_OS_IS_DARWIN
+ check_PROGRAMS += cse_fail faultstatus
 endif
 
 
@@ -113,6 +120,7 @@ endif
 cpuid_SOURCES 		= cpuid_c.c cpuid_s.S
 # fpu_lazy_eflags must use these flags -- the bug only occurred with them.
 fpu_lazy_eflags_CFLAGS	= $(AM_CFLAGS) -O2 -march=pentiumpro
+fxtract_CFLAGS		= $(AM_CFLAGS) @FLAG_W_NO_OVERFLOW@
 fxtract_LDADD		= -lm
 insn_basic_SOURCES	= insn_basic.def
 insn_basic_LDADD	= -lm

@@ -190,13 +190,19 @@ PUBLIC
 Space::Ku_mem const *
 Space::find_ku_mem(User<void>::Ptr p, unsigned size)
 {
-  if ((Address)p.get() & (sizeof(double) - 1))
+  Address const pa = (Address)p.get();
+
+  // alignment check
+  if (EXPECT_FALSE(pa & (sizeof(double) - 1)))
+    return 0;
+
+  // overflow check
+  if (EXPECT_FALSE(pa + size < pa))
     return 0;
 
   for (Ku_mem const *f = _ku_mem; f; f = f->next)
     {
-      Address a = (Address)f->u_addr.get();
-      Address pa = (Address)p.get();
+      Address const a = (Address)f->u_addr.get();
       if (a <= pa && (a + f->size) >= (pa + size))
 	return f;
     }
@@ -289,6 +295,7 @@ bool
 Space::is_user_memory(Address address, Mword len)
 {
   return    address < Mem_layout::User_max
+         && address < address + len // prevent overflow
          && address + len <= Mem_layout::User_max;
 }
 

@@ -2,7 +2,7 @@
 #define _LDSODEFS_H     1
 
 #include <bits/kernel-features.h>
-
+#include <link.h>
 #include <features.h>
 #include <tls.h>
 

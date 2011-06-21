@@ -1,6 +1,7 @@
 
 #include <l4/sys/ipc_gate>
 #include <stdio.h>
+#include <unistd.h>
 #include <l4/sys/kdebug.h>
 
 #include "globals.h"

@@ -39,7 +39,7 @@ Kobject_iface *
 Obj_cap::deref(unsigned char *rights = 0, bool dbg = false)
 {
   Thread *current = current_thread();
-  if (flags() & L4_obj_ref::Ipc_reply)
+  if (op() & L4_obj_ref::Ipc_reply)
     {
       if (rights) *rights = current->caller_rights();
       Thread *ca = static_cast<Thread*>(current->caller());
@@ -48,7 +48,7 @@ Obj_cap::deref(unsigned char *rights = 0, bool dbg = false)
       return ca;
     }
 
-  if (EXPECT_FALSE(invalid()))
+  if (EXPECT_FALSE(special()))
     {
       if (!self())
 	return 0;
@@ -114,9 +114,9 @@ PUBLIC
 void
 Thread_object::invoke(L4_obj_ref /*self*/, Mword rights, Syscall_frame *f, Utcb *utcb)
 {
-  register unsigned flags = f->ref().flags();
-  if (((flags != 0) && !(flags & L4_obj_ref::Ipc_send))
-      || (flags & L4_obj_ref::Ipc_reply)
+  register L4_obj_ref::Operation op = f->ref().op();
+  if (((op != 0) && !(op & L4_obj_ref::Ipc_send))
+      || (op & L4_obj_ref::Ipc_reply)
       || f->tag().proto() != L4_msg_tag::Label_thread)
     {
       /* we do IPC */
@@ -125,7 +125,7 @@ Thread_object::invoke(L4_obj_ref /*self*/, Mword rights, Syscall_frame *f, Utcb 
       Thread *partner = 0;
       bool have_rcv = false;
 
-      if (EXPECT_FALSE(!check_sys_ipc(flags, &partner, &sender, &have_rcv)))
+      if (EXPECT_FALSE(!check_sys_ipc(op, &partner, &sender, &have_rcv)))
 	{
 	  utcb->error = L4_error::Not_existent;
 	  return;
@@ -198,7 +198,7 @@ Thread_object::sys_vcpu_resume(L4_msg_tag const &tag, Utcb *utcb)
 
       vcpu->user_task = L4_obj_ref();
     }
-  else if (user_task.flags() == L4_obj_ref::Ipc_reply)
+  else if (user_task.op() == L4_obj_ref::Ipc_reply)
     vcpu_set_user_space(0);
 
   L4_snd_item_iter snd_items(utcb, tag.words());
@@ -217,7 +217,7 @@ Thread_object::sys_vcpu_resume(L4_msg_tag const &tag, Utcb *utcb)
       Reap_list rl;
       L4_error err = fpage_map(space(), sfp,
                                vcpu_user_space(), L4_fpage::all_spaces(),
-                               item->b.raw(), &rl);
+                               item->b, &rl);
       rl.del();
 
       cpu_lock.lock();
@@ -269,7 +269,7 @@ Thread_object::sys_vcpu_resume(L4_msg_tag const &tag, Utcb *utcb)
   if (vcpu->state & Vcpu_state::F_user_mode)
     {
       if (!vcpu_user_space())
-	return commit_result(-L4_err::EInval);
+        return commit_result(-L4_err::EInval);
 
       user_mode = true;
 
@@ -598,10 +598,13 @@ Thread_object::handle_remote_ex_regs(Drq *, Context *self, void *p)
 
 PRIVATE inline NOEXPORT
 L4_msg_tag
-Thread_object::sys_ex_regs(L4_msg_tag const &tag, Utcb * /*utcb*/)
+Thread_object::sys_ex_regs(L4_msg_tag const &tag, Utcb *utcb)
 {
   if (tag.words() != 3)
     return commit_result(-L4_err::EInval);
+
+  if (current() == this)
+    return ex_regs(utcb);
 
   Remote_syscall params;
   params.thread = current_thread();

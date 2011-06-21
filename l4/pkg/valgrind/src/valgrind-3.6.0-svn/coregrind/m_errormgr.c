@@ -30,11 +30,13 @@
 
 #include "pub_core_basics.h"
 #include "pub_core_vki.h"
+#include "pub_core_libcsetjmp.h"
 #include "pub_core_threadstate.h"      // For VG_N_THREADS
 #include "pub_core_debugger.h"
 #include "pub_core_debuginfo.h"
 #include "pub_core_errormgr.h"
 #include "pub_core_execontext.h"
+#include "pub_core_gdbserver.h"
 #include "pub_core_libcbase.h"
 #include "pub_core_libcassert.h"
 #include "pub_core_libcfile.h"
@@ -376,10 +378,14 @@ static void gen_suppression(Error* err)
       VG_(xaprintf)(text, "   %s\n", xtra);
 
    // Print stack trace elements
+   UInt n_ips = VG_(get_ExeContext_n_ips)(ec);
+   tl_assert(n_ips > 0);
+   if (n_ips > VG_MAX_SUPP_CALLERS)
+      n_ips = VG_MAX_SUPP_CALLERS;
    VG_(apply_StackTrace)(printSuppForIp_nonXML,
                          text,
                          VG_(get_ExeContext_StackTrace)(ec),
-                         VG_(get_ExeContext_n_ips)(ec));
+                         n_ips);
 
    VG_(xaprintf)(text, "}\n");
    // zero terminate
@@ -489,7 +495,18 @@ void do_actions_on_error(Error* err, Bool allow_db_attach)
    /* Should be assured by caller */
    vg_assert( ! VG_(clo_xml) );
 
+   /* if user wants to debug from a certain error nr, then wait for gdb/vgdb */
+   if (VG_(clo_vgdb) != Vg_VgdbNo
+       && allow_db_attach 
+       && VG_(dyn_vgdb_error) <= n_errs_found) {
+      VG_(umsg)("(action on error) vgdb me ... \n");
+      VG_(gdbserver)( err->tid );
+      VG_(umsg)("Continuing ...\n");
+   }
+
    /* Perhaps we want a debugger attach at this point? */
+   /* GDBTD ??? maybe we should/could remove the below assuming the
+      gdbserver interface is better ??? */
    if (allow_db_attach &&
        VG_(is_action_requested)( "Attach to debugger", & VG_(clo_db_attach) ))
    {   
@@ -535,13 +552,13 @@ void do_actions_on_error(Error* err, Bool allow_db_attach)
      attach (and detach), and optionally prints a suppression; both
      of these may require user input.
 */
-static void pp_Error ( Error* err, Bool allow_db_attach )
+static void pp_Error ( Error* err, Bool allow_db_attach, Bool xml )
 {
    /* If this fails, you probably specified your tool's method
       dictionary incorrectly. */
    vg_assert(VG_(needs).tool_errors);
 
-   if (VG_(clo_xml)) {
+   if (xml) {
 
       /* Note, allow_db_attach is ignored in here. */
  
@@ -713,7 +730,8 @@ void VG_(maybe_record_error) ( ThreadId tid,
          }
 
          /* Move p to the front of the list so that future searches
-            for it are faster. */
+            for it are faster. It also allows to print the last
+            error (see VG_(show_last_error). */
          if (p_prev != NULL) {
             vg_assert(p_prev->next == p);
             p_prev->next = p->next;
@@ -775,7 +793,7 @@ void VG_(maybe_record_error) ( ThreadId tid,
       n_err_contexts++;
       n_errs_found++;
       /* Actually show the error; more complex than you might think. */
-      pp_Error( p, /*allow_db_attach*/True );
+      pp_Error( p, /*allow_db_attach*/True, VG_(clo_xml) );
       /* update stats */
       n_errs_shown++;
    } else {
@@ -820,7 +838,7 @@ Bool VG_(unique_error) ( ThreadId tid, ErrorKind ekind, Addr a, Char* s,
 
       if (print_error) {
          /* Actually show the error; more complex than you might think. */
-         pp_Error(&err, allow_db_attach);
+         pp_Error(&err, allow_db_attach, VG_(clo_xml));
          /* update stats */
          n_errs_shown++;
       }
@@ -876,20 +894,19 @@ static Bool show_used_suppressions ( void )
    return any_supp;
 }
 
-
 /* Show all the errors that occurred, and possibly also the
    suppressions used. */
-void VG_(show_all_errors) ( void )
+void VG_(show_all_errors) (  Int verbosity, Bool xml )
 {
    Int    i, n_min;
    Error *p, *p_min;
    Bool   any_supp;
 
-   if (VG_(clo_verbosity) == 0)
+   if (verbosity == 0)
       return;
 
    /* If we're printing XML, just show the suppressions and stop. */
-   if (VG_(clo_xml)) {
+   if (xml) {
       (void)show_used_suppressions();
       return;
    }
@@ -900,13 +917,15 @@ void VG_(show_all_errors) ( void )
              n_errs_found, n_err_contexts, 
              n_errs_suppressed, n_supp_contexts );
 
-   if (VG_(clo_verbosity) <= 1)
+   if (verbosity <= 1)
       return;
 
    // We do the following only at -v or above, and only in non-XML
    // mode
 
-   /* Print the contexts in order of increasing error count. */
+   /* Print the contexts in order of increasing error count. 
+      Once an error is shown, we add a huge value to its count to filter it
+      out. After having shown all errors, we reset count to the original value. */
    for (i = 0; i < n_err_contexts; i++) {
       n_min = (1 << 30) - 1;
       p_min = NULL;
@@ -923,10 +942,10 @@ void VG_(show_all_errors) ( void )
       VG_(umsg)("\n");
       VG_(umsg)("%d errors in context %d of %d:\n",
                 p_min->count, i+1, n_err_contexts);
-      pp_Error( p_min, False/*allow_db_attach*/ );
+      pp_Error( p_min, False/*allow_db_attach*/, False /* xml */ );
 
       // We're not printing XML -- we'd have exited above if so.
-      vg_assert(! VG_(clo_xml));
+      vg_assert(! xml);
 
       if ((i+1 == VG_(clo_dump_error))) {
          StackTrace ips = VG_(get_ExeContext_StackTrace)(p_min->where);
@@ -936,8 +955,15 @@ void VG_(show_all_errors) ( void )
                           /*allow redir?*/True);
       }
 
-      p_min->count = 1 << 30;
+      p_min->count = p_min->count + (1 << 30);
    } 
+
+   /* reset the counts, otherwise a 2nd call does not show anything anymore */ 
+   for (p = errors; p != NULL; p = p->next) {
+      if (p->count >= (1 << 30))
+         p->count = p->count - (1 << 30);
+   }
+
 
    any_supp = show_used_suppressions();
 
@@ -949,6 +975,16 @@ void VG_(show_all_errors) ( void )
              "%d errors from %d contexts (suppressed: %d from %d)\n",
              n_errs_found, n_err_contexts, n_errs_suppressed,
              n_supp_contexts );
+}
+
+void VG_(show_last_error) ( void )
+{
+   if (n_err_contexts == 0) {
+      VG_(umsg)("No errors yet\n");
+      return;
+   }
+
+   pp_Error( errors, False/*allow_db_attach*/, False/*xml*/ );
 }
 
 
@@ -1114,7 +1150,7 @@ static void load_one_suppressions_file ( Char* filename )
    // Check it's not a directory.
    if (VG_(is_dir)( filename )) {
       if (VG_(clo_xml))
-         VG_(umsg)("</valgrindoutput>\n");
+         VG_(printf_xml)("</valgrindoutput>\n");
       VG_(umsg)("FATAL: suppressions file \"%s\" is a directory\n", filename );
       VG_(exit)(1);
    }
@@ -1123,7 +1159,7 @@ static void load_one_suppressions_file ( Char* filename )
    sres = VG_(open)( filename, VKI_O_RDONLY, 0 );
    if (sr_isError(sres)) {
       if (VG_(clo_xml))
-         VG_(umsg)("</valgrindoutput>\n");
+         VG_(printf_xml)("</valgrindoutput>\n");
       VG_(umsg)("FATAL: can't open suppressions file \"%s\"\n", filename );
       VG_(exit)(1);
    }
@@ -1275,7 +1311,7 @@ static void load_one_suppressions_file ( Char* filename )
 
   syntax_error:
    if (VG_(clo_xml))
-      VG_(umsg)("</valgrindoutput>\n");
+      VG_(printf_xml)("</valgrindoutput>\n");
    VG_(umsg)("FATAL: in suppressions file \"%s\" near line %d:\n",
            filename, lineno );
    VG_(umsg)("   %s\n", err_str );

@@ -271,6 +271,10 @@ _dl_next_tls_modid (void)
   return result;
 }
 
+#ifndef MAX
+# define MAX(x,y) (((x) > (y)) ? (x) : (y))
+#endif
+
 void
 internal_function
 _dl_determine_tlsoffset (void)

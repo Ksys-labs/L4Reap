@@ -1835,6 +1835,25 @@ static X86CondCode iselCondCode_wrk ( ISelEnv* env, IRExpr* e )
       }
    }
 
+   /* CmpNE32(ccall, 32-bit constant) (--smc-check=all optimisation).
+      Saves a "movl %eax, %tmp" compared to the default route. */
+   if (e->tag == Iex_Binop 
+       && e->Iex.Binop.op == Iop_CmpNE32
+       && e->Iex.Binop.arg1->tag == Iex_CCall
+       && e->Iex.Binop.arg2->tag == Iex_Const) {
+      IRExpr* cal = e->Iex.Binop.arg1;
+      IRExpr* con = e->Iex.Binop.arg2;
+      /* clone & partial-eval of generic Iex_CCall and Iex_Const cases */
+      vassert(cal->Iex.CCall.retty == Ity_I32); /* else ill-typed IR */
+      vassert(con->Iex.Const.con->tag == Ico_U32);
+      /* Marshal args, do the call. */
+      doHelperCall( env, False, NULL, cal->Iex.CCall.cee, cal->Iex.CCall.args );
+      addInstr(env, X86Instr_Alu32R(Xalu_CMP,
+                                    X86RMI_Imm(con->Iex.Const.con->Ico.U32),
+                                    hregX86_EAX()));
+      return Xcc_NZ;
+   }
+
    /* Cmp*32*(x,y) */
    if (e->tag == Iex_Binop 
        && (e->Iex.Binop.op == Iop_CmpEQ32
@@ -2482,6 +2501,20 @@ static void iselInt64Expr_wrk ( HReg* rHi, HReg* rLo, ISelEnv* env, IRExpr* e )
             HReg tHi = newVRegI(env);
             HReg src = iselIntExpr_R(env, e->Iex.Unop.arg);
             addInstr(env, mk_iMOVsd_RR(src,tLo));
+            addInstr(env, X86Instr_Alu32R(Xalu_MOV, X86RMI_Imm(0), tHi));
+            *rHi = tHi;
+            *rLo = tLo;
+            return;
+         }
+
+         /* 16Uto64(e) */
+         case Iop_16Uto64: {
+            HReg tLo = newVRegI(env);
+            HReg tHi = newVRegI(env);
+            HReg src = iselIntExpr_R(env, e->Iex.Unop.arg);
+            addInstr(env, mk_iMOVsd_RR(src,tLo));
+            addInstr(env, X86Instr_Alu32R(Xalu_AND,
+                                          X86RMI_Imm(0xFFFF), tLo));
             addInstr(env, X86Instr_Alu32R(Xalu_MOV, X86RMI_Imm(0), tHi));
             *rHi = tHi;
             *rLo = tLo;

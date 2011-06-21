@@ -108,8 +108,6 @@ public:
 
     Cp15_c1_cache_bits      = Cp15_c1_cache
                               | Cp15_c1_insn_cache,
-
-    Smp_enable              = 0x20,
   };
 };
 
@@ -157,8 +155,6 @@ public:
 			      | Cp15_c1_high_vector
                               | Cp15_c1_rao_sbop
 			      | (Config::Cp15_c1_use_a9_swp_enable ?  Cp15_c1_sw : 0),
-
-    Smp_enable              = 0x41,
   };
 };
 
@@ -174,13 +170,51 @@ public:
 };
 
 //---------------------------------------------------------------------------
+IMPLEMENTATION [arm && armv6]:
+
+PRIVATE static inline void
+Cpu::enable_smp()
+{
+  asm volatile ("mrc p15, 0, %0, c1, c0, 1   \n"
+                "orr %0, %1                  \n"
+                "mcr p15, 0, %0, c1, c0, 1   \n"
+                : : "r" (0), "i" (0x20));
+}
+
+//---------------------------------------------------------------------------
+IMPLEMENTATION [arm && armv7]:
+
+PRIVATE static inline void
+Cpu::enable_smp()
+{
+  Mword midr;
+  asm volatile ("mrc p15, 0, %0, c0, c0, 0" : "=r" (midr));
+
+  // ACTRL is implementation defined
+  if ((midr & 0xff0ffff0) != 0x410fc090)
+    return;
+
+  Mword actrl;
+  asm volatile ("mrc p15, 0, %0, c1, c0, 1" : "=r" (actrl));
+  if (!(actrl & 0x40))
+    asm volatile ("mcr p15, 0, %0, c1, c0, 1" : : "r" (actrl | 0x41));
+}
+
+//---------------------------------------------------------------------------
 IMPLEMENTATION [arm && (mpcore || armca9)]:
 
-PUBLIC static inline void
+PRIVATE static inline void
 Cpu::early_init_platform()
 {
-  Io::write<Mword>(0xffffffff, Mem_layout::Mp_scu_map_base + 0xc);
-  Io::write<Mword>(1,          Mem_layout::Mp_scu_map_base + 0);
+  enum {
+    Scu_control      = Mem_layout::Mp_scu_map_base + 0x0,
+    Scu_config       = Mem_layout::Mp_scu_map_base + 0x4,
+    Scu_power_status = Mem_layout::Mp_scu_map_base + 0x8,
+    Scu_inv          = Mem_layout::Mp_scu_map_base + 0xc,
+  };
+
+  Io::write<Mword>(0xffffffff, Scu_inv);
+  Io::write<Mword>(Io::read<Mword>(Scu_control) | 1, Scu_control);
 
   Io::write<Mword>(Io::read<Mword>(Mem_layout::Gic_cpu_map_base + 0) | 1,
                    Mem_layout::Gic_cpu_map_base + 0);
@@ -189,17 +223,13 @@ Cpu::early_init_platform()
 
   Mem_unit::clean_dcache();
 
-  Mword tmp = 0;
-  __asm__ __volatile__("mrc p15, 0, %0, c1, c0, 1   \n"
-                       "orr %0, %1                  \n"
-                       "mcr p15, 0, %0, c1, c0, 1   \n"
-                       : : "r" (tmp), "i" (Smp_enable));
+  enable_smp();
 }
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [arm && !(mpcore || armca9)]:
 
-PUBLIC static inline void Cpu::early_init_platform()
+PRIVATE static inline void Cpu::early_init_platform()
 {}
 
 //---------------------------------------------------------------------------

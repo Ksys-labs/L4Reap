@@ -1,8 +1,8 @@
-/* -*- mode: C; c-basic-offset: 3; -*- */
+/* -*- mode: C; c-basic-offset: 3; indent-tabs-mode: nil; -*- */
 /*
   This file is part of drd, a thread error detector.
 
-  Copyright (C) 2006-2010 Bart Van Assche <bart.vanassche@gmail.com>.
+  Copyright (C) 2006-2011 Bart Van Assche <bvanassche@acm.org>.
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -44,12 +44,6 @@ static void DRD_(cond_cleanup)(struct cond_info* p);
 
 static Bool DRD_(s_report_signal_unlocked) = True;
 static Bool DRD_(s_trace_cond);
-
-
-/* Global variables. */
-
-Addr DRD_(pthread_cond_initializer);
-int DRD_(pthread_cond_initializer_size);
 
 
 /* Function definitions. */
@@ -300,22 +294,15 @@ void DRD_(cond_post_wait)(const Addr cond)
    p = DRD_(cond_get)(cond);
    if (!p)
    {
-      struct mutex_info* q;
-      q = &(DRD_(clientobj_get)(p->mutex, ClientMutex)->mutex);
-      {
-	 CondDestrErrInfo cde = {
-	    DRD_(thread_get_running_tid)(),
-	    p->a1,
-	    q ? q->a1 : 0,
-	    q ? q->owner : DRD_INVALID_THREADID
-	 };
-	 VG_(maybe_record_error)(VG_(get_running_tid)(),
-				 CondDestrErr,
-				 VG_(get_IP)(VG_(get_running_tid)()),
-				 "condition variable has been destroyed while"
-				 " being waited upon",
-				 &cde);
-      }
+      CondDestrErrInfo cde = {
+         DRD_(thread_get_running_tid)(), cond, 0, DRD_INVALID_THREADID
+      };
+      VG_(maybe_record_error)(VG_(get_running_tid)(),
+                              CondDestrErr,
+                              VG_(get_IP)(VG_(get_running_tid)()),
+                              "condition variable has been destroyed while"
+                              " being waited upon",
+                              &cde);
       return;
    }
 

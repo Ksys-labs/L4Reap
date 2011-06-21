@@ -108,6 +108,8 @@ extern ULong amd64g_calculate_RCL  (
                 ULong arg, ULong rot_amt, ULong rflags_in, Long sz 
              );
 
+extern ULong amd64g_calculate_pclmul(ULong s1, ULong s2, ULong which);
+
 extern ULong amd64g_check_fldcw ( ULong fpucw );
 
 extern ULong amd64g_create_fpucw ( ULong fpround );
@@ -135,6 +137,10 @@ extern ULong amd64g_calculate_mmx_psadbw   ( ULong, ULong );
 extern ULong amd64g_calculate_mmx_pmovmskb ( ULong );
 extern ULong amd64g_calculate_sse_pmovmskb ( ULong w64hi, ULong w64lo );
 
+extern ULong amd64g_calc_crc32b ( ULong crcIn, ULong b );
+extern ULong amd64g_calc_crc32w ( ULong crcIn, ULong w );
+extern ULong amd64g_calc_crc32l ( ULong crcIn, ULong l );
+extern ULong amd64g_calc_crc32q ( ULong crcIn, ULong q );
 
 /* --- DIRTY HELPERS --- */
 
@@ -148,7 +154,8 @@ extern void  amd64g_dirtyhelper_CPUID_sse42_and_cx16 ( VexGuestAMD64State* st );
 
 extern void  amd64g_dirtyhelper_FINIT ( VexGuestAMD64State* );
 
-extern void  amd64g_dirtyhelper_FXSAVE ( VexGuestAMD64State*, HWord );
+extern void      amd64g_dirtyhelper_FXSAVE  ( VexGuestAMD64State*, HWord );
+extern VexEmWarn amd64g_dirtyhelper_FXRSTOR ( VexGuestAMD64State*, HWord );
 
 extern ULong amd64g_dirtyhelper_RDTSC ( void );
 

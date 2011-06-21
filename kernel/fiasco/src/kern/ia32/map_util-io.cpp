@@ -34,8 +34,8 @@ io_mapdb_instance()
     @return IPC error code that describes the status of the operation
  */
 L4_error
-io_map(Space *from, L4_fpage const &fp_from, 
-       Space *to, L4_fpage const &fp_to, Mword control)
+io_map(Space *from, L4_fpage const &fp_from,
+       Space *to, L4_fpage const &fp_to, L4_msg_item control)
 {
 /*   printf("io_map %u -> %u "
  * 	    "snd %08x base %x size %x rcv %08x base %x size %x\n",
@@ -70,7 +70,7 @@ io_map(Space *from, L4_fpage const &fp_from,
 	      from->io_space(), from, snd_pos,
 	      snd_size,
 	      to->io_space(), to, snd_pos,
-	      control & L4_fpage::Control_grant, add_attribs, del_attribs,
+	      control.is_grant(), add_attribs, del_attribs,
 	      (Io_space::Reap_list**)0);
 }
 

@@ -2,8 +2,7 @@ PKGDIR          ?= ../..
 L4DIR           ?= $(PKGDIR)/../..
 
 TARGET           = l4dope
-REQUIRES_LIBS    = input libio l4re_c-util
-L4_MULTITHREADED = y
+REQUIRES_LIBS    = input libio l4re_c-util libpthread
 
 include $(L4DIR)/mk/Makeconf
 

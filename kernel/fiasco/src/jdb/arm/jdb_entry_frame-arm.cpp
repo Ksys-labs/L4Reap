@@ -64,7 +64,7 @@ Jdb_entry_frame::dump() const
 IMPLEMENT inline
 bool
 Jdb_entry_frame::debug_ipi() const
-{ return error_code == 0x00f00000; }
+{ return error_code == 0x00e00002; }
 
 IMPLEMENT inline NEEDS["processor.h"]
 Address_type

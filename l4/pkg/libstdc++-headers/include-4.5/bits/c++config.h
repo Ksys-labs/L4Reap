@@ -381,10 +381,10 @@ _GLIBCXX_END_NAMESPACE
 #define _GLIBCXX_GTHREAD_USE_WEAK 1
 #endif 
 
-#ifdef L4_THREAD_SAFE
-# define _GLIBCXX__PTHREADS 1
-#else
+#ifdef L4_MINIMAL_LIBC
 # define _GLIBCXX__PTHREADS 0
+#else
+# define _GLIBCXX__PTHREADS 1
 #endif
 #define _GLIBCXX__PTHREADS95 0
 #define _GLIBCXX__DCE_THREADS 0
@@ -655,8 +655,10 @@ _GLIBCXX_END_NAMESPACE
 /* Define to 1 if you have the <machine/param.h> header file. */
 /* #undef _GLIBCXX_HAVE_MACHINE_PARAM_H */
 
+#if !defined(L4_MINIMAL_LIBC)
 /* Define if mbstate_t exists in wchar.h. */
 #define _GLIBCXX_HAVE_MBSTATE_T 1
+#endif
 
 /* Define to 1 if you have the <memory.h> header file. */
 //#define _GLIBCXX_HAVE_MEMORY_H 1
@@ -808,6 +810,7 @@ _GLIBCXX_END_NAMESPACE
 /* Define to 1 if you have the <unistd.h> header file. */
 #define _GLIBCXX_HAVE_UNISTD_H 1
 
+#if !defined(L4_MINIMAL_LIBC)
 /* Defined if vfwscanf exists. */
 #define _GLIBCXX_HAVE_VFWSCANF 1
 
@@ -825,6 +828,7 @@ _GLIBCXX_END_NAMESPACE
 
 /* Define to 1 if you have the <wctype.h> header file. */
 #define _GLIBCXX_HAVE_WCTYPE_H 1
+#endif
 
 /* Define if writev is available in <sys/uio.h>. */
 #define _GLIBCXX_HAVE_WRITEV 1
@@ -1180,8 +1184,10 @@ _GLIBCXX_END_NAMESPACE
 /* Defined if gettimeofday is available. */
 //#define _GLIBCXX_USE_GETTIMEOFDAY 1
 
+#if !defined(L4_MINIMAL_LIBC)
 /* Define if LFS support is available. */
 #define _GLIBCXX_USE_LFS 1
+#endif
 
 /* Define if code specialized for long long should be used. */
 #define _GLIBCXX_USE_LONG_LONG 1

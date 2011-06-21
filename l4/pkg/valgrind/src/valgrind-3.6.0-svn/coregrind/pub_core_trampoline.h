@@ -60,6 +60,7 @@ extern Addr VG_(trampoline_stuff_end);
 extern Addr VG_(x86_linux_SUBST_FOR_sigreturn);
 extern Addr VG_(x86_linux_SUBST_FOR_rt_sigreturn);
 extern Char* VG_(x86_linux_REDIR_FOR_index) ( const Char*, Int );
+extern UInt VG_(x86_linux_REDIR_FOR_strlen)( void* );
 #endif
 
 #if defined(VGP_amd64_linux)
@@ -148,6 +149,11 @@ extern void VG_(x86_l4re_REDIR_FOR_syscall_page)(void);
 
 extern void VG_(l4re_trampoline_stuff_start);
 extern void VG_(l4re_trampoline_stuff_end);
+#endif
+
+#if defined(VGP_s390x_linux)
+extern Addr VG_(s390x_linux_SUBST_FOR_sigreturn);
+extern Addr VG_(s390x_linux_SUBST_FOR_rt_sigreturn);
 #endif
 
 #endif   // __PUB_CORE_TRAMPOLINE_H

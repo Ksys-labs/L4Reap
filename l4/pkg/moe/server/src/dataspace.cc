@@ -12,7 +12,6 @@
 #include "globals.h"
 #include "page_alloc.h"
 
-
 #include <l4/re/dataspace-sys.h>
 #include <l4/re/protocols>
 #include <l4/re/util/meta>

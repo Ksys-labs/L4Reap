@@ -52,25 +52,19 @@ TARGET_LIB        := $(TARGET) $(TARGET_$(OSYSTEM))
 TARGET_SHARED     := $(filter     %.so,$(TARGET_LIB))
 TARGET_STANDARD   := $(filter-out %.so,$(TARGET_LIB))
 
-TARGET_LIB_NE     := $(TARGET_NE) $(TARGET_NE_$(OSYSTEM))
-TARGET_SHARED_NE  := $(addprefix noexc/,$(filter     %.so,$(TARGET_LIB_NE)))
-TARGET_STANDARD_NE:= $(addprefix noexc/,$(filter-out %.so,$(TARGET_LIB_NE)))
-
 TARGET_PROFILE  := $(patsubst %.a,%.pr.a,\
 			$(filter $(BUILD_PROFILE),$(TARGET_STANDARD)))
 TARGET_PROFILE_SHARED := $(filter %.so,$(TARGET_PROFILE))
 TARGET_PIC      := $(patsubst %.a,%.p.a,\
 			$(filter $(BUILD_PIC),$(TARGET_STANDARD)))
-TARGET_PIC_NE   := $(addprefix noexc/,$(TARGET_PIC))
 TARGET_PROFILE_PIC := $(patsubst %.a,%.p.a,\
 			$(filter $(BUILD_PIC),$(TARGET_PROFILE)))
 TARGET	+= $(TARGET_$(OSYSTEM)) $(TARGET_PIC)
-TARGET  += $(TARGET_PIC_NE) $(TARGET_SHARED_NE) $(TARGET_STANDARD_NE)
 TARGET	+= $(TARGET_PROFILE) $(TARGET_PROFILE_SHARED) $(TARGET_PROFILE_PIC)
 
 # define some variables different for lib.mk and prog.mk
 LDFLAGS += $(addprefix -L, $(PRIVATE_LIBDIR) $(PRIVATE_LIBDIR_$(OSYSTEM)) $(PRIVATE_LIBDIR_$@) $(PRIVATE_LIBDIR_$@_$(OSYSTEM)))
-LDFLAGS += $(addprefix -L, $(if $(LINK_WITH_NOEXC_LIBS_$@),$(L4LIBDIR_NOEXC),$(L4LIBDIR_R-$(L4_MULTITHREADED))))
+LDFLAGS += $(addprefix -L, $(L4LIBDIR))
 LDFLAGS += $(LIBCLIBDIR)
 LDFLAGS_SO ?= -shared -nostdlib
 
@@ -113,7 +107,7 @@ DEPS	+= $(foreach file,$(TARGET), $(dir $(file)).$(notdir $(file)).d)
 
 $(filter-out $(LINK_INCR) %.so %.o.a %.o.pr.a, $(TARGET)):%.a: $(OBJS)
 	@$(AR_MESSAGE)
-	$(VERBOSE)$(MKDIR) $(basename $@)
+	$(VERBOSE)[ -d "$(dir $@)" ] || $(MKDIR) $(dir $@)
 	$(VERBOSE)$(RM) $@
 	$(VERBOSE)$(AR) crs $@ $(OBJS)
 	@$(BUILT_MESSAGE)
@@ -121,7 +115,7 @@ $(filter-out $(LINK_INCR) %.so %.o.a %.o.pr.a, $(TARGET)):%.a: $(OBJS)
 # shared lib
 $(filter %.so, $(TARGET)):%.so: $(OBJS) $(CRTN) $(CRT0) $(CRTP) $(LIBDEPS)
 	@$(LINK_SHARED_MESSAGE)
-	$(VERBOSE)$(MKDIR) $(basename $@)
+	$(VERBOSE)[ -d "$(dir $@)" ] || $(MKDIR) $(dir $@)
 	$(VERBOSE)$(call MAKEDEP,$(LD)) $(LD) -m $(LD_EMULATION) \
 	   -o $@ $(LDFLAGS_SO) $(addprefix -T,$(LDSCRIPT)) $(CRTP) \
 	   $(OBJS) $(REQUIRES_LIBS_LIST) $(LDFLAGS) \
@@ -131,9 +125,10 @@ $(filter %.so, $(TARGET)):%.so: $(OBJS) $(CRTN) $(CRT0) $(CRTP) $(LIBDEPS)
 # build an object file (which looks like a lib to a later link-call), which
 # is either later included as a whole or not at all (important for static
 # constructors)
-$(filter $(LINK_INCR) %.o.a %.o.pr.a, $(TARGET)):%.a: $(OBJS) $(LIBDEPS)
+LINK_INCR_TARGETS = $(filter $(LINK_INCR) %.o.a %.o.pr.a, $(TARGET))
+$(LINK_INCR_TARGETS):%.a: $(OBJS) $(LIBDEPS) $(foreach x,$(LINK_INCR_TARGETS),$(LINK_INCR_ONLYGLOBSYMFILE_$(x)))
 	@$(LINK_PARTIAL_MESSAGE)
-	$(VERBOSE)$(MKDIR) $(basename $@)
+	$(VERBOSE)[ -d "$(dir $@)" ] || $(MKDIR) $(dir $@)
 	$(VERBOSE)$(call MAKEDEP,$(LD)) $(LD) -m $(LD_EMULATION) \
 	   -T$(LDSCRIPT_INCR) \
 	   -o $@ -r $(OBJS) $(LDFLAGS)

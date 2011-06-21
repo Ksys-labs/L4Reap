@@ -34,6 +34,7 @@
 #include "pub_core_aspacemgr.h"
 #include "pub_core_vki.h"
 #include "pub_core_vkiscnums.h"
+#include "pub_core_libcsetjmp.h"    // to keep _threadstate.h happy
 #include "pub_core_threadstate.h"
 #include "pub_core_libcbase.h"
 #include "pub_core_libcassert.h"
@@ -60,14 +61,20 @@
 /* Useful info which needs to be recorded somewhere:
    Use of registers in syscalls is:
 
-          NUM ARG1 ARG2 ARG3 ARG4 ARG5 ARG6 ARG7 ARG8 RESULT
+          NUM   ARG1 ARG2 ARG3 ARG4 ARG5 ARG6 ARG7 ARG8 RESULT
    LINUX:
-   x86    eax ebx  ecx  edx  esi  edi  ebp  n/a  n/a  eax       (== NUM)
-   amd64  rax rdi  rsi  rdx  r10  r8   r9   n/a  n/a  rax       (== NUM)
-   ppc32  r0  r3   r4   r5   r6   r7   r8   n/a  n/a  r3+CR0.SO (== ARG1)
-   ppc64  r0  r3   r4   r5   r6   r7   r8   n/a  n/a  r3+CR0.SO (== ARG1)
-   arm    r7  r0   r1   r2   r3   r4   r5   n/a  n/a  r0        (== ARG1)
-
+   x86    eax   ebx  ecx  edx  esi  edi  ebp  n/a  n/a  eax       (== NUM)
+   amd64  rax   rdi  rsi  rdx  r10  r8   r9   n/a  n/a  rax       (== NUM)
+   ppc32  r0    r3   r4   r5   r6   r7   r8   n/a  n/a  r3+CR0.SO (== ARG1)
+   ppc64  r0    r3   r4   r5   r6   r7   r8   n/a  n/a  r3+CR0.SO (== ARG1)
+   arm    r7    r0   r1   r2   r3   r4   r5   n/a  n/a  r0        (== ARG1)
+   On s390x the svc instruction is used for system calls. The system call
+   number is encoded in the instruction (8 bit immediate field). Since Linux
+   2.6 it is also allowed to use svc 0 with the system call number in r1.
+   This was introduced for system calls >255, but works for all. It is
+   also possible to see the svc 0 together with an EXecute instruction, that
+   fills in the immediate field.
+   s390x r1/SVC r2   r3   r4   r5   r6   r7   n/a  n/a  r2        (== ARG1)
    AIX:
    ppc32  r2  r3   r4   r5   r6   r7   r8   r9   r10  r3(res),r4(err)
    ppc64  r2  r3   r4   r5   r6   r7   r8   r9   r10  r3(res),r4(err)
@@ -162,6 +169,9 @@
      Darwin:
      x86:    Success(N) ==>  edx:eax = N, cc = 0
              Fail(N)    ==>  edx:eax = N, cc = 1
+
+     s390x:  Success(N) ==>  r2 = N
+             Fail(N)    ==>  r2 = -N
 
    * The post wrapper is called if:
 
@@ -669,6 +679,17 @@ void getSyscallArgsFromGuestState ( /*OUT*/SyscallArgs*       canonical,
    canonical->arg7  = gst->guest_EBP;
    canonical->arg8  = 0;
 
+#elif defined(VGP_s390x_linux)
+   VexGuestS390XState* gst = (VexGuestS390XState*)gst_vanilla;
+   canonical->sysno = gst->guest_SYSNO;
+   canonical->arg1  = gst->guest_r2;
+   canonical->arg2  = gst->guest_r3;
+   canonical->arg3  = gst->guest_r4;
+   canonical->arg4  = gst->guest_r5;
+   canonical->arg5  = gst->guest_r6;
+   canonical->arg6  = gst->guest_r7;
+   canonical->arg7  = 0;
+   canonical->arg8  = 0;
 #else
 #  error "getSyscallArgsFromGuestState: unknown arch"
 #endif
@@ -796,6 +817,16 @@ void putSyscallArgsIntoGuestState ( /*IN*/ SyscallArgs*       canonical,
    gst->guest_EDI = canonical->arg6;
    gst->guest_EBP = canonical->arg7;
 
+#elif defined(VGP_s390x_linux)
+   VexGuestS390XState* gst = (VexGuestS390XState*)gst_vanilla;
+   gst->guest_SYSNO  = canonical->sysno;
+   gst->guest_r2     = canonical->arg1;
+   gst->guest_r3     = canonical->arg2;
+   gst->guest_r4     = canonical->arg3;
+   gst->guest_r5     = canonical->arg4;
+   gst->guest_r6     = canonical->arg5;
+   gst->guest_r7     = canonical->arg6;
+
 #else
 #  error "putSyscallArgsIntoGuestState: unknown arch"
 #endif
@@ -911,8 +942,16 @@ void getSyscallStatusFromGuestState ( /*OUT*/SyscallStatus*     canonical,
    canonical->what = SsComplete;
 
 #  elif defined(VGP_x86_l4re)
+   // XXX // We need real expected statuses here to make the ifdef in lines
+   // 1803-1822 go away.
+
    //VexGuestX86State* gst = (VexGuestX86State*)gst_vanilla;
    canonical->sres = VG_(mk_SysRes_x86_l4re)( 0 );
+   canonical->what = SsComplete;
+
+#  elif defined(VGP_s390x_linux)
+   VexGuestS390XState* gst   = (VexGuestS390XState*)gst_vanilla;
+   canonical->sres = VG_(mk_SysRes_s390x_linux)( gst->guest_r2 );
    canonical->what = SsComplete;
 
 #  else
@@ -1088,6 +1127,15 @@ void putSyscallStatusIntoGuestState ( /*IN*/ ThreadId tid,
          vg_assert(0);
          break;
    }
+
+#  elif defined(VGP_s390x_linux)
+   VexGuestS390XState* gst = (VexGuestS390XState*)gst_vanilla;
+   vg_assert(canonical->what == SsComplete);
+   if (sr_isError(canonical->sres)) {
+      gst->guest_r2 = - (Long)sr_Err(canonical->sres);
+   } else {
+      gst->guest_r2 = sr_Res(canonical->sres);
+   }
    
 #  elif defined(VGP_x86_l4re)
    //VexGuestX86State* gst = (VexGuestX86State*)gst_vanilla;
@@ -1218,6 +1266,16 @@ void getSyscallArgLayout ( /*OUT*/SyscallArgLayout* layout )
    layout->o_arg8   = -1; /* impossible value */
    layout->o_retval = OFFSET_x86_EAX;
 
+#elif defined(VGP_s390x_linux)
+   layout->o_sysno  = OFFSET_s390x_SYSNO;
+   layout->o_arg1   = OFFSET_s390x_r2;
+   layout->o_arg2   = OFFSET_s390x_r3;
+   layout->o_arg3   = OFFSET_s390x_r4;
+   layout->o_arg4   = OFFSET_s390x_r5;
+   layout->o_arg5   = OFFSET_s390x_r6;
+   layout->o_arg6   = OFFSET_s390x_r7;
+   layout->uu_arg7  = -1; /* impossible value */
+   layout->uu_arg8  = -1; /* impossible value */
 #else
 #  error "getSyscallLayout: unknown arch"
 #endif
@@ -1798,6 +1856,7 @@ void VG_(post_syscall) (ThreadId tid)
       previously written the result into the guest state. */
    vg_assert(sci->status.what == SsComplete);
 
+#if !defined(VGO_l4re)
    getSyscallStatusFromGuestState( &test_status, &tst->arch.vex );
    if (!(sci->flags & SfNoWriteResult))
       vg_assert(eq_SyscallStatus( &sci->status, &test_status ));
@@ -1815,7 +1874,6 @@ void VG_(post_syscall) (ThreadId tid)
    /* Get the system call number.  Because the pre-handler isn't
       allowed to mess with it, it should be the same for both the
       original and potentially-modified args. */
-#if !defined(VGO_l4re)
    vg_assert(sci->args.sysno == sci->orig_args.sysno);
 #endif
 
@@ -2091,6 +2149,25 @@ void ML_(fixup_guest_state_to_restart_syscall) ( ThreadArchState* arch )
 #elif defined(VGP_amd64_darwin)
    // DDD: #warning GrP fixme amd64 restart unimplemented
    vg_assert(0);
+
+#elif defined(VGP_s390x_linux)
+   arch->vex.guest_IA -= 2;             // sizeof(syscall)
+
+   /* Make sure our caller is actually sane, and we're really backing
+      back over a syscall.
+
+      syscall == 0A <num>
+   */
+   {
+      UChar *p = (UChar *)arch->vex.guest_IA;
+      if (p[0] != 0x0A)
+         VG_(message)(Vg_DebugMsg,
+                      "?! restarting over syscall at %#llx %02x %02x\n",
+                      arch->vex.guest_IA, p[0], p[1]);
+
+      vg_assert(p[0] == 0x0A);
+   }
+
    
 #elif defined(VGO_l4re)
    VG_(unimplemented)("unimplemented function ML_(fixup_guest_state_to_restart_syscall)()");
@@ -2335,7 +2412,7 @@ void ML_(wqthread_continue_NORETURN)(ThreadId tid)
    sci->status.what = SsIdle;
 
    vg_assert(tst->sched_jmpbuf_valid);
-   __builtin_longjmp(tst->sched_jmpbuf, True);
+   VG_MINIMAL_LONGJMP(tst->sched_jmpbuf);
 
    /* NOTREACHED */
    vg_assert(0);

@@ -94,7 +94,7 @@ static void pthread_handle_sigcancel(void)
   pthread_descr self = check_thread_self();
   sigjmp_buf * jmpbuf;
 
-  if (self == &__pthread_manager_thread)
+  if (self == __manager_thread)
     {
       enter_kdebug("cancel of the manager hooooo");
 #if 0

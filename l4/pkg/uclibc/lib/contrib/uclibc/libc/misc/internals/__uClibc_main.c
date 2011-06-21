@@ -127,7 +127,14 @@ static __always_inline int not_null_ptr(const void *p)
  */
 extern int *weak_const_function __errno_location(void);
 extern int *weak_const_function __h_errno_location(void);
+/* aw11: hidden and weak in a statically linked library meaningless
+ *       and gold in x86_64 complains about
+ */
+#ifdef SHARED
 extern void weak_function _stdio_init(void) attribute_hidden;
+#else
+extern void weak_function _stdio_init(void);
+#endif
 #ifdef __UCLIBC_HAS_LOCALE__
 extern void weak_function _locale_init(void) attribute_hidden;
 #endif
@@ -382,14 +389,11 @@ void __uClibc_main(int (*main)(int, char **, char **), int argc,
 #endif
 	aux_dat += 2;
     }
-#ifdef NOT_FOR_L4
-    // l4: should come out of libdl
 #ifndef SHARED
     /* Get the program headers (_dl_phdr) from the aux vector
        It will be used into __libc_setup_tls. */
 
     _dl_aux_init (auxvt);
-#endif
 #endif
 #endif
 

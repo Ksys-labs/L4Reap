@@ -699,7 +699,7 @@ fiq_label:	             .string "FIQ entry"
 	kdebug entry
  **********************************************************************/
 
-.macro DEBUGGER_ENTRY errorcode
+.macro DEBUGGER_ENTRY type
 #ifdef CONFIG_JDB
 	str	sp, [sp, #(RF(USR_SP, -RF_SIZE))] @ save r[13]
 	sub	sp, sp, #(RF_SIZE)
@@ -711,7 +711,8 @@ fiq_label:	             .string "FIQ entry"
 
 	stmdb	sp!, {r0 - r12}
 	mov	r0, #-1			@ pfa
-	mov	r1, #\errorcode		@ err
+	mov	r1, #0x00e00000		@ err
+	orr	r1, #\type		@ + type
 	stmdb	sp!, {r0, r1}
 
 	mov	r0, sp
@@ -738,7 +739,12 @@ fiq_label:	             .string "FIQ entry"
 	.global	kern_kdebug_entry
 	.align 4
 kern_kdebug_entry:
-	DEBUGGER_ENTRY 0x00e00000
+	DEBUGGER_ENTRY 0
+
+	.global	kern_kdebug_sequence_entry
+	.align 4
+kern_kdebug_sequence_entry:
+	DEBUGGER_ENTRY 1
 
 
 #ifdef CONFIG_MP
@@ -746,7 +752,7 @@ kern_kdebug_entry:
 	.global	kern_kdebug_ipi_entry
 	.align 4
 kern_kdebug_ipi_entry:
-	DEBUGGER_ENTRY 0x00f00000
+	DEBUGGER_ENTRY 2
 	.previous
 #endif
 

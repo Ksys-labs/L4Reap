@@ -8,10 +8,7 @@ _tcbs_1            = 0xd0000000;	/* assumption: 256MB-aligned */
 _unused2_1         = 0xea400000;	/* assumption: 4MB-aligned */
 _unused3_1         = 0xea800000;	/* assumption: 4MB-aligned */
 _service           = 0xeac00000;	/* assumption: 4MB-aligned */
-/* 0xeb000000 - 0xee000000 unused */
-_ipc_window0_1     = 0xee000000;	/* assumption: 8MB-aligned */
-_ipc_window1_1     = 0xee800000;	/* assumption: 8MB-aligned */
-/* 0xef000000 - 0xef800000 unused */
+/* 0xeb000000 - 0xef800000 unused */
 _kstatic1_1        = 0xef800000;	/* assumption: 4MB-aligned */
 _iobitmap_1        = 0xefc00000;	/* assumption: 4MB-aligned */
 _unused4_io_1      = 0xefc80000;        /* assumption: 2nd level field in 

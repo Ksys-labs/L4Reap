@@ -1,8 +1,8 @@
-/* -*- mode: C; c-basic-offset: 3; -*- */
+/* -*- mode: C; c-basic-offset: 3; indent-tabs-mode: nil; -*- */
 /*
   This file is part of drd, a thread error detector.
 
-  Copyright (C) 2006-2010 Bart Van Assche <bart.vanassche@gmail.com>.
+  Copyright (C) 2006-2011 Bart Van Assche <bvanassche@acm.org>.
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -202,7 +202,7 @@ struct semaphore_info* DRD_(semaphore_init)(const Addr semaphore,
    {
 #if defined(VGO_darwin)
       const ThreadId vg_tid = VG_(get_running_tid)();
-      GenericErrInfo GEI = { DRD_(thread_get_running_tid)(), NULL };
+      GenericErrInfo GEI = { DRD_(thread_get_running_tid)(), 0 };
       VG_(maybe_record_error)(vg_tid,
 			      GenericErr,
 			      VG_(get_IP)(vg_tid),
@@ -405,18 +405,15 @@ void DRD_(semaphore_post_wait)(const DrdThreadId tid, const Addr semaphore,
    {
       sg = drd_segment_pop(p);
       tl_assert(sg);
-      if (sg)
+      if (p->last_sem_post_tid != tid
+          && p->last_sem_post_tid != DRD_INVALID_THREADID)
       {
-         if (p->last_sem_post_tid != tid
-             && p->last_sem_post_tid != DRD_INVALID_THREADID)
-         {
-            DRD_(thread_new_segment_and_combine_vc)(tid, sg);
-         }
-         else
-            DRD_(thread_new_segment)(tid);
-         s_semaphore_segment_creation_count++;
-         DRD_(sg_put)(sg);
+         DRD_(thread_new_segment_and_combine_vc)(tid, sg);
       }
+      else
+         DRD_(thread_new_segment)(tid);
+      s_semaphore_segment_creation_count++;
+      DRD_(sg_put)(sg);
    }
 }
 

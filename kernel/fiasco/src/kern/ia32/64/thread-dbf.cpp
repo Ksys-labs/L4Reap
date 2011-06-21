@@ -72,7 +72,7 @@ Thread::handle_double_fault (Trap_state *ts)
     }
 
   puts ("\033[1mRebooting...\033[0m");
-  pc_reset();
+  platform_reset();
 }
 
 

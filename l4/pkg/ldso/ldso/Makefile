@@ -2,6 +2,7 @@ PKGDIR ?= ..
 L4DIR  ?= $(PKGDIR)/../..
 
 CON_DIR := $(PKGDIR)/../uclibc/lib/contrib/uclibc/ldso
+PTH_DIR := $(PKGDIR)/../uclibc/lib/libpthread
 
 DIR_amd64 := x86_64
 DIR_x86   := i386
@@ -17,7 +18,9 @@ PRIVATE_INCDIR-x86 := $(CON_DIR)/../libc
 PRIVATE_INCDIR := $(PRIVATE_INCDIR-$(ARCH)) \
                   $(CON_DIR)/ldso/$(DIR_$(ARCH)) \
 		  $(SRC_DIR)           \
-		  $(CON_DIR)/include
+		  $(CON_DIR)/include \
+		  $(PTH_DIR)/src \
+		  $(PTH_DIR)/src/sysdeps/$(DIR_$(ARCH))
 
 
 TARGET := libld-l4.so
@@ -31,6 +34,10 @@ CPPFLAGS := -DNOT_IN_libc -DIS_IN_rtld \
             -DUCLIBC_RUNTIME_PREFIX=\"/\" \
 	    -D__LDSO_SEARCH_INTERP_PATH__=1 \
             -DIS_IN_rtld -D__LIBDL_SHARED__ -DSHARED
+
+DEFINES_x86-l4f += -DUSE_TLS=1 -DUSE___THREAD=1
+
+
 
 LDFLAGS  =  -Bsymbolic -Bstatic --warn-common --sort-common \
             --no-undefined -e _start -z defs -z now \

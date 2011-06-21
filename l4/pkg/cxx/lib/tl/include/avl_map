@@ -38,10 +38,10 @@ namespace cxx {
  * \param Compare Type comparison functor for the key values.
  * \param Alloc Type of the allocator used for the nodes.
  */
-template< typename Key, typename Data, 
+template< typename Key, typename Data,
   template<typename A> class Compare = Lt_functor,
   template<typename B> class Alloc = New_allocator >
-class Avl_map : public Avl_set<Pair<Key, Data>, 
+class Avl_map : public Avl_set<Pair<Key, Data>,
   Pair_first_compare< Compare<Key>, Pair<Key, Data> >,
   Alloc>
 {
@@ -96,6 +96,14 @@ public:
   { return Base_type::find_node(Local_item_type(key, Data_type())); }
 
   /**
+   * \brief Find the first node greater or equal to \a key.
+   * \param key the key to look for.
+   * \return The first node greater or equal to \a key.
+   */
+  Node lower_bound_node(Key_type const &key) const
+  { return Base_type::lower_bound_node(Local_item_type(key, Data_type())); }
+
+  /**
    * \brief Find a <key, data> pair for a given key.
    * \param key The key value to use for the lookup.
    */
@@ -109,6 +117,10 @@ public:
   int remove(Key_type const &key)
   { return Base_type::remove(Local_item_type(key, Data_type())); }
 
+  /**
+   * \brief Removed the element \a key.
+   * \see remove()
+   */
   int erase(Key_type const &key)
   { return remove(key); }
 

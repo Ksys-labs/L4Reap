@@ -295,10 +295,16 @@ extern SysRes VG_(am_mmap_anon_float_valgrind)( SizeT cszB );
 extern SysRes VG_(am_sbrk_anon_float_valgrind)( SizeT cszB );
 
 
-/* Map a file at an unconstrained address for V, and update the
+/* Map privately a file at an unconstrained address for V, and update the
    segment array accordingly.  This is used by V for transiently
    mapping in object files to read their debug info.  */
 extern SysRes VG_(am_mmap_file_float_valgrind)
+   ( SizeT length, UInt prot, Int fd, Off64T offset );
+
+/* Map shared a file at an unconstrained address for V, and update the
+   segment array accordingly.  This is used by V for communicating
+   with vgdb.  */
+extern SysRes VG_(am_shared_mmap_file_float_valgrind)
    ( SizeT length, UInt prot, Int fd, Off64T offset );
 
 /* Unmap the given address range and update the segment array
@@ -408,10 +414,10 @@ typedef
 
 extern VgStack* VG_(am_alloc_VgStack)( /*OUT*/Addr* initial_sp );
 
-/* Figure out how many bytes of the stack's active area have not
-   been used.  Used for estimating if we are close to overflowing it. */
-
-extern Int VG_(am_get_VgStack_unused_szB)( VgStack* stack ); 
+/* Figure out how many bytes of the stack's active area have not been
+   used.  Used for estimating if we are close to overflowing it.  If
+   the free area is larger than 'limit', just return 'limit'. */
+extern SizeT VG_(am_get_VgStack_unused_szB)( VgStack* stack, SizeT limit ); 
 
 // DDD: this is ugly
 #if defined(VGO_darwin)

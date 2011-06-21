@@ -2490,6 +2490,112 @@ SysRes VG_(am_sbrk_anon_float_client) ( SizeT length, Int prot )
 }
 
 
+/* Map a file at an unconstrained address for V, and update the
+   segment array accordingly. Use the provided flags */
+
+static SysRes VG_(am_mmap_file_float_valgrind_flags) ( SizeT length, UInt prot,
+                                                       UInt flags,
+                                                       Int fd, Off64T offset )
+{
+   SysRes     sres;
+   NSegment   seg;
+   Addr       advised;
+   Bool       ok;
+   MapRequest req;
+   ULong      dev, ino;
+   UInt       mode;
+   HChar      buf[VKI_PATH_MAX];
+ 
+   /* Not allowable. */
+   if (length == 0 || !VG_IS_PAGE_ALIGNED(offset))
+      return VG_(mk_SysRes_Error)( VKI_EINVAL );
+
+   /* Ask for an advisory.  If it's negative, fail immediately. */
+   req.rkind = MAny;
+   req.start = 0;
+   req.len   = length;
+   advised = VG_(am_get_advisory)( &req, True/*client*/, &ok );
+   if (!ok)
+      return VG_(mk_SysRes_Error)( VKI_EINVAL );
+
+   /* We have been advised that the mapping is allowable at the
+      specified address.  So hand it off to the kernel, and propagate
+      any resulting failure immediately. */
+   sres = VG_(am_do_mmap_NO_NOTIFY)( 
+             advised, length, prot, 
+             flags,
+             fd, offset 
+          );
+   if (sr_isError(sres))
+      return sres;
+
+   if (sr_Res(sres) != advised) {
+      /* I don't think this can happen.  It means the kernel made a
+         fixed map succeed but not at the requested location.  Try to
+         repair the damage, then return saying the mapping failed. */
+      (void)ML_(am_do_munmap_NO_NOTIFY)( sr_Res(sres), length );
+      return VG_(mk_SysRes_Error)( VKI_EINVAL );
+   }
+
+#ifndef VGO_l4re
+   /* Ok, the mapping succeeded.  Now notify the interval map. */
+   init_nsegment( &seg );
+   seg.kind   = SkFileV;
+   seg.start  = sr_Res(sres);
+   seg.end    = seg.start + VG_PGROUNDUP(length) - 1;
+   seg.offset = offset;
+   seg.hasR   = toBool(prot & VKI_PROT_READ);
+   seg.hasW   = toBool(prot & VKI_PROT_WRITE);
+   seg.hasX   = toBool(prot & VKI_PROT_EXEC);
+   if (ML_(am_get_fd_d_i_m)(fd, &dev, &ino, &mode)) {
+      seg.dev  = dev;
+      seg.ino  = ino;
+      seg.mode = mode;
+   }
+   if (ML_(am_resolve_filename)(fd, buf, VKI_PATH_MAX)) {
+      seg.fnIdx = allocate_segname( buf );
+   }
+   add_segment( &seg );
+#else
+   (void)seg; (void)dev; (void)ino; (void)buf;
+   {
+       NSegment *s = VG_(am_find_nsegment)(sr_Res(sres));
+       if (!s)
+           VG_(printf)("error!!!\n");
+       s->kind   = SkFileV;
+       s->offset = offset;
+       s->hasR   = True;
+       s->hasW   = True;
+       s->hasX   = True;
+       if (get_name_for_fd(fd, buf, VKI_PATH_MAX)) {
+          s->fnIdx = allocate_segname( buf );
+       }
+   }
+#endif
+
+   AM_SANITY_CHECK;
+   return sres;
+}
+/* Map privately a file at an unconstrained address for V, and update the
+   segment array accordingly.  This is used by V for transiently
+   mapping in object files to read their debug info.  */
+
+SysRes VG_(am_mmap_file_float_valgrind) ( SizeT length, UInt prot, 
+                                          Int fd, Off64T offset )
+{
+   return VG_(am_mmap_file_float_valgrind_flags) (length, prot,
+                                                  VKI_MAP_FIXED|VKI_MAP_PRIVATE,
+                                                  fd, offset );
+}
+
+extern SysRes VG_(am_shared_mmap_file_float_valgrind)
+   ( SizeT length, UInt prot, Int fd, Off64T offset )
+{
+   return VG_(am_mmap_file_float_valgrind_flags) (length, prot,
+                                                  VKI_MAP_FIXED|VKI_MAP_SHARED,
+                                                  fd, offset );
+}
+
 /* Map anonymously at an unconstrained address for V, and update the
    segment array accordingly.  This is fundamentally how V allocates
    itself more address space when needed. */
@@ -2579,95 +2685,6 @@ void* VG_(am_shadow_alloc)(SizeT size)
 SysRes VG_(am_sbrk_anon_float_valgrind)( SizeT cszB )
 {
    return VG_(am_mmap_anon_float_valgrind)( cszB );
-}
-
-
-/* Map a file at an unconstrained address for V, and update the
-   segment array accordingly.  This is used by V for transiently
-   mapping in object files to read their debug info.  */
-
-SysRes VG_(am_mmap_file_float_valgrind) ( SizeT length, UInt prot,
-                                          Int fd, Off64T offset )
-{
-   SysRes     sres;
-   NSegment   seg;
-   Addr       advised;
-   Bool       ok;
-   MapRequest req;
-   ULong      dev, ino;
-   UInt       mode;
-   HChar      buf[VKI_PATH_MAX];
-
-   /* Not allowable. */
-   if (length == 0 || !VG_IS_PAGE_ALIGNED(offset))
-      return VG_(mk_SysRes_Error)( VKI_EINVAL );
-
-   /* Ask for an advisory.  If it's negative, fail immediately. */
-   req.rkind = MAny;
-   req.start = 0;
-   req.len   = length;
-   advised = VG_(am_get_advisory)( &req, True/*client*/, &ok );
-   if (!ok)
-      return VG_(mk_SysRes_Error)( VKI_EINVAL );
-
-   /* We have been advised that the mapping is allowable at the
-      specified address.  So hand it off to the kernel, and propagate
-      any resulting failure immediately. */
-   sres = VG_(am_do_mmap_NO_NOTIFY)(
-             advised, length, prot,
-             VKI_MAP_FIXED|VKI_MAP_PRIVATE,
-             fd, offset
-          );
-   if (sr_isError(sres))
-      return sres;
-
-   if (sr_Res(sres) != advised) {
-      /* I don't think this can happen.  It means the kernel made a
-         fixed map succeed but not at the requested location.  Try to
-         repair the damage, then return saying the mapping failed. */
-      (void)ML_(am_do_munmap_NO_NOTIFY)( sr_Res(sres), length );
-      return VG_(mk_SysRes_Error)( VKI_EINVAL );
-   }
-
-#ifndef VGO_l4re
-   /* Ok, the mapping succeeded.  Now notify the interval map. */
-   init_nsegment( &seg );
-   seg.kind   = SkFileV;
-   seg.start  = sr_Res(sres);
-   seg.end    = seg.start + VG_PGROUNDUP(length) - 1;
-   seg.offset = offset;
-   seg.hasR   = toBool(prot & VKI_PROT_READ);
-   seg.hasW   = toBool(prot & VKI_PROT_WRITE);
-   seg.hasX   = toBool(prot & VKI_PROT_EXEC);
-
-   if (get_inode_for_fd(fd, &dev, &ino, &mode)) {
-      seg.dev  = dev;
-      seg.ino  = ino;
-      seg.mode = mode;
-   }
-   if (get_name_for_fd(fd, buf, VKI_PATH_MAX)) {
-      seg.fnIdx = allocate_segname( buf );
-   }
-   add_segment( &seg );
-#else
-   (void)seg; (void)dev; (void)ino; (void)buf;
-   {
-       NSegment *s = VG_(am_find_nsegment)(sr_Res(sres));
-       if (!s)
-           VG_(printf)("error!!!\n");
-       s->kind   = SkFileV;
-       s->offset = offset;
-       s->hasR   = True;
-       s->hasW   = True;
-       s->hasX   = True;
-       if (get_name_for_fd(fd, buf, VKI_PATH_MAX)) {
-          s->fnIdx = allocate_segname( buf );
-       }
-   }
-#endif
-
-   AM_SANITY_CHECK;
-   return sres;
 }
 
 

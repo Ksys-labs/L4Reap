@@ -267,6 +267,14 @@ public:
   Node find_node(Item_type const &item) const
   { return Node(_tree.find_node(item)); }
 
+  /**
+   * \brief Find the first node greater or equal to \a key.
+   * \param key the key to look for.
+   * \return The first node greater or equal to \a key.
+   */
+  Node lower_bound_node(Item_type const &key) const
+  { return Node(_tree.lower_bound_node(key)); }
+
 
   /**
    * \brief Get the constant forward iterator for the first element in the set.

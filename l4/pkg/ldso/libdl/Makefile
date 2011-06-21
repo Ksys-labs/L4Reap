@@ -4,6 +4,7 @@ L4DIR  ?= $(PKGDIR)/../..
 PC_FILENAME := libdl
 
 CON_DIR := $(PKGDIR)/../uclibc/lib/contrib/uclibc
+PTH_DIR := $(PKGDIR)/../uclibc/lib/libpthread
 
 DIR_amd64 := x86_64
 DIR_x86   := i386
@@ -19,7 +20,9 @@ PRIVATE_INCDIR-x86 := $(CON_DIR)/libc
 PRIVATE_INCDIR := $(PRIVATE_INCDIR-$(ARCH)) \
                   $(CON_DIR)/ldso/ldso/$(DIR_$(ARCH)) \
 		  $(SRC_DIR)           \
-		  $(CON_DIR)/ldso/include
+		  $(CON_DIR)/ldso/include \
+		  $(PTH_DIR)/src \
+		  $(PTH_DIR)/src/sysdeps/$(DIR_$(ARCH))
 
 TARGET := libdl.a libdl.so
 
@@ -32,6 +35,7 @@ CPPFLAGS := -DNOT_IN_libc -DIS_IN_libdl \
             -include libc-symbols.h -DUCLIBC_LDSO=\"libld-l4.so\" \
             -DUCLIBC_RUNTIME_PREFIX=\"/\"
 
+DEFINES_x86-l4f += -DUSE_TLS=1 -DUSE___THREAD=1
 
 LDFLAGS = -lld-l4
 #LDFLAGS  =  -fini dl_cleanup

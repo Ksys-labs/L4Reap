@@ -48,6 +48,7 @@
 #include "pub_core_options.h"
 #include "pub_core_syscall.h"
 #include "pub_core_tooliface.h"       /* VG_TRACK */
+#include "pub_core_libcsetjmp.h"      // to keep _threadstate.h happy
 #include "pub_core_threadstate.h"     /* ThreadArchState */
 #include "priv_initimg_pathscan.h"
 #include "pub_core_initimg.h"         /* self */
@@ -455,7 +456,7 @@ Addr setup_client_stack( void*  init_sp,
 	 stringsize += VG_(strlen)(cauxv->u.a_ptr) + 1;
       else if (cauxv->a_type == AT_RANDOM)
 	 stringsize += 16;
-      else if (cauxv->a_type == AT_EXECFN)
+      else if (cauxv->a_type == AT_EXECFN && have_exename)
 	 stringsize += VG_(strlen)(VG_(args_the_exename)) + 1;
       auxsize += sizeof(*cauxv);
    }
@@ -620,7 +621,6 @@ Addr setup_client_stack( void*  init_sp,
 #  endif
 
    for (; orig_auxv->a_type != AT_NULL; auxv++, orig_auxv++) {
-      const NSegment *ehdrseg;
 
       /* copy the entry... */
       *auxv = *orig_auxv;
@@ -672,6 +672,14 @@ Addr setup_client_stack( void*  init_sp,
             break;
 
          case AT_HWCAP:
+#           if defined(VGP_arm_linux)
+            { Bool has_neon = (auxv->u.a_val & VKI_HWCAP_NEON) > 0;
+              VG_(debugLog)(2, "initimg",
+                               "ARM has-neon from-auxv: %s\n",
+                               has_neon ? "YES" : "NO");
+              VG_(machine_arm_set_has_NEON)( has_neon );
+            }
+#           endif
             break;
 
          case AT_DCACHEBSIZE:
@@ -717,13 +725,14 @@ Addr setup_client_stack( void*  init_sp,
             break;
 
 #        if !defined(VGP_ppc32_linux) && !defined(VGP_ppc64_linux)
-         case AT_SYSINFO_EHDR:
+         case AT_SYSINFO_EHDR: {
             /* Trash this, because we don't reproduce it */
-            ehdrseg = VG_(am_find_nsegment)((Addr)auxv->u.a_ptr);
+            const NSegment* ehdrseg = VG_(am_find_nsegment)((Addr)auxv->u.a_ptr);
             vg_assert(ehdrseg);
             VG_(am_munmap_valgrind)(ehdrseg->start, ehdrseg->end - ehdrseg->start);
             auxv->a_type = AT_IGNORE;
             break;
+         }
 #        endif
 
          case AT_RANDOM:
@@ -1031,6 +1040,21 @@ void VG_(ii_finalise_image)( IIFinaliseImageInfo iifii )
    /* This is just EABI stuff. */
    // FIXME jrs: what's this for?
    arch->vex.guest_R1 =  iifii.initial_client_SP;
+
+#  elif defined(VGP_s390x_linux)
+   vg_assert(0 == sizeof(VexGuestS390XState) % 16);
+
+   /* Zero out the initial state. This also sets the guest_fpc to 0, which
+      is also done by the kernel for the fpc during execve. */
+   LibVEX_GuestS390X_initialise(&arch->vex);
+
+   /* Zero out the shadow area. */
+   VG_(memset)(&arch->vex_shadow1, 0, sizeof(VexGuestS390XState));
+   VG_(memset)(&arch->vex_shadow2, 0, sizeof(VexGuestS390XState));
+
+   /* Put essential stuff into the new state. */
+   arch->vex.guest_SP = iifii.initial_client_SP;
+   arch->vex.guest_IA = iifii.initial_client_IP;
 
 #  else
 #    error Unknown platform

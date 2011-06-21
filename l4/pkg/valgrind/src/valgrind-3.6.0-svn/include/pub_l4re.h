@@ -30,12 +30,13 @@
 #ifndef __PUB_L4RE_H
 #define __PUB_L4RE_H
 
-#include "pub_tool_basics.h"
 //#include "pub_core_ume.h"
 #include <l4/re/env.h>
+#undef offsetof
 #include <unistd.h>
 #include <l4/sys/kdebug.h>
 
+#include "pub_tool_basics.h"
 /*
  * Therefore coregrind knows which tool actually runs, 
  * every tool must export his name.

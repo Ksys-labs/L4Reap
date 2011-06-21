@@ -48,21 +48,26 @@ DIST_COMMON = $(dist_noinst_SCRIPTS) $(srcdir)/Makefile.am \
 	$(top_srcdir)/Makefile.tool-tests.am
 @BUILD_SSE3_TESTS_TRUE@am__append_1 = insn_sse3
 @BUILD_SSSE3_TESTS_TRUE@am__append_2 = insn_ssse3
+@BUILD_PCLMULQDQ_TESTS_TRUE@am__append_3 = insn_pclmulqdq
 check_PROGRAMS = amd64locked$(EXEEXT) bug127521-64$(EXEEXT) \
 	bug132813-amd64$(EXEEXT) bug132918$(EXEEXT) clc$(EXEEXT) \
-	$(am__EXEEXT_3) lzcnt64$(EXEEXT) rcl-amd64$(EXEEXT) \
-	redundantRexW$(EXEEXT) smc1$(EXEEXT) nibz_bennee_mmap$(EXEEXT) \
-	xadd$(EXEEXT) $(am__EXEEXT_4) $(am__EXEEXT_5)
-@BUILD_SSSE3_TESTS_TRUE@am__append_3 = ssse3_misaligned
+	cmpxchg$(EXEEXT) $(am__EXEEXT_4) rcl-amd64$(EXEEXT) \
+	redundantRexW$(EXEEXT) smc1$(EXEEXT) sbbmisc$(EXEEXT) \
+	nibz_bennee_mmap$(EXEEXT) xadd$(EXEEXT) $(am__EXEEXT_5) \
+	$(am__EXEEXT_6) $(am__EXEEXT_7) $(am__EXEEXT_8)
+@BUILD_SSSE3_TESTS_TRUE@am__append_4 = ssse3_misaligned
+@BUILD_LZCNT_TESTS_TRUE@am__append_5 = lzcnt64
+@BUILD_SSE42_TESTS_TRUE@am__append_6 = pcmpstr64 pcmpxstrx64 sse4-64 crc32
 
 # DDD: these need to be made to work on Darwin like the x86/ ones were.
-@VGCONF_OS_IS_DARWIN_FALSE@am__append_4 = \
+@VGCONF_OS_IS_DARWIN_FALSE@am__append_7 = \
 @VGCONF_OS_IS_DARWIN_FALSE@	bug137714-amd64 \
 @VGCONF_OS_IS_DARWIN_FALSE@	bug156404-amd64 \
 @VGCONF_OS_IS_DARWIN_FALSE@	faultstatus \
 @VGCONF_OS_IS_DARWIN_FALSE@	fcmovnu \
 @VGCONF_OS_IS_DARWIN_FALSE@	fxtract \
 @VGCONF_OS_IS_DARWIN_FALSE@	looper \
+@VGCONF_OS_IS_DARWIN_FALSE@	loopnel \
 @VGCONF_OS_IS_DARWIN_FALSE@	jrcxz \
 @VGCONF_OS_IS_DARWIN_FALSE@	shrld \
 @VGCONF_OS_IS_DARWIN_FALSE@	slahf-amd64
@@ -78,16 +83,22 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 @BUILD_SSE3_TESTS_TRUE@am__EXEEXT_1 = insn_sse3$(EXEEXT)
 @BUILD_SSSE3_TESTS_TRUE@am__EXEEXT_2 = insn_ssse3$(EXEEXT)
-am__EXEEXT_3 = insn_basic$(EXEEXT) insn_mmx$(EXEEXT) insn_sse$(EXEEXT) \
+@BUILD_PCLMULQDQ_TESTS_TRUE@am__EXEEXT_3 = insn_pclmulqdq$(EXEEXT)
+am__EXEEXT_4 = insn_basic$(EXEEXT) insn_mmx$(EXEEXT) insn_sse$(EXEEXT) \
 	insn_sse2$(EXEEXT) insn_fpu$(EXEEXT) $(am__EXEEXT_1) \
-	$(am__EXEEXT_2)
-@BUILD_SSSE3_TESTS_TRUE@am__EXEEXT_4 = ssse3_misaligned$(EXEEXT)
-@VGCONF_OS_IS_DARWIN_FALSE@am__EXEEXT_5 = bug137714-amd64$(EXEEXT) \
+	$(am__EXEEXT_2) $(am__EXEEXT_3)
+@BUILD_SSSE3_TESTS_TRUE@am__EXEEXT_5 = ssse3_misaligned$(EXEEXT)
+@BUILD_LZCNT_TESTS_TRUE@am__EXEEXT_6 = lzcnt64$(EXEEXT)
+@BUILD_SSE42_TESTS_TRUE@am__EXEEXT_7 = pcmpstr64$(EXEEXT) \
+@BUILD_SSE42_TESTS_TRUE@	pcmpxstrx64$(EXEEXT) sse4-64$(EXEEXT) \
+@BUILD_SSE42_TESTS_TRUE@	crc32$(EXEEXT)
+@VGCONF_OS_IS_DARWIN_FALSE@am__EXEEXT_8 = bug137714-amd64$(EXEEXT) \
 @VGCONF_OS_IS_DARWIN_FALSE@	bug156404-amd64$(EXEEXT) \
 @VGCONF_OS_IS_DARWIN_FALSE@	faultstatus$(EXEEXT) \
 @VGCONF_OS_IS_DARWIN_FALSE@	fcmovnu$(EXEEXT) fxtract$(EXEEXT) \
-@VGCONF_OS_IS_DARWIN_FALSE@	looper$(EXEEXT) jrcxz$(EXEEXT) \
-@VGCONF_OS_IS_DARWIN_FALSE@	shrld$(EXEEXT) slahf-amd64$(EXEEXT)
+@VGCONF_OS_IS_DARWIN_FALSE@	looper$(EXEEXT) loopnel$(EXEEXT) \
+@VGCONF_OS_IS_DARWIN_FALSE@	jrcxz$(EXEEXT) shrld$(EXEEXT) \
+@VGCONF_OS_IS_DARWIN_FALSE@	slahf-amd64$(EXEEXT)
 amd64locked_SOURCES = amd64locked.c
 amd64locked_OBJECTS = amd64locked-amd64locked.$(OBJEXT)
 amd64locked_LDADD = $(LDADD)
@@ -111,6 +122,12 @@ bug156404_amd64_LDADD = $(LDADD)
 clc_SOURCES = clc.c
 clc_OBJECTS = clc.$(OBJEXT)
 clc_LDADD = $(LDADD)
+cmpxchg_SOURCES = cmpxchg.c
+cmpxchg_OBJECTS = cmpxchg.$(OBJEXT)
+cmpxchg_LDADD = $(LDADD)
+crc32_SOURCES = crc32.c
+crc32_OBJECTS = crc32.$(OBJEXT)
+crc32_LDADD = $(LDADD)
 faultstatus_SOURCES = faultstatus.c
 faultstatus_OBJECTS = faultstatus.$(OBJEXT)
 faultstatus_LDADD = $(LDADD)
@@ -118,8 +135,10 @@ fcmovnu_SOURCES = fcmovnu.c
 fcmovnu_OBJECTS = fcmovnu.$(OBJEXT)
 fcmovnu_LDADD = $(LDADD)
 fxtract_SOURCES = fxtract.c
-fxtract_OBJECTS = fxtract.$(OBJEXT)
+fxtract_OBJECTS = fxtract-fxtract.$(OBJEXT)
 fxtract_DEPENDENCIES =
+fxtract_LINK = $(CCLD) $(fxtract_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
 am_insn_basic_OBJECTS = insn_basic.$(OBJEXT)
 insn_basic_OBJECTS = $(am_insn_basic_OBJECTS)
 insn_basic_DEPENDENCIES =
@@ -129,6 +148,9 @@ insn_fpu_DEPENDENCIES =
 am_insn_mmx_OBJECTS = insn_mmx.$(OBJEXT)
 insn_mmx_OBJECTS = $(am_insn_mmx_OBJECTS)
 insn_mmx_DEPENDENCIES =
+insn_pclmulqdq_SOURCES = insn_pclmulqdq.c
+insn_pclmulqdq_OBJECTS = insn_pclmulqdq.$(OBJEXT)
+insn_pclmulqdq_LDADD = $(LDADD)
 am_insn_sse_OBJECTS = insn_sse.$(OBJEXT)
 insn_sse_OBJECTS = $(am_insn_sse_OBJECTS)
 insn_sse_DEPENDENCIES =
@@ -147,18 +169,30 @@ jrcxz_LDADD = $(LDADD)
 looper_SOURCES = looper.c
 looper_OBJECTS = looper.$(OBJEXT)
 looper_LDADD = $(LDADD)
+loopnel_SOURCES = loopnel.c
+loopnel_OBJECTS = loopnel.$(OBJEXT)
+loopnel_LDADD = $(LDADD)
 lzcnt64_SOURCES = lzcnt64.c
 lzcnt64_OBJECTS = lzcnt64.$(OBJEXT)
 lzcnt64_LDADD = $(LDADD)
 nibz_bennee_mmap_SOURCES = nibz_bennee_mmap.c
 nibz_bennee_mmap_OBJECTS = nibz_bennee_mmap.$(OBJEXT)
 nibz_bennee_mmap_LDADD = $(LDADD)
+pcmpstr64_SOURCES = pcmpstr64.c
+pcmpstr64_OBJECTS = pcmpstr64.$(OBJEXT)
+pcmpstr64_LDADD = $(LDADD)
+pcmpxstrx64_SOURCES = pcmpxstrx64.c
+pcmpxstrx64_OBJECTS = pcmpxstrx64.$(OBJEXT)
+pcmpxstrx64_LDADD = $(LDADD)
 rcl_amd64_SOURCES = rcl-amd64.c
 rcl_amd64_OBJECTS = rcl-amd64.$(OBJEXT)
 rcl_amd64_LDADD = $(LDADD)
 redundantRexW_SOURCES = redundantRexW.c
 redundantRexW_OBJECTS = redundantRexW.$(OBJEXT)
 redundantRexW_LDADD = $(LDADD)
+sbbmisc_SOURCES = sbbmisc.c
+sbbmisc_OBJECTS = sbbmisc.$(OBJEXT)
+sbbmisc_LDADD = $(LDADD)
 shrld_SOURCES = shrld.c
 shrld_OBJECTS = shrld.$(OBJEXT)
 shrld_LDADD = $(LDADD)
@@ -168,6 +202,9 @@ slahf_amd64_LDADD = $(LDADD)
 smc1_SOURCES = smc1.c
 smc1_OBJECTS = smc1.$(OBJEXT)
 smc1_LDADD = $(LDADD)
+sse4_64_SOURCES = sse4-64.c
+sse4_64_OBJECTS = sse4-64.$(OBJEXT)
+sse4_64_LDADD = $(LDADD)
 ssse3_misaligned_SOURCES = ssse3_misaligned.c
 ssse3_misaligned_OBJECTS = ssse3_misaligned.$(OBJEXT)
 ssse3_misaligned_LDADD = $(LDADD)
@@ -184,20 +221,23 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = amd64locked.c bug127521-64.c bug132813-amd64.c bug132918.c \
-	bug137714-amd64.c bug156404-amd64.c clc.c faultstatus.c \
-	fcmovnu.c fxtract.c $(insn_basic_SOURCES) $(insn_fpu_SOURCES) \
-	$(insn_mmx_SOURCES) $(insn_sse_SOURCES) $(insn_sse2_SOURCES) \
-	$(insn_sse3_SOURCES) $(insn_ssse3_SOURCES) jrcxz.c looper.c \
-	lzcnt64.c nibz_bennee_mmap.c rcl-amd64.c redundantRexW.c \
-	shrld.c slahf-amd64.c smc1.c ssse3_misaligned.c xadd.c
+	bug137714-amd64.c bug156404-amd64.c clc.c cmpxchg.c crc32.c \
+	faultstatus.c fcmovnu.c fxtract.c $(insn_basic_SOURCES) \
+	$(insn_fpu_SOURCES) $(insn_mmx_SOURCES) insn_pclmulqdq.c \
+	$(insn_sse_SOURCES) $(insn_sse2_SOURCES) $(insn_sse3_SOURCES) \
+	$(insn_ssse3_SOURCES) jrcxz.c looper.c loopnel.c lzcnt64.c \
+	nibz_bennee_mmap.c pcmpstr64.c pcmpxstrx64.c rcl-amd64.c \
+	redundantRexW.c sbbmisc.c shrld.c slahf-amd64.c smc1.c \
+	sse4-64.c ssse3_misaligned.c xadd.c
 DIST_SOURCES = amd64locked.c bug127521-64.c bug132813-amd64.c \
 	bug132918.c bug137714-amd64.c bug156404-amd64.c clc.c \
-	faultstatus.c fcmovnu.c fxtract.c $(insn_basic_SOURCES) \
-	$(insn_fpu_SOURCES) $(insn_mmx_SOURCES) $(insn_sse_SOURCES) \
-	$(insn_sse2_SOURCES) $(insn_sse3_SOURCES) \
-	$(insn_ssse3_SOURCES) jrcxz.c looper.c lzcnt64.c \
-	nibz_bennee_mmap.c rcl-amd64.c redundantRexW.c shrld.c \
-	slahf-amd64.c smc1.c ssse3_misaligned.c xadd.c
+	cmpxchg.c crc32.c faultstatus.c fcmovnu.c fxtract.c \
+	$(insn_basic_SOURCES) $(insn_fpu_SOURCES) $(insn_mmx_SOURCES) \
+	insn_pclmulqdq.c $(insn_sse_SOURCES) $(insn_sse2_SOURCES) \
+	$(insn_sse3_SOURCES) $(insn_ssse3_SOURCES) jrcxz.c looper.c \
+	loopnel.c lzcnt64.c nibz_bennee_mmap.c pcmpstr64.c \
+	pcmpxstrx64.c rcl-amd64.c redundantRexW.c sbbmisc.c shrld.c \
+	slahf-amd64.c smc1.c sse4-64.c ssse3_misaligned.c xadd.c
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -243,6 +283,8 @@ FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
 FLAG_W_NO_FORMAT_ZERO_LENGTH = @FLAG_W_NO_FORMAT_ZERO_LENGTH@
+FLAG_W_NO_NONNULL = @FLAG_W_NO_NONNULL@
+FLAG_W_NO_OVERFLOW = @FLAG_W_NO_OVERFLOW@
 FLAG_W_NO_UNINITIALIZED = @FLAG_W_NO_UNINITIALIZED@
 GDB = @GDB@
 GENERATED_SUPP = @GENERATED_SUPP@
@@ -272,12 +314,7 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
-QTCORE_CFLAGS = @QTCORE_CFLAGS@
-QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -430,7 +467,7 @@ AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 			 	$(AM_CFLAGS_BASE) -marm
 
-AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
+AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -marm -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
 AM_CFLAGS_PPC32_AIX5 = @FLAG_MAIX32@ -mcpu=powerpc $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC32_AIX5 = $(AM_CPPFLAGS_PPC32_AIX5) \
@@ -459,6 +496,11 @@ AM_CFLAGS_X86_L4RE = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 AM_CCASFLAGS_X86_L4RE = $(L4_CPPFLAGS) @FLAG_M32@ -g
 AM_CXXFLAGS_X86_L4RE = $(L4_CXXFLAGS) @FLAG_M32@
 #AM_CPPFLAGS_X86_L4RE   = $(L4_CPPFLAGS) $(AM_CPPFLAGS_X86_L4RE)
+AM_FLAG_M3264_S390X_LINUX = @FLAG_M64@
+AM_CFLAGS_S390X_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
+AM_CCASFLAGS_S390X_LINUX = $(AM_CPPFLAGS_S390X_LINUX) -mzarch -march=z900 \
+                            @FLAG_M64@ -g
+
 
 # Flags for the primary target.  These must be used to build the
 # regtests and performance tests.  In fact, these must be used to
@@ -487,6 +529,7 @@ PRELOAD_LDFLAGS_PPC32_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX32@
 PRELOAD_LDFLAGS_PPC64_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX64@
 PRELOAD_LDFLAGS_X86_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch i386
 PRELOAD_LDFLAGS_AMD64_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch x86_64
+PRELOAD_LDFLAGS_S390X_LINUX = $(PRELOAD_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 PRELOAD_LDFLAGS_X86_L4RE = $(PRELOAD_LDFLAGS_COMMON_L4RE) @FLAG_M32@
 AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/include \
 		-I$(top_srcdir)/coregrind -I$(top_builddir)/include \
@@ -506,7 +549,7 @@ AM_CCASFLAGS = $(AM_CPPFLAGS) @FLAG_M64@
 dist_noinst_SCRIPTS = filter_cpuid filter_stderr filter_int gen_insn_test.pl
 CLEANFILES = $(addsuffix .c,$(INSN_TESTS))
 INSN_TESTS = insn_basic insn_mmx insn_sse insn_sse2 insn_fpu \
-	$(am__append_1) $(am__append_2)
+	$(am__append_1) $(am__append_2) $(am__append_3)
 
 # Explicitly include insn_sse3 even if ! BUILD_SSE3_TESTS, 
 # to avoid packaging screwups if 'make dist' is run on a machine
@@ -522,6 +565,8 @@ EXTRA_DIST = \
 	bug156404-amd64.vgtest bug156404-amd64.stdout.exp \
 	bug156404-amd64.stderr.exp \
 	clc.vgtest clc.stdout.exp clc.stderr.exp \
+	crc32.vgtest crc32.stdout.exp crc32.stderr.exp \
+	cmpxchg.vgtest cmpxchg.stdout.exp cmpxchg.stderr.exp \
 	faultstatus.disabled faultstatus.stderr.exp \
 	fcmovnu.vgtest fcmovnu.stderr.exp fcmovnu.stdout.exp \
 	fxtract.vgtest fxtract.stderr.exp fxtract.stdout.exp \
@@ -532,17 +577,23 @@ EXTRA_DIST = \
 	insn_ssse3.stdout.exp insn_ssse3.stderr.exp insn_ssse3.vgtest \
 	jrcxz.stderr.exp jrcxz.stdout.exp jrcxz.vgtest \
 	looper.stderr.exp looper.stdout.exp looper.vgtest \
+	loopnel.stderr.exp loopnel.stdout.exp loopnel.vgtest \
 	lzcnt64.stderr.exp lzcnt64.stdout.exp lzcnt64.vgtest \
 	nibz_bennee_mmap.stderr.exp nibz_bennee_mmap.stdout.exp \
 	nibz_bennee_mmap.vgtest \
+	pcmpstr64.stderr.exp pcmpstr64.stdout.exp \
+	pcmpstr64.vgtest \
+	pcmpxstrx64.stderr.exp pcmpxstrx64.stdout.exp \
+	pcmpxstrx64.vgtest \
 	rcl-amd64.vgtest rcl-amd64.stdout.exp rcl-amd64.stderr.exp \
 	redundantRexW.vgtest redundantRexW.stdout.exp \
 	redundantRexW.stderr.exp \
 	smc1.stderr.exp smc1.stdout.exp smc1.vgtest \
+	sbbmisc.stderr.exp sbbmisc.stdout.exp sbbmisc.vgtest \
 	shrld.stderr.exp shrld.stdout.exp shrld.vgtest \
 	ssse3_misaligned.stderr.exp ssse3_misaligned.stdout.exp \
 	ssse3_misaligned.vgtest \
-	ssse3_misaligned.c \
+	sse4-64.stderr.exp sse4-64.stdout.exp sse4-64.vgtest \
 	slahf-amd64.stderr.exp slahf-amd64.stdout.exp \
 	slahf-amd64.vgtest \
 	xadd.stderr.exp xadd.stdout.exp xadd.vgtest
@@ -551,6 +602,7 @@ EXTRA_DIST = \
 # generic C ones
 amd64locked_CFLAGS = $(AM_CFLAGS) -O
 bug132918_LDADD = -lm
+fxtract_CFLAGS = $(AM_CFLAGS) @FLAG_W_NO_OVERFLOW@
 insn_basic_SOURCES = insn_basic.def
 insn_basic_LDADD = -lm
 insn_mmx_SOURCES = insn_mmx.def
@@ -624,6 +676,12 @@ bug156404-amd64$(EXEEXT): $(bug156404_amd64_OBJECTS) $(bug156404_amd64_DEPENDENC
 clc$(EXEEXT): $(clc_OBJECTS) $(clc_DEPENDENCIES) 
 	@rm -f clc$(EXEEXT)
 	$(LINK) $(clc_OBJECTS) $(clc_LDADD) $(LIBS)
+cmpxchg$(EXEEXT): $(cmpxchg_OBJECTS) $(cmpxchg_DEPENDENCIES) 
+	@rm -f cmpxchg$(EXEEXT)
+	$(LINK) $(cmpxchg_OBJECTS) $(cmpxchg_LDADD) $(LIBS)
+crc32$(EXEEXT): $(crc32_OBJECTS) $(crc32_DEPENDENCIES) 
+	@rm -f crc32$(EXEEXT)
+	$(LINK) $(crc32_OBJECTS) $(crc32_LDADD) $(LIBS)
 faultstatus$(EXEEXT): $(faultstatus_OBJECTS) $(faultstatus_DEPENDENCIES) 
 	@rm -f faultstatus$(EXEEXT)
 	$(LINK) $(faultstatus_OBJECTS) $(faultstatus_LDADD) $(LIBS)
@@ -632,7 +690,7 @@ fcmovnu$(EXEEXT): $(fcmovnu_OBJECTS) $(fcmovnu_DEPENDENCIES)
 	$(LINK) $(fcmovnu_OBJECTS) $(fcmovnu_LDADD) $(LIBS)
 fxtract$(EXEEXT): $(fxtract_OBJECTS) $(fxtract_DEPENDENCIES) 
 	@rm -f fxtract$(EXEEXT)
-	$(LINK) $(fxtract_OBJECTS) $(fxtract_LDADD) $(LIBS)
+	$(fxtract_LINK) $(fxtract_OBJECTS) $(fxtract_LDADD) $(LIBS)
 insn_basic$(EXEEXT): $(insn_basic_OBJECTS) $(insn_basic_DEPENDENCIES) 
 	@rm -f insn_basic$(EXEEXT)
 	$(LINK) $(insn_basic_OBJECTS) $(insn_basic_LDADD) $(LIBS)
@@ -642,6 +700,9 @@ insn_fpu$(EXEEXT): $(insn_fpu_OBJECTS) $(insn_fpu_DEPENDENCIES)
 insn_mmx$(EXEEXT): $(insn_mmx_OBJECTS) $(insn_mmx_DEPENDENCIES) 
 	@rm -f insn_mmx$(EXEEXT)
 	$(LINK) $(insn_mmx_OBJECTS) $(insn_mmx_LDADD) $(LIBS)
+insn_pclmulqdq$(EXEEXT): $(insn_pclmulqdq_OBJECTS) $(insn_pclmulqdq_DEPENDENCIES) 
+	@rm -f insn_pclmulqdq$(EXEEXT)
+	$(LINK) $(insn_pclmulqdq_OBJECTS) $(insn_pclmulqdq_LDADD) $(LIBS)
 insn_sse$(EXEEXT): $(insn_sse_OBJECTS) $(insn_sse_DEPENDENCIES) 
 	@rm -f insn_sse$(EXEEXT)
 	$(LINK) $(insn_sse_OBJECTS) $(insn_sse_LDADD) $(LIBS)
@@ -660,18 +721,30 @@ jrcxz$(EXEEXT): $(jrcxz_OBJECTS) $(jrcxz_DEPENDENCIES)
 looper$(EXEEXT): $(looper_OBJECTS) $(looper_DEPENDENCIES) 
 	@rm -f looper$(EXEEXT)
 	$(LINK) $(looper_OBJECTS) $(looper_LDADD) $(LIBS)
+loopnel$(EXEEXT): $(loopnel_OBJECTS) $(loopnel_DEPENDENCIES) 
+	@rm -f loopnel$(EXEEXT)
+	$(LINK) $(loopnel_OBJECTS) $(loopnel_LDADD) $(LIBS)
 lzcnt64$(EXEEXT): $(lzcnt64_OBJECTS) $(lzcnt64_DEPENDENCIES) 
 	@rm -f lzcnt64$(EXEEXT)
 	$(LINK) $(lzcnt64_OBJECTS) $(lzcnt64_LDADD) $(LIBS)
 nibz_bennee_mmap$(EXEEXT): $(nibz_bennee_mmap_OBJECTS) $(nibz_bennee_mmap_DEPENDENCIES) 
 	@rm -f nibz_bennee_mmap$(EXEEXT)
 	$(LINK) $(nibz_bennee_mmap_OBJECTS) $(nibz_bennee_mmap_LDADD) $(LIBS)
+pcmpstr64$(EXEEXT): $(pcmpstr64_OBJECTS) $(pcmpstr64_DEPENDENCIES) 
+	@rm -f pcmpstr64$(EXEEXT)
+	$(LINK) $(pcmpstr64_OBJECTS) $(pcmpstr64_LDADD) $(LIBS)
+pcmpxstrx64$(EXEEXT): $(pcmpxstrx64_OBJECTS) $(pcmpxstrx64_DEPENDENCIES) 
+	@rm -f pcmpxstrx64$(EXEEXT)
+	$(LINK) $(pcmpxstrx64_OBJECTS) $(pcmpxstrx64_LDADD) $(LIBS)
 rcl-amd64$(EXEEXT): $(rcl_amd64_OBJECTS) $(rcl_amd64_DEPENDENCIES) 
 	@rm -f rcl-amd64$(EXEEXT)
 	$(LINK) $(rcl_amd64_OBJECTS) $(rcl_amd64_LDADD) $(LIBS)
 redundantRexW$(EXEEXT): $(redundantRexW_OBJECTS) $(redundantRexW_DEPENDENCIES) 
 	@rm -f redundantRexW$(EXEEXT)
 	$(LINK) $(redundantRexW_OBJECTS) $(redundantRexW_LDADD) $(LIBS)
+sbbmisc$(EXEEXT): $(sbbmisc_OBJECTS) $(sbbmisc_DEPENDENCIES) 
+	@rm -f sbbmisc$(EXEEXT)
+	$(LINK) $(sbbmisc_OBJECTS) $(sbbmisc_LDADD) $(LIBS)
 shrld$(EXEEXT): $(shrld_OBJECTS) $(shrld_DEPENDENCIES) 
 	@rm -f shrld$(EXEEXT)
 	$(LINK) $(shrld_OBJECTS) $(shrld_LDADD) $(LIBS)
@@ -681,6 +754,9 @@ slahf-amd64$(EXEEXT): $(slahf_amd64_OBJECTS) $(slahf_amd64_DEPENDENCIES)
 smc1$(EXEEXT): $(smc1_OBJECTS) $(smc1_DEPENDENCIES) 
 	@rm -f smc1$(EXEEXT)
 	$(LINK) $(smc1_OBJECTS) $(smc1_LDADD) $(LIBS)
+sse4-64$(EXEEXT): $(sse4_64_OBJECTS) $(sse4_64_DEPENDENCIES) 
+	@rm -f sse4-64$(EXEEXT)
+	$(LINK) $(sse4_64_OBJECTS) $(sse4_64_LDADD) $(LIBS)
 ssse3_misaligned$(EXEEXT): $(ssse3_misaligned_OBJECTS) $(ssse3_misaligned_DEPENDENCIES) 
 	@rm -f ssse3_misaligned$(EXEEXT)
 	$(LINK) $(ssse3_misaligned_OBJECTS) $(ssse3_misaligned_LDADD) $(LIBS)
@@ -701,25 +777,33 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bug137714-amd64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bug156404-amd64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/clc.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cmpxchg.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/crc32.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/faultstatus.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fcmovnu.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fxtract.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fxtract-fxtract.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/insn_basic.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/insn_fpu.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/insn_mmx.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/insn_pclmulqdq.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/insn_sse.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/insn_sse2.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/insn_sse3.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/insn_ssse3.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jrcxz.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/looper.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/loopnel.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lzcnt64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nibz_bennee_mmap.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcmpstr64.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcmpxstrx64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rcl-amd64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/redundantRexW.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sbbmisc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shrld.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/slahf-amd64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/smc1.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sse4-64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssse3_misaligned.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xadd.Po@am__quote@
 
@@ -750,6 +834,20 @@ amd64locked-amd64locked.obj: amd64locked.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='amd64locked.c' object='amd64locked-amd64locked.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(amd64locked_CFLAGS) $(CFLAGS) -c -o amd64locked-amd64locked.obj `if test -f 'amd64locked.c'; then $(CYGPATH_W) 'amd64locked.c'; else $(CYGPATH_W) '$(srcdir)/amd64locked.c'; fi`
+
+fxtract-fxtract.o: fxtract.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(fxtract_CFLAGS) $(CFLAGS) -MT fxtract-fxtract.o -MD -MP -MF $(DEPDIR)/fxtract-fxtract.Tpo -c -o fxtract-fxtract.o `test -f 'fxtract.c' || echo '$(srcdir)/'`fxtract.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/fxtract-fxtract.Tpo $(DEPDIR)/fxtract-fxtract.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fxtract.c' object='fxtract-fxtract.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(fxtract_CFLAGS) $(CFLAGS) -c -o fxtract-fxtract.o `test -f 'fxtract.c' || echo '$(srcdir)/'`fxtract.c
+
+fxtract-fxtract.obj: fxtract.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(fxtract_CFLAGS) $(CFLAGS) -MT fxtract-fxtract.obj -MD -MP -MF $(DEPDIR)/fxtract-fxtract.Tpo -c -o fxtract-fxtract.obj `if test -f 'fxtract.c'; then $(CYGPATH_W) 'fxtract.c'; else $(CYGPATH_W) '$(srcdir)/fxtract.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/fxtract-fxtract.Tpo $(DEPDIR)/fxtract-fxtract.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fxtract.c' object='fxtract-fxtract.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(fxtract_CFLAGS) $(CFLAGS) -c -o fxtract-fxtract.obj `if test -f 'fxtract.c'; then $(CYGPATH_W) 'fxtract.c'; else $(CYGPATH_W) '$(srcdir)/fxtract.c'; fi`
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \

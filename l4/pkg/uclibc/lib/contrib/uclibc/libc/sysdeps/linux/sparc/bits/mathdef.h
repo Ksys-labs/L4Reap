@@ -39,6 +39,7 @@ typedef double double_t;
 
 #endif	/* ISO C99 */
 
+#ifdef L4_DISABLE_LONG_DOUBLE_MATH
 #ifndef __NO_LONG_DOUBLE_MATH
 
 # if __WORDSIZE == 32
@@ -50,4 +51,5 @@ typedef double double_t;
 #  define __NO_LONG_DOUBLE_MATH	1
 # endif
 
+#endif
 #endif

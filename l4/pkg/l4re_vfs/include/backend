@@ -20,6 +20,7 @@
 #pragma once
 
 #include <l4/l4re_vfs/vfs.h>
+#include <l4/crtn/initpriorities.h>
 
 namespace L4Re { namespace Vfs {
 
@@ -54,8 +55,16 @@ public:
   ssize_t writev(const struct iovec*, int) throw()
   { return -EINVAL; }
 
+  /// Default backend for POSIX pwrite and pwritev functions.
+  ssize_t pwritev(const struct iovec*, int, off64_t) throw()
+  { return -EINVAL; }
+
+  /// Default backend for POSIX pread and preadv functions.
+  ssize_t preadv(const struct iovec*, int, off64_t) throw()
+  { return -EINVAL; }
+
   /// Default backend for POSIX seek and lseek functions.
-  virtual off64_t lseek64(off64_t, int) throw()
+  off64_t lseek64(off64_t, int) throw()
   { return -ESPIPE; }
 
   /// Default backend for the POSIX truncate, ftruncate and similar functions.
@@ -140,7 +149,6 @@ public:
   ssize_t getdents(char *, size_t) throw()
   { return -ENOTDIR; }
 
-
   ~Be_file() throw() = 0;
 
 private:
@@ -154,6 +162,68 @@ protected:
 
 inline
 Be_file::~Be_file() throw() {}
+
+class Be_file_pos : public Be_file
+{
+public:
+  Be_file_pos() throw() : Be_file(), _pos(0) {}
+
+  virtual off64_t size() const throw() = 0;
+
+  ssize_t readv(const struct iovec *v, int iovcnt) throw()
+  {
+    ssize_t r = preadv(v, iovcnt, _pos);
+    if (r > 0)
+      _pos += r;
+    return r;
+  }
+
+  ssize_t writev(const struct iovec *v, int iovcnt) throw()
+  {
+    ssize_t r = pwritev(v, iovcnt, _pos);
+    if (r > 0)
+      _pos += r;
+    return r;
+  }
+
+  ssize_t preadv(const struct iovec *v, int iovcnt, off64_t offset) throw() = 0;
+  ssize_t pwritev(const struct iovec *v, int iovcnt, off64_t offset) throw() = 0;
+
+  off64_t lseek64(off64_t offset, int whence) throw()
+  {
+    off64_t r;
+    switch (whence)
+      {
+      case SEEK_SET: r = offset; break;
+      case SEEK_CUR: r = _pos + offset; break;
+      case SEEK_END: r = size() + offset; break;
+      default: return -EINVAL;
+      };
+
+    if (r < 0)
+      return -EINVAL;
+
+    _pos = r;
+    return _pos;
+  }
+
+protected:
+  off64_t pos() const throw() { return _pos; }
+
+private:
+  off64_t _pos;
+};
+
+class Be_file_stream : public Be_file
+{
+public:
+  ssize_t preadv(const struct iovec *v, int iovcnt, off64_t) throw()
+  { return readv(v, iovcnt); }
+
+  ssize_t pwritev(const struct iovec *v, int iovcnt, off64_t) throw()
+  { return writev(v, iovcnt); }
+
+};
 
 /**
  * \brief Boilerplate class for implementing a L4Re::Vfs::File_system.
@@ -187,7 +257,7 @@ public:
    * This destructor takes care of removing this file system
    * from the registry of L4Re::Vfs::vfs_ops.
    */
-  ~Be_file_system() throw() 
+  ~Be_file_system() throw()
   {
     vfs_ops->unregister_file_system(this);
   }
@@ -200,5 +270,9 @@ public:
   char const *type() const throw() { return _fstype; }
 };
 
+/* Make sure filesystems can register before the constructor of libmount
+ * runs */
+#define L4RE_VFS_FILE_SYSTEM_ATTRIBUTE \
+     __attribute__((init_priority(INIT_PRIO_LATE_VAL)))
 
 }}

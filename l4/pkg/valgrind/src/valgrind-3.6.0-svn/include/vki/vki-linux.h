@@ -89,6 +89,8 @@
 #  include "vki-posixtypes-ppc64-linux.h"
 #elif defined(VGA_arm)
 #  include "vki-posixtypes-arm-linux.h"
+#elif defined(VGA_s390x)
+#  include "vki-posixtypes-s390x-linux.h"
 #else
 #  error Unknown platform
 #endif
@@ -201,6 +203,8 @@ typedef unsigned int	        vki_uint;
 #  include "vki-ppc64-linux.h"
 #elif defined(VGA_arm)
 #  include "vki-arm-linux.h"
+#elif defined(VGA_s390x)
+#  include "vki-s390x-linux.h"
 #else
 #  error Unknown platform
 #endif
@@ -1296,10 +1300,17 @@ struct vki_dirent {
 // From linux-2.6.8.1/include/linux/fcntl.h
 //----------------------------------------------------------------------
 
-#define VKI_F_SETLEASE	(VKI_F_LINUX_SPECIFIC_BASE+0)
-#define VKI_F_GETLEASE	(VKI_F_LINUX_SPECIFIC_BASE+1)
+#define VKI_F_SETLEASE      (VKI_F_LINUX_SPECIFIC_BASE + 0)
+#define VKI_F_GETLEASE      (VKI_F_LINUX_SPECIFIC_BASE + 1)
 
-#define VKI_F_NOTIFY	(VKI_F_LINUX_SPECIFIC_BASE+2)
+#define VKI_F_CANCELLK      (VKI_F_LINUX_SPECIFIC_BASE + 5)
+
+#define VKI_F_DUPFD_CLOEXEC (VKI_F_LINUX_SPECIFIC_BASE + 6)
+
+#define VKI_F_NOTIFY        (VKI_F_LINUX_SPECIFIC_BASE + 2)
+
+#define VKI_F_SETPIPE_SZ    (VKI_F_LINUX_SPECIFIC_BASE + 7)
+#define VKI_F_GETPIPE_SZ    (VKI_F_LINUX_SPECIFIC_BASE + 8)
 
 //----------------------------------------------------------------------
 // From linux-2.6.8.1/include/linux/sysctl.h
@@ -1444,6 +1455,7 @@ struct vki_shmid_ds {
 };
 
 #define VKI_SHM_RDONLY  010000  /* read-only access */
+#define VKI_SHM_RND     020000  /* round attach address to SHMLBA boundary */
 
 #define VKI_SHM_STAT 	13
 #define VKI_SHM_INFO 	14
@@ -2382,6 +2394,7 @@ struct vki_usbdevfs_ioctl {
 #define VKI_USBDEVFS_REAPURBNDELAY     _VKI_IOW('U', 13, void *)
 #define VKI_USBDEVFS_CONNECTINFO       _VKI_IOW('U', 17, struct vki_usbdevfs_connectinfo)
 #define VKI_USBDEVFS_IOCTL             _VKI_IOWR('U', 18, struct vki_usbdevfs_ioctl)
+#define VKI_USBDEVFS_RESET             _VKI_IO('U', 20)
 
 #define VKI_USBDEVFS_URB_TYPE_ISO              0
 #define VKI_USBDEVFS_URB_TYPE_INTERRUPT        1

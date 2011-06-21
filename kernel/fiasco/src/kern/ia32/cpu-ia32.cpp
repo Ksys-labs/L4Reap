@@ -96,12 +96,12 @@ private:
   Unsigned32 _l3_cache_size;
   Unsigned16 _l3_cache_asso;
   Unsigned16 _l3_cache_line_size;
-  
+
   Unsigned8 _phys_bits;
   Unsigned8 _virt_bits;
 
   Vendor _vendor;
-  char _model_str[32];
+  char _model_str[52];
 
   Unsigned32 _arch_perfmon_info_eax;
   Unsigned32 _arch_perfmon_info_ebx;
@@ -370,7 +370,6 @@ Cpu::Vendor_table const Cpu::intel_table[] FIASCO_INITDATA_CPU =
   { 0xf0ff0, 0x106a0, 0xffff, "Core i7 / Xeon, 45nm"            },
   { 0xf0ff0, 0x106b0, 0xffff, "Xeon MP, 45nm"                   },
   { 0xf0ff0, 0x106c0, 0xffff, "Atom"                            },
-  { 0xf0ff0, 0x206c0, 0xffff, "Xeon X5680 (and others?)"        },
   { 0x0,     0x0,     0xFFFF, ""                                }
 };
 
@@ -426,8 +425,6 @@ Cpu::Vendor_table const Cpu::amd_table[] FIASCO_INITDATA_CPU =
   { 0xfff0ff0,  0x040f30,   0,      "Athlon 64 X2 (Windsor)"       },
   { 0xfff0ff0,  0x040f80,   0,      "Turion 64 X2 (Taylor)"        },
   { 0xfff0ff0,  0x060fb0,   0,      "Athlon 64 X2 (Brisbane)"      },
-  { 0xfff0ff0,  0x100f20,   0,      "Phenom X3/Toliman / X4/Agena" },
-  { 0xfff0ff0,  0x100f40,   0,      "Opteron (Shanghai)"           },
   { 0x0,        0x0,        0,      ""                             }
 };
 
@@ -864,6 +861,9 @@ Cpu::set_model_str()
 {
   Vendor_table const *table;
 
+  if (_model_str[0])
+    return;
+
   for (table = vendor_table[vendor()]; table && table->vendor_mask; table++)
     if ((_version & table->vendor_mask) == table->vendor_code &&
         (table->l2_cache == 0xFFFF || _l2_cache_size >= table->l2_cache))
@@ -1034,6 +1034,13 @@ Cpu::identify()
 	    if (_vendor == Vendor_amd || _vendor == Vendor_via)
 	      cache_tlb_l1();
 	  case 0x80000004:
+	    {
+	      Unsigned32 *s = (Unsigned32 *)_model_str;
+	      for (unsigned i = 0; i < 3; ++i)
+	        cpuid(0x80000002 + i, &s[0 + 4*i], &s[1 + 4*i],
+                                      &s[2 + 4*i], &s[3 + 4*i]);
+	      _model_str[48] = 0;
+	    }
 	  case 0x80000003:
 	  case 0x80000002:
 	  case 0x80000001:

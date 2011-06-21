@@ -25,8 +25,8 @@ class Pci_iomem_root_bridge : public Pci_root_bridge, public Hw::Device
 public:
   typedef Hw::Pci::Cfg_width Cfg_width;
 
-  Pci_iomem_root_bridge()
-  : Pci_root_bridge(this), _iobase_virt(0), _iobase_phys(~0UL),
+  explicit Pci_iomem_root_bridge(unsigned bus_nr = 0)
+  : Pci_root_bridge(bus_nr, this), _iobase_virt(0), _iobase_phys(~0UL),
     _dev_start(~0UL), _dev_end(~0UL), _iosize(0)
   {
     set_discover_bus_if(this);

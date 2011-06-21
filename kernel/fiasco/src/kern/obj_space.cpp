@@ -1,6 +1,7 @@
 INTERFACE:
 
 #include "l4_types.h"
+#include "l4_msg_item.h"
 #include "pages.h"
 
 class Kobject_mapdb;
@@ -50,7 +51,7 @@ namespace Obj {
       Delete  = L4_fpage::CD,
       Ref_cnt = 0x10,
 
-      Initial_flags = Delete | Ref_cnt | L4_fpage::C_ctl_rights
+      Initial_flags = Delete | Ref_cnt | L4_msg_item::C_ctl_rights
     };
 
   protected:
@@ -213,6 +214,12 @@ static inline
 Mword
 Generic_obj_space<SPACE>::xlate_flush(unsigned char rights)
 { return rights; }
+
+PUBLIC template< typename SPACE >
+static inline
+Mword
+Generic_obj_space<SPACE>::is_full_flush(unsigned char rights)
+{ return rights & L4_fpage::R; }
 
 PUBLIC template< typename SPACE >
 static inline

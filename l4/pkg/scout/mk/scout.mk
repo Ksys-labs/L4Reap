@@ -2,7 +2,6 @@ MODE		?= shared
 OBJS		+= $(addsuffix .bin.o, $(notdir $(SRC_BIN)))
 
 REQUIRES_LIBS	+= scout
-L4_MULTITHREADED=y
 
 SRC_CC		= doc.cc
 vpath %.txt $(SRC_DIR)

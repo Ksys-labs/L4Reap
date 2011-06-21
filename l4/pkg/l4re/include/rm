@@ -416,6 +416,23 @@ public:
   int find(l4_addr_t *addr, unsigned long *size, l4_addr_t *offset,
            unsigned *flags, L4::Cap<Dataspace> *m) throw();
 
+  struct Region
+  {
+    l4_addr_t start;
+    l4_addr_t end;
+    l4_addr_t offset;
+    L4::Cap<Dataspace> ds;
+  };
+
+  struct Area
+  {
+    l4_addr_t start;
+    l4_addr_t end;
+  };
+
+  int get_regions(l4_addr_t start, Region **regions) throw();
+  int get_areas(l4_addr_t start, Area **areas) throw();
+
 private:
   int _detach(l4_addr_t start, unsigned long size, L4::Cap<Dataspace> *mem,
               L4::Cap<L4::Task> task, unsigned flags) const throw();

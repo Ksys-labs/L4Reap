@@ -83,6 +83,7 @@ while ($offset < length($unpackdata) - 12 * 4) {
       $start1, $size1, $sizeun1, $name1, $md5comp1, $md5uncomp1,
       $start2, $size2, $sizeun2, $name2, $md5comp2, $md5uncomp2)
    = unpack("LLLLLLLLLLLLLLLLLL", substr($unpackdata, $offset));
+
   if ((!defined $previous || $previous + $modinfo_size == $offset)
       && ($start0 > 0x5000)
       && ($start1 > 0x5000)
@@ -93,9 +94,9 @@ while ($offset < length($unpackdata) - 12 * 4) {
       && ($size0 < $filesize)
       && ($size1 < $filesize)
       && ($size2 < $filesize)
-      && ($sizeun0 < (10 << 20))
-      && ($sizeun1 < (10 << 20))
-      && ($sizeun2 < (10 << 20))) {
+      && ($sizeun0 < (80 << 20))
+      && ($sizeun1 < (80 << 20))
+      && ($sizeun2 < (80 << 20))) {
 
     #printf "%x %x %x\n", $start0, $start1, $start2;
     printf "Found module info at offset %d/0x%x\n", $offset, $offset;

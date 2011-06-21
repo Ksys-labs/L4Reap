@@ -34,7 +34,9 @@
 #include <sys/sysmacros.h>
 #ifdef __UCLIBC_HAS_THREADS_NATIVE__
 #include <errno.h>
+#if 0 // l4-valgrind
 #include <pthread-functions.h>
+#endif
 #include <not-cancel.h>
 #include <atomic.h>
 #endif
@@ -133,7 +135,14 @@ static __always_inline int not_null_ptr(const void *p)
  */
 extern int *weak_const_function __errno_location(void);
 extern int *weak_const_function __h_errno_location(void);
+/* aw11: hidden and weak in a statically linked library meaningless
+ *       and gold in x86_64 complains about
+ */
+#ifdef SHARED
 extern void weak_function _stdio_init(void) attribute_hidden;
+#else
+extern void weak_function _stdio_init(void);
+#endif
 #ifdef __UCLIBC_HAS_LOCALE__
 extern void weak_function _locale_init(void) attribute_hidden;
 #endif
@@ -388,14 +397,11 @@ void __c_main(int (*main)(int, char **, char **), int argc,
 #endif
 	aux_dat += 2;
     }
-#ifdef NOT_FOR_L4
-    // l4: should come out of libdl
 #ifndef SHARED
     /* Get the program headers (_dl_phdr) from the aux vector
        It will be used into __libc_setup_tls. */
 
     _dl_aux_init (auxvt);
-#endif
 #endif
 #endif
 
@@ -533,6 +539,14 @@ void __c_main(int (*main)(int, char **, char **), int argc,
 #ifdef ARCH_x86
       {
         unsigned long esp;
+        // save over stack change
+        typedef struct {
+          int (*main)(int, char **, char **);
+          int argc;
+          char **argv;
+        } xt;
+        xt x = { main, argc, argv };
+        xt *m = &x;
         __asm__ __volatile__ ("\n"
             /* set up the new stack in %eax */
             "\tmovl  $vgPlain_interim_stack, %%eax\n"
@@ -542,11 +556,13 @@ void __c_main(int (*main)(int, char **, char **), int argc,
             "\tandl  $~15, %%eax\n"
             /* install it, and collect the original one */
             "\txchgl %%eax, %%esp\n"
-            :
-            "=a" (esp)
+            : "=a" (esp), "=b" (m)
+            : "b" (m)
+            : "memory"
          /* The original code saves esp so that it can be passed to the
           * startup routine */
          );
+        exit (m->main(m->argc, m->argv, __environ));
       }
 #else
 #error Unknown arch, add it!

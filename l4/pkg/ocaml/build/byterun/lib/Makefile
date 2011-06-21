@@ -3,7 +3,6 @@ L4DIR   ?= $(PKGDIR)/../..
 
 TARGET = libocaml_camlrun.a
 NOTARGETSTOINSTALL = y
-L4_MULTITHREADED = y
 
 CONTRIBDIR = $(PKGDIR)/contrib
 

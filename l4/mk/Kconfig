@@ -252,6 +252,9 @@ config PLATFORM_ARM_omap3evm
 config PLATFORM_ARM_beagleboard
 	bool "Beagleboard"
 
+config PLATFORM_ARM_pandaboard
+	bool "Pandaboard"
+
 config PLATFORM_ARM_tegra2
 	bool "NVIDIA Tegra 2"
 
@@ -350,6 +353,21 @@ config RAM_BASE
 config RAM_SIZE_MB
 	int
 	default 128
+endif
+
+if PLATFORM_ARM_pandaboard
+
+config ARM_PLATFORM_TYPE
+	string
+	default "pandaboard"
+
+config RAM_BASE
+	hex
+	default 0x80000000
+
+config RAM_SIZE_MB
+	int
+	default 512
 endif
 
 if PLATFORM_ARM_tegra2

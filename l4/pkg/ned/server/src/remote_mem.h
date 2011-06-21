@@ -43,9 +43,5 @@ class Stack : public Ldr::Remote_stack<Stack_base>
 {
 public:
   explicit Stack() : Ldr::Remote_stack<Stack_base>(0) {}
-  l4_addr_t add(l4_addr_t start, l4_umword_t size, L4::Cap<L4Re::Rm> rm,
-                L4::Cap<L4Re::Dataspace> m, unsigned long offs = 0,
-                unsigned flags = 0, unsigned char align = 0,
-                char const *what = "attaching vma");
   void set_stack(L4Re::Util::Ref_cap<L4Re::Dataspace>::Cap const &ds, unsigned size);
 };

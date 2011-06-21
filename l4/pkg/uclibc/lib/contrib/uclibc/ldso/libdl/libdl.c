@@ -304,7 +304,18 @@ void *dlopen(const char *libname, int flag)
 	}
 	/* Cover the trivial case first */
 	if (!libname)
-		return _dl_symbol_tables;
+      {
+// L4: Fix the case that a static program does not have a symbol table for
+// the main program but needs to set the error code. LD_NO_SYMBOL has been
+// taken because it sounds useful for that case. glibc does seem to have a
+// rather strange handling in the static case.
+#ifdef SHARED
+        return _dl_symbol_tables;
+#else
+        _dl_error_number = LD_NO_SYMBOL;
+        return NULL;
+#endif
+      }
 
 #ifndef SHARED
 # ifdef __SUPPORT_LD_DEBUG__
@@ -615,7 +626,7 @@ void *dlsym(void *vhandle, const char *name)
 	ElfW(Addr) from;
 	struct dyn_elf *rpnt;
 	void *ret;
-	struct elf_resolve *tls_tpnt = NULL;
+	struct symbol_ref sym_ref = { NULL, NULL };
 	/* Nastiness to support underscore prefixes.  */
 #ifdef __UCLIBC_UNDERSCORES__
 	char tmp_buf[80];
@@ -670,13 +681,13 @@ void *dlsym(void *vhandle, const char *name)
 	tpnt = NULL;
 	if (handle == _dl_symbol_tables)
 		tpnt = handle->dyn; /* Only search RTLD_GLOBAL objs if global object */
-	ret = _dl_find_hash(name2, handle, NULL, 0, &tls_tpnt);
+	ret = _dl_find_hash(name2, handle, tpnt, 0, &sym_ref);
 
 #if defined(USE_TLS) && USE_TLS && defined SHARED
-	if (tls_tpnt) {
+	if (sym_ref.tpnt) {
 		/* The found symbol is a thread-local storage variable.
 		Return the address for to the current thread.  */
-		ret = _dl_tls_symaddr ((struct link_map *)tls_tpnt, (Elf32_Addr)ret);
+		ret = _dl_tls_symaddr ((struct link_map *)sym_ref.tpnt, (Elf32_Addr)ret);
 	}
 #endif
 
@@ -923,6 +934,10 @@ static int do_dlclose(void *vhandle, int need_fini)
 			free(tpnt->libname);
 			free(tpnt);
 		}
+	}
+	for (rpnt1 = handle->next; rpnt1; rpnt1 = rpnt1_tmp) {
+		rpnt1_tmp = rpnt1->next;
+		free(rpnt1);
 	}
 	free(handle->init_fini.init_fini);
 	free(handle);

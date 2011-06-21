@@ -6,7 +6,8 @@ ENTRY(_start)
 
 PHDRS
 {
-  ro PT_LOAD;
+  phdr PT_PHDR PHDRS;
+  ro PT_LOAD FILEHDR PHDRS;
   rw PT_LOAD;
   L4_DEFINE_L4PHDRS
 }
@@ -14,6 +15,8 @@ PHDRS
 
 SECTIONS
 {
+  PROVIDE (__executable_start = 0x010000);
+  . = __executable_start + SIZEOF_HEADERS;
   /* No program code/data before _stext/_prog_img_start! */
 
   /* Read-only sections, merged into text segment. The start address of
@@ -78,7 +81,9 @@ SECTIONS
   . = ALIGN(0x40);
   PROVIDE (_etext = .);
   PROVIDE (etext = .);
-  .rol4re_elf_aux : { KEEP (*(.rol4re_elf_aux)) } : ro : l4re_aux
+  .rol4re_elf_aux : {
+    KEEP (*(.rol4re_elf_aux))
+  } : ro : l4re_aux
   .rodata         : { *(.rodata .rodata.* .gnu.linkonce.r.*) } : ro
   .rodata1        : { *(.rodata1) }
   .ARM.extab      : { *(.ARM.extab* .gnu.linkonce.armextab.*) }
@@ -89,9 +94,9 @@ SECTIONS
 
   .eh_frame       : ONLY_IF_RO
   {
-    PROVIDE(__eh_frame_start__ = .);
+/*     PROVIDE(__eh_frame_start__ = .);*/
     KEEP (*(.eh_frame))
-    KEEP (*(.eh_frame_terminator))
+/*    KEEP (*(.eh_frame_terminator)) */
   } :ro
 
   .gcc_except_table   : ONLY_IF_RO { *(.gcc_except_table .gcc_except_table.*) }
@@ -104,9 +109,9 @@ SECTIONS
   /* Exception handling  */
   .eh_frame       : ONLY_IF_RW
   {
-    PROVIDE (__eh_frame_start__ = .);
+/*    PROVIDE (__eh_frame_start__ = .); */
     KEEP (*(.eh_frame))
-    KEEP (*(.eh_frame_terminator))
+/*    KEEP (*(.eh_frame_terminator)) */
   } :rw
   .gcc_except_table   : ONLY_IF_RW { *(.gcc_except_table .gcc_except_table.*) } :rw
   /* Thread Local Storage sections  */
@@ -200,6 +205,7 @@ SECTIONS
     KEEP (*(.c_dtors))
     KEEP (*(.mark_end_c_dtors))*/
   }
+  .got            : { *(.got.plt) *(.igot.plt) *(.got) *(.igot) }
   .data           :
   {
     *(.data .data.* .gnu.linkonce.d.*)

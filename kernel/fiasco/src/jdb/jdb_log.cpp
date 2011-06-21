@@ -55,7 +55,7 @@ Jdb_log_list_hdl::invoke(Kobject_common *, Syscall_frame *f, Utcb *utcb)
 
             unsigned char const idx = utcb->values[1];
 
-            if (_log_table + idx >= _log_table_end)
+            if (_log_table + idx >= &_log_table_end)
               {
                 f->tag(Kobject_iface::commit_result(-L4_err::EInval));
                 return true;
@@ -148,7 +148,7 @@ Jdb_log_list::patch_item(Tb_log_table_entry const *e, unsigned char val)
       Mem_unit::clean_dcache(e->patch);
     }
 
-  for (Tb_log_table_entry *x = _end; x < _log_table_end; ++x)
+  for (Tb_log_table_entry *x = _end; x < &_log_table_end; ++x)
     {
       if (equal(x, e) && x->patch)
         {
@@ -180,7 +180,7 @@ Jdb_log_list::next(void **item)
 {
   Tb_log_table_entry *e = static_cast<Tb_log_table_entry*>(*item);
 
-  while (e + 1 < _log_table_end)
+  while (e + 1 < &_log_table_end)
     {
 #if 0
       if (equal(e, e+1))
@@ -270,9 +270,9 @@ static bool lt_cmp(Tb_log_table_entry *a, Tb_log_table_entry *b)
 
 static void sort_tb_log_table()
 {
-  for (Tb_log_table_entry *p = _log_table; p < _log_table_end; ++p)
+  for (Tb_log_table_entry *p = _log_table; p < &_log_table_end; ++p)
     {
-      for (Tb_log_table_entry *x = _log_table_end -1; x > p; --x)
+      for (Tb_log_table_entry *x = &_log_table_end -1; x > p; --x)
 	if (lt_cmp(x, x - 1))
 	  swap(x - 1, x);
     }
@@ -283,7 +283,8 @@ static
 void
 Jdb_log_list::move_dups()
 {
-  _end = _log_table_end;
+  _end = &_log_table_end;
+  Tb_log_table_entry *const tab_end = &_log_table_end;
   for (Tb_log_table_entry *p = _log_table + 1; p < _end;)
     {
       if (equal(p-1, p))
@@ -292,8 +293,8 @@ Jdb_log_list::move_dups()
 	  if (p < _end)
 	    {
 	      Tb_log_table_entry tmp = *p;
-	      memmove(p, p + 1, sizeof(Tb_log_table_entry) * (_log_table_end - p - 1));
-	      *(_log_table_end - 1) = tmp;
+	      memmove(p, p + 1, sizeof(Tb_log_table_entry) * (tab_end - p - 1));
+	      *(tab_end - 1) = tmp;
 	    }
 	  else
 	    break;
@@ -328,7 +329,7 @@ PUBLIC
 Jdb_module::Action_code
 Jdb_log::action(int, void *&, char const *&, int &)
 {
-  if (_log_table >= _log_table_end)
+  if (_log_table >= &_log_table_end)
     return NOTHING;
 
   Jdb_log_list list;

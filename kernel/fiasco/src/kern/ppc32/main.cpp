@@ -29,10 +29,14 @@ static int exit_question_active = 0;
 extern "C" void __attribute__ ((noreturn))
 _exit(int)
 {
-  if(exit_question_active)
-    pc_reset();
-  else
-    while(1) { Proc::halt(); Proc::pause(); }
+  if (exit_question_active)
+    platform_reset();
+
+  while (1)
+    {
+      Proc::halt();
+      Proc::pause();
+    }
 }
 
 
@@ -57,7 +61,7 @@ static void exit_question()
 	  // problems.
 	  // SO just do the reset at this point.
 	  puts("\033[1mRebooting...\033[0m");
-	  pc_reset();
+	  platform_reset();
 	  break;
 	}
     }

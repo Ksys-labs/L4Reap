@@ -446,24 +446,24 @@ leave_by_vcpu_upcall:
 	mov 32 + SCRATCH_REGISTER_SIZE(%rsp), %rdx
 	mov %rdx, 32(%rcx)                          /* SS */
 
-	mov 0(%rsp), %rdx   /* R11 */
+	mov (0*8)(%rsp), %rdx   /* r11 */
 	mov %rdx, -(14*8)(%rcx)
-	mov 8(%rsp), %rdx   /* R10 */
+	mov (1*8)(%rsp), %rdx   /* r10 */
 	mov %rdx, -(13*8)(%rcx)
 	mov (2*8)(%rsp), %rdx
-	mov %rdx, -(12*8)(%rcx)
+	mov %rdx, -(12*8)(%rcx) /* r9 */
 	mov (3*8)(%rsp), %rdx
-	mov %rdx, -(11*8)(%rcx)
+	mov %rdx, -(11*8)(%rcx) /* r8 */
 	mov (4*8)(%rsp), %rdx
-	mov %rdx, -(5*8)(%rcx)
+	mov %rdx, -(5*8)(%rcx)  /* rdx */
 	mov (5*8)(%rsp), %rdx
-	mov %rdx, -(4*8)(%rcx)
+	mov %rdx, -(4*8)(%rcx)  /* rcx */
 	mov (6*8)(%rsp), %rdx
-	mov %rdx, -(3*8)(%rcx)
+	mov %rdx, -(3*8)(%rcx)  /* rax */
 	mov (7*8)(%rsp), %rdx
-	mov %rdx, -(9*8)(%rcx)
+	mov %rdx, -(9*8)(%rcx)  /* rsi */
 	mov (8*8)(%rsp), %rdx
-	mov %rdx, -(10*8)(%rcx)
+	mov %rdx, -(10*8)(%rcx) /* rdi */
 
 	lea SCRATCH_REGISTER_SIZE(%rsp), %rdx
 	lea -(5*8)(%rcx), %rsp
@@ -471,6 +471,11 @@ leave_by_vcpu_upcall:
 	push %rbx
 	sub $8, %rsp
 	push %rbp
+	sub $(6*8), %rsp
+	push %r12
+	push %r13
+	push %r14
+	push %r15
 
 	/*add SCRATCH_REGISTER_SIZE, %esp*/
 #if 0

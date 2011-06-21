@@ -46,13 +46,13 @@
 # define THREAD_GETMEM(descr, member) descr->member
 #endif
 #ifndef THREAD_GETMEM_NC
-# define THREAD_GETMEM_NC(descr, member) descr->member
+# define THREAD_GETMEM_NC(descr, member, idx) descr->member[idx]
 #endif
 #ifndef THREAD_SETMEM
 # define THREAD_SETMEM(descr, member, value) descr->member = (value)
 #endif
 #ifndef THREAD_SETMEM_NC
-# define THREAD_SETMEM_NC(descr, member, value) descr->member = (value)
+# define THREAD_SETMEM_NC(descr, member, idx, value) descr->member[idx] = (value)
 #endif
 
 #if !defined NOT_IN_libc
@@ -87,7 +87,8 @@ typedef l4_utcb_t *pthread_handle;
 
 enum pthread_request_rq {                        /* Request kind */
     REQ_CREATE, REQ_FREE, REQ_PROCESS_EXIT, REQ_MAIN_THREAD_EXIT,
-    REQ_POST, REQ_DEBUG, REQ_KICK, REQ_FOR_EACH_THREAD
+    REQ_POST, REQ_DEBUG, REQ_KICK, REQ_FOR_EACH_THREAD,
+    REQ_THREAD_EXIT
 };
 
 struct pthread_request {
@@ -579,7 +580,7 @@ check_thread_self (void)
 	 initialized, so that the thread register might still point to the
 	 manager thread.  Double check that this is really the manager
 	 thread.  */
-      self = __pthread_self_stack();
+      self = handle_to_descr(l4_utcb());
       if (self != __manager_thread)
 	/* Oops, thread_self() isn't working yet..  */
 	INIT_THREAD_SELF(self, self->p_nr);

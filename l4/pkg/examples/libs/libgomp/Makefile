@@ -18,6 +18,5 @@ endif
 
 SRC_C            = main.c
 CFLAGS           = -fopenmp
-L4_MULTITHREADED = y
 
 include $(L4DIR)/mk/prog.mk

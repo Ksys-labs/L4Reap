@@ -15,9 +15,10 @@
 #define _GLIBCXX_GTHREAD_USE_WEAK 1
 #endif 
 
+#if !defined(L4_MINIMAL_LIBC)
 #define _GLIBCXX_HAVE_MBSTATE_T 1
 #define _GLIBCXX_HAVE_WCHAR_H 1
-
+#endif
 
 // Macros for visibility.
 // _GLIBCXX_HAVE_ATTRIBUTE_VISIBILITY
@@ -275,7 +276,7 @@ _GLIBCXX_END_NAMESPACE
 
 
 #define _GLIBCXX_HOSTED 1
-#ifdef L4_THREAD_SAFE
+#ifndef L4_MINIMAL_LIBC
 # define _GLIBCXX__PTHREADS 1
 #endif
 #define _GLIBCXX_HAVE_UNISTD_H 1
@@ -516,8 +517,10 @@ _GLIBCXX_END_NAMESPACE
 /* Define to 1 if you have the <machine/param.h> header file. */
 /* #undef _GLIBCXX_HAVE_MACHINE_PARAM_H */
 
+#if !defined(L4_MINIMAL_LIBC)
 /* Define if mbstate_t exists in wchar.h. */
 #define _GLIBCXX_HAVE_MBSTATE_T 1
+#endif
 
 /* Define to 1 if you have the <memory.h> header file. */
 #define _GLIBCXX_HAVE_MEMORY_H 1
@@ -675,6 +678,7 @@ _GLIBCXX_END_NAMESPACE
 /* Define to 1 if you have the <unistd.h> header file. */
 #define _GLIBCXX_HAVE_UNISTD_H 1
 
+#if !defined(L4_MINIMAL_LIBC)
 /* Defined if vfwscanf exists. */
 #define _GLIBCXX_HAVE_VFWSCANF 1
 
@@ -686,6 +690,7 @@ _GLIBCXX_END_NAMESPACE
 
 /* Define to 1 if you have the <wchar.h> header file. */
 #define _GLIBCXX_HAVE_WCHAR_H 1
+#endif
 
 /* Defined if wcstof exists. */
 //#define _GLIBCXX_HAVE_WCSTOF 1
@@ -1046,8 +1051,10 @@ _GLIBCXX_END_NAMESPACE
    namespace std::tr1. */
 #define _GLIBCXX_USE_C99_STDINT_TR1 1
 
+#if !defined(L4_MINIMAL_LIBC)
 /* Define if LFS support is available. */
 #define _GLIBCXX_USE_LFS 1
+#endif
 
 /* Define if code specialized for long long should be used. */
 #define _GLIBCXX_USE_LONG_LONG 1

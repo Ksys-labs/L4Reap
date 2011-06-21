@@ -31,6 +31,7 @@
 #undef PLAT_ppc32_linux
 #undef PLAT_ppc64_linux
 #undef PLAT_arm_linux
+#undef PLAT_s390x_linux
 
 #if defined(_AIX) && defined(__64BIT__)
 #  define PLAT_ppc64_aix5 1
@@ -50,6 +51,8 @@
 #  define PLAT_ppc64_linux 1
 #elif defined(__linux__) && defined(__arm__)
 #  define PLAT_arm_linux 1
+#elif defined(__linux__) && defined(__s390x__)
+#  define PLAT_s390x_linux 1
 #endif
 
 
@@ -62,26 +65,36 @@
       || defined(PLAT_ppc32_aix5) || defined(PLAT_ppc64_aix5)
 #  define INC(_lval,_lqual)		  \
    __asm__ __volatile__(                  \
-      "L1xyzzy1" _lqual ":\n"             \
+      "1:\n"                              \
       "        lwarx 15,0,%0\n"           \
       "        addi 15,15,1\n"            \
       "        stwcx. 15,0,%0\n"          \
-      "        bne- L1xyzzy1" _lqual      \
+      "        bne- 1b\n"                 \
       : /*out*/ : /*in*/ "b"(&(_lval))    \
       : /*trash*/ "r15", "cr0", "memory"  \
    )
 #elif defined(PLAT_arm_linux)
 #  define INC(_lval,_lqual) \
   __asm__ __volatile__( \
-      "L1xyzzy1" _lqual ":\n"                \
+      "1:\n"                                 \
       "        ldrex r8, [%0, #0]\n"         \
       "        add   r8, r8, #1\n"           \
       "        strex r9, r8, [%0, #0]\n"     \
       "        cmp   r9, #0\n"               \
-      "        bne L1xyzzy1" _lqual          \
+      "        bne   1b\n"                   \
       : /*out*/ : /*in*/ "r"(&(_lval))       \
       : /*trash*/ "r8", "r9", "cc", "memory" \
   );
+#elif defined(PLAT_s390x_linux)
+#  define INC(_lval,_lqual) \
+   __asm__ __volatile__( \
+      "1: l     0,%0\n"                            \
+      "   lr    1,0\n"                             \
+      "   ahi   1,1\n"                             \
+      "   cs    0,1,%0\n"                          \
+      "   jl    1b\n"                              \
+      : "+m" (_lval) :: "cc", "0","1" \
+   )
 #else
 #  error "Fix Me for this platform"
 #endif

@@ -97,6 +97,8 @@ public:
   L4::Cap<void> rcv_cap() const { return _core->rcv_cap(); }
 
   void destroy();
+
+  static void set_default_background(Session *_s, Property_handler const *, cxx::String const &);
 };
 
 
@@ -319,6 +321,21 @@ void Mag_client::start(Core_api *core)
     printf("Plugin: Mag_client service started\n");
 }
 
+void Mag_goos::set_default_background(Session *_s, Property_handler const *, cxx::String const &)
+{
+  Mag_goos *s = static_cast<Mag_goos *>(_s);
+
+  s->flags(F_default_background, 0);
+}
+
+namespace {
+  Session::Property_handler const _opts[] =
+    { { "default-background", false,  &Mag_goos::set_default_background },
+      { "dfl-bg",             false,  &Mag_goos::set_default_background },
+      { 0, 0, 0 }
+    };
+};
+
 int
 Mag_client::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
 {
@@ -334,9 +351,9 @@ Mag_client::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
 	    has_proto(L4::Ipc::read<L4::Factory::Proto>(ios)))
 	{
 	  L4::Ipc::Istream_copy cp_is = ios;
-	  
+
 	  cxx::Ref_ptr<Mag_goos> cf(new Mag_goos(_core));
-	  _core->set_session_options(cf.get(), cp_is);
+	  _core->set_session_options(cf.get(), cp_is, _opts);
 
 	  _core->register_session(cf.get());
 	  _core->registry()->register_obj(cf);
@@ -613,7 +630,6 @@ void
 Client_view::draw(Canvas *c, View_stack const *, Mode mode) const
 {
   Canvas::Mix_mode op = mode.flat() ? Canvas::Solid : Canvas::Mixed;
-  Rgb32::Color frame_color = focused() ? Rgb32::White : View::frame_color();
   if (mode.xray() && !mode.kill() && focused())
     op = Canvas::Solid;
 

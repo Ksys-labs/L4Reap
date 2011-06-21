@@ -79,6 +79,9 @@ static Bool go(char* cpu)
    } else if ( strcmp( cpu, "amd64-sse3" ) == 0 ) {
      level = 1;
      cmask = 1 << 0;
+   } else if ( strcmp( cpu, "amd64-pclmulqdq" ) == 0 ) {
+     level = 1;
+     cmask = 1 << 1;
    } else if ( strcmp( cpu, "amd64-ssse3" ) == 0 ) {
      level = 1;
      cmask = 1 << 9;
@@ -89,6 +92,9 @@ static Bool go(char* cpu)
      level = 0x80000001;
      cmask = 1 << 5;
      require_amd = True;
+   } else if ( strcmp( cpu, "amd64-sse42" ) == 0 ) {
+     level = 1;
+     cmask = 1 << 20;
 #endif
    } else {
      return 2;          // Unrecognised feature.

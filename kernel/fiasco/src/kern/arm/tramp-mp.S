@@ -39,36 +39,48 @@ invalidate_l1_v7:
 	.global _tramp_mp_entry
 _tramp_mp_entry:
 	// IRQs off, SVC
-	mrs r0, cpsr
-	orr r0, #0xd3
-	msr cpsr_c, r0
+	mrs   r0, cpsr
+	orr   r0, #0xd3
+	msr   cpsr_c, r0
 
 	// enable SMP
-	adr r0, .Lmpcore_phys_base
-	ldr r0, [r0]
-	ldr r1, [r0]
-	orr r1, #1
-	str r1, [r0]
+	adr   r0, .Lmpcore_phys_base
+	ldr   r0, [r0]
+	ldr   r1, [r0]
+	orr   r1, #1
+	str   r1, [r0]
 
 #ifdef CONFIG_ARM_V7
-	bl invalidate_l1_v7
+	bl    invalidate_l1_v7
 #endif
 
-	mcr p15, 0, r0, c7, c5, 0 // ICIALLU
-	mcr p15, 0, r0, c7, c5, 6 // BPIALL
+	mcr   p15, 0, r0, c7, c5, 0 // ICIALLU
+	mcr   p15, 0, r0, c7, c5, 6 // BPIALL
 
-	mcr p15, 0, r0, c7, c10, 4 // dsb
+	mcr   p15, 0, r0, c7, c10, 4 // dsb
 #ifdef CONFIG_ARM_V6
-	mcr p15, 0, r0, c7, c7, 0  // inv both
+	mcr   p15, 0, r0, c7, c7, 0  // inv both
 #endif
 
-	mrc p15, 0, r0, c1, c0, 1
+	// ACTRL is implementation defined
+	mrc   p15, 0, r0, c0, c0, 0  // read MIDR
+	adr   r3, .Lactrl_cpuid      // load addr
+	ldm   r3, {r1,r2}            // load mask + val
+	and   r0, r1                 // apply mask
+	teq   r0, r2                 // check value
+	bne   2f                     // only do mcr on this CPU
+
+	mrc   p15, 0, r0, c1, c0, 1
 #ifdef CONFIG_ARM_V7
-	orr r0, r0, #0x41
+        tst   r0, #0x40
+        bne   2f
+	orr   r0, r0, #0x41
 #else
-	orr r0, r0, #0x20
+	orr   r0, r0, #0x20
 #endif
-	mcr p15, 0, r0, c1, c0, 1
+	mcr   p15, 0, r0, c1, c0, 1
+
+2:
 
 	// TLB flush
 	mcr p15, 0, r0, c8, c7, 0
@@ -99,6 +111,11 @@ _tramp_mp_entry:
 
 .Lmpcore_phys_base:
 	.long MPCORE_PHYS_BASE
+
+// only one currently
+.Lactrl_cpuid:
+         .long 0xff0ffff0
+         .long 0x410fc090
 
 	// we run paged now
 _tramp_mp_virt:

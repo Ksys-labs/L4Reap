@@ -7,7 +7,6 @@
 #include <l4/cxx/ipc_stream>
 #include <l4/sys/icu>
 #include <l4/sys/task>
-#include <l4/re/error_helper>
 #include <l4/re/env>
 #include <l4/re/util/cap_alloc>
 
@@ -156,7 +155,9 @@ Icu_cap_array_svr<ICU>::Irq::bind(ICU *cfb, L4::Snd_fpage const &irq_fp)
   if (!irq_fp.cap_received())
     return -L4_EINVAL;
 
-  _cap = L4Re::chkcap(L4Re::Util::cap_alloc.alloc<L4::Irq>());
+  _cap = L4Re::Util::cap_alloc.alloc<L4::Irq>();
+  if (!_cap.is_valid())
+    return -L4_ENOMEM;
   _cap.get().move(L4::cap_cast<L4::Irq>(cfb->rcv_cap()));
   return 0;
 }

@@ -561,7 +561,7 @@ Thread::do_kill()
   }
 
   // if engaged in IPC operation, stop it
-  if (receiver())
+  if (in_sender_list())
     sender_dequeue(receiver()->sender_list());
 
   Context::do_kill();

@@ -31,6 +31,9 @@ namespace L4Re
      * \ingroup api_l4re_protocols
      * \internal
      */
-    enum Opcodes { Attach, Detach, Find, Attach_area, Detach_area };
+    enum Opcodes
+    {
+      Attach, Detach, Find, Attach_area, Detach_area, Get_regions, Get_areas
+    };
   };
 };

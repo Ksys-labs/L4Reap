@@ -22,7 +22,7 @@ save_access_attribs (Kobject_mapdb* /*mapdb*/,
 
 L4_error
 obj_map(Space *from, L4_fpage const &fp_from,
-        Space *to, L4_fpage const &fp_to, Mword control,
+        Space *to, L4_fpage const &fp_to, L4_msg_item control,
         Kobject ***reap_list)
 {
   typedef Map_traits<Obj_space> Mt;
@@ -30,7 +30,7 @@ obj_map(Space *from, L4_fpage const &fp_from,
   Mt::Addr snd_addr = Mt::get_addr(fp_from);
   Mt::Size snd_size = Mt::Size::from_shift(fp_from.order());
   Mt::Size rcv_size = Mt::Size::from_shift(fp_to.order());
-  Mt::Addr offs(control >> L4_fpage::Control_addr_shift);
+  Mt::Addr offs(control.index());
 
   snd_addr = snd_addr.trunc(snd_size);
   rcv_addr = rcv_addr.trunc(rcv_size);
@@ -51,7 +51,7 @@ obj_map(Space *from, L4_fpage const &fp_from,
 	      from->obj_space(), from, snd_addr,
 	      snd_size,
 	      to->obj_space(), to, rcv_addr,
-	      control & L4_fpage::Control_grant, add_attribs, del_attribs,
+	      control.is_grant(), add_attribs, del_attribs,
 	      reap_list);
 }
 

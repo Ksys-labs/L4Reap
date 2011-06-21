@@ -48,26 +48,28 @@ DIST_COMMON = $(dist_noinst_SCRIPTS) $(srcdir)/Makefile.am \
 	$(top_srcdir)/Makefile.tool-tests.am
 @BUILD_SSE3_TESTS_TRUE@am__append_1 = insn_sse3
 @BUILD_SSSE3_TESTS_TRUE@am__append_2 = insn_ssse3
-check_PROGRAMS = badseg$(EXEEXT) bt_everything$(EXEEXT) \
-	bt_literal$(EXEEXT) bug125959-x86$(EXEEXT) \
-	bug126147-x86$(EXEEXT) bug132813-x86$(EXEEXT) \
-	bug135421-x86$(EXEEXT) bug137714-x86$(EXEEXT) \
-	bug152818-x86$(EXEEXT) cmpxchg8b$(EXEEXT) cpuid$(EXEEXT) \
-	cse_fail$(EXEEXT) faultstatus$(EXEEXT) fcmovnu$(EXEEXT) \
+check_PROGRAMS = aad_aam$(EXEEXT) badseg$(EXEEXT) \
+	bt_everything$(EXEEXT) bt_literal$(EXEEXT) \
+	bug125959-x86$(EXEEXT) bug126147-x86$(EXEEXT) \
+	bug132813-x86$(EXEEXT) bug135421-x86$(EXEEXT) \
+	bug137714-x86$(EXEEXT) bug152818-x86$(EXEEXT) \
+	cmpxchg8b$(EXEEXT) cpuid$(EXEEXT) fcmovnu$(EXEEXT) \
 	fpu_lazy_eflags$(EXEEXT) fxtract$(EXEEXT) getseg$(EXEEXT) \
 	incdec_alt$(EXEEXT) $(am__EXEEXT_3) int$(EXEEXT) jcxz$(EXEEXT) \
-	lahf$(EXEEXT) looper$(EXEEXT) lzcnt32$(EXEEXT) movx$(EXEEXT) \
-	pushpopseg$(EXEEXT) sbbmisc$(EXEEXT) smc1$(EXEEXT) \
-	x86locked$(EXEEXT) yield$(EXEEXT) xadd$(EXEEXT) \
-	$(am__EXEEXT_4)
+	lahf$(EXEEXT) looper$(EXEEXT) movx$(EXEEXT) \
+	pushpopseg$(EXEEXT) sbbmisc$(EXEEXT) shift_ndep$(EXEEXT) \
+	smc1$(EXEEXT) x86locked$(EXEEXT) yield$(EXEEXT) xadd$(EXEEXT) \
+	$(am__EXEEXT_4) $(am__EXEEXT_5) $(am__EXEEXT_6)
 @BUILD_SSSE3_TESTS_TRUE@am__append_3 = ssse3_misaligned
+@BUILD_LZCNT_TESTS_TRUE@am__append_4 = lzcnt32
+@VGCONF_OS_IS_DARWIN_FALSE@am__append_5 = cse_fail faultstatus
 
 # Some of the tests (bug125959_x86, bug152818_x86, insn_*) need
 # -mdynamic-no-pic.  I tried setting *_CFLAGS separately for all of them,
 # but it caused problems with the generation of insn_*.c.  So just use this
 # crude approach of setting -mdynamic-no-pic for all tests in this
 # directory.
-@VGCONF_OS_IS_DARWIN_TRUE@am__append_4 = -mdynamic-no-pic
+@VGCONF_OS_IS_DARWIN_TRUE@am__append_6 = -mdynamic-no-pic
 subdir = none/tests/x86
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.in
@@ -84,6 +86,12 @@ am__EXEEXT_3 = insn_basic$(EXEEXT) insn_fpu$(EXEEXT) \
 	insn_sse$(EXEEXT) insn_sse2$(EXEEXT) $(am__EXEEXT_1) \
 	$(am__EXEEXT_2)
 @BUILD_SSSE3_TESTS_TRUE@am__EXEEXT_4 = ssse3_misaligned$(EXEEXT)
+@BUILD_LZCNT_TESTS_TRUE@am__EXEEXT_5 = lzcnt32$(EXEEXT)
+@VGCONF_OS_IS_DARWIN_FALSE@am__EXEEXT_6 = cse_fail$(EXEEXT) \
+@VGCONF_OS_IS_DARWIN_FALSE@	faultstatus$(EXEEXT)
+aad_aam_SOURCES = aad_aam.c
+aad_aam_OBJECTS = aad_aam.$(OBJEXT)
+aad_aam_LDADD = $(LDADD)
 badseg_SOURCES = badseg.c
 badseg_OBJECTS = badseg.$(OBJEXT)
 badseg_LDADD = $(LDADD)
@@ -132,8 +140,10 @@ fpu_lazy_eflags_LDADD = $(LDADD)
 fpu_lazy_eflags_LINK = $(CCLD) $(fpu_lazy_eflags_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 fxtract_SOURCES = fxtract.c
-fxtract_OBJECTS = fxtract.$(OBJEXT)
+fxtract_OBJECTS = fxtract-fxtract.$(OBJEXT)
 fxtract_DEPENDENCIES =
+fxtract_LINK = $(CCLD) $(fxtract_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
 getseg_SOURCES = getseg.c
 getseg_OBJECTS = getseg.$(OBJEXT)
 getseg_LDADD = $(LDADD)
@@ -191,6 +201,9 @@ pushpopseg_LDADD = $(LDADD)
 sbbmisc_SOURCES = sbbmisc.c
 sbbmisc_OBJECTS = sbbmisc.$(OBJEXT)
 sbbmisc_LDADD = $(LDADD)
+shift_ndep_SOURCES = shift_ndep.c
+shift_ndep_OBJECTS = shift_ndep.$(OBJEXT)
+shift_ndep_LDADD = $(LDADD)
 smc1_SOURCES = smc1.c
 smc1_OBJECTS = smc1.$(OBJEXT)
 smc1_LDADD = $(LDADD)
@@ -219,28 +232,28 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = badseg.c bt_everything.c bt_literal.c bug125959-x86.c \
-	bug126147-x86.c bug132813-x86.c bug135421-x86.c \
-	bug137714-x86.c bug152818-x86.c cmpxchg8b.c $(cpuid_SOURCES) \
-	cse_fail.c faultstatus.c fcmovnu.c fpu_lazy_eflags.c fxtract.c \
-	getseg.c incdec_alt.c $(insn_basic_SOURCES) \
-	$(insn_cmov_SOURCES) $(insn_fpu_SOURCES) $(insn_mmx_SOURCES) \
-	$(insn_mmxext_SOURCES) $(insn_sse_SOURCES) \
+SOURCES = aad_aam.c badseg.c bt_everything.c bt_literal.c \
+	bug125959-x86.c bug126147-x86.c bug132813-x86.c \
+	bug135421-x86.c bug137714-x86.c bug152818-x86.c cmpxchg8b.c \
+	$(cpuid_SOURCES) cse_fail.c faultstatus.c fcmovnu.c \
+	fpu_lazy_eflags.c fxtract.c getseg.c incdec_alt.c \
+	$(insn_basic_SOURCES) $(insn_cmov_SOURCES) $(insn_fpu_SOURCES) \
+	$(insn_mmx_SOURCES) $(insn_mmxext_SOURCES) $(insn_sse_SOURCES) \
 	$(insn_sse2_SOURCES) $(insn_sse3_SOURCES) \
 	$(insn_ssse3_SOURCES) int.c jcxz.c lahf.c looper.c lzcnt32.c \
-	movx.c pushpopseg.c sbbmisc.c smc1.c ssse3_misaligned.c \
-	x86locked.c xadd.c yield.c
-DIST_SOURCES = badseg.c bt_everything.c bt_literal.c bug125959-x86.c \
-	bug126147-x86.c bug132813-x86.c bug135421-x86.c \
-	bug137714-x86.c bug152818-x86.c cmpxchg8b.c $(cpuid_SOURCES) \
-	cse_fail.c faultstatus.c fcmovnu.c fpu_lazy_eflags.c fxtract.c \
-	getseg.c incdec_alt.c $(insn_basic_SOURCES) \
-	$(insn_cmov_SOURCES) $(insn_fpu_SOURCES) $(insn_mmx_SOURCES) \
-	$(insn_mmxext_SOURCES) $(insn_sse_SOURCES) \
+	movx.c pushpopseg.c sbbmisc.c shift_ndep.c smc1.c \
+	ssse3_misaligned.c x86locked.c xadd.c yield.c
+DIST_SOURCES = aad_aam.c badseg.c bt_everything.c bt_literal.c \
+	bug125959-x86.c bug126147-x86.c bug132813-x86.c \
+	bug135421-x86.c bug137714-x86.c bug152818-x86.c cmpxchg8b.c \
+	$(cpuid_SOURCES) cse_fail.c faultstatus.c fcmovnu.c \
+	fpu_lazy_eflags.c fxtract.c getseg.c incdec_alt.c \
+	$(insn_basic_SOURCES) $(insn_cmov_SOURCES) $(insn_fpu_SOURCES) \
+	$(insn_mmx_SOURCES) $(insn_mmxext_SOURCES) $(insn_sse_SOURCES) \
 	$(insn_sse2_SOURCES) $(insn_sse3_SOURCES) \
 	$(insn_ssse3_SOURCES) int.c jcxz.c lahf.c looper.c lzcnt32.c \
-	movx.c pushpopseg.c sbbmisc.c smc1.c ssse3_misaligned.c \
-	x86locked.c xadd.c yield.c
+	movx.c pushpopseg.c sbbmisc.c shift_ndep.c smc1.c \
+	ssse3_misaligned.c x86locked.c xadd.c yield.c
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -286,6 +299,8 @@ FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
 FLAG_W_NO_FORMAT_ZERO_LENGTH = @FLAG_W_NO_FORMAT_ZERO_LENGTH@
+FLAG_W_NO_NONNULL = @FLAG_W_NO_NONNULL@
+FLAG_W_NO_OVERFLOW = @FLAG_W_NO_OVERFLOW@
 FLAG_W_NO_UNINITIALIZED = @FLAG_W_NO_UNINITIALIZED@
 GDB = @GDB@
 GENERATED_SUPP = @GENERATED_SUPP@
@@ -315,12 +330,7 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
-QTCORE_CFLAGS = @QTCORE_CFLAGS@
-QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -473,7 +483,7 @@ AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 			 	$(AM_CFLAGS_BASE) -marm
 
-AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
+AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -marm -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
 AM_CFLAGS_PPC32_AIX5 = @FLAG_MAIX32@ -mcpu=powerpc $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC32_AIX5 = $(AM_CPPFLAGS_PPC32_AIX5) \
@@ -502,6 +512,11 @@ AM_CFLAGS_X86_L4RE = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 AM_CCASFLAGS_X86_L4RE = $(L4_CPPFLAGS) @FLAG_M32@ -g
 AM_CXXFLAGS_X86_L4RE = $(L4_CXXFLAGS) @FLAG_M32@
 #AM_CPPFLAGS_X86_L4RE   = $(L4_CPPFLAGS) $(AM_CPPFLAGS_X86_L4RE)
+AM_FLAG_M3264_S390X_LINUX = @FLAG_M64@
+AM_CFLAGS_S390X_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
+AM_CCASFLAGS_S390X_LINUX = $(AM_CPPFLAGS_S390X_LINUX) -mzarch -march=z900 \
+                            @FLAG_M64@ -g
+
 
 # Flags for the primary target.  These must be used to build the
 # regtests and performance tests.  In fact, these must be used to
@@ -530,6 +545,7 @@ PRELOAD_LDFLAGS_PPC32_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX32@
 PRELOAD_LDFLAGS_PPC64_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX64@
 PRELOAD_LDFLAGS_X86_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch i386
 PRELOAD_LDFLAGS_AMD64_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch x86_64
+PRELOAD_LDFLAGS_S390X_LINUX = $(PRELOAD_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 PRELOAD_LDFLAGS_X86_L4RE = $(PRELOAD_LDFLAGS_COMMON_L4RE) @FLAG_M32@
 AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/include \
 		-I$(top_srcdir)/coregrind -I$(top_builddir)/include \
@@ -541,7 +557,7 @@ AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/include \
 # Nb: Tools need to augment these flags with an arch-selection option, such
 # as $(AM_FLAG_M3264_PRI).
 AM_CFLAGS = -Winline -Wall -Wshadow -g @FLAG_M32@ $(FLAG_MMMX) \
-	$(FLAG_MSSE) $(am__append_4)
+	$(FLAG_MSSE) $(am__append_6)
 AM_CXXFLAGS = -Winline -Wall -Wshadow -g @FLAG_M32@ $(FLAG_MMMX) \
 	$(FLAG_MSSE)
 # Include AM_CPPFLAGS in AM_CCASFLAGS to allow for older versions of
@@ -557,6 +573,7 @@ INSN_TESTS = insn_basic insn_fpu insn_cmov insn_mmx insn_mmxext \
 # to avoid packaging screwups if 'make dist' is run on a machine
 # which failed the BUILD_SSE3_TESTS test in configure.in.
 EXTRA_DIST = \
+	aad_aam.stdout.exp aad_aam.stderr.exp aad_aam.vgtest \
 	badseg.stderr.exp badseg.stdout.exp badseg.vgtest \
 	bt_everything.stderr.exp bt_everything.stdout.exp bt_everything.vgtest \
 	bt_literal.stderr.exp bt_literal.stdout.exp bt_literal.vgtest \
@@ -589,6 +606,7 @@ EXTRA_DIST = \
 	movx.stderr.exp movx.stdout.exp movx.vgtest \
 	pushpopseg.stderr.exp pushpopseg.stdout.exp pushpopseg.vgtest \
 	sbbmisc.stderr.exp sbbmisc.stdout.exp sbbmisc.vgtest \
+	shift_ndep.stderr.exp shift_ndep.stdout.exp shift_ndep.vgtest \
 	smc1.stderr.exp smc1.stdout.exp smc1.vgtest \
 	ssse3_misaligned.stderr.exp ssse3_misaligned.stdout.exp \
 	ssse3_misaligned.vgtest ssse3_misaligned.c \
@@ -599,6 +617,7 @@ EXTRA_DIST = \
 cpuid_SOURCES = cpuid_c.c cpuid_s.S
 # fpu_lazy_eflags must use these flags -- the bug only occurred with them.
 fpu_lazy_eflags_CFLAGS = $(AM_CFLAGS) -O2 -march=pentiumpro
+fxtract_CFLAGS = $(AM_CFLAGS) @FLAG_W_NO_OVERFLOW@
 fxtract_LDADD = -lm
 insn_basic_SOURCES = insn_basic.def
 insn_basic_LDADD = -lm
@@ -657,6 +676,9 @@ $(am__aclocal_m4_deps):
 
 clean-checkPROGRAMS:
 	-test -z "$(check_PROGRAMS)" || rm -f $(check_PROGRAMS)
+aad_aam$(EXEEXT): $(aad_aam_OBJECTS) $(aad_aam_DEPENDENCIES) 
+	@rm -f aad_aam$(EXEEXT)
+	$(LINK) $(aad_aam_OBJECTS) $(aad_aam_LDADD) $(LIBS)
 badseg$(EXEEXT): $(badseg_OBJECTS) $(badseg_DEPENDENCIES) 
 	@rm -f badseg$(EXEEXT)
 	$(LINK) $(badseg_OBJECTS) $(badseg_LDADD) $(LIBS)
@@ -704,7 +726,7 @@ fpu_lazy_eflags$(EXEEXT): $(fpu_lazy_eflags_OBJECTS) $(fpu_lazy_eflags_DEPENDENC
 	$(fpu_lazy_eflags_LINK) $(fpu_lazy_eflags_OBJECTS) $(fpu_lazy_eflags_LDADD) $(LIBS)
 fxtract$(EXEEXT): $(fxtract_OBJECTS) $(fxtract_DEPENDENCIES) 
 	@rm -f fxtract$(EXEEXT)
-	$(LINK) $(fxtract_OBJECTS) $(fxtract_LDADD) $(LIBS)
+	$(fxtract_LINK) $(fxtract_OBJECTS) $(fxtract_LDADD) $(LIBS)
 getseg$(EXEEXT): $(getseg_OBJECTS) $(getseg_DEPENDENCIES) 
 	@rm -f getseg$(EXEEXT)
 	$(LINK) $(getseg_OBJECTS) $(getseg_LDADD) $(LIBS)
@@ -762,6 +784,9 @@ pushpopseg$(EXEEXT): $(pushpopseg_OBJECTS) $(pushpopseg_DEPENDENCIES)
 sbbmisc$(EXEEXT): $(sbbmisc_OBJECTS) $(sbbmisc_DEPENDENCIES) 
 	@rm -f sbbmisc$(EXEEXT)
 	$(LINK) $(sbbmisc_OBJECTS) $(sbbmisc_LDADD) $(LIBS)
+shift_ndep$(EXEEXT): $(shift_ndep_OBJECTS) $(shift_ndep_DEPENDENCIES) 
+	@rm -f shift_ndep$(EXEEXT)
+	$(LINK) $(shift_ndep_OBJECTS) $(shift_ndep_LDADD) $(LIBS)
 smc1$(EXEEXT): $(smc1_OBJECTS) $(smc1_DEPENDENCIES) 
 	@rm -f smc1$(EXEEXT)
 	$(LINK) $(smc1_OBJECTS) $(smc1_LDADD) $(LIBS)
@@ -784,6 +809,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aad_aam.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/badseg.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bt_everything.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bt_literal.Po@am__quote@
@@ -800,7 +826,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/faultstatus.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fcmovnu.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fpu_lazy_eflags-fpu_lazy_eflags.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fxtract.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fxtract-fxtract.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getseg.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/incdec_alt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/insn_basic.Po@am__quote@
@@ -820,6 +846,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/movx.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pushpopseg.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sbbmisc.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shift_ndep.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/smc1.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ssse3_misaligned.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/x86locked-x86locked.Po@am__quote@
@@ -867,6 +894,20 @@ fpu_lazy_eflags-fpu_lazy_eflags.obj: fpu_lazy_eflags.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fpu_lazy_eflags.c' object='fpu_lazy_eflags-fpu_lazy_eflags.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(fpu_lazy_eflags_CFLAGS) $(CFLAGS) -c -o fpu_lazy_eflags-fpu_lazy_eflags.obj `if test -f 'fpu_lazy_eflags.c'; then $(CYGPATH_W) 'fpu_lazy_eflags.c'; else $(CYGPATH_W) '$(srcdir)/fpu_lazy_eflags.c'; fi`
+
+fxtract-fxtract.o: fxtract.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(fxtract_CFLAGS) $(CFLAGS) -MT fxtract-fxtract.o -MD -MP -MF $(DEPDIR)/fxtract-fxtract.Tpo -c -o fxtract-fxtract.o `test -f 'fxtract.c' || echo '$(srcdir)/'`fxtract.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/fxtract-fxtract.Tpo $(DEPDIR)/fxtract-fxtract.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fxtract.c' object='fxtract-fxtract.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(fxtract_CFLAGS) $(CFLAGS) -c -o fxtract-fxtract.o `test -f 'fxtract.c' || echo '$(srcdir)/'`fxtract.c
+
+fxtract-fxtract.obj: fxtract.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(fxtract_CFLAGS) $(CFLAGS) -MT fxtract-fxtract.obj -MD -MP -MF $(DEPDIR)/fxtract-fxtract.Tpo -c -o fxtract-fxtract.obj `if test -f 'fxtract.c'; then $(CYGPATH_W) 'fxtract.c'; else $(CYGPATH_W) '$(srcdir)/fxtract.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/fxtract-fxtract.Tpo $(DEPDIR)/fxtract-fxtract.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fxtract.c' object='fxtract-fxtract.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(fxtract_CFLAGS) $(CFLAGS) -c -o fxtract-fxtract.obj `if test -f 'fxtract.c'; then $(CYGPATH_W) 'fxtract.c'; else $(CYGPATH_W) '$(srcdir)/fxtract.c'; fi`
 
 x86locked-x86locked.o: x86locked.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(x86locked_CFLAGS) $(CFLAGS) -MT x86locked-x86locked.o -MD -MP -MF $(DEPDIR)/x86locked-x86locked.Tpo -c -o x86locked-x86locked.o `test -f 'x86locked.c' || echo '$(srcdir)/'`x86locked.c

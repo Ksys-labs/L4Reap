@@ -146,18 +146,18 @@ Task::alloc_ku_mem_chunk(User<void>::Ptr u_addr, unsigned size, void **k_addr)
 	{
 	case Mem_space::Insert_ok: break;
 	case Mem_space::Insert_err_nomem:
-	  free_ku_mem_chunk(p, u_addr, size);
+	  free_ku_mem_chunk(p, u_addr, size, i);
 	  return -L4_err::ENomem;
 
 	case Mem_space::Insert_err_exists:
-	  free_ku_mem_chunk(p, u_addr, size);
+	  free_ku_mem_chunk(p, u_addr, size, i);
 	  return -L4_err::EExists;
 
 	default:
 	  printf("UTCB mapping failed: va=%p, ph=%p, res=%d\n",
 	      (void*)user_va, (void*)kern_va, res);
 	  kdb_ke("BUG in utcb allocation");
-	  free_ku_mem_chunk(p, u_addr, size);
+	  free_ku_mem_chunk(p, u_addr, size, i);
 	  return 0;
 	}
     }
@@ -208,13 +208,14 @@ PRIVATE inline NOEXPORT
 void
 Task::free_ku_mem(Ku_mem *m)
 {
-  free_ku_mem_chunk(m->k_addr, m->u_addr, m->size);
+  free_ku_mem_chunk(m->k_addr, m->u_addr, m->size, m->size);
   m->free(ram_quota());
 }
 
 PRIVATE
 void
-Task::free_ku_mem_chunk(void *k_addr, User<void>::Ptr u_addr, unsigned size)
+Task::free_ku_mem_chunk(void *k_addr, User<void>::Ptr u_addr, unsigned size,
+                        unsigned mapped_size)
 {
 
   Mapped_allocator * const alloc = Mapped_allocator::allocator();
@@ -226,7 +227,7 @@ Task::free_ku_mem_chunk(void *k_addr, User<void>::Ptr u_addr, unsigned size)
   if (size >= Config::SUPERPAGE_SIZE)
     page_size = Config::SUPERPAGE_SIZE;
 
-  for (unsigned long i = 0; i < size; i += page_size)
+  for (unsigned long i = 0; i < mapped_size; i += page_size)
     {
       Address user_va = (Address)u_addr.get() + i;
       mem_space()->v_delete(Mem_space::Addr(user_va),
@@ -418,7 +419,7 @@ Task::sys_map(unsigned char rights, Syscall_frame *f, Utcb *utcb)
       cpu_lock.clear();
 
       ret = fpage_map(from, L4_fpage(utcb->values[2]), this,
-                      L4_fpage::all_spaces(), utcb->values[1], &rl);
+                      L4_fpage::all_spaces(), L4_msg_item(utcb->values[1]), &rl);
       cpu_lock.lock();
     }
 
@@ -479,7 +480,7 @@ Task::sys_cap_valid(Syscall_frame *, Utcb *utcb)
 {
   L4_obj_ref obj(utcb->values[1]);
 
-  if (obj.invalid())
+  if (obj.special())
     return commit_result(0);
 
   Obj_space::Capability cap = obj_space()->lookup(obj.cap());
@@ -504,8 +505,8 @@ Task::sys_caps_equal(Syscall_frame *, Utcb *utcb)
   if (obj_a == obj_b)
     return commit_result(1);
 
-  if (obj_a.invalid() || obj_b.invalid())
-    return commit_result(obj_a.invalid() && obj_b.invalid());
+  if (obj_a.special() || obj_b.special())
+    return commit_result(obj_a.special_cap() == obj_b.special_cap());
 
   Obj_space::Capability c_a = obj_space()->lookup(obj_a.cap());
   Obj_space::Capability c_b = obj_space()->lookup(obj_b.cap());

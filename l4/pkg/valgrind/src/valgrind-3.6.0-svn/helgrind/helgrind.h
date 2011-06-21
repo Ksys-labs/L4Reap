@@ -108,7 +108,7 @@ typedef
       _VG_USERREQ__HG_CLIENTREQ_UNIMP,            /* char* */
       _VG_USERREQ__HG_USERSO_SEND_PRE,        /* arbitrary UWord SO-tag */
       _VG_USERREQ__HG_USERSO_RECV_POST,       /* arbitrary UWord SO-tag */
-      _VG_USERREQ__HG_RESERVED1,              /* Do not use */
+      _VG_USERREQ__HG_USERSO_FORGET_ALL,      /* arbitrary UWord SO-tag */
       _VG_USERREQ__HG_RESERVED2,              /* Do not use */
       _VG_USERREQ__HG_RESERVED3,              /* Do not use */
       _VG_USERREQ__HG_RESERVED4,              /* Do not use */
@@ -144,20 +144,21 @@ typedef
 
 #define DO_CREQ_v_W(_creqF, _ty1F,_arg1F)                \
    do {                                                  \
-      long int _unused_res, _arg1;                       \
+      long int _arg1;                                    \
       /* assert(sizeof(_ty1F) == sizeof(long int)); */   \
       _arg1 = (long int)(_arg1F);                        \
-      VALGRIND_DO_CLIENT_REQUEST(_unused_res, 0,         \
+      VALGRIND_DO_CLIENT_REQUEST_EXPR(0,                 \
                                  (_creqF),               \
                                  _arg1, 0,0,0,0);        \
    } while (0)
 
 #define DO_CREQ_W_W(_resF, _dfltF, _creqF, _ty1F,_arg1F) \
    do {                                                  \
-      long int _qzz_res, _arg1;                          \
+      long int arg1;                                     \
       /* assert(sizeof(_ty1F) == sizeof(long int)); */   \
       _arg1 = (long int)(_arg1F);                        \
-      VALGRIND_DO_CLIENT_REQUEST(_qzz_res, (_dfltF),     \
+      _qzz_res = VALGRIND_DO_CLIENT_REQUEST_EXPR(        \
+                                 (_dfltF),               \
                                  (_creqF),               \
                                  _arg1, 0,0,0,0);        \
       _resF = _qzz_res;                                  \
@@ -165,12 +166,12 @@ typedef
 
 #define DO_CREQ_v_WW(_creqF, _ty1F,_arg1F, _ty2F,_arg2F) \
    do {                                                  \
-      long int _unused_res, _arg1, _arg2;                \
+      long int _arg1, _arg2;                             \
       /* assert(sizeof(_ty1F) == sizeof(long int)); */   \
       /* assert(sizeof(_ty2F) == sizeof(long int)); */   \
       _arg1 = (long int)(_arg1F);                        \
       _arg2 = (long int)(_arg2F);                        \
-      VALGRIND_DO_CLIENT_REQUEST(_unused_res, 0,         \
+      VALGRIND_DO_CLIENT_REQUEST_EXPR(0,                 \
                                  (_creqF),               \
                                  _arg1,_arg2,0,0,0);     \
    } while (0)
@@ -178,14 +179,14 @@ typedef
 #define DO_CREQ_v_WWW(_creqF, _ty1F,_arg1F,              \
                       _ty2F,_arg2F, _ty3F, _arg3F)       \
    do {                                                  \
-      long int _unused_res, _arg1, _arg2, _arg3;         \
+      long int _arg1, _arg2, _arg3;                      \
       /* assert(sizeof(_ty1F) == sizeof(long int)); */   \
       /* assert(sizeof(_ty2F) == sizeof(long int)); */   \
       /* assert(sizeof(_ty3F) == sizeof(long int)); */   \
       _arg1 = (long int)(_arg1F);                        \
       _arg2 = (long int)(_arg2F);                        \
       _arg3 = (long int)(_arg3F);                        \
-      VALGRIND_DO_CLIENT_REQUEST(_unused_res, 0,         \
+      VALGRIND_DO_CLIENT_REQUEST_EXPR(0,                 \
                                  (_creqF),               \
                                  _arg1,_arg2,_arg3,0,0); \
    } while (0)
@@ -433,13 +434,15 @@ typedef
 
 /* ----------------------------------------------------------------
    Create completely arbitrary happens-before edges between threads.
-   If thread T1 does ANNOTATE_HAPPENS_BEFORE(obj) and later (w.r.t.
-   some notional global clock for the computation) thread T2 does
-   ANNOTATE_HAPPENS_AFTER(obj), then Helgrind will regard all memory
-   accesses done by T1 before the ..BEFORE.. call as happening-before
-   all memory accesses done by T2 after the ..AFTER.. call.  Hence
-   Helgrind won't complain about races if T2's accesses afterwards are
-   to the same locations as T1's accesses before.
+
+   If threads T1 .. Tn all do ANNOTATE_HAPPENS_BEFORE(obj) and later
+   (w.r.t. some notional global clock for the computation) thread Tm
+   does ANNOTATE_HAPPENS_AFTER(obj), then Helgrind will regard all
+   memory accesses done by T1 .. Tn before the ..BEFORE.. call as
+   happening-before all memory accesses done by Tm after the
+   ..AFTER.. call.  Hence Helgrind won't complain about races if Tm's
+   accesses afterwards are to the same locations as accesses before by
+   any of T1 .. Tn.
 
    OBJ is a machine word (unsigned long, or void*), is completely
    arbitrary, and denotes the identity of some synchronisation object
@@ -453,6 +456,23 @@ typedef
    take the time to understand these two.  They form the very essence
    of describing arbitrary inter-thread synchronisation events to
    Helgrind.  You can get a long way just with them alone.
+
+   See also, extensive discussion on semantics of this in 
+   https://bugs.kde.org/show_bug.cgi?id=243935
+
+   ANNOTATE_HAPPENS_BEFORE_FORGET_ALL(obj) is interim until such time
+   as bug 243935 is fully resolved.  It instructs Helgrind to forget
+   about any ANNOTATE_HAPPENS_BEFORE calls on the specified object, in
+   effect putting it back in its original state.  Once in that state,
+   a use of ANNOTATE_HAPPENS_AFTER on it has no effect on the calling
+   thread.
+
+   An implementation may optionally release resources it has
+   associated with 'obj' when ANNOTATE_HAPPENS_BEFORE_FORGET_ALL(obj)
+   happens.  Users are recommended to use
+   ANNOTATE_HAPPENS_BEFORE_FORGET_ALL to indicate when a
+   synchronisation object is no longer needed, so as to avoid
+   potential indefinite resource leaks.
    ----------------------------------------------------------------
 */
 #define ANNOTATE_HAPPENS_BEFORE(obj) \
@@ -461,6 +481,8 @@ typedef
 #define ANNOTATE_HAPPENS_AFTER(obj) \
    DO_CREQ_v_W(_VG_USERREQ__HG_USERSO_RECV_POST, void*,(obj))
 
+#define ANNOTATE_HAPPENS_BEFORE_FORGET_ALL(obj) \
+   DO_CREQ_v_W(_VG_USERREQ__HG_USERSO_FORGET_ALL, void*,(obj))
 
 /* ----------------------------------------------------------------
    Memory publishing.  The TSan sources say:

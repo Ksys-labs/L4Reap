@@ -8,9 +8,14 @@ CONTRIB_INCDIR = lua
 REQUIRES_LIBS  = l4re_c-util
 PC_FILENAME = lua++
 
-DEFS = -DARCH_$(ARCH)
+OPTS := 
+
 
 all::
+
+include $(L4DIR)/mk/lib.mk
+
+DEFS = -DARCH_$(ARCH) $(OPTS)
 
 liblua.a: $(SRC_DIR)/Makefile $(SRC_DIR)/Makefile.lua FORCE
 	$(MAKE) -f $(SRC_DIR)/Makefile.lua SRC_DIR=$(SRC_DIR) \
@@ -24,6 +29,5 @@ liblua++.a: liblua.a
 clean::
 	$(MAKE) -f $(SRC_DIR)/Makefile.lua SRC_DIR=$(SRC_DIR) clean
 
-include $(L4DIR)/mk/lib.mk
 
 all:: $(PC_FILES)

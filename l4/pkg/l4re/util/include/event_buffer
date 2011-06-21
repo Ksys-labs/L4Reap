@@ -97,7 +97,7 @@ public:
    * \param cb  Function callback.
    */
   template< typename CB, typename D >
-  void foreach_available_event(CB const &cb, D data = D()) throw()
+  void foreach_available_event(CB const &cb, D data = D())
   {
     typename Event_buffer_t<PAYLOAD>::Event *e;
     while ((e = Event_buffer_t<PAYLOAD>::next()))
@@ -119,7 +119,7 @@ public:
   template< typename CB, typename D >
   void process(L4::Cap<L4::Irq> irq,
                L4::Cap<L4::Thread> thread,
-               CB const &cb, D data = D()) throw()
+               CB const &cb, D data = D())
   {
 
     if (l4_error(irq->attach(0, thread)))

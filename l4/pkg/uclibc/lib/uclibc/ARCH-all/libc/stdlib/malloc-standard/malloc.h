@@ -24,7 +24,9 @@
 #include <sys/mman.h>
 #include <bits/uClibc_mutex.h>
 
+#ifndef L4_MINIMAL_LIBC
 #include <l4/sys/consts.h>
+#endif
 
 
 __UCLIBC_MUTEX_EXTERN(__malloc_lock);
@@ -137,8 +139,14 @@ __UCLIBC_MUTEX_EXTERN(__malloc_lock);
 //#  include <unistd.h>
 //#  define malloc_getpagesize sysconf(_SC_PAGESIZE)
 //#else /* just guess */
-//#  define malloc_getpagesize (4096)
+#ifdef L4_MINIMAL_LIBC
+#  define malloc_getpagesize (4096)
+#else
 #  define malloc_getpagesize (L4_PAGESIZE)
+#if L4_PAGESIZE != 4096
+# error Adapt this code for minimal libc version
+#endif
+#endif
 #endif
 
 

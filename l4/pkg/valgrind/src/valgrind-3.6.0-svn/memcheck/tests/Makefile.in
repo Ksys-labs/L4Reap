@@ -52,14 +52,16 @@ DIST_COMMON = $(dist_noinst_SCRIPTS) $(noinst_HEADERS) \
 # Arch-specific tests.
 @VGCONF_ARCHS_INCLUDE_X86_TRUE@am__append_1 = x86
 @VGCONF_ARCHS_INCLUDE_AMD64_TRUE@am__append_2 = amd64
+@VGCONF_ARCHS_INCLUDE_PPC32_TRUE@am__append_3 = ppc32
+@VGCONF_ARCHS_INCLUDE_PPC64_TRUE@am__append_4 = ppc64
 
 # OS-specific tests
-@VGCONF_OS_IS_LINUX_TRUE@am__append_3 = linux
-@VGCONF_OS_IS_DARWIN_TRUE@am__append_4 = darwin
+@VGCONF_OS_IS_LINUX_TRUE@am__append_5 = linux
+@VGCONF_OS_IS_DARWIN_TRUE@am__append_6 = darwin
 
 # Platform-specific tests
-@VGCONF_PLATFORMS_INCLUDE_X86_LINUX_TRUE@am__append_5 = x86-linux
-@VGCONF_PLATFORMS_INCLUDE_AMD64_LINUX_TRUE@am__append_6 = amd64-linux
+@VGCONF_PLATFORMS_INCLUDE_X86_LINUX_TRUE@am__append_7 = x86-linux
+@VGCONF_PLATFORMS_INCLUDE_AMD64_LINUX_TRUE@am__append_8 = amd64-linux
 check_PROGRAMS = addressable$(EXEEXT) atomic_incs$(EXEEXT) \
 	badaddrvalue$(EXEEXT) badfree$(EXEEXT) badjump$(EXEEXT) \
 	badjump2$(EXEEXT) badloop$(EXEEXT) badpoll$(EXEEXT) \
@@ -72,37 +74,37 @@ check_PROGRAMS = addressable$(EXEEXT) atomic_incs$(EXEEXT) \
 	erringfds$(EXEEXT) file_locking$(EXEEXT) fprw$(EXEEXT) \
 	fwrite$(EXEEXT) inits$(EXEEXT) inline$(EXEEXT) leak-0$(EXEEXT) \
 	leak-cases$(EXEEXT) leak-cycle$(EXEEXT) leak-pool$(EXEEXT) \
-	leak-tree$(EXEEXT) linux-syslog-syscall$(EXEEXT) \
-	linux-syscalls-2007$(EXEEXT) long_namespace_xml$(EXEEXT) \
+	leak-tree$(EXEEXT) long_namespace_xml$(EXEEXT) \
 	long-supps$(EXEEXT) mallinfo$(EXEEXT) \
 	malloc_free_fill$(EXEEXT) malloc_usable$(EXEEXT) \
 	malloc1$(EXEEXT) malloc2$(EXEEXT) malloc3$(EXEEXT) \
 	manuel1$(EXEEXT) manuel2$(EXEEXT) manuel3$(EXEEXT) \
 	match-overrun$(EXEEXT) memalign_test$(EXEEXT) \
 	memalign2$(EXEEXT) memcmptest$(EXEEXT) mempool$(EXEEXT) \
-	mmaptest$(EXEEXT) mismatches$(EXEEXT) new_override$(EXEEXT) \
-	metadata$(EXEEXT) nanoleak_supp$(EXEEXT) nanoleak2$(EXEEXT) \
-	new_nothrow$(EXEEXT) noisy_child$(EXEEXT) null_socket$(EXEEXT) \
-	origin1-yes$(EXEEXT) origin2-not-quite$(EXEEXT) \
-	origin3-no$(EXEEXT) origin4-many$(EXEEXT) origin5-bz2$(EXEEXT) \
-	origin6-fp$(EXEEXT) overlap$(EXEEXT) \
-	partiallydefinedeq$(EXEEXT) partial_load$(EXEEXT) \
-	pdb-realloc$(EXEEXT) pdb-realloc2$(EXEEXT) pipe$(EXEEXT) \
-	pointer-trace$(EXEEXT) post-syscall$(EXEEXT) realloc1$(EXEEXT) \
-	realloc2$(EXEEXT) realloc3$(EXEEXT) sh-mem$(EXEEXT) \
-	sh-mem-random$(EXEEXT) sigaltstack$(EXEEXT) signal2$(EXEEXT) \
-	sigprocmask$(EXEEXT) sigkill$(EXEEXT) strchr$(EXEEXT) \
-	str_tester$(EXEEXT) supp_unknown$(EXEEXT) supp1$(EXEEXT) \
-	supp2$(EXEEXT) suppfree$(EXEEXT) trivialleak$(EXEEXT) \
-	unit_libcbase$(EXEEXT) unit_oset$(EXEEXT) varinfo1$(EXEEXT) \
-	varinfo2$(EXEEXT) varinfo3$(EXEEXT) varinfo4$(EXEEXT) \
-	varinfo5$(EXEEXT) varinfo5so.so$(EXEEXT) varinfo6$(EXEEXT) \
-	vcpu_fbench$(EXEEXT) vcpu_fnfns$(EXEEXT) xml1$(EXEEXT) \
-	wrap1$(EXEEXT) wrap2$(EXEEXT) wrap3$(EXEEXT) wrap4$(EXEEXT) \
-	wrap5$(EXEEXT) wrap6$(EXEEXT) wrap7$(EXEEXT) \
-	wrap7so.so$(EXEEXT) wrap8$(EXEEXT) writev$(EXEEXT)
-@VGCONF_PLATFORMS_INCLUDE_ARM_LINUX_TRUE@am__append_7 = -mfloat-abi=softfp
-@VGCONF_PLATFORMS_INCLUDE_ARM_LINUX_TRUE@am__append_8 = -mfloat-abi=softfp
+	mempool2$(EXEEXT) mmaptest$(EXEEXT) mismatches$(EXEEXT) \
+	new_override$(EXEEXT) metadata$(EXEEXT) nanoleak_supp$(EXEEXT) \
+	nanoleak2$(EXEEXT) new_nothrow$(EXEEXT) noisy_child$(EXEEXT) \
+	null_socket$(EXEEXT) origin1-yes$(EXEEXT) \
+	origin2-not-quite$(EXEEXT) origin3-no$(EXEEXT) \
+	origin4-many$(EXEEXT) origin5-bz2$(EXEEXT) origin6-fp$(EXEEXT) \
+	overlap$(EXEEXT) partiallydefinedeq$(EXEEXT) \
+	partial_load$(EXEEXT) pdb-realloc$(EXEEXT) \
+	pdb-realloc2$(EXEEXT) pipe$(EXEEXT) pointer-trace$(EXEEXT) \
+	post-syscall$(EXEEXT) realloc1$(EXEEXT) realloc2$(EXEEXT) \
+	realloc3$(EXEEXT) sh-mem$(EXEEXT) sh-mem-random$(EXEEXT) \
+	sigaltstack$(EXEEXT) signal2$(EXEEXT) sigprocmask$(EXEEXT) \
+	sigkill$(EXEEXT) strchr$(EXEEXT) str_tester$(EXEEXT) \
+	supp_unknown$(EXEEXT) supp1$(EXEEXT) supp2$(EXEEXT) \
+	suppfree$(EXEEXT) trivialleak$(EXEEXT) unit_libcbase$(EXEEXT) \
+	unit_oset$(EXEEXT) varinfo1$(EXEEXT) varinfo2$(EXEEXT) \
+	varinfo3$(EXEEXT) varinfo4$(EXEEXT) varinfo5$(EXEEXT) \
+	varinfo5so.so$(EXEEXT) varinfo6$(EXEEXT) vcpu_fbench$(EXEEXT) \
+	vcpu_fnfns$(EXEEXT) xml1$(EXEEXT) wrap1$(EXEEXT) \
+	wrap2$(EXEEXT) wrap3$(EXEEXT) wrap4$(EXEEXT) wrap5$(EXEEXT) \
+	wrap6$(EXEEXT) wrap7$(EXEEXT) wrap7so.so$(EXEEXT) \
+	wrap8$(EXEEXT) writev$(EXEEXT)
+@VGCONF_PLATFORMS_INCLUDE_ARM_LINUX_TRUE@am__append_9 = -mfloat-abi=softfp
+@VGCONF_PLATFORMS_INCLUDE_ARM_LINUX_TRUE@am__append_10 = -mfloat-abi=softfp
 subdir = memcheck/tests
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.in
@@ -182,11 +184,15 @@ errs1_SOURCES = errs1.c
 errs1_OBJECTS = errs1.$(OBJEXT)
 errs1_LDADD = $(LDADD)
 execve_SOURCES = execve.c
-execve_OBJECTS = execve.$(OBJEXT)
+execve_OBJECTS = execve-execve.$(OBJEXT)
 execve_LDADD = $(LDADD)
+execve_LINK = $(CCLD) $(execve_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
 execve2_SOURCES = execve2.c
-execve2_OBJECTS = execve2.$(OBJEXT)
+execve2_OBJECTS = execve2-execve2.$(OBJEXT)
 execve2_LDADD = $(LDADD)
+execve2_LINK = $(CCLD) $(execve2_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
 exitprog_SOURCES = exitprog.c
 exitprog_OBJECTS = exitprog.$(OBJEXT)
 exitprog_LDADD = $(LDADD)
@@ -222,12 +228,6 @@ leak_pool_LDADD = $(LDADD)
 leak_tree_SOURCES = leak-tree.c
 leak_tree_OBJECTS = leak-tree.$(OBJEXT)
 leak_tree_LDADD = $(LDADD)
-linux_syscalls_2007_SOURCES = linux-syscalls-2007.c
-linux_syscalls_2007_OBJECTS = linux-syscalls-2007.$(OBJEXT)
-linux_syscalls_2007_LDADD = $(LDADD)
-linux_syslog_syscall_SOURCES = linux-syslog-syscall.c
-linux_syslog_syscall_OBJECTS = linux-syslog-syscall.$(OBJEXT)
-linux_syslog_syscall_LDADD = $(LDADD)
 long_supps_SOURCES = long-supps.c
 long_supps_OBJECTS = long-supps.$(OBJEXT)
 long_supps_LDADD = $(LDADD)
@@ -280,6 +280,9 @@ memcmptest_LINK = $(CCLD) $(memcmptest_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 mempool_SOURCES = mempool.c
 mempool_OBJECTS = mempool.$(OBJEXT)
 mempool_LDADD = $(LDADD)
+mempool2_SOURCES = mempool2.c
+mempool2_OBJECTS = mempool2.$(OBJEXT)
+mempool2_LDADD = $(LDADD)
 metadata_SOURCES = metadata.c
 metadata_OBJECTS = metadata.$(OBJEXT)
 metadata_LDADD = $(LDADD)
@@ -537,16 +540,15 @@ SOURCES = addressable.c atomic_incs.c badaddrvalue.c badfree.c \
 	doublefree.c erringfds.c error_counts.c errs1.c execve.c \
 	execve2.c exitprog.c file_locking.c fprw.c fwrite.c inits.c \
 	inline.c leak-0.c leak-cases.c leak-cycle.c leak-pool.c \
-	leak-tree.c linux-syscalls-2007.c linux-syslog-syscall.c \
-	long-supps.c $(long_namespace_xml_SOURCES) mallinfo.c \
-	malloc1.c malloc2.c malloc3.c malloc_free_fill.c \
+	leak-tree.c long-supps.c $(long_namespace_xml_SOURCES) \
+	mallinfo.c malloc1.c malloc2.c malloc3.c malloc_free_fill.c \
 	malloc_usable.c manuel1.c manuel2.c manuel3.c match-overrun.c \
-	memalign2.c memalign_test.c memcmptest.c mempool.c metadata.c \
-	$(mismatches_SOURCES) mmaptest.c nanoleak2.c nanoleak_supp.c \
-	$(new_nothrow_SOURCES) $(new_override_SOURCES) noisy_child.c \
-	null_socket.c origin1-yes.c origin2-not-quite.c origin3-no.c \
-	origin4-many.c origin5-bz2.c origin6-fp.c overlap.c \
-	partial_load.c partiallydefinedeq.c pdb-realloc.c \
+	memalign2.c memalign_test.c memcmptest.c mempool.c mempool2.c \
+	metadata.c $(mismatches_SOURCES) mmaptest.c nanoleak2.c \
+	nanoleak_supp.c $(new_nothrow_SOURCES) $(new_override_SOURCES) \
+	noisy_child.c null_socket.c origin1-yes.c origin2-not-quite.c \
+	origin3-no.c origin4-many.c origin5-bz2.c origin6-fp.c \
+	overlap.c partial_load.c partiallydefinedeq.c pdb-realloc.c \
 	pdb-realloc2.c pipe.c pointer-trace.c post-syscall.c \
 	realloc1.c realloc2.c realloc3.c sh-mem.c sh-mem-random.c \
 	sigaltstack.c sigkill.c signal2.c sigprocmask.c str_tester.c \
@@ -564,16 +566,15 @@ DIST_SOURCES = addressable.c atomic_incs.c badaddrvalue.c badfree.c \
 	doublefree.c erringfds.c error_counts.c errs1.c execve.c \
 	execve2.c exitprog.c file_locking.c fprw.c fwrite.c inits.c \
 	inline.c leak-0.c leak-cases.c leak-cycle.c leak-pool.c \
-	leak-tree.c linux-syscalls-2007.c linux-syslog-syscall.c \
-	long-supps.c $(long_namespace_xml_SOURCES) mallinfo.c \
-	malloc1.c malloc2.c malloc3.c malloc_free_fill.c \
+	leak-tree.c long-supps.c $(long_namespace_xml_SOURCES) \
+	mallinfo.c malloc1.c malloc2.c malloc3.c malloc_free_fill.c \
 	malloc_usable.c manuel1.c manuel2.c manuel3.c match-overrun.c \
-	memalign2.c memalign_test.c memcmptest.c mempool.c metadata.c \
-	$(mismatches_SOURCES) mmaptest.c nanoleak2.c nanoleak_supp.c \
-	$(new_nothrow_SOURCES) $(new_override_SOURCES) noisy_child.c \
-	null_socket.c origin1-yes.c origin2-not-quite.c origin3-no.c \
-	origin4-many.c origin5-bz2.c origin6-fp.c overlap.c \
-	partial_load.c partiallydefinedeq.c pdb-realloc.c \
+	memalign2.c memalign_test.c memcmptest.c mempool.c mempool2.c \
+	metadata.c $(mismatches_SOURCES) mmaptest.c nanoleak2.c \
+	nanoleak_supp.c $(new_nothrow_SOURCES) $(new_override_SOURCES) \
+	noisy_child.c null_socket.c origin1-yes.c origin2-not-quite.c \
+	origin3-no.c origin4-many.c origin5-bz2.c origin6-fp.c \
+	overlap.c partial_load.c partiallydefinedeq.c pdb-realloc.c \
 	pdb-realloc2.c pipe.c pointer-trace.c post-syscall.c \
 	realloc1.c realloc2.c realloc3.c sh-mem.c sh-mem-random.c \
 	sigaltstack.c sigkill.c signal2.c sigprocmask.c str_tester.c \
@@ -668,6 +669,8 @@ FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
 FLAG_W_NO_FORMAT_ZERO_LENGTH = @FLAG_W_NO_FORMAT_ZERO_LENGTH@
+FLAG_W_NO_NONNULL = @FLAG_W_NO_NONNULL@
+FLAG_W_NO_OVERFLOW = @FLAG_W_NO_OVERFLOW@
 FLAG_W_NO_UNINITIALIZED = @FLAG_W_NO_UNINITIALIZED@
 GDB = @GDB@
 GENERATED_SUPP = @GENERATED_SUPP@
@@ -697,12 +700,7 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
-QTCORE_CFLAGS = @QTCORE_CFLAGS@
-QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -855,7 +853,7 @@ AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 			 	$(AM_CFLAGS_BASE) -marm
 
-AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
+AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -marm -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
 AM_CFLAGS_PPC32_AIX5 = @FLAG_MAIX32@ -mcpu=powerpc $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC32_AIX5 = $(AM_CPPFLAGS_PPC32_AIX5) \
@@ -884,6 +882,11 @@ AM_CFLAGS_X86_L4RE = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 AM_CCASFLAGS_X86_L4RE = $(L4_CPPFLAGS) @FLAG_M32@ -g
 AM_CXXFLAGS_X86_L4RE = $(L4_CXXFLAGS) @FLAG_M32@
 #AM_CPPFLAGS_X86_L4RE   = $(L4_CPPFLAGS) $(AM_CPPFLAGS_X86_L4RE)
+AM_FLAG_M3264_S390X_LINUX = @FLAG_M64@
+AM_CFLAGS_S390X_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
+AM_CCASFLAGS_S390X_LINUX = $(AM_CPPFLAGS_S390X_LINUX) -mzarch -march=z900 \
+                            @FLAG_M64@ -g
+
 
 # Flags for the primary target.  These must be used to build the
 # regtests and performance tests.  In fact, these must be used to
@@ -912,6 +915,7 @@ PRELOAD_LDFLAGS_PPC32_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX32@
 PRELOAD_LDFLAGS_PPC64_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX64@
 PRELOAD_LDFLAGS_X86_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch i386
 PRELOAD_LDFLAGS_AMD64_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch x86_64
+PRELOAD_LDFLAGS_S390X_LINUX = $(PRELOAD_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 PRELOAD_LDFLAGS_X86_L4RE = $(PRELOAD_LDFLAGS_COMMON_L4RE) @FLAG_M32@
 AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/include \
 		-I$(top_srcdir)/coregrind -I$(top_builddir)/include \
@@ -923,16 +927,17 @@ AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/include \
 # Nb: Tools need to augment these flags with an arch-selection option, such
 # as $(AM_FLAG_M3264_PRI).
 AM_CFLAGS = -Winline -Wall -Wshadow -g $(AM_FLAG_M3264_PRI) \
-	$(am__append_7)
+	$(am__append_9)
 AM_CXXFLAGS = -Winline -Wall -Wshadow -g $(AM_FLAG_M3264_PRI) \
-	$(am__append_8)
+	$(am__append_10)
 # Include AM_CPPFLAGS in AM_CCASFLAGS to allow for older versions of
 # automake;  see comments in Makefile.all.am for more detail.
 AM_CCASFLAGS = $(AM_CPPFLAGS)
 @VGCONF_OS_IS_DARWIN_TRUE@noinst_DSYMS = $(check_PROGRAMS)
 SUBDIRS = . $(am__append_1) $(am__append_2) $(am__append_3) \
-	$(am__append_4) $(am__append_5) $(am__append_6)
-DIST_SUBDIRS = x86 amd64 linux darwin x86-linux amd64-linux .
+	$(am__append_4) $(am__append_5) $(am__append_6) \
+	$(am__append_7) $(am__append_8)
+DIST_SUBDIRS = x86 amd64 ppc32 ppc64 linux darwin x86-linux amd64-linux .
 dist_noinst_SCRIPTS = \
 	filter_addressable \
 	filter_allocs \
@@ -949,8 +954,11 @@ EXTRA_DIST = \
 	badaddrvalue.stdout.exp badaddrvalue.vgtest \
 	badfree-2trace.stderr.exp badfree-2trace.vgtest \
 	badfree.stderr.exp badfree.vgtest \
+	badfree3.stderr.exp badfree3.vgtest \
 	badjump.stderr.exp badjump.vgtest \
 	badjump2.stderr.exp badjump2.vgtest \
+	badjump.stderr.exp-s390x \
+	badjump2.stderr.exp-s390x \
 	badloop.stderr.exp badloop.vgtest \
 	badpoll.stderr.exp badpoll.vgtest \
 	badrw.stderr.exp badrw.vgtest \
@@ -988,8 +996,6 @@ EXTRA_DIST = \
 	leak-pool-4.vgtest leak-pool-4.stderr.exp \
 	leak-pool-5.vgtest leak-pool-5.stderr.exp \
 	leak-tree.vgtest leak-tree.stderr.exp \
-	linux-syslog-syscall linux-syslog-syscall.stderr.exp \
-	linux-syscalls-2007 linux-syscalls-2007.stderr.exp \
 	long_namespace_xml.vgtest long_namespace_xml.stdout.exp \
 	long_namespace_xml.stderr.exp \
 	long-supps.vgtest long-supps.stderr.exp long-supps.supp \
@@ -1009,6 +1015,7 @@ EXTRA_DIST = \
 	memcmptest.stderr.exp memcmptest.stderr.exp2 \
 	memcmptest.stdout.exp memcmptest.vgtest \
 	mempool.stderr.exp mempool.vgtest \
+	mempool2.stderr.exp mempool2.vgtest \
 	metadata.stderr.exp metadata.stdout.exp metadata.vgtest \
 	mismatches.stderr.exp mismatches.vgtest \
 	mmaptest.stderr.exp mmaptest.vgtest \
@@ -1029,11 +1036,14 @@ EXTRA_DIST = \
 	origin5-bz2.stderr.exp-glibc25-x86 \
 	origin5-bz2.stderr.exp-glibc25-amd64 \
 	origin5-bz2.stderr.exp-glibc27-ppc64 \
+	origin5-bz2.stderr.exp-glibc212-s390x \
 	origin6-fp.vgtest origin6-fp.stdout.exp \
 	origin6-fp.stderr.exp-glibc25-amd64 \
 	origin6-fp.stderr.exp-glibc27-ppc64 \
 	overlap.stderr.exp overlap.stdout.exp overlap.vgtest \
 	partiallydefinedeq.vgtest partiallydefinedeq.stderr.exp \
+	partiallydefinedeq.stderr.exp4 \
+	partiallydefinedeq.stderr.exp3 \
 	partiallydefinedeq.stderr.exp2 \
 	partiallydefinedeq.stdout.exp \
 	partial_load_ok.vgtest partial_load_ok.stderr.exp partial_load_ok.stderr.exp64 \
@@ -1059,6 +1069,7 @@ EXTRA_DIST = \
 	str_tester.stderr.exp str_tester.vgtest \
 	supp-dir.vgtest supp-dir.stderr.exp \
 	supp_unknown.stderr.exp supp_unknown.vgtest supp_unknown.supp \
+	supp_unknown.stderr.exp-s390x \
 	supp1.stderr.exp supp1.vgtest \
 	supp2.stderr.exp supp2.vgtest \
 	supp.supp \
@@ -1066,12 +1077,12 @@ EXTRA_DIST = \
 	trivialleak.stderr.exp trivialleak.vgtest \
 	unit_libcbase.stderr.exp unit_libcbase.vgtest \
 	unit_oset.stderr.exp unit_oset.stdout.exp unit_oset.vgtest \
-	varinfo1.vgtest varinfo1.stdout.exp varinfo1.stderr.exp \
-	varinfo2.vgtest varinfo2.stdout.exp varinfo2.stderr.exp \
-	varinfo3.vgtest varinfo3.stdout.exp varinfo3.stderr.exp \
-	varinfo4.vgtest varinfo4.stdout.exp varinfo4.stderr.exp \
-	varinfo5.vgtest varinfo5.stdout.exp varinfo5.stderr.exp \
-	varinfo6.vgtest varinfo6.stdout.exp varinfo6.stderr.exp \
+	varinfo1.vgtest varinfo1.stdout.exp varinfo1.stderr.exp varinfo1.stderr.exp-ppc64\
+	varinfo2.vgtest varinfo2.stdout.exp varinfo2.stderr.exp varinfo2.stderr.exp-ppc64\
+	varinfo3.vgtest varinfo3.stdout.exp varinfo3.stderr.exp varinfo3.stderr.exp-ppc64\
+	varinfo4.vgtest varinfo4.stdout.exp varinfo4.stderr.exp varinfo4.stderr.exp-ppc64\
+	varinfo5.vgtest varinfo5.stdout.exp varinfo5.stderr.exp varinfo5.stderr.exp-ppc64\
+	varinfo6.vgtest varinfo6.stdout.exp varinfo6.stderr.exp varinfo6.stderr.exp-ppc64\
 	vcpu_bz2.stdout.exp vcpu_bz2.stderr.exp vcpu_bz2.vgtest \
 	vcpu_fbench.stdout.exp vcpu_fbench.stderr.exp vcpu_fbench.vgtest \
 	vcpu_fnfns.stdout.exp vcpu_fnfns.stdout.exp-glibc28-amd64 \
@@ -1093,6 +1104,8 @@ EXTRA_DIST = \
 deep_templates_SOURCES = deep_templates.cpp
 deep_templates_CXXFLAGS = $(AM_CFLAGS) -O -gstabs
 error_counts_CFLAGS = $(AM_CFLAGS) @FLAG_W_NO_UNINITIALIZED@
+execve_CFLAGS = $(AM_CFLAGS) @FLAG_W_NO_NONNULL@
+execve2_CFLAGS = $(AM_CFLASG) @FLAG_W_NO_NONNULL@
 inits_CFLAGS = $(AM_CFLAGS) @FLAG_W_NO_UNINITIALIZED@
 long_namespace_xml_SOURCES = long_namespace_xml.cpp
 manuel1_CFLAGS = $(AM_CFLAGS) @FLAG_W_NO_UNINITIALIZED@
@@ -1110,8 +1123,9 @@ origin4_many_CFLAGS = $(AM_CFLAGS) -O
 origin5_bz2_CFLAGS = $(AM_CFLAGS) -O -Wno-inline
 origin6_fp_CFLAGS = $(AM_CFLAGS) -O
 
-# Don't allow GCC to inline memcpy(), because then we can't intercept it
-overlap_CFLAGS = $(AM_CFLAGS) -fno-builtin-memcpy
+# Don't allow GCC to inline memcpy() and strcpy(),
+# because then we can't intercept it
+overlap_CFLAGS = $(AM_CFLAGS) -fno-builtin-memcpy -fno-builtin-strcpy
 str_tester_CFLAGS = $(AM_CFLAGS) -Wno-shadow
 supp_unknown_SOURCES = badjump.c
 supp1_SOURCES = supp.c
@@ -1287,10 +1301,10 @@ errs1$(EXEEXT): $(errs1_OBJECTS) $(errs1_DEPENDENCIES)
 	$(LINK) $(errs1_OBJECTS) $(errs1_LDADD) $(LIBS)
 execve$(EXEEXT): $(execve_OBJECTS) $(execve_DEPENDENCIES) 
 	@rm -f execve$(EXEEXT)
-	$(LINK) $(execve_OBJECTS) $(execve_LDADD) $(LIBS)
+	$(execve_LINK) $(execve_OBJECTS) $(execve_LDADD) $(LIBS)
 execve2$(EXEEXT): $(execve2_OBJECTS) $(execve2_DEPENDENCIES) 
 	@rm -f execve2$(EXEEXT)
-	$(LINK) $(execve2_OBJECTS) $(execve2_LDADD) $(LIBS)
+	$(execve2_LINK) $(execve2_OBJECTS) $(execve2_LDADD) $(LIBS)
 exitprog$(EXEEXT): $(exitprog_OBJECTS) $(exitprog_DEPENDENCIES) 
 	@rm -f exitprog$(EXEEXT)
 	$(LINK) $(exitprog_OBJECTS) $(exitprog_LDADD) $(LIBS)
@@ -1324,12 +1338,6 @@ leak-pool$(EXEEXT): $(leak_pool_OBJECTS) $(leak_pool_DEPENDENCIES)
 leak-tree$(EXEEXT): $(leak_tree_OBJECTS) $(leak_tree_DEPENDENCIES) 
 	@rm -f leak-tree$(EXEEXT)
 	$(LINK) $(leak_tree_OBJECTS) $(leak_tree_LDADD) $(LIBS)
-linux-syscalls-2007$(EXEEXT): $(linux_syscalls_2007_OBJECTS) $(linux_syscalls_2007_DEPENDENCIES) 
-	@rm -f linux-syscalls-2007$(EXEEXT)
-	$(LINK) $(linux_syscalls_2007_OBJECTS) $(linux_syscalls_2007_LDADD) $(LIBS)
-linux-syslog-syscall$(EXEEXT): $(linux_syslog_syscall_OBJECTS) $(linux_syslog_syscall_DEPENDENCIES) 
-	@rm -f linux-syslog-syscall$(EXEEXT)
-	$(LINK) $(linux_syslog_syscall_OBJECTS) $(linux_syslog_syscall_LDADD) $(LIBS)
 long-supps$(EXEEXT): $(long_supps_OBJECTS) $(long_supps_DEPENDENCIES) 
 	@rm -f long-supps$(EXEEXT)
 	$(LINK) $(long_supps_OBJECTS) $(long_supps_LDADD) $(LIBS)
@@ -1378,6 +1386,9 @@ memcmptest$(EXEEXT): $(memcmptest_OBJECTS) $(memcmptest_DEPENDENCIES)
 mempool$(EXEEXT): $(mempool_OBJECTS) $(mempool_DEPENDENCIES) 
 	@rm -f mempool$(EXEEXT)
 	$(LINK) $(mempool_OBJECTS) $(mempool_LDADD) $(LIBS)
+mempool2$(EXEEXT): $(mempool2_OBJECTS) $(mempool2_DEPENDENCIES) 
+	@rm -f mempool2$(EXEEXT)
+	$(LINK) $(mempool2_OBJECTS) $(mempool2_LDADD) $(LIBS)
 metadata$(EXEEXT): $(metadata_OBJECTS) $(metadata_DEPENDENCIES) 
 	@rm -f metadata$(EXEEXT)
 	$(LINK) $(metadata_OBJECTS) $(metadata_LDADD) $(LIBS)
@@ -1589,8 +1600,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/erringfds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/error_counts-error_counts.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/errs1.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/execve.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/execve2.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/execve-execve.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/execve2-execve2.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/exitprog.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/file_locking.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fprw.Po@am__quote@
@@ -1602,8 +1613,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/leak-cycle.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/leak-pool.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/leak-tree.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linux-syscalls-2007.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linux-syslog-syscall.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/long-supps.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/long_namespace_xml.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mallinfo.Po@am__quote@
@@ -1620,6 +1629,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/memalign_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/memcmptest-memcmptest.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mempool.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mempool2.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/metadata.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mismatches.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mmaptest.Po@am__quote@
@@ -1721,6 +1731,34 @@ error_counts-error_counts.obj: error_counts.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='error_counts.c' object='error_counts-error_counts.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(error_counts_CFLAGS) $(CFLAGS) -c -o error_counts-error_counts.obj `if test -f 'error_counts.c'; then $(CYGPATH_W) 'error_counts.c'; else $(CYGPATH_W) '$(srcdir)/error_counts.c'; fi`
+
+execve-execve.o: execve.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(execve_CFLAGS) $(CFLAGS) -MT execve-execve.o -MD -MP -MF $(DEPDIR)/execve-execve.Tpo -c -o execve-execve.o `test -f 'execve.c' || echo '$(srcdir)/'`execve.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/execve-execve.Tpo $(DEPDIR)/execve-execve.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='execve.c' object='execve-execve.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(execve_CFLAGS) $(CFLAGS) -c -o execve-execve.o `test -f 'execve.c' || echo '$(srcdir)/'`execve.c
+
+execve-execve.obj: execve.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(execve_CFLAGS) $(CFLAGS) -MT execve-execve.obj -MD -MP -MF $(DEPDIR)/execve-execve.Tpo -c -o execve-execve.obj `if test -f 'execve.c'; then $(CYGPATH_W) 'execve.c'; else $(CYGPATH_W) '$(srcdir)/execve.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/execve-execve.Tpo $(DEPDIR)/execve-execve.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='execve.c' object='execve-execve.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(execve_CFLAGS) $(CFLAGS) -c -o execve-execve.obj `if test -f 'execve.c'; then $(CYGPATH_W) 'execve.c'; else $(CYGPATH_W) '$(srcdir)/execve.c'; fi`
+
+execve2-execve2.o: execve2.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(execve2_CFLAGS) $(CFLAGS) -MT execve2-execve2.o -MD -MP -MF $(DEPDIR)/execve2-execve2.Tpo -c -o execve2-execve2.o `test -f 'execve2.c' || echo '$(srcdir)/'`execve2.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/execve2-execve2.Tpo $(DEPDIR)/execve2-execve2.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='execve2.c' object='execve2-execve2.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(execve2_CFLAGS) $(CFLAGS) -c -o execve2-execve2.o `test -f 'execve2.c' || echo '$(srcdir)/'`execve2.c
+
+execve2-execve2.obj: execve2.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(execve2_CFLAGS) $(CFLAGS) -MT execve2-execve2.obj -MD -MP -MF $(DEPDIR)/execve2-execve2.Tpo -c -o execve2-execve2.obj `if test -f 'execve2.c'; then $(CYGPATH_W) 'execve2.c'; else $(CYGPATH_W) '$(srcdir)/execve2.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/execve2-execve2.Tpo $(DEPDIR)/execve2-execve2.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='execve2.c' object='execve2-execve2.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(execve2_CFLAGS) $(CFLAGS) -c -o execve2-execve2.obj `if test -f 'execve2.c'; then $(CYGPATH_W) 'execve2.c'; else $(CYGPATH_W) '$(srcdir)/execve2.c'; fi`
 
 inits-inits.o: inits.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(inits_CFLAGS) $(CFLAGS) -MT inits-inits.o -MD -MP -MF $(DEPDIR)/inits-inits.Tpo -c -o inits-inits.o `test -f 'inits.c' || echo '$(srcdir)/'`inits.c

@@ -15,8 +15,9 @@ TOOLS =		memcheck \
 		helgrind \
 		drd
 
-EXP_TOOLS = 	exp-ptrcheck \
-		exp-bbv
+EXP_TOOLS = 	exp-sgcheck \
+		exp-bbv \
+		exp-dhat
 endif
 
 # DDD: once all tools work on Darwin, TEST_TOOLS and TEST_EXP_TOOLS can be
@@ -27,6 +28,7 @@ if !VGCONF_OS_IS_DARWIN
 else
   TEST_EXP_TOOLS = exp-bbv
 endif
+
 
 # Put docs last because building the HTML is slow and we want to get
 # everything else working before we try it.
@@ -48,6 +50,7 @@ SUBDIRS = \
 	$(EXP_TOOLS) \
 	tests \
 	perf \
+	gdbserver_tests \
 	auxprogs \
 	mpi \
 	docs
@@ -62,7 +65,7 @@ SUPP_FILES = \
 	glibc-2.34567-NPTL-helgrind.supp \
 	glibc-2.2-LinuxThreads-helgrind.supp \
 	glibc-2.X-drd.supp \
-	exp-ptrcheck.supp \
+	exp-sgcheck.supp \
 	darwin9.supp darwin9-drd.supp \
 	darwin10.supp darwin10-drd.supp
 
@@ -90,11 +93,15 @@ default.supp: $(DEFAULT_SUPP_FILES) $(GENERATED_SUPP_FILES)
 
 ## Preprend @PERL@ because tests/vg_regtest isn't executable
 regtest: check
-	@PERL@ tests/vg_regtest $(TEST_TOOLS) $(TEST_EXP_TOOLS)
+	gdbserver_tests/make_local_links $(GDB)
+	@PERL@ tests/vg_regtest gdbserver_tests $(TEST_TOOLS) $(TEST_EXP_TOOLS)
 nonexp-regtest: check
 	@PERL@ tests/vg_regtest $(TEST_TOOLS)
 exp-regtest: check
-	@PERL@ tests/vg_regtest $(TEST_EXP_TOOLS)
+	@PERL@ tests/vg_regtest gdbserver_tests $(TEST_EXP_TOOLS)
+# Nb: gdbserver_tests are put in exp-regtest rather than nonexp-regtest
+# because they are tested with various valgrind tools, so might be using
+# an experimental tool.
 
 ## Preprend @PERL@ because tests/vg_perf isn't executable
 perf: check
@@ -110,6 +117,7 @@ EXTRA_DIST = \
 	README_DEVELOPERS \
 	README_PACKAGERS \
 	README_MISSING_SYSCALL_OR_IOCTL \
+	README.s390 \
 	valgrind.pc.in \
 	valgrind.spec.in \
 	valgrind.spec

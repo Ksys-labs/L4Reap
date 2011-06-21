@@ -17,7 +17,7 @@ public:
 IMPLEMENTATION [arm && kirkwood]:
 
 void __attribute__ ((noreturn))
-pc_reset(void)
+platform_reset(void)
 {
   // enable software reset
   Io::write(1 << 2, Kirkwood_reset::Mask_reg);

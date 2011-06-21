@@ -3,7 +3,8 @@ ENTRY(_start)
 
 PHDRS 
 {
-  ro PT_LOAD;
+  phdr PT_PHDR PHDRS;
+  ro PT_LOAD FILEHDR PHDRS;
   rw PT_LOAD;
   L4_DEFINE_L4PHDRS
 }
@@ -11,6 +12,8 @@ PHDRS
 SECTIONS
 {
   L4_DEFINE_X86_KERNEL_ENTRY_SYMS
+  PROVIDE (__executable_start = 0x010000);
+  . = __executable_start + SIZEOF_HEADERS;
 
   /* No program code/data before _stext/_prog_img_start! */
 
@@ -72,7 +75,10 @@ SECTIONS
 
   PROVIDE (_etext = .);
   PROVIDE (etext = .);
-  .rol4re_elf_aux : { KEEP (*(.rol4re_elf_aux)) } : ro : l4re_aux
+  .rol4re_elf_aux : {
+    KEEP (*(.rol4re_elf_aux))
+  } : ro : l4re_aux
+
   .rodata         : { *(.rodata .rodata.* .gnu.linkonce.r.*) } : ro
   .rodata1        : { *(.rodata1) }
 

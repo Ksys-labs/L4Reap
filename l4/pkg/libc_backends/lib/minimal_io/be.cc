@@ -27,6 +27,11 @@ extern "C" ssize_t read(int, void *, size_t) L4_NOTHROW
   return -1;
 }
 
+extern "C" __off_t lseek(int, __off_t, int) L4_NOTHROW
+{
+  return -1;
+}
+
 extern "C" __off64_t lseek64(int, __off64_t, int) L4_NOTHROW
 {
   return -1;

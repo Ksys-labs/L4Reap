@@ -29,10 +29,17 @@ private:
 
   cxx::Notifier *_ntfy;
 
+protected:
+  void flags(unsigned setmask, unsigned clearmask)
+  {
+    _flags = (_flags & ~clearmask) | setmask;
+  }
+
 public:
   enum Flags
   {
     F_ignore = 0x01,
+    F_default_background = 0x02,
   };
 
   struct Property_handler
@@ -56,6 +63,8 @@ public:
     else
       _flags &= ~F_ignore;
   }
+
+  unsigned flags() const { return _flags; }
 
   char const *label() const { return _label; }
   Mag_gfx::Rgb32::Color color() const { return _color; }

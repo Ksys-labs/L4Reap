@@ -74,7 +74,7 @@ L4_buf_iter::next()
     return false;
 
   if (c.b.type() == L4_msg_item::Map && c.b.is_small_obj())
-    c.d = L4_fpage::obj(c.b.raw(), 0, c.b.j() & 0x0f).raw();
+    c.d = c.b.get_small_buf().raw();
   else
     {
       ++_buf;

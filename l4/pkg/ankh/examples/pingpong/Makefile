@@ -3,8 +3,7 @@ L4DIR           ?= $(PKGDIR)/../..
 
 TARGET           = morping morpong
 SYSTEMS          = x86-l4f arm-l4f
-REQUIRES_LIBS    = l4util l4re-util shmc_ringbuf libstdc++ libboost-lite
-L4_MULTITHREADED = y
+REQUIRES_LIBS    = ankh libboost-lite
 SRC_CC_morping   = ping.cc
 SRC_CC_morpong   = ping.cc
 

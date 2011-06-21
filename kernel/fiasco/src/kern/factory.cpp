@@ -99,11 +99,10 @@ Factory::map_obj(Kobject_iface *o, Mword cap, Space *c_space,
   if (!map(o, o_space, c_space, cap, rl.list()))
     {
       delete o;
-      // FIXME: reap stuff if needed
       return commit_result(-L4_err::ENomem);
     }
 
-  // FIXME: reap stuff if needed
+  // return a tag with one typed item for the returned capability
   return commit_result(0, 0, 1);
 }
 

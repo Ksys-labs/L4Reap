@@ -90,7 +90,7 @@ PUBLIC
 Kobject_iface *
 Ipc_gate_obj::downgrade(unsigned long attr)
 {
-  if (attr & L4_fpage::C_obj_right_1)
+  if (attr & L4_msg_item::C_obj_right_1)
     return static_cast<Ipc_gate*>(this);
   else
     return static_cast<Ipc_gate_ctl*>(this);
@@ -342,7 +342,7 @@ Ipc_gate::invoke(L4_obj_ref /*self*/, Mword rights, Syscall_frame *f, Utcb *utcb
 	}
     }
 
-  bool ipc = _thread->check_sys_ipc(f->ref().flags(), &partner, &sender, &have_rcv);
+  bool ipc = _thread->check_sys_ipc(f->ref().op(), &partner, &sender, &have_rcv);
 
   LOG_TRACE("IPC Gate invoke", "gate", current(), __fmt_ipc_gate_invoke,
       Log_ipc_gate_invoke *l = tbe->payload<Log_ipc_gate_invoke>();

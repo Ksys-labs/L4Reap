@@ -43,7 +43,10 @@
    2)[VG_TT_FAST_BITS-1 : 0]' on those targets.
 
    On ARM we do like ppc32/ppc64, although that will have to be
-   revisited when we come to implement Thumb. */
+   revisited when we come to implement Thumb.
+
+   On s390x the rightmost bit of an instruction address is zero.
+   For best table utilization shift the address to the right by 1 bit. */
 
 #define VG_TT_FAST_BITS 15
 #define VG_TT_FAST_SIZE (1 << VG_TT_FAST_BITS)
@@ -51,10 +54,16 @@
 
 /* This macro isn't usable in asm land; nevertheless this seems
    like a good place to put it. */
+
 #if defined(VGA_x86) || defined(VGA_amd64)
 #  define VG_TT_FAST_HASH(_addr)  ((((UWord)(_addr))     ) & VG_TT_FAST_MASK)
-#elif defined(VGA_ppc32) || defined(VGA_ppc64) || defined(VGA_arm)
+
+#elif defined(VGA_s390x) || defined(VGA_arm)
+#  define VG_TT_FAST_HASH(_addr)  ((((UWord)(_addr)) >> 1) & VG_TT_FAST_MASK)
+
+#elif defined(VGA_ppc32) || defined(VGA_ppc64)
 #  define VG_TT_FAST_HASH(_addr)  ((((UWord)(_addr)) >> 2) & VG_TT_FAST_MASK)
+
 #else
 #  error "VG_TT_FAST_HASH: unknown platform"
 #endif

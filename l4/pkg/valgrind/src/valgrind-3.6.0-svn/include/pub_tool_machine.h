@@ -61,7 +61,7 @@
 #elif defined(VGP_arm_linux)
 #  define VG_MIN_INSTR_SZB          2
 #  define VG_MAX_INSTR_SZB          4 
-#  define VG_CLREQ_SZB             28
+#  define VG_CLREQ_SZB             20
 #  define VG_STACK_REDZONE_SZB      0
 
 #elif defined(VGP_ppc32_aix5)
@@ -80,6 +80,12 @@
 #  define VG_MAX_INSTR_SZB          4 
 #  define VG_CLREQ_SZB             20
 #  define VG_STACK_REDZONE_SZB    288 // is this right?
+
+#elif defined(VGP_s390x_linux)
+#  define VG_MIN_INSTR_SZB          2
+#  define VG_MAX_INSTR_SZB          6
+#  define VG_CLREQ_SZB             10
+#  define VG_STACK_REDZONE_SZB      0  // s390 has no redzone
 
 #elif defined(VGP_x86_darwin)
 #  define VG_MIN_INSTR_SZB          1  // min length of native instruction
@@ -153,7 +159,15 @@ extern Bool VG_(thread_stack_next)       ( /*MOD*/ThreadId* tid,
 extern Addr VG_(thread_get_stack_max) ( ThreadId tid );
 
 // Returns how many bytes have been allocated for the stack of the given thread
-extern Addr VG_(thread_get_stack_size) ( ThreadId tid );
+extern SizeT VG_(thread_get_stack_size) ( ThreadId tid );
+
+// Returns the bottommost address of the alternate signal stack.
+// See also the man page of sigaltstack().
+extern Addr VG_(thread_get_altstack_min) ( ThreadId tid );
+
+// Returns how many bytes have been allocated for the alternate signal stack.
+// See also the man page of sigaltstack().
+extern SizeT VG_(thread_get_altstack_size) ( ThreadId tid );
 
 // Given a pointer to a function as obtained by "& functionname" in C,
 // produce a pointer to the actual entry point for the function.  For

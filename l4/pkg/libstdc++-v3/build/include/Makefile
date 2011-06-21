@@ -1,6 +1,8 @@
 PKGDIR = 	../..
 L4DIR ?= 	$(PKGDIR)/../..
 
+$(error Tschüss)
+
 CONTRIB_HEADERS = y
 INCSRC_DIR      = $(PKGDIR_ABS)/contrib/libstdc++-v3/include
 TARGET	= $(shell (cd $(INCSRC_DIR) && find . -type f -not -name 'Make*' -print))
@@ -17,7 +19,7 @@ BASIC_FILE_H       := config/io/basic_file_stdio.h
 CSTDIO_H           := config/io/c_io_stdio.h
 CMATH_TCC          := include/c_std/cmath.tcc
 
-CTYPE_HEADERS := config/os/generic/*
+CTYPE_HEADERS := config/os/generic/ctype_base.h config/os/generic/ctype_inline.h config/os/generic/ctype_noninline.h
 # FIX BID:
 
 ARCH=x86
@@ -48,7 +50,7 @@ all:: $(LIBSUPC_HI)
 	$(call install_config_header, $(CLOCALE_H),       c++locale.h)
 	$(call install_config_header, $(ATOMIC_WORD_H),   atomic_word.h)
 	$(call install_config_header, $(CPU_DEFINES_H),   cpu_defines.h)
-	$(call install_config_header, $(CTYPE_HEADERS),   .)
+#	$(call install_config_header, $(CTYPE_HEADERS),   .)
 	$(call install_config_header, $(TIME_MEMBERS_H),  time_members.h)
 	$(call install_config_header, $(MESSAGES_MEMBERS_H),  messages_members.h)
 	$(call install_config_header, $(CXX_ABI_TWEAKS_$(ARCH)), cxxabi_tweaks.h)

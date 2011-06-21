@@ -180,6 +180,7 @@ Number of snapshots: 50
 #include "pub_tool_tooliface.h"
 #include "pub_tool_xarray.h"
 #include "pub_tool_clientstate.h"
+#include "pub_tool_gdbserver.h"
 
 #include "valgrind.h"           // For {MALLOC,FREE}LIKE_BLOCK
 
@@ -455,7 +456,7 @@ static Bool ms_process_cmd_line_option(Char* arg)
    else if VG_XACT_CLO(arg, "--time-unit=ms",   clo_time_unit, TimeMS) {}
    else if VG_XACT_CLO(arg, "--time-unit=B",    clo_time_unit, TimeB)  {}
 
-   else if VG_BINT_CLO(arg, "--detailed-freq",  clo_detailed_freq, 1, 10000) {}
+   else if VG_BINT_CLO(arg, "--detailed-freq",  clo_detailed_freq, 1, 1000000) {}
 
    else if VG_BINT_CLO(arg, "--max-snapshots",  clo_max_snapshots, 10, 1000) {}
 
@@ -1977,6 +1978,22 @@ static void die_mem_stack_signal(Addr a, SizeT len)
 //--- Client Requests                                      ---//
 //------------------------------------------------------------//
 
+static void print_monitor_help ( void )
+{
+   VG_(gdb_printf) ("\n");
+   VG_(gdb_printf) ("massif monitor commands:\n");
+   VG_(gdb_printf) ("  ms.snapshot [<filename>]\n");
+   VG_(gdb_printf) ("  ms.detailed_snapshot [<filename>]\n");
+   VG_(gdb_printf) ("       takes a snapshot (or a detailed snapshot)\n");
+   VG_(gdb_printf) ("       and saves it in <filename>\n");
+   VG_(gdb_printf) ("             default <filename> is massif.vgdb.out\n");
+   VG_(gdb_printf) ("\n");
+}
+
+
+/* Forward declaration.
+   return True if request recognised, False otherwise */
+static Bool handle_gdb_monitor_command (ThreadId tid, Char *req);
 static Bool ms_handle_client_request ( ThreadId tid, UWord* argv, UWord* ret )
 {
    switch (argv[0]) {
@@ -1988,12 +2005,30 @@ static Bool ms_handle_client_request ( ThreadId tid, UWord* argv, UWord* ret )
       *ret = 0;
       return True;
    }
+   case VG_USERREQ__RESIZEINPLACE_BLOCK: {
+      void* p        = (void*)argv[1];
+      SizeT newSizeB =       argv[3];
+
+      unrecord_block(p, /*maybe_snapshot*/True);
+      record_block(tid, p, newSizeB, /*slop_szB*/0,
+                   /*exclude_first_entry*/False, /*maybe_snapshot*/True);
+      return True;
+   }
    case VG_USERREQ__FREELIKE_BLOCK: {
       void* p = (void*)argv[1];
       unrecord_block(p, /*maybe_snapshot*/True);
       *ret = 0;
       return True;
    }
+   case VG_USERREQ__GDB_MONITOR_COMMAND: {
+     Bool handled = handle_gdb_monitor_command (tid, (Char*)argv[1]);
+     if (handled)
+       *ret = 1;
+     else
+       *ret = 0;
+     return handled;
+   }
+
    default:
       *ret = 0;
       return False;
@@ -2106,14 +2141,11 @@ Char FP_buf[BUF_LEN];
 })
 
 // Nb: uses a static buffer, each call trashes the last string returned.
-static Char* make_perc(ULong x, ULong y)
+static Char* make_perc(double x)
 {
    static Char mbuf[32];
 
-//   tl_assert(x <= y);    XXX; put back in later...
-
-   // XXX: I'm not confident that VG_(percentify) works as it should...
-   VG_(percentify)(x, y, 2, 6, mbuf);
+   VG_(percentify)((ULong)(x * 100), 10000, 2, 6, mbuf);
    // XXX: this is bogus if the denominator was zero -- resulting string is
    // something like "0 --%")
    if (' ' == mbuf[0]) mbuf[0] = '0';
@@ -2239,7 +2271,7 @@ static void pp_snapshot_SXPt(Int fd, SXPt* sxpt, Int depth, Char* depth_str,
       Char* s = ( 1 == sxpt->Insig.n_xpts ? "," : "s, all" );
       FP("%sn0: %lu in %d place%s below massif's threshold (%s)\n",
          depth_str, sxpt->szB, sxpt->Insig.n_xpts, s,
-         make_perc((ULong)clo_threshold, 100));
+         make_perc(clo_threshold));
       break;
     }
 
@@ -2281,18 +2313,12 @@ static void pp_snapshot(Int fd, Snapshot* snapshot, Int snapshot_n)
    }
 }
 
-static void write_snapshots_to_file(void)
+static void write_snapshots_to_file(Char* massif_out_file, 
+                                    Snapshot snapshots_array[], 
+                                    Int nr_elements)
 {
    Int i, fd;
    SysRes sres;
-
-   // Setup output filename.  Nb: it's important to do this now, ie. as late
-   // as possible.  If we do it at start-up and the program forks and the
-   // output file format string contains a %p (pid) specifier, both the
-   // parent and child will incorrectly write to the same file;  this
-   // happened in 3.3.0.
-   Char* massif_out_file =
-      VG_(expand_file_name)("--massif-out-file", clo_massif_out_file);
 
    sres = VG_(open)(massif_out_file, VKI_O_CREAT|VKI_O_TRUNC|VKI_O_WRONLY,
                                      VKI_S_IRUSR|VKI_S_IWUSR);
@@ -2301,11 +2327,9 @@ static void write_snapshots_to_file(void)
       // between multiple cachegrinded processes?), give up now.
       VG_(umsg)("error: can't open output file '%s'\n", massif_out_file );
       VG_(umsg)("       ... so profiling results will be missing.\n");
-      VG_(free)(massif_out_file);
       return;
    } else {
       fd = sr_Res(sres);
-      VG_(free)(massif_out_file);
    }
 
    // Print massif-specific options that were used.
@@ -2336,12 +2360,73 @@ static void write_snapshots_to_file(void)
 
    FP("time_unit: %s\n", TimeUnit_to_string(clo_time_unit));
 
-   for (i = 0; i < next_snapshot_i; i++) {
-      Snapshot* snapshot = & snapshots[i];
+   for (i = 0; i < nr_elements; i++) {
+      Snapshot* snapshot = & snapshots_array[i];
       pp_snapshot(fd, snapshot, i);     // Detailed snapshot!
    }
+   VG_(close) (fd);
 }
 
+static void write_snapshots_array_to_file(void)
+{
+   // Setup output filename.  Nb: it's important to do this now, ie. as late
+   // as possible.  If we do it at start-up and the program forks and the
+   // output file format string contains a %p (pid) specifier, both the
+   // parent and child will incorrectly write to the same file;  this
+   // happened in 3.3.0.
+   Char* massif_out_file =
+      VG_(expand_file_name)("--massif-out-file", clo_massif_out_file);
+   write_snapshots_to_file (massif_out_file, snapshots, next_snapshot_i);
+   VG_(free)(massif_out_file);
+}
+
+static void handle_snapshot_monitor_command (Char *filename, Bool detailed)
+{
+   Snapshot snapshot;
+
+   clear_snapshot(&snapshot, /* do_sanity_check */ False);
+   take_snapshot(&snapshot, Normal, get_time(), detailed);
+   write_snapshots_to_file ((filename == NULL) ? (Char*) "massif.vgdb.out" : filename,
+                            &snapshot,
+                            1);
+   delete_snapshot(&snapshot);
+}
+
+static Bool handle_gdb_monitor_command (ThreadId tid, Char *req)
+{
+   Char* wcmd;
+   Char s[VG_(strlen(req))]; /* copy for strtok_r */
+   Char *ssaveptr;
+
+   VG_(strcpy) (s, req);
+
+   wcmd = VG_(strtok_r) (s, " ", &ssaveptr);
+   switch (VG_(keyword_id) ("help ms.snapshot ms.detailed_snapshot", 
+                            wcmd, kwd_report_duplicated_matches)) {
+   case -2: /* multiple matches */
+      return True;
+   case -1: /* not found */
+      return False;
+   case  0: /* help */
+      print_monitor_help();
+      return True;
+   case  1: { /* ms.snapshot */
+      Char* filename;
+      filename = VG_(strtok_r) (NULL, " ", &ssaveptr);
+      handle_snapshot_monitor_command (filename, False /* detailed */);
+      return True;
+   }
+   case  2: { /* ms.detailed_snapshot */
+      Char* filename;
+      filename = VG_(strtok_r) (NULL, " ", &ssaveptr);
+      handle_snapshot_monitor_command (filename, True /* detailed */);
+      return True;
+   }
+   default: 
+      tl_assert(0);
+      return False;
+   }
+}
 
 //------------------------------------------------------------//
 //--- Finalisation                                         ---//
@@ -2350,7 +2435,7 @@ static void write_snapshots_to_file(void)
 static void ms_fini(Int exit_status)
 {
    // Output.
-   write_snapshots_to_file();
+   write_snapshots_array_to_file();
 
    // Stats
    tl_assert(n_xpts > 0);  // always have alloc_xpt
@@ -2490,6 +2575,8 @@ static void ms_pre_clo_init(void)
    VG_(details_copyright_author)(
       "Copyright (C) 2003-2010, and GNU GPL'd, by Nicholas Nethercote");
    VG_(details_bug_reports_to)  (VG_BUGS_TO);
+
+   VG_(details_avg_translation_sizeB) ( 330 );
 
    // Basic functions.
    VG_(basic_tool_funcs)          (ms_post_clo_init,

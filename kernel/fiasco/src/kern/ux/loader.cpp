@@ -114,7 +114,7 @@ Loader::load_module (const char * const path,
 
   if ((fp = open_module (path)) == NULL)
     return errors[0];
-  
+
   // Load ELF Header
   if (fread (&eh, sizeof (eh), 1, fp) != 1)
     {
@@ -122,11 +122,10 @@ Loader::load_module (const char * const path,
       return errors[1];
     }
 
-  // Check if valid ELF magic, 32bit, little endian, SysV
+  // Check if valid ELF magic, 32bit, little endian
   if (memcmp(eh.e_ident, ELFMAG, 4) != 0 ||
       eh.e_ident[EI_CLASS] != ELFCLASS32  ||
-      eh.e_ident[EI_DATA]  != ELFDATA2LSB ||
-      eh.e_ident[EI_OSABI] != ELFOSABI_SYSV)
+      eh.e_ident[EI_DATA]  != ELFDATA2LSB)
     {
       fclose (fp);
       return errors[2];
@@ -206,7 +205,7 @@ Loader::copy_module (const char * const path,
 {
   FILE *fp;
   struct stat s;
-  
+
   if ((fp = open_module (path)) == NULL)
     return errors[0];
 

@@ -4,7 +4,7 @@ IMPLEMENTATION [arm && imx21]:
 #include "kmem.h"
 
 void __attribute__ ((noreturn))
-pc_reset(void)
+platform_reset(void)
 {
   enum {
     WCR  = Kmem::Watchdog_map_base + 0,
@@ -31,7 +31,7 @@ IMPLEMENTATION [arm && (imx35 || imx51)]:
 #include "kmem.h"
 
 void __attribute__ ((noreturn))
-pc_reset(void)
+platform_reset(void)
 {
   enum {
     WCR  = Kmem::Watchdog_map_base + 0,

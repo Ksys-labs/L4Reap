@@ -400,7 +400,7 @@ err_t ankhif_init(struct netif *netif)
 static ankh_config_info cfg = { 2048, L4_INVALID_CAP,
                                 L4_INVALID_CAP, "" };
 // default interface
-static struct netif ankh_netif;
+struct netif ankh_netif;
 static ip_addr_t ipaddr, netmask, gw;
 
 static int try_l4re_option(int argc, char **argv, unsigned idx)

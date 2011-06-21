@@ -46,3 +46,5 @@ L4_INLINE void __hexdump(unsigned char *buf, unsigned len)
  * accordingly, so that it does not contain these args afterwards.
  */
 int l4_lwip_init(int *argc, char **argv);
+
+extern struct netif ankh_netif;

@@ -81,6 +81,13 @@ typedef
          APSR.Q is currently one. */
       UInt guest_QFLAG32;
 
+      /* 32-bit values to represent APSR.GE0 .. GE3.  Same
+         zero-vs-nonzero scheme as for QFLAG32. */
+      UInt guest_GEFLAG0;
+      UInt guest_GEFLAG1;
+      UInt guest_GEFLAG2;
+      UInt guest_GEFLAG3;
+
       /* Various pseudo-regs mandated by Vex or Valgrind. */
       /* Emulation warnings */
       UInt guest_EMWARN;
@@ -101,11 +108,11 @@ typedef
          program counter at the last syscall insn (int 0x80/81/82,
          sysenter, syscall, svc).  Used when backing up to restart a
          syscall that has been interrupted by a signal. */
-      /* 96 */
+      /* 116 */
       UInt guest_IP_AT_SYSCALL;
 
       /* VFP state.  D0 .. D15 must be 8-aligned. */
-      /* 104 -- I guess there's 4 bytes of padding just prior to this? */
+      /* 120 -- I guess there's 4 bytes of padding just prior to this? */
       ULong guest_D0;
       ULong guest_D1;
       ULong guest_D2;

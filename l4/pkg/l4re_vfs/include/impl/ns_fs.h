@@ -48,6 +48,8 @@ public:
 
   ssize_t readv(const struct iovec*, int) throw() { return -EISDIR; }
   ssize_t writev(const struct iovec*, int) throw() { return -EISDIR; }
+  ssize_t preadv(const struct iovec*, int, off64_t) throw() { return -EISDIR; }
+  ssize_t pwritev(const struct iovec*, int, off64_t) throw() { return -EISDIR; }
   int fstat64(struct stat64 *) const throw();
   int faccessat(const char *path, int mode, int flags) throw();
   int get_entry(const char *path, int flags, mode_t mode,
@@ -73,6 +75,8 @@ public:
 
   ssize_t readv(const struct iovec*, int) throw() { return -EISDIR; }
   ssize_t writev(const struct iovec*, int) throw() { return -EISDIR; }
+  ssize_t preadv(const struct iovec*, int, off64_t) throw() { return -EISDIR; }
+  ssize_t pwritev(const struct iovec*, int, off64_t) throw() { return -EISDIR; }
   int fstat64(struct stat64 *) const throw();
   int faccessat(const char *path, int mode, int flags) throw();
   int get_entry(const char *path, int flags, mode_t mode,

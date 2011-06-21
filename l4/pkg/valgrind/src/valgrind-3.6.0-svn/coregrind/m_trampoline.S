@@ -112,6 +112,27 @@ VG_(x86_linux_REDIR_FOR_index):
         ret
 .size VG_(x86_linux_REDIR_FOR_index), .-VG_(x86_linux_REDIR_FOR_index)
 
+/* There's no particular reason that this needs to be handwritten
+   assembly, but since that's what this file contains, here's a
+   simple strlen implementation (written in C and compiled by gcc.)
+*/
+.global VG_(x86_linux_REDIR_FOR_strlen)
+.type   VG_(x86_linux_REDIR_FOR_strlen), @function
+VG_(x86_linux_REDIR_FOR_strlen):
+        pushl   %ebp
+        movl    %esp, %ebp
+        movl    8(%ebp), %edx
+        movl    %edx, %eax
+        jmp     2f
+1:      incl    %eax
+2:      cmpb    $0, (%eax)
+        jne     1b
+        subl    %edx, %eax
+        popl    %ebp
+        ret
+.size VG_(x86_linux_REDIR_FOR_strlen), .-VG_(x86_linux_REDIR_FOR_strlen)
+
+
 .global VG_(trampoline_stuff_end)
 VG_(trampoline_stuff_end):
 
@@ -1301,10 +1322,44 @@ VG_(trampoline_stuff_end):
 #	undef UD2_1024
 #	undef UD2_PAGE
 
+/*---------------- s390x-linux ----------------*/
+#else
+#if defined(VGP_s390x_linux)
+
+        /* a leading page of unexecutable code */
+	.fill 2048, 2, 0x0000
+
+.global VG_(trampoline_stuff_start)
+VG_(trampoline_stuff_start):
+
+.global VG_(s390x_linux_SUBST_FOR_sigreturn)
+VG_(s390x_linux_SUBST_FOR_sigreturn):
+        svc __NR_sigreturn
+	.short 0
+
+.global VG_(s390x_linux_SUBST_FOR_rt_sigreturn)
+VG_(s390x_linux_SUBST_FOR_rt_sigreturn):
+        /* Old gcc unwinding code checks for a sig(_rt)_return svc and then
+           for ra = cfa to decide if it is a sig_rt_frame or not. Since we
+           set ra to this trampoline, but the cfa is still in the stack,
+           the unwinder thinks, that this is a non-rt frame  and causes a
+           crash in the gcc unwinder - which is used by the thread library
+           and others. Therefore we add a lr 1,1 nop, to let the gcc
+           unwinder bail out gracefully. This might also affect unwinding
+           across the signal frame - tough luck. fixs390 */
+        lr 1,1
+        svc __NR_rt_sigreturn
+	.short 0
+
+.globl VG_(trampoline_stuff_end)
+VG_(trampoline_stuff_end):
+	.fill 2048, 2, 0x0000
+
 /*---------------- unknown ----------------*/
 #else
 #  error Unknown platform
 
+#endif
 #endif
 #endif
 #endif

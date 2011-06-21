@@ -3,7 +3,6 @@ L4DIR           ?= $(PKGDIR)/../..
 
 TARGET           = dash
 REQUIRES_LIBS    = libc_be_sig libc_support_misc libc_be_file_stdin
-L4_MULTITHREADED = y
 
 PRIVATE_INCDIR   = $(PKGDIR)/contrib/src $(SRC_DIR) $(L4DIR)
 DEFINES          = -DBSD=1 -DSHELL -DHAVE_CONFIG_H

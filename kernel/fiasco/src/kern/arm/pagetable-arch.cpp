@@ -525,14 +525,15 @@ IMPLEMENTATION [arm]:
 #include "mem.h"
 
 IMPLEMENT
-void * Page_table::operator new( size_t s )
+void *Page_table::operator new(size_t s)
 {
+  (void)s;
   assert(s == 16*1024);
   return alloc()->alloc(14); // 2^14 = 16K
 }
 
 IMPLEMENT
-void Page_table::operator delete( void *b )
+void Page_table::operator delete(void *b)
 {
   alloc()->free(14, b);
 }

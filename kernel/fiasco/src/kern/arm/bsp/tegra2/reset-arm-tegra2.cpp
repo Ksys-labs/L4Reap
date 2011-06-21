@@ -16,7 +16,7 @@ public:
 IMPLEMENTATION [arm && tegra2]:
 
 void __attribute__ ((noreturn))
-pc_reset(void)
+platform_reset(void)
 {
   Io::write(Io::read<Mword>(Tegra2_reset::RESET) | 4, Tegra2_reset::RESET);
   for (;;)

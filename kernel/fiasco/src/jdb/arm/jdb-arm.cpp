@@ -67,7 +67,7 @@ Jdb::handle_debug_traps(unsigned cpu)
   if (ef->error_code == 0x00e00000)
     snprintf(error_buffer.cpu(cpu), sizeof(error_buffer.cpu(0)), "%s",
              (char const *)ef->r[0]);
-  else if (ef->error_code == 0x00f00000)
+  else if (ef->debug_ipi())
     snprintf(error_buffer.cpu(cpu), sizeof(error_buffer.cpu(0)),
              "IPI ENTRY");
 
@@ -82,6 +82,12 @@ Jdb::handle_user_request(unsigned cpu)
   const char *str = (char const *)ef->r[0];
   Space * task = get_task(cpu);
   char tmp;
+
+  if (ef->debug_ipi())
+    return cpu != 0;
+
+  if (ef->error_code == 0x00e00001)
+    return execute_command_ni(task, str);
 
   if (!peek(str, task, tmp) || tmp != '*')
     return false;
@@ -270,14 +276,40 @@ Jdb::write_tsc(Signed64 tsc, char *buf, int maxlen, bool sign)
 }
 
 //----------------------------------------------------------------------------
+IMPLEMENTATION [arm && !mp]:
+
+PROTECTED static inline
+template< typename T >
+void
+Jdb::set_monitored_address(T *dest, T val)
+{ *dest = val; }
+
+//----------------------------------------------------------------------------
 IMPLEMENTATION [arm && mp]:
 
 #include <cstdio>
 
 static
 void
-Jdb::send_nmi(unsigned /*cpu*/)
+Jdb::send_nmi(unsigned cpu)
 {
-  printf("NMI, what's that?\n");
+  printf("NMI to %d, what's that?\n", cpu);
 }
 
+PROTECTED static inline
+template< typename T >
+void
+Jdb::set_monitored_address(T *dest, T val)
+{
+  *dest = val;
+  Mem::dsb();
+  asm volatile("sev");
+}
+
+PROTECTED static inline
+template< typename T >
+T Jdb::monitor_address(unsigned, T volatile *addr)
+{
+  asm volatile("wfe");
+  return *addr;
+}

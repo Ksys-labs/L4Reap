@@ -5,7 +5,6 @@ TARGET           = dhcp_clnt
 SYSTEMS          = x86-l4f arm-l4f
 SRC_C            = main.c 
 REQUIRES_LIBS    = ankh_netboot ankh
-L4_MULTITHREADED = y
 
 PRIVATE_INCDIR += $(SRC_DIR)/../../lib/netboot
 

@@ -17,7 +17,7 @@ IMPLEMENTATION:
  */
 L4_error
 mem_map(Space *from, L4_fpage const &fp_from,
-        Space *to, L4_fpage const &fp_to, Mword control)
+        Space *to, L4_fpage const &fp_to, L4_msg_item control)
 {
   typedef Map_traits<Mem_space> Mt;
 
@@ -28,7 +28,7 @@ mem_map(Space *from, L4_fpage const &fp_from,
   // loop variables
   Mt::Addr rcv_addr = fp_to.mem_address();
   Mt::Addr snd_addr = fp_from.mem_address();
-  Mt::Addr offs = Virt_addr(control & (~0UL << L4_fpage::Control_addr_shift));
+  Mt::Addr offs = Virt_addr(control.address());
 
   Mt::Size snd_size = Mt::Size::from_shift(fp_from.order() - L4_fpage::Mem_addr::Shift);
   Mt::Size rcv_size = Mt::Size::from_shift(fp_to.order() - L4_fpage::Mem_addr::Shift);
@@ -45,15 +45,13 @@ mem_map(Space *from, L4_fpage const &fp_from,
       return L4_error::None;
     }
 
-  bool fp_from_grant = control & 2;
-
   unsigned long del_attribs, add_attribs;
   Mt::attribs(control, fp_from, &del_attribs, &add_attribs);
 
   return map(mapdb_instance(),
 	     from->mem_space(), from, snd_addr,
 	     snd_size, to->mem_space(), to,
-	     rcv_addr, fp_from_grant, add_attribs, del_attribs,
+	     rcv_addr, control.is_grant(), add_attribs, del_attribs,
 	     (Mem_space::Reap_list**)0);
 }
 

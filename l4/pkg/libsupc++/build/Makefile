@@ -2,14 +2,18 @@ PKGDIR ?= 	..
 L4DIR  ?= 	$(PKGDIR)/../..
 
 TARGET         ?= libsupc++.a libsupc++.so
-CONTRIB_INCDIR  = libstdc++-v3
 PC_FILENAME    ?= libsupc++
+PC_LIBS        ?= -lsupc++
+REQUIRES_LIBS  ?= libc
+
+CONTRIB_INCDIR  = libstdc++-v3
 
 STDCXX_PKG_DIR ?= $(PKGDIR_ABS)/../libstdc++-v3
 
 STDCXX_SRC_DIR ?= $(STDCXX_CONTRIB_DIR)/libsupc++
 VPATH_SRC_BASE  = $(STDCXX_SRC_DIR)
-PRIVATE_INCDIR  = $(STDCXX_PKG_DIR)/contrib/gcc-$(STDCXX_CONTRIB_VERSION)
+PRIVATE_INCDIR  = $(STDCXX_PKG_DIR)/contrib/gcc-$(STDCXX_CONTRIB_VERSION) \
+		  $(STDCXX_SRC_DIR)
 
 SRC_CC := \
 del_op.cc \
@@ -48,6 +52,7 @@ include $(L4DIR)/mk/lib.mk
 include $(STDCXX_PKG_DIR)/contrib.inc
 include $(SUPCXX_PKG_DIR)/build/Makefile-$(STDCXX_CONTRIB_VERSION)
 
+$(GENERAL_D_LOC): $(SUPCXX_PKG_DIR)/build/Makefile-$(STDCXX_CONTRIB_VERSION) $(STDCXX_PKG_DIR)/contrib.inc
+
 vpath %.cc $(STDCXX_SRC_DIR)
 vpath %.cc $(SRC_DIR)
-

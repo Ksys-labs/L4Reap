@@ -2,10 +2,10 @@ PKGDIR ?= 	../..
 L4DIR  ?= 	$(PKGDIR)/../..
 
 TARGET         ?= libstdc++.a libstdc++.so
-CONTRIB_INCDIR  = libstdc++-v3
 PC_FILENAME    ?= libstdc++
-STDCXX_PKG_DIR ?= $(PKGDIR_ABS)
+PC_LIBS        ?= -lstdc++
 REQUIRES_LIBS  ?= libsupc++
+STDCXX_PKG_DIR ?= $(PKGDIR_ABS)
 
 STDCXX_SRC_SUBDIRS := src config/io config/locale/generic
 
@@ -18,7 +18,6 @@ SRC_CC := \
   concept-inst.cc \
   ctype.cc \
   debug.cc \
-  debug_list.cc \
   ext-inst.cc \
   fstream-inst.cc \
   functexcept.cc \
@@ -47,7 +46,6 @@ SRC_CC := \
   streambuf-inst.cc \
   string-inst.cc \
   tree.cc \
-  valarray-inst.cc \
   wlocale-inst.cc \
   wstring-inst.cc \
   basic_file_stdio.cc \
@@ -59,7 +57,6 @@ SRC_CC := \
   numeric_members.cc \
   codecvt_members.cc \
   collate_members.cc \
-
 
 include $(L4DIR)/mk/lib.mk
 include $(STDCXX_PKG_DIR)/contrib.inc

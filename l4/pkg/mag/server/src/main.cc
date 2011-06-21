@@ -77,15 +77,10 @@ private:
   public:
     explicit Del_handler(Object_gc *gc) : gc(gc) {}
 
-    int dispatch(l4_umword_t, L4::Ipc_iostream &s)
+    int dispatch(l4_umword_t, L4::Ipc_iostream &)
     {
-      l4_msgtag_t t;
-      s >> t;
-      if (t.label() != L4_PROTO_IRQ)
-	return -L4_EBADPROTO;
-
       gc->gc_step();
-      return 0;
+      return -L4_ENOREPLY;
     }
   };
 

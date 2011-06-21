@@ -41,7 +41,6 @@ REQUIRES_LIBS += libstdc++ libsupc++ l4re-util l4re l4re_c \
 				 l4re_c-util log slab libboost-lite ddekit dde-linux26 dde-linux26_net shmc \
 				 shmc_ringbuf libankh_packet_analyzer \
 				 $(REQUIRES_LIBS-ARCH-$(ARCH))
-L4_MULTITHREADED = y
 
 ifeq ($(ARCH), arm)
 DEFINES += -D__LINUX_ARM_ARCH__=6

@@ -8,6 +8,7 @@ PHDRS
   ro PT_LOAD FILEHDR PHDRS;
   rw PT_LOAD;
   dyn PT_DYNAMIC;
+  tls PT_TLS;
   ehf PT_GNU_EH_FRAME;
   L4_DEFINE_L4PHDRS
 }
@@ -79,7 +80,8 @@ SECTIONS
 
   PROVIDE (_etext = .);
   PROVIDE (etext = .);
-  .rol4re_elf_aux : { KEEP (*(.rol4re_elf_aux)) } : ro : l4re_aux
+  .rol4re_elf_aux : {
+    KEEP (*(.rol4re_elf_aux)) } : ro : l4re_aux
   .rodata         : { *(.rodata .rodata.* .gnu.linkonce.r.*) } : ro
   .rodata1        : { *(.rodata1) }
   .eh_frame_hdr : { *(.eh_frame_hdr) } :ehf :ro
@@ -107,14 +109,14 @@ SECTIONS
   } :rw
   .gcc_except_table   : ONLY_IF_RW { *(.gcc_except_table .gcc_except_table.*) } :rw
   /* Thread Local Storage sections  */
-  .tdata	  : { *(.tdata .tdata.* .gnu.linkonce.td.*) } :rw
+  .tdata	  : { *(.tdata .tdata.* .gnu.linkonce.td.*) } :rw : tls
   .tbss		  : { *(.tbss .tbss.* .gnu.linkonce.tb.*) *(.tcommon) }
   .preinit_array     :
   {
     PROVIDE_HIDDEN (__preinit_array_start = .);
     KEEP (*(.preinit_array))
     PROVIDE_HIDDEN (__preinit_array_end = .);
-  }
+  } : rw
   .init_array     :
   {
      PROVIDE_HIDDEN (__init_array_start = .);

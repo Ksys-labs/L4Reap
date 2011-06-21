@@ -240,9 +240,6 @@ PROTECTED inline
 bool
 Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
 {
-#ifndef GDT_ENTRY_TLS_MIN
-#define GDT_ENTRY_TLS_MIN 6
-#endif
   switch (utcb->values[0] & Opcode_mask)
     {
       case Op_gdt_x86: // Gdt operation
@@ -250,7 +247,7 @@ Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
       // if no words given then return the first gdt entry
       if (tag.words() == 1)
         {
-          utcb->values[0] = GDT_ENTRY_TLS_MIN;
+          utcb->values[0] = Emulation::host_tls_base();
           tag = commit_result(0, 1);
           return true;
         }
@@ -271,7 +268,7 @@ Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
                 continue;
 
               Ldt_user_desc info;
-	      info.entry_number    =  entry_number + GDT_ENTRY_TLS_MIN;
+	      info.entry_number    =  entry_number + Emulation::host_tls_base();
 	      info.base_addr       =  d->base();
 	      info.limit           =  d->limit();
 	      info.seg_32bit       =  d->seg32();
@@ -296,14 +293,13 @@ Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
 	      // segment registers can be set, this is necessary for signal
 	      // handling, esp. for sigreturn to work in the Fiasco kernel
 	      // with the context of the client (gs/fs values).
-	      Emulation::thread_area_host(entry_number + GDT_ENTRY_TLS_MIN);
-
+	      Emulation::thread_area_host(entry_number + Emulation::host_tls_base());
             }
 
           if (this == current_thread())
             switch_gdt_user_entries(this);
 
-          tag = commit_result(0);
+          tag = commit_result(((utcb->values[1] + Emulation::host_tls_base()) << 3) + 3);
           return true;
         }
 

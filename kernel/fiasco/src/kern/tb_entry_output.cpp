@@ -158,7 +158,7 @@ formatter_ipc(Tb_entry *tb, const char *tidstr, unsigned tidlen,
       /*e->dst().next_period() ? "[NP] " :*/ "", tidlen, tidstr, m);
 
   // print destination id
-  if (e->dst().invalid())
+  if (e->dst().special())
     my_snprintf(buf, maxlen, "[C:INV] DID=%lx", e->dbg_id());
   else
     my_snprintf(buf, maxlen, "[C:%lx] DID=%lx", e->dst().raw(), e->dbg_id());
@@ -377,14 +377,12 @@ formatter_ctx_switch(Tb_entry *tb, const char *tidstr, unsigned tidlen,
 
   Context   *sctx    = 0;
   Mword sctxid = ~0UL;
-  Mword src;
   Mword dst;
   Mword dst_orig;
 
   sctx = e->from_sched()->context();
   sctxid = static_cast<Thread*>(sctx)->dbg_id();
 
-  src = static_cast<Thread const *>(e->ctx())->dbg_id();
   dst = static_cast<Thread const *>(e->dst())->dbg_id();
   dst_orig = static_cast<Thread const *>(e->dst_orig())->dbg_id();
 

@@ -298,6 +298,9 @@ public:
    */
   virtual ssize_t writev(const struct iovec*, int iovcnt) throw() = 0;
 
+  virtual ssize_t preadv(const struct iovec *iov, int iovcnt, off64_t offset) throw() = 0;
+  virtual ssize_t pwritev(const struct iovec *iov, int iovcnt, off64_t offset) throw() = 0;
+
   /**
    * \brief Change the file pointer.
    *

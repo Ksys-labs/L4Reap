@@ -1,8 +1,8 @@
-/* -*- mode: C; c-basic-offset: 3; -*- */
+/* -*- mode: C; c-basic-offset: 3; indent-tabs-mode: nil; -*- */
 /*
   This file is part of drd, a thread error detector.
 
-  Copyright (C) 2006-2010 Bart Van Assche <bart.vanassche@gmail.com>.
+  Copyright (C) 2006-2011 Bart Van Assche <bvanassche@acm.org>.
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -181,6 +181,7 @@ static DrdThreadId DRD_(VgThreadIdToNewDrdThreadId)(const ThreadId tid)
          DRD_(g_threadinfo)[i].stack_startup = 0;
          DRD_(g_threadinfo)[i].stack_max     = 0;
          DRD_(thread_set_name)(i, "");
+         DRD_(g_threadinfo)[i].on_alt_stack        = False;
          DRD_(g_threadinfo)[i].is_recording_loads  = True;
          DRD_(g_threadinfo)[i].is_recording_stores = True;
          DRD_(g_threadinfo)[i].pthread_create_nesting_level = 0;
@@ -366,7 +367,7 @@ void DRD_(thread_post_join)(DrdThreadId drd_joiner, DrdThreadId drd_joinee)
                                DRD_(thread_get_stack_max)(drd_joinee));
    }
    DRD_(clientobj_delete_thread)(drd_joinee);
-   DRD_(thread_delete)(drd_joinee);
+   DRD_(thread_delete)(drd_joinee, False);
 }
 
 /**
@@ -420,11 +421,36 @@ SizeT DRD_(thread_get_stack_size)(const DrdThreadId tid)
    return DRD_(g_threadinfo)[tid].stack_size;
 }
 
+Bool DRD_(thread_get_on_alt_stack)(const DrdThreadId tid)
+{
+   tl_assert(0 <= (int)tid && tid < DRD_N_THREADS
+             && tid != DRD_INVALID_THREADID);
+   return DRD_(g_threadinfo)[tid].on_alt_stack;
+}
+
+void DRD_(thread_set_on_alt_stack)(const DrdThreadId tid,
+                                   const Bool on_alt_stack)
+{
+   tl_assert(0 <= (int)tid && tid < DRD_N_THREADS
+             && tid != DRD_INVALID_THREADID);
+   tl_assert(on_alt_stack == !!on_alt_stack);
+   DRD_(g_threadinfo)[tid].on_alt_stack = on_alt_stack;
+}
+
+Int DRD_(thread_get_threads_on_alt_stack)(void)
+{
+   int i, n = 0;
+
+   for (i = 1; i < DRD_N_THREADS; i++)
+      n += DRD_(g_threadinfo)[i].on_alt_stack;
+   return n;
+}
+
 /**
  * Clean up thread-specific data structures. Call this just after
  * pthread_join().
  */
-void DRD_(thread_delete)(const DrdThreadId tid)
+void DRD_(thread_delete)(const DrdThreadId tid, const Bool detached)
 {
    Segment* sg;
    Segment* sg_prev;
@@ -441,7 +467,10 @@ void DRD_(thread_delete)(const DrdThreadId tid)
    }
    DRD_(g_threadinfo)[tid].vg_thread_exists = False;
    DRD_(g_threadinfo)[tid].posix_thread_exists = False;
-   tl_assert(DRD_(g_threadinfo)[tid].detached_posix_thread == False);
+   if (detached)
+      DRD_(g_threadinfo)[tid].detached_posix_thread = False;
+   else
+      tl_assert(!DRD_(g_threadinfo)[tid].detached_posix_thread);
    DRD_(g_threadinfo)[tid].first = 0;
    DRD_(g_threadinfo)[tid].last = 0;
 
@@ -478,6 +507,21 @@ void DRD_(thread_finished)(const DrdThreadId tid)
    }
 }
 
+/** Called just after fork() in the child process. */
+void DRD_(drd_thread_atfork_child)(const DrdThreadId tid)
+{
+   unsigned i;
+
+   for (i = 1; i < DRD_N_THREADS; i++)
+   {
+      if (i == tid)
+	 continue;
+      if (DRD_(IsValidDrdThreadId(i)))
+	 DRD_(thread_delete)(i, True);
+      tl_assert(!DRD_(IsValidDrdThreadId(i)));
+   }   
+}
+
 /** Called just before pthread_cancel(). */
 void DRD_(thread_pre_cancel)(const DrdThreadId tid)
 {
@@ -485,7 +529,9 @@ void DRD_(thread_pre_cancel)(const DrdThreadId tid)
              && tid != DRD_INVALID_THREADID);
    tl_assert(DRD_(g_threadinfo)[tid].pt_threadid != INVALID_POSIX_THREADID);
 
-   DRD_(g_threadinfo)[tid].synchr_nesting = 0;
+   if (DRD_(thread_get_trace_fork_join)())
+      VG_(message)(Vg_UserMsg, "[%d] drd_thread_pre_cancel %d\n",
+		   DRD_(g_drd_running_tid), tid);
 }
 
 /**
@@ -1114,18 +1160,13 @@ void DRD_(thread_stop_using_mem)(const Addr a1, const Addr a2)
    for (i = 0; i < DRD_N_THREADS; i++)
    {
       Segment* p;
-      for (p = DRD_(g_threadinfo)[i].first; p; p = p->next)
-      {
+      for (p = DRD_(g_threadinfo)[i].first; p; p = p->next) {
          if (other_user == DRD_INVALID_THREADID
-             && i != DRD_(g_drd_running_tid))
-         {
+             && i != DRD_(g_drd_running_tid)) {
             if (UNLIKELY(DRD_(bm_test_and_clear)(DRD_(sg_bm)(p), a1, a2)))
-            {
                other_user = i;
-            }
-            continue;
-         }
-         DRD_(bm_clear)(DRD_(sg_bm)(p), a1, a2);
+         } else
+            DRD_(bm_clear)(DRD_(sg_bm)(p), a1, a2);
       }
    }
 

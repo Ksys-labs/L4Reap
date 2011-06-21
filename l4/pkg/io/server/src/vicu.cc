@@ -25,8 +25,6 @@
 #include <l4/sys/kdebug.h>
 
 #include <cassert>
-#include <pthread.h>
-#include <pthread-l4.h>
 
 namespace Vi {
 

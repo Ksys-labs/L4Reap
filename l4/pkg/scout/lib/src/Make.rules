@@ -27,8 +27,7 @@ SRC_BIN += ior.map
 
 OBJS += $(addsuffix .bin.o, $(notdir $(SRC_BIN)))
 
-REQUIRES_LIBS := mag-gfx scout-gfx libpng
-L4_MULTITHREADED=y
+REQUIRES_LIBS := mag-gfx scout-gfx libpng libpthread
 
 %.bin.o: $(SRC_DIR)/../data/% $(SRC_DIR)/Make.rules
 	@$(GEN_MESSAGE)

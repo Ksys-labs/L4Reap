@@ -1,4 +1,4 @@
-requires: l4re l4sys libc libsupc++ libsigma0 libloader libkproxy
+requires: l4re l4sys libc_minimal libsupc++_minimal libsigma0 libloader libkproxy
           libc_be_minimal_log_io
 source-pkg: boehm_gc
 maintainer: adam@os.inf.tu-dresden.de, warg@os.inf.tu-dresden.de

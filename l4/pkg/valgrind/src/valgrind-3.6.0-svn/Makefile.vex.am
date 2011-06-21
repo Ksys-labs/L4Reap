@@ -24,6 +24,8 @@ pkginclude_HEADERS = \
 	pub/libvex_guest_ppc32.h \
 	pub/libvex_guest_ppc64.h \
 	pub/libvex_guest_arm.h \
+	pub/libvex_guest_s390x.h \
+	pub/libvex_s390x_common.h \
 	pub/libvex_ir.h \
 	pub/libvex_trc_values.h
 
@@ -38,13 +40,16 @@ noinst_HEADERS = \
 	priv/guest_amd64_defs.h \
 	priv/guest_ppc_defs.h \
 	priv/guest_arm_defs.h \
+	priv/guest_s390_defs.h \
 	priv/host_generic_regs.h \
 	priv/host_generic_simd64.h \
 	priv/host_generic_simd128.h \
 	priv/host_x86_defs.h \
 	priv/host_amd64_defs.h \
 	priv/host_ppc_defs.h \
-	priv/host_arm_defs.h
+	priv/host_arm_defs.h \
+	priv/host_s390_defs.h \
+	priv/host_s390_disasm.h
 
 BUILT_SOURCES = pub/libvex_guest_offsets.h
 CLEANFILES    = pub/libvex_guest_offsets.h
@@ -53,7 +58,14 @@ VEX_SRC       = $(top_srcdir)/VEX
 # This is very uggerly.  Need to sed out both "xyzzyN" and
 # "xyzzy$N" since gcc on different targets emits the constants
 # differently -- with a leading $ on x86/amd64 but none on ppc32/64.
-pub/libvex_guest_offsets.h:
+pub/libvex_guest_offsets.h:  auxprogs/genoffsets.c \
+			    pub/libvex_basictypes.h \
+			    pub/libvex_guest_x86.h \
+			    pub/libvex_guest_amd64.h \
+			    pub/libvex_guest_ppc32.h \
+			    pub/libvex_guest_ppc64.h \
+			    pub/libvex_guest_arm.h \
+				pub/libvex_guest_s390x.h
 	mkdir -p auxprogs
 	mkdir -p pub
 	mkdir -p priv
@@ -95,6 +107,8 @@ LIBVEX_SOURCES_COMMON = \
 	priv/guest_ppc_toIR.c \
 	priv/guest_arm_helpers.c \
 	priv/guest_arm_toIR.c \
+	priv/guest_s390_helpers.c \
+	priv/guest_s390_toIR.c \
 	priv/host_generic_regs.c \
 	priv/host_generic_simd64.c \
 	priv/host_generic_simd128.c \
@@ -106,7 +120,10 @@ LIBVEX_SOURCES_COMMON = \
 	priv/host_ppc_defs.c \
 	priv/host_ppc_isel.c \
 	priv/host_arm_defs.c \
-	priv/host_arm_isel.c
+	priv/host_arm_isel.c \
+	priv/host_s390_defs.c \
+	priv/host_s390_isel.c \
+	priv/host_s390_disasm.c
 
 LIBVEX_CFLAGS = \
 	-Wbad-function-cast \

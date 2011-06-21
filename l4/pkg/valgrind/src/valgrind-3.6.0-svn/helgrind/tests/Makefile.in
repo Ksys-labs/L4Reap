@@ -46,9 +46,9 @@ host_triplet = @host@
 DIST_COMMON = $(dist_noinst_SCRIPTS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(top_srcdir)/Makefile.all.am \
 	$(top_srcdir)/Makefile.tool-tests.am
-check_PROGRAMS = annotate_hbefore$(EXEEXT) hg01_all_ok$(EXEEXT) \
-	hg02_deadlock$(EXEEXT) hg03_inherit$(EXEEXT) \
-	hg04_race$(EXEEXT) hg05_race2$(EXEEXT) \
+check_PROGRAMS = annotate_hbefore$(EXEEXT) free_is_write$(EXEEXT) \
+	hg01_all_ok$(EXEEXT) hg02_deadlock$(EXEEXT) \
+	hg03_inherit$(EXEEXT) hg04_race$(EXEEXT) hg05_race2$(EXEEXT) \
 	hg06_readshared$(EXEEXT) tc01_simple_race$(EXEEXT) \
 	tc02_simple_tls$(EXEEXT) tc03_re_excl$(EXEEXT) \
 	tc04_free_lock$(EXEEXT) tc05_simple_race$(EXEEXT) \
@@ -121,6 +121,10 @@ bar_trivial_SOURCES = bar_trivial.c
 bar_trivial_OBJECTS = bar_trivial.$(OBJEXT)
 bar_trivial_LDADD = $(LDADD)
 bar_trivial_DEPENDENCIES =
+free_is_write_SOURCES = free_is_write.c
+free_is_write_OBJECTS = free_is_write.$(OBJEXT)
+free_is_write_LDADD = $(LDADD)
+free_is_write_DEPENDENCIES =
 hg01_all_ok_SOURCES = hg01_all_ok.c
 hg01_all_ok_OBJECTS = hg01_all_ok.$(OBJEXT)
 hg01_all_ok_LDADD = $(LDADD)
@@ -255,18 +259,7 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = annotate_hbefore.c annotate_rwlock.c bar_bad.c bar_trivial.c \
-	hg01_all_ok.c hg02_deadlock.c hg03_inherit.c hg04_race.c \
-	hg05_race2.c hg06_readshared.c tc01_simple_race.c \
-	tc02_simple_tls.c tc03_re_excl.c tc04_free_lock.c \
-	tc05_simple_race.c tc06_two_races.c tc07_hbl1.c tc08_hbl2.c \
-	tc09_bad_unlock.c tc10_rec_lock.c tc11_XCHG.c \
-	tc12_rwl_trivial.c tc13_laog1.c tc14_laog_dinphils.c \
-	tc15_laog_lockdel.c tc16_byterace.c tc17_sembar.c \
-	tc18_semabuse.c tc19_shadowmem.c tc20_verifywrap.c \
-	tc21_pthonce.c tc22_exit_w_lock.c tc23_bogus_condwait.c \
-	tc24_nonzero_sem.c
-DIST_SOURCES = annotate_hbefore.c annotate_rwlock.c bar_bad.c \
-	bar_trivial.c hg01_all_ok.c hg02_deadlock.c hg03_inherit.c \
+	free_is_write.c hg01_all_ok.c hg02_deadlock.c hg03_inherit.c \
 	hg04_race.c hg05_race2.c hg06_readshared.c tc01_simple_race.c \
 	tc02_simple_tls.c tc03_re_excl.c tc04_free_lock.c \
 	tc05_simple_race.c tc06_two_races.c tc07_hbl1.c tc08_hbl2.c \
@@ -276,6 +269,17 @@ DIST_SOURCES = annotate_hbefore.c annotate_rwlock.c bar_bad.c \
 	tc18_semabuse.c tc19_shadowmem.c tc20_verifywrap.c \
 	tc21_pthonce.c tc22_exit_w_lock.c tc23_bogus_condwait.c \
 	tc24_nonzero_sem.c
+DIST_SOURCES = annotate_hbefore.c annotate_rwlock.c bar_bad.c \
+	bar_trivial.c free_is_write.c hg01_all_ok.c hg02_deadlock.c \
+	hg03_inherit.c hg04_race.c hg05_race2.c hg06_readshared.c \
+	tc01_simple_race.c tc02_simple_tls.c tc03_re_excl.c \
+	tc04_free_lock.c tc05_simple_race.c tc06_two_races.c \
+	tc07_hbl1.c tc08_hbl2.c tc09_bad_unlock.c tc10_rec_lock.c \
+	tc11_XCHG.c tc12_rwl_trivial.c tc13_laog1.c \
+	tc14_laog_dinphils.c tc15_laog_lockdel.c tc16_byterace.c \
+	tc17_sembar.c tc18_semabuse.c tc19_shadowmem.c \
+	tc20_verifywrap.c tc21_pthonce.c tc22_exit_w_lock.c \
+	tc23_bogus_condwait.c tc24_nonzero_sem.c
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -321,6 +325,8 @@ FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
 FLAG_W_NO_FORMAT_ZERO_LENGTH = @FLAG_W_NO_FORMAT_ZERO_LENGTH@
+FLAG_W_NO_NONNULL = @FLAG_W_NO_NONNULL@
+FLAG_W_NO_OVERFLOW = @FLAG_W_NO_OVERFLOW@
 FLAG_W_NO_UNINITIALIZED = @FLAG_W_NO_UNINITIALIZED@
 GDB = @GDB@
 GENERATED_SUPP = @GENERATED_SUPP@
@@ -350,12 +356,7 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
-QTCORE_CFLAGS = @QTCORE_CFLAGS@
-QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -508,7 +509,7 @@ AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 			 	$(AM_CFLAGS_BASE) -marm
 
-AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
+AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -marm -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
 AM_CFLAGS_PPC32_AIX5 = @FLAG_MAIX32@ -mcpu=powerpc $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC32_AIX5 = $(AM_CPPFLAGS_PPC32_AIX5) \
@@ -537,6 +538,11 @@ AM_CFLAGS_X86_L4RE = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 AM_CCASFLAGS_X86_L4RE = $(L4_CPPFLAGS) @FLAG_M32@ -g
 AM_CXXFLAGS_X86_L4RE = $(L4_CXXFLAGS) @FLAG_M32@
 #AM_CPPFLAGS_X86_L4RE   = $(L4_CPPFLAGS) $(AM_CPPFLAGS_X86_L4RE)
+AM_FLAG_M3264_S390X_LINUX = @FLAG_M64@
+AM_CFLAGS_S390X_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
+AM_CCASFLAGS_S390X_LINUX = $(AM_CPPFLAGS_S390X_LINUX) -mzarch -march=z900 \
+                            @FLAG_M64@ -g
+
 
 # Flags for the primary target.  These must be used to build the
 # regtests and performance tests.  In fact, these must be used to
@@ -565,6 +571,7 @@ PRELOAD_LDFLAGS_PPC32_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX32@
 PRELOAD_LDFLAGS_PPC64_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX64@
 PRELOAD_LDFLAGS_X86_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch i386
 PRELOAD_LDFLAGS_AMD64_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch x86_64
+PRELOAD_LDFLAGS_S390X_LINUX = $(PRELOAD_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 PRELOAD_LDFLAGS_X86_L4RE = $(PRELOAD_LDFLAGS_COMMON_L4RE) @FLAG_M32@
 AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/include \
 		-I$(top_srcdir)/coregrind -I$(top_builddir)/include \
@@ -587,8 +594,12 @@ EXTRA_DIST = \
 		annotate_hbefore.stderr.exp \
 	annotate_rwlock.vgtest annotate_rwlock.stdout.exp \
 		annotate_rwlock.stderr.exp \
+	annotate_smart_pointer.vgtest annotate_smart_pointer.stdout.exp \
+		annotate_smart_pointer.stderr.exp \
 	bar_bad.vgtest bar_bad.stdout.exp bar_bad.stderr.exp \
 	bar_trivial.vgtest bar_trivial.stdout.exp bar_trivial.stderr.exp \
+	free_is_write.vgtest free_is_write.stdout.exp \
+		free_is_write.stderr.exp \
 	hg01_all_ok.vgtest hg01_all_ok.stdout.exp hg01_all_ok.stderr.exp \
 	hg02_deadlock.vgtest hg02_deadlock.stdout.exp hg02_deadlock.stderr.exp \
 	hg03_inherit.vgtest hg03_inherit.stdout.exp hg03_inherit.stderr.exp \
@@ -710,6 +721,9 @@ bar_bad$(EXEEXT): $(bar_bad_OBJECTS) $(bar_bad_DEPENDENCIES)
 bar_trivial$(EXEEXT): $(bar_trivial_OBJECTS) $(bar_trivial_DEPENDENCIES) 
 	@rm -f bar_trivial$(EXEEXT)
 	$(LINK) $(bar_trivial_OBJECTS) $(bar_trivial_LDADD) $(LIBS)
+free_is_write$(EXEEXT): $(free_is_write_OBJECTS) $(free_is_write_DEPENDENCIES) 
+	@rm -f free_is_write$(EXEEXT)
+	$(LINK) $(free_is_write_OBJECTS) $(free_is_write_LDADD) $(LIBS)
 hg01_all_ok$(EXEEXT): $(hg01_all_ok_OBJECTS) $(hg01_all_ok_DEPENDENCIES) 
 	@rm -f hg01_all_ok$(EXEEXT)
 	$(LINK) $(hg01_all_ok_OBJECTS) $(hg01_all_ok_LDADD) $(LIBS)
@@ -811,6 +825,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/annotate_rwlock.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bar_bad.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bar_trivial.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/free_is_write.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hg01_all_ok.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hg02_deadlock.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hg03_inherit.Po@am__quote@

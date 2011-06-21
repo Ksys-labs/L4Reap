@@ -118,7 +118,10 @@ Mem_region_map_base::sub(Mem_region const &r)
       if (_r[pos].overlaps(r))
 	{
 	  if (r.contains(_r[pos]))
-	    del(pos, pos+1);
+	    {
+	      del(pos, pos+1);
+	      --pos; // ensure we do not skip the next element
+	    }
 	  else if (r.start <= _r[pos].start)
 	    _r[pos].start = r.end + 1;
 	  else if (r.end >= _r[pos].end)

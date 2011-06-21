@@ -119,9 +119,11 @@ DL_START(unsigned long args)
 	unsigned int argc;
 	char **argv, **envp;
 	DL_LOADADDR_TYPE load_addr;
-	ElfW(Addr) got;
+	/*ElfW(Addr) got;  aw11: dropped this in favour of phdrs*/
 	unsigned long *aux_dat;
 	ElfW(Ehdr) *header;
+	ElfW(Phdr) *phdr; /* aw11: use phdrs to find dynamic info */
+	int i;            /* aw11: use to iterate the phdrs */
 	struct elf_resolve tpnt_tmp;
 	struct elf_resolve *tpnt = &tpnt_tmp;
 	ElfW(auxv_t) auxvt[AT_EGID + 1];
@@ -198,6 +200,10 @@ DL_START(unsigned long args)
 	SEND_EARLY_STDERR_DEBUG("ELF header=");
 	SEND_ADDRESS_STDERR_DEBUG(DL_LOADADDR_BASE(load_addr), 1);
 
+	/* aw11: iterate the phdrs of ldso to find our dynamic info not the GOT,
+	 *       as GNU gold does not provide tge GOT entry.
+	 * begin: ----------------> */
+#if 0 /* original code */
 	/* Locate the global offset table.  Since this code must be PIC
 	 * we can take advantage of the magic offset register, if we
 	 * happen to know what that is for this architecture.  If not,
@@ -206,6 +212,21 @@ DL_START(unsigned long args)
 
 	/* Now, finally, fix up the location of the dynamic stuff */
 	DL_BOOT_COMPUTE_DYN(dpnt, got, load_addr);
+#else /* aw11 code */
+	/* locate the ELF phdrs.   We need this for finding the dynamic infos
+	 */
+	SEND_EARLY_STDERR_DEBUG("AT_PHDR=");
+	SEND_ADDRESS_STDERR_DEBUG(header->e_phoff, 1);
+	phdr = (ElfW(Phdr) *) DL_RELOC_ADDR(load_addr, header->e_phoff);
+	dpnt = 0;
+	for (i = 0; i < header->e_phnum; ++i) {
+		if (phdr[i].p_type == PT_DYNAMIC) {
+			DL_BOOT_COMPUTE_DYN(dpnt, phdr[i].p_vaddr, load_addr);
+			break;
+		}
+	}
+#endif
+	/* aw11: end <------------- */
 
 	SEND_EARLY_STDERR_DEBUG("First Dynamic section entry=");
 	SEND_ADDRESS_STDERR_DEBUG(dpnt, 1);

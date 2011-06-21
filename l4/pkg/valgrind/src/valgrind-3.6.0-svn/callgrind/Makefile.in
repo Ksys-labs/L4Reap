@@ -80,7 +80,8 @@ am__objects_1 = callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-bb.$(OBJEXT) \
 	callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-x86-amd64.$(OBJEXT) \
 	callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-ppc32.$(OBJEXT) \
 	callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-ppc64.$(OBJEXT) \
-	callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-arm.$(OBJEXT)
+	callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-arm.$(OBJEXT) \
+	callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.$(OBJEXT)
 am_callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_OBJECTS = $(am__objects_1)
 callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_OBJECTS =  \
 	$(am_callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_OBJECTS)
@@ -88,7 +89,8 @@ am__callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_SOURCES_DIST = bb.c bbcc.c \
 	callstack.c clo.c command.c context.c costs.c debug.c dump.c \
 	events.c fn.c jumps.c main.c sim.c threads.c \
 	../cachegrind/cg-x86-amd64.c ../cachegrind/cg-ppc32.c \
-	../cachegrind/cg-ppc64.c ../cachegrind/cg-arm.c
+	../cachegrind/cg-ppc64.c ../cachegrind/cg-arm.c \
+	../cachegrind/cg-s390x.c
 am__objects_2 = callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-bb.$(OBJEXT) \
 	callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-bbcc.$(OBJEXT) \
 	callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-callstack.$(OBJEXT) \
@@ -107,7 +109,8 @@ am__objects_2 = callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-bb.$(OBJEXT) \
 	callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-x86-amd64.$(OBJEXT) \
 	callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-ppc32.$(OBJEXT) \
 	callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-ppc64.$(OBJEXT) \
-	callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-arm.$(OBJEXT)
+	callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-arm.$(OBJEXT) \
+	callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.$(OBJEXT)
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@am_callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_OBJECTS =  \
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@	$(am__objects_2)
 callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_OBJECTS =  \
@@ -231,6 +234,8 @@ FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
 FLAG_W_NO_FORMAT_ZERO_LENGTH = @FLAG_W_NO_FORMAT_ZERO_LENGTH@
+FLAG_W_NO_NONNULL = @FLAG_W_NO_NONNULL@
+FLAG_W_NO_OVERFLOW = @FLAG_W_NO_OVERFLOW@
 FLAG_W_NO_UNINITIALIZED = @FLAG_W_NO_UNINITIALIZED@
 GDB = @GDB@
 GENERATED_SUPP = @GENERATED_SUPP@
@@ -260,12 +265,7 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
-QTCORE_CFLAGS = @QTCORE_CFLAGS@
-QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -419,7 +419,7 @@ AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 			 	$(AM_CFLAGS_BASE) -marm
 
-AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
+AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -marm -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
 AM_CFLAGS_PPC32_AIX5 = @FLAG_MAIX32@ -mcpu=powerpc $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC32_AIX5 = $(AM_CPPFLAGS_PPC32_AIX5) \
@@ -448,6 +448,11 @@ AM_CFLAGS_X86_L4RE = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 AM_CCASFLAGS_X86_L4RE = $(L4_CPPFLAGS) @FLAG_M32@ -g
 AM_CXXFLAGS_X86_L4RE = $(L4_CXXFLAGS) @FLAG_M32@
 #AM_CPPFLAGS_X86_L4RE   = $(L4_CPPFLAGS) $(AM_CPPFLAGS_X86_L4RE)
+AM_FLAG_M3264_S390X_LINUX = @FLAG_M64@
+AM_CFLAGS_S390X_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
+AM_CCASFLAGS_S390X_LINUX = $(AM_CPPFLAGS_S390X_LINUX) -mzarch -march=z900 \
+                            @FLAG_M64@ -g
+
 
 # Flags for the primary target.  These must be used to build the
 # regtests and performance tests.  In fact, these must be used to
@@ -476,6 +481,7 @@ PRELOAD_LDFLAGS_PPC32_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX32@
 PRELOAD_LDFLAGS_PPC64_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX64@
 PRELOAD_LDFLAGS_X86_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch i386
 PRELOAD_LDFLAGS_AMD64_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch x86_64
+PRELOAD_LDFLAGS_S390X_LINUX = $(PRELOAD_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 PRELOAD_LDFLAGS_X86_L4RE = $(PRELOAD_LDFLAGS_COMMON_L4RE) @FLAG_M32@
 
 #----------------------------------------------------------------------------
@@ -527,6 +533,9 @@ TOOL_LDFLAGS_PPC64_LINUX = \
 
 TOOL_LDFLAGS_ARM_LINUX = \
 	$(TOOL_LDFLAGS_COMMON_LINUX) @FLAG_M32@
+
+TOOL_LDFLAGS_S390X_LINUX = \
+	$(TOOL_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 
 TOOL_LDFLAGS_PPC32_AIX5 = \
 	$(TOOL_LDFLAGS_COMMON_AIX5) @FLAG_MAIX32@
@@ -591,6 +600,9 @@ LIBREPLACEMALLOC_AMD64_DARWIN = \
 LIBREPLACEMALLOC_X86_L4RE = \
 	$(top_builddir)/coregrind/libreplacemalloc_toolpreload-x86-l4re.a
 
+LIBREPLACEMALLOC_S390X_LINUX = \
+	$(top_builddir)/coregrind/libreplacemalloc_toolpreload-s390x-linux.a
+
 LIBREPLACEMALLOC_LDFLAGS_X86_LINUX = \
 	-Wl,--whole-archive \
 	$(LIBREPLACEMALLOC_X86_LINUX) \
@@ -633,6 +645,11 @@ LIBREPLACEMALLOC_LDFLAGS_X86_L4RE = \
 	$(LIBREPLACEMALLOC_X86_L4RE) \
 	-Wl,--no-whole-archive
 
+LIBREPLACEMALLOC_LDFLAGS_S390X_LINUX = \
+	-Wl,--whole-archive \
+	$(LIBREPLACEMALLOC_S390X_LINUX) \
+	-Wl,--no-whole-archive
+
 EXTRA_DIST = \
 	docs/callgrind_annotate-manpage.xml \
 	docs/callgrind_control-manpage.xml \
@@ -672,7 +689,8 @@ CALLGRIND_SOURCES_COMMON = \
 	../cachegrind/cg-x86-amd64.c \
 	../cachegrind/cg-ppc32.c \
 	../cachegrind/cg-ppc64.c \
-	../cachegrind/cg-arm.c
+ 	../cachegrind/cg-arm.c   \
+	../cachegrind/cg-s390x.c
 
 CALLGRIND_CFLAGS_COMMON = -I$(top_srcdir)/cachegrind
 callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_SOURCES = \
@@ -819,6 +837,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-arm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-ppc32.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-ppc64.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-x86-amd64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-clo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-command.Po@am__quote@
@@ -838,6 +857,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-arm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-ppc32.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-ppc64.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-x86-amd64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-clo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-command.Po@am__quote@
@@ -1132,6 +1152,20 @@ callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-arm.obj: ../cachegrind/cg-arm.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CPPFLAGS) $(CPPFLAGS) $(callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CFLAGS) $(CFLAGS) -c -o callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-arm.obj `if test -f '../cachegrind/cg-arm.c'; then $(CYGPATH_W) '../cachegrind/cg-arm.c'; else $(CYGPATH_W) '$(srcdir)/../cachegrind/cg-arm.c'; fi`
 
+callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.o: ../cachegrind/cg-s390x.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CPPFLAGS) $(CPPFLAGS) $(callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CFLAGS) $(CFLAGS) -MT callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.o -MD -MP -MF $(DEPDIR)/callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.Tpo -c -o callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.o `test -f '../cachegrind/cg-s390x.c' || echo '$(srcdir)/'`../cachegrind/cg-s390x.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.Tpo $(DEPDIR)/callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../cachegrind/cg-s390x.c' object='callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CPPFLAGS) $(CPPFLAGS) $(callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CFLAGS) $(CFLAGS) -c -o callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.o `test -f '../cachegrind/cg-s390x.c' || echo '$(srcdir)/'`../cachegrind/cg-s390x.c
+
+callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.obj: ../cachegrind/cg-s390x.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CPPFLAGS) $(CPPFLAGS) $(callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CFLAGS) $(CFLAGS) -MT callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.obj -MD -MP -MF $(DEPDIR)/callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.Tpo -c -o callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.obj `if test -f '../cachegrind/cg-s390x.c'; then $(CYGPATH_W) '../cachegrind/cg-s390x.c'; else $(CYGPATH_W) '$(srcdir)/../cachegrind/cg-s390x.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.Tpo $(DEPDIR)/callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../cachegrind/cg-s390x.c' object='callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CPPFLAGS) $(CPPFLAGS) $(callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_CFLAGS) $(CFLAGS) -c -o callgrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@-cg-s390x.obj `if test -f '../cachegrind/cg-s390x.c'; then $(CYGPATH_W) '../cachegrind/cg-s390x.c'; else $(CYGPATH_W) '$(srcdir)/../cachegrind/cg-s390x.c'; fi`
+
 callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-bb.o: bb.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CPPFLAGS) $(CPPFLAGS) $(callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CFLAGS) $(CFLAGS) -MT callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-bb.o -MD -MP -MF $(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-bb.Tpo -c -o callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-bb.o `test -f 'bb.c' || echo '$(srcdir)/'`bb.c
 @am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-bb.Tpo $(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-bb.Po
@@ -1397,6 +1431,20 @@ callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-arm.obj: ../cachegrind/cg-arm.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../cachegrind/cg-arm.c' object='callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-arm.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CPPFLAGS) $(CPPFLAGS) $(callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CFLAGS) $(CFLAGS) -c -o callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-arm.obj `if test -f '../cachegrind/cg-arm.c'; then $(CYGPATH_W) '../cachegrind/cg-arm.c'; else $(CYGPATH_W) '$(srcdir)/../cachegrind/cg-arm.c'; fi`
+
+callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.o: ../cachegrind/cg-s390x.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CPPFLAGS) $(CPPFLAGS) $(callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CFLAGS) $(CFLAGS) -MT callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.o -MD -MP -MF $(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.Tpo -c -o callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.o `test -f '../cachegrind/cg-s390x.c' || echo '$(srcdir)/'`../cachegrind/cg-s390x.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.Tpo $(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../cachegrind/cg-s390x.c' object='callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CPPFLAGS) $(CPPFLAGS) $(callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CFLAGS) $(CFLAGS) -c -o callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.o `test -f '../cachegrind/cg-s390x.c' || echo '$(srcdir)/'`../cachegrind/cg-s390x.c
+
+callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.obj: ../cachegrind/cg-s390x.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CPPFLAGS) $(CPPFLAGS) $(callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CFLAGS) $(CFLAGS) -MT callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.obj -MD -MP -MF $(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.Tpo -c -o callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.obj `if test -f '../cachegrind/cg-s390x.c'; then $(CYGPATH_W) '../cachegrind/cg-s390x.c'; else $(CYGPATH_W) '$(srcdir)/../cachegrind/cg-s390x.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.Tpo $(DEPDIR)/callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../cachegrind/cg-s390x.c' object='callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CPPFLAGS) $(CPPFLAGS) $(callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@_CFLAGS) $(CFLAGS) -c -o callgrind_@VGCONF_ARCH_SEC@_@VGCONF_OS@-cg-s390x.obj `if test -f '../cachegrind/cg-s390x.c'; then $(CYGPATH_W) '../cachegrind/cg-s390x.c'; else $(CYGPATH_W) '$(srcdir)/../cachegrind/cg-s390x.c'; fi`
 install-pkgincludeHEADERS: $(pkginclude_HEADERS)
 	@$(NORMAL_INSTALL)
 	test -z "$(pkgincludedir)" || $(MKDIR_P) "$(DESTDIR)$(pkgincludedir)"

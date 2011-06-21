@@ -91,6 +91,12 @@ enum
    *        for the first application thread.
    */
   L4RE_ELF_AUX_T_STACK_ADDR,
+
+  /**
+   * \brief Tag for descriptor that defines the KIP address
+   *        for the binaries address space.
+   */
+  L4RE_ELF_AUX_T_KIP_ADDR,
 };
 
 /**

@@ -120,7 +120,7 @@ void Moe_app_model::map_initial_caps(L4::Cap<L4::Task> t, l4_cap_idx_t s)
   for (Moe::Name_space::Const_iterator i = root_name_space()->begin();
        i != root_name_space()->end(); ++i)
     {
-      chksys(t->map(L4Re::This_task, (*i).obj()->cap().fpage(), L4::Cap<void>(s).snd_base()));
+      chksys(t->map(L4Re::This_task, (*i).obj()->cap().fpage(L4_CAP_FPAGE_RWS), L4::Cap<void>(s).snd_base()));
       s += L4_CAP_OFFSET;
     }
 }
@@ -139,7 +139,10 @@ Moe_app_model::prog_attach_ds(l4_addr_t addr, unsigned long size,
                               Const_dataspace ds, unsigned long offset,
                               unsigned flags, char const *what)
 {
-  if (!_stack.add(addr, size, _task->rm(), ds, offset, flags, 0, what))
+   void *x = _task->rm()->attach((void*)addr, size,
+                                 Region_handler(ds, L4_INVALID_CAP, offset, flags),
+                       flags);
+  if (x == L4_INVALID_PTR)
     chksys(-L4_ENOMEM, what);
 }
 

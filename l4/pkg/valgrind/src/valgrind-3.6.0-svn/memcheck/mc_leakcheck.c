@@ -43,11 +43,10 @@
 #include "pub_tool_options.h"
 #include "pub_tool_oset.h"
 #include "pub_tool_signals.h"
+#include "pub_tool_libcsetjmp.h"    // setjmp facilities
 #include "pub_tool_tooliface.h"     // Needed for mc_include.h
 
 #include "mc_include.h"
-
-#include <setjmp.h>                 // For jmp_buf
 
 /*------------------------------------------------------------*/
 /*--- An overview of leak checking.                        ---*/
@@ -425,7 +424,8 @@ find_active_chunks(UInt* pn_chunks)
 typedef 
    struct {
       UInt  state:2;    // Reachedness.
-      SizeT indirect_szB : (sizeof(SizeT)*8)-2; // If Unreached, how many bytes
+      UInt  pending:1;  // Scan pending.  
+      SizeT indirect_szB : (sizeof(SizeT)*8)-3; // If Unreached, how many bytes
                                                 //   are unreachable from here.
    } 
    LC_Extra;
@@ -510,12 +510,16 @@ lc_is_a_chunk_ptr(Addr ptr, Int* pch_no, MC_Chunk** pch, LC_Extra** pex)
 // Push a chunk (well, just its index) onto the mark stack.
 static void lc_push(Int ch_no, MC_Chunk* ch)
 {
-   if (0) {
-      VG_(printf)("pushing %#lx-%#lx\n", ch->data, ch->data + ch->szB);
+   if (!lc_extras[ch_no].pending) {
+      if (0) {
+         VG_(printf)("pushing %#lx-%#lx\n", ch->data, ch->data + ch->szB);
+      }
+      lc_markstack_top++;
+      tl_assert(lc_markstack_top < lc_n_chunks);
+      lc_markstack[lc_markstack_top] = ch_no;
+      tl_assert(!lc_extras[ch_no].pending);
+      lc_extras[ch_no].pending = True;
    }
-   lc_markstack_top++;
-   tl_assert(lc_markstack_top < lc_n_chunks);
-   lc_markstack[lc_markstack_top] = ch_no;
 }
 
 // Return the index of the chunk on the top of the mark stack, or -1 if
@@ -528,6 +532,8 @@ static Bool lc_pop(Int* ret)
       tl_assert(0 <= lc_markstack_top && lc_markstack_top < lc_n_chunks);
       *ret = lc_markstack[lc_markstack_top];
       lc_markstack_top--;
+      tl_assert(lc_extras[*ret].pending);
+      lc_extras[*ret].pending = False;
       return True;
    }
 }
@@ -544,25 +550,28 @@ lc_push_without_clique_if_a_chunk_ptr(Addr ptr, Bool is_prior_definite)
 
    if ( ! lc_is_a_chunk_ptr(ptr, &ch_no, &ch, &ex) )
       return;
-
-   // Only push it if it hasn't been seen previously.
-   if (ex->state == Unreached) {
-      lc_push(ch_no, ch);
-   }
-
+   
    // Possibly upgrade the state, ie. one of:
    // - Unreached --> Possible
    // - Unreached --> Reachable 
    // - Possible  --> Reachable
-   if (ptr == ch->data && is_prior_definite) {
+   if (ptr == ch->data && is_prior_definite && ex->state != Reachable) {
       // 'ptr' points to the start of the block, and the prior node is
       // definite, which means that this block is definitely reachable.
       ex->state = Reachable;
+
+      // State has changed to Reachable so (re)scan the block to make
+      // sure any blocks it points to are correctly marked.
+      lc_push(ch_no, ch);
 
    } else if (ex->state == Unreached) {
       // Either 'ptr' is a interior-pointer, or the prior node isn't definite,
       // which means that we can only mark this block as possibly reachable.
       ex->state = Possible;
+
+      // State has changed to Possible so (re)scan the block to make
+      // sure any blocks it points to are correctly marked.
+      lc_push(ch_no, ch);
    }
 }
 
@@ -626,7 +635,7 @@ lc_push_if_a_chunk_ptr(Addr ptr, Int clique, Bool is_prior_definite)
 }
 
 
-static jmp_buf memscan_jmpbuf;
+static VG_MINIMAL_JMP_BUF(memscan_jmpbuf);
 
 static
 void scan_all_valid_memory_catcher ( Int sigNo, Addr addr )
@@ -634,7 +643,7 @@ void scan_all_valid_memory_catcher ( Int sigNo, Addr addr )
    if (0)
       VG_(printf)("OUCH! sig=%d addr=%#lx\n", sigNo, addr);
    if (sigNo == VKI_SIGSEGV || sigNo == VKI_SIGBUS)
-      __builtin_longjmp(memscan_jmpbuf, 1);
+      VG_MINIMAL_LONGJMP(memscan_jmpbuf);
 }
 
 // Scan a block of memory between [start, start+len).  This range may
@@ -676,7 +685,7 @@ lc_scan_memory(Addr start, SizeT len, Bool is_prior_definite, Int clique)
          }
       }
 
-      if (__builtin_setjmp(memscan_jmpbuf) == 0) {
+      if (VG_MINIMAL_SETJMP(memscan_jmpbuf) == 0) {
          if ( MC_(is_valid_aligned_word)(ptr) ) {
             lc_scanned_szB += sizeof(Addr);
             addr = *(Addr *)ptr;
@@ -708,7 +717,7 @@ static void lc_process_markstack(Int clique)
    Bool is_prior_definite;
 
    while (lc_pop(&top)) {
-      tl_assert(top >= 0 && top < lc_n_chunks);      
+      tl_assert(top >= 0 && top < lc_n_chunks);
 
       // See comment about 'is_prior_definite' at the top to understand this.
       is_prior_definite = ( Possible != lc_extras[top].state );
@@ -996,7 +1005,7 @@ void MC_(detect_memory_leaks) ( ThreadId tid, LeakCheckMode mode )
 
       } else {
          VG_(umsg)("Block 0x%lx..0x%lx overlaps with block 0x%lx..0x%lx",
-                   start1, end1, start1, end2);
+                   start1, end1, start2, end2);
          VG_(umsg)("This is usually caused by using VALGRIND_MALLOCLIKE_BLOCK");
          VG_(umsg)("in an inappropriate way.");
          tl_assert (0);
@@ -1007,6 +1016,7 @@ void MC_(detect_memory_leaks) ( ThreadId tid, LeakCheckMode mode )
    lc_extras = VG_(malloc)( "mc.dml.2", lc_n_chunks * sizeof(LC_Extra) );
    for (i = 0; i < lc_n_chunks; i++) {
       lc_extras[i].state        = Unreached;
+      lc_extras[i].pending      = False;
       lc_extras[i].indirect_szB = 0;
    }
 

@@ -28,10 +28,6 @@ l4util_create_thread(l4_cap_idx_t id, l4_utcb_t *thread_utcb,
   if (l4_error(res))
     return l4_error(res);
 
-  res = l4_scheduler_run_thread(scheduler, id, &scp);
-  if (l4_error(res))
-    return l4_error(res);
-
   l4_thread_control_start();
   l4_thread_control_pager(pager);
   l4_thread_control_bind(thread_utcb, task);
@@ -42,6 +38,13 @@ l4util_create_thread(l4_cap_idx_t id, l4_utcb_t *thread_utcb,
   res = l4_thread_ex_regs(id, pc, sp, 0);
   if (l4_error(res))
     return l4_error(res);
+
+  if (!l4_is_invalid_cap(scheduler))
+    {
+      res = l4_scheduler_run_thread(scheduler, id, &scp);
+      if (l4_error(res))
+        return l4_error(res);
+    }
 
   return 0;
 }

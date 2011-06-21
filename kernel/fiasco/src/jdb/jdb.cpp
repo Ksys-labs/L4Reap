@@ -295,17 +295,17 @@ Jdb::execute_command_ni(Space *task, char const *str, int len = 1000)
   for (;;)
     {
       int c = getchar();
-     
+
       was_input_error = true;
       if (0 != strchr(non_interactive_cmds, c))
 	{
-	  char _cmd[] = {c, 0};
+	  char _cmd[] = {(char)c, 0};
 	  Jdb_core::Cmd cmd = Jdb_core::has_cmd(_cmd);
 
 	  if (cmd.cmd)
 	    {
 	      if (Jdb_core::exec_cmd (cmd, 0) != 3)
-    		was_input_error = false;
+                was_input_error = false;
 	    }
 	}
 
@@ -342,7 +342,7 @@ Jdb::input_short_mode(Jdb::Cmd *cmd, char const **args, int &cmd_key)
 
       printf("\033[K%c", c); // clreol + print key
 
-      char cmd_buffer[2] = { c, 0 };
+      char cmd_buffer[2] = { (char)c, 0 };
 
       *cmd = Jdb_core::has_cmd(cmd_buffer);
       if (cmd->cmd)
@@ -594,7 +594,7 @@ Jdb::remote_work(unsigned cpu, void (*func)(unsigned, void *), void *data,
       Jdb::remote_func_running.cpu(cpu) = 1;
       Jdb::remote_func_data.cpu(cpu) = data;
       Mem::barrier();
-      Jdb::remote_func.cpu(cpu) = func;
+      set_monitored_address(&Jdb::remote_func.cpu(cpu), func);
       Mem::barrier();
 
       while (sync)
@@ -1290,13 +1290,11 @@ Jdb::stop_all_cpus(unsigned current_cpu)
 	{
 	  Mem::barrier();
 	  void (**func)(unsigned, void *) = &remote_func.cpu(current_cpu);
+	  void (*f)(unsigned, void *);
 
-	  monitor_address(current_cpu, reinterpret_cast<void*>(func));
-
-	  if (*func)
+	  if ((f = monitor_address(current_cpu, func)))
 	    {
 	      // Execute functions from queued from another CPU
-	      void (*f)(unsigned, void *) = *func;
 	      *func = 0;
 	      f(current_cpu, remote_func_data.cpu(current_cpu));
 	      Mem::barrier();
@@ -1340,6 +1338,9 @@ Jdb::leave_wait_for_others()
 	{
 	  if (Cpu::online(c) && running.cpu(c))
 	    {
+	      // notify other CPU
+              set_monitored_address(&Jdb::remote_func.cpu(c),
+                                    (void (*)(unsigned, void *))0);
 //	      printf("JDB: wait for CPU[%2u] to leave\n", c);
 	      all_there = false;
 	    }

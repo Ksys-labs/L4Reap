@@ -61,11 +61,13 @@
 #include "pub_core_debuglog.h"
 #include "pub_core_vki.h"
 #include "pub_core_vkiscnums.h"    // __NR_sched_yield
+#include "pub_core_libcsetjmp.h"   // to keep _threadstate.h happy
 #include "pub_core_threadstate.h"
 #include "pub_core_aspacemgr.h"
 #include "pub_core_clreq.h"         // for VG_USERREQ__*
 #include "pub_core_dispatch.h"
 #include "pub_core_errormgr.h"      // For VG_(get_n_errs_found)()
+#include "pub_core_gdbserver.h"     // for VG_(gdbserver) and VG_(gdbserver_activity)
 #include "pub_core_libcbase.h"
 #include "pub_core_libcassert.h"
 #include "pub_core_libcprint.h"
@@ -110,6 +112,13 @@ UInt VG_(dispatch_ctr);
 
 /* 64-bit counter for the number of basic blocks done. */
 static ULong bbs_done = 0;
+
+/* Counter to see if vgdb activity is to be verified.
+   When nr of bbs done reaches vgdb_next_poll, scheduler will
+   poll for gdbserver activity. VG_(force_vgdb_poll) and 
+   VG_(disable_vgdb_poll) allows the valgrind core (e.g. m_gdbserver)
+   to control when the next poll will be done. */
+static ULong vgdb_next_poll;
 
 /* Forwards */
 static void do_client_request ( ThreadId tid );
@@ -182,8 +191,8 @@ HChar* name_of_sched_event ( UInt event )
       case VEX_TRC_JMP_SYS_INT48:     return "INT 0x30";
       case VEX_TRC_JMP_SYS_INT50:     return "INT 0x32";
       case VEX_TRC_JMP_SIGTRAP:       return "SIGTRAP (INT3)";
-	  case VEX_TRC_JMP_L4_UD2:        return "L4: UD2";
-	  case VEX_TRC_JMP_L4_ARTIFICIAL: return "L4: Artificial";
+      case VEX_TRC_JMP_L4_UD2:        return "L4: UD2";
+      case VEX_TRC_JMP_L4_ARTIFICIAL: return "L4: Artificial";
 #endif
       default:                        return "??UNKNOWN??";
   }
@@ -625,7 +634,7 @@ void VG_(scheduler_init_phase2) ( ThreadId tid_main,
    do {                                                                        \
       ThreadState * volatile _qq_tst = VG_(get_ThreadState)(tid);        \
                                                                         \
-      (jumped) = __builtin_setjmp(_qq_tst->sched_jmpbuf);               \
+	  (jumped) = VG_MINIMAL_SETJMP(_qq_tst->sched_jmpbuf);              \
       if ((jumped) == 0) {                                                \
          vg_assert(!_qq_tst->sched_jmpbuf_valid);                        \
          _qq_tst->sched_jmpbuf_valid = True;                                \
@@ -701,13 +710,13 @@ static void do_pre_run_checks ( ThreadState* tst )
 #  if defined(VGA_ppc32) || defined(VGA_ppc64)
    /* ppc guest_state vector regs must be 16 byte aligned for
       loads/stores.  This is important! */
-   vg_assert(VG_IS_16_ALIGNED(& tst->arch.vex.guest_VR0));
-   vg_assert(VG_IS_16_ALIGNED(& tst->arch.vex_shadow1.guest_VR0));
-   vg_assert(VG_IS_16_ALIGNED(& tst->arch.vex_shadow2.guest_VR0));
+   vg_assert(VG_IS_16_ALIGNED(& tst->arch.vex.guest_VSR0));
+   vg_assert(VG_IS_16_ALIGNED(& tst->arch.vex_shadow1.guest_VSR0));
+   vg_assert(VG_IS_16_ALIGNED(& tst->arch.vex_shadow2.guest_VSR0));
    /* be extra paranoid .. */
-   vg_assert(VG_IS_16_ALIGNED(& tst->arch.vex.guest_VR1));
-   vg_assert(VG_IS_16_ALIGNED(& tst->arch.vex_shadow1.guest_VR1));
-   vg_assert(VG_IS_16_ALIGNED(& tst->arch.vex_shadow2.guest_VR1));
+   vg_assert(VG_IS_16_ALIGNED(& tst->arch.vex.guest_VSR1));
+   vg_assert(VG_IS_16_ALIGNED(& tst->arch.vex_shadow1.guest_VSR1));
+   vg_assert(VG_IS_16_ALIGNED(& tst->arch.vex_shadow2.guest_VSR1));
 #  endif
 
 #  if defined(VGA_arm)
@@ -721,8 +730,26 @@ static void do_pre_run_checks ( ThreadState* tst )
    vg_assert(VG_IS_8_ALIGNED(& tst->arch.vex_shadow1.guest_D1));
    vg_assert(VG_IS_8_ALIGNED(& tst->arch.vex_shadow2.guest_D1));
 #  endif
+
+#  if defined(VGA_s390x)
+   /* no special requirements */
+#  endif
 }
 
+// NO_VGDB_POLL value ensures vgdb is not polled, while
+// VGDB_POLL_ASAP ensures that the next scheduler call
+// will cause a poll.
+#define NO_VGDB_POLL    0xffffffffffffffffULL
+#define VGDB_POLL_ASAP  0x0ULL
+
+void VG_(disable_vgdb_poll) (void )
+{
+   vgdb_next_poll = NO_VGDB_POLL;
+}
+void VG_(force_vgdb_poll) ( void )
+{
+   vgdb_next_poll = VGDB_POLL_ASAP;
+}
 
 /* Run the thread tid for a while, and return a VG_TRC_* value
    indicating why VG_(run_innerloop) stopped. */
@@ -785,8 +812,8 @@ static UInt run_thread_for_a_while ( ThreadId tid )
 #if defined(L4RE_DEBUG_EXECUTION)
    //VG_(get_and_pp_StackTrace)( tid, VG_(clo_backtrace_size) );
    VG_(debugLog)(0, "sched", "bbs_done=%lld ip = %p guest ip = %p\n",
-				 bbs_done, (void *)VG_(get_IP)(tid),
-				 (void*)&tst->arch.vex.guest_EIP);
+                 bbs_done, (void *)VG_(get_IP)(tid),
+                 (void*)&tst->arch.vex.guest_EIP);
 #endif
 #endif
    SCHEDSETJMP(
@@ -816,6 +843,16 @@ static UInt run_thread_for_a_while ( ThreadId tid )
 
    // Tell the tool this thread has stopped running client code
    VG_TRACK( stop_client_code, tid, bbs_done );
+
+   if (bbs_done >= vgdb_next_poll) {
+      if (VG_(clo_vgdb_poll))
+         vgdb_next_poll = bbs_done + (ULong)VG_(clo_vgdb_poll);
+      else
+         /* value was changed due to gdbserver invocation via ptrace */
+         vgdb_next_poll = NO_VGDB_POLL;
+      if (VG_(gdbserver_activity) (tid))
+         VG_(gdbserver) (tid);
+   }
 
    return trc;
 }
@@ -902,6 +939,11 @@ static UInt run_noredir_translation ( Addr hcode, ThreadId tid )
    VG_TRACK( stop_client_code, tid, bbs_done );
 
    return retval;
+}
+
+ULong VG_(bbs_done) (void)
+{
+   return bbs_done;
 }
 
 
@@ -1019,9 +1061,58 @@ VgSchedReturnCode VG_(scheduler) ( ThreadId tid )
 {
    UInt     trc;
    ThreadState *tst = VG_(get_ThreadState)(tid);
+   static Bool vgdb_startup_action_done = False;
+
 
    if (VG_(clo_trace_sched))
       print_sched_event(tid, "entering VG_(scheduler)");      
+
+   /* Do vgdb initialization (but once). Only the first (main) task
+      starting up will do the below.
+      Initialize gdbserver earlier than at the first 
+      thread VG_(scheduler) is causing problems:
+      * at the end of VG_(scheduler_init_phase2) :
+        The main thread is in VgTs_Init state, but in a not yet
+        consistent state => the thread cannot be reported to gdb
+        (e.g. causes an assert in LibVEX_GuestX86_get_eflags when giving
+        back the guest registers to gdb).
+      * at end of valgrind_main, just
+        before VG_(main_thread_wrapper_NORETURN)(1) :
+        The main thread is still in VgTs_Init state but in a
+        more advanced state. However, the thread state is not yet
+        completely initialized : a.o., the os_state is not yet fully
+        set => the thread is then not properly reported to gdb,
+        which is then confused (causing e.g. a duplicate thread be
+        shown, without thread id).
+      * it would be possible to initialize gdbserver "lower" in the
+        call stack (e.g. in VG_(main_thread_wrapper_NORETURN)) but
+        these are platform dependent and the place at which
+        the thread state is completely initialized is not
+        specific anymore to the main thread (so a similar "do it only
+        once" would be needed).
+
+        => a "once only" initialization here is the best compromise. */
+   if (!vgdb_startup_action_done) {
+      vg_assert(tid == 1); // it must be the main thread.
+      vgdb_startup_action_done = True;
+      if (VG_(clo_vgdb) != Vg_VgdbNo) {
+         /* If we have to poll, ensures we do an initial poll at first
+            scheduler call. Otherwise, ensure no poll (unless interrupted
+            by ptrace). */
+         if (VG_(clo_vgdb_poll))
+            VG_(force_vgdb_poll) ();
+         else
+            VG_(disable_vgdb_poll) ();
+
+         vg_assert (VG_(dyn_vgdb_error) == VG_(clo_vgdb_error));
+         /* As we are initializing, VG_(dyn_vgdb_error) can't have been
+            changed yet. */
+
+         VG_(gdbserver_prerun_action) (1);
+      } else {
+         VG_(disable_vgdb_poll) ();
+      }
+   }
 
 #if !defined(VGO_l4re)       
    /* set the proper running signal mask */
@@ -1197,11 +1288,11 @@ VgSchedReturnCode VG_(scheduler) ( ThreadId tid )
          DEBUG_UTCB
          TRACK_UTCB
          break;
-	  case VEX_TRC_JMP_SYS_INT48:     /* L4Re: Invoke */
-	  case VEX_TRC_JMP_SYS_INT50:     /* L4Re: Debug */
-	  case VEX_TRC_JMP_SYS_INT128:    /* L4Re/UX: INT80 */
-	  case VEX_TRC_JMP_L4_UD2:        /* L4Re: UD2 */
-	  case VEX_TRC_JMP_L4_ARTIFICIAL: /* L4Re: artificial trap */
+      case VEX_TRC_JMP_SYS_INT48:     /* L4Re: Invoke */
+      case VEX_TRC_JMP_SYS_INT50:     /* L4Re: Debug */
+      case VEX_TRC_JMP_SYS_INT128:    /* L4Re/UX: INT80 */
+      case VEX_TRC_JMP_L4_UD2:        /* L4Re: UD2 */
+      case VEX_TRC_JMP_L4_ARTIFICIAL: /* L4Re: artificial trap */
           handle_syscall(tid, trc);
           if (VG_(clo_sanity_level) > 2)
               VG_(sanity_check_general)(True); /* sanity-check every syscall */
@@ -1243,6 +1334,7 @@ VgSchedReturnCode VG_(scheduler) ( ThreadId tid )
          /* Failure of arch-specific address translation (x86/amd64
             segment override use) */
          /* jrs 2005 03 11: is this correct? */
+         VG_(message)(Vg_DebugMsg, "TRC_JMP_MAPFAIL\n");
          VG_(synth_fault)(tid);
          break;
 
@@ -1305,6 +1397,7 @@ VgSchedReturnCode VG_(scheduler) ( ThreadId tid )
          break;
 
       case VEX_TRC_JMP_SIGSEGV:
+         VG_(message)(Vg_DebugMsg, "TRC_JMP_SIGSEGV\n");
          VG_(synth_fault)(tid);
          break;
 
@@ -1316,6 +1409,7 @@ VgSchedReturnCode VG_(scheduler) ( ThreadId tid )
          VG_(umsg)(
             "valgrind: Unrecognised instruction at address %#lx.\n",
             VG_(get_IP)(tid));
+         VG_(get_and_pp_StackTrace)(tid, 50);
 #define M(a) VG_(umsg)(a "\n");
    M("Your program just tried to execute an instruction that Valgrind" );
    M("did not recognise.  There are two possible reasons for this."    );
@@ -1447,6 +1541,9 @@ void VG_(nuke_all_threads_except) ( ThreadId me, VgSchedReturnCode src )
 #elif defined(VGA_arm)
 #  define VG_CLREQ_ARGS       guest_R4
 #  define VG_CLREQ_RET        guest_R3
+#elif defined (VGA_s390x)
+#  define VG_CLREQ_ARGS       guest_r2
+#  define VG_CLREQ_RET        guest_r3
 #else
 #  error Unknown arch
 #endif
@@ -1713,6 +1810,7 @@ void do_client_request ( ThreadId tid )
       }
 
       case VG_USERREQ__MALLOCLIKE_BLOCK:
+      case VG_USERREQ__RESIZEINPLACE_BLOCK:
       case VG_USERREQ__FREELIKE_BLOCK:
          // Ignore them if the addr is NULL;  otherwise pass onto the tool.
          if (!arg[1]) {
@@ -1890,10 +1988,12 @@ void VG_(sanity_check_general) ( Bool force_expensive )
          stack 
             = (VgStack*)
               VG_(get_ThreadState)(tid)->os_state.valgrind_stack_base;
-         remains 
-            = VG_(am_get_VgStack_unused_szB)(stack);
-         if (remains < VKI_PAGE_SIZE)
-            VG_(message)(Vg_DebugMsg, 
+         SizeT limit
+            = 4096; // Let's say.  Checking more causes lots of L2 misses.
+         remains
+            = VG_(am_get_VgStack_unused_szB)(stack, limit);
+         if (remains < limit)
+            VG_(message)(Vg_DebugMsg,
                          "WARNING: Thread %d is within %ld bytes "
                          "of running out of stack!\n",
                          tid, remains);

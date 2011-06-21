@@ -195,7 +195,7 @@ extern void ppARMAModeV ( ARMAModeV* );
 /* --- Addressing Mode suitable for Neon --- */
 typedef
    enum {
-      ARMamN_R,
+      ARMamN_R=5,
       ARMamN_RR
       /* ... */
    }
@@ -227,7 +227,7 @@ extern void ppARMAModeN ( ARMAModeN* );
 
 typedef
    enum {
-      ARMri84_I84=5,   /* imm8 `ror` (2 * imm4) */
+      ARMri84_I84=7,   /* imm8 `ror` (2 * imm4) */
       ARMri84_R        /* reg */
    }
    ARMRI84Tag;
@@ -256,7 +256,7 @@ extern void ppARMRI84 ( ARMRI84* );
 /* --------- Reg or imm5 operands --------- */
 typedef
    enum {
-      ARMri5_I5=7,   /* imm5, 1 .. 31 only (no zero!) */
+      ARMri5_I5=9,   /* imm5, 1 .. 31 only (no zero!) */
       ARMri5_R       /* reg */
    }
    ARMRI5Tag;
@@ -321,7 +321,7 @@ extern void ppARMNImm ( ARMNImm* );
 
 typedef
    enum {
-      ARMNRS_Reg,
+      ARMNRS_Reg=11,
       ARMNRS_Scalar
    }
    ARMNRS_tag;
@@ -342,7 +342,7 @@ extern void ppARMNRS ( ARMNRS* );
 /* --------- */
 typedef
    enum {
-      ARMalu_ADD=10,   /* plain 32-bit add */
+      ARMalu_ADD=20,   /* plain 32-bit add */
       ARMalu_ADDS,     /* 32-bit add, and set the flags */
       ARMalu_ADC,      /* 32-bit add with carry */
       ARMalu_SUB,      /* plain 32-bit subtract */
@@ -360,7 +360,7 @@ extern HChar* showARMAluOp ( ARMAluOp op );
 
 typedef
    enum {
-      ARMsh_SHL=20,
+      ARMsh_SHL=40,
       ARMsh_SHR,
       ARMsh_SAR
    }
@@ -371,7 +371,7 @@ extern HChar* showARMShiftOp ( ARMShiftOp op );
 
 typedef
    enum {
-      ARMun_NEG=30,
+      ARMun_NEG=50,
       ARMun_NOT,
       ARMun_CLZ
    }
@@ -382,7 +382,7 @@ extern HChar* showARMUnaryOp ( ARMUnaryOp op );
 
 typedef
    enum {
-      ARMmul_PLAIN=40,
+      ARMmul_PLAIN=60,
       ARMmul_ZX,
       ARMmul_SX
    }
@@ -393,7 +393,7 @@ extern HChar* showARMMulOp ( ARMMulOp op );
 
 typedef
    enum {
-      ARMvfp_ADD=50,
+      ARMvfp_ADD=70,
       ARMvfp_SUB,
       ARMvfp_MUL,
       ARMvfp_DIV
@@ -405,7 +405,7 @@ extern HChar* showARMVfpOp ( ARMVfpOp op );
 
 typedef
    enum {
-      ARMvfpu_COPY=60,
+      ARMvfpu_COPY=80,
       ARMvfpu_NEG,
       ARMvfpu_ABS,
       ARMvfpu_SQRT
@@ -416,7 +416,7 @@ extern HChar* showARMVfpUnaryOp ( ARMVfpUnaryOp op );
 
 typedef
    enum {
-      ARMneon_VAND=70,
+      ARMneon_VAND=90,
       ARMneon_VORR,
       ARMneon_VXOR,
       ARMneon_VADD,
@@ -463,21 +463,15 @@ typedef
       ARMneon_VPMAXF,
       ARMneon_VTBL,
       ARMneon_VQDMULL,
-      ARMneon_VDUP,
-      ARMneon_VRECIP,
       ARMneon_VRECPS,
-      ARMneon_VRECIPF,
       ARMneon_VRSQRTS,
-      ARMneon_VABSFP,
-      ARMneon_VRSQRTEFP,
-      ARMneon_VRSQRTE
       /* ... */
    }
    ARMNeonBinOp;
 
 typedef
    enum {
-      ARMneon_VSHL,
+      ARMneon_VSHL=150,
       ARMneon_VSAL, /* Yah, not SAR but SAL */
       ARMneon_VQSHL,
       ARMneon_VQSAL
@@ -486,7 +480,7 @@ typedef
 
 typedef
    enum {
-      ARMneon_COPY,
+      ARMneon_COPY=160,
       ARMneon_COPYLU,
       ARMneon_COPYLS,
       ARMneon_COPYN,
@@ -520,21 +514,27 @@ typedef
       ARMneon_REV64,
       ARMneon_ABS,
       ARMneon_VNEGF,
+      ARMneon_VRECIP,
+      ARMneon_VRECIPF,
+      ARMneon_VABSFP,
+      ARMneon_VRSQRTEFP,
+      ARMneon_VRSQRTE
       /* ... */
    }
    ARMNeonUnOp;
 
 typedef
    enum {
-      ARMneon_SETELEM,
+      ARMneon_SETELEM=200,
       ARMneon_GETELEMU,
-      ARMneon_GETELEMS
+      ARMneon_GETELEMS,
+      ARMneon_VDUP,
    }
    ARMNeonUnOpS;
 
 typedef
    enum {
-      ARMneon_TRN=100,
+      ARMneon_TRN=210,
       ARMneon_ZIP,
       ARMneon_UZP
       /* ... */
@@ -555,7 +555,7 @@ extern HChar* showARMNeonDualOpDataType ( ARMNeonDualOp op );
 typedef
    enum {
       /* baseline */
-      ARMin_Alu=70,
+      ARMin_Alu=220,
       ARMin_Shift,
       ARMin_Unary,
       ARMin_CmpOrTst,
@@ -861,7 +861,7 @@ typedef
             ARMAModeN *amode;
          } NLdStD;
          struct {
-            ARMNeonUnOp op;
+            ARMNeonUnOpS op;
             ARMNRS*  dst;
             ARMNRS*  src;
             UInt size;
@@ -940,7 +940,7 @@ extern ARMInstr* ARMInstr_MFence   ( void );
 extern ARMInstr* ARMInstr_NLdStQ   ( Bool isLoad, HReg, ARMAModeN* );
 extern ARMInstr* ARMInstr_NLdStD   ( Bool isLoad, HReg, ARMAModeN* );
 extern ARMInstr* ARMInstr_NUnary   ( ARMNeonUnOp, HReg, HReg, UInt, Bool );
-extern ARMInstr* ARMInstr_NUnaryS  ( ARMNeonUnOp, ARMNRS*, ARMNRS*,
+extern ARMInstr* ARMInstr_NUnaryS  ( ARMNeonUnOpS, ARMNRS*, ARMNRS*,
                                      UInt, Bool );
 extern ARMInstr* ARMInstr_NDual    ( ARMNeonDualOp, HReg, HReg, UInt, Bool );
 extern ARMInstr* ARMInstr_NBinary  ( ARMNeonBinOp, HReg, HReg, HReg,

@@ -304,7 +304,7 @@ endif
 # linking address, source a possible privately configured one
 ifneq ($(RELOC_PHYS),)
 -include $(OBJ_BASE)/Makeconf.ram_base
-EXTRA_GENERAL_D_DEP += $(if $(wildcard $(OBJ_BASE)/Makeconf.ram_base),$(OBJ_BASE)/Makeconf.ram_base)
+BID_RAM_BASE_DEP := $(if $(wildcard $(OBJ_BASE)/Makeconf.ram_base),$(OBJ_BASE)/Makeconf.ram_base)
 endif
 
 INCLUDE_MAKE_RULES += $(if $(LABEL),$(L4DIR)/Makeconf.$(LABEL))
@@ -337,11 +337,6 @@ BID_COMMA	= ,
 ifneq ($(PL),)
 PL_j := -j $(PL)
 export PL
-endif
-
-BID_INT_NOEXC=n
-ifeq ($(MODE_NOEXC),y)
-BID_INT_NOEXC=y
 endif
 
 include $(L4DIR)/mk/config.inc

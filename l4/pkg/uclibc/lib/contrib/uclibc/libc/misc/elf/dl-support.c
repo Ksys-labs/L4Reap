@@ -16,6 +16,7 @@
 #if defined(USE_TLS) && USE_TLS
 #include <assert.h>
 #include <tls.h>
+#include <stdbool.h>
 #include <ldsodefs.h>
 #include <string.h>
 #endif

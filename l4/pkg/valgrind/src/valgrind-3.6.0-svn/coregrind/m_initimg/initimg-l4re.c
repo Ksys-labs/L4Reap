@@ -1145,6 +1145,10 @@ void VG_(ii_finalise_image)( IIFinaliseImageInfo iifii )
    asm volatile("movw %%ds, %0" : : "m" (arch->vex.guest_DS));
    asm volatile("movw %%ss, %0" : : "m" (arch->vex.guest_SS));
 
+   /* allocate GDT */
+   enum { GDT_ENTRY_SIZE = 2 * sizeof(long), GDT_NUM_ENTRIES = 11 };
+   arch->vex.guest_GDT = VG_(malloc)("gdt", GDT_ENTRY_SIZE * GDT_NUM_ENTRIES);
+   VG_(debugLog)(0, "sched", "GDT @ %p\n", arch->vex.guest_GDT);
 
 #  else
 #    error Unknown platform

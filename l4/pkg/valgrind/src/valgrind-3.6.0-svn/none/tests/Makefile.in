@@ -55,13 +55,14 @@ DIST_COMMON = $(dist_noinst_SCRIPTS) $(noinst_HEADERS) \
 @VGCONF_ARCHS_INCLUDE_PPC32_TRUE@am__append_3 = ppc32
 @VGCONF_ARCHS_INCLUDE_PPC64_TRUE@am__append_4 = ppc64
 @VGCONF_ARCHS_INCLUDE_ARM_TRUE@am__append_5 = arm
+@VGCONF_ARCHS_INCLUDE_S390X_TRUE@am__append_6 = s390x
 
 # OS-specific tests
-@VGCONF_OS_IS_LINUX_TRUE@am__append_6 = linux
-@VGCONF_OS_IS_DARWIN_TRUE@am__append_7 = darwin
+@VGCONF_OS_IS_LINUX_TRUE@am__append_7 = linux
+@VGCONF_OS_IS_DARWIN_TRUE@am__append_8 = darwin
 
 # Platform-specific tests
-@VGCONF_PLATFORMS_INCLUDE_X86_LINUX_TRUE@am__append_8 = x86-linux
+@VGCONF_PLATFORMS_INCLUDE_X86_LINUX_TRUE@am__append_9 = x86-linux
 check_PROGRAMS = ansi$(EXEEXT) args$(EXEEXT) async-sigs$(EXEEXT) \
 	bitfield1$(EXEEXT) bug129866$(EXEEXT) closeall$(EXEEXT) \
 	coolo_strlen$(EXEEXT) discard$(EXEEXT) exec-sigmask$(EXEEXT) \
@@ -100,7 +101,7 @@ check_PROGRAMS = ansi$(EXEEXT) args$(EXEEXT) async-sigs$(EXEEXT) \
 # --61831:0:aspacem  NSegment{    , start=0x10067a000, end=0x109a1efff,
 #                    smode=SmFixed, dev=0, ino=0, offset=0, fnIdx=-1, hasR=0,
 #                    hasW=0, hasX=0, hasT=0, mark=0, name="(none)"}
-@VGCONF_PLATFORMS_INCLUDE_AMD64_DARWIN_FALSE@am__append_9 = \
+@VGCONF_PLATFORMS_INCLUDE_AMD64_DARWIN_FALSE@am__append_10 = \
 @VGCONF_PLATFORMS_INCLUDE_AMD64_DARWIN_FALSE@	manythreads \
 @VGCONF_PLATFORMS_INCLUDE_AMD64_DARWIN_FALSE@	thread-exits
 
@@ -148,8 +149,10 @@ exec_sigmask_SOURCES = exec-sigmask.c
 exec_sigmask_OBJECTS = exec-sigmask.$(OBJEXT)
 exec_sigmask_LDADD = $(LDADD)
 execve_SOURCES = execve.c
-execve_OBJECTS = execve.$(OBJEXT)
+execve_OBJECTS = execve-execve.$(OBJEXT)
 execve_LDADD = $(LDADD)
+execve_LINK = $(CCLD) $(execve_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
 faultstatus_SOURCES = faultstatus.c
 faultstatus_OBJECTS = faultstatus.$(OBJEXT)
 faultstatus_LDADD = $(LDADD)
@@ -477,6 +480,8 @@ FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
 FLAG_W_NO_FORMAT_ZERO_LENGTH = @FLAG_W_NO_FORMAT_ZERO_LENGTH@
+FLAG_W_NO_NONNULL = @FLAG_W_NO_NONNULL@
+FLAG_W_NO_OVERFLOW = @FLAG_W_NO_OVERFLOW@
 FLAG_W_NO_UNINITIALIZED = @FLAG_W_NO_UNINITIALIZED@
 GDB = @GDB@
 GENERATED_SUPP = @GENERATED_SUPP@
@@ -506,12 +511,7 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
-QTCORE_CFLAGS = @QTCORE_CFLAGS@
-QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -664,7 +664,7 @@ AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 			 	$(AM_CFLAGS_BASE) -marm
 
-AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
+AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -marm -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
 AM_CFLAGS_PPC32_AIX5 = @FLAG_MAIX32@ -mcpu=powerpc $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC32_AIX5 = $(AM_CPPFLAGS_PPC32_AIX5) \
@@ -693,6 +693,11 @@ AM_CFLAGS_X86_L4RE = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 AM_CCASFLAGS_X86_L4RE = $(L4_CPPFLAGS) @FLAG_M32@ -g
 AM_CXXFLAGS_X86_L4RE = $(L4_CXXFLAGS) @FLAG_M32@
 #AM_CPPFLAGS_X86_L4RE   = $(L4_CPPFLAGS) $(AM_CPPFLAGS_X86_L4RE)
+AM_FLAG_M3264_S390X_LINUX = @FLAG_M64@
+AM_CFLAGS_S390X_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
+AM_CCASFLAGS_S390X_LINUX = $(AM_CPPFLAGS_S390X_LINUX) -mzarch -march=z900 \
+                            @FLAG_M64@ -g
+
 
 # Flags for the primary target.  These must be used to build the
 # regtests and performance tests.  In fact, these must be used to
@@ -721,6 +726,7 @@ PRELOAD_LDFLAGS_PPC32_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX32@
 PRELOAD_LDFLAGS_PPC64_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX64@
 PRELOAD_LDFLAGS_X86_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch i386
 PRELOAD_LDFLAGS_AMD64_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch x86_64
+PRELOAD_LDFLAGS_S390X_LINUX = $(PRELOAD_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 PRELOAD_LDFLAGS_X86_L4RE = $(PRELOAD_LDFLAGS_COMMON_L4RE) @FLAG_M32@
 AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/include \
 		-I$(top_srcdir)/coregrind -I$(top_builddir)/include \
@@ -739,8 +745,8 @@ AM_CCASFLAGS = $(AM_CPPFLAGS)
 @VGCONF_OS_IS_DARWIN_TRUE@noinst_DSYMS = $(check_PROGRAMS)
 SUBDIRS = . $(am__append_1) $(am__append_2) $(am__append_3) \
 	$(am__append_4) $(am__append_5) $(am__append_6) \
-	$(am__append_7) $(am__append_8)
-DIST_SUBDIRS = x86 amd64 ppc32 ppc64 arm linux darwin x86-linux .
+	$(am__append_7) $(am__append_8) $(am__append_9)
+DIST_SUBDIRS = x86 amd64 ppc32 ppc64 arm s390x linux darwin x86-linux .
 dist_noinst_SCRIPTS = \
 	filter_cmdline0 \
 	filter_cmdline1 \
@@ -860,6 +866,7 @@ EXTRA_DIST = \
 
 # Extra stuff for C tests
 ansi_CFLAGS = $(AM_CFLAGS) -ansi
+execve_CFLAGS = $(AM_CFLAGS) @FLAG_W_NO_NONNULL@
 floored_LDADD = -lm
 manythreads_LDADD = -lpthread
 @VGCONF_OS_IS_DARWIN_FALSE@nestedfns_CFLAGS = $(AM_CFLAGS)
@@ -977,7 +984,7 @@ exec-sigmask$(EXEEXT): $(exec_sigmask_OBJECTS) $(exec_sigmask_DEPENDENCIES)
 	$(LINK) $(exec_sigmask_OBJECTS) $(exec_sigmask_LDADD) $(LIBS)
 execve$(EXEEXT): $(execve_OBJECTS) $(execve_DEPENDENCIES) 
 	@rm -f execve$(EXEEXT)
-	$(LINK) $(execve_OBJECTS) $(execve_LDADD) $(LIBS)
+	$(execve_LINK) $(execve_OBJECTS) $(execve_LDADD) $(LIBS)
 faultstatus$(EXEEXT): $(faultstatus_OBJECTS) $(faultstatus_DEPENDENCIES) 
 	@rm -f faultstatus$(EXEEXT)
 	$(LINK) $(faultstatus_OBJECTS) $(faultstatus_LDADD) $(LIBS)
@@ -1181,7 +1188,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/coolo_strlen.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/discard.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/exec-sigmask.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/execve.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/execve-execve.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/faultstatus.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fcntl_setown.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fdleak_cmsg.Po@am__quote@
@@ -1273,6 +1280,20 @@ ansi-ansi.obj: ansi.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='ansi.c' object='ansi-ansi.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ansi_CFLAGS) $(CFLAGS) -c -o ansi-ansi.obj `if test -f 'ansi.c'; then $(CYGPATH_W) 'ansi.c'; else $(CYGPATH_W) '$(srcdir)/ansi.c'; fi`
+
+execve-execve.o: execve.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(execve_CFLAGS) $(CFLAGS) -MT execve-execve.o -MD -MP -MF $(DEPDIR)/execve-execve.Tpo -c -o execve-execve.o `test -f 'execve.c' || echo '$(srcdir)/'`execve.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/execve-execve.Tpo $(DEPDIR)/execve-execve.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='execve.c' object='execve-execve.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(execve_CFLAGS) $(CFLAGS) -c -o execve-execve.o `test -f 'execve.c' || echo '$(srcdir)/'`execve.c
+
+execve-execve.obj: execve.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(execve_CFLAGS) $(CFLAGS) -MT execve-execve.obj -MD -MP -MF $(DEPDIR)/execve-execve.Tpo -c -o execve-execve.obj `if test -f 'execve.c'; then $(CYGPATH_W) 'execve.c'; else $(CYGPATH_W) '$(srcdir)/execve.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/execve-execve.Tpo $(DEPDIR)/execve-execve.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='execve.c' object='execve-execve.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(execve_CFLAGS) $(CFLAGS) -c -o execve-execve.obj `if test -f 'execve.c'; then $(CYGPATH_W) 'execve.c'; else $(CYGPATH_W) '$(srcdir)/execve.c'; fi`
 
 nestedfns-nestedfns.o: nestedfns.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(nestedfns_CFLAGS) $(CFLAGS) -MT nestedfns-nestedfns.o -MD -MP -MF $(DEPDIR)/nestedfns-nestedfns.Tpo -c -o nestedfns-nestedfns.o `test -f 'nestedfns.c' || echo '$(srcdir)/'`nestedfns.c

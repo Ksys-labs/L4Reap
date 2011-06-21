@@ -40,16 +40,23 @@
 
 
 __BEGIN_DECLS
-#include "pub_core_basics.h"
 #include "pub_l4re.h"
 #include "pub_l4re_consts.h"
+#include "pub_core_basics.h"
 #include "pub_core_ume.h"
 #include "pub_core_aspacemgr.h"
 #include "pub_core_debuginfo.h"  //DebugInfo
 #include "pub_tool_libcbase.h"
 #include "pub_tool_libcfile.h"
 #include "pub_core_libcprint.h"
+__END_DECLS
+// HACK:
+// We include all the pub* headers as C declarations to work around a huge
+//   bunch of C++ warnings. However, pub_core_vki.h really contains a template
+//   definition, so we need to include it as proper C++ header.
 #include "pub_core_vki.h"
+__BEGIN_DECLS
+#include "pub_core_libcsetjmp.h"
 #include "pub_core_threadstate.h"
 #include "pub_core_scheduler.h"
 #include "pub_core_tooliface.h"
@@ -648,7 +655,7 @@ class rm
                 enter_kdebug("detach_area");
             }
 
-            VG_(debugLog)(4, "vcap", "area: %08lx - %08lx\n", info->_start, info->_end);
+            VG_(debugLog)(4, "vcap", "detach area: %08lx - %08lx\n", info->_start, info->_end);
             NSegment *seg = const_cast<NSegment*>(VG_(am_find_nsegment)(info->_start));
             /*
              * Run through all segments within the area and unmap them if they are
@@ -743,10 +750,24 @@ class rm
             return NULL;
         }
 
+        Node lower_bound(Region const &) const throw()
+        {
+            enter_kdebug("lower_bound");
+            return NULL;
+        }
+
+        Node lower_bound_area(Region const &) const throw()
+        {
+            enter_kdebug("lower_bound_area");
+            return NULL;
+        }
+
         void get_lists( l4_addr_t) const throw()
         {
             enter_kdebug("get_lists");
         }
+
+        l4_addr_t max_addr() const { return ~0UL; }
 
 
 };

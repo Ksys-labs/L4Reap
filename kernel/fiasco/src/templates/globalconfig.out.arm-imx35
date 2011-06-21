@@ -12,7 +12,7 @@ CONFIG_ARM=y
 CONFIG_PF_IMX=y
 # CONFIG_PF_S3C2410 is not set
 # CONFIG_PF_TEGRA2 is not set
-# CONFIG_PF_OMAP3 is not set
+# CONFIG_PF_OMAP is not set
 # CONFIG_PF_XSCALE is not set
 # CONFIG_PF_SA1100 is not set
 # CONFIG_PF_KIRKWOOD is not set

@@ -23,17 +23,16 @@
 
 namespace L4Re { namespace Core {
 
-class Ro_file : public L4Re::Vfs::Be_file
+class Ro_file : public L4Re::Vfs::Be_file_pos
 {
 private:
   L4::Cap<L4Re::Dataspace> _ds;
-  off64_t _f_pos;
   off64_t _size;
   char const *_addr;
 
 public:
   explicit Ro_file(L4::Cap<L4Re::Dataspace> ds) throw()
-  : Be_file(), _ds(ds), _f_pos(0), _addr(0)
+  : Be_file_pos(), _ds(ds), _addr(0)
   {
     _ds->take();
     _size = _ds->size();
@@ -41,13 +40,11 @@ public:
 
   L4::Cap<L4Re::Dataspace> data_space() const throw() { return _ds; }
 
-  ssize_t readv(const struct iovec*, int iovcnt) throw();
-  ssize_t writev(const struct iovec*, int iovcnt) throw();
-
-  off64_t lseek64(off64_t, int) throw();
   int fstat64(struct stat64 *buf) const throw();
 
   int ioctl(unsigned long, va_list) throw();
+
+  off64_t size() const throw() { return _size; }
 
   int get_status_flags() const throw()
   { return O_RDONLY; }
@@ -61,13 +58,11 @@ public:
   void operator delete(void *b) throw();
 
 private:
-
-  ssize_t read(const struct iovec*) throw();
-//  ssize_t write(const struct iovec*) throw();
-
+  ssize_t read_single(const struct iovec*, off64_t) throw();
+  ssize_t preadv(const struct iovec *, int, off64_t) throw();
+  ssize_t pwritev(const struct iovec *, int , off64_t) throw();
 
 private:
-
   static Simple_store<Ro_file> store;
 };
 

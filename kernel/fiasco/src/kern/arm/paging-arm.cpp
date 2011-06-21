@@ -140,7 +140,7 @@ IMPLEMENTATION [arm && (armv6 || armv7)]:
 
 PUBLIC static inline
 Mword PF::is_alignment_error(Mword error)
-{ return (error & 0xf00a0f) == 0x400001; }
+{ return (error & 0xf0040f) == 0x400001; }
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [arm]:

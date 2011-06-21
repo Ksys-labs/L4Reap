@@ -588,7 +588,7 @@ UInt x86g_calculate_eflags_all ( UInt cc_op,
 
 /* CALLED FROM GENERATED CODE: CLEAN HELPER */
 /* Calculate just the carry flag from the supplied thunk parameters. */
-__attribute((regparm(3)))
+VEX_REGPARM(3)
 UInt x86g_calculate_eflags_c ( UInt cc_op, 
                                UInt cc_dep1, 
                                UInt cc_dep2,
@@ -2098,6 +2098,51 @@ UInt x86g_calculate_daa_das_aaa_aas ( UInt flags_and_AX, UInt opcode )
       default:
          vassert(0);
    }
+   result =   ( (r_O & 1) << (16 + X86G_CC_SHIFT_O) )
+            | ( (r_S & 1) << (16 + X86G_CC_SHIFT_S) )
+            | ( (r_Z & 1) << (16 + X86G_CC_SHIFT_Z) )
+            | ( (r_A & 1) << (16 + X86G_CC_SHIFT_A) )
+            | ( (r_C & 1) << (16 + X86G_CC_SHIFT_C) )
+            | ( (r_P & 1) << (16 + X86G_CC_SHIFT_P) )
+            | ( (r_AH & 0xFF) << 8 )
+            | ( (r_AL & 0xFF) << 0 );
+   return result;
+}
+
+UInt x86g_calculate_aad_aam ( UInt flags_and_AX, UInt opcode )
+{
+   UInt r_AL = (flags_and_AX >> 0) & 0xFF;
+   UInt r_AH = (flags_and_AX >> 8) & 0xFF;
+   UInt r_O  = (flags_and_AX >> (16 + X86G_CC_SHIFT_O)) & 1;
+   UInt r_S  = (flags_and_AX >> (16 + X86G_CC_SHIFT_S)) & 1;
+   UInt r_Z  = (flags_and_AX >> (16 + X86G_CC_SHIFT_Z)) & 1;
+   UInt r_A  = (flags_and_AX >> (16 + X86G_CC_SHIFT_A)) & 1;
+   UInt r_C  = (flags_and_AX >> (16 + X86G_CC_SHIFT_C)) & 1;
+   UInt r_P  = (flags_and_AX >> (16 + X86G_CC_SHIFT_P)) & 1;
+   UInt result = 0;
+
+   switch (opcode) {
+      case 0xD4: { /* AAM */
+         r_AH = r_AL / 10;
+         r_AL = r_AL % 10;
+         break;
+      }
+      case 0xD5: { /* AAD */
+         r_AL = ((r_AH * 10) + r_AL) & 0xff;
+         r_AH = 0;
+         break;
+      }
+      default:
+         vassert(0);
+   }
+
+   r_O = 0; /* let's say (undefined) */
+   r_C = 0; /* let's say (undefined) */
+   r_A = 0; /* let's say (undefined) */
+   r_S = (r_AL & 0x80) ? 1 : 0;
+   r_Z = (r_AL == 0) ? 1 : 0;
+   r_P = calc_parity_8bit( r_AL );
+
    result =   ( (r_O & 1) << (16 + X86G_CC_SHIFT_O) )
             | ( (r_S & 1) << (16 + X86G_CC_SHIFT_S) )
             | ( (r_Z & 1) << (16 + X86G_CC_SHIFT_Z) )

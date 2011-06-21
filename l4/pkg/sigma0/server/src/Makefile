@@ -3,8 +3,10 @@ L4DIR		    ?= $(PKGDIR)/../..
 
 TARGET		     = sigma0
 MODE		     = sigma0
-L4_LIBS		     = -static -nostdlib $(LIBCLIBS_X86) $(GCCLIB)
-REQUIRES_LIBS        = cxx_util cxx_io cxx_base cxx_io_kdebug l4sys-direct
+L4_LIBS		     = -static -nostdlib $(GCCLIB)
+REQUIRES_LIBS        = libc_minimal cxx_util cxx_io cxx_base \
+                       cxx_io_kdebug l4sys-direct l4sys
+DEFINES             += -DL4_MINIMAL_LIBC
 DEFAULT_RELOC_x86   := 0x00100000
 DEFAULT_RELOC_amd64 := 0x00100000
 DEFAULT_RELOC_arm   := 0x00090000

@@ -107,6 +107,14 @@ Generic_io_space<SPACE>::xlate_flush(unsigned char rights)
 PUBLIC template< typename SPACE >
 static inline
 Mword
+Generic_io_space<SPACE>::is_full_flush(unsigned char rights)
+{
+  return rights;
+}
+
+PUBLIC template< typename SPACE >
+static inline
+Mword
 Generic_io_space<SPACE>::xlate_flush_result(Mword /*attribs*/)
 { return 0; }
 
@@ -459,13 +467,6 @@ Generic_io_space<SPACE>::get_port_bit(Address const port_number) const
   return 1 << (port_number & 7);
 }
 
-
-PRIVATE template< typename SPACE >
-inline
-Pt_entry *Generic_io_space<SPACE>::bitmap_pde_lookup(Address v)
-{
-  return (Pt_entry*)(mem_space()->dir()->walk(v/*PTV >> 12*/, Pdir::Super_level).e);
-}
 
 PUBLIC template< typename SPACE >
 inline static

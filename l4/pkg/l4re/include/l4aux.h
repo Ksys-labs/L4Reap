@@ -32,17 +32,6 @@
  */
 
 /**
- * \brief Auxiliary memory descriptor
- * \ingroup api_l4aux
- * \internal
- */
-typedef struct l4re_mem_area_t
-{
-  l4_addr_t   start;    /**< Start of the memory area */
-  l4_umword_t size;     /**< Size of the memory area */
-} l4re_mem_area_t;
-
-/**
  * \brief Flags for program loading
  * \ingroup api_l4aux
  * \internal
@@ -65,7 +54,5 @@ typedef struct l4re_aux_t
   l4_cap_idx_t    kip_ds;    /**< Data space of the KIP */
   l4_umword_t     dbg_lvl;   /**< Debug levels for l4re */
   l4_umword_t     ldr_flags; /**< Flags for l4re, see \a l4re_aux_ldr_flags_t */
-  l4_umword_t     cnt;       /**< Number of memory areas */
-  l4re_mem_area_t vm[];      /**< Memory areas */
 } l4re_aux_t;
 

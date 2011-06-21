@@ -127,6 +127,9 @@ void  MC_(__builtin_vec_delete) ( ThreadId tid, void* p );
 void* MC_(realloc)              ( ThreadId tid, void* p, SizeT new_size );
 SizeT MC_(malloc_usable_size)   ( ThreadId tid, void* p );
 
+void MC_(handle_resizeInPlace)(ThreadId tid, Addr p,
+                               SizeT oldSizeB, SizeT newSizeB, SizeT rzB);
+
 
 /*------------------------------------------------------------*/
 /*--- Origin tracking translate-time support               ---*/
@@ -351,6 +354,9 @@ Bool MC_(record_leak_error)     ( ThreadId tid,
                                   LossRecord* lossRecord,
                                   Bool print_record,
                                   Bool count_error );
+
+/* prints a description of address a */
+void MC_(pp_describe_addr) (Addr a);
 
 /* Is this address in a user-specified "ignored range" ? */
 Bool MC_(in_ignored_range) ( Addr a );

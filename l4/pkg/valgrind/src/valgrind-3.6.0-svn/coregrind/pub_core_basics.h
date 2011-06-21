@@ -58,12 +58,11 @@
 #  include "libvex_guest_ppc64.h"
 #elif defined(VGA_arm)
 #  include "libvex_guest_arm.h"
+#elif defined(VGA_s390x)
+#  include "libvex_guest_s390x.h"
 #else
 #  error Unknown arch
 #endif
-
-// For jmp_buf
-#include <setjmp.h>
 
 
 /* ---------------------------------------------------------------------
@@ -103,7 +102,12 @@ typedef
             UInt r14;
             UInt r12;
             UInt r11;
+            UInt r7;
          } ARM;
+         struct {
+            ULong r_fp;
+            ULong r_lr;
+         } S390X;
       } misc;
    }
    UnwindStartRegs;

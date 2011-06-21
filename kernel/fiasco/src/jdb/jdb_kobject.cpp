@@ -15,7 +15,7 @@ public:
 private:
   Jdb_kobject_handler *_first;
   Jdb_kobject_handler **_tail;
-  static Kobject *kobj;
+  static void *kobjp;
 };
 
 
@@ -349,7 +349,7 @@ Jdb_kobject_handler::next_global()
   return 0;
 }
 
-Kobject *Jdb_kobject::kobj;
+void *Jdb_kobject::kobjp;
 
 IMPLEMENT
 Jdb_kobject::Jdb_kobject()
@@ -450,10 +450,16 @@ Jdb_kobject::action(int cmd, void *&, char const *&, int &)
   if (cmd == 0)
     {
       puts("");
-      if (!handle_obj(kobj, 0))
-	printf("Kobj w/o handler: ");
-      print_kobj(kobj);
-      puts("");
+      Kobject *k = Kobject::pointer_to_obj(kobjp);
+      if (!k)
+	printf("Not a kobj.\n");
+      else
+        {
+          if (!handle_obj(k, 0))
+            printf("Kobj w/o handler: ");
+          print_kobj(k);
+          puts("");
+        }
       return NOTHING;
     }
   else if (cmd == 1)
@@ -471,7 +477,7 @@ Jdb_kobject::cmds() const
   static Cmd cs[] =
     {
 	{ 0, "K", "kobj", "%p", "K<kobj_ptr>\tshow information for kernel object", 
-	  &kobj },
+	  &kobjp },
 	{ 1, "Q", "listkobj", "", "Q\tshow information for kernel objects", 0 },
     };
   return cs;

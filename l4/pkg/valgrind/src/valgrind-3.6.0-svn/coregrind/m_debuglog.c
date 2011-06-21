@@ -87,7 +87,7 @@ static UInt local_sys_write_stderr ( HChar* buf, Int n )
       "movl  %%eax, 0(%%ebx)\n" /* block[0] = result */
       "popl  %%ebx\n"           /* restore ebx */
       : /*wr*/
-      : /*rd*/    "g" (block)
+      : /*rd*/    "r" (block)
       : /*trash*/ "eax", "edi", "ecx", "edx", "memory", "cc"
    );
    if (block[0] < 0) 
@@ -130,7 +130,7 @@ static UInt local_sys_write_stderr ( HChar* buf, Int n )
       "popq  %%r15\n"           /* restore r15 */
       "addq  $256, %%rsp\n"     /* restore stack ptr */
       : /*wr*/
-      : /*rd*/    "g" (block)
+      : /*rd*/    "r" (block)
       : /*trash*/ "rax", "rdi", "rsi", "rdx", "memory", "cc"
    );
    if (block[0] < 0) 
@@ -533,6 +533,48 @@ static UInt local_sys_getpid ( void )
 {
   return (UInt)l4_utcb_tcr()->user[2];
 }
+
+#elif defined(VGP_s390x_linux)
+static UInt local_sys_write_stderr ( HChar* buf, Int n )
+{
+   register Int    r2     asm("2") = 2;      /* file descriptor STDERR */
+   register HChar* r3     asm("3") = buf;
+   register ULong  r4     asm("4") = n;
+   register ULong  r2_res asm("2");
+   ULong __res;
+
+   __asm__ __volatile__ (
+      "svc %b1\n"
+      : "=d" (r2_res)
+      : "i" (__NR_write),
+        "0" (r2),
+        "d" (r3),
+        "d" (r4)
+      : "cc", "memory");
+   __res = r2_res;
+
+   if (__res >= (ULong)(-125))
+      __res = -1;
+   return (UInt)(__res);
+}
+
+static UInt local_sys_getpid ( void )
+{
+   register ULong r2 asm("2");
+   ULong __res;
+
+   __asm__ __volatile__ (
+      "svc %b1\n"
+      : "=d" (r2)
+      : "i" (__NR_getpid)
+      : "cc", "memory");
+   __res = r2;
+
+   if (__res >= (ULong)(-125))
+      __res = -1;
+   return (UInt)(__res);
+}
+
 
 #else
 # error Unknown platform
@@ -989,7 +1031,7 @@ static void add_to_buf ( HChar c, void* p )
 void VG_(debugLog) ( Int level, const HChar* modulename,
                                 const HChar* format, ... )
 {
-   UInt ret, pid;
+   UInt pid;
    Int indent, depth, i;
    va_list vargs;
    printf_buf buf;
@@ -1021,7 +1063,7 @@ void VG_(debugLog) ( Int level, const HChar* modulename,
 
    va_start(vargs,format);
    
-   ret = VG_(debugLog_vprintf) ( add_to_buf, &buf, format, vargs );
+   (void) VG_(debugLog_vprintf) ( add_to_buf, &buf, format, vargs );
 
    if (buf.n > 0) {
       emit( buf.buf, local_strlen(buf.buf) );

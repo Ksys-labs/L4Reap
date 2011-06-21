@@ -240,7 +240,7 @@ getchar(void)
   return c;
 }
 
-off64_t lseek64(int /*fd*/, off64_t /*offset*/, int /*whence*/)
+off_t lseek(int /*fd*/, off_t /*offset*/, int /*whence*/)
 {
   return 0;
 }

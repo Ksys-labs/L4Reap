@@ -21,13 +21,13 @@
 
 using L4Re::Util::Event_buffer_consumer;
 
-static inline Event_buffer_consumer *cast(l4re_event_buffer_consumer_t *e)
+static inline Event_buffer_consumer *cast(l4re_event_buffer_consumer_t *e) throw()
 {
   (void)sizeof(char[sizeof(e->_obj_buf) - sizeof(Event_buffer_consumer)]);
   return (Event_buffer_consumer *)e->_obj_buf;
 }
 
-inline void *operator new(size_t, void *a) { return a; }
+inline void *operator new(size_t, void *a) throw() { return a; }
 
 L4_CV long
 l4re_event_buffer_attach(l4re_event_buffer_consumer_t *evbuf,
@@ -56,17 +56,18 @@ l4re_event_buffer_next(l4re_event_buffer_consumer_t *evbuf) L4_NOTHROW
 L4_CV void
 l4re_event_buffer_consumer_foreach_available_event
   (l4re_event_buffer_consumer_t *evbuf, void *data,
-   L4_CV void (*cb)(l4re_event_t *ev, void *data)) L4_NOTHROW
+   l4re_event_buffer_cb_t *cb)
 {
-  void (*_cb)(L4Re::Event_buffer::Event*, void *)
-    = (void (*)(L4Re::Event_buffer::Event*, void *))cb;
+  typedef void Cb(L4Re::Event_buffer::Event*, void *);
+
+  Cb *_cb = (Cb*)cb;
   cast(evbuf)->foreach_available_event(_cb, data);
 }
 
 L4_CV void
 l4re_event_buffer_consumer_process(l4re_event_buffer_consumer_t *evbuf,
                                    l4_cap_idx_t irq, l4_cap_idx_t thread, void *data,
-                                   L4_CV void (*cb)(l4re_event_t *ev, void *)) L4_NOTHROW
+                                   l4re_event_buffer_cb_t *cb)
 {
   L4::Cap<L4::Irq> i(irq);
   L4::Cap<L4::Thread> t(thread);

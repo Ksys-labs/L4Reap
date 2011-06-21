@@ -9,8 +9,11 @@
 
    Copyright (C) 2004-2010 OpenWorks LLP
       info@open-works.net
-   Copyright (C) 2010-2010 Dmitry Zhurikhin
-      zhur@ispras.ru
+
+   NEON support is
+   Copyright (C) 2010-2010 Samsung Electronics
+   contributed by Dmitry Zhurikhin <zhur@ispras.ru>
+              and Kirill Batuzov <batuzovk@ispras.ru>
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -119,7 +122,7 @@ HReg hregARM_Q15 ( void ) { return mkHReg(15, HRcVec128, False); }
 void getAllocableRegs_ARM ( Int* nregs, HReg** arr )
 {
    Int i = 0;
-   *nregs = 29;
+   *nregs = 26;
    *arr = LibVEX_Alloc(*nregs * sizeof(HReg));
    // callee saves ones are listed first, since we prefer them
    // if they're available
@@ -154,19 +157,21 @@ void getAllocableRegs_ARM ( Int* nregs, HReg** arr )
    (*arr)[i++] = hregARM_Q10();
    (*arr)[i++] = hregARM_Q11();
    (*arr)[i++] = hregARM_Q12();
-   (*arr)[i++] = hregARM_Q13();
-   (*arr)[i++] = hregARM_Q14();
-   (*arr)[i++] = hregARM_Q15();
+
+   //(*arr)[i++] = hregARM_Q13();
+   //(*arr)[i++] = hregARM_Q14();
+   //(*arr)[i++] = hregARM_Q15();
 
    // unavail: r8 as GSP
-   // r12 'cos we're not sure what it's for
+   // r12 is used as a spill/reload temporary
    // r13 as SP
    // r14 as LR
    // r15 as PC
    //
    // All in all, we have 11 allocatable integer registers:
-   // 0 1 2 3 4 5 6 7 9 10 11 plus r8 dedicated as GSP.
-   // 12 13 14 and 15 are not under the allocator's control.
+   // 0 1 2 3 4 5 6 7 9 10 11, with r8 dedicated as GSP
+   // and r12 dedicated as a spill temporary.
+   // 13 14 and 15 are not under the allocator's control.
    //
    // Hence for the allocatable registers we have:
    //
@@ -781,10 +786,8 @@ HChar* showARMNeonBinOp ( ARMNeonBinOp op ) {
       case ARMneon_VQRDMULH: return "vqrdmulh";
       case ARMneon_VQDMULL: return "vqdmull";
       case ARMneon_VTBL: return "vtbl";
-      case ARMneon_SETELEM: return "vmov";
-      case ARMneon_VABSFP: return "vabsfp";
-      case ARMneon_VRSQRTEFP: return "vrsqrtefp";
-      case ARMneon_VRSQRTE: return "vrsqrte";
+      case ARMneon_VRECPS: return "vrecps";
+      case ARMneon_VRSQRTS: return "vrecps";
       /* ... */
       default: vpanic("showARMNeonBinOp");
    }
@@ -800,7 +803,6 @@ HChar* showARMNeonBinOpDataType ( ARMNeonBinOp op ) {
       case ARMneon_VSUB:
       case ARMneon_VEXT:
       case ARMneon_VMUL:
-      case ARMneon_SETELEM:
       case ARMneon_VPADD:
       case ARMneon_VTBL:
       case ARMneon_VCEQ:
@@ -815,7 +817,6 @@ HChar* showARMNeonBinOpDataType ( ARMNeonBinOp op ) {
       case ARMneon_VMULLU:
       case ARMneon_VPMINU:
       case ARMneon_VPMAXU:
-      case ARMneon_VRSQRTE:
          return ".u";
       case ARMneon_VRHADDS:
       case ARMneon_VMINS:
@@ -841,13 +842,13 @@ HChar* showARMNeonBinOpDataType ( ARMNeonBinOp op ) {
       case ARMneon_VMULFP:
       case ARMneon_VMINF:
       case ARMneon_VMAXF:
-      case ARMneon_VABSFP:
-      case ARMneon_VRSQRTEFP:
       case ARMneon_VPMINF:
       case ARMneon_VPMAXF:
       case ARMneon_VCGTF:
       case ARMneon_VCGEF:
       case ARMneon_VCEQF:
+      case ARMneon_VRECPS:
+      case ARMneon_VRSQRTS:
          return ".f";
       /* ... */
       default: vpanic("showARMNeonBinOpDataType");
@@ -889,10 +890,11 @@ HChar* showARMNeonUnOp ( ARMNeonUnOp op ) {
       case ARMneon_VCVTF16toF32: return "vcvt";
       case ARMneon_VRECIP: return "vrecip";
       case ARMneon_VRECIPF: return "vrecipf";
-      case ARMneon_VRECPS: return "vrecps";
       case ARMneon_VNEGF: return "vneg";
-      case ARMneon_VRSQRTS: return "vrecps";
       case ARMneon_ABS: return "vabs";
+      case ARMneon_VABSFP: return "vabsfp";
+      case ARMneon_VRSQRTEFP: return "vrsqrtefp";
+      case ARMneon_VRSQRTE: return "vrsqrte";
       /* ... */
       default: vpanic("showARMNeonUnOp");
    }
@@ -916,6 +918,7 @@ HChar* showARMNeonUnOpDataType ( ARMNeonUnOp op ) {
       case ARMneon_COPYQNUU:
       case ARMneon_VQSHLNUU:
       case ARMneon_VRECIP:
+      case ARMneon_VRSQRTE:
          return ".u";
       case ARMneon_CLS:
       case ARMneon_CLZ:
@@ -928,9 +931,9 @@ HChar* showARMNeonUnOpDataType ( ARMNeonUnOp op ) {
       case ARMneon_ABS:
          return ".s";
       case ARMneon_VRECIPF:
-      case ARMneon_VRECPS:
       case ARMneon_VNEGF:
-      case ARMneon_VRSQRTS:
+      case ARMneon_VABSFP:
+      case ARMneon_VRSQRTEFP:
          return ".f";
       case ARMneon_VCVTFtoU: return ".u32.f32";
       case ARMneon_VCVTFtoS: return ".s32.f32";
@@ -1366,7 +1369,7 @@ ARMInstr* ARMInstr_NUnary ( ARMNeonUnOp op, HReg dQ, HReg nQ,
    return i;
 }
 
-ARMInstr* ARMInstr_NUnaryS ( ARMNeonUnOp op, ARMNRS* dst, ARMNRS* src,
+ARMInstr* ARMInstr_NUnaryS ( ARMNeonUnOpS op, ARMNRS* dst, ARMNRS* src,
                              UInt size, Bool Q ) {
    ARMInstr* i = LibVEX_Alloc(sizeof(ARMInstr));
    i->tag                = ARMin_NUnaryS;
@@ -1796,8 +1799,8 @@ void ppARMInstr ( ARMInstr* i ) {
          return;
       case ARMin_NUnaryS:
          vex_printf("%s%s%s  ",
-                    showARMNeonUnOpS(i->ARMin.NUnary.op),
-                    showARMNeonUnOpSDataType(i->ARMin.NUnary.op),
+                    showARMNeonUnOp(i->ARMin.NUnary.op),
+                    showARMNeonUnOpDataType(i->ARMin.NUnary.op),
                     showARMNeonDataSize(i));
          ppARMNRS(i->ARMin.NUnaryS.dst);
          vex_printf(", ");
@@ -2370,9 +2373,11 @@ void genSpill_ARM ( /*OUT*/HInstr** i1, /*OUT*/HInstr** i2,
          HReg base = r8;
          vassert(0 == (offsetB & 3));
          if (offsetB >= 1024) {
+            Int offsetKB = offsetB / 1024;
+            /* r12 = r8 + (1024 * offsetKB) */
             *i1 = ARMInstr_Alu(ARMalu_ADD, r12, r8,
-                               ARMRI84_I84(1,11)); /* 1024 */
-            offsetB -= 1024;
+                               ARMRI84_I84(offsetKB, 11));
+            offsetB -= (1024 * offsetKB);
             base = r12;
          }
          vassert(offsetB <= 1020);
@@ -2423,9 +2428,11 @@ void genReload_ARM ( /*OUT*/HInstr** i1, /*OUT*/HInstr** i2,
          HReg base = r8;
          vassert(0 == (offsetB & 3));
          if (offsetB >= 1024) {
+            Int offsetKB = offsetB / 1024;
+            /* r12 = r8 + (1024 * offsetKB) */
             *i1 = ARMInstr_Alu(ARMalu_ADD, r12, r8,
-                               ARMRI84_I84(1,11)); /* 1024 */
-            offsetB -= 1024;
+                               ARMRI84_I84(offsetKB, 11));
+            offsetB -= (1024 * offsetKB);
             base = r12;
          }
          vassert(offsetB <= 1020);
@@ -3299,7 +3306,7 @@ Int emit_ARMInstr ( UChar* buf, Int nbuf, ARMInstr* i,
          UInt insn;
          UInt opc, opc1, opc2;
          switch (i->ARMin.NUnaryS.op) {
-            case ARMneon_VDUP:
+	    case ARMneon_VDUP:
                if (i->ARMin.NUnaryS.size >= 16)
                   goto bad;
                if (i->ARMin.NUnaryS.dst->tag != ARMNRS_Reg)
@@ -3320,7 +3327,7 @@ Int emit_ARMInstr ( UChar* buf, Int nbuf, ARMInstr* i,
                                (i->ARMin.NUnaryS.size & 0xf), regD,
                                X1100, BITS4(0,Q,M,0), regM);
                *p++ = insn;
-               goto done;
+               goto done; 
             case ARMneon_SETELEM:
                regD = Q ? (qregNo(i->ARMin.NUnaryS.dst->reg) << 1) :
                                 dregNo(i->ARMin.NUnaryS.dst->reg);
@@ -3659,6 +3666,7 @@ Int emit_ARMInstr ( UChar* buf, Int nbuf, ARMInstr* i,
                insn = XXXXXXXX(0xF, X0011, BITS4(1,D,1,1), X1001, regD, X0111,
                                BITS4(1,Q,M,0), regM);
                break;
+
             default:
                goto bad;
          }

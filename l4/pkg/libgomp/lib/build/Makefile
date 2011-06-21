@@ -14,7 +14,6 @@ ifneq ($(SYSTEM),)
    TARGET           = libgomp.a
  endif
 endif
-L4_MULTITHREADED = y
 
 PRIVATE_INCDIR = $(PKGDIR)/lib/contrib/gcc-4.3/libgomp \
                  $(PKGDIR)/lib/contrib/gcc-4.3/libgomp/config/posix \
@@ -27,6 +26,7 @@ vpath %.c $(PKGDIR)/lib/contrib/gcc-4.3/libgomp \
 SRC_C = affinity.c alloc.c bar.c barrier.c critical.c env.c error.c \
         fortran.c iter.c lock.c loop.c mutex.c ordered.c parallel.c proc.c \
         sections.c sem.c single.c team.c time.c work.c
+REQUIRES_LIBS = libpthread
 
 include $(L4DIR)/mk/lib.mk
 

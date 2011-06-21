@@ -291,7 +291,7 @@ Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
           if (this == current_thread())
             switch_gdt_user_entries(this);
 
-          tag = Kobject_iface::commit_result(0);
+          tag = Kobject_iface::commit_result((utcb->values[1] << 3) + Gdt::gdt_user_entry1 + 3);
           return true;
         }
 

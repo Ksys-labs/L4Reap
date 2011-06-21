@@ -28,7 +28,7 @@
 
 namespace L4Re { namespace Core {
 Vcon_stream::Vcon_stream(L4::Cap<L4::Vcon> s) throw()
-: Be_file(), _s(s), _irq(cap_alloc()->alloc<L4::Irq>())
+: Be_file_stream(), _s(s), _irq(cap_alloc()->alloc<L4::Irq>())
 {
 #if 1
   //printf("VCON: irq cap = %lx\n", _irq.cap());

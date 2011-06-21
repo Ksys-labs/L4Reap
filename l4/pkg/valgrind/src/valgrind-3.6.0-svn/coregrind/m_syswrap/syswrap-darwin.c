@@ -33,6 +33,7 @@
 #include "pub_core_basics.h"
 #include "pub_core_vki.h"
 #include "pub_core_vkiscnums.h"
+#include "pub_core_libcsetjmp.h"   // to keep _threadstate.h happy
 #include "pub_core_threadstate.h"
 #include "pub_core_aspacemgr.h"
 #include "pub_core_xarray.h"
@@ -40,6 +41,7 @@
 #include "pub_core_debuglog.h"
 #include "pub_core_debuginfo.h"    // VG_(di_notify_*)
 #include "pub_core_transtab.h"     // VG_(discard_translations)
+#include "pub_tool_gdbserver.h"    // VG_(gdbserver)
 #include "pub_core_libcbase.h"
 #include "pub_core_libcassert.h"
 #include "pub_core_libcfile.h"
@@ -689,9 +691,23 @@ void ML_(sync_mappings)(const HChar *when, const HChar *where, Int num)
 PRE(ioctl)
 {
    *flags |= SfMayBlock;
-   PRINT("ioctl ( %ld, 0x%lx, %#lx )",ARG1,ARG2,ARG3);
-   PRE_REG_READ3(long, "ioctl",
-                 unsigned int, fd, unsigned int, request, unsigned long, arg);
+
+   /* Handle ioctls that don't take an arg first */
+   switch (ARG2 /* request */) {
+   case VKI_TIOCSCTTY:
+   case VKI_TIOCEXCL:
+   case VKI_TIOCPTYGRANT:
+   case VKI_TIOCPTYUNLK:
+   case VKI_DTRACEHIOC_REMOVE: 
+      PRINT("ioctl ( %ld, 0x%lx )",ARG1,ARG2);
+      PRE_REG_READ2(long, "ioctl",
+                    unsigned int, fd, unsigned int, request);
+      return;
+   default:
+      PRINT("ioctl ( %ld, 0x%lx, %#lx )",ARG1,ARG2,ARG3);
+      PRE_REG_READ3(long, "ioctl",
+                    unsigned int, fd, unsigned int, request, unsigned long, arg);
+   }
 
    switch (ARG2 /* request */) {
    case VKI_TIOCGWINSZ:
@@ -719,9 +735,6 @@ PRE(ioctl)
    case VKI_TIOCSPGRP:
       /* Set a process group ID? */
       PRE_MEM_WRITE( "ioctl(TIOCGPGRP)", ARG3, sizeof(vki_pid_t) );
-      break;
-   case VKI_TIOCSCTTY:
-      /* Just takes an int value.  */
       break;
    case VKI_FIONBIO:
       PRE_MEM_READ( "ioctl(FIONBIO)",    ARG3, sizeof(int) );
@@ -845,7 +858,6 @@ PRE(ioctl)
       PRE_MEM_WRITE( "ioctl(FIONREAD)", ARG3, sizeof(int) );
       break;
 
-   case VKI_DTRACEHIOC_REMOVE: 
    case VKI_DTRACEHIOC_ADDDOF: 
        break;
 
@@ -864,9 +876,6 @@ PRE(ioctl)
        break;
    case VKI_TIOCPTYGNAME:
        PRE_MEM_WRITE( "ioctl(TIOCPTYGNAME)", ARG3, 128 );
-       break;
-   case VKI_TIOCPTYGRANT:
-   case VKI_TIOCPTYUNLK:
        break;
 
    default: 
@@ -1773,6 +1782,27 @@ PRE(fsetxattr)
 }
 
 
+PRE(removexattr)
+{
+   PRINT( "removexattr ( %#lx(%s), %#lx(%s), %ld )",
+          ARG1, (HChar*)ARG1, ARG2, (HChar*)ARG2, ARG3 );
+   PRE_REG_READ3(int, "removexattr",
+                 const char*, "path", char*, "attrname", int, "options");
+   PRE_MEM_RASCIIZ( "removexattr(path)", ARG1 );
+   PRE_MEM_RASCIIZ( "removexattr(attrname)", ARG2 );
+}
+
+
+PRE(fremovexattr)
+{
+   PRINT( "fremovexattr ( %ld, %#lx(%s), %ld )",
+          ARG1, ARG2, (HChar*)ARG2, ARG3 );
+   PRE_REG_READ3(int, "fremovexattr",
+                 int, "fd", char*, "attrname", int, "options");
+   PRE_MEM_RASCIIZ( "removexattr(attrname)", ARG2 );
+}
+
+
 PRE(listxattr)
 {
    PRINT( "listxattr ( %#lx(%s), %#lx, %lu, %ld )", 
@@ -2011,7 +2041,7 @@ PRE(fchmod_extended)
       chmod_extended is broken in the same way. */
    PRINT("fchmod_extended ( %ld, %ld, %ld, %ld, %#lx )",
          ARG1, ARG2, ARG3, ARG4, ARG5);
-   PRE_REG_READ5(long, "fchmod", 
+   PRE_REG_READ5(long, "fchmod_extended", 
                  unsigned int, fildes, 
                  uid_t, uid,
                  gid_t, gid,
@@ -2020,8 +2050,10 @@ PRE(fchmod_extended)
    /* DDD: relative to the xnu sources (kauth_copyinfilesec), this
       is just way wrong.  [The trouble is with the size, which depends on a
       non-trival kernel computation] */
-   PRE_MEM_READ( "fchmod_extended(xsecurity)", ARG5, 
-                 sizeof(struct vki_kauth_filesec) );
+   if (ARG5) {
+      PRE_MEM_READ( "fchmod_extended(xsecurity)", ARG5, 
+                    sizeof(struct vki_kauth_filesec) );
+   }
 }
 
 PRE(chmod_extended)
@@ -2030,7 +2062,7 @@ PRE(chmod_extended)
       fchmod_extended is broken in the same way. */
    PRINT("chmod_extended ( %#lx(%s), %ld, %ld, %ld, %#lx )",
          ARG1, ARG1 ? (HChar*)ARG1 : "(null)", ARG2, ARG3, ARG4, ARG5);
-   PRE_REG_READ5(long, "chmod", 
+   PRE_REG_READ5(long, "chmod_extended", 
                  unsigned int, fildes, 
                  uid_t, uid,
                  gid_t, gid,
@@ -2040,10 +2072,34 @@ PRE(chmod_extended)
    /* DDD: relative to the xnu sources (kauth_copyinfilesec), this
       is just way wrong.  [The trouble is with the size, which depends on a
       non-trival kernel computation] */
-   PRE_MEM_READ( "chmod_extended(xsecurity)", ARG5, 
-                 sizeof(struct vki_kauth_filesec) );
+   if (ARG5) {
+      PRE_MEM_READ( "chmod_extended(xsecurity)", ARG5, 
+                    sizeof(struct vki_kauth_filesec) );
+   }
 }
 
+PRE(open_extended)
+{
+   /* DDD: Note: this is not really correct.  Handling of
+      {,f}chmod_extended is broken in the same way. */
+   PRINT("open_extended ( %#lx(%s), 0x%lx, %ld, %ld, %ld, %#lx )",
+         ARG1, ARG1 ? (HChar*)ARG1 : "(null)",
+	 ARG2, ARG3, ARG4, ARG5, ARG6);
+   PRE_REG_READ6(long, "open_extended", 
+                 char*, path,
+                 int,   flags,
+                 uid_t, uid,
+                 gid_t, gid,
+                 vki_mode_t, mode,
+                 void* /*really,user_addr_t*/, xsecurity);
+   PRE_MEM_RASCIIZ("open_extended(path)", ARG1);
+   /* DDD: relative to the xnu sources (kauth_copyinfilesec), this
+      is just way wrong.  [The trouble is with the size, which depends on a
+      non-trival kernel computation] */
+   if (ARG6)
+      PRE_MEM_READ( "open_extended(xsecurity)", ARG6, 
+                    sizeof(struct vki_kauth_filesec) );
+}
 
 // This is a ridiculous syscall.  Specifically, the 'entries' argument points
 // to a buffer that contains one or more 'accessx_descriptor' structs followed
@@ -2702,7 +2758,13 @@ PRE(posix_spawn)
    }
 
    // Decide whether or not we want to follow along
-   trace_this_child = VG_(should_we_trace_this_child)( (HChar*)ARG2 );
+   { // Make 'child_argv' be a pointer to the child's arg vector
+     // (skipping the exe name)
+     HChar** child_argv = (HChar**)ARG4;
+     if (child_argv && child_argv[0] == NULL)
+        child_argv = NULL;
+     trace_this_child = VG_(should_we_trace_this_child)( (HChar*)ARG2, child_argv );
+   }
 
    // Do the important checks:  it is a file, is executable, permissions are
    // ok, etc.  We allow setuid executables to run only in the case when
@@ -2725,6 +2787,15 @@ PRE(posix_spawn)
 
    /* Ok.  So let's give it a try. */
    VG_(debugLog)(1, "syswrap", "Posix_spawn of %s\n", (Char*)ARG2);
+
+   // Terminate gdbserver if it is active.
+   if (VG_(clo_vgdb)  != Vg_VgdbNo) {
+      // If the child will not be traced, we need to terminate gdbserver
+      // to cleanup the gdbserver resources (e.g. the FIFO files).
+      // If child will be traced, we also terminate gdbserver: the new 
+      // Valgrind will start a fresh gdbserver after exec.
+      VG_(gdbserver) (tid);
+   }
 
    // Set up the child's exe path.
    //
@@ -7802,8 +7873,8 @@ const SyscallTableEntry ML_(syscall_table)[] = {
    MACXY(__NR_fgetxattr,   fgetxattr), 
    MACX_(__NR_setxattr,    setxattr), 
    MACX_(__NR_fsetxattr,   fsetxattr), 
-// _____(__NR_removexattr), 
-// _____(__NR_fremovexattr), 
+   MACX_(__NR_removexattr, removexattr), 
+   MACX_(__NR_fremovexattr, fremovexattr), 
    MACXY(__NR_listxattr,   listxattr),    // 240
    MACXY(__NR_flistxattr,  flistxattr), 
    MACXY(__NR_fsctl,       fsctl), 
@@ -7845,7 +7916,7 @@ const SyscallTableEntry ML_(syscall_table)[] = {
 // _____(__NR_sem_getvalue), 
    MACXY(__NR_sem_init,    sem_init), 
    MACX_(__NR_sem_destroy, sem_destroy), 
-// _____(__NR_open_extended), 
+   MACX_(__NR_open_extended,  open_extended),    // 277
 // _____(__NR_umask_extended), 
    MACXY(__NR_stat_extended,  stat_extended), 
    MACXY(__NR_lstat_extended, lstat_extended),   // 280

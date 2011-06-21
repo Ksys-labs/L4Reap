@@ -54,8 +54,17 @@ public:
   };
 
 private:
+  enum
+  {
+    // the number of bits in the bitmap is given by the amount of the smallest
+    // supported blocks. We need an extra bit in the case that the Max_mem
+    // is no multiple of Max_size to ensure that buddy() does not access
+    // beyond the bitmap.
+    Buddy_bits = (Max_mem + Min_size - 1)/Min_size
+                 + !!(Max_mem & (Max_size-1))
+  };
   Head *_free[Num_sizes];
-  Bitmap<(Max_mem+Min_size-1)/Min_size> _free_map;
+  Bitmap<Buddy_bits> _free_map;
 };
 
 
@@ -91,6 +100,8 @@ Buddy_t_base<A,B,M>::buddy(void *block, unsigned long index, Head **new_block)
 
   Head * const _buddy_h = (Head*)_buddy;
 
+  // this test may access one bit behind our maximum, this is safe because
+  // we allocated an extra bit
   if (_free_map[(_buddy - _base)/Min_size] && _buddy_h->index == index)
     return _buddy_h;
 
@@ -117,7 +128,8 @@ Buddy_t_base<A,B,M>::free(void *block, unsigned long size)
           size, (unsigned long)Min_size << size_index);
 
 
-  while (size_index < Num_sizes)
+  // no need to look for a buddy if we already have the biggest block size
+  while (size_index + 1 < Num_sizes)
     {
       Head *n, *b;
       b = buddy(block, size_index, &n);

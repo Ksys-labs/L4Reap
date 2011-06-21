@@ -39,23 +39,19 @@ my %modules =
                          ldscripts ldso
                          libc_backends libkproxy libloader
                          libsigma0
-                         libstdc++-headers libstdc++-v3 libstdc++-v3_r
-                         libsupc++ libsupc++_r
+                         libstdc++-headers libstdc++-v3 libstdc++-v3-minimal
+                         libsupc++ libsupc++-minimal
                          libvbus loader log lua moe ned sigma0
-                         uclibc uclibc_r
+                         uclibc uclibc-minimal uclibc-headers
                         ) ],
              pub_module => 1,
              modules => [ qw(bid toolbin) ],
            },
 
-   # ./mk/pkgdeps -A mk/aliases.d pkgdeps pkg rtc shmc libvcpu stdlibs log
-   # l4re_c-util libio
+   # ./mk/pkgdeps -A mk/aliases.d pkgdeps pkg ...
    l4linux_requirements
         => { paths => [ map { "l4/pkg/$_" } qw(
-                     crtn cxx cxx_libc_io l4re l4re_c l4re_vfs l4sys l4util
-                     ldscripts libc_backends libio-io libstdc++-headers
-                     libstdc++-v3 libsupc++ libvbus libvcpu log lxfuxlibc rtc
-                     shmc uclibc
+			libio-io libvcpu lxfuxlibc rtc shmc
 		    ) ],
                     pub_module => 1,
                     modules => [ qw(l4re) ],
@@ -187,7 +183,13 @@ my %modules =
       modules => [ qw(l4re_snapshot) ],
    },
 
-   remote_repo => { modules => [ qw(fiasco remote_repo_l4re) ], },
+   remote_repo => { modules => [ qw(fiasco remote_repo_l4re) ],
+                    # those are going away, we need to keep them to get the
+                    # dirs updated and thus removed
+                    paths => [ qw(l4/pkg/libstdc++-v3_r
+                                  l4/pkg/libsupc++_r
+                                  l4/pkg/uclibc_r) ],
+                    },
 
    all => {
       modules => [ qw(remote_repo) ],

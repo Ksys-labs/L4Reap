@@ -7,13 +7,16 @@ SEARCH_DIR("=/usr/local/lib"); SEARCH_DIR("=/lib"); SEARCH_DIR("=/usr/lib");
 
 PHDRS
 {
-  ro PT_LOAD;
+  phdr PT_PHDR PHDRS;
+  ro PT_LOAD FILEHDR PHDRS;
   rw PT_LOAD;
   L4_DEFINE_L4PHDRS
 }
 
 SECTIONS
 {
+  PROVIDE (__executable_start = 0x010000);
+  . = __executable_start + SIZEOF_HEADERS;
   /* Read-only sections, merged into text segment: */
   /* PROVIDE (__executable_start = 0x10000000); . = 0x10000000 + SIZEOF_HEADERS;
    */
@@ -84,7 +87,9 @@ SECTIONS
   PROVIDE (__etext = .);
   PROVIDE (_etext = .);
   PROVIDE (etext = .);
-  .rol4re_elf_aux : { KEEP (*(.rol4re_elf_aux)) } : ro : l4re_aux
+  .rol4re_elf_aux : {
+    KEEP (*(.rol4re_elf_aux))
+  } : ro : l4re_aux
   .rodata         : { *(.rodata .rodata.* .gnu.linkonce.r.*) } : ro
   .rodata1        : { *(.rodata1) }
   .sdata2         :

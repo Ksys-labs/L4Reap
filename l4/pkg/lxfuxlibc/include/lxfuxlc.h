@@ -262,6 +262,8 @@ struct lx_sockaddr_un {
 /* 301 */ extern int           lx_unlinkat(int fd, const char *name, int flags);
 /* 302 */ extern int           lx_renameat(int ofd, const char *oname, int nfd, const char *nname);
 /* 307 */ extern int           lx_faccessat(int dfd, const char *filename, int mode);
+/* 333 */ extern lx_ssize_t    lx_preadv(int fd, const struct lx_iovec *iov, int cnt, unsigned long pl, unsigned long ph);
+/* 334 */ extern lx_ssize_t    lx_pwritev(int fd, const struct lx_iovec *iov, int cnt, unsigned long pl, unsigned long ph);
 /*
  * Wrapper functions
  */

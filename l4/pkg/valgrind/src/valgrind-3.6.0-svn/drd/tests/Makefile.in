@@ -52,37 +52,38 @@ check_PROGRAMS = annotate_hb_err$(EXEEXT) annotate_hb_race$(EXEEXT) \
 	annotate_ignore_rw$(EXEEXT) annotate_ignore_write$(EXEEXT) \
 	annotate_publish_hg$(EXEEXT) annotate_static$(EXEEXT) \
 	bug-235681$(EXEEXT) custom_alloc$(EXEEXT) fp_race$(EXEEXT) \
-	hold_lock$(EXEEXT) linuxthreads_det$(EXEEXT) \
-	memory_allocation$(EXEEXT) monitor_example$(EXEEXT) \
-	new_delete$(EXEEXT) pth_broadcast$(EXEEXT) \
-	pth_cancel_locked$(EXEEXT) pth_cleanup_handler$(EXEEXT) \
-	pth_cond_race$(EXEEXT) pth_create_chain$(EXEEXT) \
-	pth_detached$(EXEEXT) pth_detached_sem$(EXEEXT) \
+	free_is_write$(EXEEXT) hold_lock$(EXEEXT) \
+	linuxthreads_det$(EXEEXT) memory_allocation$(EXEEXT) \
+	monitor_example$(EXEEXT) new_delete$(EXEEXT) \
+	pth_broadcast$(EXEEXT) pth_cancel_locked$(EXEEXT) \
+	pth_cleanup_handler$(EXEEXT) pth_cond_race$(EXEEXT) \
+	pth_create_chain$(EXEEXT) pth_detached$(EXEEXT) \
+	pth_detached_sem$(EXEEXT) pth_detached3$(EXEEXT) \
 	pth_inconsistent_cond_wait$(EXEEXT) pth_mutex_reinit$(EXEEXT) \
 	pth_process_shared_mutex$(EXEEXT) \
 	pth_uninitialized_cond$(EXEEXT) recursive_mutex$(EXEEXT) \
 	rwlock_race$(EXEEXT) rwlock_test$(EXEEXT) \
 	rwlock_type_checking$(EXEEXT) sem_as_mutex$(EXEEXT) \
 	sem_open$(EXEEXT) sigalrm$(EXEEXT) thread_name$(EXEEXT) \
-	trylock$(EXEEXT) unit_bitmap$(EXEEXT) unit_vc$(EXEEXT) \
-	$(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
-	$(am__EXEEXT_4) $(am__EXEEXT_5) $(am__EXEEXT_6) \
-	$(am__EXEEXT_7) $(am__EXEEXT_8)
+	threaded-fork$(EXEEXT) trylock$(EXEEXT) unit_bitmap$(EXEEXT) \
+	unit_vc$(EXEEXT) $(am__EXEEXT_1) $(am__EXEEXT_2) \
+	$(am__EXEEXT_3) $(am__EXEEXT_4) $(am__EXEEXT_5) \
+	$(am__EXEEXT_6) $(am__EXEEXT_7)
 @HAVE_BOOST_1_35_TRUE@am__append_1 = boost_thread
 @HAVE_BUILTIN_ATOMIC_TRUE@am__append_2 = \
 @HAVE_BUILTIN_ATOMIC_TRUE@  annotate_barrier       \
 @HAVE_BUILTIN_ATOMIC_TRUE@  annotate_rwlock        \
-@HAVE_BUILTIN_ATOMIC_TRUE@  annotate_smart_pointer \
 @HAVE_BUILTIN_ATOMIC_TRUE@  atomic_var             \
-@HAVE_BUILTIN_ATOMIC_TRUE@  circular_buffer        \
-@HAVE_BUILTIN_ATOMIC_TRUE@  tsan_unittest
+@HAVE_BUILTIN_ATOMIC_TRUE@  circular_buffer
 
-@HAVE_OPENMP_TRUE@am__append_3 = omp_matinv omp_prime omp_printf
-@HAVE_PTHREAD_BARRIER_TRUE@am__append_4 = matinv pth_barrier pth_barrier_race pth_barrier_reinit
-@HAVE_PTHREAD_CREATE_GLIBC_2_0_TRUE@am__append_5 = pth_create_glibc_2_0
-@HAVE_PTHREAD_SPINLOCK_TRUE@am__append_6 = pth_spinlock
-@HAVE_QTCORE_TRUE@am__append_7 = qt4_mutex qt4_rwlock qt4_semaphore
-@HAVE_QTCORE_QATOMICINT_TRUE@am__append_8 = qt4_atomic
+@HAVE_BUILTIN_ATOMIC_CXX_TRUE@am__append_3 = \
+@HAVE_BUILTIN_ATOMIC_CXX_TRUE@  annotate_smart_pointer \
+@HAVE_BUILTIN_ATOMIC_CXX_TRUE@  tsan_unittest
+
+@HAVE_OPENMP_TRUE@am__append_4 = omp_matinv omp_prime omp_printf
+@HAVE_PTHREAD_BARRIER_TRUE@am__append_5 = matinv pth_barrier pth_barrier_race pth_barrier_reinit
+@HAVE_PTHREAD_CREATE_GLIBC_2_0_TRUE@am__append_6 = pth_create_glibc_2_0
+@HAVE_PTHREAD_SPINLOCK_TRUE@am__append_7 = pth_spinlock
 subdir = drd/tests
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.in
@@ -95,21 +96,19 @@ CONFIG_CLEAN_VPATH_FILES =
 @HAVE_BOOST_1_35_TRUE@am__EXEEXT_1 = boost_thread$(EXEEXT)
 @HAVE_BUILTIN_ATOMIC_TRUE@am__EXEEXT_2 = annotate_barrier$(EXEEXT) \
 @HAVE_BUILTIN_ATOMIC_TRUE@	annotate_rwlock$(EXEEXT) \
-@HAVE_BUILTIN_ATOMIC_TRUE@	annotate_smart_pointer$(EXEEXT) \
 @HAVE_BUILTIN_ATOMIC_TRUE@	atomic_var$(EXEEXT) \
-@HAVE_BUILTIN_ATOMIC_TRUE@	circular_buffer$(EXEEXT) \
-@HAVE_BUILTIN_ATOMIC_TRUE@	tsan_unittest$(EXEEXT)
-@HAVE_OPENMP_TRUE@am__EXEEXT_3 = omp_matinv$(EXEEXT) \
+@HAVE_BUILTIN_ATOMIC_TRUE@	circular_buffer$(EXEEXT)
+@HAVE_BUILTIN_ATOMIC_CXX_TRUE@am__EXEEXT_3 =  \
+@HAVE_BUILTIN_ATOMIC_CXX_TRUE@	annotate_smart_pointer$(EXEEXT) \
+@HAVE_BUILTIN_ATOMIC_CXX_TRUE@	tsan_unittest$(EXEEXT)
+@HAVE_OPENMP_TRUE@am__EXEEXT_4 = omp_matinv$(EXEEXT) \
 @HAVE_OPENMP_TRUE@	omp_prime$(EXEEXT) omp_printf$(EXEEXT)
-@HAVE_PTHREAD_BARRIER_TRUE@am__EXEEXT_4 = matinv$(EXEEXT) \
+@HAVE_PTHREAD_BARRIER_TRUE@am__EXEEXT_5 = matinv$(EXEEXT) \
 @HAVE_PTHREAD_BARRIER_TRUE@	pth_barrier$(EXEEXT) \
 @HAVE_PTHREAD_BARRIER_TRUE@	pth_barrier_race$(EXEEXT) \
 @HAVE_PTHREAD_BARRIER_TRUE@	pth_barrier_reinit$(EXEEXT)
-@HAVE_PTHREAD_CREATE_GLIBC_2_0_TRUE@am__EXEEXT_5 = pth_create_glibc_2_0$(EXEEXT)
-@HAVE_PTHREAD_SPINLOCK_TRUE@am__EXEEXT_6 = pth_spinlock$(EXEEXT)
-@HAVE_QTCORE_TRUE@am__EXEEXT_7 = qt4_mutex$(EXEEXT) \
-@HAVE_QTCORE_TRUE@	qt4_rwlock$(EXEEXT) qt4_semaphore$(EXEEXT)
-@HAVE_QTCORE_QATOMICINT_TRUE@am__EXEEXT_8 = qt4_atomic$(EXEEXT)
+@HAVE_PTHREAD_CREATE_GLIBC_2_0_TRUE@am__EXEEXT_6 = pth_create_glibc_2_0$(EXEEXT)
+@HAVE_PTHREAD_SPINLOCK_TRUE@am__EXEEXT_7 = pth_spinlock$(EXEEXT)
 annotate_barrier_SOURCES = annotate_barrier.c
 annotate_barrier_OBJECTS = annotate_barrier.$(OBJEXT)
 annotate_barrier_LDADD = $(LDADD)
@@ -177,6 +176,10 @@ fp_race_SOURCES = fp_race.c
 fp_race_OBJECTS = fp_race.$(OBJEXT)
 fp_race_LDADD = $(LDADD)
 fp_race_DEPENDENCIES =
+free_is_write_SOURCES = free_is_write.c
+free_is_write_OBJECTS = free_is_write.$(OBJEXT)
+free_is_write_LDADD = $(LDADD)
+free_is_write_DEPENDENCIES =
 hold_lock_SOURCES = hold_lock.c
 hold_lock_OBJECTS = hold_lock.$(OBJEXT)
 hold_lock_LDADD = $(LDADD)
@@ -259,6 +262,10 @@ pth_detached_SOURCES = pth_detached.c
 pth_detached_OBJECTS = pth_detached.$(OBJEXT)
 pth_detached_LDADD = $(LDADD)
 pth_detached_DEPENDENCIES =
+pth_detached3_SOURCES = pth_detached3.c
+pth_detached3_OBJECTS = pth_detached3.$(OBJEXT)
+pth_detached3_LDADD = $(LDADD)
+pth_detached3_DEPENDENCIES =
 pth_detached_sem_SOURCES = pth_detached_sem.c
 pth_detached_sem_OBJECTS = pth_detached_sem.$(OBJEXT)
 pth_detached_sem_LDADD = $(LDADD)
@@ -284,39 +291,6 @@ pth_uninitialized_cond_SOURCES = pth_uninitialized_cond.c
 pth_uninitialized_cond_OBJECTS = pth_uninitialized_cond.$(OBJEXT)
 pth_uninitialized_cond_LDADD = $(LDADD)
 pth_uninitialized_cond_DEPENDENCIES =
-am__qt4_atomic_SOURCES_DIST = qt4_atomic.cpp
-@HAVE_QTCORE_QATOMICINT_TRUE@am_qt4_atomic_OBJECTS =  \
-@HAVE_QTCORE_QATOMICINT_TRUE@	qt4_atomic-qt4_atomic.$(OBJEXT)
-qt4_atomic_OBJECTS = $(am_qt4_atomic_OBJECTS)
-@HAVE_QTCORE_QATOMICINT_TRUE@qt4_atomic_DEPENDENCIES =  \
-@HAVE_QTCORE_QATOMICINT_TRUE@	$(am__DEPENDENCIES_1) \
-@HAVE_QTCORE_QATOMICINT_TRUE@	$(am__DEPENDENCIES_1)
-qt4_atomic_LINK = $(CXXLD) $(qt4_atomic_CXXFLAGS) $(CXXFLAGS) \
-	$(AM_LDFLAGS) $(LDFLAGS) -o $@
-am__qt4_mutex_SOURCES_DIST = qt4_mutex.cpp
-@HAVE_QTCORE_TRUE@am_qt4_mutex_OBJECTS =  \
-@HAVE_QTCORE_TRUE@	qt4_mutex-qt4_mutex.$(OBJEXT)
-qt4_mutex_OBJECTS = $(am_qt4_mutex_OBJECTS)
-@HAVE_QTCORE_TRUE@qt4_mutex_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-@HAVE_QTCORE_TRUE@	$(am__DEPENDENCIES_1)
-qt4_mutex_LINK = $(CXXLD) $(qt4_mutex_CXXFLAGS) $(CXXFLAGS) \
-	$(AM_LDFLAGS) $(LDFLAGS) -o $@
-am__qt4_rwlock_SOURCES_DIST = qt4_rwlock.cpp
-@HAVE_QTCORE_TRUE@am_qt4_rwlock_OBJECTS =  \
-@HAVE_QTCORE_TRUE@	qt4_rwlock-qt4_rwlock.$(OBJEXT)
-qt4_rwlock_OBJECTS = $(am_qt4_rwlock_OBJECTS)
-@HAVE_QTCORE_TRUE@qt4_rwlock_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-@HAVE_QTCORE_TRUE@	$(am__DEPENDENCIES_1)
-qt4_rwlock_LINK = $(CXXLD) $(qt4_rwlock_CXXFLAGS) $(CXXFLAGS) \
-	$(AM_LDFLAGS) $(LDFLAGS) -o $@
-am__qt4_semaphore_SOURCES_DIST = qt4_semaphore.cpp
-@HAVE_QTCORE_TRUE@am_qt4_semaphore_OBJECTS =  \
-@HAVE_QTCORE_TRUE@	qt4_semaphore-qt4_semaphore.$(OBJEXT)
-qt4_semaphore_OBJECTS = $(am_qt4_semaphore_OBJECTS)
-@HAVE_QTCORE_TRUE@qt4_semaphore_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-@HAVE_QTCORE_TRUE@	$(am__DEPENDENCIES_1)
-qt4_semaphore_LINK = $(CXXLD) $(qt4_semaphore_CXXFLAGS) $(CXXFLAGS) \
-	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 recursive_mutex_SOURCES = recursive_mutex.c
 recursive_mutex_OBJECTS = recursive_mutex.$(OBJEXT)
 recursive_mutex_LDADD = $(LDADD)
@@ -349,6 +323,10 @@ thread_name_SOURCES = thread_name.c
 thread_name_OBJECTS = thread_name.$(OBJEXT)
 thread_name_LDADD = $(LDADD)
 thread_name_DEPENDENCIES =
+threaded_fork_SOURCES = threaded-fork.c
+threaded_fork_OBJECTS = threaded-fork.$(OBJEXT)
+threaded_fork_LDADD = $(LDADD)
+threaded_fork_DEPENDENCIES =
 trylock_SOURCES = trylock.c
 trylock_OBJECTS = trylock.$(OBJEXT)
 trylock_LDADD = $(LDADD)
@@ -388,41 +366,37 @@ SOURCES = annotate_barrier.c annotate_hb_err.c annotate_hb_race.c \
 	annotate_publish_hg.c annotate_rwlock.c \
 	$(annotate_smart_pointer_SOURCES) $(annotate_static_SOURCES) \
 	atomic_var.c $(boost_thread_SOURCES) bug-235681.c \
-	circular_buffer.c custom_alloc.c fp_race.c hold_lock.c \
-	linuxthreads_det.c matinv.c memory_allocation.c \
+	circular_buffer.c custom_alloc.c fp_race.c free_is_write.c \
+	hold_lock.c linuxthreads_det.c matinv.c memory_allocation.c \
 	$(monitor_example_SOURCES) $(new_delete_SOURCES) omp_matinv.c \
 	omp_prime.c omp_printf.c pth_barrier.c pth_barrier_race.c \
 	pth_barrier_reinit.c pth_broadcast.c pth_cancel_locked.c \
 	pth_cleanup_handler.c pth_cond_race.c pth_create_chain.c \
-	pth_create_glibc_2_0.c pth_detached.c pth_detached_sem.c \
-	pth_inconsistent_cond_wait.c pth_mutex_reinit.c \
-	pth_process_shared_mutex.c pth_spinlock.c \
-	pth_uninitialized_cond.c $(qt4_atomic_SOURCES) \
-	$(qt4_mutex_SOURCES) $(qt4_rwlock_SOURCES) \
-	$(qt4_semaphore_SOURCES) recursive_mutex.c rwlock_race.c \
+	pth_create_glibc_2_0.c pth_detached.c pth_detached3.c \
+	pth_detached_sem.c pth_inconsistent_cond_wait.c \
+	pth_mutex_reinit.c pth_process_shared_mutex.c pth_spinlock.c \
+	pth_uninitialized_cond.c recursive_mutex.c rwlock_race.c \
 	rwlock_test.c rwlock_type_checking.c sem_as_mutex.c sem_open.c \
-	sigalrm.c thread_name.c trylock.c $(tsan_unittest_SOURCES) \
-	unit_bitmap.c unit_vc.c
+	sigalrm.c thread_name.c threaded-fork.c trylock.c \
+	$(tsan_unittest_SOURCES) unit_bitmap.c unit_vc.c
 DIST_SOURCES = annotate_barrier.c annotate_hb_err.c annotate_hb_race.c \
 	annotate_ignore_rw.c annotate_ignore_write.c \
 	annotate_publish_hg.c annotate_rwlock.c \
 	$(am__annotate_smart_pointer_SOURCES_DIST) \
 	$(annotate_static_SOURCES) atomic_var.c \
 	$(am__boost_thread_SOURCES_DIST) bug-235681.c \
-	circular_buffer.c custom_alloc.c fp_race.c hold_lock.c \
-	linuxthreads_det.c matinv.c memory_allocation.c \
+	circular_buffer.c custom_alloc.c fp_race.c free_is_write.c \
+	hold_lock.c linuxthreads_det.c matinv.c memory_allocation.c \
 	$(monitor_example_SOURCES) $(new_delete_SOURCES) omp_matinv.c \
 	omp_prime.c omp_printf.c pth_barrier.c pth_barrier_race.c \
 	pth_barrier_reinit.c pth_broadcast.c pth_cancel_locked.c \
 	pth_cleanup_handler.c pth_cond_race.c pth_create_chain.c \
-	pth_create_glibc_2_0.c pth_detached.c pth_detached_sem.c \
-	pth_inconsistent_cond_wait.c pth_mutex_reinit.c \
-	pth_process_shared_mutex.c pth_spinlock.c \
-	pth_uninitialized_cond.c $(am__qt4_atomic_SOURCES_DIST) \
-	$(am__qt4_mutex_SOURCES_DIST) $(am__qt4_rwlock_SOURCES_DIST) \
-	$(am__qt4_semaphore_SOURCES_DIST) recursive_mutex.c \
-	rwlock_race.c rwlock_test.c rwlock_type_checking.c \
-	sem_as_mutex.c sem_open.c sigalrm.c thread_name.c trylock.c \
+	pth_create_glibc_2_0.c pth_detached.c pth_detached3.c \
+	pth_detached_sem.c pth_inconsistent_cond_wait.c \
+	pth_mutex_reinit.c pth_process_shared_mutex.c pth_spinlock.c \
+	pth_uninitialized_cond.c recursive_mutex.c rwlock_race.c \
+	rwlock_test.c rwlock_type_checking.c sem_as_mutex.c sem_open.c \
+	sigalrm.c thread_name.c threaded-fork.c trylock.c \
 	$(tsan_unittest_SOURCES) unit_bitmap.c unit_vc.c
 HEADERS = $(noinst_HEADERS)
 ETAGS = etags
@@ -470,6 +444,8 @@ FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
 FLAG_W_NO_FORMAT_ZERO_LENGTH = @FLAG_W_NO_FORMAT_ZERO_LENGTH@
+FLAG_W_NO_NONNULL = @FLAG_W_NO_NONNULL@
+FLAG_W_NO_OVERFLOW = @FLAG_W_NO_OVERFLOW@
 FLAG_W_NO_UNINITIALIZED = @FLAG_W_NO_UNINITIALIZED@
 GDB = @GDB@
 GENERATED_SUPP = @GENERATED_SUPP@
@@ -499,12 +475,7 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
-QTCORE_CFLAGS = @QTCORE_CFLAGS@
-QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -657,7 +628,7 @@ AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 			 	$(AM_CFLAGS_BASE) -marm
 
-AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
+AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -marm -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
 AM_CFLAGS_PPC32_AIX5 = @FLAG_MAIX32@ -mcpu=powerpc $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC32_AIX5 = $(AM_CPPFLAGS_PPC32_AIX5) \
@@ -686,6 +657,11 @@ AM_CFLAGS_X86_L4RE = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 AM_CCASFLAGS_X86_L4RE = $(L4_CPPFLAGS) @FLAG_M32@ -g
 AM_CXXFLAGS_X86_L4RE = $(L4_CXXFLAGS) @FLAG_M32@
 #AM_CPPFLAGS_X86_L4RE   = $(L4_CPPFLAGS) $(AM_CPPFLAGS_X86_L4RE)
+AM_FLAG_M3264_S390X_LINUX = @FLAG_M64@
+AM_CFLAGS_S390X_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
+AM_CCASFLAGS_S390X_LINUX = $(AM_CPPFLAGS_S390X_LINUX) -mzarch -march=z900 \
+                            @FLAG_M64@ -g
+
 
 # Flags for the primary target.  These must be used to build the
 # regtests and performance tests.  In fact, these must be used to
@@ -714,6 +690,7 @@ PRELOAD_LDFLAGS_PPC32_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX32@
 PRELOAD_LDFLAGS_PPC64_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX64@
 PRELOAD_LDFLAGS_X86_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch i386
 PRELOAD_LDFLAGS_AMD64_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch x86_64
+PRELOAD_LDFLAGS_S390X_LINUX = $(PRELOAD_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 PRELOAD_LDFLAGS_X86_L4RE = $(PRELOAD_LDFLAGS_COMMON_L4RE) @FLAG_M32@
 AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/include \
 		-I$(top_srcdir)/coregrind -I$(top_builddir)/include \
@@ -799,10 +776,16 @@ EXTRA_DIST = \
 	circular_buffer.vgtest			    \
 	custom_alloc.stderr.exp			    \
 	custom_alloc.vgtest			    \
+	custom_alloc_fiw.stderr.exp		    \
+	custom_alloc_fiw.vgtest			    \
 	fp_race.stderr.exp                          \
 	fp_race.vgtest                              \
 	fp_race2.stderr.exp                         \
 	fp_race2.vgtest                             \
+	free_is_write.stderr.exp		    \
+	free_is_write.vgtest			    \
+	free_is_write2.stderr.exp		    \
+	free_is_write2.vgtest			    \
 	hg01_all_ok.stderr.exp                      \
 	hg01_all_ok.vgtest                          \
 	hg02_deadlock.stderr.exp                    \
@@ -877,6 +860,9 @@ EXTRA_DIST = \
 	pth_detached2.stderr.exp                    \
 	pth_detached2.stdout.exp                    \
 	pth_detached2.vgtest                        \
+	pth_detached3.stderr.exp1                   \
+	pth_detached3.stderr.exp2                   \
+	pth_detached3.vgtest                        \
 	pth_detached_sem.stderr.exp                 \
 	pth_detached_sem.stdout.exp                 \
 	pth_detached_sem.vgtest                     \
@@ -901,6 +887,8 @@ EXTRA_DIST = \
 	qt4_rwlock.vgtest                           \
 	qt4_semaphore.stderr.exp                    \
 	qt4_semaphore.vgtest                        \
+	read_and_free_race.stderr.exp		    \
+	read_and_free_race.vgtest		    \
 	recursive_mutex.stderr.exp-linux            \
 	recursive_mutex.stderr.exp-darwin           \
 	recursive_mutex.vgtest                      \
@@ -927,6 +915,8 @@ EXTRA_DIST = \
 	sem_open_traced.vgtest                      \
 	sigalrm.stderr.exp                          \
 	sigalrm.vgtest                              \
+	sigaltstack.stderr.exp                      \
+	sigaltstack.vgtest                          \
 	tc01_simple_race.stderr.exp                 \
 	tc01_simple_race.vgtest                     \
 	tc02_simple_tls.stderr.exp                  \
@@ -975,12 +965,15 @@ EXTRA_DIST = \
 	tc22_exit_w_lock.vgtest                     \
 	tc23_bogus_condwait.stderr.exp-linux-x86    \
 	tc23_bogus_condwait.stderr.exp-linux-ppc    \
-	tc23_bogus_condwait.stderr.exp-darwin       \
+	tc23_bogus_condwait.stderr.exp-darwin-x86   \
+	tc23_bogus_condwait.stderr.exp-darwin-amd64 \
 	tc23_bogus_condwait.vgtest                  \
 	tc24_nonzero_sem.stderr.exp                 \
 	tc24_nonzero_sem.vgtest                     \
 	thread_name.stderr.exp			    \
 	thread_name.vgtest			    \
+	threaded-fork.stderr.exp		    \
+	threaded-fork.vgtest			    \
 	trylock.stderr.exp                          \
 	trylock.vgtest				    \
 	unit_bitmap.stderr.exp                      \
@@ -1018,18 +1011,6 @@ annotate_static_SOURCES = annotate_static.cpp
 @HAVE_OPENMP_TRUE@omp_printf_LDFLAGS = -fopenmp
 @HAVE_OPENMP_TRUE@omp_printf_LDADD = $(LDADD) -lm
 @HAVE_PTHREAD_BARRIER_TRUE@matinv_LDADD = $(LDADD) -lm
-@HAVE_QTCORE_TRUE@qt4_mutex_SOURCES = qt4_mutex.cpp
-@HAVE_QTCORE_TRUE@qt4_mutex_CXXFLAGS = $(AM_CXXFLAGS) $(QTCORE_CFLAGS)
-@HAVE_QTCORE_TRUE@qt4_mutex_LDADD = $(LDADD) $(QTCORE_LIBS)
-@HAVE_QTCORE_TRUE@qt4_rwlock_SOURCES = qt4_rwlock.cpp
-@HAVE_QTCORE_TRUE@qt4_rwlock_CXXFLAGS = $(AM_CXXFLAGS) $(QTCORE_CFLAGS)
-@HAVE_QTCORE_TRUE@qt4_rwlock_LDADD = $(LDADD) $(QTCORE_LIBS)
-@HAVE_QTCORE_TRUE@qt4_semaphore_SOURCES = qt4_semaphore.cpp
-@HAVE_QTCORE_TRUE@qt4_semaphore_CXXFLAGS = $(AM_CXXFLAGS) $(QTCORE_CFLAGS)
-@HAVE_QTCORE_TRUE@qt4_semaphore_LDADD = $(LDADD) $(QTCORE_LIBS)
-@HAVE_QTCORE_QATOMICINT_TRUE@qt4_atomic_SOURCES = qt4_atomic.cpp
-@HAVE_QTCORE_QATOMICINT_TRUE@qt4_atomic_CXXFLAGS = $(AM_CXXFLAGS) $(QTCORE_CFLAGS)
-@HAVE_QTCORE_QATOMICINT_TRUE@qt4_atomic_LDADD = $(LDADD) $(QTCORE_LIBS)
 all: all-am
 
 .SUFFIXES:
@@ -1112,6 +1093,9 @@ custom_alloc$(EXEEXT): $(custom_alloc_OBJECTS) $(custom_alloc_DEPENDENCIES)
 fp_race$(EXEEXT): $(fp_race_OBJECTS) $(fp_race_DEPENDENCIES) 
 	@rm -f fp_race$(EXEEXT)
 	$(LINK) $(fp_race_OBJECTS) $(fp_race_LDADD) $(LIBS)
+free_is_write$(EXEEXT): $(free_is_write_OBJECTS) $(free_is_write_DEPENDENCIES) 
+	@rm -f free_is_write$(EXEEXT)
+	$(LINK) $(free_is_write_OBJECTS) $(free_is_write_LDADD) $(LIBS)
 hold_lock$(EXEEXT): $(hold_lock_OBJECTS) $(hold_lock_DEPENDENCIES) 
 	@rm -f hold_lock$(EXEEXT)
 	$(LINK) $(hold_lock_OBJECTS) $(hold_lock_LDADD) $(LIBS)
@@ -1169,6 +1153,9 @@ pth_create_glibc_2_0$(EXEEXT): $(pth_create_glibc_2_0_OBJECTS) $(pth_create_glib
 pth_detached$(EXEEXT): $(pth_detached_OBJECTS) $(pth_detached_DEPENDENCIES) 
 	@rm -f pth_detached$(EXEEXT)
 	$(LINK) $(pth_detached_OBJECTS) $(pth_detached_LDADD) $(LIBS)
+pth_detached3$(EXEEXT): $(pth_detached3_OBJECTS) $(pth_detached3_DEPENDENCIES) 
+	@rm -f pth_detached3$(EXEEXT)
+	$(LINK) $(pth_detached3_OBJECTS) $(pth_detached3_LDADD) $(LIBS)
 pth_detached_sem$(EXEEXT): $(pth_detached_sem_OBJECTS) $(pth_detached_sem_DEPENDENCIES) 
 	@rm -f pth_detached_sem$(EXEEXT)
 	$(LINK) $(pth_detached_sem_OBJECTS) $(pth_detached_sem_LDADD) $(LIBS)
@@ -1187,18 +1174,6 @@ pth_spinlock$(EXEEXT): $(pth_spinlock_OBJECTS) $(pth_spinlock_DEPENDENCIES)
 pth_uninitialized_cond$(EXEEXT): $(pth_uninitialized_cond_OBJECTS) $(pth_uninitialized_cond_DEPENDENCIES) 
 	@rm -f pth_uninitialized_cond$(EXEEXT)
 	$(LINK) $(pth_uninitialized_cond_OBJECTS) $(pth_uninitialized_cond_LDADD) $(LIBS)
-qt4_atomic$(EXEEXT): $(qt4_atomic_OBJECTS) $(qt4_atomic_DEPENDENCIES) 
-	@rm -f qt4_atomic$(EXEEXT)
-	$(qt4_atomic_LINK) $(qt4_atomic_OBJECTS) $(qt4_atomic_LDADD) $(LIBS)
-qt4_mutex$(EXEEXT): $(qt4_mutex_OBJECTS) $(qt4_mutex_DEPENDENCIES) 
-	@rm -f qt4_mutex$(EXEEXT)
-	$(qt4_mutex_LINK) $(qt4_mutex_OBJECTS) $(qt4_mutex_LDADD) $(LIBS)
-qt4_rwlock$(EXEEXT): $(qt4_rwlock_OBJECTS) $(qt4_rwlock_DEPENDENCIES) 
-	@rm -f qt4_rwlock$(EXEEXT)
-	$(qt4_rwlock_LINK) $(qt4_rwlock_OBJECTS) $(qt4_rwlock_LDADD) $(LIBS)
-qt4_semaphore$(EXEEXT): $(qt4_semaphore_OBJECTS) $(qt4_semaphore_DEPENDENCIES) 
-	@rm -f qt4_semaphore$(EXEEXT)
-	$(qt4_semaphore_LINK) $(qt4_semaphore_OBJECTS) $(qt4_semaphore_LDADD) $(LIBS)
 recursive_mutex$(EXEEXT): $(recursive_mutex_OBJECTS) $(recursive_mutex_DEPENDENCIES) 
 	@rm -f recursive_mutex$(EXEEXT)
 	$(LINK) $(recursive_mutex_OBJECTS) $(recursive_mutex_LDADD) $(LIBS)
@@ -1223,6 +1198,9 @@ sigalrm$(EXEEXT): $(sigalrm_OBJECTS) $(sigalrm_DEPENDENCIES)
 thread_name$(EXEEXT): $(thread_name_OBJECTS) $(thread_name_DEPENDENCIES) 
 	@rm -f thread_name$(EXEEXT)
 	$(LINK) $(thread_name_OBJECTS) $(thread_name_LDADD) $(LIBS)
+threaded-fork$(EXEEXT): $(threaded_fork_OBJECTS) $(threaded_fork_DEPENDENCIES) 
+	@rm -f threaded-fork$(EXEEXT)
+	$(LINK) $(threaded_fork_OBJECTS) $(threaded_fork_LDADD) $(LIBS)
 trylock$(EXEEXT): $(trylock_OBJECTS) $(trylock_DEPENDENCIES) 
 	@rm -f trylock$(EXEEXT)
 	$(LINK) $(trylock_OBJECTS) $(trylock_LDADD) $(LIBS)
@@ -1257,6 +1235,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/circular_buffer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/custom_alloc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fp_race.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/free_is_write.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hold_lock.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linuxthreads_det.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/matinv.Po@am__quote@
@@ -1276,16 +1255,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pth_create_chain.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pth_create_glibc_2_0.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pth_detached.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pth_detached3.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pth_detached_sem.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pth_inconsistent_cond_wait.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pth_mutex_reinit.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pth_process_shared_mutex.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pth_spinlock.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pth_uninitialized_cond.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qt4_atomic-qt4_atomic.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qt4_mutex-qt4_mutex.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qt4_rwlock-qt4_rwlock.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qt4_semaphore-qt4_semaphore.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/recursive_mutex.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rwlock_race.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rwlock_test.Po@am__quote@
@@ -1294,6 +1270,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sem_open.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sigalrm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/thread_name.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threaded-fork.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trylock.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tsan_unittest-tsan_unittest.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unit_bitmap-unit_bitmap.Po@am__quote@
@@ -1424,62 +1401,6 @@ boost_thread-boost_thread.obj: boost_thread.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='boost_thread.cpp' object='boost_thread-boost_thread.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(boost_thread_CXXFLAGS) $(CXXFLAGS) -c -o boost_thread-boost_thread.obj `if test -f 'boost_thread.cpp'; then $(CYGPATH_W) 'boost_thread.cpp'; else $(CYGPATH_W) '$(srcdir)/boost_thread.cpp'; fi`
-
-qt4_atomic-qt4_atomic.o: qt4_atomic.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_atomic_CXXFLAGS) $(CXXFLAGS) -MT qt4_atomic-qt4_atomic.o -MD -MP -MF $(DEPDIR)/qt4_atomic-qt4_atomic.Tpo -c -o qt4_atomic-qt4_atomic.o `test -f 'qt4_atomic.cpp' || echo '$(srcdir)/'`qt4_atomic.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/qt4_atomic-qt4_atomic.Tpo $(DEPDIR)/qt4_atomic-qt4_atomic.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='qt4_atomic.cpp' object='qt4_atomic-qt4_atomic.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_atomic_CXXFLAGS) $(CXXFLAGS) -c -o qt4_atomic-qt4_atomic.o `test -f 'qt4_atomic.cpp' || echo '$(srcdir)/'`qt4_atomic.cpp
-
-qt4_atomic-qt4_atomic.obj: qt4_atomic.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_atomic_CXXFLAGS) $(CXXFLAGS) -MT qt4_atomic-qt4_atomic.obj -MD -MP -MF $(DEPDIR)/qt4_atomic-qt4_atomic.Tpo -c -o qt4_atomic-qt4_atomic.obj `if test -f 'qt4_atomic.cpp'; then $(CYGPATH_W) 'qt4_atomic.cpp'; else $(CYGPATH_W) '$(srcdir)/qt4_atomic.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/qt4_atomic-qt4_atomic.Tpo $(DEPDIR)/qt4_atomic-qt4_atomic.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='qt4_atomic.cpp' object='qt4_atomic-qt4_atomic.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_atomic_CXXFLAGS) $(CXXFLAGS) -c -o qt4_atomic-qt4_atomic.obj `if test -f 'qt4_atomic.cpp'; then $(CYGPATH_W) 'qt4_atomic.cpp'; else $(CYGPATH_W) '$(srcdir)/qt4_atomic.cpp'; fi`
-
-qt4_mutex-qt4_mutex.o: qt4_mutex.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_mutex_CXXFLAGS) $(CXXFLAGS) -MT qt4_mutex-qt4_mutex.o -MD -MP -MF $(DEPDIR)/qt4_mutex-qt4_mutex.Tpo -c -o qt4_mutex-qt4_mutex.o `test -f 'qt4_mutex.cpp' || echo '$(srcdir)/'`qt4_mutex.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/qt4_mutex-qt4_mutex.Tpo $(DEPDIR)/qt4_mutex-qt4_mutex.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='qt4_mutex.cpp' object='qt4_mutex-qt4_mutex.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_mutex_CXXFLAGS) $(CXXFLAGS) -c -o qt4_mutex-qt4_mutex.o `test -f 'qt4_mutex.cpp' || echo '$(srcdir)/'`qt4_mutex.cpp
-
-qt4_mutex-qt4_mutex.obj: qt4_mutex.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_mutex_CXXFLAGS) $(CXXFLAGS) -MT qt4_mutex-qt4_mutex.obj -MD -MP -MF $(DEPDIR)/qt4_mutex-qt4_mutex.Tpo -c -o qt4_mutex-qt4_mutex.obj `if test -f 'qt4_mutex.cpp'; then $(CYGPATH_W) 'qt4_mutex.cpp'; else $(CYGPATH_W) '$(srcdir)/qt4_mutex.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/qt4_mutex-qt4_mutex.Tpo $(DEPDIR)/qt4_mutex-qt4_mutex.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='qt4_mutex.cpp' object='qt4_mutex-qt4_mutex.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_mutex_CXXFLAGS) $(CXXFLAGS) -c -o qt4_mutex-qt4_mutex.obj `if test -f 'qt4_mutex.cpp'; then $(CYGPATH_W) 'qt4_mutex.cpp'; else $(CYGPATH_W) '$(srcdir)/qt4_mutex.cpp'; fi`
-
-qt4_rwlock-qt4_rwlock.o: qt4_rwlock.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_rwlock_CXXFLAGS) $(CXXFLAGS) -MT qt4_rwlock-qt4_rwlock.o -MD -MP -MF $(DEPDIR)/qt4_rwlock-qt4_rwlock.Tpo -c -o qt4_rwlock-qt4_rwlock.o `test -f 'qt4_rwlock.cpp' || echo '$(srcdir)/'`qt4_rwlock.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/qt4_rwlock-qt4_rwlock.Tpo $(DEPDIR)/qt4_rwlock-qt4_rwlock.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='qt4_rwlock.cpp' object='qt4_rwlock-qt4_rwlock.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_rwlock_CXXFLAGS) $(CXXFLAGS) -c -o qt4_rwlock-qt4_rwlock.o `test -f 'qt4_rwlock.cpp' || echo '$(srcdir)/'`qt4_rwlock.cpp
-
-qt4_rwlock-qt4_rwlock.obj: qt4_rwlock.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_rwlock_CXXFLAGS) $(CXXFLAGS) -MT qt4_rwlock-qt4_rwlock.obj -MD -MP -MF $(DEPDIR)/qt4_rwlock-qt4_rwlock.Tpo -c -o qt4_rwlock-qt4_rwlock.obj `if test -f 'qt4_rwlock.cpp'; then $(CYGPATH_W) 'qt4_rwlock.cpp'; else $(CYGPATH_W) '$(srcdir)/qt4_rwlock.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/qt4_rwlock-qt4_rwlock.Tpo $(DEPDIR)/qt4_rwlock-qt4_rwlock.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='qt4_rwlock.cpp' object='qt4_rwlock-qt4_rwlock.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_rwlock_CXXFLAGS) $(CXXFLAGS) -c -o qt4_rwlock-qt4_rwlock.obj `if test -f 'qt4_rwlock.cpp'; then $(CYGPATH_W) 'qt4_rwlock.cpp'; else $(CYGPATH_W) '$(srcdir)/qt4_rwlock.cpp'; fi`
-
-qt4_semaphore-qt4_semaphore.o: qt4_semaphore.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_semaphore_CXXFLAGS) $(CXXFLAGS) -MT qt4_semaphore-qt4_semaphore.o -MD -MP -MF $(DEPDIR)/qt4_semaphore-qt4_semaphore.Tpo -c -o qt4_semaphore-qt4_semaphore.o `test -f 'qt4_semaphore.cpp' || echo '$(srcdir)/'`qt4_semaphore.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/qt4_semaphore-qt4_semaphore.Tpo $(DEPDIR)/qt4_semaphore-qt4_semaphore.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='qt4_semaphore.cpp' object='qt4_semaphore-qt4_semaphore.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_semaphore_CXXFLAGS) $(CXXFLAGS) -c -o qt4_semaphore-qt4_semaphore.o `test -f 'qt4_semaphore.cpp' || echo '$(srcdir)/'`qt4_semaphore.cpp
-
-qt4_semaphore-qt4_semaphore.obj: qt4_semaphore.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_semaphore_CXXFLAGS) $(CXXFLAGS) -MT qt4_semaphore-qt4_semaphore.obj -MD -MP -MF $(DEPDIR)/qt4_semaphore-qt4_semaphore.Tpo -c -o qt4_semaphore-qt4_semaphore.obj `if test -f 'qt4_semaphore.cpp'; then $(CYGPATH_W) 'qt4_semaphore.cpp'; else $(CYGPATH_W) '$(srcdir)/qt4_semaphore.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/qt4_semaphore-qt4_semaphore.Tpo $(DEPDIR)/qt4_semaphore-qt4_semaphore.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='qt4_semaphore.cpp' object='qt4_semaphore-qt4_semaphore.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(qt4_semaphore_CXXFLAGS) $(CXXFLAGS) -c -o qt4_semaphore-qt4_semaphore.obj `if test -f 'qt4_semaphore.cpp'; then $(CYGPATH_W) 'qt4_semaphore.cpp'; else $(CYGPATH_W) '$(srcdir)/qt4_semaphore.cpp'; fi`
 
 tsan_unittest-tsan_unittest.o: tsan_unittest.cpp
 @am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tsan_unittest_CXXFLAGS) $(CXXFLAGS) -MT tsan_unittest-tsan_unittest.o -MD -MP -MF $(DEPDIR)/tsan_unittest-tsan_unittest.Tpo -c -o tsan_unittest-tsan_unittest.o `test -f 'tsan_unittest.cpp' || echo '$(srcdir)/'`tsan_unittest.cpp

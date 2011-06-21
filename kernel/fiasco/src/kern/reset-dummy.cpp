@@ -2,7 +2,7 @@ IMPLEMENTATION:
 
 // reset PC
 void __attribute__ ((noreturn))
-pc_reset()
+platform_reset()
 {
   while(1)
     ;

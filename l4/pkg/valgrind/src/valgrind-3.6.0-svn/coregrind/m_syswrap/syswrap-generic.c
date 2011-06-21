@@ -34,6 +34,7 @@
 #include "pub_core_basics.h"
 #include "pub_core_vki.h"
 #include "pub_core_vkiscnums.h"
+#include "pub_core_libcsetjmp.h"    // to keep _threadstate.h happy
 #include "pub_core_threadstate.h"
 #include "pub_core_debuginfo.h"     // VG_(di_notify_*)
 #include "pub_core_aspacemgr.h"
@@ -42,6 +43,7 @@
 #include "pub_core_clientstate.h"   // VG_(brk_base), VG_(brk_limit)
 #include "pub_core_debuglog.h"
 #include "pub_core_errormgr.h"
+#include "pub_tool_gdbserver.h"     // VG_(gdbserver)
 #include "pub_core_libcbase.h"
 #include "pub_core_libcassert.h"
 #include "pub_core_libcfile.h"
@@ -427,6 +429,9 @@ SysRes do_mremap( Addr old_addr, SizeT old_len,
    /* that failed.  Look elsewhere. */
    advised = VG_(am_get_advisory_client_simple)( 0, new_len, &ok );
    if (ok) {
+      Bool oldR = old_seg->hasR;
+      Bool oldW = old_seg->hasW;
+      Bool oldX = old_seg->hasX;
       /* assert new area does not overlap old */
       vg_assert(advised+new_len-1 < old_addr 
                 || advised > old_addr+old_len-1);
@@ -437,8 +442,7 @@ SysRes do_mremap( Addr old_addr, SizeT old_len,
                                    MIN_SIZET(old_len,new_len) );
          if (new_len > old_len)
             VG_TRACK( new_mem_mmap, advised+old_len, new_len-old_len,
-                      old_seg->hasR, old_seg->hasW, old_seg->hasX,
-                      0/*di_handle*/ );
+                      oldR, oldW, oldX, 0/*di_handle*/ );
          VG_TRACK(die_mem_munmap, old_addr, old_len);
          if (d) {
             VG_(discard_translations)( old_addr, old_len, "do_remap(4)" );
@@ -1719,11 +1723,18 @@ UInt get_shm_size ( Int shmid )
 #ifdef __NR_shmctl
 #  ifdef VKI_IPC_64
    struct vki_shmid64_ds buf;
-   SysRes __res = VG_(do_syscall3)(__NR_shmctl, shmid, VKI_IPC_STAT, (UWord)&buf);
-#  else
+#    ifdef VGP_amd64_linux
+     /* See bug 222545 comment 7 */
+     SysRes __res = VG_(do_syscall3)(__NR_shmctl, shmid, 
+                                     VKI_IPC_STAT, (UWord)&buf);
+#    else
+     SysRes __res = VG_(do_syscall3)(__NR_shmctl, shmid,
+                                     VKI_IPC_STAT|VKI_IPC_64, (UWord)&buf);
+#    endif
+#  else /* !def VKI_IPC_64 */
    struct vki_shmid_ds buf;
    SysRes __res = VG_(do_syscall3)(__NR_shmctl, shmid, VKI_IPC_STAT, (UWord)&buf);
-#  endif
+#  endif /* def VKI_IPC_64 */
 #else
    struct vki_shmid_ds buf;
    SysRes __res = VG_(do_syscall5)(__NR_ipc, 24 /* IPCOP_shmctl */, shmid,
@@ -1745,9 +1756,26 @@ ML_(generic_PRE_sys_shmat) ( ThreadId tid,
    UWord tmp;
    Bool  ok;
    if (arg1 == 0) {
+      /* arm-linux only: work around the fact that
+         VG_(am_get_advisory_client_simple) produces something that is
+         VKI_PAGE_SIZE aligned, whereas what we want is something
+         VKI_SHMLBA aligned, and VKI_SHMLBA >= VKI_PAGE_SIZE.  Hence
+         increase the request size by VKI_SHMLBA - VKI_PAGE_SIZE and
+         then round the result up to the next VKI_SHMLBA boundary.
+         See bug 222545 comment 15.  So far, arm-linux is the only
+         platform where this is known to be necessary. */
+      vg_assert(VKI_SHMLBA >= VKI_PAGE_SIZE);
+      if (VKI_SHMLBA > VKI_PAGE_SIZE) {
+         segmentSize += VKI_SHMLBA - VKI_PAGE_SIZE;
+      }
       tmp = VG_(am_get_advisory_client_simple)(0, segmentSize, &ok);
-      if (ok)
-         arg1 = tmp;
+      if (ok) {
+         if (VKI_SHMLBA > VKI_PAGE_SIZE) {
+            arg1 = VG_ROUNDUP(tmp, VKI_SHMLBA);
+         } else {
+            arg1 = tmp;
+         }
+      }
    }
    else if (!ML_(valid_client_addr)(arg1, segmentSize, tid, "shmat"))
       arg1 = 0;
@@ -1759,7 +1787,7 @@ ML_(generic_POST_sys_shmat) ( ThreadId tid,
                               UWord res,
                               UWord arg0, UWord arg1, UWord arg2 )
 {
-   UInt segmentSize = get_shm_size ( arg0 );
+   UInt segmentSize = VG_PGROUNDUP(get_shm_size(arg0));
    if ( segmentSize > 0 ) {
       UInt prot = VKI_PROT_READ|VKI_PROT_WRITE;
       Bool d;
@@ -1776,7 +1804,7 @@ ML_(generic_POST_sys_shmat) ( ThreadId tid,
          cope with the discrepancy, aspacem's sync checker omits the
          dev/ino correspondence check in cases where V does not know
          the dev/ino. */
-      d = VG_(am_notify_client_shmat)( res, VG_PGROUNDUP(segmentSize), prot );
+      d = VG_(am_notify_client_shmat)( res, segmentSize, prot );
 
       /* we don't distinguish whether it's read-only or
        * read-write -- it doesn't matter really. */
@@ -1944,6 +1972,11 @@ ML_(generic_POST_sys_shmctl) ( ThreadId tid,
  * - On amd64-linux everything is simple and there is just the one
  *   call, mmap (aka sys_mmap)  which takes the arguments in the
  *   normal way and the offset in bytes.
+ *
+ * - On s390x-linux there is mmap (aka old_mmap) which takes the
+ *   arguments in a memory block and the offset in bytes. mmap2
+ *   is also available (but not exported via unistd.h) with
+ *   arguments in a memory block and the offset in pages.
  *
  * To cope with all this we provide a generic handler function here
  * and then each platform implements one or more system call handlers
@@ -2540,8 +2573,29 @@ PRE(sys_execve)
       return;
    }
 
+   // debug-only printing
+   if (0) {
+      VG_(printf)("ARG1 = %p(%s)\n", (void*)ARG1, (HChar*)ARG1);
+      if (ARG2) {
+         VG_(printf)("ARG2 = ");
+         Int q;
+         HChar** vec = (HChar**)ARG2;
+         for (q = 0; vec[q]; q++)
+            VG_(printf)("%p(%s) ", vec[q], vec[q]);
+         VG_(printf)("\n");
+      } else {
+         VG_(printf)("ARG2 = null\n");
+      }
+   }
+
    // Decide whether or not we want to follow along
-   trace_this_child = VG_(should_we_trace_this_child)( (HChar*)ARG1 );
+   { // Make 'child_argv' be a pointer to the child's arg vector
+     // (skipping the exe name)
+     HChar** child_argv = (HChar**)ARG2;
+     if (child_argv && child_argv[0] == NULL)
+        child_argv = NULL;
+     trace_this_child = VG_(should_we_trace_this_child)( (HChar*)ARG1, child_argv );
+   }
 
    // Do the important checks:  it is a file, is executable, permissions are
    // ok, etc.  We allow setuid executables to run only in the case when
@@ -2565,6 +2619,16 @@ PRE(sys_execve)
 
    /* After this point, we can't recover if the execve fails. */
    VG_(debugLog)(1, "syswrap", "Exec of %s\n", (Char*)ARG1);
+
+   
+   // Terminate gdbserver if it is active.
+   if (VG_(clo_vgdb)  != Vg_VgdbNo) {
+      // If the child will not be traced, we need to terminate gdbserver
+      // to cleanup the gdbserver resources (e.g. the FIFO files).
+      // If child will be traced, we also terminate gdbserver: the new 
+      // Valgrind will start a fresh gdbserver after exec.
+      VG_(gdbserver) (0);
+   }
 
    /* Resistance is futile.  Nuke all other threads.  POSIX mandates
       this. (Really, nuke them all, since the new process will make

@@ -13,7 +13,7 @@ enum Reg_offsets
  * Porgram Gerneral purpose timer as watchdog, thus causing a system reset
  */
 void __attribute__ ((noreturn))
-pc_reset(void)
+platform_reset(void)
 {
 
   Address mbar = Boot_info::mbar();
@@ -31,7 +31,7 @@ pc_reset(void)
 IMPLEMENTATION [ppc32 && !mpc52xx]:
 
 void __attribute__ ((noreturn))
-pc_reset(void)
+platform_reset(void)
 {
   for(;;);
 }

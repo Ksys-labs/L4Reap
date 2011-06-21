@@ -11,6 +11,13 @@ if VGCONF_ARCHS_INCLUDE_AMD64
 SUBDIRS += amd64
 endif
 
+if VGCONF_ARCHS_INCLUDE_PPC32
+SUBDIRS += ppc32
+endif
+if VGCONF_ARCHS_INCLUDE_PPC64
+SUBDIRS += ppc64
+endif
+
 # OS-specific tests
 if VGCONF_OS_IS_LINUX
 SUBDIRS += linux
@@ -27,7 +34,7 @@ if VGCONF_PLATFORMS_INCLUDE_AMD64_LINUX
 SUBDIRS += amd64-linux
 endif
 
-DIST_SUBDIRS = x86 amd64 linux darwin x86-linux amd64-linux .
+DIST_SUBDIRS = x86 amd64 ppc32 ppc64 linux darwin x86-linux amd64-linux .
 
 dist_noinst_SCRIPTS = \
 	filter_addressable \
@@ -46,8 +53,11 @@ EXTRA_DIST = \
 	badaddrvalue.stdout.exp badaddrvalue.vgtest \
 	badfree-2trace.stderr.exp badfree-2trace.vgtest \
 	badfree.stderr.exp badfree.vgtest \
+	badfree3.stderr.exp badfree3.vgtest \
 	badjump.stderr.exp badjump.vgtest \
 	badjump2.stderr.exp badjump2.vgtest \
+	badjump.stderr.exp-s390x \
+	badjump2.stderr.exp-s390x \
 	badloop.stderr.exp badloop.vgtest \
 	badpoll.stderr.exp badpoll.vgtest \
 	badrw.stderr.exp badrw.vgtest \
@@ -85,8 +95,6 @@ EXTRA_DIST = \
 	leak-pool-4.vgtest leak-pool-4.stderr.exp \
 	leak-pool-5.vgtest leak-pool-5.stderr.exp \
 	leak-tree.vgtest leak-tree.stderr.exp \
-	linux-syslog-syscall linux-syslog-syscall.stderr.exp \
-	linux-syscalls-2007 linux-syscalls-2007.stderr.exp \
 	long_namespace_xml.vgtest long_namespace_xml.stdout.exp \
 	long_namespace_xml.stderr.exp \
 	long-supps.vgtest long-supps.stderr.exp long-supps.supp \
@@ -106,6 +114,7 @@ EXTRA_DIST = \
 	memcmptest.stderr.exp memcmptest.stderr.exp2 \
 	memcmptest.stdout.exp memcmptest.vgtest \
 	mempool.stderr.exp mempool.vgtest \
+	mempool2.stderr.exp mempool2.vgtest \
 	metadata.stderr.exp metadata.stdout.exp metadata.vgtest \
 	mismatches.stderr.exp mismatches.vgtest \
 	mmaptest.stderr.exp mmaptest.vgtest \
@@ -126,11 +135,14 @@ EXTRA_DIST = \
 	origin5-bz2.stderr.exp-glibc25-x86 \
 	origin5-bz2.stderr.exp-glibc25-amd64 \
 	origin5-bz2.stderr.exp-glibc27-ppc64 \
+	origin5-bz2.stderr.exp-glibc212-s390x \
 	origin6-fp.vgtest origin6-fp.stdout.exp \
 	origin6-fp.stderr.exp-glibc25-amd64 \
 	origin6-fp.stderr.exp-glibc27-ppc64 \
 	overlap.stderr.exp overlap.stdout.exp overlap.vgtest \
 	partiallydefinedeq.vgtest partiallydefinedeq.stderr.exp \
+	partiallydefinedeq.stderr.exp4 \
+	partiallydefinedeq.stderr.exp3 \
 	partiallydefinedeq.stderr.exp2 \
 	partiallydefinedeq.stdout.exp \
 	partial_load_ok.vgtest partial_load_ok.stderr.exp partial_load_ok.stderr.exp64 \
@@ -156,6 +168,7 @@ EXTRA_DIST = \
 	str_tester.stderr.exp str_tester.vgtest \
 	supp-dir.vgtest supp-dir.stderr.exp \
 	supp_unknown.stderr.exp supp_unknown.vgtest supp_unknown.supp \
+	supp_unknown.stderr.exp-s390x \
 	supp1.stderr.exp supp1.vgtest \
 	supp2.stderr.exp supp2.vgtest \
 	supp.supp \
@@ -163,12 +176,12 @@ EXTRA_DIST = \
 	trivialleak.stderr.exp trivialleak.vgtest \
 	unit_libcbase.stderr.exp unit_libcbase.vgtest \
 	unit_oset.stderr.exp unit_oset.stdout.exp unit_oset.vgtest \
-	varinfo1.vgtest varinfo1.stdout.exp varinfo1.stderr.exp \
-	varinfo2.vgtest varinfo2.stdout.exp varinfo2.stderr.exp \
-	varinfo3.vgtest varinfo3.stdout.exp varinfo3.stderr.exp \
-	varinfo4.vgtest varinfo4.stdout.exp varinfo4.stderr.exp \
-	varinfo5.vgtest varinfo5.stdout.exp varinfo5.stderr.exp \
-	varinfo6.vgtest varinfo6.stdout.exp varinfo6.stderr.exp \
+	varinfo1.vgtest varinfo1.stdout.exp varinfo1.stderr.exp varinfo1.stderr.exp-ppc64\
+	varinfo2.vgtest varinfo2.stdout.exp varinfo2.stderr.exp varinfo2.stderr.exp-ppc64\
+	varinfo3.vgtest varinfo3.stdout.exp varinfo3.stderr.exp varinfo3.stderr.exp-ppc64\
+	varinfo4.vgtest varinfo4.stdout.exp varinfo4.stderr.exp varinfo4.stderr.exp-ppc64\
+	varinfo5.vgtest varinfo5.stdout.exp varinfo5.stderr.exp varinfo5.stderr.exp-ppc64\
+	varinfo6.vgtest varinfo6.stdout.exp varinfo6.stderr.exp varinfo6.stderr.exp-ppc64\
 	vcpu_bz2.stdout.exp vcpu_bz2.stderr.exp vcpu_bz2.vgtest \
 	vcpu_fbench.stdout.exp vcpu_fbench.stderr.exp vcpu_fbench.vgtest \
 	vcpu_fnfns.stdout.exp vcpu_fnfns.stdout.exp-glibc28-amd64 \
@@ -208,15 +221,13 @@ check_PROGRAMS = \
 	leak-cycle \
 	leak-pool \
 	leak-tree \
-	linux-syslog-syscall \
-	linux-syscalls-2007 \
 	long_namespace_xml \
 	long-supps \
 	mallinfo \
 	malloc_free_fill \
 	malloc_usable malloc1 malloc2 malloc3 manuel1 manuel2 manuel3 \
 	match-overrun \
-	memalign_test memalign2 memcmptest mempool mmaptest \
+	memalign_test memalign2 memcmptest mempool mempool2 mmaptest \
 	mismatches new_override metadata \
 	nanoleak_supp nanoleak2 new_nothrow \
 	noisy_child \
@@ -263,6 +274,10 @@ deep_templates_CXXFLAGS	= $(AM_CFLAGS) -O -gstabs
 
 error_counts_CFLAGS = $(AM_CFLAGS) @FLAG_W_NO_UNINITIALIZED@
 
+execve_CFLAGS = $(AM_CFLAGS) @FLAG_W_NO_NONNULL@
+
+execve2_CFLAGS = $(AM_CFLASG) @FLAG_W_NO_NONNULL@
+
 inits_CFLAGS = $(AM_CFLAGS) @FLAG_W_NO_UNINITIALIZED@
 
 long_namespace_xml_SOURCES = long_namespace_xml.cpp
@@ -287,8 +302,9 @@ origin4_many_CFLAGS	= $(AM_CFLAGS) -O
 origin5_bz2_CFLAGS	= $(AM_CFLAGS) -O -Wno-inline
 origin6_fp_CFLAGS	= $(AM_CFLAGS) -O
 
-# Don't allow GCC to inline memcpy(), because then we can't intercept it
-overlap_CFLAGS		= $(AM_CFLAGS) -fno-builtin-memcpy
+# Don't allow GCC to inline memcpy() and strcpy(),
+# because then we can't intercept it
+overlap_CFLAGS		= $(AM_CFLAGS) -fno-builtin-memcpy -fno-builtin-strcpy
 
 str_tester_CFLAGS	= $(AM_CFLAGS) -Wno-shadow
 

@@ -8,7 +8,6 @@ TARGET           = libtlfs.a libtlfs.so
 PC_FILENAME      = libtlsf
 CONTRIB_INCDIR   = libtlsf
 REQUIRES_LIBS    = libpthread libc_support_misc
-L4_MULTITHREADED = y
 SRC_C           += tlsf.c
 DEFINES          = -DTLSF_USE_LOCKS=1
 DEFINES         += -DUSE_MMAP=1

@@ -19,7 +19,9 @@ __BEGIN_DECLS
 #include "pub_tool_libcbase.h"
 #include "pub_tool_libcfile.h"
 #include "pub_core_libcprint.h"
+__END_DECLS
 #include "pub_core_vki.h"
+__BEGIN_DECLS
 #include "pub_core_tooliface.h"
 #include "pub_core_libcassert.h" // VG_(exit)
 #include "l4re_helper.h"

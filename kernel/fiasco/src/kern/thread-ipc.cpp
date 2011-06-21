@@ -934,9 +934,10 @@ Thread::transfer_msg_items(L4_msg_tag const &tag, Thread* snd, Utcb *snd_utcb,
 	      // diminish when sending via restricted ipc gates
 	      if (sfp.type() == L4_fpage::Obj)
 		sfp.mask_rights(L4_fpage::Rights(rights | L4_fpage::RX));
-
+	      cpu_lock.clear();
 	      L4_error err = fpage_map(snd->space(), sfp,
-		  rcv->space(), L4_fpage(buf->d), item->b.raw(), &rl);
+		  rcv->space(), L4_fpage(buf->d), item->b, &rl);
+	      cpu_lock.lock();
 
 	      if (EXPECT_FALSE(!err.ok()))
 		{
@@ -948,7 +949,7 @@ Thread::transfer_msg_items(L4_msg_tag const &tag, Thread* snd, Utcb *snd_utcb,
 
       --items;
 
-      if (!item->b.compund())
+      if (!item->b.compound())
 	buf_iter->next();
     }
 

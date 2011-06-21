@@ -197,6 +197,14 @@ void dma_free_coherent(struct device *dev, size_t size,
 	free_pages((unsigned long)vaddr, get_order(size));
 }
 
+#ifdef ARCH_arm
+#include <l4/sys/cache.h>
+void dma_cache_maint(const void *start, size_t size, int direction)
+{
+	l4_cache_dma_coherent((unsigned long)start, (unsigned long)start + size);
+}
+#endif
+
 
 /********************
  ** Initialization **

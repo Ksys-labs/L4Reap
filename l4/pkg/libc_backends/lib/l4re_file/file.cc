@@ -52,7 +52,6 @@ ssize_t write(int fd, const void *buf, size_t count)
   return writev(fd, &iov, 1);
 }
 
-
 static void copy_stat64_to_stat(struct stat *buf, struct stat64 *sb64)
 {
   memset(buf, 0, sizeof(*buf));
@@ -489,6 +488,8 @@ int select(int nfds, fd_set *readfds, fd_set *writefds,
 L4B_REDIRECT_2(int,       fstat64,     int, struct stat64 *)
 L4B_REDIRECT_3(ssize_t,   readv,       int, const struct iovec *, int)
 L4B_REDIRECT_3(ssize_t,   writev,      int, const struct iovec *, int)
+L4B_REDIRECT_4(ssize_t,   preadv,      int, const struct iovec *, int, off_t)
+L4B_REDIRECT_4(ssize_t,   pwritev,     int, const struct iovec *, int, off_t)
 L4B_REDIRECT_3(__off64_t, lseek64,     int, __off64_t, int)
 L4B_REDIRECT_2(int,       ftruncate64, int, off64_t)
 L4B_REDIRECT_1(int,       fsync,       int)
@@ -548,6 +549,24 @@ extern "C" int fchdir(int fd) L4_NOTHROW
   // would need to check whether 'f' is a directory
   o->set_cwd(f);
   return -1;
+}
+
+extern "C"
+ssize_t pread64(int fd, void *buf, size_t count, off64_t offset)
+{
+  struct iovec iov;
+  iov.iov_base = buf;
+  iov.iov_len = count;
+  return preadv(fd, &iov, 1, offset);
+}
+
+extern "C"
+ssize_t pwrite64(int fd, const void *buf, size_t count, off64_t offset)
+{
+  struct iovec iov;
+  iov.iov_base = const_cast<void*>(buf);
+  iov.iov_len = count;
+  return pwritev(fd, &iov, 1, offset);
 }
 
 extern "C" char *getcwd(char *buf, size_t size) L4_NOTHROW

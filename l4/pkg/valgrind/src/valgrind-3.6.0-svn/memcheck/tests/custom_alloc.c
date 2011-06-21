@@ -53,7 +53,7 @@ static void custom_free(void* p)
    // don't actually free any memory... but mark it as freed
    VALGRIND_FREELIKE_BLOCK( p, RZ );
 }
-#undef RZ
+
 
 
 
@@ -63,7 +63,7 @@ static void custom_free(void* p)
 
 void make_leak(void)
 {
-   int* array2 = custom_alloc(sizeof(int) * 10);
+   int* array2 __attribute__((unused)) = custom_alloc(sizeof(int) * 10);
    array2 = 0;          // leak
    return;
 }
@@ -77,6 +77,23 @@ int main(void)
    array[8]  = 8;
    array[9]  = 8;
    array[10] = 10;      // invalid write (ok w/o MALLOCLIKE -- in superblock)
+
+   VALGRIND_RESIZEINPLACE_BLOCK(array, sizeof(int) * 10, sizeof(int) * 5, RZ);
+   array[4] = 7;
+   array[5] = 9; // invalid write
+
+   // Make the entire array defined again such that it can be verified whether
+   // the red zone is marked properly when resizing in place.
+   VALGRIND_MAKE_MEM_DEFINED(array, sizeof(int) * 10);
+
+   VALGRIND_RESIZEINPLACE_BLOCK(array, sizeof(int) * 5, sizeof(int) * 7, RZ);
+   if (array[5]) array[4]++; // uninitialized read of array[5]
+   array[5]  = 11;
+   array[6]  = 7;
+   array[7] = 8; // invalid write
+
+   // invalid realloc
+   VALGRIND_RESIZEINPLACE_BLOCK(array+1, sizeof(int) * 7, sizeof(int) * 8, RZ);
 
    custom_free(array);  // ok
 
@@ -101,3 +118,5 @@ int main(void)
 
    // leak from make_leak()
 }
+
+#undef RZ

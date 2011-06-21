@@ -53,11 +53,13 @@
 #include "pub_core_dispatch.h" // VG_(run_innerloop__dispatch_{un}profiled)
                                // VG_(run_a_noredir_translation__return_point)
 
+#include "pub_core_libcsetjmp.h"   // to keep _threadstate.h happy
 #include "pub_core_threadstate.h"  // VexGuestArchState
 #include "pub_core_trampoline.h"   // VG_(ppctoc_magic_redirect_return_stub)
 
 #include "pub_core_execontext.h"  // VG_(make_depth_1_ExeContext_from_Addr)
 
+#include "pub_core_gdbserver.h"   // VG_(tool_instrument_then_gdbserver_if_needed)
 
 /*------------------------------------------------------------*/
 /*--- Stats                                                ---*/
@@ -209,6 +211,30 @@ static IRExpr* mk_ecu_Expr ( Addr64 guest_IP )
    return mkIRExpr_HWord( (HWord)ecu );
 }
 
+/* When gdbserver is activated, the translation of a block must
+   first be done by the tool function, then followed by a pass
+   which (if needed) instruments the code for gdbserver.
+*/
+static
+IRSB* tool_instrument_then_gdbserver_if_needed ( VgCallbackClosure* closureV,
+                                                 IRSB*              sb_in, 
+                                                 VexGuestLayout*    layout, 
+                                                 VexGuestExtents*   vge,
+                                                 IRType             gWordTy, 
+                                                 IRType             hWordTy )
+{
+   return VG_(instrument_for_gdbserver_if_needed)
+      (VG_(tdict).tool_instrument (closureV,
+                                   sb_in,
+                                   layout,
+                                   vge,
+                                   gWordTy,
+                                   hWordTy),
+       layout,
+       vge,
+       gWordTy,
+       hWordTy);                                   
+}
 
 /* For tools that want to know about SP changes, this pass adds
    in the appropriate hooks.  We have to do it after the tool's
@@ -692,7 +718,7 @@ void log_bytes ( HChar* bytes, Int nbytes )
 
 static Bool translations_allowable_from_seg ( NSegment const* seg )
 {
-#  if defined(VGA_x86)
+#  if defined(VGA_x86) || defined(VGA_s390x)
    Bool allowR = True;
 #  else
    Bool allowR = False;
@@ -743,17 +769,12 @@ static Bool chase_into_ok ( void* closureV, Addr64 addr64 )
 {
    Addr               addr    = (Addr)addr64;
    NSegment const*    seg     = VG_(am_find_nsegment)(addr);
-   VgCallbackClosure* closure = (VgCallbackClosure*)closureV;
 
    /* Work through a list of possibilities why we might not want to
       allow a chase. */
 
    /* Destination not in a plausible segment? */
    if (!translations_allowable_from_seg(seg))
-      goto dontchase;
-
-   /* Destination requires a self-check? */
-   if (self_check_required(seg, closure->tid))
       goto dontchase;
 
    /* Destination is redirected? */
@@ -1263,8 +1284,7 @@ Bool VG_(translate) ( ThreadId tid,
    Addr64             addr;
    T_Kind             kind;
    Int                tmpbuf_used, verbosity, i;
-   Bool               notrace_until_done, do_self_check;
-   UInt               notrace_until_limit = 0;
+   Bool               do_self_check;
    Bool (*preamble_fn)(void*,IRSB*);
    VexArch            vex_arch;
    VexArchInfo        vex_archinfo;
@@ -1325,15 +1345,6 @@ Bool VG_(translate) ( ThreadId tid,
                    addr, name2 );
    }
 
-   /* If codegen tracing, don't start tracing until
-      notrace_until_limit blocks have gone by.  This avoids printing
-      huge amounts of useless junk when all we want to see is the last
-      few blocks translated prior to a failure.  Set
-      notrace_until_limit to be the number of translations to be made
-      before --trace-codegen= style printing takes effect. */
-   notrace_until_done
-      = VG_(get_bbs_translated)() >= notrace_until_limit;
-
    if (!debugging_translation)
       VG_TRACK( pre_mem_read, Vg_CoreTranslate, 
                               tid, "(translator)", addr, 1 );
@@ -1364,11 +1375,19 @@ Bool VG_(translate) ( ThreadId tid,
       if (seg != NULL) {
          /* There's some kind of segment at the requested place, but we
             aren't allowed to execute code here. */
-         VG_(synth_fault_perms)(tid, addr);
+         if (debugging_translation)
+            VG_(printf)("translations not allowed here (segment not executable)"
+                        "(0x%llx)\n", addr);
+         else
+            VG_(synth_fault_perms)(tid, addr);
       } else {
         /* There is no segment at all; we are attempting to execute in
            the middle of nowhere. */
-         VG_(synth_fault_mapping)(tid, addr);
+         if (debugging_translation)
+            VG_(printf)("translations not allowed here (no segment)"
+                        "(0x%llx)\n", addr);
+         else
+            VG_(synth_fault_mapping)(tid, addr);
       }
       return False;
    }
@@ -1474,7 +1493,9 @@ Bool VG_(translate) ( ThreadId tid,
      IRSB*(*f)(VgCallbackClosure*,
                IRSB*,VexGuestLayout*,VexGuestExtents*,
                IRType,IRType)
-       = VG_(tdict).tool_instrument;
+        = VG_(clo_vgdb) != Vg_VgdbNo
+             ? tool_instrument_then_gdbserver_if_needed
+             : VG_(tdict).tool_instrument;
      IRSB*(*g)(void*,
                IRSB*,VexGuestLayout*,VexGuestExtents*,
                IRType,IRType)
@@ -1508,7 +1529,8 @@ Bool VG_(translate) ( ThreadId tid,
           ? (void*) &VG_(run_innerloop__dispatch_profiled)
           : (void*) &VG_(run_innerloop__dispatch_unprofiled);
 #  elif defined(VGA_ppc32) || defined(VGA_ppc64) \
-        || defined(VGA_arm)
+        || defined(VGA_arm) || defined(VGA_s390x)
+   /* See comment libvex.h; machine has link register --> dipatch = NULL */
    vta.dispatch = NULL;
 #  else
 #    error "Unknown arch"

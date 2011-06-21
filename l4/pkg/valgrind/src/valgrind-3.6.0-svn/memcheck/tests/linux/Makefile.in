@@ -48,7 +48,8 @@ DIST_COMMON = $(dist_noinst_SCRIPTS) $(srcdir)/Makefile.am \
 	$(top_srcdir)/Makefile.tool-tests.am
 check_PROGRAMS = brk$(EXEEXT) capget$(EXEEXT) lsframe1$(EXEEXT) \
 	lsframe2$(EXEEXT) sigqueue$(EXEEXT) stack_changes$(EXEEXT) \
-	stack_switch$(EXEEXT) timerfd-syscall$(EXEEXT)
+	stack_switch$(EXEEXT) syscalls-2007$(EXEEXT) \
+	syslog-syscall$(EXEEXT) timerfd-syscall$(EXEEXT)
 subdir = memcheck/tests/linux
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.in
@@ -79,6 +80,12 @@ stack_changes_LDADD = $(LDADD)
 stack_switch_SOURCES = stack_switch.c
 stack_switch_OBJECTS = stack_switch.$(OBJEXT)
 stack_switch_DEPENDENCIES =
+syscalls_2007_SOURCES = syscalls-2007.c
+syscalls_2007_OBJECTS = syscalls-2007.$(OBJEXT)
+syscalls_2007_LDADD = $(LDADD)
+syslog_syscall_SOURCES = syslog-syscall.c
+syslog_syscall_OBJECTS = syslog-syscall.$(OBJEXT)
+syslog_syscall_LDADD = $(LDADD)
 timerfd_syscall_SOURCES = timerfd-syscall.c
 timerfd_syscall_OBJECTS = timerfd-syscall.$(OBJEXT)
 timerfd_syscall_DEPENDENCIES =
@@ -92,9 +99,11 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = brk.c capget.c lsframe1.c lsframe2.c sigqueue.c \
-	stack_changes.c stack_switch.c timerfd-syscall.c
+	stack_changes.c stack_switch.c syscalls-2007.c \
+	syslog-syscall.c timerfd-syscall.c
 DIST_SOURCES = brk.c capget.c lsframe1.c lsframe2.c sigqueue.c \
-	stack_changes.c stack_switch.c timerfd-syscall.c
+	stack_changes.c stack_switch.c syscalls-2007.c \
+	syslog-syscall.c timerfd-syscall.c
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -140,6 +149,8 @@ FLAG_UNLIMITED_INLINE_UNIT_GROWTH = @FLAG_UNLIMITED_INLINE_UNIT_GROWTH@
 FLAG_W_EXTRA = @FLAG_W_EXTRA@
 FLAG_W_NO_EMPTY_BODY = @FLAG_W_NO_EMPTY_BODY@
 FLAG_W_NO_FORMAT_ZERO_LENGTH = @FLAG_W_NO_FORMAT_ZERO_LENGTH@
+FLAG_W_NO_NONNULL = @FLAG_W_NO_NONNULL@
+FLAG_W_NO_OVERFLOW = @FLAG_W_NO_OVERFLOW@
 FLAG_W_NO_UNINITIALIZED = @FLAG_W_NO_UNINITIALIZED@
 GDB = @GDB@
 GENERATED_SUPP = @GENERATED_SUPP@
@@ -169,12 +180,7 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 PREFERRED_STACK_BOUNDARY = @PREFERRED_STACK_BOUNDARY@
-QTCORE_CFLAGS = @QTCORE_CFLAGS@
-QTCORE_LIBS = @QTCORE_LIBS@
 RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -327,7 +333,7 @@ AM_FLAG_M3264_ARM_LINUX = @FLAG_M32@
 AM_CFLAGS_ARM_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 			 	$(AM_CFLAGS_BASE) -marm
 
-AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -g
+AM_CCASFLAGS_ARM_LINUX = $(AM_CPPFLAGS_ARM_LINUX) @FLAG_M32@ -marm -g
 AM_FLAG_M3264_PPC32_AIX5 = @FLAG_MAIX32@
 AM_CFLAGS_PPC32_AIX5 = @FLAG_MAIX32@ -mcpu=powerpc $(AM_CFLAGS_BASE)
 AM_CCASFLAGS_PPC32_AIX5 = $(AM_CPPFLAGS_PPC32_AIX5) \
@@ -356,6 +362,11 @@ AM_CFLAGS_X86_L4RE = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 AM_CCASFLAGS_X86_L4RE = $(L4_CPPFLAGS) @FLAG_M32@ -g
 AM_CXXFLAGS_X86_L4RE = $(L4_CXXFLAGS) @FLAG_M32@
 #AM_CPPFLAGS_X86_L4RE   = $(L4_CPPFLAGS) $(AM_CPPFLAGS_X86_L4RE)
+AM_FLAG_M3264_S390X_LINUX = @FLAG_M64@
+AM_CFLAGS_S390X_LINUX = @FLAG_M64@ $(AM_CFLAGS_BASE)
+AM_CCASFLAGS_S390X_LINUX = $(AM_CPPFLAGS_S390X_LINUX) -mzarch -march=z900 \
+                            @FLAG_M64@ -g
+
 
 # Flags for the primary target.  These must be used to build the
 # regtests and performance tests.  In fact, these must be used to
@@ -384,6 +395,7 @@ PRELOAD_LDFLAGS_PPC32_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX32@
 PRELOAD_LDFLAGS_PPC64_AIX5 = $(PRELOAD_LDFLAGS_COMMON_AIX5)  @FLAG_MAIX64@
 PRELOAD_LDFLAGS_X86_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch i386
 PRELOAD_LDFLAGS_AMD64_DARWIN = $(PRELOAD_LDFLAGS_COMMON_DARWIN) -arch x86_64
+PRELOAD_LDFLAGS_S390X_LINUX = $(PRELOAD_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 PRELOAD_LDFLAGS_X86_L4RE = $(PRELOAD_LDFLAGS_COMMON_L4RE) @FLAG_M32@
 AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/include \
 		-I$(top_srcdir)/coregrind -I$(top_builddir)/include \
@@ -403,13 +415,15 @@ AM_CCASFLAGS = $(AM_CPPFLAGS)
 dist_noinst_SCRIPTS = filter_stderr
 EXTRA_DIST = \
 	brk.stderr.exp brk.vgtest \
-	capget capget.stderr.exp \
+	capget capget.stderr.exp capget.stderr.exp2 \
 	lsframe1.vgtest lsframe1.stdout.exp lsframe1.stderr.exp \
 	lsframe2.vgtest lsframe2.stdout.exp lsframe2.stderr.exp \
 	sigqueue.vgtest sigqueue.stderr.exp \
 	stack_changes.stderr.exp stack_changes.stdout.exp \
 	    stack_changes.stdout.exp2 stack_changes.vgtest \
 	stack_switch.stderr.exp stack_switch.vgtest \
+	syscalls-2007 syscalls-2007.stderr.exp \
+	syslog-syscall syslog-syscall.stderr.exp \
 	timerfd-syscall timerfd-syscall.stderr.exp \
 	with-space.stderr.exp with-space.stdout.exp with-space.vgtest
 
@@ -473,6 +487,12 @@ stack_changes$(EXEEXT): $(stack_changes_OBJECTS) $(stack_changes_DEPENDENCIES)
 stack_switch$(EXEEXT): $(stack_switch_OBJECTS) $(stack_switch_DEPENDENCIES) 
 	@rm -f stack_switch$(EXEEXT)
 	$(LINK) $(stack_switch_OBJECTS) $(stack_switch_LDADD) $(LIBS)
+syscalls-2007$(EXEEXT): $(syscalls_2007_OBJECTS) $(syscalls_2007_DEPENDENCIES) 
+	@rm -f syscalls-2007$(EXEEXT)
+	$(LINK) $(syscalls_2007_OBJECTS) $(syscalls_2007_LDADD) $(LIBS)
+syslog-syscall$(EXEEXT): $(syslog_syscall_OBJECTS) $(syslog_syscall_DEPENDENCIES) 
+	@rm -f syslog-syscall$(EXEEXT)
+	$(LINK) $(syslog_syscall_OBJECTS) $(syslog_syscall_LDADD) $(LIBS)
 timerfd-syscall$(EXEEXT): $(timerfd_syscall_OBJECTS) $(timerfd_syscall_DEPENDENCIES) 
 	@rm -f timerfd-syscall$(EXEEXT)
 	$(LINK) $(timerfd_syscall_OBJECTS) $(timerfd_syscall_LDADD) $(LIBS)
@@ -490,6 +510,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sigqueue.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stack_changes.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stack_switch.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syscalls-2007.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syslog-syscall.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/timerfd-syscall.Po@am__quote@
 
 .c.o:

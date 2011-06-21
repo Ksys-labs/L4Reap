@@ -11,14 +11,6 @@ class Apic
 public:
   static void init() FIASCO_INIT;
 
-  typedef enum
-  {
-    APIC_NONE,
-    APIC_P6,			// Intel PPro, PIII
-    APIC_P4,			// Intel PIV
-    APIC_K7			// AMD Athlon Model 2
-  } Apic_type;
-
 private:
   Apic();			// default constructors are undefined
   Apic(const Apic&);
@@ -30,7 +22,6 @@ private:
   static const			Address io_base;
   static Address		phys_base;
   static unsigned		timer_divisor;
-  static Apic_type		type;
   static unsigned		frequency_khz;
   static Unsigned64		scaler_us_to_apic;
 
@@ -174,7 +165,6 @@ int        Apic::good_cpu;
 const Address Apic::io_base = Mem_layout::Local_apic_page;
 Address    Apic::phys_base;
 unsigned   Apic::timer_divisor = 1;
-Apic::Apic_type Apic::type = APIC_NONE;
 unsigned   Apic::frequency_khz;
 Unsigned64 Apic::scaler_us_to_apic;
 
@@ -316,24 +306,12 @@ Apic::test_cpu()
   if (cpu().vendor() == Cpu::Vendor_intel)
     {
       if (cpu().family() == 15)
-	{
-	  // Intel PIV
-	  type = APIC_P4;
-	  return 1;
-	}
-      else if (cpu().family() >= 6)
-	{
-	  // Intel PPro, PIII
-	  type = APIC_P6;
-	  return 1;
-	}
+	return 1;
+      if (cpu().family() >= 6)
+	return 1;
     }
   if (cpu().vendor() == Cpu::Vendor_amd && cpu().family() >= 6)
-    {
-      // >= AMD K7 Model 2
-      type = APIC_K7;
-      return 1;
-    }
+    return 1;
 
   return 0;
 }
@@ -662,7 +640,7 @@ Apic::check_still_getting_interrupts()
 	// yes, succesful
 	return 1;
     } while (Cpu::rdtsc() < tsc_until);
-  
+
   // timeout
   return 0;
 }
@@ -672,13 +650,6 @@ inline int
 Apic::is_present()
 {
   return present;
-}
-
-PUBLIC static
-inline int
-Apic::cpu_type()
-{
-  return type;
 }
 
 PUBLIC static
@@ -697,7 +668,7 @@ Apic::calibrate_timer()
   Unsigned32 count, tt1, tt2, result, dummy;
   Unsigned32 runs = 0, frequency_ok;
 
-  do 
+  do
     {
       frequency_khz = 0;
 
@@ -806,7 +777,6 @@ Apic::dump_info()
 {
   printf("Local APIC[%02x]: version=%02x max_lvt=%d\n",
          get_id() >> 24, get_version(), get_max_lvt());
-
 }
 
 IMPLEMENT
@@ -815,46 +785,47 @@ Apic::init()
 {
   int was_present;
 
-  good_cpu = test_cpu();
+  was_present = present = test_present();
+
+  if (!was_present)
+    {
+      good_cpu = test_cpu();
+
+      if (good_cpu && Config::apic)
+        {
+          // activate; this could lead an disabled APIC to appear
+          // set base address of I/O registers to be able to access the registers
+          activate_by_msr();
+          present = test_present();
+        }
+    }
 
   if (!Config::apic)
     return;
 
-  // check CPU type
-  if ((present = good_cpu))
+  // initialize if available
+  if (present)
     {
-      // check cpu features of cpuid
-      was_present = test_present();
+      // map the Local APIC device registers
+      map_apic_page();
 
-      // activate; this could lead an disabled APIC to appear
-      // set base address of I/O registers to be able to access the registers
-      activate_by_msr();
+      // set some interrupt vectors to appropriate values
+      init_lvt();
 
-      // previous test_present() could have failed but we could have it
-      // activated by writing the msr so we have to test again
-      if ((present = test_present()))
-	{
-	  // map the Local APIC device registers
-	  map_apic_page();
+      // initialize APIC_spiv register
+      init_spiv();
 
-	  // set some interrupt vectors to appropriate values
-	  init_lvt();
+      // initialize task-priority register
+      init_tpr();
 
-	  // initialize APIC_spiv register
-	  init_spiv();
-
-	  // initialize task-priority register
-	  init_tpr();
-
-	  // test if local timer counts down
-	  if ((present = check_working()))
-	    {
-	      if (!was_present)
-		// APIC _was_ not present before writing to msr so we have
-		// to set APIC_lvt0 and APIC_lvt1 to appropriate values
-		route_pic_through_apic();
-	    }
-	}
+      // test if local timer counts down
+      if ((present = check_working()))
+        {
+          if (!was_present)
+            // APIC _was_ not present before writing to msr so we have
+            // to set APIC_lvt0 and APIC_lvt1 to appropriate values
+            route_pic_through_apic();
+        }
     }
 
   if (!present)

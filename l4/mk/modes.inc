@@ -3,21 +3,8 @@
 #
 # Makefile-Include for defining modes
 
-# Default is uClibc without reentrant functions. If, for example
-# two independant threads of the same application call malloc at the same
-# time, L4_MULTITHREADED _must_ be defined to y.
-L4_MULTITHREADED      ?= n
-LIBC_IMPLEMENTATION-y := libpthread libc
-LIBC_IMPLEMENTATION-n := libc
-LIBC_IMPLEMENTATION   = $(LIBC_IMPLEMENTATION-$(L4_MULTITHREADED))
-ifeq ($(LIBC_IMPLEMENTATION),)
-  $(error LIBC_IMPLEMENTATION not set, L4_MULTITHREADED must be defined to 'y' or 'n'.) 
-endif
-
-ifeq ($(MODE),l4linux)
-  ifeq ($(L4_MULTITHREADED),y)
-    $(error MODE=l4linux and L4_MULTITHREADED=y not possible)
-  endif
+ifneq ($(L4_MULTITHREADED),)
+  $(error L4_MULTITHREADED is obsolete, just remove, reentrance is default now, you might want to add 'libpthread' to REQUIRES_LIBS)
 endif
 
 ifneq ($(MODE_USE_C),)
@@ -78,8 +65,7 @@ LIBC_INCLUDE   = -nostdinc                                  \
 
 BID_SUPPORTED_all_sigma0        = y
 LIBCINCDIR_all_sigma0           = $(LIBC_INCLUDE)
-REQUIRES_LIBS_all_sigma0        = l4util l4util l4sys                   \
-                                  $(LIBC_IMPLEMENTATION)
+REQUIRES_LIBS_all_sigma0        =
 L4_LIBS_all_sigma0		= -static -nostdlib                     \
                                   $(GCCLIB) $(GCCLIB_EH) -lcrt0         \
 				  $(EXTRA_LIBS)
@@ -95,8 +81,7 @@ LDFLAGS_all_sigma0              = -Bstatic
 
 BID_SUPPORTED_all_static        = y
 LIBCINCDIR_all_static           = $(LIBC_INCLUDE)
-REQUIRES_LIBS_all_static        = l4re-main l4re-util stdlibs      \
-                                  $(LIBC_IMPLEMENTATION)
+REQUIRES_LIBS_all_static        = stdlibs
 L4_LIBS_all_static		= -static -nostdlib  $(GCCLIB) $(GCCLIB_EH) \
                                   $(EXTRA_LIBS)
 CRT0_all_static                 = $(CRTI_stat_bin) $(CRTBEGIN_stat_bin) $(CRT1_stat_bin)
@@ -112,9 +97,9 @@ LIBCINCDIR_all_shared           = $(LIBC_INCLUDE)
 CRT0_all_shared                 = $(CRTI_dyn_bin) $(CRTBEGIN_dyn_bin) $(CRT1_dyn_bin)
 CRTN_all_shared                 = $(CRTN_dyn_bin)
 LDSCRIPT_all_shared             = $(LDS_dyn_bin)
-REQUIRES_LIBS_all_shared        = l4re-main l4re-util ldso stdlibs-sh  \
-                                  $(LIBC_IMPLEMENTATION)
-L4_LIBS_all_shared             += -nostdlib $(GCCLIB) $(GCCLIB_EH)    \
+REQUIRES_LIBS_all_shared        = stdlibs-sh
+L4_LIBS_all_shared             += -nostdlib -luc_c_nonshared.p \
+				  $(GCCLIB) $(GCCLIB_EH)    \
 				  $(EXTRA_LIBS)
 LDFLAGS_all_shared              = --eh-frame-hdr
 

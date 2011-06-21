@@ -162,15 +162,16 @@ typedef
       Pcf_7LT  = 28,  /* neg  | lt          */
       Pcf_7GT  = 29,  /* pos  | gt          */
       Pcf_7EQ  = 30,  /* zero | equal       */
-      Pcf_7SO  = 31   /* summary overflow   */
+      Pcf_7SO  = 31,  /* summary overflow   */
+      Pcf_NONE = 32   /* no condition; used with Pct_ALWAYS */
    }
    PPCCondFlag;
 
 typedef
    enum {   /* Maps bc bitfield BO */
-      Pct_FALSE  = 0x4,
-      Pct_TRUE   = 0xC,
-      Pct_ALWAYS = 0x14
+      Pct_FALSE  = 0x4, /* associated PPCCondFlag must not be Pcf_NONE */
+      Pct_TRUE   = 0xC, /* associated PPCCondFlag must not be Pcf_NONE */
+      Pct_ALWAYS = 0x14 /* associated PPCCondFlag must be Pcf_NONE */
    }
    PPCCondTest;
 
@@ -461,7 +462,7 @@ typedef
       Pin_FpLdSt,     /* FP load/store */
       Pin_FpSTFIW,    /* stfiwx */
       Pin_FpRSP,      /* FP round IEEE754 double to IEEE754 single */
-      Pin_FpCftI,     /* fcfid/fctid/fctiw */
+      Pin_FpCftI,     /* fcfid[u,s,us]/fctid[u]/fctiw[u] */
       Pin_FpCMov,     /* FP floating point conditional move */
       Pin_FpLdFPSCR,  /* mtfsf */
       Pin_FpCmp,      /* FP compare, generating value into int reg */
@@ -662,11 +663,15 @@ typedef
             HReg src;
             HReg dst;
          } FpRSP;
-         /* fcfid/fctid/fctiw.  Note there's no fcfiw so fromI==True
-            && int32==True is not allowed. */
+         /* fcfid[u,s,us]/fctid[u]/fctiw[u].  Only some combinations
+            of the various fields are allowed.  This is asserted for
+            and documented in the code for the constructor,
+            PPCInstr_FpCftI, in host_ppc_defs.c.  */
          struct {
-            Bool fromI; /* False==F->I, True==I->F */
-            Bool int32; /* True== I is 32, False==I is 64 */
+            Bool fromI; /* True== I->F,    False== F->I */
+            Bool int32; /* True== I is 32, False== I is 64 */
+            Bool syned;
+            Bool flt64; /* True== F is 64, False== F is 32 */
             HReg src;
             HReg dst;
          } FpCftI;
@@ -811,8 +816,8 @@ extern PPCInstr* PPCInstr_FpMulAcc   ( PPCFpOp op, HReg dst, HReg srcML,
 extern PPCInstr* PPCInstr_FpLdSt     ( Bool isLoad, UChar sz, HReg, PPCAMode* );
 extern PPCInstr* PPCInstr_FpSTFIW    ( HReg addr, HReg data );
 extern PPCInstr* PPCInstr_FpRSP      ( HReg dst, HReg src );
-extern PPCInstr* PPCInstr_FpCftI     ( Bool fromI, Bool int32, 
-                                       HReg dst, HReg src );
+extern PPCInstr* PPCInstr_FpCftI     ( Bool fromI, Bool int32, Bool syned,
+                                       Bool dst64, HReg dst, HReg src );
 extern PPCInstr* PPCInstr_FpCMov     ( PPCCondCode, HReg dst, HReg src );
 extern PPCInstr* PPCInstr_FpLdFPSCR  ( HReg src );
 extern PPCInstr* PPCInstr_FpCmp      ( HReg dst, HReg srcL, HReg srcR );
@@ -825,8 +830,8 @@ extern PPCInstr* PPCInstr_AvBinary   ( PPCAvOp op, HReg dst, HReg srcL, HReg src
 extern PPCInstr* PPCInstr_AvBin8x16  ( PPCAvOp op, HReg dst, HReg srcL, HReg srcR );
 extern PPCInstr* PPCInstr_AvBin16x8  ( PPCAvOp op, HReg dst, HReg srcL, HReg srcR );
 extern PPCInstr* PPCInstr_AvBin32x4  ( PPCAvOp op, HReg dst, HReg srcL, HReg srcR );
-extern PPCInstr* PPCInstr_AvBin32Fx4 ( PPCAvOp op, HReg dst, HReg srcL, HReg srcR );
-extern PPCInstr* PPCInstr_AvUn32Fx4  ( PPCAvOp op, HReg dst, HReg src );
+extern PPCInstr* PPCInstr_AvBin32Fx4 ( PPCAvFpOp op, HReg dst, HReg srcL, HReg srcR );
+extern PPCInstr* PPCInstr_AvUn32Fx4  ( PPCAvFpOp op, HReg dst, HReg src );
 extern PPCInstr* PPCInstr_AvPerm     ( HReg dst, HReg srcL, HReg srcR, HReg ctl );
 extern PPCInstr* PPCInstr_AvSel      ( HReg ctl, HReg dst, HReg srcL, HReg srcR );
 extern PPCInstr* PPCInstr_AvShlDbl   ( UChar shift, HReg dst, HReg srcL, HReg srcR );

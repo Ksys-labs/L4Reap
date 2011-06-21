@@ -152,6 +152,53 @@ int region_map_server(RM *rm, IOS &ios)
 
 	    return L4_EOK;
 	  }
+      case Rm_::Get_regions:
+	  {
+	    l4_addr_t addr;
+	    ios >> addr;
+	    typename RM::Node r;
+	    int num = 0;
+	    while ((r = rm->lower_bound(Region(addr, addr +1))))
+	      {
+		Rm::Region x;
+		x.start  = r->first.start();
+		x.end    = r->first.end();
+		x.offset = r->second.offset();
+
+		if (!ios.put(x))
+		  break;
+
+		num++;
+		if (x.end >= rm->max_addr())
+		  break;
+		addr = x.end + 1;
+	      }
+
+	    return num;
+	  }
+      case Rm_::Get_areas:
+	  {
+	    l4_addr_t addr;
+	    ios >> addr;
+	    typename RM::Node r;
+	    int num = 0;
+	    while ((r = rm->lower_bound_area(Region(addr, addr +1))))
+	      {
+		Rm::Area x;
+		x.start  = r->first.start();
+		x.end    = r->first.end();
+
+		if (!ios.put(x))
+		  break;
+
+		num++;
+		if (x.end >= rm->max_addr())
+		  break;
+		addr = x.end + 1;
+	      }
+
+	    return num;
+	  }
       default:
 	return -L4_ENOSYS;
     }

@@ -16,7 +16,6 @@
 
 #include <stddef.h>
 #include <l4/sys/types.h>
-#include <l4/sys/utcb.h>
 
 #define __need_schedparam
 #include <bits/sched.h>

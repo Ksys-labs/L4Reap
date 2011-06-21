@@ -13,6 +13,7 @@ INSTALLSUBDIRS	:= $(MANSUBDIRS)
 CLEANSUBDIRS	:= $(MANSUBDIRS) $(wildcard $(DFLBUILDDIR))
 CONFIG_FILE	:= $(TEMPLDIR)/globalconfig.out
 TEST_TEMPLATES	:= $(patsubst $(CONFIG_FILE).%,%,$(wildcard $(CONFIG_FILE).*))
+TEST_TEMPLATES  := $(if $(TEMPLATE_FILTER),$(filter $(TEMPLATE_FILTER),$(TEST_TEMPLATES)),$(TEST_TEMPLATES))
 DFL_TEMPLATE	:= ia32-1
 PL		?= 1
 
@@ -110,7 +111,7 @@ checkall l4check:
 
 list:
 		@echo "Templates:"
-		@echo $(patsubst $(TEMPLDIR)/globalconfig.out.%,%,$(wildcard $(TEMPLDIR)/globalconfig.out.*))
+		@echo $(TEST_TEMPLATES)
 
 randcheck:
 		$(RM) -r $(RANDBUILDDIR);                                     \

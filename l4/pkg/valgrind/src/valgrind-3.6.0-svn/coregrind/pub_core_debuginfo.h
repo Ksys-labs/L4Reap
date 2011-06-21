@@ -117,11 +117,15 @@ typedef
    D3UnwindRegs;
 #elif defined(VGA_arm)
 typedef
-   struct { Addr r15; Addr r14; Addr r13; Addr r12; Addr r11; }
+   struct { Addr r15; Addr r14; Addr r13; Addr r12; Addr r11; Addr r7; }
    D3UnwindRegs;
 #elif defined(VGA_ppc32) || defined(VGA_ppc64)
 typedef
    UChar  /* should be void, but gcc complains at use points */
+   D3UnwindRegs;
+#elif defined(VGA_s390x)
+typedef
+   struct { Addr ia; Addr sp; Addr fp; Addr lr;}
    D3UnwindRegs;
 #else
 #  error "Unsupported arch"

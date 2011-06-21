@@ -327,7 +327,7 @@ PUBLIC
 Mapping_tree::~Mapping_tree()
 {
   // special case for copied mapping trees
-  for (Mapping *m = _mappings; m < _mappings+_count && !m->is_end_tag(); ++m)
+  for (Mapping *m = _mappings; m < end() && !m->is_end_tag(); ++m)
     {
       if (!m->submap() && !m->unused())
         quota(m->space())->free(sizeof(Mapping));
@@ -730,8 +730,7 @@ Mapping_tree::flush(Mapping *parent, bool me_too,
   else
     start_of_deletions++;
 
-  unsigned m_depth = p_depth + 1;
-  bool skip_subtree = false;
+  unsigned m_depth = p_depth;
 
   for (Mapping* m = parent + 1;
        m < end() && ! m->is_end_tag();
@@ -755,20 +754,7 @@ Mapping_tree::flush(Mapping *parent, bool me_too,
           continue;
         }
 
-      // m is a submap or a regular mapping.
-      if (skip_subtree)
-        {
-          if (m->depth() > p_depth + 1) // Can use m->depth() even for submaps.
-            {
-              start_of_deletions++;
-              continue;
-            }
-
-          skip_subtree = false;
-        }
-
       Space *space;
-
       if (Treemap* submap = m->submap())
         {
           space = submap_ops.owner(submap);
@@ -776,7 +762,7 @@ Mapping_tree::flush(Mapping *parent, bool me_too,
               // Check for immediate child.  Note: It's a bad idea to
               // call m->parent() because that would iterate backwards
               // over already-deleted entries.
-              && m_depth == p_depth + 1
+              && m_depth == p_depth
               && submap_ops.is_partial(submap, offs_begin, offs_end))
             {
               submap_ops.flush(submap, offs_begin, offs_end);
@@ -809,8 +795,6 @@ Mapping_tree::flush(Mapping *parent, bool me_too,
       _empty_count -= empty_elems_passed;
 #endif
     }
-
-  return;
 }
 
 PUBLIC template< typename SUBMAP_OPS >
@@ -938,7 +922,7 @@ Base_mappable::pack()
 
           if (new_t.get())
             {
-              // ivalidate mode 0 because we must not free the quota for it
+              // ivalidate node 0 because we must not free the quota for it
               t->reset();
               t = new_t.get();
 
@@ -979,7 +963,7 @@ Base_mappable::pack()
 
       if (new_t.get())
         {
-          // ivalidate mode 0 because we must not free the quota for it
+          // ivalidate node 0 because we must not free the quota for it
           t->reset();
           t = new_t.get();
 

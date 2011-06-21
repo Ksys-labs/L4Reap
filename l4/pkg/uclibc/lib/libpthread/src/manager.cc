@@ -40,21 +40,23 @@
 #include <l4/sys/scheduler>
 #include <l4/sys/thread>
 
+extern "C" {
 #include "pthread.h"
 #include "internals.h"
 #include "spinlock.h"
 #include "restart.h"
 #include "semaphore.h"
 #include "l4.h"
+#include <ldsodefs.h>
+}
+
+#define USE_L4RE_FOR_STACK
 
 #ifndef MIN
 # define MIN(a,b) (((a) < (b)) ? (a) : (b))
 #endif
 
 extern "C" void __pthread_new_thread_entry(void);
-
-/* For debugging purposes put the maximum number of threads in a variable.  */
-const int __linuxthreads_pthread_threads_max = PTHREAD_THREADS_MAX;
 
 #ifndef THREAD_SELF
 /* Indicate whether at least one thread has a user-defined stack (if 1),
@@ -102,6 +104,8 @@ static void pthread_handle_exit(pthread_descr issuing_thread, int exitcode)
 static void pthread_for_each_thread(void *arg,
     void (*fn)(void *, pthread_descr));
 
+static void pthread_exited(pthread_descr th);
+
 /* The server thread managing requests for thread creation and termination */
 
 int
@@ -111,6 +115,9 @@ __pthread_manager(void *arg)
   pthread_descr self = manager_thread = (pthread_descr)arg;
   struct pthread_request request;
 
+#ifdef USE_TLS
+  TLS_INIT_TP(self, 0);
+#endif
   /* If we have special thread_self processing, initialize it.  */
 #ifdef INIT_THREAD_SELF
   INIT_THREAD_SELF(self, 1);
@@ -199,6 +206,22 @@ __pthread_manager(void *arg)
           restart(request.req_thread);
 	  do_reply = 1;
 	  break;
+        case REQ_THREAD_EXIT:
+            {
+              l4_msgtag_t e;
+              L4::Cap<L4::Thread> c;
+
+              pthread_exited(request.req_thread);
+
+              c = L4::Cap<L4::Thread>(request.req_thread->p_thsem_cap);
+              e = L4::Cap<L4::Task>(L4Re::This_task)
+                         ->unmap(c.fpage(), L4_FP_ALL_SPACES);
+
+              c = L4::Cap<L4::Thread>(request.req_thread->p_th_cap);
+              e = L4::Cap<L4::Task>(L4Re::This_task)
+                         ->unmap(c.fpage(), L4_FP_ALL_SPACES);
+            }
+          break;
 	}
       tag = l4_msgtag(0, 0, 0, L4_MSGTAG_SCHEDULE);
     }
@@ -227,6 +250,10 @@ __attribute__ ((noreturn))
 pthread_start_thread(void *arg)
 {
   pthread_descr self = (pthread_descr) arg;
+#ifdef USE_TLS
+  TLS_INIT_TP(self, 0);
+#endif
+
 #ifdef NOT_FOR_L4
   struct pthread_request request;
 #endif
@@ -303,6 +330,30 @@ pthread_start_thread_event(void *arg)
 
   /* Continue with the real function.  */
   pthread_start_thread (arg);
+}
+#endif
+
+#ifdef USE_L4RE_FOR_STACK
+static int pthread_l4_free_stack(void *stack_addr, void *guardaddr)
+{
+  L4Re::Env const *e = L4Re::Env::env();
+  int err;
+  L4::Cap<L4Re::Dataspace> ds;
+
+  err = e->rm()->detach(stack_addr, &ds);
+  if (err < 0)
+    return err;
+
+  if (ds.is_valid())
+    {
+      err = ds->release();
+      if (err < 0)
+        return err;
+    }
+
+  L4Re::Util::cap_alloc.free(ds);
+
+  return e->rm()->free_area((l4_addr_t)guardaddr);
 }
 #endif
 
@@ -388,7 +439,7 @@ static int pthread_allocate_stack(const pthread_attr_t *attr,
 	  stacksize = __pthread_max_stacksize - guardsize;
 	}
 
-#if 1
+#ifdef USE_L4RE_FOR_STACK
       map_addr = 0;
       L4Re::Env const *e = L4Re::Env::env();
       long err;
@@ -423,7 +474,6 @@ static int pthread_allocate_stack(const pthread_attr_t *attr,
 	  return -1;
 	}
 #else
-
       map_addr = mmap(NULL, stacksize + guardsize,
                       PROT_READ | PROT_WRITE | PROT_EXEC,
                       MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -460,33 +510,34 @@ int __pthread_mgr_create_thread(pthread_descr thread, char **tos,
   Env const *e = Env::env();
   L4Re::Util::Auto_cap<L4::Thread>::Cap _t = L4Re::Util::cap_alloc.alloc<L4::Thread>();
   if (!_t.is_valid())
-    return -L4_ENOMEM;
+    return ENOMEM;
 
   L4Re::Util::Auto_cap<Th_sem_cap>::Cap th_sem
     =  L4Re::Util::cap_alloc.alloc<Th_sem_cap>();
   if (!th_sem.is_valid())
-    return -L4_ENOMEM;
+    return ENOMEM;
 
   int err = l4_error(e->factory()->create_thread(_t.get()));
   if (err < 0)
-    return err;
+    return -err;
 
   // needed by __alloc_thread_sem
   thread->p_th_cap = _t.cap();
 
   err = __alloc_thread_sem(thread, th_sem.get());
   if (err < 0)
-    return err;
+    return -err;
 
   thread->p_thsem_cap = th_sem.cap();
 
   L4::Thread::Attr attr;
-
   l4_utcb_t *nt_utcb = (l4_utcb_t*)thread->p_tid;
+
   attr.bind(nt_utcb, L4Re::This_task);
   attr.pager(e->rm());
   attr.exc_handler(e->rm());
-  _t->control(attr);
+  if ((err = l4_error(_t->control(attr))) < 0)
+    fprintf(stderr, "ERROR: l4 thread control returned: %d\n", err);
 
   l4_utcb_tcr_u(nt_utcb)->user[0] = l4_addr_t(thread);
 
@@ -584,7 +635,7 @@ static int pthread_handle_create(pthread_t *thread, const pthread_attr_t *attr,
   int saved_errno = 0;
 
 #ifdef USE_TLS
-  new_thread = _dl_allocate_tls (NULL);
+  new_thread = (_pthread_descr_struct*)_dl_allocate_tls (NULL);
   if (new_thread == NULL)
     return EAGAIN;
 # if defined(TLS_DTV_AT_TP)
@@ -605,7 +656,7 @@ static int pthread_handle_create(pthread_t *thread, const pthread_attr_t *attr,
 #endif
   /* Find a free segment for the thread, and allocate a stack if needed */
 
-  if (__pthread_first_free_handle == 0)
+  if (__pthread_first_free_handle == 0 && l4pthr_get_more_utcb())
     {
 #ifdef USE_TLS
 # if defined(TLS_DTV_AT_TP)
@@ -614,8 +665,7 @@ static int pthread_handle_create(pthread_t *thread, const pthread_attr_t *attr,
 	  _dl_deallocate_tls (new_thread, true);
 #endif
 
-      if (l4pthr_get_more_utcb())
-        return EAGAIN;
+      return EAGAIN;
     }
 
   l4_utcb_t *new_utcb = mgr_alloc_utcb();
@@ -731,13 +781,17 @@ static int pthread_handle_create(pthread_t *thread, const pthread_attr_t *attr,
 	munmap(new_thread, stacksize + guardsize);
 # endif
 #else
+#ifdef USE_L4RE_FOR_STACK
+        if (pthread_l4_free_stack(new_thread_bottom, guardaddr))
+          fprintf(stderr, "ERROR: failed to free stack\n");
+#else
 # ifdef USE_TLS
 	size_t stacksize = stack_addr - new_thread_bottom;
 # else
-	//l4/size_t stacksize = (char *)(new_thread+1) - new_thread_bottom;
+	size_t stacksize = (char *)(new_thread+1) - new_thread_bottom;
 # endif
-	UNIMPL("Handle failed thread create correctly!");
-//	munmap(new_thread_bottom - guardsize, guardsize + stacksize);
+	munmap(new_thread_bottom - guardsize, guardsize + stacksize);
+#endif
 #endif
       }
 #ifdef USE_TLS
@@ -816,7 +870,7 @@ static void pthread_free(pthread_descr th)
       /* Guardaddr is always set, even if guardsize is 0.  This allows
 	 us to compute everything else.  */
 # ifdef USE_TLS
-      size_t stacksize = th->p_stackaddr - guardaddr - guardsize;
+      //l4/size_t stacksize = th->p_stackaddr - guardaddr - guardsize;
 # else
       //l4/size_t stacksize = (char *)(th+1) - guardaddr - guardsize;
 # endif
@@ -826,13 +880,11 @@ static void pthread_free(pthread_descr th)
       stacksize *= 2;
 # endif
 #endif
-      /* Unmap the stack.  */
-      L4::Cap<L4Re::Dataspace> ds;
-      L4Re::Env::env()->rm()->detach(guardaddr + guardsize, &ds);
-      L4Re::Env::env()->rm()->free_area(l4_addr_t(guardaddr));
-      if (ds.is_valid())
-	ds->release();
-//      munmap(guardaddr, stacksize + guardsize);
+#ifdef USE_L4RE_FOR_STACK
+      pthread_l4_free_stack(guardaddr + guardsize, guardaddr);
+#else
+      munmap(guardaddr, stacksize + guardsize);
+#endif
 
     }
 

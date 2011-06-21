@@ -33,6 +33,7 @@
 #include "pub_core_basics.h"
 #include "pub_core_vki.h"
 #include "pub_core_vkiscnums.h"
+#include "pub_core_libcsetjmp.h"   // to keep _threadstate.h happy
 #include "pub_core_threadstate.h"
 #include "pub_core_aspacemgr.h"
 #include "pub_core_debuginfo.h"    // VG_(di_notify_*)
@@ -206,6 +207,14 @@ static void run_a_thread_NORETURN ( Word tidW )
          "svc  0x00000000\n"  /* exit(tst->os_state.exitcode) */
          : "=m" (tst->status)
          : "r" (VgTs_Empty), "n" (__NR_exit), "m" (tst->os_state.exitcode));
+#elif defined(VGP_s390x_linux)
+      asm volatile (
+         "st   %1, %0\n"        /* set tst->status = VgTs_Empty */
+         "lg   2, %3\n"         /* set r2 = tst->os_state.exitcode */
+         "svc %2\n"             /* exit(tst->os_state.exitcode) */
+         : "=m" (tst->status)
+         : "d" (VgTs_Empty), "n" (__NR_exit), "m" (tst->os_state.exitcode)
+         : "2");
 #else
 # error Unknown platform
 #endif
@@ -288,6 +297,11 @@ void VG_(main_thread_wrapper_NORETURN)(ThreadId tid)
    sp -= 112;
    sp &= ~((Addr)0xF);
    *(UWord *)sp = 0;
+#elif defined(VGP_s390x_linux)
+   /* make a stack frame */
+   sp -= 160;
+   sp &= ~((Addr)0xF);
+   *(UWord *)sp = 0;
 #endif
 
    /* If we can't even allocate the first thread's stack, we're hosed.
@@ -342,6 +356,10 @@ SysRes ML_(do_fork_clone) ( ThreadId tid, UInt flags,
    res = VG_(do_syscall5)( __NR_clone, flags, 
                            (UWord)NULL, (UWord)parent_tidptr, 
                            (UWord)child_tidptr, (UWord)NULL );
+#elif defined(VGP_s390x_linux)
+   /* Note that s390 has the stack first and then the flags */
+   res = VG_(do_syscall4)( __NR_clone, (UWord) NULL, flags,
+                          (UWord)parent_tidptr, (UWord)child_tidptr);
 #else
 # error Unknown platform
 #endif
@@ -2638,6 +2656,29 @@ PRE(sys_lseek)
 }
 
 /* ---------------------------------------------------------------------
+   readahead wrapper
+   ------------------------------------------------------------------ */
+
+PRE(sys_readahead)
+{
+   *flags |= SfMayBlock;
+#if VG_WORDSIZE == 4
+   PRINT("sys_readahead ( %ld, %lld, %ld )", ARG1, MERGE64(ARG2,ARG3), ARG4);
+   PRE_REG_READ4(vki_off_t, "readahead",
+                 int, fd, unsigned, MERGE64_FIRST(offset),
+                 unsigned, MERGE64_SECOND(offset), vki_size_t, count);
+#elif VG_WORDSIZE == 8
+   PRINT("sys_readahead ( %ld, %lld, %ld )", ARG1, (Long)ARG2, ARG3);
+   PRE_REG_READ3(vki_off_t, "readahead",
+                 int, fd, vki_loff_t, offset, vki_size_t, count);
+#else
+#  error Unexpected word size
+#endif
+   if (!ML_(fd_allowed)(ARG1, "readahead", tid, False))
+      SET_STATUS_Failure( VKI_EBADF );
+}
+
+/* ---------------------------------------------------------------------
    sig* wrappers
    ------------------------------------------------------------------ */
 
@@ -3543,7 +3584,7 @@ POST(sys_lookup_dcookie)
 }
 #endif
 
-#if defined(VGP_amd64_linux)
+#if defined(VGP_amd64_linux) || defined(VGP_s390x_linux)
 PRE(sys_lookup_dcookie)
 {
    *flags |= SfMayBlock;
@@ -3582,6 +3623,7 @@ PRE(sys_fcntl)
 
    // These ones use ARG3 as "arg".
    case VKI_F_DUPFD:
+   case VKI_F_DUPFD_CLOEXEC:
    case VKI_F_SETFD:
    case VKI_F_SETFL:
    case VKI_F_SETLEASE:
@@ -3634,6 +3676,15 @@ POST(sys_fcntl)
             ML_(record_fd_open_named)(tid, RES);
       }
    }
+   else if (ARG2 == VKI_F_DUPFD_CLOEXEC) {
+      if (!ML_(fd_allowed)(RES, "fcntl(DUPFD_CLOEXEC)", tid, True)) {
+         VG_(close)(RES);
+         SET_STATUS_Failure( VKI_EMFILE );
+      } else {
+         if (VG_(clo_track_fds))
+            ML_(record_fd_open_named)(tid, RES);
+      }
+   }
 }
 
 // XXX: wrapper only suitable for 32-bit systems
@@ -3654,6 +3705,7 @@ PRE(sys_fcntl64)
 
    // These ones use ARG3 as "arg".
    case VKI_F_DUPFD:
+   case VKI_F_DUPFD_CLOEXEC:
    case VKI_F_SETFD:
    case VKI_F_SETFL:
    case VKI_F_SETLEASE:
@@ -3699,6 +3751,15 @@ POST(sys_fcntl64)
             ML_(record_fd_open_named)(tid, RES);
       }
    }
+   else if (ARG2 == VKI_F_DUPFD_CLOEXEC) {
+      if (!ML_(fd_allowed)(RES, "fcntl64(DUPFD_CLOEXEC)", tid, True)) {
+         VG_(close)(RES);
+         SET_STATUS_Failure( VKI_EMFILE );
+      } else {
+         if (VG_(clo_track_fds))
+            ML_(record_fd_open_named)(tid, RES);
+      }
+   }
 }
 
 /* ---------------------------------------------------------------------
@@ -3708,9 +3769,6 @@ POST(sys_fcntl64)
 PRE(sys_ioctl)
 {
    *flags |= SfMayBlock;
-   PRINT("sys_ioctl ( %ld, 0x%lx, %#lx )",ARG1,ARG2,ARG3);
-   PRE_REG_READ3(long, "ioctl",
-                 unsigned int, fd, unsigned int, request, unsigned long, arg);
 
    // We first handle the ones that don't use ARG3 (even as a
    // scalar/non-pointer argument).
@@ -4716,6 +4774,8 @@ PRE(sys_ioctl)
                PRE_MEM_WRITE("ioctl(USBDEVFS_IOCTL).dataRead", (Addr)vkui->data, size2);
          }
       }
+      break;
+   case VKI_USBDEVFS_RESET:
       break;
 
       /* I2C (/dev/i2c-*) ioctls */

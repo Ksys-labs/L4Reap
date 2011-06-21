@@ -43,7 +43,6 @@ SRC_BIN += $(SRC_RGBA)
 OBJS += $(addsuffix .bin.o, $(notdir $(SRC_BIN)))
 
 REQUIRES_LIBS := mag-gfx libpng libstdc++
-L4_MULTITHREADED=y
 
 %.bin.o: $(SRC_DIR)/data/% $(SRC_DIR)/Make.rules $(ELF_PATCHER)
 	@$(GEN_MESSAGE)

@@ -59,6 +59,7 @@ IMPLEMENTATION[ux]:
 #include <sys/utsname.h>                // for uname
 
 #include "config.h"
+#include "emulation.h"
 #include "initcalls.h"
 #include "kernel_console.h"
 #include "koptions.h"
@@ -169,9 +170,11 @@ Boot_info::init()
   Multiboot_info *              mbi;
   Multiboot_module *            mbm;
   struct utsname                uts;
+#if 0
   char const *                  symbols_file = "Symbols";
   char const *                  lines_file = "Lines";
   char const *                  roottask_config_file = "roottask.config";
+#endif
 
   _args = __libc_argv;
   _pid  = getpid ();
@@ -194,15 +197,21 @@ Boot_info::init()
         break;
 
       case 'Y': // sYmbols path
+#if 0
         symbols_file = optarg;
+#endif
         break;
 
       case 'L': // Lines path
+#if 0
         lines_file = optarg;
+#endif
         break;
 
       case 'C': // roottask Configuration file
+#if 0
 	roottask_config_file = optarg;
+#endif
 	break;
 
       case 'l':
@@ -329,6 +338,7 @@ Boot_info::init()
             uts.sysname, uts.release, uts.machine);
 
   get_minimum_map_address();
+  find_x86_tls_base();
 
   if ((_fd = open (physmem_file, O_RDWR | O_CREAT | O_EXCL | O_TRUNC, 0700))
       == -1)
@@ -491,6 +501,30 @@ Boot_info::get_minimum_map_address()
 
   _min_mappable_address
     = (_min_mappable_address + (Config::PAGE_SIZE - 1)) & Config::PAGE_MASK;
+}
+
+PRIVATE static
+void
+Boot_info::find_x86_tls_base()
+{
+  // the base is different on 32 and 64 bit hosts, so we need to find the
+  // right one
+  // be very pessimistic and scan a larger range
+
+  for (unsigned nr = 0; nr < 40; ++nr)
+    {
+      Ldt_user_desc desc;
+      int r = Emulation::get_thread_area(&desc, nr);
+      if (r == -38)
+	panic("get_thread_area not available");
+      if (!r)
+        {
+	  Emulation::set_host_tls_base(nr);
+	  return;
+        }
+    }
+
+  panic("finding TLS base did not work");
 }
 
 PUBLIC static inline

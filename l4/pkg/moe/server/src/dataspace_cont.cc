@@ -33,7 +33,7 @@ Moe::Dataspace_cont::address(l4_addr_t offset,
     return Address(-L4_ERANGE);
 
   min = l4_trunc_page(min);
-  max = l4_round_page(max);
+  //max = l4_round_page(max);
 
   l4_addr_t adr = l4_addr_t(_start) + offset;
   unsigned char order = L4_PAGESHIFT;
@@ -51,7 +51,7 @@ Moe::Dataspace_cont::address(l4_addr_t offset,
       if (map_base < min)
 	break;
 
-      if (map_base + (1UL << (order + 1)) -1 > max -1)
+      if (map_base + (1UL << (order + 1)) -1 > max)
 	break;
 
       l4_addr_t mask = ~(~0UL << (order + 1));

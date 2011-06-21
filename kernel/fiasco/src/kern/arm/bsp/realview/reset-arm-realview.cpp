@@ -41,7 +41,7 @@ static inline void do_reset()
 IMPLEMENTATION [arm && realview]:
 
 void __attribute__ ((noreturn))
-pc_reset(void)
+platform_reset(void)
 {
   Io::write(0xa05f, Realview_reset::LOCK);  // unlock for reset
   do_reset();

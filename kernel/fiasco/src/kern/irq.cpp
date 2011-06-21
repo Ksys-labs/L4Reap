@@ -401,7 +401,7 @@ Irq_sender::transfer_msg(Receiver *recv)
   Syscall_frame* dst_regs = recv->rcv_regs();
 
   // set ipc return value: OK
-  dst_regs->tag(L4_msg_tag(0, 0, 0, L4_msg_tag::Label_irq));
+  dst_regs->tag(L4_msg_tag(0));
 
   // set ipc source thread id
   dst_regs->from(_irq_id);

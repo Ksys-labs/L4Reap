@@ -70,16 +70,15 @@ Ro_file::fstat64(struct stat64 *buf) const throw()
 }
 
 ssize_t
-Ro_file::read(const struct iovec *vec) throw()
+Ro_file::read_single(const struct iovec *vec, off64_t pos) throw()
 {
   off64_t l = vec->iov_len;
-  if (_size - _f_pos < l)
-    l = _size - _f_pos;
+  if (_size - pos < l)
+    l = _size - pos;
 
   if (l > 0)
     {
-      Vfs_config::memcpy(vec->iov_base, _addr + _f_pos, l);
-      _f_pos += l;
+      Vfs_config::memcpy(vec->iov_base, _addr + pos, l);
       return l;
     }
 
@@ -87,13 +86,14 @@ Ro_file::read(const struct iovec *vec) throw()
 }
 
 ssize_t
-Ro_file::readv(const struct iovec *vec, int cnt) throw()
+Ro_file::preadv(const struct iovec *vec, int cnt, off64_t offset) throw()
 {
   if (!_addr)
     {
       void const *file = (void*)L4_PAGESIZE;
       long err = L4Re::Env::env()->rm()->attach(&file, _size,
-	  Rm::Search_addr | Rm::Read_only, _ds, 0);
+                                                Rm::Search_addr | Rm::Read_only,
+                                                _ds, 0);
 
       if (err < 0)
 	return err;
@@ -105,7 +105,8 @@ Ro_file::readv(const struct iovec *vec, int cnt) throw()
 
   while (cnt > 0)
     {
-      ssize_t r = read(vec);
+      ssize_t r = read_single(vec, offset);
+      offset += r;
       l += r;
 
       if ((size_t)r < vec->iov_len)
@@ -118,30 +119,9 @@ Ro_file::readv(const struct iovec *vec, int cnt) throw()
 }
 
 ssize_t
-Ro_file::writev(const struct iovec*, int iovcnt) throw()
+Ro_file::pwritev(const struct iovec *, int, off64_t) throw()
 {
-  (void)iovcnt;
-  return -EBADF;
-}
-
-off64_t
-Ro_file::lseek64(off64_t offset, int whence) throw()
-{
-  off64_t r;
-  switch (whence)
-    {
-    case SEEK_SET: r = offset; break;
-    case SEEK_CUR: r = _f_pos + offset; break;
-    case SEEK_END: r = _size + offset; break;
-    default: return -EINVAL;
-    };
-
-  if (r < 0)
-    return -EINVAL;
-
-  _f_pos = r;
-
-  return _f_pos;
+  return -EROFS;
 }
 
 int
@@ -151,7 +131,7 @@ Ro_file::ioctl(unsigned long v, va_list args) throw()
     {
     case FIONREAD: // return amount of data still available
       int *available = va_arg(args, int *);
-      *available = _size - _f_pos;
+      *available = _size - pos();
       return 0;
     };
   return -EINVAL;

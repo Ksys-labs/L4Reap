@@ -227,6 +227,7 @@ typedef
       Ity_I128,  /* 128-bit scalar */
       Ity_F32,   /* IEEE 754 float */
       Ity_F64,   /* IEEE 754 double */
+      Ity_F128,  /* 128-bit floating point; implementation defined */
       Ity_V128   /* 128-bit SIMD */
    }
    IRType;
@@ -261,6 +262,9 @@ typedef
       Ico_U16, 
       Ico_U32, 
       Ico_U64,
+      Ico_F32,   /* 32-bit IEEE754 floating */
+      Ico_F32i,  /* 32-bit unsigned int to be interpreted literally
+                    as a IEEE754 single value. */
       Ico_F64,   /* 64-bit IEEE754 floating */
       Ico_F64i,  /* 64-bit unsigned int to be interpreted literally
                     as a IEEE754 double value. */
@@ -282,6 +286,8 @@ typedef
          UShort U16;
          UInt   U32;
          ULong  U64;
+         Float  F32;
+         UInt   F32i;
          Double F64;
          ULong  F64i;
          UShort V128;   /* 16-bit value; see Ico_V128 comment above */
@@ -295,6 +301,8 @@ extern IRConst* IRConst_U8   ( UChar );
 extern IRConst* IRConst_U16  ( UShort );
 extern IRConst* IRConst_U32  ( UInt );
 extern IRConst* IRConst_U64  ( ULong );
+extern IRConst* IRConst_F32  ( Float );
+extern IRConst* IRConst_F32i ( UInt );
 extern IRConst* IRConst_F64  ( Double );
 extern IRConst* IRConst_F64i ( ULong );
 extern IRConst* IRConst_V128 ( UShort );
@@ -314,9 +322,10 @@ extern Bool eqIRConst ( IRConst*, IRConst* );
 /* Describes a helper function to call.  The name part is purely for
    pretty printing and not actually used.  regparms=n tells the back
    end that the callee has been declared
-   "__attribute__((regparm(n)))".  On some targets (x86) the back end
-   will need to construct a non-standard sequence to call a function
-   declared like this. 
+   "__attribute__((regparm(n)))", although indirectly using the
+   VEX_REGPARM(n) macro.  On some targets (x86) the back end will need
+   to construct a non-standard sequence to call a function declared
+   like this.
 
    mcx_mask is a sop to Memcheck.  It indicates which args should be
    considered 'always defined' when lazily computing definedness of
@@ -469,6 +478,9 @@ typedef
                           // of which lo half is div and hi half is mod
       Iop_DivModS128to64, // ditto, signed
 
+      Iop_DivModS64to64, // :: I64,I64 -> I128
+                         // of which lo half is div and hi half is mod
+
       /* Integer conversions.  Some of these are redundant (eg
          Iop_64to8 is the same as Iop_64to32 and then Iop_32to8), but
          having a complete set reduces the typical dynamic size of IR
@@ -552,6 +564,8 @@ typedef
       */
       /* :: F64 x F64 -> IRCmpF64Result(I32) */
       Iop_CmpF64,
+      Iop_CmpF32,
+      Iop_CmpF128,
 
       /* --- Int to/from FP conversions. --- */
 
@@ -603,8 +617,18 @@ typedef
       Iop_I16StoF64, /*                       signed I16 -> F64 */
       Iop_I32StoF64, /*                       signed I32 -> F64 */
       Iop_I64StoF64, /* IRRoundingMode(I32) x signed I64 -> F64 */
+      Iop_I64UtoF64, /* IRRoundingMode(I32) x unsigned I64 -> F64 */
+      Iop_I64UtoF32, /* IRRoundingMode(I32) x unsigned I64 -> F32 */
 
       Iop_I32UtoF64, /*                       unsigned I32 -> F64 */
+
+      Iop_F32toI16S, /* IRRoundingMode(I32) x F32 -> signed I16 */
+      Iop_F32toI32S, /* IRRoundingMode(I32) x F32 -> signed I32 */
+      Iop_F32toI64S, /* IRRoundingMode(I32) x F32 -> signed I64 */
+
+      Iop_I16StoF32, /*                       signed I16 -> F32 */
+      Iop_I32StoF32, /* IRRoundingMode(I32) x signed I32 -> F32 */
+      Iop_I64StoF32, /* IRRoundingMode(I32) x signed I64 -> F32 */
 
       /* Conversion between floating point formats */
       Iop_F32toF64,  /*                       F32 -> F64 */
@@ -614,6 +638,30 @@ typedef
          the same bit pattern, or vice versa. */
       Iop_ReinterpF64asI64, Iop_ReinterpI64asF64,
       Iop_ReinterpF32asI32, Iop_ReinterpI32asF32,
+
+      /* Support for 128-bit floating point */
+      Iop_F64HLtoF128,/* (high half of F128,low half of F128) -> F128 */
+      Iop_F128HItoF64,/* F128 -> high half of F128 into a F64 register */
+      Iop_F128LOtoF64,/* F128 -> low  half of F128 into a F64 register */
+
+      /* :: IRRoundingMode(I32) x F128 x F128 -> F128 */
+      Iop_AddF128, Iop_SubF128, Iop_MulF128, Iop_DivF128,
+
+      /* :: F128 -> F128 */
+      Iop_NegF128, Iop_AbsF128,
+
+      /* :: IRRoundingMode(I32) x F128 -> F128 */
+      Iop_SqrtF128,
+
+      Iop_I32StoF128, /*                signed I32  -> F128 */
+      Iop_I64StoF128, /*                signed I64  -> F128 */
+      Iop_F32toF128,  /*                       F32  -> F128 */
+      Iop_F64toF128,  /*                       F64  -> F128 */
+
+      Iop_F128toI32S, /* IRRoundingMode(I32) x F128 -> signed I32  */
+      Iop_F128toI64S, /* IRRoundingMode(I32) x F128 -> signed I64  */
+      Iop_F128toF64,  /* IRRoundingMode(I32) x F128 -> F64         */
+      Iop_F128toF32,  /* IRRoundingMode(I32) x F128 -> F32         */
 
       /* --- guest x86/amd64 specifics, not mandated by 754. --- */
 
@@ -642,11 +690,19 @@ typedef
       Iop_RoundF32toInt, /* F32 value to nearest integral value (still
                             as F32) */
 
+      /* --- guest s390 specifics, not mandated by 754. --- */
+
+      /* Fused multiply-add/sub */
+      /* :: IRRoundingMode(I32) x F32 x F32 x F32 -> F32
+            (computes op3 * op2 +/- op1 */
+      Iop_MAddF32, Iop_MSubF32,
+
       /* --- guest ppc32/64 specifics, not mandated by 754. --- */
 
       /* Ternary operations, with rounding. */
       /* Fused multiply-add/sub, with 112-bit intermediate
-	 precision */
+         precision for ppc.
+         Also used to implement fused multiply-add/sub for s390. */
       /* :: IRRoundingMode(I32) x F64 x F64 x F64 -> F64 
             (computes arg2 * arg3 +/- arg4) */ 
       Iop_MAddF64, Iop_MSubF64,
@@ -674,6 +730,36 @@ typedef
       /* :: F64 -> I32 */
       Iop_CalcFPRF, /* Calc 5 fpscr[FPRF] bits (Class, <, =, >, Unord)
                        from FP result */
+
+      /* ------------------ 32-bit SIMD Integer ------------------ */
+
+      /* 16x2 add/sub, also signed/unsigned saturating variants */
+      Iop_Add16x2, Iop_Sub16x2,
+      Iop_QAdd16Sx2, Iop_QAdd16Ux2,
+      Iop_QSub16Sx2, Iop_QSub16Ux2,
+
+      /* 16x2 signed/unsigned halving add/sub.  For each lane, these
+         compute bits 16:1 of (eg) sx(argL) + sx(argR),
+         or zx(argL) - zx(argR) etc. */
+      Iop_HAdd16Ux2, Iop_HAdd16Sx2,
+      Iop_HSub16Ux2, Iop_HSub16Sx2,
+
+      /* 8x4 add/sub, also signed/unsigned saturating variants */
+      Iop_Add8x4, Iop_Sub8x4,
+      Iop_QAdd8Sx4, Iop_QAdd8Ux4,
+      Iop_QSub8Sx4, Iop_QSub8Ux4,
+
+      /* 8x4 signed/unsigned halving add/sub.  For each lane, these
+         compute bits 8:1 of (eg) sx(argL) + sx(argR),
+         or zx(argL) - zx(argR) etc. */
+      Iop_HAdd8Ux4, Iop_HAdd8Sx4,
+      Iop_HSub8Ux4, Iop_HSub8Sx4,
+
+      /* 8x4 sum of absolute unsigned differences. */
+      Iop_Sad8Ux4,
+
+      /* MISC (vector integer cmp != 0) */
+      Iop_CmpNEZ16x2, Iop_CmpNEZ8x4,
 
       /* ------------------ 64-bit SIMD FP ------------------------ */
 
@@ -716,7 +802,6 @@ typedef
 
       /* Unary */
       Iop_Neg32Fx2, Iop_Abs32Fx2,
-
 
       /* ------------------ 64-bit SIMD Integer. ------------------ */
 
@@ -1199,6 +1284,8 @@ typedef
    }
    IRCmpF64Result;
 
+typedef IRCmpF64Result IRCmpF32Result;
+typedef IRCmpF64Result IRCmpF128Result;
 
 /* ------------------ Expressions ------------------ */
 

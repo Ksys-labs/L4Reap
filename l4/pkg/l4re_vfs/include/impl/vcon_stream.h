@@ -23,10 +23,9 @@
 
 #include <l4/l4re_vfs/backend>
 
-
 namespace L4Re { namespace Core {
 
-class Vcon_stream : public L4Re::Vfs::Be_file
+class Vcon_stream : public L4Re::Vfs::Be_file_stream
 {
 private:
   L4::Cap<L4::Vcon> _s;
@@ -45,6 +44,5 @@ public:
   ~Vcon_stream() throw() {}
   void operator delete (void *) {}
 };
-
 
 }}

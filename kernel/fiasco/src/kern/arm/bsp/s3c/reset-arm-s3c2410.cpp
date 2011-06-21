@@ -4,7 +4,7 @@ IMPLEMENTATION [arm && s3c2410]:
 #include "kmem.h"
 
 void __attribute__ ((noreturn))
-pc_reset(void)
+platform_reset(void)
 {
   enum {
     WTCON = Kmem::Watchdog_map_base + 0x0,

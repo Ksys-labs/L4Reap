@@ -67,7 +67,7 @@ struct dyn_elf {
 };
 
 extern struct dyn_elf *_dl_symbol_tables;
-extern "C" char * _dl_lookup_hash(const char * name, struct dyn_elf * rpnt,
+extern "C" char * _dl_find_hash(const char * name, struct dyn_elf * rpnt,
 				  struct elf_resolve *mytpnt, int type_class,
 				  struct elf_resolve **tpntp);
 
@@ -97,7 +97,7 @@ namespace Vfs_config {
   {
     if (!_dl_open)
       {
-        _dl_open = (Dl_open*)_dl_lookup_hash("dlopen", _dl_symbol_tables, NULL, ELF_RTYPE_CLASS_PLT, NULL);
+        _dl_open = (Dl_open*)_dl_find_hash("dlopen", _dl_symbol_tables, NULL, ELF_RTYPE_CLASS_PLT, NULL);
 	if (!_dl_open)
 	  return -1;
       }

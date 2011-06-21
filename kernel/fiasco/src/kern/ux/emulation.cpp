@@ -32,6 +32,7 @@ private:
   static Address	_page_fault_addr	asm ("PAGE_FAULT_ADDR");
   static Idt_entry const *_idt_base;
   static unsigned short	_idt_limit;
+  static unsigned       _host_tls_base;
 };
 
 IMPLEMENTATION:
@@ -45,6 +46,7 @@ Address         Emulation::_page_dir_addr;
 Address         Emulation::_page_fault_addr;
 Idt_entry const *Emulation::_idt_base;
 unsigned short	Emulation::_idt_limit;
+unsigned        Emulation::_host_tls_base;
 
 /**
  * Return page directory base address (register cr3)
@@ -173,39 +175,59 @@ Emulation::modify_ldt (unsigned entry, unsigned long base_addr, unsigned limit)
                                 "d" (sizeof (ldt)));
 }
 
+PUBLIC static
+void
+Emulation::set_host_tls_base(unsigned b)
+{
+  _host_tls_base = b;
+}
+
+PUBLIC static inline
+unsigned
+Emulation::host_tls_base()
+{ return _host_tls_base; }
+
+PUBLIC static inline
+int
+Emulation::get_thread_area(Ldt_user_desc *desc, unsigned entry_number)
+{
+  int result;
+  desc->entry_number = entry_number;
+
+#ifndef __NR_get_thread_area
+#define __NR_get_thread_area 244
+#endif
+  asm volatile ("int $0x80" : "=a" (result)
+                            : "0" (__NR_get_thread_area),
+                              "b" (desc), "m" (*desc));
+
+  if (EXPECT_FALSE(result == -38)) // -ENOSYS
+    printf("Your kernel does not support the get/set_thread_area system calls!\n"
+           "The requested feature will not work.\n");
+  return result;
+}
+
 PUBLIC static inline NEEDS [<asm/unistd.h>, <cassert>]
 void
 Emulation::thread_area_host (unsigned entry)
 {
   Ldt_user_desc desc;
   int result;
-  static int called = 0;
+  enum { NUM_TLS = 3 };
+  static int called[NUM_TLS];
 
 #ifndef __NR_set_thread_area
 #define __NR_set_thread_area 243
 #endif
-#ifndef __NR_get_thread_area
-#define __NR_get_thread_area 244
-#endif
 
-  if (called)
+  assert(_host_tls_base <= entry && entry < (_host_tls_base + NUM_TLS));
+
+  if (called[entry - _host_tls_base])
     return;
 
-  called = 1;
+  called[entry - _host_tls_base] = 1;
 
-  desc.entry_number    = entry;
-
-  asm volatile ("int $0x80" : "=a" (result)
-                            : "0" (__NR_get_thread_area),
-                              "b" (&desc), "m" (desc));
-
-  if (EXPECT_FALSE(result == -38)) // -ENOSYS
-    {
-      printf("Your kernel does not support the get/set_thread_area system calls!\n"
-	     "The requested feature will not work.\n");
-      return;
-    }
-
+  result = get_thread_area(&desc, entry);
   assert(!result);
 
   if (!desc.base_addr || !desc.limit)

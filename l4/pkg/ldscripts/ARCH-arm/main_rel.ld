@@ -25,6 +25,7 @@ SECTIONS
       *(.rel.dtors)
       *(.rel.got)
       *(.rel.bss .rel.bss.* .rel.gnu.linkonce.b.*)
+      *(.rel.iplt)
     }
   .rela.dyn       :
     {
@@ -39,21 +40,30 @@ SECTIONS
       *(.rela.dtors)
       *(.rela.got)
       *(.rela.bss .rela.bss.* .rela.gnu.linkonce.b.*)
+      *(.rela.iplt)
     }
-  .rel.plt        : { *(.rel.plt) }
-  .rela.plt       : { *(.rela.plt) }
+  .rel.plt        :
+    {
+      *(.rel.plt)
+    }
+  .rela.plt       :
+    {
+      *(.rela.plt)
+    }
   .init           :
   {
     KEEP (*(.init))
   } =0
   .plt            : { *(.plt) }
+  .iplt           : { *(.iplt) }
   .text           :
   {
+    *(.text.unlikely .text.*_unlikely)
     *(.text .stub .text.* .gnu.linkonce.t.*)
     KEEP (*(.text.*personality*))
     /* .gnu.warning sections are handled specially by elf32.em.  */
     *(.gnu.warning)
-    *(.glue_7t) *(.glue_7) *(.vfp11_veneer)
+    *(.glue_7t) *(.glue_7) *(.vfp11_veneer) *(.v4_bx)
   } =0
   .fini           :
   {
@@ -65,16 +75,15 @@ SECTIONS
   .rodata         : { *(.rodata .rodata.* .gnu.linkonce.r.*) }
   .rodata1        : { *(.rodata1) }
   .ARM.extab   : { *(.ARM.extab* .gnu.linkonce.armextab.*) }
-   __exidx_start = .;
+   PROVIDE_HIDDEN (__exidx_start = .);
   .ARM.exidx   : { *(.ARM.exidx* .gnu.linkonce.armexidx.*) }
-   __exidx_end = .;
+   PROVIDE_HIDDEN (__exidx_end = .);
   .eh_frame_hdr : { *(.eh_frame_hdr) }
   .eh_frame       : ONLY_IF_RO { KEEP (*(.eh_frame)) }
   .gcc_except_table   : ONLY_IF_RO { *(.gcc_except_table .gcc_except_table.*) }
   /* Adjust the address for the data segment.  We want to adjust up to
      the same address within the page on the next page up.  */
-  . = ALIGN(CONSTANT (MAXPAGESIZE)) - ((CONSTANT (MAXPAGESIZE) - .) & (CONSTANT (MAXPAGESIZE) - 1)); . = DATA_SEGMENT_ALIGN (CONSTANT (MAXPAGESIZE), CONSTANT (COMMONPAGESIZE));
-  PROVIDE (_sdata = .);
+  . = ALIGN (CONSTANT (MAXPAGESIZE)) - ((CONSTANT (MAXPAGESIZE) - .) & (CONSTANT (MAXPAGESIZE) - 1)); . = DATA_SEGMENT_ALIGN (CONSTANT (MAXPAGESIZE), CONSTANT (COMMONPAGESIZE));
   /* Exception handling  */
   .eh_frame       : ONLY_IF_RW { KEEP (*(.eh_frame)) }
   .gcc_except_table   : ONLY_IF_RW { *(.gcc_except_table .gcc_except_table.*) }
@@ -87,13 +96,13 @@ SECTIONS
   }
   .init_array     :
   {
-     KEEP (*(SORT(.init_array.*)))
-     KEEP (*(.init_array))
+    KEEP (*(SORT(.init_array.*)))
+    KEEP (*(.init_array))
   }
   .fini_array     :
   {
-    KEEP (*(.fini_array))
     KEEP (*(SORT(.fini_array.*)))
+    KEEP (*(.fini_array))
   }
   .ctors          :
   {
@@ -128,10 +137,10 @@ SECTIONS
   .data.rel.ro : { *(.data.rel.ro.local* .gnu.linkonce.d.rel.ro.local.*) *(.data.rel.ro* .gnu.linkonce.d.rel.ro.*) }
   .dynamic        : { *(.dynamic) }
   . = DATA_SEGMENT_RELRO_END (0, .);
-  .got            : { *(.got.plt) *(.got) }
+  .got            : { *(.got.plt) *(.igot.plt) *(.got) *(.igot) }
   .data           :
   {
-    __data_start = . ;
+    PROVIDE (__data_start = .);
     *(.data .data.* .gnu.linkonce.d.*)
     KEEP (*(.gnu.linkonce.d.*personality*))
     SORT(CONSTRUCTORS)
@@ -196,5 +205,5 @@ SECTIONS
   .debug_ranges   0 : { *(.debug_ranges) }
   .gnu.attributes 0 : { KEEP (*(.gnu.attributes)) }
   .note.gnu.arm.ident 0 : { KEEP (*(.note.gnu.arm.ident)) }
-  /DISCARD/ : { *(.note.GNU-stack) *(.gnu_debuglink) }
+  /DISCARD/ : { *(.note.GNU-stack) *(.gnu_debuglink) *(.gnu.lto_*) }
 }

@@ -1,4 +1,0 @@
-provides: libsupc++_r
-requires: libstdc++-headers libc_r libsupc++
-source-pkg: libsupc++
-maintainer: warg@os.inf.tu-dresden.de

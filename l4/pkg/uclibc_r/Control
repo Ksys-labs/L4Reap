@@ -1,4 +1,0 @@
-provides: libc_r libpthread
-requires: libc l4re
-source-pkg: uclibc
-Maintainer: adam@os.inf.tu-dresden.de, boettcher@os.inf.tu-dresden.de

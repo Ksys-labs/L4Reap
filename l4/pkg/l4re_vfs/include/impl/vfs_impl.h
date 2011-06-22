@@ -763,7 +763,7 @@ namespace {
 // our VFS main object is ever called!
 static char vfs_cnt[sizeof(Vfs)] __attribute__((aligned(sizeof(long))));
 static void init_vfs() { new (vfs_cnt) Vfs(); }
-L4_DECLARE_CONSTRUCTOR(init_vfs, INIT_PRIO_EARLY);
+L4_DECLARE_CONSTRUCTOR(init_vfs, INIT_PRIO_VFS_INIT);
 }
 
 }

@@ -72,8 +72,8 @@ module libc_support_misc.so
 module libc_be_socket_noop.so
 module libc_be_l4refile.so
 module libc_be_l4re.so
-module r/libsupc++.so
-module r/libuc_c.so
+module libsupc++.so
+module libuc_c.so
 
 entry L4Linux ARM
 roottask moe rom/l4lx.cfg

@@ -21,6 +21,7 @@ public:
   virtual void initiate_deletion(Kobject ***) = 0;
 
   virtual Kobject_mappable *map_root() = 0;
+  virtual ~Kobject_common() = 0;
 };
 
 class Kobject_iface : public Kobject_common
@@ -30,6 +31,9 @@ public:
 };
 
 IMPLEMENTATION:
+
+IMPLEMENT inline 
+Kobject_common::~Kobject_common() {}
 
 PUBLIC static inline
 L4_msg_tag

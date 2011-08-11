@@ -57,6 +57,9 @@ Dirq_io_apic::Chip::setup(Irq_base *irq, unsigned irqnum)
   unsigned apic_idx = Io_apic::find_apic(irqnum);
   irqnum -= Io_apic::apic(apic_idx)->gsi_offset();
 
+  if (irqnum >= Io_apic::apic(apic_idx)->nr_irqs())
+    return; // Hm, do we need an error code here?
+
   //irq->pin()->set_mode(Default_mode);
   if (irq->pin()->get_mode() & Irq::Trigger_level)
     irq->pin()->replace<Pin_io_apic_level>(apic_idx, irqnum);
@@ -68,14 +71,15 @@ IMPLEMENT
 bool
 Dirq_io_apic::Chip::alloc(Irq_base *irq, unsigned irqnum)
 {
-  if (!Dirq_pic_pin::Chip::alloc(irq, irqnum))
-    return false;
-
-
   unsigned apic_idx = Io_apic::find_apic(irqnum);
   Io_apic *a = Io_apic::apic(apic_idx);
   unsigned lirqn = irqnum - a->gsi_offset();
 
+  if (lirqn >= a->nr_irqs())
+    return false;
+
+  if (!Dirq_pic_pin::Chip::alloc(irq, irqnum))
+    return false;
 
   Io_apic_entry e = a->read_entry(lirqn);
   e.vector(vector(irqnum));

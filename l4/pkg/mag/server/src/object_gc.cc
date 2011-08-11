@@ -16,7 +16,7 @@ namespace Mag_server {
 namespace {
   class Trash : public L4::Server_object
   {
-    int dispatch(l4_umword_t, L4::Ipc_iostream &)
+    int dispatch(l4_umword_t, L4::Ipc::Iostream &)
     {
       printf("GOT: stale request, drop it\n");
       return -L4_EINVAL;

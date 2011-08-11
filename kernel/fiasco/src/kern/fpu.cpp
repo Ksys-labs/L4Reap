@@ -34,32 +34,40 @@ public:
   static void enable();
 
 private:
+  Context *_owner;
 
-  static Per_cpu<Context *>_owner;
+  static Per_cpu<Fpu> _fpu;
 };
 
 IMPLEMENTATION:
 
 #include "fpu_state.h"
 
-Per_cpu<Context *> DEFINE_PER_CPU Fpu::_owner;
+Per_cpu<Fpu> DEFINE_PER_CPU Fpu::_fpu;
 
 IMPLEMENT inline
 Context * Fpu::owner(unsigned cpu)
 {
-  return _owner.cpu(cpu);
+  return _fpu.cpu(cpu)._owner;
 }
 
 IMPLEMENT inline
 void Fpu::set_owner(unsigned cpu, Context *owner)
 {
-  _owner.cpu(cpu) = owner;
+  _fpu.cpu(cpu)._owner = owner;
 }
 
 IMPLEMENT inline
 bool Fpu::is_owner(unsigned cpu, Context *owner)
 {
-  return _owner.cpu(cpu) == owner;
+  return _fpu.cpu(cpu)._owner == owner;
+}
+
+PUBLIC static inline
+Fpu &
+Fpu::fpu(unsigned cpu)
+{
+  return _fpu.cpu(cpu);
 }
 
 //---------------------------------------------------------------------------

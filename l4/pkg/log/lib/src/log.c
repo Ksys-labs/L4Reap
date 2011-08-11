@@ -13,12 +13,12 @@
 #include <string.h>
 #include <stdarg.h>
 
-void LOG_flush(void)
+L4_CV void LOG_flush(void)
 {
   fflush(NULL);
 }
 
-void LOG_printf(const char *format, ...)
+L4_CV void LOG_printf(const char *format, ...)
 {
   va_list list;
 
@@ -27,12 +27,12 @@ void LOG_printf(const char *format, ...)
   va_end(list);
 }
 
-void LOG_vprintf(const char *format, va_list list)
+L4_CV void LOG_vprintf(const char *format, va_list list)
 {
   vprintf(format, list);
 }
 
-void LOG_log(const char *function, const char *format, ...)
+L4_CV void LOG_log(const char *function, const char *format, ...)
 {
   va_list list;
 
@@ -44,7 +44,7 @@ void LOG_log(const char *function, const char *format, ...)
 }
 
 
-void LOG_logl(const char *file, int line, const char *function,
+L4_CV void LOG_logl(const char *file, int line, const char *function,
               const char *format, ...)
 {
   va_list list;

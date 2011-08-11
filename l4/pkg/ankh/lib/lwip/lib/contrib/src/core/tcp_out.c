@@ -46,12 +46,17 @@
 #include "lwip/def.h"
 #include "lwip/mem.h"
 #include "lwip/memp.h"
-#include "lwip/sys.h"
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
 #include "lwip/inet_chksum.h"
 #include "lwip/stats.h"
 #include "lwip/snmp.h"
+#include "lwip/ip6.h"
+#include "lwip/ip6_addr.h"
+#include "lwip/inet_chksum.h"
+#if LWIP_TCP_TIMESTAMPS
+#include "lwip/sys.h"
+#endif
 
 #include <string.h>
 
@@ -98,17 +103,17 @@ tcp_output_alloc_header(struct tcp_pcb *pcb, u16_t optlen, u16_t datalen,
     LWIP_ASSERT("check that first pbuf can hold struct tcp_hdr",
                  (p->len >= TCP_HLEN + optlen));
     tcphdr = (struct tcp_hdr *)p->payload;
-  tcphdr->src = htons(pcb->local_port);
-  tcphdr->dest = htons(pcb->remote_port);
-  tcphdr->seqno = seqno_be;
-  tcphdr->ackno = htonl(pcb->rcv_nxt);
+    tcphdr->src = htons(pcb->local_port);
+    tcphdr->dest = htons(pcb->remote_port);
+    tcphdr->seqno = seqno_be;
+    tcphdr->ackno = htonl(pcb->rcv_nxt);
     TCPH_HDRLEN_FLAGS_SET(tcphdr, (5 + optlen / 4), TCP_ACK);
-  tcphdr->wnd = htons(pcb->rcv_ann_wnd);
-  tcphdr->chksum = 0;
+    tcphdr->wnd = htons(pcb->rcv_ann_wnd);
+    tcphdr->chksum = 0;
     tcphdr->urgp = 0;
 
-  /* If we're sending a packet, update the announced right window edge */
-  pcb->rcv_ann_right_edge = pcb->rcv_nxt + pcb->rcv_ann_wnd;
+    /* If we're sending a packet, update the announced right window edge */
+    pcb->rcv_ann_right_edge = pcb->rcv_nxt + pcb->rcv_ann_wnd;
   }
   return p;
 }
@@ -142,7 +147,7 @@ tcp_send_fin(struct tcp_pcb *pcb)
  * Create a TCP segment with prefilled header.
  *
  * Called by tcp_write and tcp_enqueue_flags.
- * 
+ *
  * @param pcb Protocol control block for the TCP connection.
  * @param p pbuf that is used to hold the TCP header.
  * @param flags TCP flags for header.
@@ -162,11 +167,10 @@ tcp_create_segment(struct tcp_pcb *pcb, struct pbuf *p, u8_t flags, u32_t seqno,
     LWIP_DEBUGF(TCP_OUTPUT_DEBUG | 2, ("tcp_create_segment: no memory.\n"));
     pbuf_free(p);
     return NULL;
-    }
+  }
   seg->flags = optflags;
   seg->next = NULL;
   seg->p = p;
-  seg->dataptr = p->payload;
   seg->len = p->tot_len - optlen;
 #if TCP_OVERSIZE_DBGCHECK
   seg->oversize_left = 0;
@@ -195,7 +199,7 @@ tcp_create_segment(struct tcp_pcb *pcb, struct pbuf *p, u8_t flags, u32_t seqno,
   /* wnd and chksum are set in tcp_output */
   seg->tcphdr->urgp = 0;
   return seg;
-}
+} 
 
 /**
  * Allocate a PBUF_RAM pbuf, perhaps with extra space at the end.
@@ -381,14 +385,14 @@ tcp_write(struct tcp_pcb *pcb, const void *arg, u16_t len, u8_t apiflags)
   err = tcp_write_checks(pcb, len);
   if (err != ERR_OK) {
     return err;
-    }
+  }
   queuelen = pcb->snd_queuelen;
 
 #if LWIP_TCP_TIMESTAMPS
   if ((pcb->flags & TF_TIMESTAMP)) {
     optflags = TF_SEG_OPTS_TS;
     optlen = LWIP_TCP_OPT_LENGTH(TF_SEG_OPTS_TS);
-    }
+  }
 #endif /* LWIP_TCP_TIMESTAMPS */
 
 
@@ -467,14 +471,14 @@ tcp_write(struct tcp_pcb *pcb, const void *arg, u16_t len, u8_t apiflags)
       /* Create a pbuf with a copy or reference to seglen bytes. We
        * can use PBUF_RAW here since the data appears in the middle of
        * a segment. A header will never be prepended. */
-    if (apiflags & TCP_WRITE_FLAG_COPY) {
+      if (apiflags & TCP_WRITE_FLAG_COPY) {
         /* Data is copied */
         if ((concat_p = tcp_pbuf_prealloc(PBUF_RAW, seglen, space, &oversize, pcb, apiflags, 1)) == NULL) {
-        LWIP_DEBUGF(TCP_OUTPUT_DEBUG | 2, 
+          LWIP_DEBUGF(TCP_OUTPUT_DEBUG | 2,
                       ("tcp_write : could not allocate memory for pbuf copy size %"U16_F"\n",
                        seglen));
-        goto memerr;
-      }
+          goto memerr;
+        }
 #if TCP_OVERSIZE_DBGCHECK
         last_unsent->oversize_left = oversize;
 #endif /* TCP_OVERSIZE_DBGCHECK */
@@ -485,10 +489,10 @@ tcp_write(struct tcp_pcb *pcb, const void *arg, u16_t len, u8_t apiflags)
       } else {
         /* Data is not copied */
         if ((concat_p = pbuf_alloc(PBUF_RAW, seglen, PBUF_ROM)) == NULL) {
-        LWIP_DEBUGF(TCP_OUTPUT_DEBUG | 2, 
+          LWIP_DEBUGF(TCP_OUTPUT_DEBUG | 2,
                       ("tcp_write: could not allocate memory for zero-copy pbuf\n"));
-        goto memerr;
-      }
+          goto memerr;
+        }
 #if TCP_CHECKSUM_ON_COPY
         /* calculate the checksum of nocopy-data */
         tcp_seg_add_chksum(~inet_chksum((u8_t*)arg + pos, seglen), seglen,
@@ -547,13 +551,13 @@ tcp_write(struct tcp_pcb *pcb, const void *arg, u16_t len, u8_t apiflags)
 #endif /* TCP_OVERSIZE */
       if ((p2 = pbuf_alloc(PBUF_TRANSPORT, seglen, PBUF_ROM)) == NULL) {
         LWIP_DEBUGF(TCP_OUTPUT_DEBUG | 2, ("tcp_write: could not allocate memory for zero-copy pbuf\n"));
-          goto memerr;
-        }
+        goto memerr;
+      }
 #if TCP_CHECKSUM_ON_COPY
       /* calculate the checksum of nocopy-data */
       chksum = ~inet_chksum((u8_t*)arg + pos, seglen);
 #endif /* TCP_CHECKSUM_ON_COPY */
-        /* reference the non-volatile payload data */
+      /* reference the non-volatile payload data */
       p2->payload = (u8_t*)arg + pos;
 
       /* Second, allocate a pbuf for the headers. */
@@ -590,10 +594,6 @@ tcp_write(struct tcp_pcb *pcb, const void *arg, u16_t len, u8_t apiflags)
     seg->chksum_swapped = chksum_swapped;
     seg->flags |= TF_SEG_DATA_CHECKSUMMED;
 #endif /* TCP_CHECKSUM_ON_COPY */
-    /* Fix dataptr for the nocopy case */
-    if ((apiflags & TCP_WRITE_FLAG_COPY) == 0) {
-      seg->dataptr = (u8_t*)arg + pos;
-    }
 
     /* first segment of to-be-queued data? */
     if (queue == NULL) {
@@ -637,7 +637,7 @@ tcp_write(struct tcp_pcb *pcb, const void *arg, u16_t len, u8_t apiflags)
 #if TCP_OVERSIZE_DBGCHECK
     last_unsent->oversize_left -= oversize_used;
 #endif /* TCP_OVERSIZE_DBGCHECK */
-    }
+  }
   pcb->unsent_oversize = oversize;
 #endif /* TCP_OVERSIZE */
 
@@ -663,10 +663,10 @@ tcp_write(struct tcp_pcb *pcb, const void *arg, u16_t len, u8_t apiflags)
    * is harmless
    */
   if (last_unsent == NULL) {
-      pcb->unsent = queue;
+    pcb->unsent = queue;
   } else {
     last_unsent->next = queue;
-    }
+  }
 
   /*
    * Finally update the pcb state.
@@ -679,7 +679,7 @@ tcp_write(struct tcp_pcb *pcb, const void *arg, u16_t len, u8_t apiflags)
     pcb->snd_queuelen));
   if (pcb->snd_queuelen != 0) {
     LWIP_ASSERT("tcp_write: valid queue length",
-      pcb->unacked != NULL || pcb->unsent != NULL);
+                pcb->unacked != NULL || pcb->unsent != NULL);
   }
 
   /* Set the PSH flag in the last segment that we enqueued. */
@@ -771,8 +771,9 @@ tcp_enqueue_flags(struct tcp_pcb *pcb, u8_t flags)
   if ((seg = tcp_create_segment(pcb, p, flags, pcb->snd_lbb, optflags)) == NULL) {
     pcb->flags |= TF_NAGLEMEMERR;
     TCP_STATS_INC(tcp.memerr);
-  return ERR_MEM;
+    return ERR_MEM;
   }
+  LWIP_ASSERT("seg->tcphdr not aligned", ((mem_ptr_t)seg->tcphdr % MEM_ALIGNMENT) == 0);
   LWIP_ASSERT("tcp_enqueue_flags: invalid segment length", seg->len == 0);
 
   LWIP_DEBUGF(TCP_OUTPUT_DEBUG | LWIP_DBG_TRACE,
@@ -815,7 +816,6 @@ tcp_enqueue_flags(struct tcp_pcb *pcb, u8_t flags)
   return ERR_OK;
 }
 
-
 #if LWIP_TCP_TIMESTAMPS
 /* Build a timestamp option (12 bytes long) at the specified options pointer)
  *
@@ -845,44 +845,44 @@ tcp_send_empty_ack(struct tcp_pcb *pcb)
 
 #if LWIP_TCP_TIMESTAMPS
   if (pcb->flags & TF_TIMESTAMP) {
-      optlen = LWIP_TCP_OPT_LENGTH(TF_SEG_OPTS_TS);
+    optlen = LWIP_TCP_OPT_LENGTH(TF_SEG_OPTS_TS);
   }
 #endif
 
   p = tcp_output_alloc_header(pcb, optlen, 0, htonl(pcb->snd_nxt));
-    if (p == NULL) {
-      LWIP_DEBUGF(TCP_OUTPUT_DEBUG, ("tcp_output: (ACK) could not allocate pbuf\n"));
-      return ERR_BUF;
-    }
+  if (p == NULL) {
+    LWIP_DEBUGF(TCP_OUTPUT_DEBUG, ("tcp_output: (ACK) could not allocate pbuf\n"));
+    return ERR_BUF;
+  }
   tcphdr = (struct tcp_hdr *)p->payload;
-    LWIP_DEBUGF(TCP_OUTPUT_DEBUG, 
-                ("tcp_output: sending ACK for %"U32_F"\n", pcb->rcv_nxt));
-    /* remove ACK flags from the PCB, as we send an empty ACK now */
-    pcb->flags &= ~(TF_ACK_DELAY | TF_ACK_NOW);
+  LWIP_DEBUGF(TCP_OUTPUT_DEBUG, 
+              ("tcp_output: sending ACK for %"U32_F"\n", pcb->rcv_nxt));
+  /* remove ACK flags from the PCB, as we send an empty ACK now */
+  pcb->flags &= ~(TF_ACK_DELAY | TF_ACK_NOW);
 
-    /* NB. MSS option is only sent on SYNs, so ignore it here */
+  /* NB. MSS option is only sent on SYNs, so ignore it here */
 #if LWIP_TCP_TIMESTAMPS
-    pcb->ts_lastacksent = pcb->rcv_nxt;
+  pcb->ts_lastacksent = pcb->rcv_nxt;
 
   if (pcb->flags & TF_TIMESTAMP) {
-      tcp_build_timestamp_option(pcb, (u32_t *)(tcphdr + 1));
+    tcp_build_timestamp_option(pcb, (u32_t *)(tcphdr + 1));
   }
 #endif 
 
 #if CHECKSUM_GEN_TCP
-    tcphdr->chksum = inet_chksum_pseudo(p, &(pcb->local_ip), &(pcb->remote_ip),
-          IP_PROTO_TCP, p->tot_len);
+  tcphdr->chksum = ipX_chksum_pseudo(PCB_ISIPV6(pcb), p, IP_PROTO_TCP, p->tot_len,
+    &pcb->local_ip, &pcb->remote_ip);
 #endif
 #if LWIP_NETIF_HWADDRHINT
-    ip_output_hinted(p, &(pcb->local_ip), &(pcb->remote_ip), pcb->ttl, pcb->tos,
-        IP_PROTO_TCP, &(pcb->addr_hint));
+  ipX_output_hinted(PCB_ISIPV6(pcb), p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl, pcb->tos,
+      IP_PROTO_TCP, &pcb->addr_hint);
 #else /* LWIP_NETIF_HWADDRHINT*/
-    ip_output(p, &(pcb->local_ip), &(pcb->remote_ip), pcb->ttl, pcb->tos,
-        IP_PROTO_TCP);
+  ipX_output(PCB_ISIPV6(pcb), p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl, pcb->tos,
+      IP_PROTO_TCP);
 #endif /* LWIP_NETIF_HWADDRHINT*/
-    pbuf_free(p);
+  pbuf_free(p);
 
-    return ERR_OK;
+  return ERR_OK;
 }
 
 /**
@@ -900,6 +900,10 @@ tcp_output(struct tcp_pcb *pcb)
 #if TCP_CWND_DEBUG
   s16_t i = 0;
 #endif /* TCP_CWND_DEBUG */
+
+  /* pcb->state LISTEN not allowed here */
+  LWIP_ASSERT("don't call tcp_output for listen-pcbs",
+    pcb->state != LISTEN);
 
   /* First, check if we are invoked by the TCP input processing
      code. If so, we do not output anything. Instead, we rely on the
@@ -1050,7 +1054,6 @@ static void
 tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb)
 {
   u16_t len;
-  struct netif *netif;
   u32_t *opts;
 
   /** @bug Exclude retransmitted segments from this count. */
@@ -1067,7 +1070,7 @@ tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb)
 
   /* Add any requested options.  NB MSS option is only set on SYN
      packets, so ignore it here */
-  LWIP_ASSERT("seg->tcphdr not aligned", ((mem_ptr_t)(seg->tcphdr + 1) % 4) == 0);
+  LWIP_ASSERT("seg->tcphdr not aligned", ((mem_ptr_t)seg->tcphdr % MEM_ALIGNMENT) == 0);
   opts = (u32_t *)(void *)(seg->tcphdr + 1);
   if (seg->flags & TF_SEG_OPTS_MSS) {
     TCP_BUILD_MSS_OPTION(*opts);
@@ -1082,19 +1085,22 @@ tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb)
   }
 #endif
 
-  /* If we don't have a local IP address, we get one by
-     calling ip_route(). */
-  if (ip_addr_isany(&(pcb->local_ip))) {
-    netif = ip_route(&(pcb->remote_ip));
-    if (netif == NULL) {
-      return;
-    }
-    ip_addr_copy(pcb->local_ip, netif->ip_addr);
+  /* Set retransmission timer running if it is not currently enabled 
+     This must be set before checking the route. */
+  if (pcb->rtime == -1) {
+    pcb->rtime = 0;
   }
 
-  /* Set retransmission timer running if it is not currently enabled */
-  if(pcb->rtime == -1) {
-    pcb->rtime = 0;
+  /* If we don't have a local IP address, we get one by
+     calling ip_route(). */
+  if (ipX_addr_isany(PCB_ISIPV6(pcb), &pcb->local_ip)) {
+    struct netif *netif;
+    ipX_addr_t *local_ip;
+    ipX_route_get_local_ipX(PCB_ISIPV6(pcb), &pcb->local_ip, &pcb->remote_ip, netif, local_ip);
+    if ((netif == NULL) || (local_ip == NULL)) {
+      return;
+    }
+    ipX_addr_copy(PCB_ISIPV6(pcb), pcb->local_ip, *local_ip);
   }
 
   if (pcb->rttest == 0) {
@@ -1115,14 +1121,12 @@ tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb)
   seg->p->payload = seg->tcphdr;
 
   seg->tcphdr->chksum = 0;
-#if CHECKSUM_GEN_TCP
 #if TCP_CHECKSUM_ON_COPY
   {
     u32_t acc;
 #if TCP_CHECKSUM_ON_COPY_SANITY_CHECK
-    u16_t chksum_slow = inet_chksum_pseudo(seg->p, &(pcb->local_ip),
-             &(pcb->remote_ip),
-             IP_PROTO_TCP, seg->p->tot_len);
+    u16_t chksum_slow = ipX_chksum_pseudo(PCB_ISIPV6(pcb), seg->p, IP_PROTO_TCP,
+      seg->p->tot_len, &pcb->local_ip, &pcb->remote_ip);
 #endif /* TCP_CHECKSUM_ON_COPY_SANITY_CHECK */
     if ((seg->flags & TF_SEG_DATA_CHECKSUMMED) == 0) {
       LWIP_ASSERT("data included but not checksummed",
@@ -1130,9 +1134,8 @@ tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb)
     }
 
     /* rebuild TCP header checksum (TCP header changes for retransmissions!) */
-    acc = inet_chksum_pseudo_partial(seg->p, &(pcb->local_ip),
-             &(pcb->remote_ip),
-             IP_PROTO_TCP, seg->p->tot_len, TCPH_HDRLEN(seg->tcphdr) * 4);
+    acc = ipX_chksum_pseudo_partial(PCB_ISIPV6(pcb), seg->p, IP_PROTO_TCP,
+      seg->p->tot_len, TCPH_HDRLEN(seg->tcphdr) * 4, &pcb->local_ip, &pcb->remote_ip);
     /* add payload checksum */
     if (seg->chksum_swapped) {
       seg->chksum = SWAP_BYTES_IN_WORD(seg->chksum);
@@ -1150,19 +1153,19 @@ tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb)
 #endif /* TCP_CHECKSUM_ON_COPY_SANITY_CHECK */
   }
 #else /* TCP_CHECKSUM_ON_COPY */
-  seg->tcphdr->chksum = inet_chksum_pseudo(seg->p, &(pcb->local_ip),
-         &(pcb->remote_ip),
-         IP_PROTO_TCP, seg->p->tot_len);
-#endif /* TCP_CHECKSUM_ON_COPY */
+#if CHECKSUM_GEN_TCP
+  seg->tcphdr->chksum = ipX_chksum_pseudo(PCB_ISIPV6(pcb), seg->p, IP_PROTO_TCP,
+    seg->p->tot_len, &pcb->local_ip, &pcb->remote_ip);
 #endif /* CHECKSUM_GEN_TCP */
+#endif /* TCP_CHECKSUM_ON_COPY */
   TCP_STATS_INC(tcp.xmit);
 
 #if LWIP_NETIF_HWADDRHINT
-  ip_output_hinted(seg->p, &(pcb->local_ip), &(pcb->remote_ip), pcb->ttl, pcb->tos,
-      IP_PROTO_TCP, &(pcb->addr_hint));
+  ipX_output_hinted(PCB_ISIPV6(pcb), seg->p, &pcb->local_ip, &pcb->remote_ip,
+    pcb->ttl, pcb->tos, IP_PROTO_TCP, &pcb->addr_hint);
 #else /* LWIP_NETIF_HWADDRHINT*/
-  ip_output(seg->p, &(pcb->local_ip), &(pcb->remote_ip), pcb->ttl, pcb->tos,
-      IP_PROTO_TCP);
+  ipX_output(PCB_ISIPV6(pcb), seg->p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl,
+    pcb->tos, IP_PROTO_TCP);
 #endif /* LWIP_NETIF_HWADDRHINT*/
 }
 
@@ -1187,9 +1190,13 @@ tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb)
  * @param remote_port the remote TCP port to send the segment to
  */
 void
-tcp_rst(u32_t seqno, u32_t ackno,
-  ip_addr_t *local_ip, ip_addr_t *remote_ip,
-  u16_t local_port, u16_t remote_port)
+tcp_rst_impl(u32_t seqno, u32_t ackno,
+  ipX_addr_t *local_ip, ipX_addr_t *remote_ip,
+  u16_t local_port, u16_t remote_port
+#if LWIP_IPV6
+  , u8_t isipv6
+#endif /* LWIP_IPV6 */
+  )
 {
   struct pbuf *p;
   struct tcp_hdr *tcphdr;
@@ -1211,14 +1218,15 @@ tcp_rst(u32_t seqno, u32_t ackno,
   tcphdr->chksum = 0;
   tcphdr->urgp = 0;
 
-#if CHECKSUM_GEN_TCP
-  tcphdr->chksum = inet_chksum_pseudo(p, local_ip, remote_ip,
-              IP_PROTO_TCP, p->tot_len);
-#endif
   TCP_STATS_INC(tcp.xmit);
   snmp_inc_tcpoutrsts();
-   /* Send output with hardcoded TTL since we have no access to the pcb */
-  ip_output(p, local_ip, remote_ip, TCP_TTL, 0, IP_PROTO_TCP);
+
+#if CHECKSUM_GEN_TCP
+  tcphdr->chksum = ipX_chksum_pseudo(isipv6, p, IP_PROTO_TCP, p->tot_len,
+                                     local_ip, remote_ip);
+#endif
+  /* Send output with hardcoded TTL/HL since we have no access to the pcb */
+  ipX_output(isipv6, p, local_ip, remote_ip, TCP_TTL, 0, IP_PROTO_TCP);
   pbuf_free(p);
   LWIP_DEBUGF(TCP_RST_DEBUG, ("tcp_rst: seqno %"U32_F" ackno %"U32_F".\n", seqno, ackno));
 }
@@ -1354,9 +1362,9 @@ tcp_keepalive(struct tcp_pcb *pcb)
   struct pbuf *p;
   struct tcp_hdr *tcphdr;
 
-  LWIP_DEBUGF(TCP_DEBUG, ("tcp_keepalive: sending KEEPALIVE probe to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
-                          ip4_addr1_16(&pcb->remote_ip), ip4_addr2_16(&pcb->remote_ip),
-                          ip4_addr3_16(&pcb->remote_ip), ip4_addr4_16(&pcb->remote_ip)));
+  LWIP_DEBUGF(TCP_DEBUG, ("tcp_keepalive: sending KEEPALIVE probe to "));
+  ipX_addr_debug_print(PCB_ISIPV6(pcb), TCP_DEBUG, &pcb->remote_ip);
+  LWIP_DEBUGF(TCP_DEBUG, ("\n"));
 
   LWIP_DEBUGF(TCP_DEBUG, ("tcp_keepalive: tcp_ticks %"U32_F"   pcb->tmr %"U32_F" pcb->keep_cnt_sent %"U16_F"\n", 
                           tcp_ticks, pcb->tmr, pcb->keep_cnt_sent));
@@ -1369,18 +1377,17 @@ tcp_keepalive(struct tcp_pcb *pcb)
   }
   tcphdr = (struct tcp_hdr *)p->payload;
 
-#if CHECKSUM_GEN_TCP
-  tcphdr->chksum = inet_chksum_pseudo(p, &pcb->local_ip, &pcb->remote_ip,
-                                      IP_PROTO_TCP, p->tot_len);
-#endif
+  tcphdr->chksum = ipX_chksum_pseudo(PCB_ISIPV6(pcb), p, IP_PROTO_TCP, p->tot_len,
+      &pcb->local_ip, &pcb->remote_ip);
   TCP_STATS_INC(tcp.xmit);
 
   /* Send output to IP */
 #if LWIP_NETIF_HWADDRHINT
-  ip_output_hinted(p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl, 0, IP_PROTO_TCP,
-    &(pcb->addr_hint));
+  ipX_output_hinted(PCB_ISIPV6(pcb), p, &pcb->local_ip, &pcb->remote_ip,
+    pcb->ttl, 0, IP_PROTO_TCP, &pcb->addr_hint);
 #else /* LWIP_NETIF_HWADDRHINT*/
-  ip_output(p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl, 0, IP_PROTO_TCP);
+  ipX_output(PCB_ISIPV6(pcb), p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl,
+    0, IP_PROTO_TCP);
 #endif /* LWIP_NETIF_HWADDRHINT*/
 
   pbuf_free(p);
@@ -1407,11 +1414,9 @@ tcp_zero_window_probe(struct tcp_pcb *pcb)
   u16_t len;
   u8_t is_fin;
 
-  LWIP_DEBUGF(TCP_DEBUG, 
-              ("tcp_zero_window_probe: sending ZERO WINDOW probe to %"
-               U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
-               ip4_addr1_16(&pcb->remote_ip), ip4_addr2_16(&pcb->remote_ip),
-               ip4_addr3_16(&pcb->remote_ip), ip4_addr4_16(&pcb->remote_ip)));
+  LWIP_DEBUGF(TCP_DEBUG, ("tcp_zero_window_probe: sending ZERO WINDOW probe to "));
+  ipX_addr_debug_print(PCB_ISIPV6(pcb), TCP_DEBUG, &pcb->remote_ip);
+  LWIP_DEBUGF(TCP_DEBUG, ("\n"));
 
   LWIP_DEBUGF(TCP_DEBUG, 
               ("tcp_zero_window_probe: tcp_ticks %"U32_F
@@ -1430,7 +1435,7 @@ tcp_zero_window_probe(struct tcp_pcb *pcb)
   is_fin = ((TCPH_FLAGS(seg->tcphdr) & TCP_FIN) != 0) && (seg->len == 0);
   /* we want to send one seqno: either FIN or data (no options) */
   len = is_fin ? 0 : 1;
-   
+
   p = tcp_output_alloc_header(pcb, 0, len, seg->tcphdr->seqno);
   if(p == NULL) {
     LWIP_DEBUGF(TCP_DEBUG, ("tcp_zero_window_probe: no memory for pbuf\n"));
@@ -1443,21 +1448,23 @@ tcp_zero_window_probe(struct tcp_pcb *pcb)
     TCPH_FLAGS_SET(tcphdr, TCP_ACK | TCP_FIN);
   } else {
     /* Data segment, copy in one byte from the head of the unacked queue */
-    *((char *)p->payload + TCP_HLEN) = *(char *)seg->dataptr;
+    struct tcp_hdr *thdr = (struct tcp_hdr *)seg->p->payload;
+    char *d = ((char *)p->payload + TCP_HLEN);
+    pbuf_copy_partial(seg->p, d, 1, TCPH_HDRLEN(thdr) * 4);
   }
 
 #if CHECKSUM_GEN_TCP
-  tcphdr->chksum = inet_chksum_pseudo(p, &pcb->local_ip, &pcb->remote_ip,
-                                      IP_PROTO_TCP, p->tot_len);
+  tcphdr->chksum = ipX_chksum_pseudo(PCB_ISIPV6(pcb), p, IP_PROTO_TCP, p->tot_len,
+      &pcb->local_ip, &pcb->remote_ip);
 #endif
   TCP_STATS_INC(tcp.xmit);
 
   /* Send output to IP */
 #if LWIP_NETIF_HWADDRHINT
-  ip_output_hinted(p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl, 0, IP_PROTO_TCP,
-    &(pcb->addr_hint));
+  ipX_output_hinted(PCB_ISIPV6(pcb), p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl,
+    0, IP_PROTO_TCP, &pcb->addr_hint);
 #else /* LWIP_NETIF_HWADDRHINT*/
-  ip_output(p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl, 0, IP_PROTO_TCP);
+  ipX_output(PCB_ISIPV6(pcb), p, &pcb->local_ip, &pcb->remote_ip, pcb->ttl, 0, IP_PROTO_TCP);
 #endif /* LWIP_NETIF_HWADDRHINT*/
 
   pbuf_free(p);

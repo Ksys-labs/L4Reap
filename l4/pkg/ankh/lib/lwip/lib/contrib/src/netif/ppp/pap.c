@@ -136,7 +136,7 @@ static void
 upap_init(int unit)
 {
   upap_state *u = &upap[unit];
-  
+
   UPAPDEBUG(LOG_INFO, ("upap_init: %d\n", unit));
   u->us_unit         = unit;
   u->us_user         = NULL;
@@ -218,7 +218,7 @@ upap_timeout(void *arg)
         u->us_unit, u->us_timeouttime, u->us_clientstate));
 
   if (u->us_clientstate != UPAPCS_AUTHREQ) {
-	UPAPDEBUG(LOG_INFO, ("upap_timeout: not in AUTHREQ state!\n"));
+    UPAPDEBUG(LOG_INFO, ("upap_timeout: not in AUTHREQ state!\n"));
     return;
   }
 
@@ -483,15 +483,15 @@ upap_rauthack(upap_state *u, u_char *inp, int id, int len)
   if (len < (int)sizeof (u_char)) {
     UPAPDEBUG(LOG_INFO, ("pap_rauthack: ignoring missing msg-length.\n"));
   } else {
-  GETCHAR(msglen, inp);
+    GETCHAR(msglen, inp);
     if (msglen > 0) {
-  len -= sizeof (u_char);
-  if (len < msglen) {
+      len -= sizeof (u_char);
+      if (len < msglen) {
         UPAPDEBUG(LOG_INFO, ("pap_rauthack: rcvd short packet.\n"));
-    return;
-  }
-  msg = (char *) inp;
-  PRINTMSG(msg, msglen);
+        return;
+      }
+      msg = (char *) inp;
+      PRINTMSG(msg, msglen);
     }
   }
   UNTIMEOUT(upap_timeout, u);    /* Cancel timeout */

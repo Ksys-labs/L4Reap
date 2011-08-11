@@ -10,8 +10,6 @@
 #include <l4/re/protocols>
 
 #include <l4/cxx/ipc_server>
-#include <l4/cxx/iostream>
-#include <l4/cxx/l4iostream>
 
 #include <l4/re/env>
 #include <l4/re/namespace>
@@ -186,7 +184,7 @@ System_bus::dump_resources() const
 }
 
 int
-System_bus::request_resource(L4::Ipc_iostream &ios)
+System_bus::request_resource(L4::Ipc::Iostream &ios)
 {
   l4vbus_resource_t res;
   ios.get(res);
@@ -231,7 +229,7 @@ System_bus::request_resource(L4::Ipc_iostream &ios)
       if ((1UL << szl2) > sz)
 	--szl2;
 
-      ios << L4::Snd_fpage::io(res.start, szl2, L4_FPAGE_RWX);
+      ios << L4::Ipc::Snd_fpage::io(res.start, szl2, L4_FPAGE_RWX);
       return L4_EOK;
     }
 
@@ -240,7 +238,7 @@ System_bus::request_resource(L4::Ipc_iostream &ios)
 }
 
 int
-System_bus::request_iomem(L4::Ipc_iostream &ios)
+System_bus::request_iomem(L4::Ipc::Iostream &ios)
 {
   L4::Opcode op;
   ios >> op;
@@ -275,10 +273,10 @@ System_bus::request_iomem(L4::Ipc_iostream &ios)
                                  addr, addr, addr + (*r)->size(), spot);
 
           // we also might want to do WB instead of UNCACHED...
-          ios << L4::Snd_fpage::mem(l4_trunc_size(addr, order), order,
+          ios << L4::Ipc::Snd_fpage::mem(l4_trunc_size(addr, order), order,
                                     L4_FPAGE_RWX, l4_trunc_page(spot),
-                                    L4::Snd_fpage::Map,
-                                    L4::Snd_fpage::Uncached);
+                                    L4::Ipc::Snd_fpage::Map,
+                                    L4::Ipc::Snd_fpage::Uncached);
 	  return L4_EOK;
 	}
     }
@@ -286,7 +284,7 @@ System_bus::request_iomem(L4::Ipc_iostream &ios)
 };
 
 int
-System_bus::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+System_bus::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;
@@ -310,7 +308,7 @@ System_bus::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
 }
 
 int
-System_bus::dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc_iostream &ios)
+System_bus::dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc::Iostream &ios)
 {
   switch (func)
     {

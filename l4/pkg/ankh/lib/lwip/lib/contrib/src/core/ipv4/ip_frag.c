@@ -197,7 +197,7 @@ ip_reass_free_complete_datagram(struct ip_reassdata *ipr, struct ip_reassdata *p
     clen = pbuf_clen(pcur);
     LWIP_ASSERT("pbufs_freed + clen <= 0xffff", pbufs_freed + clen <= 0xffff);
     pbufs_freed += clen;
-    pbuf_free(pcur);    
+    pbuf_free(pcur);
   }
   /* Then, unchain the struct ip_reassdata from the list and free it. */
   ip_reass_dequeue_datagram(ipr, prev);
@@ -616,6 +616,38 @@ nullreturn:
 #if IP_FRAG
 #if IP_FRAG_USES_STATIC_BUF
 static u8_t buf[LWIP_MEM_ALIGN_SIZE(IP_FRAG_MAX_MTU + MEM_ALIGNMENT - 1)];
+#else /* IP_FRAG_USES_STATIC_BUF */
+
+#if !LWIP_NETIF_TX_SINGLE_PBUF
+/** Allocate a new struct pbuf_custom_ref */
+static struct pbuf_custom_ref*
+ip_frag_alloc_pbuf_custom_ref(void)
+{
+  return (struct pbuf_custom_ref*)memp_malloc(MEMP_FRAG_PBUF);
+}
+
+/** Free a struct pbuf_custom_ref */
+static void
+ip_frag_free_pbuf_custom_ref(struct pbuf_custom_ref* p)
+{
+  LWIP_ASSERT("p != NULL", p != NULL);
+  memp_free(MEMP_FRAG_PBUF, p);
+}
+
+/** Free-callback function to free a 'struct pbuf_custom_ref', called by
+ * pbuf_free. */
+static void
+ipfrag_free_pbuf_custom(struct pbuf *p)
+{
+  struct pbuf_custom_ref *pcr = (struct pbuf_custom_ref*)p;
+  LWIP_ASSERT("pcr != NULL", pcr != NULL);
+  LWIP_ASSERT("pcr == p", (void*)pcr == (void*)p);
+  if (pcr->original != NULL) {
+    pbuf_free(pcr->original);
+  }
+  ip_frag_free_pbuf_custom_ref(pcr);
+}
+#endif /* !LWIP_NETIF_TX_SINGLE_PBUF */
 #endif /* IP_FRAG_USES_STATIC_BUF */
 
 /**
@@ -674,7 +706,7 @@ ip_frag(struct pbuf *p, struct netif *netif, ip_addr_t *dest)
   iphdr = (struct ip_hdr *)rambuf->payload;
   SMEMCPY(iphdr, p->payload, IP_HLEN);
 #else /* IP_FRAG_USES_STATIC_BUF */
-  original_iphdr = p->payload;
+  original_iphdr = (struct ip_hdr *)p->payload;
   iphdr = original_iphdr;
 #endif /* IP_FRAG_USES_STATIC_BUF */
 
@@ -731,7 +763,7 @@ ip_frag(struct pbuf *p, struct netif *netif, ip_addr_t *dest)
     LWIP_ASSERT("this needs a pbuf in one piece!",
                 (p->len >= (IP_HLEN)));
     SMEMCPY(rambuf->payload, original_iphdr, IP_HLEN);
-    iphdr = rambuf->payload;
+    iphdr = (struct ip_hdr *)rambuf->payload;
 
     /* Can just adjust p directly for needed offset. */
     p->payload = (u8_t *)p->payload + poff;
@@ -739,20 +771,29 @@ ip_frag(struct pbuf *p, struct netif *netif, ip_addr_t *dest)
 
     left_to_copy = cop;
     while (left_to_copy) {
+      struct pbuf_custom_ref *pcr;
       newpbuflen = (left_to_copy < p->len) ? left_to_copy : p->len;
       /* Is this pbuf already empty? */
       if (!newpbuflen) {
         p = p->next;
         continue;
       }
-      newpbuf = pbuf_alloc(PBUF_RAW, 0, PBUF_REF);
-      if (newpbuf == NULL) {
+      pcr = ip_frag_alloc_pbuf_custom_ref();
+      if (pcr == NULL) {
         pbuf_free(rambuf);
         return ERR_MEM;
       }
       /* Mirror this pbuf, although we might not need all of it. */
-      newpbuf->payload = p->payload;
-      newpbuf->len = newpbuf->tot_len = newpbuflen;
+      newpbuf = pbuf_alloced_custom(PBUF_RAW, newpbuflen, PBUF_REF, &pcr->pc, p->payload, newpbuflen);
+      if (newpbuf == NULL) {
+        ip_frag_free_pbuf_custom_ref(pcr);
+        pbuf_free(rambuf);
+        return ERR_MEM;
+      }
+      pbuf_ref(p);
+      pcr->original = p;
+      pcr->pc.custom_free_function = ipfrag_free_pbuf_custom;
+
       /* Add it to end of rambuf's chain, but using pbuf_cat, not pbuf_chain
        * so that it is removed when pbuf_dechain is later called on rambuf.
        */
@@ -760,7 +801,7 @@ ip_frag(struct pbuf *p, struct netif *netif, ip_addr_t *dest)
       left_to_copy -= newpbuflen;
       if (left_to_copy) {
         p = p->next;
-    }
+      }
     }
     poff = newpbuflen;
 #endif /* LWIP_NETIF_TX_SINGLE_PBUF */

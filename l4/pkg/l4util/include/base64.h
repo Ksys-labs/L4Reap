@@ -39,7 +39,7 @@ EXTERN_C_BEGIN
  *  base-64-encode string \a infile adding padding as per spec
  */
 L4_CV void base64_encode( const char *infile, unsigned int in_size, char **outfile);
- 
+
 /*!
  * \brief decode base-64-encoded string \a infile
  * \internal

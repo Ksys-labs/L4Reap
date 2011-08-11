@@ -25,7 +25,7 @@
  *          -#L4SIGMA0_IPCERROR   IPC error
  *          -#L4SIGMA0_NOFPAGE    no fpage received
  */
-int
+L4_CV int
 l4sigma0_map_mem(l4_cap_idx_t pager,
 		 l4_addr_t phys, l4_addr_t virt, l4_addr_t size)
 {

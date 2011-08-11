@@ -87,7 +87,7 @@ static char const * const __tag_interpreter_strings_fiasco[] = {
     "Kpreempt",
     "Ksysexc",
     "Kexc",      // -5
-    "Ks0",
+    "Ksigma",
     0,
     "Kiopf",
     "Kcapfault",

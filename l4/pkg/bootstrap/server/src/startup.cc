@@ -978,17 +978,18 @@ init_pc_serial(l4util_mb_info_t *mbi)
       if (comport == -1)
         comport = 1;
 
-      com_cons_init(comport, comirq, &kuart, &kuart_flags);
+      if (com_cons_init(comport, comirq, &kuart, &kuart_flags))
+        printf("UART init failed\n");
     }
 #else
   (void)mbi;
 #endif
 }
 
-#ifdef ARCH_arm
+#if defined(ARCH_arm) || defined(ARCH_ppc32) || defined(ARCH_sparc)
 #ifndef IMAGE_MODE
 // check that our is_precious_ram function can work ok
-#error For ARM, IMAGE_MODE must always be enabled
+#error For ARM/PPC/SPARC, IMAGE_MODE must always be enabled
 #endif
 
 /* Occupied RAM at the point we are scannig it */

@@ -42,7 +42,7 @@ public:
   Vesa_fb(l4util_mb_info_t *mbi);
   virtual ~Vesa_fb() {}
 
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
   { return L4Re::Util::Video::Goos_svr::dispatch(obj, ios); }
 };
 

@@ -15,7 +15,7 @@ int L4_CV
 l4vbus_gpio_write(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
                   int pin, int val)
 {
-  L4::Ipc_iostream s(l4_utcb());
+  L4::Ipc::Iostream s(l4_utcb());
   l4vbus_device_msg(handle, L4vbus_gpio_write, s);
   s << pin << val;
   int err = l4_error(s.call(vbus));
@@ -26,7 +26,7 @@ int L4_CV
 l4vbus_gpio_read(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
                  int  pin, int *val)
 {
-  L4::Ipc_iostream s(l4_utcb());
+  L4::Ipc::Iostream s(l4_utcb());
   l4vbus_device_msg(handle, L4vbus_gpio_read, s);
   s << pin;
   int err = l4_error(s.call(vbus));

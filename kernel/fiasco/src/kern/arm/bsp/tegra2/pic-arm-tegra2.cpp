@@ -1,7 +1,6 @@
 INTERFACE [arm && tegra2]:
 
 #include "gic.h"
-#include "kmem.h"
 
 class Irq_base;
 
@@ -25,6 +24,7 @@ IMPLEMENTATION [arm && pic_gic && tegra2]:
 #include "initcalls.h"
 #include "irq_chip.h"
 #include "irq_chip_generic.h"
+#include "kmem.h"
 
 Gic Gic_pin::_gic[1];
 
@@ -33,8 +33,7 @@ class Irq_chip_tegra2 : public Irq_chip_gen
 };
 
 PUBLIC
-void
-Irq_chip_tegra2::setup(Irq_base *irq, unsigned irqnum)
+void Irq_chip_tegra2::setup(Irq_base *irq, unsigned irqnum)
 {
   irq->pin()->replace<Gic_pin>(0, irqnum);
 }

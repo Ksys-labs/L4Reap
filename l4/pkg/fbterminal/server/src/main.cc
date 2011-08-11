@@ -76,7 +76,7 @@ public:
   typedef L4Re::Util::Vcon_svr<Terminal>          Vcon_svr;
 
   explicit Terminal();
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
   void trigger() { _irq.trigger(); }
 
@@ -452,7 +452,7 @@ Terminal::vcon_get_attr(l4_vcon_attr_t *attr) throw()
 }
 
 int
-Terminal::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+Terminal::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;
@@ -473,11 +473,11 @@ Terminal::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
 class Controller : public L4::Server_object
 {
 public:
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 };
 
 int
-Controller::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Controller::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;
@@ -524,10 +524,10 @@ struct My_hooks
     public L4::Ipc_svr::Ignore_errors,
     public L4::Ipc_svr::Compound_reply
 {
-  void setup_wait(L4::Ipc_istream &istr, L4::Ipc_svr::Reply_mode)
+  void setup_wait(L4::Ipc::Istream &istr, L4::Ipc_svr::Reply_mode)
   {
     istr.reset();
-    istr << L4::Small_buf(rcv_cap().cap(), L4_RCV_ITEM_LOCAL_ID);
+    istr << L4::Ipc::Small_buf(rcv_cap().cap(), L4_RCV_ITEM_LOCAL_ID);
     l4_utcb_br_u(istr.utcb())->bdr = 0;
   }
 };

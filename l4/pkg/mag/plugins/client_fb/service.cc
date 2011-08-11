@@ -58,7 +58,7 @@ namespace {
 };
 
 int
-Service::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Service::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;

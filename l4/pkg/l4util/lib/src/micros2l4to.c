@@ -24,7 +24,7 @@
 #include <l4/util/util.h>
 #include <l4/util/bitops.h>
 
-l4_timeout_s
+L4_CV l4_timeout_s
 l4util_micros2l4to(unsigned int mus)
 {
   l4_timeout_s t;

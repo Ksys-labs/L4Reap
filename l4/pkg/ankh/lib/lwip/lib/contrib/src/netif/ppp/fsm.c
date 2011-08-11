@@ -143,7 +143,7 @@ fsm_lowerup(fsm *f)
       FSMDEBUG(LOG_INFO, ("%s: Up event in state %d (%s)!\n",
           PROTO_NAME(f), f->state, ppperr_strerr[f->state]));
   }
-  
+
   FSMDEBUG(LOG_INFO, ("%s: lowerup state %d (%s) -> %d (%s)\n",
       PROTO_NAME(f), oldState, ppperr_strerr[oldState], f->state, ppperr_strerr[f->state]));
 }
@@ -332,7 +332,7 @@ fsm_timeout(void *arg)
         f->state = (f->state == LS_CLOSING)? LS_CLOSED: LS_STOPPED;
         if( f->callbacks->finished ) {
           (*f->callbacks->finished)(f);
-  }
+        }
       } else {
         FSMDEBUG(LOG_WARNING, ("%s: timeout resending Terminate-Requests state=%d (%s)\n",
              PROTO_NAME(f), f->state, ppperr_strerr[f->state]));

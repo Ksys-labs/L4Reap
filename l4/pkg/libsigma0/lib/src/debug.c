@@ -10,7 +10,7 @@
 #include <l4/sys/ipc.h>
 #include <l4/sigma0/sigma0.h>
 
-void
+L4_CV void
 l4sigma0_debug_dump(l4_cap_idx_t pager)
 {
   l4_msgtag_t tag = l4_msgtag(L4_PROTO_SIGMA0, 1, 0, 0);

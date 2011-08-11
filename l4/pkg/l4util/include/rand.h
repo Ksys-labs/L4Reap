@@ -23,7 +23,7 @@
 
 EXTERN_C_BEGIN
 
-/** 
+/**
  * \defgroup l4util_random Random number support
  * \ingroup l4util_api
  */
@@ -31,7 +31,7 @@ EXTERN_C_BEGIN
 /**
  * \brief Deliver next random number
  * \ingroup l4util_random
- * 
+ *
  * \return A new random number
  */
 L4_CV l4_uint32_t
@@ -40,7 +40,7 @@ l4util_rand(void);
 /**
  * \brief Initialize random number generator
  * \ingroup l4util_random
- * 
+ *
  * \param seed Value to initialize
  */
 L4_CV void

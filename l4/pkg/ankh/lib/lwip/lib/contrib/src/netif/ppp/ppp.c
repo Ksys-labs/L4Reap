@@ -344,7 +344,9 @@ static void
 pppRecvWakeup(int pd)
 {
   PPPDEBUG(LOG_DEBUG, ("pppRecvWakeup: unit %d\n", pd));
-  sio_read_abort(pppControl[pd].fd);
+  if (pppControl[pd].openFlag != 0) {
+    sio_read_abort(pppControl[pd].fd);
+  }
 }
 #endif /* PPPOS_SUPPORT */
 
@@ -363,7 +365,6 @@ pppLinkTerminated(int pd)
     PPPControl* pc;
     pppRecvWakeup(pd);
     pc = &pppControl[pd];
-    pppDrop(&pc->rx); /* bug fix #17726 */
 
     PPPDEBUG(LOG_DEBUG, ("pppLinkTerminated: unit %d: linkStatusCB=%p errCode=%d\n", pd, pc->linkStatusCB, pc->errCode));
     if (pc->linkStatusCB) {
@@ -439,7 +440,7 @@ pppInit(void)
 
   magicInit();
 
-  subnetMask = PP_HTONL(0xffffff00);
+  subnetMask = PP_HTONL(0xffffff00UL);
 
   for (i = 0; i < NUM_PPP; i++) {
     /* Initialize each protocol to the standard option set. */
@@ -681,20 +682,8 @@ pppClose(int pd)
 void
 pppSigHUP(int pd)
 {
-#if PPPOE_SUPPORT
-  PPPControl *pc = &pppControl[pd];
-  if(pc->ethif) {
-    PPPDEBUG(LOG_DEBUG, ("pppSigHUP: unit %d sig_hup -> pppHupCB\n", pd));
-    pppHup(pd);
-  } else
-#endif /* PPPOE_SUPPORT */
-  {
-#if PPPOS_SUPPORT
-    PPPDEBUG(LOG_DEBUG, ("pppSigHUP: unit %d sig_hup -> pppHupCB\n", pd));
-    pppHup(pd);
-    pppRecvWakeup(pd);
-#endif /* PPPOS_SUPPORT */
-  }
+  PPPDEBUG(LOG_DEBUG, ("pppSigHUP: unit %d sig_hup -> pppHupCB\n", pd));
+  pppHup(pd);
 }
 
 #if PPPOS_SUPPORT
@@ -1523,11 +1512,11 @@ pppInputThread(void *arg)
     count = sio_read(pcrx->fd, pcrx->rxbuf, PPPOS_RX_BUFSIZE);
     if(count > 0) {
       pppInProc(pcrx, pcrx->rxbuf, count);
-      } else {
+    } else {
       /* nothing received, give other tasks a chance to run */
       sys_msleep(1);
-      }
     }
+  }
 }
 #endif /* PPPOS_SUPPORT && PPP_INPROC_OWNTHREAD */
 
@@ -1704,8 +1693,8 @@ pppInput(void *arg)
       }
 #if BYTE_ORDER == LITTLE_ENDIAN
       protocol = htons(protocol);
-      SMEMCPY(nb->payload, &protocol, sizeof(protocol));
 #endif /* BYTE_ORDER == LITTLE_ENDIAN */
+      SMEMCPY(nb->payload, &protocol, sizeof(protocol));
       lcp_sprotrej(pd, nb->payload, nb->len);
     }
     break;
@@ -1774,7 +1763,7 @@ pppInProc(PPPControlRx *pcrx, u_char *s, int l)
   PPPDEBUG(LOG_DEBUG, ("pppInProc[%d]: got %d bytes\n", pcrx->pd, l));
   while (l-- > 0) {
     curChar = *s++;
-    
+
     SYS_ARCH_PROTECT(lev);
     escaped = ESCAPE_P(pcrx->inACCM, curChar);
     SYS_ARCH_UNPROTECT(lev);
@@ -1789,59 +1778,62 @@ pppInProc(PPPControlRx *pcrx, u_char *s, int l)
         pcrx->inEscaped = 1;
       /* Check for the flag character. */
       } else if (curChar == PPP_FLAG) {
-         /* If this is just an extra flag character, ignore it. */
+        /* If this is just an extra flag character, ignore it. */
         if (pcrx->inState <= PDADDRESS) {
-           /* ignore it */;
-         /* If we haven't received the packet header, drop what has come in. */
+          /* ignore it */;
+        /* If we haven't received the packet header, drop what has come in. */
         } else if (pcrx->inState < PDDATA) {
           PPPDEBUG(LOG_WARNING,
                    ("pppInProc[%d]: Dropping incomplete packet %d\n", 
                     pcrx->pd, pcrx->inState));
-           LINK_STATS_INC(link.lenerr);
+          LINK_STATS_INC(link.lenerr);
           pppDrop(pcrx);
-         /* If the fcs is invalid, drop the packet. */
+        /* If the fcs is invalid, drop the packet. */
         } else if (pcrx->inFCS != PPP_GOODFCS) {
           PPPDEBUG(LOG_INFO,
                    ("pppInProc[%d]: Dropping bad fcs 0x%"X16_F" proto=0x%"X16_F"\n", 
                     pcrx->pd, pcrx->inFCS, pcrx->inProtocol));
           /* Note: If you get lots of these, check for UART frame errors or try different baud rate */
-           LINK_STATS_INC(link.chkerr);
+          LINK_STATS_INC(link.chkerr);
           pppDrop(pcrx);
-         /* Otherwise it's a good packet so pass it on. */
-         } else {
-           /* Trim off the checksum. */
+        /* Otherwise it's a good packet so pass it on. */
+        } else {
+          struct pbuf *inp;
+          /* Trim off the checksum. */
           if(pcrx->inTail->len >= 2) {
             pcrx->inTail->len -= 2;
 
             pcrx->inTail->tot_len = pcrx->inTail->len;
             if (pcrx->inTail != pcrx->inHead) {
               pbuf_cat(pcrx->inHead, pcrx->inTail);
-             }
-           } else {
+            }
+          } else {
             pcrx->inTail->tot_len = pcrx->inTail->len;
             if (pcrx->inTail != pcrx->inHead) {
               pbuf_cat(pcrx->inHead, pcrx->inTail);
-             }
+            }
 
             pbuf_realloc(pcrx->inHead, pcrx->inHead->tot_len - 2);
-           }
+          }
 
-           /* Dispatch the packet thereby consuming it. */
-#if PPP_INPROC_MULTITHREADED
-          if(tcpip_callback_with_block(pppInput, pcrx->inHead, 0) != ERR_OK) {
-            PPPDEBUG(LOG_ERR, ("pppInProc[%d]: tcpip_callback() failed, dropping packet\n", pcrx->pd));
-            pbuf_free(pcrx->inHead);
-             LINK_STATS_INC(link.drop);
-            snmp_inc_ifindiscards(&pppControl[pcrx->pd].netif);
-           }
-#else /* PPP_INPROC_MULTITHREADED */
-          pppInput(pcrx->inHead);
-#endif /* PPP_INPROC_MULTITHREADED */
+          /* Dispatch the packet thereby consuming it. */
+          inp = pcrx->inHead;
+          /* Packet consumed, release our references. */
           pcrx->inHead = NULL;
           pcrx->inTail = NULL;
-         }
+#if PPP_INPROC_MULTITHREADED
+          if(tcpip_callback_with_block(pppInput, inp, 0) != ERR_OK) {
+            PPPDEBUG(LOG_ERR, ("pppInProc[%d]: tcpip_callback() failed, dropping packet\n", pcrx->pd));
+            pbuf_free(inp);
+            LINK_STATS_INC(link.drop);
+            snmp_inc_ifindiscards(&pppControl[pcrx->pd].netif);
+          }
+#else /* PPP_INPROC_MULTITHREADED */
+          pppInput(inp);
+#endif /* PPP_INPROC_MULTITHREADED */
+        }
 
-         /* Prepare for a new packet. */
+        /* Prepare for a new packet. */
         pcrx->inFCS = PPP_INITFCS;
         pcrx->inState = PDADDRESS;
         pcrx->inEscaped = 0;
@@ -1912,10 +1904,12 @@ pppInProc(PPPControlRx *pcrx, u_char *s, int l)
         case PDDATA:                    /* Process data byte. */
           /* Make space to receive processed data. */
           if (pcrx->inTail == NULL || pcrx->inTail->len == PBUF_POOL_BUFSIZE) {
-            if(pcrx->inTail) {
+            if (pcrx->inTail != NULL) {
               pcrx->inTail->tot_len = pcrx->inTail->len;
               if (pcrx->inTail != pcrx->inHead) {
                 pbuf_cat(pcrx->inHead, pcrx->inTail);
+                /* give up the inTail reference now */
+                pcrx->inTail = NULL;
               }
             }
             /* If we haven't started a packet, we need a packet header. */
@@ -1949,7 +1943,7 @@ pppInProc(PPPControlRx *pcrx, u_char *s, int l)
 
       /* update the frame check sequence number. */
       pcrx->inFCS = PPP_FCS(pcrx->inFCS, curChar);
-  }
+    }
   } /* while (l-- > 0), all bytes processed */
 
   avRandomize();

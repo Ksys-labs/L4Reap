@@ -32,7 +32,7 @@ public:
   char const *tag() const { return _tag; }
   unsigned char color() const { return _color; }
 
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
   virtual ~Log() {}
 

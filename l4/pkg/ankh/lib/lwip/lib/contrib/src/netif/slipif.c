@@ -49,10 +49,12 @@
 
 #include "lwip/def.h"
 #include "lwip/pbuf.h"
-#include "lwip/sys.h"
 #include "lwip/stats.h"
 #include "lwip/snmp.h"
 #include "lwip/sio.h"
+#if !NO_SYS
+#include "lwip/sys.h"
+#endif
 
 #define SLIP_BLOCK     1
 #define SLIP_DONTBLOCK 0
@@ -157,7 +159,7 @@ slip_sio_read(sio_fd_t fd, u8_t* data, u32_t len, u8_t block)
  * @param block if 1, block until data is received; if 0, return when all data
  *        from the buffer is received (multiple calls to this function will
  *        return a complete packet, NULL is returned before - used for polling)
- * @return The IP packet when SLIP_END is received 
+ * @return The IP packet when SLIP_END is received
  */
 static struct pbuf *
 slipif_input(struct netif *netif, u8_t block)
@@ -174,23 +176,23 @@ slipif_input(struct netif *netif, u8_t block)
   while (slip_sio_read(priv->sd, &c, 1, block) > 0) {
     switch (priv->state) {
     case SLIP_RECV_NORMAL:
-    switch (c) {
-    case SLIP_END:
+      switch (c) {
+      case SLIP_END:
         if (priv->recved > 0) {
-        /* Received whole packet. */
-        /* Trim the pbuf to the size of the received packet. */
+          /* Received whole packet. */
+          /* Trim the pbuf to the size of the received packet. */
           pbuf_realloc(priv->q, priv->recved);
-        
-        LINK_STATS_INC(link.recv);
-        
-        LWIP_DEBUGF(SLIP_DEBUG, ("slipif: Got packet\n"));
+
+          LINK_STATS_INC(link.recv);
+
+          LWIP_DEBUGF(SLIP_DEBUG, ("slipif: Got packet\n"));
           t = priv->q;
           priv->p = priv->q = NULL;
           priv->i = priv->recved = 0;
           return t;
-      }
+        }
         continue;
-    case SLIP_ESC:
+      case SLIP_ESC:
         priv->state = SLIP_RECV_ESCAPE;
         continue;
       }
@@ -208,27 +210,27 @@ slipif_input(struct netif *netif, u8_t block)
       /* FALLTHROUGH */
     }
 
-      /* byte received, packet not yet completely received */
+    /* byte received, packet not yet completely received */
     if (priv->p == NULL) {
-        /* allocate a new pbuf */
-        LWIP_DEBUGF(SLIP_DEBUG, ("slipif_input: alloc\n"));
+      /* allocate a new pbuf */
+      LWIP_DEBUGF(SLIP_DEBUG, ("slipif_input: alloc\n"));
       priv->p = pbuf_alloc(PBUF_LINK, (PBUF_POOL_BUFSIZE - PBUF_LINK_HLEN), PBUF_POOL);
 
       if (priv->p == NULL) {
-          LINK_STATS_INC(link.drop);
-          LWIP_DEBUGF(SLIP_DEBUG, ("slipif_input: no new pbuf! (DROP)\n"));
-          /* don't process any further since we got no pbuf to receive to */
-          break;
-        }
+        LINK_STATS_INC(link.drop);
+        LWIP_DEBUGF(SLIP_DEBUG, ("slipif_input: no new pbuf! (DROP)\n"));
+        /* don't process any further since we got no pbuf to receive to */
+        break;
+      }
 
       if (priv->q != NULL) {
-          /* 'chain' the pbuf to the existing chain */
+        /* 'chain' the pbuf to the existing chain */
         pbuf_cat(priv->q, priv->p);
-        } else {
-          /* p is the first pbuf in the chain */
+      } else {
+        /* p is the first pbuf in the chain */
         priv->q = priv->p;
-        }
       }
+    }
 
     /* this automatically drops bytes if > SLIP_MAX_SIZE */
     if ((priv->p != NULL) && (priv->recved <= SLIP_MAX_SIZE)) {
@@ -236,18 +238,18 @@ slipif_input(struct netif *netif, u8_t block)
       priv->recved++;
       priv->i++;
       if (priv->i >= priv->p->len) {
-          /* on to the next pbuf */
+        /* on to the next pbuf */
         priv->i = 0;
         if (priv->p->next != NULL && priv->p->next->len > 0) {
-            /* p is a chain, on to the next in the chain */
+          /* p is a chain, on to the next in the chain */
             priv->p = priv->p->next;
-          } else {
-            /* p is a single pbuf, set it to NULL so next time a new
-             * pbuf is allocated */
+        } else {
+          /* p is a single pbuf, set it to NULL so next time a new
+           * pbuf is allocated */
             priv->p = NULL;
-          }
         }
       }
+    }
   }
 
   return NULL;
@@ -335,9 +337,11 @@ slipif_init(struct netif *netif)
    */
   NETIF_INIT_SNMP(netif, snmp_ifType_slip, 0);
 
+#if !NO_SYS
   /* Create a thread to poll the serial line. */
   sys_thread_new(SLIPIF_THREAD_NAME, slipif_loop_thread, netif,
     SLIPIF_THREAD_STACKSIZE, SLIPIF_THREAD_PRIO);
+#endif
   return ERR_OK;
 }
 

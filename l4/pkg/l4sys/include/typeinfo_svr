@@ -29,7 +29,7 @@
 namespace L4 { namespace Util {
 
 template<typename KO>
-long handle_meta_request(L4::Ipc_iostream &ios)
+long handle_meta_request(L4::Ipc::Iostream &ios)
 {
   l4_umword_t op;
   ios >> op;

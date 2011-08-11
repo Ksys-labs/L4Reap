@@ -25,7 +25,7 @@
  */
 static char buffer[500];
 
-int l4_kprintf(const char *fmt, ...)
+L4_CV int l4_kprintf(const char *fmt, ...)
 {
   va_list list;
   int err;

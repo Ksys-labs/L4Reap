@@ -32,6 +32,7 @@ sub get_file($$)
                                                      $unzip_tmp);
 
   $cmdline =~ s/^\S+\s*//;
+  $cmdline =~ s/,/,,/g;
   $fp.' '.$cmdline;
 }
 
@@ -49,5 +50,18 @@ my $qemu_cmd =
       "-initrd \"$initrd\" ".join(' ', @ARGV);
 
 print "Note: At least QEmu 0.13 is required for the loading to work.\n";
+# and since nobody is reading this message or knows what the version of the
+# installed qemu is...
+my $o = `$qemu -version 2>&1`;
+if ($?)
+  {
+    print "Failed to launch QEmu ($qemu)\n";
+    exit $?;
+  }
+if ($o !~ /\s(\d+)\.(\d+)/ || ($1 == 0 && $2 < 13))
+  {
+    print "\nYour installed Qemu is too old, please upgrade to at least version 0.13.\n\n";
+    exit 1;
+  }
 print "$qemu_cmd\n";
 system("$qemu_cmd");

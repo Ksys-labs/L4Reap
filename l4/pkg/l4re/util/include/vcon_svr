@@ -52,7 +52,7 @@ public:
    *
    * \return error code.
    */
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
   unsigned vcon_read(char *buf, unsigned size) throw();
   void vcon_write(const char *buf, unsigned size) throw();
@@ -71,7 +71,7 @@ private:
 
 template< typename SVR >
 int
-Vcon_svr<SVR>::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Vcon_svr<SVR>::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;

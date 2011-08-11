@@ -7,7 +7,8 @@ REQUIRES_LIBS    = ankh libpthread
 SYSTEMS          = x86-l4f arm-l4f
 CONTRIB_INCDIR   = ankh_lwip \
                    ankh_lwip/contrib/src/include \
-                   ankh_lwip/contrib/src/include/ipv4
+                   ankh_lwip/contrib/src/include/ipv4 \
+                   ankh_lwip/contrib/src/include/ipv6
 
 SRC_C	= arch/sys_arch.c \
 		  arch/perf.c \
@@ -16,6 +17,7 @@ SRC_C	= arch/sys_arch.c \
 		  contrib/src/core/dhcp.c \
 		  contrib/src/core/init.c \
 		  contrib/src/core/dns.c \
+		  contrib/src/core/inet_chksum.c \
 		  contrib/src/core/mem.c \
 		  contrib/src/core/memp.c \
 		  contrib/src/core/netif.c \
@@ -40,10 +42,8 @@ SRC_C	= arch/sys_arch.c \
 		  contrib/src/core/ipv4/autoip.c \
 		  contrib/src/core/ipv4/icmp.c \
 		  contrib/src/core/ipv4/igmp.c \
-		  contrib/src/core/ipv4/inet.c \
-		  contrib/src/core/ipv4/inet_chksum.c \
-		  contrib/src/core/ipv4/ip_addr.c \
-		  contrib/src/core/ipv4/ip.c \
+		  contrib/src/core/ipv4/ip4_addr.c \
+		  contrib/src/core/ipv4/ip4.c \
 		  contrib/src/core/ipv4/ip_frag.c \
 		  contrib/src/core/snmp/asn1_dec.c \
 		  contrib/src/core/snmp/asn1_enc.c \

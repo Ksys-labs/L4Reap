@@ -18,7 +18,7 @@ using L4Re::Dataspace;
 
 
 int
-App_task::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+App_task::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;

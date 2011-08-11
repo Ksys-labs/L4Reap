@@ -42,18 +42,25 @@
 #include "lwip/opt.h"
 
 #include "lwip/timers.h"
+#include "lwip/tcp_impl.h"
+
+#if LWIP_TIMERS
+
 #include "lwip/def.h"
 #include "lwip/memp.h"
 #include "lwip/tcpip.h"
 
-#include "lwip/tcp_impl.h"
 #include "lwip/ip_frag.h"
 #include "netif/etharp.h"
 #include "lwip/dhcp.h"
 #include "lwip/autoip.h"
 #include "lwip/igmp.h"
 #include "lwip/dns.h"
-
+#include "lwip/nd6.h"
+#include "lwip/ip6_frag.h"
+#include "lwip/mld6.h"
+#include "lwip/sys.h"
+#include "lwip/pbuf.h"
 
 /** The one and only timeout list */
 static struct sys_timeo *next_timeout;
@@ -214,6 +221,54 @@ dns_timer(void *arg)
 }
 #endif /* LWIP_DNS */
 
+#if LWIP_IPV6
+/**
+ * Timer callback function that calls nd6_tmr() and reschedules itself.
+ *
+ * @param arg unused argument
+ */
+static void
+nd6_timer(void *arg)
+{
+  LWIP_UNUSED_ARG(arg);
+  LWIP_DEBUGF(TIMERS_DEBUG, ("tcpip: nd6_tmr()\n"));
+  nd6_tmr();
+  sys_timeout(ND6_TMR_INTERVAL, nd6_timer, NULL);
+}
+
+#if LWIP_IPV6_REASS
+/**
+ * Timer callback function that calls ip6_reass_tmr() and reschedules itself.
+ *
+ * @param arg unused argument
+ */
+static void
+ip6_reass_timer(void *arg)
+{
+  LWIP_UNUSED_ARG(arg);
+  LWIP_DEBUGF(TIMERS_DEBUG, ("tcpip: ip6_reass_tmr()\n"));
+  ip6_reass_tmr();
+  sys_timeout(IP6_REASS_TMR_INTERVAL, ip6_reass_timer, NULL);
+}
+#endif /* LWIP_IPV6_REASS */
+
+#if LWIP_IPV6_MLD
+/**
+ * Timer callback function that calls mld6_tmr() and reschedules itself.
+ *
+ * @param arg unused argument
+ */
+static void
+mld6_timer(void *arg)
+{
+  LWIP_UNUSED_ARG(arg);
+  LWIP_DEBUGF(TIMERS_DEBUG, ("tcpip: mld6_tmr()\n"));
+  mld6_tmr();
+  sys_timeout(MLD6_TMR_INTERVAL, mld6_timer, NULL);
+}
+#endif /* LWIP_IPV6_MLD */
+#endif /* LWIP_IPV6 */
+
 /** Initialize this module */
 void sys_timeouts_init(void)
 {
@@ -236,6 +291,15 @@ void sys_timeouts_init(void)
 #if LWIP_DNS
   sys_timeout(DNS_TMR_INTERVAL, dns_timer, NULL);
 #endif /* LWIP_DNS */
+#if LWIP_IPV6
+  sys_timeout(ND6_TMR_INTERVAL, nd6_timer, NULL);
+#if LWIP_IPV6_REASS
+  sys_timeout(IP6_REASS_TMR_INTERVAL, ip6_reass_timer, NULL);
+#endif /* LWIP_IPV6_REASS */
+#if LWIP_IPV6_MLD
+  sys_timeout(MLD6_TMR_INTERVAL, mld6_timer, NULL);
+#endif /* LWIP_IPV6_MLD */
+#endif /* LWIP_IPV6 */
 
 #if NO_SYS
   /* Initialise timestamp for sys_check_timeouts */
@@ -250,15 +314,15 @@ void sys_timeouts_init(void)
  * - by calling sys_check_timeouts() (NO_SYS==1 only)
  *
  * @param msecs time in milliseconds after that the timer should expire
- * @param h callback function to call when msecs have elapsed
+ * @param handler callback function to call when msecs have elapsed
  * @param arg argument to pass to the callback function
  */
 #if LWIP_DEBUG_TIMERNAMES
 void
-sys_timeout_debug(u32_t msecs, sys_timeout_handler h, void *arg, const char* handler_name)
+sys_timeout_debug(u32_t msecs, sys_timeout_handler handler, void *arg, const char* handler_name)
 #else /* LWIP_DEBUG_TIMERNAMES */
 void
-sys_timeout(u32_t msecs, sys_timeout_handler h, void *arg)
+sys_timeout(u32_t msecs, sys_timeout_handler handler, void *arg)
 #endif /* LWIP_DEBUG_TIMERNAMES */
 {
   struct sys_timeo *timeout, *t;
@@ -269,19 +333,13 @@ sys_timeout(u32_t msecs, sys_timeout_handler h, void *arg)
     return;
   }
   timeout->next = NULL;
-  timeout->h = h;
+  timeout->h = handler;
   timeout->arg = arg;
   timeout->time = msecs;
 #if LWIP_DEBUG_TIMERNAMES
   timeout->handler_name = handler_name;
-#endif /* LWIP_DEBUG_TIMERNAMES */
-
-#if LWIP_DEBUG_TIMERNAMES
-  LWIP_DEBUGF(TIMERS_DEBUG, ("sys_timeout: %p msecs=%"U32_F" h=%p arg=%p name=%s\n",
-    (void *)timeout, msecs, *(void**)&h, (void *)arg, handler_name));
-#else /* LWIP_DEBUG_TIMERNAMES */
-  LWIP_DEBUGF(TIMERS_DEBUG, ("sys_timeout: %p msecs=%"U32_F" h=%p arg=%p\n",
-    (void *)timeout, msecs, *(void**)&h, (void *)arg));
+  LWIP_DEBUGF(TIMERS_DEBUG, ("sys_timeout: %p msecs=%"U32_F" handler=%s arg=%p\n",
+    (void *)timeout, msecs, handler_name, (void *)arg));
 #endif /* LWIP_DEBUG_TIMERNAMES */
 
   if (next_timeout == NULL) {
@@ -313,13 +371,13 @@ sys_timeout(u32_t msecs, sys_timeout_handler h, void *arg)
  * entry, even though the timeout has not triggered yet.
  *
  * @note This function only works as expected if there is only one timeout
- * calling 'h' in the list of timeouts.
+ * calling 'handler' in the list of timeouts.
  *
- * @param h callback function that would be called by the timeout
- * @param arg callback argument that would be passed to h
+ * @param handler callback function that would be called by the timeout
+ * @param arg callback argument that would be passed to handler
 */
 void
-sys_untimeout(sys_timeout_handler h, void *arg)
+sys_untimeout(sys_timeout_handler handler, void *arg)
 {
   struct sys_timeo *prev_t, *t;
 
@@ -328,7 +386,7 @@ sys_untimeout(sys_timeout_handler h, void *arg)
   }
 
   for (t = next_timeout, prev_t = NULL; t != NULL; prev_t = t, t = t->next) {
-    if ((t->h == h) && (t->arg == arg)) {
+    if ((t->h == handler) && (t->arg == arg)) {
       /* We have a match */
       /* Unlink from previous in list */
       if (prev_t == NULL) {
@@ -360,13 +418,10 @@ sys_check_timeouts(void)
 {
   struct sys_timeo *tmptimeout;
   u32_t diff;
-  sys_timeout_handler h;
+  sys_timeout_handler handler;
   void *arg;
   int had_one;
   u32_t now;
-#if LWIP_DEBUG_TIMERNAMES
-  const char *handler_name;
-#endif /* LWIP_DEBUG_TIMERNAMES */
 
   now = sys_now();
   if (next_timeout) {
@@ -374,6 +429,9 @@ sys_check_timeouts(void)
     diff = LWIP_U32_DIFF(now, timeouts_last_time);
     do
     {
+#if PBUF_POOL_FREE_OOSEQ
+      PBUF_CHECK_FREE_OOSEQ();
+#endif /* PBUF_POOL_FREE_OOSEQ */
       had_one = 0;
       tmptimeout = next_timeout;
       if (tmptimeout->time <= diff) {
@@ -382,19 +440,17 @@ sys_check_timeouts(void)
         timeouts_last_time = now;
         diff -= tmptimeout->time;
         next_timeout = tmptimeout->next;
-        h   = tmptimeout->h;
+        handler = tmptimeout->h;
         arg = tmptimeout->arg;
 #if LWIP_DEBUG_TIMERNAMES
-        handler_name = tmptimeout->handler_name;
+        if (handler != NULL) {
+          LWIP_DEBUGF(TIMERS_DEBUG, ("sct calling h=%s arg=%p\n",
+            tmptimeout->handler_name, arg));
+        }
 #endif /* LWIP_DEBUG_TIMERNAMES */
         memp_free(MEMP_SYS_TIMEOUT, tmptimeout);
-        if (h != NULL) {
-#if LWIP_DEBUG_TIMERNAMES
-          LWIP_DEBUGF(TIMERS_DEBUG, ("sct calling h=%p(%p) (%s)\n", *(void**)&h, arg, handler_name));
-#else /* LWIP_DEBUG_TIMERNAMES */
-          LWIP_DEBUGF(TIMERS_DEBUG, ("sct calling h=%p(%p)\n", *(void**)&h, arg));
-#endif /* LWIP_DEBUG_TIMERNAMES */
-          h(arg);
+        if (handler != NULL) {
+          handler(arg);
         }
       }
     /* repeat until all expired timers have been called */
@@ -427,11 +483,8 @@ sys_timeouts_mbox_fetch(sys_mbox_t *mbox, void **msg)
 {
   u32_t time_needed;
   struct sys_timeo *tmptimeout;
-  sys_timeout_handler h;
+  sys_timeout_handler handler;
   void *arg;
-#if LWIP_DEBUG_TIMERNAMES
-  const char *handler_name;
-#endif /* LWIP_DEBUG_TIMERNAMES */
 
  again:
   if (!next_timeout) {
@@ -449,22 +502,20 @@ sys_timeouts_mbox_fetch(sys_mbox_t *mbox, void **msg)
          deallocate the memory allocated for the timeout. */
       tmptimeout = next_timeout;
       next_timeout = tmptimeout->next;
-      h   = tmptimeout->h;
+      handler = tmptimeout->h;
       arg = tmptimeout->arg;
 #if LWIP_DEBUG_TIMERNAMES
-      handler_name = tmptimeout->handler_name;
+      if (handler != NULL) {
+        LWIP_DEBUGF(TIMERS_DEBUG, ("stmf calling h=%s arg=%p\n",
+          tmptimeout->handler_name, arg));
+      }
 #endif /* LWIP_DEBUG_TIMERNAMES */
       memp_free(MEMP_SYS_TIMEOUT, tmptimeout);
-      if (h != NULL) {
-#if LWIP_DEBUG_TIMERNAMES
-        LWIP_DEBUGF(TIMERS_DEBUG, ("stmf calling h=%p(%p) (%s)\n", *(void**)&h, arg, handler_name));
-#else /* LWIP_DEBUG_TIMERNAMES */
-        LWIP_DEBUGF(TIMERS_DEBUG, ("stmf calling h=%p(%p)\n", *(void**)&h, arg));
-#endif /* LWIP_DEBUG_TIMERNAMES */
+      if (handler != NULL) {
         /* For LWIP_TCPIP_CORE_LOCKING, lock the core before calling the
            timeout handler function. */
         LOCK_TCPIP_CORE();
-        h(arg);
+        handler(arg);
         UNLOCK_TCPIP_CORE();
       }
       LWIP_TCPIP_THREAD_ALIVE();
@@ -485,3 +536,11 @@ sys_timeouts_mbox_fetch(sys_mbox_t *mbox, void **msg)
 }
 
 #endif /* NO_SYS */
+
+#else /* LWIP_TIMERS */
+/* Satisfy the TCP code which calls this function */
+void
+tcp_timer_needed(void)
+{
+}
+#endif /* LWIP_TIMERS */

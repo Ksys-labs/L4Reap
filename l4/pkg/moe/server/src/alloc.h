@@ -37,8 +37,8 @@ public:
 
   virtual ~Allocator();
 
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
-  int disp_factory(l4_umword_t, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
+  int disp_factory(l4_umword_t, L4::Ipc::Iostream &ios);
 
   void *operator new (size_t size, Moe::Quota *q, size_t limit);
   void operator delete (void *m) throw();

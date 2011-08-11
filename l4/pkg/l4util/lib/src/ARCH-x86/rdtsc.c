@@ -38,7 +38,7 @@ muldiv (l4_uint32_t a, l4_uint32_t mul, l4_uint32_t div)
  * Note, l4_tsc_init(L4_TSC_INIT_CALIBRATE) needs to have
  * I/O ports 0x20, 0x42, 0x43 and 0x61
  */
-l4_uint32_t
+L4_CV l4_uint32_t
 l4_tsc_init (int constraint, l4_kernel_info_t *kip)
 {
   l4_scaler_tsc_linux = 0;
@@ -134,7 +134,7 @@ bad_ctc:
   return 0;
 }
 
-l4_uint32_t
+L4_CV l4_uint32_t
 l4_get_hz (void)
 {
   if (!l4_scaler_tsc_to_ns)

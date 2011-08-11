@@ -468,10 +468,30 @@ public:
   enum { Have_asids = 0 };
 };
 
+//----------------------------------------------------------------------------
+IMPLEMENTATION [armv6 || armca8]:
+
+PRIVATE inline static
+unsigned long
+Mem_space::next_asid(unsigned cpu)
+{
+  return _next_free_asid.cpu(cpu)++;
+}
+
+//----------------------------------------------------------------------------
+IMPLEMENTATION [armv7 && armca9]:
+
+PRIVATE inline static
+unsigned long
+Mem_space::next_asid(unsigned cpu)
+{
+  if (_next_free_asid.cpu(cpu) == 0)
+    ++_next_free_asid.cpu(cpu);
+  return _next_free_asid.cpu(cpu)++;
+}
 
 //----------------------------------------------------------------------------
 IMPLEMENTATION [armv6 || armv7]:
-
 
 Per_cpu<unsigned char>    DEFINE_PER_CPU Mem_space::_next_free_asid;
 Per_cpu<Mem_space *[256]> DEFINE_PER_CPU Mem_space::_active_asids;
@@ -488,11 +508,6 @@ PUBLIC inline
 unsigned long
 Mem_space::c_asid() const
 { return _asid[current_cpu()]; }
-
-PRIVATE inline static
-unsigned long
-Mem_space::next_asid(unsigned cpu)
-{ return _next_free_asid.cpu(cpu)++; }
 
 PRIVATE inline NEEDS[Mem_space::next_asid]
 unsigned long
@@ -526,7 +541,7 @@ Mem_space::asid()
       _asid[cpu] = new_asid;
     }
 
-  //LOG_MSG_3VAL(current(), "ASID", (Mword)this, _asid, (Mword)__builtin_return_address(0));
+  //LOG_MSG_3VAL(current(), "ASID", (Mword)this, _asid[cpu], (Mword)__builtin_return_address(0));
   return _asid[cpu];
 };
 

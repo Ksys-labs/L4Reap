@@ -99,15 +99,15 @@ public:
   { return offset < round_size(); }
 
 public:
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
   int map(l4_addr_t offs, l4_addr_t spot, bool rw,
-          l4_addr_t min, l4_addr_t max, L4::Snd_fpage &memory);
+          l4_addr_t min, l4_addr_t max, L4::Ipc::Snd_fpage &memory);
   int stats(L4Re::Dataspace::Stats &stats);
   //int copy_in(unsigned long dst_offs, Dataspace *src, unsigned long src_offs,
   //    unsigned long size);
   virtual int phys(l4_addr_t offset, l4_addr_t &phys_addr, l4_size_t &phys_size) throw();
 
-  int dispatch(unsigned long obj, unsigned long op, L4::Ipc_iostream &ios);
+  int dispatch(unsigned long obj, unsigned long op, L4::Ipc::Iostream &ios);
 
 private:
   unsigned long _size;

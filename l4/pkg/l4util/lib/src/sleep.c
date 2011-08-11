@@ -24,7 +24,7 @@
 #include <l4/sys/kernel_object.h>
 #include <l4/util/util.h>
 
-void l4_sleep(int ms)
+L4_CV void l4_sleep(int ms)
 {
   l4_timeout_t to;
   l4_msgtag_t tag;
@@ -43,7 +43,7 @@ void l4_sleep(int ms)
 }
 
 
-void l4_usleep(int us)
+L4_CV void l4_usleep(int us)
 {
   l4_msgtag_t tag;
   l4_timeout_t to;

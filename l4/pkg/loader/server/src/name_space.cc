@@ -68,7 +68,7 @@ Name_space::free_dynamic_entry(Names::Entry *n)
 }
 
 int
-Name_space::get_capability(L4::Snd_fpage const &cap_fp, L4::Cap<void> *cap,
+Name_space::get_capability(L4::Ipc::Snd_fpage const &cap_fp, L4::Cap<void> *cap,
                            L4::Server_object **so)
 {
   if (cap_fp.id_received())

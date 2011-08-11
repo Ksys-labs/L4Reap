@@ -231,7 +231,7 @@ relink(struct l4slab_slab *slab,
  * sweet-spot in the trade-off between internal and external fragmentation".
  */
 /*****************************************************************************/
-int
+L4_CV int
 l4slab_cache_init(l4slab_cache_t * cache, l4_size_t obj_size,
                   unsigned int max_free, l4slab_grow_fn_t grow_fn,
                   l4slab_release_fn_t release_fn)
@@ -288,7 +288,7 @@ l4slab_cache_init(l4slab_cache_t * cache, l4_size_t obj_size,
  * otherwise it has no effect.
  */
 /*****************************************************************************/
-void
+L4_CV void
 l4slab_destroy(l4slab_cache_t * cache)
 {
   l4slab_slab_t * slabs[3] = { cache->slabs_full, cache->slabs_part, cache->slabs_free };
@@ -324,7 +324,7 @@ l4slab_destroy(l4slab_cache_t * cache)
  * \return pointer to object, NULL if allocation failed.
  */
 /*****************************************************************************/
-void *
+L4_CV void *
 l4slab_alloc(l4slab_cache_t * cache)
 {
   int ret;
@@ -393,7 +393,7 @@ l4slab_alloc(l4slab_cache_t * cache)
  * \param  objp          Pointer to object
  */
 /*****************************************************************************/
-void
+L4_CV void
 l4slab_free(l4slab_cache_t * cache, void * objp)
 {
   l4slab_slab_t * slab;
@@ -451,7 +451,7 @@ l4slab_free(l4slab_cache_t * cache, void * objp)
  * Add the slab to the slab cache.
  */
 /*****************************************************************************/
-void
+L4_CV void
 l4slab_add_slab(l4slab_cache_t * cache, void * buffer, void * data)
 {
   /* sanity checks */
@@ -477,7 +477,7 @@ l4slab_add_slab(l4slab_cache_t * cache, void * buffer, void * data)
  * \param  data          Application data pointer
  */
 /*****************************************************************************/
-void
+L4_CV void
 l4slab_set_data(l4slab_cache_t * cache, void * data)
 {
   if (cache == NULL)
@@ -496,7 +496,7 @@ l4slab_set_data(l4slab_cache_t * cache, void * data)
  *         data pointer set.
  */
 /*****************************************************************************/
-void *
+L4_CV void *
 l4slab_get_data(l4slab_cache_t * cache)
 {
   if (cache == NULL)
@@ -513,7 +513,7 @@ l4slab_get_data(l4slab_cache_t * cache)
  * \param  dump_free     Dump free list of slabs
  */
 /*****************************************************************************/
-void
+L4_CV void
 l4slab_dump_cache(l4slab_cache_t * cache, int dump_free)
 {
   l4slab_slab_t * slabs[3] = { cache->slabs_full, cache->slabs_part, cache->slabs_free };
@@ -561,7 +561,7 @@ l4slab_dump_cache(l4slab_cache_t * cache, int dump_free)
  * \param  cache         Cache descriptor
  */
 /*****************************************************************************/
-void
+L4_CV void
 l4slab_dump_cache_free(l4slab_cache_t * cache)
 {
   l4slab_slab_t * slab;

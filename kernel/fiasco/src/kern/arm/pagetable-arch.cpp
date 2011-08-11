@@ -87,9 +87,9 @@ public:
   {
     Ttbr_bits =    (1 << 1)            // S, Shareable bit
                 |  (1 << 3)            // RGN, Region bits, Outer WriteBackWriteAlloc
-		|  (0 << 0) | (1 << 6) // IRGN, Inner region bits, WB-WA
-		|  (1 << 5)            // NOS
-		,
+                |  (0 << 0) | (1 << 6) // IRGN, Inner region bits, WB-WA
+                |  (1 << 5)            // NOS
+                ,
   };
 };
 
@@ -370,15 +370,15 @@ void Page_table::activate()
       _current.cpu(current_cpu()) = this;
       Mem_unit::flush_vcache();
       asm volatile (
-	  "mcr p15, 0, r0, c8, c7, 0x00 \n" // TLB flush
-	  "mcr p15, 0, %0, c2, c0       \n" // pdbr
+          "mcr p15, 0, r0, c8, c7, 0 \n" // TLB flush
+          "mcr p15, 0, %0, c2, c0    \n" // pdbr
 
-	  "mrc p15, 0, r1, c2, c0       \n"
-	  "mov r1, r1                   \n"
-	  "sub pc, pc, #4               \n"
-	  :
-	  : "r"(p.phys(this))
-	  : "r1" );
+          "mrc p15, 0, r1, c2, c0    \n"
+          "mov r1, r1                \n"
+          "sub pc, pc, #4            \n"
+          :
+          : "r" (p.phys(this))
+          : "r1");
     }
 }
 
@@ -462,7 +462,10 @@ Pte::attr(Mem_page_attr const &attr, bool write_back)
     }
 }
 
-PUBLIC /*inline*/
+//-----------------------------------------------------------------------------
+IMPLEMENTATION [armv6 || armca8]:
+
+PUBLIC
 void Page_table::activate(unsigned long asid)
 {
   Pte p = walk(this, 0, false, 0);
@@ -471,17 +474,47 @@ void Page_table::activate(unsigned long asid)
       _current.cpu(current_cpu()) = this;
       asm volatile (
           "mcr p15, 0, %2, c7, c5, 6    \n" // bt flush
-	  "mcr p15, 0, r0, c7, c10, 4   \n"
-	  "mcr p15, 0, %0, c2, c0       \n" // pdbr
-	  "mcr p15, 0, %1, c13, c0, 1   \n"
+          "mcr p15, 0, r0, c7, c10, 4   \n" // dsb
+          "mcr p15, 0, %0, c2, c0       \n" // set TTBR
+          "mcr p15, 0, r0, c7, c10, 4   \n" // dsb
+          "mcr p15, 0, %1, c13, c0, 1   \n" // set new ASID value
+          "mcr p15, 0, r0, c7, c5, 4    \n" // isb
+          "mcr p15, 0, %2, c7, c5, 6    \n" // bt flush
+          "mrc p15, 0, r1, c2, c0       \n"
+          "mov r1, r1                   \n"
+          "sub pc, pc, #4               \n"
+          :
+          : "r" (p.phys(this) | Ttbr_bits), "r"(asid), "r" (0)
+          : "r1");
+    }
+}
 
-	  "mrc p15, 0, r1, c2, c0       \n"
-	  "mov r1, r1                   \n"
-	  "sub pc, pc, #4               \n"
+//-----------------------------------------------------------------------------
+IMPLEMENTATION [armv7 && armca9]:
 
-	  :
-	  : "r" (p.phys(this) | Ttbr_bits), "r"(asid), "r" (0)
-	  : "r1");
+PUBLIC
+void Page_table::activate(unsigned long asid)
+{
+  Pte p = walk(this, 0, false, 0);
+  if (_current.cpu(current_cpu()) != this)
+    {
+      _current.cpu(current_cpu()) = this;
+      asm volatile (
+          "mcr p15, 0, %2, c7, c5, 6    \n" // bt flush
+          "dsb                          \n"
+          "mcr p15, 0, %2, c13, c0, 1   \n" // change ASID to 0
+          "isb                          \n"
+          "mcr p15, 0, %0, c2, c0       \n" // set TTBR
+          "isb                          \n"
+          "mcr p15, 0, %1, c13, c0, 1   \n" // set new ASID value
+          "isb                          \n"
+          "mcr p15, 0, %2, c7, c5, 6    \n" // bt flush
+          "isb                          \n"
+          "mov r1, r1                   \n"
+          "sub pc, pc, #4               \n"
+          :
+          : "r" (p.phys(this) | Ttbr_bits), "r"(asid), "r" (0)
+          : "r1");
     }
 }
 
@@ -542,16 +575,14 @@ void Page_table::operator delete(void *b)
 IMPLEMENT
 Page_table::Page_table()
 {
-  for( unsigned i = 0; i< 4096; ++i )
-    raw[i]=0;
+  Mem::memset_mwords(raw, 0, sizeof(raw) / sizeof(Mword));
   if (Pte::need_cache_clean())
-    Mem_unit::clean_dcache(raw, raw + 4096);
+    Mem_unit::clean_dcache(raw, (char *)raw + sizeof(raw));
 }
 
 PUBLIC
 void Page_table::free_page_tables(void *start, void *end)
 {
-
   for (unsigned i = (Address)start >> 20; i < ((Address)end >> 20); ++i)
     {
       Pte p(this, 0, raw + i);

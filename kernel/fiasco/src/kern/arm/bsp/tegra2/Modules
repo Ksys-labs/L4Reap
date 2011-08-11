@@ -15,3 +15,4 @@ kernel_uart_IMPL      += kernel_uart-arm-tegra2
 reset_IMPL            += reset-arm-tegra2
 clock_IMPL            += clock-generic
 boot_mp_IMPL          += boot_mp-arm-tegra2
+outer_cache_IMPL      += outer_cache-arm-tegra2

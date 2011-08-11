@@ -52,7 +52,7 @@ public:
 };
 
 int
-Allocator::disp_factory(l4_umword_t, L4::Ipc_iostream &ios)
+Allocator::disp_factory(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   L4::Factory::Proto o;
   ios >> o;
@@ -132,7 +132,7 @@ Allocator::disp_factory(l4_umword_t, L4::Ipc_iostream &ios)
 }
 
 int
-Allocator::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+Allocator::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;

@@ -242,13 +242,13 @@ lcp_init(int unit)
   fsm         *f  = &lcp_fsm[unit];
   lcp_options *wo = &lcp_wantoptions[unit];
   lcp_options *ao = &lcp_allowoptions[unit];
-  
+
   f->unit      = unit;
   f->protocol  = PPP_LCP;
   f->callbacks = &lcp_callbacks;
-  
+
   fsm_init(f);
-  
+
   wo->passive           = 0;
   wo->silent            = 0;
   wo->restart           = 0;               /* Set to 1 in kernels or multi-line implementations */
@@ -264,7 +264,7 @@ lcp_init(int unit)
   wo->neg_accompression = 1;
   wo->neg_lqr           = 0;               /* no LQR implementation yet */
   wo->neg_cbcp          = 0;
-  
+
   ao->neg_mru           = 1;
   ao->mru               = PPP_MAXMRU;
   ao->neg_asyncmap      = 1;
@@ -426,10 +426,10 @@ lcp_extcode(fsm *f, int code, u_char id, u_char *inp, int len)
     case ECHOREP:
       lcp_received_echo_reply(f, id, inp, len);
       break;
-    
+
     case DISCREQ:
       break;
-    
+
     default:
       return 0;
   }
@@ -1992,7 +1992,7 @@ lcp_received_echo_reply (fsm *f, int id, u_char *inp, int len)
     LCPDEBUG(LOG_WARNING, ("appear to have received our own echo-reply!\n"));
     return;
   }
-  
+
   /* Reset the number of outstanding echo frames */
   lcp_echos_pending = 0;
 }

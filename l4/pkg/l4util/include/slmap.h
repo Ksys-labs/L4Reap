@@ -52,12 +52,6 @@ map_remove(slmap_t* list, slmap_t* entry);
 L4_CV void
 map_free_entry(slmap_t** entry);
 
-L4_CV static inline void
-map_free(slmap_t** list);
-
-L4_CV static inline unsigned char
-map_is_empty(slmap_t* list);
-
 L4_CV slmap_t*
 map_get_at(slmap_t* list, int n);
 
@@ -66,9 +60,6 @@ map_add(slmap_t* list, slmap_t* new_entry);
 
 L4_CV void
 map_insert_after(slmap_t* after, slmap_t* new_entry);
-
-L4_CV static inline int
-map_elements(slmap_t* list);
 
 L4_CV slmap_t*
 map_find(slmap_t* list, void* key, unsigned key_size);

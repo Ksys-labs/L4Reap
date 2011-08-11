@@ -12,8 +12,6 @@
 #include <l4/re/util/cap_alloc>
 #include <l4/re/util/object_registry>
 #include <l4/cxx/ipc_server>
-#include <l4/cxx/iostream>
-#include <l4/cxx/l4iostream>
 
 #include "shared.h"
 
@@ -22,11 +20,11 @@ static L4Re::Util::Registry_server<> server;
 class Calculation_server : public L4::Server_object
 {
 public:
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 };
 
 int
-Calculation_server::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Calculation_server::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t t;
   ios >> t;

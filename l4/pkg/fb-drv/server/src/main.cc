@@ -67,7 +67,7 @@ Phys_fb::map_hook(l4_addr_t offs, unsigned long flags,
 }
 
 int
-Phys_fb::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+Phys_fb::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;

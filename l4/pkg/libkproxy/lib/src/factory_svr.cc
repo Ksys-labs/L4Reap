@@ -30,7 +30,7 @@ class Factory_hndl
 {
 public:
   static int handle_factory(Factory_svr *svr, Factory_interface *fi,
-                            L4::Ipc_iostream &ios)
+                            L4::Ipc::Iostream &ios)
     {
       unsigned long limit;
       L4::Cap<L4::Factory> f = svr->cap_alloc<L4::Factory>();
@@ -44,7 +44,7 @@ public:
     }
 
   static int handle_task(Factory_svr *svr, Factory_interface *fi,
-                         L4::Ipc_iostream &ios)
+                         L4::Ipc::Iostream &ios)
     {
       l4_fpage_t utcb_area;
       L4::Cap<L4::Task> t = svr->cap_alloc<L4::Task>();
@@ -58,7 +58,7 @@ public:
     }
 
   static int handle_thread(Factory_svr *svr, Factory_interface *fi,
-                           L4::Ipc_iostream &ios)
+                           L4::Ipc::Iostream &ios)
     {
       L4::Cap<L4::Thread> t = svr->cap_alloc<L4::Thread>();
       if (!t.is_valid())
@@ -70,10 +70,10 @@ public:
     }
 
   static int handle_gate(Factory_svr *svr, Factory_interface *fi,
-                         L4::Ipc_iostream &ios)
+                         L4::Ipc::Iostream &ios)
     {
       l4_umword_t label;
-      L4::Snd_fpage f;
+      L4::Ipc::Snd_fpage f;
       L4::Cap<L4::Kobject> g = svr->cap_alloc<L4::Kobject>();
       if (!g.is_valid())
         return -L4_ENOMEM;
@@ -88,7 +88,7 @@ public:
     }
 
   static int handle_semaphore(Factory_svr *svr, Factory_interface *fi,
-                              L4::Ipc_iostream &ios)
+                              L4::Ipc::Iostream &ios)
     {
       L4::Cap<L4::K_semaphore> s = svr->cap_alloc<L4::K_semaphore>();
       if (!s.is_valid())
@@ -100,7 +100,7 @@ public:
     }
 
   static int handle_irq(Factory_svr *svr, Factory_interface *fi,
-                        L4::Ipc_iostream &ios)
+                        L4::Ipc::Iostream &ios)
     {
       L4::Cap<L4::Irq> i = svr->cap_alloc<L4::Irq>();
       if (!i.is_valid())
@@ -112,7 +112,7 @@ public:
     }
 };
 
-int Factory_svr::factory_dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+int Factory_svr::factory_dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   L4::Opcode op;
   ios >> op;

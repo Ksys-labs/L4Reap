@@ -80,7 +80,7 @@ extern "C" {
 
 struct autoip
 {
-  ip_addr_t llipaddr;  /* the currently selected, probed, announced or used LL IP-Address */
+  ip_addr_t llipaddr;       /* the currently selected, probed, announced or used LL IP-Address */
   u8_t state;               /* current AutoIP state machine state */
   u8_t sent_num;            /* sent number of probes or announces, dependent on state */
   u16_t ttw;                /* ticks to wait, tick is AUTOIP_TMR_INTERVAL long */
@@ -89,8 +89,7 @@ struct autoip
 };
 
 
-/** Init srand, has to be called before entering mainloop */
-void autoip_init(void);
+#define autoip_init() /* Compatibility define, no init needed. */
 
 /** Set a struct autoip allocated by the application to work with */
 void autoip_set_struct(struct netif *netif, struct autoip *autoip);

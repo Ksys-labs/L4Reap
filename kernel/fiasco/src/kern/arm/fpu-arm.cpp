@@ -3,27 +3,26 @@ INTERFACE [arm && fpu]:
 EXTENSION class Fpu
 {
 public:
-  
   struct Exception_state_user
-    {
-      Mword fpexc;
-      Mword fpinst;
-      Mword fpinst2;
-    };
+  {
+    Mword fpexc;
+    Mword fpinst;
+    Mword fpinst2;
+  };
 
-private:
+  Mword fpsid() const { return _fpsid; }
 
   enum
-    {
-      FPEXC_EN  = 1 << 30,
-      FPEXC_EX  = 1 << 31,
-    };
+  {
+    FPEXC_EN  = 1 << 30,
+    FPEXC_EX  = 1 << 31,
+  };
 
   struct Fpu_regs
-    {
-      Mword fpexc, fpscr;
-      Mword state[32 * 4]; // 4*32 bytes for each FP-reg
-    };
+  {
+    Mword fpexc, fpscr;
+    Mword state[32 * 4]; // 4*32 bytes for each FP-reg
+  };
 
   static Mword fpsid_rev(Mword v)          { return v & 0xf; }
   static Mword fpsid_variant(Mword v)      { return (v >> 4) & 0xf; }
@@ -33,6 +32,9 @@ private:
   static Mword fpsid_format(Mword v)       { return (v >> 21) & 3; }
   static Mword fpsid_hw_sw(Mword v)        { return (v >> 23) & 1; }
   static Mword fpsid_implementer(Mword v)  { return v >> 24; }
+
+private:
+  Mword _fpsid;
 };
 
 // ------------------------------------------------------------------------
@@ -42,22 +44,8 @@ EXTENSION class Fpu
 {
 public:
   struct Exception_state_user
-    {
-    };
-};
-
-// ------------------------------------------------------------------------
-INTERFACE [arm]:
-
-EXTENSION class Fpu
-{
-public:
-  enum Fpu_exception_returns
-    {
-      Fpu_except_none,
-      Fpu_except_emulated,
-      Fpu_except_fault,
-    };
+  {
+  };
 };
 
 // ------------------------------------------------------------------------
@@ -69,21 +57,6 @@ PUBLIC static inline NEEDS["trap_state.h"]
 void
 Fpu::save_user_exception_state(Trap_state *, Exception_state_user *)
 {}
-
-PUBLIC static inline NEEDS["trap_state.h"]
-Fpu::Fpu_exception_returns
-Fpu::handle_fpu_trap(Trap_state *)
-{ return Fpu::Fpu_except_none; }
-
-PUBLIC static inline
-bool
-Fpu::is_enabled()
-{ return false; }
-
-PUBLIC static inline
-bool
-Fpu::exc_pending()
-{ return false; }
 
 // ------------------------------------------------------------------------
 IMPLEMENTATION [arm && fpu]:
@@ -98,22 +71,39 @@ IMPLEMENTATION [arm && fpu]:
 #include "static_assert.h"
 #include "trap_state.h"
 
-PRIVATE static inline
+PUBLIC static inline
 Mword
-Fpu::fpsid()
+Fpu::fpsid_read()
 {
   Mword v;
-  //asm volatile("fmrx %0, fpsid" : "=r" (v));
-  asm volatile("mrc p10, 7, %0, cr0, cr0, 0" : "=r" (v));
+  asm volatile("mrc p10, 7, %0, cr0, cr0" : "=r" (v));
   return v;
 }
+
+PUBLIC static inline
+Mword
+Fpu::mvfr0()
+{
+  Mword v;
+  asm volatile("mrc p10, 7, %0, cr7, cr0" : "=r" (v));
+  return v;
+}
+
+PUBLIC static inline
+Mword
+Fpu::mvfr1()
+{
+  Mword v;
+  asm volatile("mrc p10, 7, %0, cr6, cr0" : "=r" (v));
+  return v;
+}
+
 
 PRIVATE static inline
 void
 Fpu::fpexc(Mword v)
 {
-  //asm volatile("fmxr fpexc, %0" : : "r" (v));
-  asm volatile("mcr p10, 7, %0, cr8, cr0, 0" : : "r" (v));
+  asm volatile("mcr p10, 7, %0, cr8, cr0" : : "r" (v));
 }
 
 PUBLIC static inline
@@ -121,8 +111,7 @@ Mword
 Fpu::fpexc()
 {
   Mword v;
-  //asm volatile("fmrx %0, fpexc" : "=r" (v));
-  asm volatile("mrc p10, 7, %0, cr8, cr0, 0" : "=r" (v));
+  asm volatile("mrc p10, 7, %0, cr8, cr0" : "=r" (v));
   return v;
 }
 
@@ -131,7 +120,7 @@ Mword
 Fpu::fpinst()
 {
   Mword i;
-  asm volatile("mcr p10, 7, %0, cr9,  cr0, 0" : "=r" (i));
+  asm volatile("mcr p10, 7, %0, cr9,  cr0" : "=r" (i));
   return i;
 }
 
@@ -140,7 +129,7 @@ Mword
 Fpu::fpinst2()
 {
   Mword i;
-  asm volatile("mcr p10, 7, %0, cr10,  cr0, 0" : "=r" (i));
+  asm volatile("mcr p10, 7, %0, cr10,  cr0" : "=r" (i));
   return i;
 }
 
@@ -165,17 +154,51 @@ Fpu::disable()
   fpexc(fpexc() & ~FPEXC_EN);
 }
 
+PUBLIC static inline
+bool
+Fpu::emulate_insns(Mword opcode, Trap_state *ts, unsigned cpu)
+{
+  unsigned reg = (opcode >> 16) & 0xf;
+  unsigned rt  = (opcode >> 12) & 0xf;
+  Mword fpsid = Fpu::fpu(cpu).fpsid();
+  switch (reg)
+    {
+    case 0: // FPSID
+      ts->r[rt] = fpsid;
+      break;
+    case 6: // MVFR1
+      if (Fpu::fpsid_arch_version(fpsid) < 2)
+        return false;
+      ts->r[rt] = Fpu::mvfr1();
+      break;
+    case 7: // MVFR0
+      if (Fpu::fpsid_arch_version(fpsid) < 2)
+        return false;
+      ts->r[rt] = Fpu::mvfr0();
+      break;
+    default:
+      break;
+    }
+
+  if (ts->psr & Proc::Status_thumb)
+    ts->pc += 2;
+
+  return true;
+}
+
 
 
 IMPLEMENT
 void
 Fpu::init(unsigned cpu)
 {
-  // XXX MPCORE: enable cp11, cp10
   asm volatile(" mcr  p15, 0, %0, c1, c0, 2   \n" : : "r"(0x00f00000));
   Mem::dsb();
 
-  Mword s = fpsid();
+  Mword s = fpsid_read();
+
+  _fpu.cpu(cpu)._fpsid = s;
+
   printf("FPU%d: Arch: %s(%lx), Part: %s(%lx), r: %lx, v: %lx, i: %lx, t: %s, p: %s\n",
          cpu, fpsid_arch_version(s) == 1
            ? "VFPv2"
@@ -258,52 +281,6 @@ bool
 Fpu::is_enabled()
 {
   return fpexc() & FPEXC_EN;
-}
-
-PRIVATE static inline NEEDS[Fpu::fpexc, "processor.h", "trap_state.h"]
-bool
-Fpu::is_fpu_trap(Trap_state *ts, Mword *opcode)
-{
-  if (ts->psr & Proc::Status_thumb)
-    {
-      Unsigned16 *insn = reinterpret_cast<Unsigned16*>(ts->ip()) - 1;
-
-      if ((*insn & 0xe000) == 0xe000 && (*insn & 0x1800))
-	*opcode = (Mword(*insn) << 16) | *(insn + 1);
-      else
-	return false;
-    }
-  else
-    *opcode = *(reinterpret_cast<Mword*>(ts->ip()) - 1);
-
-  if ((*opcode & 0xec000000) == 0xec000000
-      && (((*opcode & 0x00000f00) == 0x00000a00)
-          || ((*opcode & 0x00000f00) == 0x00000b00)))
-    return true;
-
-  return false;
-}
-
-PUBLIC static
-Fpu::Fpu_exception_returns
-Fpu::handle_fpu_trap(Trap_state *ts)
-{
-  Mword opcode;
-  if (Fpu::is_fpu_trap(ts, &opcode))
-    {
-      if (Fpu::is_enabled())
-	{
-	  if ((opcode & 0x0fff0f90) == 0x0ef00a10)
-	    {
-	      unsigned reg = (opcode >> 12) & 0xf;
-	      ts->r[reg] = Fpu::fpsid();
-	      return Fpu_except_emulated;
-	    }
-	}
-      return Fpu_except_fault;
-    }
-
-  return Fpu_except_none;
 }
 
 PUBLIC static inline NEEDS["trap_state.h"]

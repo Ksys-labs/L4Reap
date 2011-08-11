@@ -47,7 +47,7 @@ Mem_alloc::alloc(unsigned long size,
 long
 Mem_alloc::free(L4::Cap<Dataspace> mem) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(Mem_alloc_::Free) << mem;
   return l4_error(io.call(cap(), L4Re::Protocol::Mem_alloc));
 }

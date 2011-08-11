@@ -79,7 +79,7 @@ public:
    * \return 0 on success, <0 on error
    */
   int map(l4_addr_t offs, l4_addr_t spot, unsigned long flags,
-          l4_addr_t min, l4_addr_t max, L4::Snd_fpage &memory);
+          l4_addr_t min, l4_addr_t max, L4::Ipc::Snd_fpage &memory);
 
   /**
    * \brief A hook that is called as the first operation in each map

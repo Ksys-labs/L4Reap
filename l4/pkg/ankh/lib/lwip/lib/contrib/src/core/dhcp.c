@@ -76,7 +76,6 @@
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
 #include "lwip/def.h"
-#include "lwip/sys.h"
 #include "lwip/dhcp.h"
 #include "lwip/autoip.h"
 #include "lwip/dns.h"
@@ -115,7 +114,7 @@
 #define DHCP_OPTION_IDX_T2          5
 #define DHCP_OPTION_IDX_SUBNET_MASK 6
 #define DHCP_OPTION_IDX_ROUTER      7
-#define DHCP_OPTION_IDX_DNS_SERVER	8
+#define DHCP_OPTION_IDX_DNS_SERVER  8
 #define DHCP_OPTION_IDX_MAX         (DHCP_OPTION_IDX_DNS_SERVER + DNS_MAX_SERVERS)
 
 /** Holds the decoded option values, only valid while in dhcp_recv.
@@ -125,6 +124,11 @@ u32_t dhcp_rx_options_val[DHCP_OPTION_IDX_MAX];
     only valid while in dhcp_recv.
     @todo: move this into struct dhcp? */
 u8_t  dhcp_rx_options_given[DHCP_OPTION_IDX_MAX];
+
+#ifdef DHCP_GLOBAL_XID
+static u32_t xid;
+static u8_t xid_initialised;
+#endif /* DHCP_GLOBAL_XID */
 
 #define dhcp_option_given(dhcp, idx)          (dhcp_rx_options_given[idx] != 0)
 #define dhcp_got_option(dhcp, idx)            (dhcp_rx_options_given[idx] = 1)
@@ -301,10 +305,10 @@ dhcp_select(struct netif *netif)
       if (namelen > 0) {
         LWIP_ASSERT("DHCP: hostname is too long!", namelen < 255);
         dhcp_option(dhcp, DHCP_OPTION_HOSTNAME, namelen);
-      while (*p) {
-        dhcp_option_byte(dhcp, *p++);
+        while (*p) {
+          dhcp_option_byte(dhcp, *p++);
+        }
       }
-    }
     }
 #endif /* LWIP_NETIF_HOSTNAME */
 
@@ -569,7 +573,7 @@ dhcp_handle_ack(struct netif *netif)
     ip4_addr_set_u32(&dns_addr, htonl(dhcp_get_option_value(dhcp, DHCP_OPTION_IDX_DNS_SERVER + n)));
     dns_setserver(n, &dns_addr);
     n++;
-    }
+  }
 #endif /* LWIP_DNS */
 }
 
@@ -590,6 +594,23 @@ dhcp_set_struct(struct netif *netif, struct dhcp *dhcp)
   memset(dhcp, 0, sizeof(struct dhcp));
   /* dhcp_set_state(&dhcp, DHCP_OFF); */
   netif->dhcp = dhcp;
+}
+
+/** Removes a struct dhcp from a netif.
+ *
+ * ATTENTION: Only use this when not using dhcp_set_struct() to allocate the
+ *            struct dhcp since the memory is passed back to the heap.
+ *
+ * @param netif the netif from which to remove the struct dhcp
+ */
+void dhcp_cleanup(struct netif *netif)
+{
+  LWIP_ASSERT("netif != NULL", netif != NULL);
+
+  if (netif->dhcp != NULL) {
+    mem_free(netif->dhcp);
+    netif->dhcp = NULL;
+  }
 }
 
 /**
@@ -706,12 +727,12 @@ dhcp_inform(struct netif *netif)
     pcb = udp_new();
     if (pcb == NULL) {
       LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_SERIOUS, ("dhcp_inform(): could not obtain pcb"));
-    return;
-  }
+      return;
+    }
     dhcp.pcb = pcb;
     dhcp.pcb->so_options |= SOF_BROADCAST;
     udp_bind(dhcp.pcb, IP_ADDR_ANY, DHCP_CLIENT_PORT);
-  LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE, ("dhcp_inform(): created new udp pcb\n"));
+    LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE, ("dhcp_inform(): created new udp pcb\n"));
   }
   /* create and initialize the DHCP message header */
   result = dhcp_create_msg(netif, &dhcp, DHCP_INFORM);
@@ -761,6 +782,12 @@ dhcp_network_changed(struct netif *netif)
     break;
   default:
     dhcp->tries = 0;
+#if LWIP_DHCP_AUTOIP_COOP
+    if(dhcp->autoip_coop_state == DHCP_AUTOIP_COOP_STATE_ON) {
+      autoip_stop(netif);
+      dhcp->autoip_coop_state = DHCP_AUTOIP_COOP_STATE_OFF;
+    }
+#endif /* LWIP_DHCP_AUTOIP_COOP */
     dhcp_discover(netif);
     break;
   }
@@ -942,11 +969,11 @@ dhcp_bind(struct netif *netif)
     /* subnet mask not given, choose a safe subnet mask given the network class */
     u8_t first_octet = ip4_addr1(&dhcp->offered_ip_addr);
     if (first_octet <= 127) {
-      ip4_addr_set_u32(&sn_mask, PP_HTONL(0xff000000));
+      ip4_addr_set_u32(&sn_mask, PP_HTONL(0xff000000UL));
     } else if (first_octet >= 192) {
-      ip4_addr_set_u32(&sn_mask, PP_HTONL(0xffffff00));
+      ip4_addr_set_u32(&sn_mask, PP_HTONL(0xffffff00UL));
     } else {
-      ip4_addr_set_u32(&sn_mask, PP_HTONL(0xffff0000));
+      ip4_addr_set_u32(&sn_mask, PP_HTONL(0xffff0000UL));
     }
   }
 
@@ -956,7 +983,7 @@ dhcp_bind(struct netif *netif)
     /* copy network address */
     ip_addr_get_network(&gw_addr, &dhcp->offered_ip_addr, &sn_mask);
     /* use first host address on network as gateway */
-    ip4_addr_set_u32(&gw_addr, ip4_addr_get_u32(&gw_addr) | PP_HTONL(0x00000001));
+    ip4_addr_set_u32(&gw_addr, ip4_addr_get_u32(&gw_addr) | PP_HTONL(0x00000001UL));
   }
 
 #if LWIP_DHCP_AUTOIP_COOP
@@ -1008,10 +1035,10 @@ dhcp_renew(struct netif *netif)
       if (namelen > 0) {
         LWIP_ASSERT("DHCP: hostname is too long!", namelen < 255);
         dhcp_option(dhcp, DHCP_OPTION_HOSTNAME, namelen);
-      while (*p) {
-        dhcp_option_byte(dhcp, *p++);
+        while (*p) {
+          dhcp_option_byte(dhcp, *p++);
+        }
       }
-    }
     }
 #endif /* LWIP_NETIF_HOSTNAME */
 
@@ -1071,10 +1098,10 @@ dhcp_rebind(struct netif *netif)
       if (namelen > 0) {
         LWIP_ASSERT("DHCP: hostname is too long!", namelen < 255);
         dhcp_option(dhcp, DHCP_OPTION_HOSTNAME, namelen);
-      while (*p) {
-        dhcp_option_byte(dhcp, *p++);
+        while (*p) {
+          dhcp_option_byte(dhcp, *p++);
+        }
       }
-    }
     }
 #endif /* LWIP_NETIF_HOSTNAME */
 
@@ -1206,8 +1233,9 @@ dhcp_release(struct netif *netif)
 void
 dhcp_stop(struct netif *netif)
 {
-  struct dhcp *dhcp = netif->dhcp;
+  struct dhcp *dhcp;
   LWIP_ERROR("dhcp_stop: netif != NULL", (netif != NULL), return;);
+  dhcp = netif->dhcp;
   /* Remove the flag that says this netif is handled by DHCP. */
   netif->flags &= ~NETIF_FLAG_DHCP;
 
@@ -1215,10 +1243,10 @@ dhcp_stop(struct netif *netif)
   /* netif is DHCP configured? */
   if (dhcp != NULL) {
 #if LWIP_DHCP_AUTOIP_COOP
-  if(dhcp->autoip_coop_state == DHCP_AUTOIP_COOP_STATE_ON) {
-    autoip_stop(netif);
-    dhcp->autoip_coop_state = DHCP_AUTOIP_COOP_STATE_OFF;
-  }
+    if(dhcp->autoip_coop_state == DHCP_AUTOIP_COOP_STATE_ON) {
+      autoip_stop(netif);
+      dhcp->autoip_coop_state = DHCP_AUTOIP_COOP_STATE_OFF;
+    }
 #endif /* LWIP_DHCP_AUTOIP_COOP */
 
     if (dhcp->pcb != NULL) {
@@ -1430,16 +1458,17 @@ decode_next:
         value = ntohl(value);
       } else {
         LWIP_ASSERT("invalid decode_len", decode_len == 1);
-  }
-        dhcp_got_option(dhcp, decode_idx);
-        dhcp_set_option_value(dhcp, decode_idx, value);
-  }
+        value = ((u8_t*)&value)[0];
+      }
+      dhcp_got_option(dhcp, decode_idx);
+      dhcp_set_option_value(dhcp, decode_idx, value);
+    }
     if (offset >= q->len) {
       offset -= q->len;
       offset_max -= q->len;
       q = q->next;
       options = (u8_t*)q->payload;
-  }
+    }
   }
   /* is this an overloaded message? */
   if (dhcp_option_given(dhcp, DHCP_OPTION_IDX_OVERLOAD)) {
@@ -1457,7 +1486,7 @@ decode_next:
       LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE, ("overloaded sname and file field\n"));
     } else {
       LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE, ("invalid overload option: %d\n", (int)overload));
-  }
+    }
 #if LWIP_DHCP_BOOTP_FILE
     if (!parse_file_as_options) {
       /* only do this for ACK messages */
@@ -1603,8 +1632,6 @@ dhcp_create_msg(struct netif *netif, struct dhcp *dhcp, u8_t message_type)
    *  at runtime, any supporting function prototypes can be defined in DHCP_GLOBAL_XID_HEADER */
   static u32_t xid = 0xABCD0000;
 #else
-  static u32_t xid;
-  static u8_t xid_initialised = 0;
   if (!xid_initialised) {
     xid = DHCP_GLOBAL_XID;
     xid_initialised = !xid_initialised;

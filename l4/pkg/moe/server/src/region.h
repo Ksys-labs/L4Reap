@@ -25,10 +25,10 @@ typedef L4Re::Util::Region_handler<Moe::Dataspace const *, Region_ops> Region_ha
 class Region_ops
 {
 public:
-  typedef L4::Snd_fpage Map_result;
+  typedef L4::Ipc::Snd_fpage Map_result;
   static int map(Region_handler const *h, l4_addr_t adr,
                  L4Re::Util::Region const &r, bool writable,
-                 L4::Snd_fpage *result);
+                 L4::Ipc::Snd_fpage *result);
   static void unmap(Region_handler const * /*h*/, l4_addr_t /*vaddr*/,
                     l4_addr_t /*offs*/, unsigned long /*size*/)
   {}
@@ -49,7 +49,7 @@ private:
 
 public:
   Region_map();
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
   virtual ~Region_map() {}
 };
 

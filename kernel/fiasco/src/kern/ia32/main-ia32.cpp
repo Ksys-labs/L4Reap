@@ -103,7 +103,7 @@ IMPLEMENTATION[(ia32,amd64) && mp]:
 
 int FIASCO_FASTCALL boot_ap_cpu(unsigned _cpu) __asm__("BOOT_AP_CPU");
 
-int boot_ap_cpu(unsigned _cpu)
+int FIASCO_FASTCALL boot_ap_cpu(unsigned _cpu)
 {
   if (!Per_cpu_data_alloc::alloc(_cpu))
     {

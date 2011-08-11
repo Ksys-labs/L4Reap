@@ -259,7 +259,7 @@ static void base64_decodeblock(unsigned char in[4], unsigned char out[3]);
 
 // implementation of public functions
 
-void base64_encode( const char *infile, unsigned int in_size, char **outfile)
+L4_CV void base64_encode( const char *infile, unsigned int in_size, char **outfile)
 {
   unsigned char in[3], out[4];
   int i, len = 0;
@@ -294,7 +294,7 @@ void base64_encode( const char *infile, unsigned int in_size, char **outfile)
   *outfile=temp;
 }
 
-void base64_decode( const char*infile, unsigned int in_size, char **outfile )
+L4_CV void base64_decode( const char*infile, unsigned int in_size, char **outfile )
 {
   unsigned char in[4], out[3], v;
   int i, len;

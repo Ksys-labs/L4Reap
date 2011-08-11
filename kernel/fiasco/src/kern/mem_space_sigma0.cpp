@@ -32,8 +32,8 @@ Mem_space_sigma0::v_fabricate(Vaddr address,
                               unsigned* attribs = 0)
 {
   // special-cased because we don't do ptab lookup for sigma0
-  *phys = address.trunc(Size(Config::SUPERPAGE_SIZE));
-  *size = Size(Config::SUPERPAGE_SIZE);
+  *size = has_superpages() ? Size(Config::SUPERPAGE_SIZE) : Size(Config::PAGE_SIZE);
+  *phys = address.trunc(*size);
 
   if (attribs)
     *attribs = Page_writable | Page_user_accessible | Page_cacheable;

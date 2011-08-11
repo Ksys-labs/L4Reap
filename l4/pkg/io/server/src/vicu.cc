@@ -61,7 +61,7 @@ Sw_icu::~Sw_icu()
 }
 
 int
-Sw_icu::bind_irq(l4_msgtag_t tag, unsigned irqn, L4::Snd_fpage const &/*irqc*/)
+Sw_icu::bind_irq(l4_msgtag_t tag, unsigned irqn, L4::Ipc::Snd_fpage const &/*irqc*/)
 {
   if (tag.items() < 1)
     return -L4_EINVAL;
@@ -80,7 +80,7 @@ Sw_icu::bind_irq(l4_msgtag_t tag, unsigned irqn, L4::Snd_fpage const &/*irqc*/)
 }
 
 int
-Sw_icu::unbind_irq(l4_msgtag_t tag, unsigned irqn, L4::Snd_fpage const &/*irqc*/)
+Sw_icu::unbind_irq(l4_msgtag_t tag, unsigned irqn, L4::Ipc::Snd_fpage const &/*irqc*/)
 {
   if (tag.items() < 1)
     return -L4_EINVAL;
@@ -180,10 +180,10 @@ Sw_icu::alloc_irq(unsigned flags, Io_irq_pin *be)
 
 
 int
-Sw_icu::dispatch(l4_umword_t /*obj*/, L4::Ipc_iostream &ios)
+Sw_icu::dispatch(l4_umword_t /*obj*/, L4::Ipc::Iostream &ios)
 {
   l4_umword_t op, irqn;
-  L4::Snd_fpage irqc;
+  L4::Ipc::Snd_fpage irqc;
   l4_msgtag_t tag;
   ios >> tag >> op >> irqn;
 
@@ -216,7 +216,7 @@ Sw_icu::dispatch(l4_umword_t /*obj*/, L4::Ipc_iostream &ios)
 }
 
 int
-Sw_icu::dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc_iostream &ios)
+Sw_icu::dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc::Iostream &ios)
 {
   if (func != L4vbus_vicu_get_cap)
     return -L4_ENOSYS;

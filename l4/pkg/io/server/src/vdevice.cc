@@ -59,7 +59,7 @@ struct Match_hid
 };
 
 int
-Device::get_by_hid(L4::Ipc_iostream &ios)
+Device::get_by_hid(L4::Ipc::Iostream &ios)
 {
   l4vbus_device_handle_t child;
   unsigned long sz;
@@ -67,7 +67,7 @@ Device::get_by_hid(L4::Ipc_iostream &ios)
 
   int depth;
 
-  ios >> child >> depth >> L4::ipc_buf_in(hid, sz);
+  ios >> child >> depth >> L4::Ipc::Buf_in<char const>(hid, sz);
 
   //printf("look for '%s' in %p(%x) from %x\n", hid, this, _id, start);
   if (!hid || !sz)
@@ -99,7 +99,7 @@ Device::get_by_hid(L4::Ipc_iostream &ios)
 
 
 int
-Device::vbus_get_device(L4::Ipc_iostream &ios)
+Device::vbus_get_device(L4::Ipc::Iostream &ios)
 {
   l4vbus_device_t inf;
   inf.num_resources = resources()->size();
@@ -121,7 +121,7 @@ Device::vbus_get_device(L4::Ipc_iostream &ios)
 }
 
 int
-Device::vdevice_dispatch(l4_umword_t obj, l4_uint32_t func, L4::Ipc_iostream &ios)
+Device::vdevice_dispatch(l4_umword_t obj, l4_uint32_t func, L4::Ipc::Iostream &ios)
 {
   if (func & L4vbus_vdevice_generic)
     {

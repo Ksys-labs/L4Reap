@@ -14,7 +14,7 @@ DEFAULT_RELOC_arm   := 0x01000000
 DEFAULT_RELOC_x86   := 0x002d0000
 DEFAULT_RELOC_amd64 := 0x002d0000
 DEFAULT_RELOC_ppc32 := 0x002d0000
-DEFAULT_RELOC_sparc := 0x00100000
+DEFAULT_RELOC_sparc := 0x01000000
 RELOC_PHYS          := y
 LDFLAGS              = -Bstatic
 EXTRA_GENERAL_D_DEP  = .redo-change-tracker $(BID_RAM_BASE_DEP)
@@ -42,8 +42,8 @@ BOOTSTRAP_ELF_NAME           ?= bootstrap.elf
 MKIMAGE                      ?= mkimage
 BOOTSTRAP_UIMAGE_COMPRESSION ?= none
 
-ifeq ($(BUILD_ARCH),$(filter $(BUILD_ARCH),arm ppc32))
-  # ARM/PPC always uses single image mode
+ifeq ($(BUILD_ARCH),$(filter $(BUILD_ARCH),arm ppc32 sparc))
+  # ARM/PPC/SPARC always uses single image mode
   # when no entry is given we build the useless auto-build target
   ifeq ($(E)$(ENTRY),)
     BOOTSTRAP_ELF_NAME := bootstrap.auto-build-useless.elf
@@ -53,12 +53,6 @@ endif
 
 
 PRIVATE_INCDIR	 = $(SRC_DIR) $(SRC_DIR)/ARCH-$(ARCH)
-
-# special include directories only needed for <l4/sys/kernel.h>
-PRIVATE_INCDIR_init_kip_v2.o      = $(OBJ_BASE)/include/$(ARCH)/l4f \
-                                    $(DROPS_STDDIR)/include/$(ARCH)/l4f
-PRIVATE_INCDIR_init_arm_kip.o     = $(OBJ_BASE)/include/$(ARCH)/l4f \
-                                    $(DROPS_STDDIR)/include/$(ARCH)/l4f
 
 TARGET		:= $(BOOTSTRAP_ELF_NAME)
 TARGET_BIN	 = $(BOOTSTRAP_ELF_NAME)
@@ -77,32 +71,32 @@ PLATFORM_TYPE-sparc = $(SPARC_PLATFORM_TYPE)
 PLATFORM_TYPE       = $(PLATFORM_TYPE-$(ARCH))
 endif
 
-SUPPORT_CC_arm-sa1000     := support_sa1000.cc
-SUPPORT_CC_arm-pxa        := support_pxa.cc
-SUPPORT_CC_arm-integrator := support_integrator.cc
-SUPPORT_CC_arm-rv         := support_rv.cc
-SUPPORT_CC_arm-omap3evm   := support_omap.cc
-SUPPORT_CC_arm-beagleboard:= support_omap.cc
-SUPPORT_CC_arm-pandaboard := support_omap.cc
-SUPPORT_CC_arm-tegra2     := support_tegra2.cc
-SUPPORT_CC_arm-imx21      := support_imx.cc
-SUPPORT_CC_arm-imx35      := support_imx.cc
-SUPPORT_CC_arm-imx51      := support_imx.cc
-SUPPORT_CC_arm-om         := support_om.cc
-SUPPORT_CC_arm-kirkwood   := support_kirkwood.cc
+SUPPORT_CC_arm-sa1000     := platform/sa1000.cc
+SUPPORT_CC_arm-pxa        := platform/pxa.cc
+SUPPORT_CC_arm-integrator := platform/integrator.cc
+SUPPORT_CC_arm-rv         := platform/rv.cc
+SUPPORT_CC_arm-omap3evm   := platform/omap.cc
+SUPPORT_CC_arm-beagleboard:= platform/omap.cc
+SUPPORT_CC_arm-pandaboard := platform/omap.cc
+SUPPORT_CC_arm-tegra2     := platform/tegra2.cc
+SUPPORT_CC_arm-imx21      := platform/imx.cc
+SUPPORT_CC_arm-imx35      := platform/imx.cc
+SUPPORT_CC_arm-imx51      := platform/imx.cc
+SUPPORT_CC_arm-om         := platform/om.cc
+SUPPORT_CC_arm-kirkwood   := platform/kirkwood.cc
 DEFAULT_RELOC_arm-imx21   := 0x00200000  # because of blob
 
 ifneq ($(DEFAULT_RELOC_arm-$(PLATFORM_TYPE)),)
 DEFAULT_RELOC_arm         := $(DEFAULT_RELOC_arm-$(PLATFORM_TYPE))
 endif
 
-SUPPORT_CC_ppc32-mpc5200  := support_mpc5200.cc
+SUPPORT_CC_ppc32-mpc5200  := platform/mpc5200.cc
 
-SUPPORT_CC_x86-pc         := support_x86_pc.cc
+SUPPORT_CC_x86-pc         := platform/x86_pc.cc
 
-SUPPORT_CC_amd64-pc       := support_x86_pc.cc
+SUPPORT_CC_amd64-pc       := platform/x86_pc.cc
 
-SUPPORT_CC_sparc-leon3    := support_sparc_leon3.cc
+SUPPORT_CC_sparc-leon3    := platform/leon3.cc
 
 SRC_C		+= exec.c module.c
 SRC_CC		+= region.cc startup.cc init_kip_v2.cc init_kip_v4.cc \
@@ -225,7 +219,7 @@ all:: $(addprefix $(IMAGES_DIR)/,$(INSTALL_TARGET))
 	$(VERBOSE)for f in $(filter bootstrap_$(ENTRY_FN).elf bootstrap.raw bootstrap.uimage, $(INSTALL_TARGET)); do \
 	  find . -name $$f -printf " %30f:  %s\n"; \
 	done
-	$(if $(BOOTSTRAP_DO_RAW_IMAGE),$(VERBOSE)echo "  Start address: $(patsubst -Ttext=%,%,$(LDFLAGS_bootstrap.elf))")
+	$(if $(LDFLAGS_bootstrap.elf),$(VERBOSE)echo "  Start address: $(patsubst --defsym=__executable_start=%,%,$(LDFLAGS_bootstrap.elf))")
 	$(VERBOSE)echo "  --> Build-Nr: $$(cat .build_nr)"
 
 # install images into easy to reach directory in build dir

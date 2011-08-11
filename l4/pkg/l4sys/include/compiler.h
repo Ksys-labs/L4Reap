@@ -245,12 +245,16 @@
 #define L4_STICKY(x)	__attribute__((used)) x         ///< Mark symbol sticky (even not there) \hideinitializer
 /* The deprecated attribute is available with 3.1 and higher (3.3 as here
  * is ok for us */
-#define L4_DEPRECATED	__attribute__((deprecated))     ///< Mark symbol deprecated. \hideinitializer
+# if (__GNUC__ == 4 && __GNUC_MINOR__ >= 5) || __GNUC__ >= 5
+# define L4_DEPRECATED(s) __attribute__((deprecated(s)))     ///< Mark symbol deprecated. \hideinitializer
+# else
+# define L4_DEPRECATED(s) __attribute__((deprecated))     ///< Mark symbol deprecated. \hideinitializer
+# endif
 #else
 /* The "used" attribute is not available with older gcc versions so simply
  * make sure that gcc doesn't warn about unused functions. */
 #define L4_STICKY(x)	__attribute__((unused)) x       ///< Mark symbol sticky (even not there).
-#define L4_DEPRECATED                                   ///< Mark symbol deprecated
+#define L4_DEPRECATED(s)                                ///< Mark symbol deprecated
 #endif
 
 #ifndef __GXX_EXPERIMENTAL_CXX0X__

@@ -127,6 +127,8 @@ bool Thread::handle_sigma0_page_fault( Address pfa )
       != Mem_space::Insert_err_nomem);
 }
 
+typedef bool (*Undef_coprop_insn_handler)(Unsigned32 opcode, Trap_state *ts);
+static Undef_coprop_insn_handler handle_copro_fault[16];
 
 extern "C" {
 
@@ -236,30 +238,29 @@ extern "C" {
 
     if (ts->exception_is_undef_insn())
       {
-	switch (Fpu::handle_fpu_trap(ts))
-	  {
-	    case Fpu::Fpu_except_emulated: return;
-            case Fpu::Fpu_except_fault:
-#ifndef NDEBUG
-                  if (!(current_thread()->state() & Thread_vcpu_enabled)
-                      && Fpu::is_enabled() && Fpu::owner(t->cpu()) == t)
-                    printf("KERNEL: FPU doesn't like us?\n");
-                  else
-#endif
-		  if (t->switchin_fpu())
-                    {
-                      ts->pc -= (ts->psr & Proc::Status_thumb) ? 2 : 4;
-                      return;
-                    }
+	Unsigned32 opcode;
 
-                  ts->error_code |= 0x01000000; // tag fpu undef insn
-                  if (Fpu::exc_pending())
-                    ts->error_code |= 0x02000000; // fpinst and fpinst2 in utcb will be valid
-                  break;
-            case Fpu::Fpu_except_none: break;
+	if (ts->psr & Proc::Status_thumb)
+	  {
+	    Unsigned16 v = *(Unsigned16 *)(ts->pc - 2);
+	    if ((v >> 11) <= 0x1c)
+	      goto undef_insn;
+
+	    opcode = (v << 16) | *(Unsigned16 *)ts->pc;
 	  }
+	else
+	  opcode = *(Unsigned32 *)(ts->pc - 4);
+
+        if ((opcode & 0x0c000000) == 0x0c000000)
+          {
+            unsigned copro = (opcode >> 8) & 0xf;
+            if (   handle_copro_fault[copro]
+                && handle_copro_fault[copro](opcode, ts))
+              return;
+          }
       }
 
+undef_insn:
     // send exception IPC if requested
     if (t->send_exception(ts))
       return;
@@ -519,6 +520,35 @@ Thread::sys_control_arch(Utcb *)
   return 0;
 }
 
+PUBLIC static inline
+bool
+Thread::condition_valid(Unsigned32 insn, Unsigned32 psr)
+{
+  // Matrix of instruction conditions and PSR flags,
+  // index into the table is the condition from insn
+  Unsigned16 v[16] =
+  {
+    0xf0f0,
+    0x0f0f,
+    0xcccc,
+    0x3333,
+    0xff00,
+    0x00ff,
+    0xaaaa,
+    0x5555,
+    0x0c0c,
+    0xf3f3,
+    0xaa55,
+    0x55aa,
+    0x0a05,
+    0xf5fa,
+    0xffff,
+    0xffff
+  };
+
+  return (v[insn >> 28] >> (psr >> 28)) & 1;
+}
+
 // ------------------------------------------------------------------------
 IMPLEMENTATION [arm && armv6plus]:
 
@@ -583,3 +613,53 @@ PUBLIC static inline
 bool
 Thread::check_for_ipi(unsigned)
 { return false; }
+
+//-----------------------------------------------------------------------------
+IMPLEMENTATION [arm && fpu]:
+
+PUBLIC static
+bool
+Thread::handle_fpu_trap(Unsigned32 opcode, Trap_state *ts)
+{
+  if (!condition_valid(opcode, ts->psr))
+    {
+      if (ts->psr & Proc::Status_thumb)
+        ts->pc += 2;
+      return true;
+    }
+
+  if (Fpu::is_enabled())
+    if ((opcode & 0x0ff00f90) == 0x0ef00a10)
+      return Fpu::emulate_insns(opcode, ts, current_cpu());
+
+#ifndef NDEBUG
+  Thread *t = current_thread();
+  if (!(t->state() & Thread_vcpu_enabled)
+      && Fpu::is_enabled() && Fpu::owner(t->cpu()) == t)
+    printf("KERNEL: FPU doesn't like us?\n");
+  else
+#endif
+    if (current_thread()->switchin_fpu())
+      {
+        if ((opcode & 0x0ff00f90) == 0x0ef00a10)
+          return Fpu::emulate_insns(opcode, ts, current_cpu());
+        ts->pc -= (ts->psr & Proc::Status_thumb) ? 2 : 4;
+        return true;
+      }
+
+  ts->error_code |= 0x01000000; // tag fpu undef insn
+  if (Fpu::exc_pending())
+    ts->error_code |= 0x02000000; // fpinst and fpinst2 in utcb will be valid
+
+  return false;
+}
+
+PUBLIC static
+void
+Thread::init_fpu_trap_handling()
+{
+  handle_copro_fault[10] = Thread::handle_fpu_trap;
+  handle_copro_fault[11] = Thread::handle_fpu_trap;
+}
+
+STATIC_INITIALIZEX(Thread, init_fpu_trap_handling);

@@ -35,6 +35,11 @@ ifeq ("$(GCCMAJORVERSION)", "4")
     STDCXX_CONTRIB_VERSION_4.6_PLUS := y
     STDCXX_0x = y
   endif
+  ifeq ("$(GCCMINORVERSION)", "7")
+    STDCXX_CONTRIB_VERSION := 4.6
+    STDCXX_CONTRIB_VERSION_4.6_PLUS := y
+    STDCXX_0x = y
+  endif
   ifneq ("$(call gte, $(__GCCMINOR), $(call n, 1))", "")
     STDCXX_CONTRIB_VERSION ?= 4.1.0
   endif

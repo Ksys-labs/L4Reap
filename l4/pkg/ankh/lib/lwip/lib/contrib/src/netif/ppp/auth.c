@@ -408,7 +408,7 @@ link_down(int unit)
 {
   int i;
   struct protent *protp;
-  
+
   AUTHDEBUG(LOG_INFO, ("link_down: %d\n", unit));
 
   if (did_authup) {
@@ -472,7 +472,7 @@ link_established(int unit)
       return;
     }
   }
-    
+
   lcp_phase[unit] = PHASE_AUTHENTICATE;
   auth = 0;
 #if CHAP_SUPPORT
@@ -588,7 +588,7 @@ void
 auth_peer_success(int unit, u16_t protocol, char *name, int namelen)
 {
   int pbit;
-  
+
   AUTHDEBUG(LOG_INFO, ("auth_peer_success: %d proto=%X\n", unit, protocol));
   switch (protocol) {
     case PPP_CHAP:
@@ -601,7 +601,7 @@ auth_peer_success(int unit, u16_t protocol, char *name, int namelen)
       AUTHDEBUG(LOG_WARNING, ("auth_peer_success: unknown protocol %x\n", protocol));
       return;
   }
-  
+
   /*
    * Save the authenticated name of the peer for later.
    */
@@ -627,7 +627,7 @@ void
 auth_withpeer_fail(int unit, u16_t protocol)
 {
   int errCode = PPPERR_AUTHFAIL;
-  
+
   LWIP_UNUSED_ARG(protocol);
 
   AUTHDEBUG(LOG_INFO, ("auth_withpeer_fail: %d proto=%X\n", unit, protocol));
@@ -651,7 +651,7 @@ void
 auth_withpeer_success(int unit, u16_t protocol)
 {
   int pbit;
-  
+
   AUTHDEBUG(LOG_INFO, ("auth_withpeer_success: %d proto=%X\n", unit, protocol));
   switch (protocol) {
     case PPP_CHAP:
@@ -667,7 +667,7 @@ auth_withpeer_success(int unit, u16_t protocol)
       AUTHDEBUG(LOG_WARNING, ("auth_peer_success: unknown protocol %x\n", protocol));
       pbit = 0;
   }
-  
+
   /*
    * If there is no more authentication still being done,
    * proceed to the network (or callback) phase.
@@ -697,7 +697,7 @@ np_up(int unit, u16_t proto)
     if (ppp_settings.idle_time_limit > 0) {
       TIMEOUT(check_idle, NULL, ppp_settings.idle_time_limit);
     }
-    
+
     /*
      * Set a timeout to close the connection once the maximum
      * connect time has expired.
@@ -968,16 +968,16 @@ plogin(char *user, char *passwd, char **msg, int *msglen)
 
 
 
-  
-
-
-
-  
 
 
 
 
-  
+
+
+
+
+
+
 
 
 
@@ -1267,7 +1267,7 @@ static void
 free_wordlist(struct wordlist *wp)
 {
   struct wordlist *next;
-  
+
   while (wp != NULL) {
     next = wp->next;
     free(wp);

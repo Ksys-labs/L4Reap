@@ -17,7 +17,7 @@ STATIC_PLUGINS += mag-input-event
 STATIC_PLUGINS += mag-client_fb
 STATIC_PLUGINS += mag-mag_client
 
-REQUIRES_LIBS:= libsupc++ libdl mag-gfx lua++
+REQUIRES_LIBS:= libsupc++ libdl mag-gfx lua++ cxx_libc_io cxx_io
 REQUIRES_LIBS += $(STATIC_PLUGINS)
 #LDFLAGS += --export-dynamic
 

@@ -835,7 +835,7 @@ T read(Istream &s) { T t; s >> t; return t; }
  * \endlink.
  *
  * There exist some special wrapper classes to insert arrays (see
- * Ipc_buf_cp_out) and indirect strings (see Msg_out_buffer and
+ * Ipc::Buf_cp_out) and indirect strings (see Msg_out_buffer and
  * Msg_io_buffer). */
 class Ostream
 {
@@ -1282,7 +1282,7 @@ L4::Ipc::Istream &operator >> (L4::Ipc::Istream &s, l4_msgtag_t &v)
  * returns a pointer into the message buffer itself. This means that the
  * data is only valid as long as there is no new data inserted into the stream.
  *
- * See Ipc_buf_in, Ipc_bufcp_in, and Ipc_buf_cp_out.
+ * See Ipc::Buf_in, Ipc::Buf_cp_in, and Ipc::Buf_cp_out.
  *
  * \param s The stream to extract from.
  * \param v Output: pointer to the extracted array (ipc_buf_in()).
@@ -1329,10 +1329,10 @@ L4::Ipc::Istream &operator >> (L4::Ipc::Istream &s,
  *
  * This operator does a copy out of the data into the given buffer.
  *
- * See Ipc_buf_in, Ipc_bufcp_in, and Ipc_buf_cp_out.
+ * See Ipc::Buf_in, Ipc::Buf_cp_in, and Ipc::Buf_cp_out.
  *
  * \param s The stream to extract from.
- * \param v buffer description to copy the array to (ipc_buf_cp_out()).
+ * \param v buffer description to copy the array to (Ipc::Buf_cp_out()).
  * \return the stream \a s.
  */
 template< typename T >
@@ -1399,7 +1399,7 @@ L4::Ipc::Ostream &operator << (L4::Ipc::Ostream &s, l4_msgtag_t const &v)
  * \ingroup ipc_stream
  *
  * \param s The stream to insert the array \a v.
- * \param v The array to insert (see ipc_buf_cp_out()).
+ * \param v The array to insert (see Ipc::Buf_cp_out()).
  * \return the stream \a s.
  */
 template< typename T >
@@ -1437,33 +1437,54 @@ L4::Ipc::Ostream &operator << (L4::Ipc::Ostream &s, char const *v)
 #ifdef L4_CXX_IPC_BACKWARD_COMPAT
 namespace L4 {
 
+#if 0
 template< typename T > class Ipc_buf_cp_out : public Ipc::Buf_cp_out<T> {};
 template< typename T > class Ipc_buf_cp_in : public Ipc::Buf_cp_in<T> {};
 template< typename T > class Ipc_buf_in : public Ipc::Buf_in<T> {};
 template< typename T > class Msg_ptr : public Ipc::Msg_ptr<T> {};
+#endif
+
+template< typename T >
+Ipc::Buf_cp_out<T> ipc_buf_cp_out(T *v, unsigned long size)
+  L4_DEPRECATED("Use L4::Ipc::Buf_cp_out<type>() now");
 
 template< typename T >
 Ipc::Buf_cp_out<T> ipc_buf_cp_out(T *v, unsigned long size)
 { return Ipc::Buf_cp_out<T>(v,size); }
 
+
+template< typename T >
+Ipc::Buf_cp_in<T> ipc_buf_cp_in(T *v, unsigned long &size)
+  L4_DEPRECATED("Use L4::Ipc::Buf_cp_in<type>() now");
+
 template< typename T >
 Ipc::Buf_cp_in<T> ipc_buf_cp_in(T *v, unsigned long &size)
 { return Ipc::Buf_cp_in<T>(v,size); }
+
+
+template< typename T >
+Ipc::Buf_in<T> ipc_buf_in(T *&v, unsigned long &size)
+  L4_DEPRECATED("Use L4::Ipc::Buf_in<type>() now");
 
 template< typename T >
 Ipc::Buf_in<T> ipc_buf_in(T *&v, unsigned long &size)
 { return Ipc::Buf_in<T>(v, size); }
 
+
+template< typename T >
+Ipc::Msg_ptr<T> msg_ptr(T *&p)
+  L4_DEPRECATED("Use L4::Ipc::Msg_ptr<type>() now");
+
 template< typename T >
 Ipc::Msg_ptr<T> msg_ptr(T *&p)
 { return Ipc::Msg_ptr<T>(p); }
 
-typedef Ipc::Istream Ipc_istream;
-typedef Ipc::Ostream Ipc_ostream;
-typedef Ipc::Iostream Ipc_iostream;
-typedef Ipc::Snd_fpage Snd_fpage;
-typedef Ipc::Rcv_fpage Rcv_fpage;
-typedef Ipc::Small_buf Small_buf;
+typedef Ipc::Istream Ipc_istream L4_DEPRECATED("Use L4::Ipc::Istream now");
+typedef Ipc::Ostream Ipc_ostream L4_DEPRECATED("Use L4::Ipc::Ostream now");;
+typedef Ipc::Iostream Ipc_iostream L4_DEPRECATED("Use L4::Ipc::Iostream now");;
+typedef Ipc::Snd_fpage Snd_fpage L4_DEPRECATED("Use L4::Ipc::Snd_fpage now");;
+typedef Ipc::Rcv_fpage Rcv_fpage L4_DEPRECATED("Use L4::Ipc::Rcv_fpage now");;
+typedef Ipc::Small_buf Small_buf L4_DEPRECATED("Use L4::Ipc::Small_buf now");;
 
 }
 #endif

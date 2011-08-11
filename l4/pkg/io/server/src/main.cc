@@ -15,7 +15,7 @@
 #include <l4/re/error_helper>
 #include <l4/re/dataspace>
 #include <l4/util/kip.h>
-#include <l4/cxx/iostream>
+#include <l4/cxx/std_exc_io>
 
 #include "main.h"
 #include "hw_root_bus.h"
@@ -47,7 +47,8 @@ using L4Re::Util::Auto_cap;
 class Io_config_x : public Io_config
 {
 public:
-  Io_config_x() : _do_transparent_msi(false) {}
+  Io_config_x()
+  : _do_transparent_msi(false), _verbose_lvl(1) {}
 
   bool transparent_msi(Hw::Device *) const
   { return _do_transparent_msi; }
@@ -202,11 +203,15 @@ arg_init(int argc, char * const *argv, Io_config_x *cfg)
     {
       int optidx = 0;
       int c;
+      enum
+      {
+        OPT_TRANSPARENT_MSI   = 1,
+      };
 
       struct option opts[] =
       {
-        { "verbose",         0, 0, 'v' },
-        { "transparent-msi", 0, 0, 1 },
+        { "verbose",           0, 0, 'v' },
+        { "transparent-msi",   0, 0, OPT_TRANSPARENT_MSI },
         { 0, 0, 0, 0 },
       };
 
@@ -219,7 +224,7 @@ arg_init(int argc, char * const *argv, Io_config_x *cfg)
         case 'v':
           _my_cfg.inc_verbosity();
           break;
-        case 1:
+        case OPT_TRANSPARENT_MSI:
 	  d_printf(DBG_INFO, "Enabling transparent MSIs\n");
           cfg->set_transparent_msi(true);
           break;
@@ -237,7 +242,7 @@ run(int argc, char * const *argv)
   printf("Io service\n");
   set_debug_level(Io_config::cfg->verbose());
 
-  d_printf(DBG_ERR, "Verboseness level: %d\n", Io_config::cfg->verbose());
+  d_printf(DBG_INFO, "Verboseness level: %d\n", Io_config::cfg->verbose());
 
   res_init();
 
@@ -284,14 +289,14 @@ main(int argc, char * const *argv)
     }
   catch (L4::Runtime_error &e)
     {
-      L4::cerr << "FATAL uncought exception: " << e
-               << "\nterminating...\n";
+      std::cerr << "FATAL uncought exception: " << e
+                << "\nterminating...\n";
 
     }
   catch (...)
     {
-      L4::cerr << "FATAL uncought exception of unknown type\n"
-               << "terminating...\n";
+      std::cerr << "FATAL uncought exception of unknown type\n"
+                << "terminating...\n";
     }
   return -1;
 }

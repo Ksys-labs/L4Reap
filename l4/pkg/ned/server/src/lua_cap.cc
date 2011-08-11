@@ -160,7 +160,7 @@ Cap::find_dynamic_type(lua_State *l) const
   using L4Re::Util::Ref_cap;
   Dbg dbg(Dbg::Warn, "lua");
   Ref_cap<L4::Meta>::Cap _meta = L4::cap_cast<L4::Meta>(_c);
-  L4::Ipc_istream res(l4_utcb());
+  L4::Ipc::Istream res(l4_utcb());
   res.tag() = _meta->interface(0);
 
   if (int err = l4_error(res.tag()))

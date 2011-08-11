@@ -41,7 +41,7 @@ long
 Rm::reserve_area(l4_addr_t *start, unsigned long size, unsigned flags,
                  unsigned char align) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Rm_::Attach_area) << *start << size << flags << align;
   long err = l4_error(io.call(cap(), L4Re::Protocol::Rm));
   if (EXPECT_FALSE(err < 0))
@@ -54,7 +54,7 @@ Rm::reserve_area(l4_addr_t *start, unsigned long size, unsigned flags,
 long
 Rm::free_area(l4_addr_t addr) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Rm_::Detach_area) << addr;
   return l4_error(io.call(cap(), L4Re::Protocol::Rm));
 }
@@ -64,7 +64,7 @@ Rm::attach(l4_addr_t *start, unsigned long size, unsigned long flags,
            L4::Cap<Dataspace> mem, l4_addr_t offs,
            unsigned char align) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Rm_::Attach) << l4_addr_t(*start) << size << flags
      << offs << align;
 
@@ -91,7 +91,7 @@ int
 Rm::_detach(l4_addr_t addr, unsigned long size, L4::Cap<Dataspace> *mem,
             L4::Cap<L4::Task> task, unsigned flags) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Rm_::Detach) << addr << size << flags;
   long err = l4_error(io.call(cap(), L4Re::Protocol::Rm));
   if (EXPECT_FALSE(err < 0))
@@ -143,7 +143,7 @@ int
 Rm::find(l4_addr_t *addr, unsigned long *size, unsigned long *offset,
          unsigned *flags, L4::Cap<Dataspace> *m) throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Rm_::Find) << *addr << *size;
   long err = l4_error(io.call(cap(), L4Re::Protocol::Rm));
   if (EXPECT_FALSE(err < 0))
@@ -159,7 +159,7 @@ Rm::find(l4_addr_t *addr, unsigned long *size, unsigned long *offset,
 int
 Rm::get_regions(l4_addr_t start, Region **regions) throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Rm_::Get_regions) << start;
   long err = l4_error(io.call(cap(), L4Re::Protocol::Rm));
   if (err > 0)
@@ -170,7 +170,7 @@ Rm::get_regions(l4_addr_t start, Region **regions) throw()
 int
 Rm::get_areas(l4_addr_t start, Area **areas) throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Rm_::Get_areas) << start;
   long err = l4_error(io.call(cap(), L4Re::Protocol::Rm));
   if (err > 0)

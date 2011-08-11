@@ -33,13 +33,13 @@ namespace Lua { namespace {
 class Observer : public Ned::Server_object
 {
 public:
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 };
 
 static Observer *observer;
 
 int
-Observer::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Observer::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_cap_idx_t thread = L4::Ipc::read<l4_cap_idx_t>(ios);
   App_task *t = (App_task*)L4::Ipc::read<l4_addr_t>(ios);

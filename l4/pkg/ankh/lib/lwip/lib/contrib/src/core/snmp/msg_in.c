@@ -818,53 +818,53 @@ snmp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, ip_addr_t *addr, u16_t
   /* suppress unused argument warning */
   LWIP_UNUSED_ARG(arg);
 
-    /* traverse input message process list, look for SNMP_MSG_EMPTY */
-    msg_ps = &msg_input_list[0];
-    req_idx = 0;
+  /* traverse input message process list, look for SNMP_MSG_EMPTY */
+  msg_ps = &msg_input_list[0];
+  req_idx = 0;
   while ((req_idx < SNMP_CONCURRENT_REQUESTS) && (msg_ps->state != SNMP_MSG_EMPTY))
-    {
-      req_idx++;
-      msg_ps++;
-    }
+  {
+    req_idx++;
+    msg_ps++;
+  }
   if (req_idx == SNMP_CONCURRENT_REQUESTS)
-    {
+  {
     /* exceeding number of concurrent requests */
     pbuf_free(p);
     return;
   }
 
-      /* accepting request */
-      snmp_inc_snmpinpkts();
-      /* record used 'protocol control block' */
-      msg_ps->pcb = pcb;
-      /* source address (network order) */
-      msg_ps->sip = *addr;
-      /* source port (host order (lwIP oddity)) */
-      msg_ps->sp = port;
+  /* accepting request */
+  snmp_inc_snmpinpkts();
+  /* record used 'protocol control block' */
+  msg_ps->pcb = pcb;
+  /* source address (network order) */
+  msg_ps->sip = *addr;
+  /* source port (host order (lwIP oddity)) */
+  msg_ps->sp = port;
 
-      /* check total length, version, community, pdu type */
-      err_ret = snmp_pdu_header_check(p, payload_ofs, payload_len, &varbind_ofs, msg_ps);
-        /* Only accept requests and requests without error (be robust) */
-        /* Reject response and trap headers or error requests as input! */
+  /* check total length, version, community, pdu type */
+  err_ret = snmp_pdu_header_check(p, payload_ofs, payload_len, &varbind_ofs, msg_ps);
+  /* Only accept requests and requests without error (be robust) */
+  /* Reject response and trap headers or error requests as input! */
   if ((err_ret != ERR_OK) ||
       ((msg_ps->rt != SNMP_ASN1_PDU_GET_REQ) &&
        (msg_ps->rt != SNMP_ASN1_PDU_GET_NEXT_REQ) &&
        (msg_ps->rt != SNMP_ASN1_PDU_SET_REQ)) ||
       ((msg_ps->error_status != SNMP_ES_NOERROR) ||
        (msg_ps->error_index != 0)) )
-      {
+  {
     /* header check failed drop request silently, do not return error! */
     pbuf_free(p);
     LWIP_DEBUGF(SNMP_MSG_DEBUG, ("snmp_pdu_header_check() failed\n"));
     return;
   }
-        LWIP_DEBUGF(SNMP_MSG_DEBUG, ("snmp_recv ok, community %s\n", msg_ps->community));
+  LWIP_DEBUGF(SNMP_MSG_DEBUG, ("snmp_recv ok, community %s\n", msg_ps->community));
 
-        /* Builds a list of variable bindings. Copy the varbinds from the pbuf
-          chain to glue them when these are divided over two or more pbuf's. */
-        err_ret = snmp_pdu_dec_varbindlist(p, varbind_ofs, &varbind_ofs, msg_ps);
-          /* we've decoded the incoming message, release input msg now */
-          pbuf_free(p);
+  /* Builds a list of variable bindings. Copy the varbinds from the pbuf
+    chain to glue them when these are divided over two or more pbuf's. */
+  err_ret = snmp_pdu_dec_varbindlist(p, varbind_ofs, &varbind_ofs, msg_ps);
+  /* we've decoded the incoming message, release input msg now */
+  pbuf_free(p);
   if ((err_ret != ERR_OK) || (msg_ps->invb.count == 0))
   {
     /* varbind-list decode failed, or varbind list empty.
@@ -874,17 +874,17 @@ snmp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, ip_addr_t *addr, u16_t
     return;
   }
 
-          msg_ps->error_status = SNMP_ES_NOERROR;
-          msg_ps->error_index = 0;
-          /* find object for each variable binding */
-          msg_ps->state = SNMP_MSG_SEARCH_OBJ;
-          /* first variable binding from list to inspect */
-          msg_ps->vb_idx = 0;
+  msg_ps->error_status = SNMP_ES_NOERROR;
+  msg_ps->error_index = 0;
+  /* find object for each variable binding */
+  msg_ps->state = SNMP_MSG_SEARCH_OBJ;
+  /* first variable binding from list to inspect */
+  msg_ps->vb_idx = 0;
 
-          LWIP_DEBUGF(SNMP_MSG_DEBUG, ("snmp_recv varbind cnt=%"U16_F"\n",(u16_t)msg_ps->invb.count));
+  LWIP_DEBUGF(SNMP_MSG_DEBUG, ("snmp_recv varbind cnt=%"U16_F"\n",(u16_t)msg_ps->invb.count));
 
-          /* handle input event and as much objects as possible in one go */
-          snmp_msg_event(req_idx);
+  /* handle input event and as much objects as possible in one go */
+  snmp_msg_event(req_idx);
 }
 
 /**

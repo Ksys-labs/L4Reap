@@ -9,6 +9,6 @@ SRC_CC		= main.cc slab_alloc.cc \
 LDFLAGS +=
 #CPPFLAGS += -fPIC
 
-REQUIRES_LIBS  := libloader libkproxy
+REQUIRES_LIBS  := libloader libkproxy cxx_libc_io cxx_io
 
 include $(L4DIR)/mk/prog.mk

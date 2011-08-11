@@ -59,19 +59,8 @@ IMPLEMENTATION [ppc32]:
 
 char const Config::char_micro = '\265';
 const char *const Config::kernel_warn_config_string = 0;
-//static int Config::serial_esc;
-//---------------------------------------------------------------------------
-IMPLEMENTATION [ppc32 & serial]:
 
 IMPLEMENT FIASCO_INIT
-void Config::init()
-{
-  serial_esc = SERIAL_ESC_IRQ;
-}
-
-//---------------------------------------------------------------------------
-IMPLEMENTATION [ppc32 & !serial]:
-
-IMPLEMENT FIASCO_INIT
-void Config::init()
+void
+Config::init_arch()
 {}

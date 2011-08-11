@@ -11,6 +11,15 @@ private:
 };
 
 // ------------------------------------------------------------------------
+INTERFACE [armv6plus]:
+
+EXTENSION class Context
+{
+private:
+  Mword _tpidrurw;
+};
+
+// ------------------------------------------------------------------------
 IMPLEMENTATION [arm]:
 
 #include <cassert>
@@ -47,12 +56,13 @@ Context::spill_user_state()
       : "=m"(ef->usp), "=m"(ef->ulr) : [rf] "r" (&ef->usp));
 }
 
-IMPLEMENT inline
+IMPLEMENT inline NEEDS[Context::store_tpidrurw]
 void
 Context::switch_cpu(Context *t)
 {
   update_consumed_time();
 
+  store_tpidrurw();
   spill_user_state();
   t->fill_user_state();
 
@@ -111,6 +121,8 @@ void Context::switchin_context(Context *from)
   // switch to our page directory if nessecary
   vcpu_aware_space()->switchin_context(from->vcpu_aware_space());
 
+  load_tpidrurw();
+
   Utcb_support::current(utcb().usr());
 }
 
@@ -123,3 +135,32 @@ Context::set_ignore_mem_op_in_progress(bool val)
   Mem::barrier();
 }
 
+// ------------------------------------------------------------------------
+IMPLEMENTATION [armv6plus]:
+
+PRIVATE inline
+void
+Context::store_tpidrurw()
+{
+  asm volatile ("mrc p15, 0, %0, c13, c0, 2" : "=r" (_tpidrurw));
+}
+
+PRIVATE inline
+void
+Context::load_tpidrurw() const
+{
+  asm volatile ("mcr p15, 0, %0, c13, c0, 2" : : "r" (_tpidrurw));
+}
+
+// ------------------------------------------------------------------------
+IMPLEMENTATION [!armv6plus]:
+
+PRIVATE inline
+void
+Context::store_tpidrurw()
+{}
+
+PRIVATE inline
+void
+Context::load_tpidrurw() const
+{}

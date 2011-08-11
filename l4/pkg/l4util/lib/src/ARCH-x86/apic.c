@@ -32,7 +32,7 @@ apic_show_register_block(unsigned int beg, unsigned int len)
   outstring("\r\n");
 }
 
-void
+L4_CV void
 apic_show_registers(void)
 {
   if (!apic_map_base)
@@ -47,23 +47,23 @@ apic_show_registers(void)
   apic_show_register_block(0x380, 0x10);  // Initial Count Register
 }
 
-void
+L4_CV void
 apic_timer_set_divisor(int newdiv)
 {
   int i;
   int div = -1;
   int divval = newdiv;
   unsigned long tmp_value;
-    
-  static int divisor_tab[8] = 
+
+  static int divisor_tab[8] =
     {
       APIC_TDR_DIV_1,  APIC_TDR_DIV_2,  APIC_TDR_DIV_4,  APIC_TDR_DIV_8,
-      APIC_TDR_DIV_16, APIC_TDR_DIV_32, APIC_TDR_DIV_64, APIC_TDR_DIV_128 
+      APIC_TDR_DIV_16, APIC_TDR_DIV_32, APIC_TDR_DIV_64, APIC_TDR_DIV_128
     };
 
   if (!apic_map_base)
     return;
-    
+
   for (i=0; i<8; i++)
     {
       if (divval & 1)
@@ -77,7 +77,7 @@ apic_timer_set_divisor(int newdiv)
 	}
       divval >>= 1;
     }
-    
+
   if (div != -1)
     {
       apic_timer_divisor = newdiv;
@@ -89,7 +89,7 @@ apic_timer_set_divisor(int newdiv)
 }
 
 
-int
+L4_CV int
 apic_check_working(void)
 {
 #define CLOCK_TICK_RATE 1193180  /* i8254 ticks per second */
@@ -100,25 +100,25 @@ apic_check_working(void)
 
   if (!apic_map_base)
     return 0;
-    
+
   apic_timer_disable_irq();
   apic_timer_set_divisor(1);
   apic_timer_write(1000000000);
 
   /* Set the Gate high, disable speaker */
   l4util_out8((l4util_in8(0x61) & ~0x02) | 0x01, 0x61);
-  
+
   l4util_out8(0xb0, 0x43);  /* binary, mode 0, LSB/MSB, Ch 2 */
   l4util_out8(calibrate_latch & 0xff, 0x42); /* LSB of count */
   l4util_out8(calibrate_latch >> 8,   0x42); /* MSB of count */
 
   tt1=apic_timer_read();
   count = 0;
-  do 
+  do
     {
       count++;
     } while ((l4util_in8(0x61) & 0x20) == 0);
-    
+
   tt2=apic_timer_read();
   return (tt1-tt2) != 0;
 }
@@ -127,7 +127,7 @@ apic_check_working(void)
 /* activate APIC after activating by MSR was successful *
  * see "Intel Architecture Software Developer's Manual, *
  *      Volume 3: System Programming Guide, Appendix E" */
-void
+L4_CV void
 apic_activate_by_io(void)
 {
   char old_21, old_A1;
@@ -135,7 +135,7 @@ apic_activate_by_io(void)
   l4_umword_t flags;
 
   /* mask 8259 interrupts */
-  old_21 = l4util_in8(0x21); 
+  old_21 = l4util_in8(0x21);
   l4util_out8(0xff, 0x21);
   old_A1 = l4util_in8(0xA1);
   l4util_out8(0xff, 0xA1);
@@ -150,13 +150,13 @@ apic_activate_by_io(void)
   tmp_val &= 0xfffe58ff;
   tmp_val |= 0x00000700;
   apic_write(APIC_LVT0, tmp_val);
-    
+
   /* set LINT1 to NMI, edge triggered */
   tmp_val = apic_read(APIC_LVT1);
   tmp_val &= 0xfffe58ff;
   tmp_val |= 0x00000400;
   apic_write(APIC_LVT1, tmp_val);
-    
+
   /* unmask 8259 interrupts */
   l4util_flags_restore(&flags);
   l4util_out8(old_A1, 0xA1);
@@ -166,19 +166,19 @@ apic_activate_by_io(void)
 /*
  * Return APIC clocks per ms
  */
-unsigned long
+L4_CV unsigned long
 l4_calibrate_apic (void)
 {
   unsigned int calibrate_latch = (CLOCK_TICK_RATE / 20); /* 50 ms */
   unsigned int calibrate_time  = 50;                     /* 50 ms */
-  
+
   if (!apic_map_base)
     return 0;
-  
+
   apic_timer_disable_irq();
   apic_timer_set_divisor(apic_timer_divisor);
   apic_timer_write(1000000000);
-    
+
   /* Set the Gate high, disable speaker */
   l4util_out8((l4util_in8(0x61) & ~0x02) | 0x01, 0x61);
 
@@ -204,11 +204,11 @@ l4_calibrate_apic (void)
       /* Error: ECTCNEVERSET */
       if (count <= 1)
 	goto bad_ctc;
-        
+
       /* Error: ECPUTOOSLOW */
       if (result <= calibrate_time)
 	goto bad_ctc;
-        
+
       __asm__ ("divl %1"
 	      :"=a" (result)
 	      :"r" (calibrate_time),

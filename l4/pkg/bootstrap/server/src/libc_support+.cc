@@ -33,7 +33,7 @@ Platform_base *Platform_base::platform;
 
 static L4::Uart *stdio_uart;
 
-L4::Uart *uart() 
+L4::Uart *uart()
 { return stdio_uart; }
 
 void set_stdio_uart(L4::Uart *uart)
@@ -119,8 +119,8 @@ enum { _URC_FAILURE  = 9 };
 extern "C" int __aeabi_unwind_cpp_pr0(void) { return _URC_FAILURE; }
 extern "C" int __aeabi_unwind_cpp_pr1(void) { return _URC_FAILURE; }
 
-extern "C" void __main(int, const char **);
-void __main(int, const char **)
+extern "C" void __main();
+void __main()
 {
   extern int crt0_stack_low, crt0_stack_high;
   unsigned long r;
@@ -143,9 +143,8 @@ void __main(int, const char **)
 
 #ifdef ARCH_ppc32
 #include <l4/drivers/of.h>
-extern "C" void __main(unsigned long p1, unsigned long p2,
-                       unsigned long p3);
-void __main(unsigned long /*p1*/, unsigned long /*p2*/, unsigned long p3)
+extern "C" void __main(unsigned long p1, unsigned long p2, unsigned long p3);
+void __main(unsigned long, unsigned long, unsigned long p3)
 {
   extern int crt0_stack_low, crt0_stack_high;
   memset(_bss_start, 0, (char *)&crt0_stack_low - _bss_start);
@@ -174,15 +173,13 @@ void __main(unsigned long p1, unsigned long p2, unsigned long p3, unsigned long 
 
 
 #if defined(ARCH_sparc)
-extern "C" void __main(unsigned long p1, unsigned long p2, unsigned long p3);
-void __main(unsigned long p1, unsigned long p2, unsigned long p3)
+
+extern "C" void __main();
+void __main()
 {
-	(void)p1;
-	(void)p2;
-	(void)p3;
-	ctor_init();
-	Platform_base::iterate_platforms();
-	// startup(0,0,0,0);
+  ctor_init();
+  Platform_base::iterate_platforms();
+  startup(0, 0, 0, 0);
 }
 #endif
 

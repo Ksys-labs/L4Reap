@@ -72,12 +72,25 @@ public:
   { return l4_debugger_kobj_to_id_u(cap(), kobjp, utcb); }
 
   /**
-   * \copydoc l4_debugger_switch_log()
+   * \copydoc l4_debugger_query_log_typeid()
    * \note the \a cap argument is the implicit \a this pointer.
    */
-  unsigned query_log_typeid(const char *name, unsigned idx,
-                            l4_utcb_t *utcb = l4_utcb()) throw()
+  int query_log_typeid(const char *name, unsigned idx,
+                      l4_utcb_t *utcb = l4_utcb()) throw()
   { return l4_debugger_query_log_typeid_u(cap(), name, idx, utcb); }
+
+  /**
+   * \copydoc l4_debugger_query_log_name()
+   * \note the \a cap argument is the implicit \a this pointer.
+   */
+  int query_log_name(unsigned idx,
+                     char *name, unsigned namelen,
+                     char *shortname, unsigned shortnamelen,
+                     l4_utcb_t *utcb = l4_utcb()) throw()
+  {
+    return l4_debugger_query_log_name_u(cap(), idx, name, namelen,
+                                        shortname, shortnamelen, utcb);
+  }
 
   /**
    * \copydoc l4_debugger_switch_log()

@@ -97,14 +97,14 @@ class Ds : public L4::Server_object
 {
 public:
   explicit Ds(const char *fname);
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
 private:
   unsigned long flags() { return 0; }
   unsigned long _size;
   L4::Cap<L4Re::Dataspace> mem_ds;
   int map(l4_addr_t offs, l4_addr_t hot_spot, unsigned long flags,
-          l4_addr_t min, l4_addr_t max, L4::Snd_fpage &snd_fpage);
+          l4_addr_t min, l4_addr_t max, L4::Ipc::Snd_fpage &snd_fpage);
   unsigned evict_page();
 
   gzFile fd;
@@ -229,11 +229,11 @@ unsigned Ds::evict_page()
 }
 
 int Ds::map(l4_addr_t offs, l4_addr_t hot_spot, unsigned long flags,
-            l4_addr_t, l4_addr_t, L4::Snd_fpage &snd_fpage)
+            l4_addr_t, l4_addr_t, L4::Ipc::Snd_fpage &snd_fpage)
 {
   printf("map: offs=%lx hot_spot=%lx flags=%lx\n", offs, hot_spot, flags);
 
-  snd_fpage = L4::Snd_fpage();
+  snd_fpage = L4::Ipc::Snd_fpage();
 
   if (offs > l4_round_page(_size))
     return -L4_ENOENT;
@@ -273,13 +273,13 @@ int Ds::map(l4_addr_t offs, l4_addr_t hot_spot, unsigned long flags,
 
   hot_spot = l4_trunc_page(hot_spot);
 
-  snd_fpage = L4::Snd_fpage(l4_fpage((l4_addr_t)mem(idx), L4_PAGESHIFT, L4_FPAGE_RO),
+  snd_fpage = L4::Ipc::Snd_fpage(l4_fpage((l4_addr_t)mem(idx), L4_PAGESHIFT, L4_FPAGE_RO),
                             hot_spot);
 
   return -L4_EOK;
 }
 
-int Ds::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+int Ds::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;
@@ -300,7 +300,7 @@ int Ds::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
           unsigned long flags;
           ios >> offset >> spot >> flags;
 
-          L4::Snd_fpage fp;
+          L4::Ipc::Snd_fpage fp;
           long int ret = map(offset, spot, !read_only && (flags & 1), 0, ~0, fp);
 
           if (ret == L4_EOK)
@@ -322,7 +322,7 @@ class Fprov_server : public L4::Server_object
 {
 public:
   Fprov_server();
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
 private:
   enum {
@@ -330,8 +330,8 @@ private:
     Buf_size = 64 << 10,
   };
 
-  int get_file1(const char *fname, L4::Ipc_iostream &ios);
-  int get_file2(const char *fname, L4::Ipc_iostream &ios);
+  int get_file1(const char *fname, L4::Ipc::Iostream &ios);
+  int get_file2(const char *fname, L4::Ipc::Iostream &ios);
 
   char *_buf;
 };
@@ -344,18 +344,18 @@ Fprov_server::Fprov_server()
 }
 
 int
-Fprov_server::get_file2(char const *fname, L4::Ipc_iostream &ios)
+Fprov_server::get_file2(char const *fname, L4::Ipc::Iostream &ios)
 {
   printf("open: %s\n", fname);
 
   Ds *ds = new Ds(fname);
 
-  ios << L4::Snd_fpage(ds->obj_cap().fpage(L4_FPAGE_RO));
+  ios << L4::Ipc::Snd_fpage(ds->obj_cap().fpage(L4_FPAGE_RO));
   return -L4_EOK;
 }
 
 int
-Fprov_server::get_file1(char const *fname, L4::Ipc_iostream &ios)
+Fprov_server::get_file1(char const *fname, L4::Ipc::Iostream &ios)
 {
   gzFile fd = NULL;
   long fread;
@@ -453,13 +453,13 @@ Fprov_server::get_file1(char const *fname, L4::Ipc_iostream &ios)
   L4Re::Env::env()->rm()->detach(addr, 0);
   gzclose(fd);
 
-  ios << L4::Snd_fpage(ds_cap.fpage(L4_FPAGE_RO));
+  ios << L4::Ipc::Snd_fpage(ds_cap.fpage(L4_FPAGE_RO));
 
   return 0;
 }
 
 int
-Fprov_server::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Fprov_server::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t t;
   ios >> t;
@@ -474,15 +474,9 @@ Fprov_server::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
     {
     case L4Re::Namespace_::Query:
         {
-          char const *filenamep = 0;
           char filename[Max_filename_len];
           unsigned long len = Max_filename_len;
-          ios >> L4::ipc_buf_in(filenamep, len);
-
-          // copy out of utcb
-          if (Max_filename_len - 1 < len)
-            len = Max_filename_len - 1;
-          memcpy(filename, filenamep, len);
+          ios >> L4::Ipc::Buf_cp_in<char>(filename, len);
           filename[len] = 0;
 
           return get_file1(filename, ios);

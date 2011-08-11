@@ -270,7 +270,7 @@ static inline struct ddekit_slab *ddekit_slab_from_l4slab(l4slab_cache_t *s)
 /**
  * Grow slab cache
  */
-EXTERN_C void *_slab_grow(l4slab_cache_t *cache, void **data)
+EXTERN_C L4_CV void *_slab_grow(l4slab_cache_t *cache, void **data)
 {
 	/* the page(s) to be returned */
 	void *res = NULL;
@@ -315,7 +315,7 @@ EXTERN_C void *_slab_grow(l4slab_cache_t *cache, void **data)
 /**
  * Shrink slab cache
  */
-EXTERN_C void _slab_shrink(l4slab_cache_t *cache, void *page, void *data)
+EXTERN_C L4_CV void _slab_shrink(l4slab_cache_t *cache, void *page, void *data)
 {
 #if 0
 	ddekit_printf("%s: cache %p, page %p, data %p\n",

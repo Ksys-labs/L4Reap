@@ -54,7 +54,7 @@ public:
   bool is_vpci_bridge() const { return true; }
 
   bool match_hw_feature(const Hw::Dev_feature*) const { return false; }
-  int dispatch(l4_umword_t, l4_uint32_t, L4::Ipc_iostream&)
+  int dispatch(l4_umword_t, l4_uint32_t, L4::Ipc::Iostream&)
   { return -L4_ENOSYS; }
 
 

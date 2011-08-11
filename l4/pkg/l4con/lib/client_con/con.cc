@@ -21,7 +21,7 @@
 long
 L4con::close() const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(L4con_::Close);
   return l4_error(io.call(Framebuffer::cap(), L4con::Protocol::Vc));
 }
@@ -29,7 +29,7 @@ L4con::close() const throw()
 long
 L4con::pslim_fill(int x, int y, int w, int h, unsigned int color) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(L4con_::Pslim_fill);
   io << x << y << w << h << color;
   return l4_error(io.call(Framebuffer::cap(), L4con::Protocol::Vc));
@@ -38,7 +38,7 @@ L4con::pslim_fill(int x, int y, int w, int h, unsigned int color) const throw()
 long
 L4con::pslim_copy(int x, int y, int w, int h, l4_int16_t dx, l4_int16_t dy) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(L4con_::Pslim_copy);
   io << x << y << w << h << dx << dy;
   return l4_error(io.call(Framebuffer::cap(), L4con::Protocol::Vc));
@@ -48,10 +48,10 @@ long
 L4con::puts(const char *s, unsigned long len, short x, short y,
             unsigned int fg_color, unsigned int bg_color) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(L4con_::Puts);
   io << x << y << fg_color << bg_color
-     << L4::ipc_buf_cp_out(s, len);
+     << L4::Ipc::Buf_cp_out<const char>(s, len);
   return l4_error(io.call(Framebuffer::cap(), L4con::Protocol::Vc));
 }
 
@@ -61,17 +61,17 @@ L4con::puts_scale(const char *s, unsigned long len,
                   unsigned int fg_color, unsigned int bg_color,
                   short scale_x, short scale_y) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(L4con_::Puts_scale);
   io << x << y << fg_color << bg_color << scale_x << scale_y
-     << L4::ipc_buf_cp_out(s, len);
+     << L4::Ipc::Buf_cp_out<const char>(s, len);
   return l4_error(io.call(Framebuffer::cap(), L4con::Protocol::Vc));
 }
 
 long
 L4con::get_font_size(unsigned int *fn_w, unsigned int *fn_h) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(L4con_::Get_font_size);
   long r = l4_error(io.call(Framebuffer::cap(), L4con::Protocol::Vc));
   if (EXPECT_FALSE(r < 0))

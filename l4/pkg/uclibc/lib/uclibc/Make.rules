@@ -30,6 +30,8 @@ $(eval $(call PROCESS_src_lists, $(DIRS), $(SUB_MODULES)))
 # libm stuff
 $(eval $(call PROCESS_template_src, libm, float double))
 
+UCLIBC_SRC_CC             += _exit.cc
+
 SRC_C_libuc_c.so          += $(UCLIBC_SRC_C) $(UCLIBC_SRC_C_libuc_c.so)
 SRC_C_libuc_c.a           += $(UCLIBC_SRC_C) $(UCLIBC_SRC_C_libuc_c.a)
 SRC_S_libuc_c.so          += $(UCLIBC_SRC_S) $(UCLIBC_SRC_S_libuc_c.so)
@@ -52,5 +54,6 @@ CXXFLAGS_$(PTHOBJ_PFX)/sysdeps/generic/libc-tls.cc += -fno-rtti -fno-exceptions
 CPPFLAGS_libc-tls.cc += $(LDSO_INC)
 CPPFLAGS_dl-tls.c += $(LDSO_INC)
 
-.general.d: $(LIBCSRC_DIR_ABS)/Make.rules $(LIBCSRC_DIR)/contrib_files.mk
+$(GENERAL_D_LOC): $(LIBCSRC_DIR_ABS)/Make.rules $(LIBCSRC_DIR)/contrib_files.mk \
+                  $(LIBCSRC_DIR)/make_vars.mk $(LIBCSRC_DIR)/make_rules.mk
 

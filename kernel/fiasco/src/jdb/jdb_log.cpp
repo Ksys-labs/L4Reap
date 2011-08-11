@@ -45,17 +45,10 @@ Jdb_log_list_hdl::invoke(Kobject_common *, Syscall_frame *f, Utcb *utcb)
 {
   switch (utcb->values[0])
     {
-      case Op_query_typeid:
+      case Op_query_log_typeid:
           {
-            if (f->tag().words() < 3)
-              {
-                f->tag(Kobject_iface::commit_result(-L4_err::EInval));
-                return true;
-              }
-
             unsigned char const idx = utcb->values[1];
-
-            if (_log_table + idx >= &_log_table_end)
+            if (f->tag().words() < 3 || _log_table + idx >= &_log_table_end)
               {
                 f->tag(Kobject_iface::commit_result(-L4_err::EInval));
                 return true;
@@ -70,6 +63,27 @@ Jdb_log_list_hdl::invoke(Kobject_common *, Syscall_frame *f, Utcb *utcb)
 
             utcb->values[0] = r ? (r - _log_table) + Tbuf_dynentries : ~0UL;
             f->tag(Kobject_iface::commit_result(0, 1));
+            return true;
+          }
+      case Op_query_log_name:
+          {
+            unsigned char const idx = utcb->values[1];
+            if (f->tag().words() != 2 || _log_table + idx >= &_log_table_end)
+              {
+                f->tag(Kobject_iface::commit_result(-L4_err::EInval));
+                return true;
+              }
+
+            Tb_log_table_entry *e = _log_table + idx;
+	    char *dst = (char *)&utcb->values[0];
+            unsigned sz = strlen(e->name) + 1;
+            sz += strlen(e->name + sz) + 1;
+            if (sz > sizeof(utcb->values))
+              sz = sizeof(utcb->values);
+            memcpy(dst, e->name, sz);
+            dst[sz - 1] = 0;
+
+            f->tag(Kobject_iface::commit_result(0));
             return true;
           }
       case Op_switch_log:

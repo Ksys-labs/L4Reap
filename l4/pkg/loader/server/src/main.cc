@@ -41,11 +41,11 @@ class Loop_hooks :
   public L4::Ipc_svr::Compound_reply
 {
 public:
-  static void setup_wait(L4::Ipc_istream &istr, bool before_reply)
+  static void setup_wait(L4::Ipc::Istream &istr, bool before_reply)
   {
     (void)before_reply;
     istr.reset();
-    istr << L4::Small_buf(Glbl::rcv_cap.cap(),  L4_RCV_ITEM_LOCAL_ID);
+    istr << L4::Ipc::Small_buf(Glbl::rcv_cap.cap(),  L4_RCV_ITEM_LOCAL_ID);
     l4_utcb_br()->bdr = 0;
   }
 };

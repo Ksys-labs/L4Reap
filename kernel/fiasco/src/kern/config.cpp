@@ -234,7 +234,7 @@ bool Config::profiling = false;
 unsigned Config::tbuf_entries = 0x20000 / sizeof(Mword); //1024;
 
 //-----------------------------------------------------------------------------
-IMPLEMENTATION [!arm && !ppc32]:
+IMPLEMENTATION:
 
 IMPLEMENT FIASCO_INIT
 void Config::init()

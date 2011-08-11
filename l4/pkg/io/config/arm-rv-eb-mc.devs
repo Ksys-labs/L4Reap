@@ -6,7 +6,7 @@
 # Please see the COPYING-GPL-2 file for details.
 
 
-// multi-core EB
+# multi-core EB (PB11MP)
 hw-root
 {
   CTRL => new Device()

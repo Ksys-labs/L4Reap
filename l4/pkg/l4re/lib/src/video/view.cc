@@ -36,7 +36,7 @@ using L4::Opcode;
 int
 View::info(Info *info) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Goos_::View_info) << _view_idx;
   long err = l4_error(io.call(_goos.cap(), L4Re::Protocol::Goos));
   if (EXPECT_FALSE(err < 0))
@@ -49,7 +49,7 @@ View::info(Info *info) const throw()
 int
 View::set_info(Info const &i) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Goos_::View_set_info) << _view_idx;
   io.put(i);
   return l4_error(io.call(_goos.cap(), L4Re::Protocol::Goos));
@@ -72,7 +72,7 @@ View::set_viewport(int scr_x, int scr_y, int w, int h,
 int
 View::stack(View const &pivot, bool behind) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Goos_::View_stack) << _view_idx << pivot.view_index() << behind;
   return l4_error(io.call(_goos.cap(), L4Re::Protocol::Goos));
 }
@@ -80,7 +80,7 @@ View::stack(View const &pivot, bool behind) const throw()
 int
 View::refresh(int x, int y, int w, int h) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Goos_::View_refresh) << _view_idx;
   io << x << y << w << h;
   return l4_error(io.call(_goos.cap(), L4Re::Protocol::Goos));

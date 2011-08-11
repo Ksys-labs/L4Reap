@@ -635,7 +635,7 @@ dns_send(u8_t numdns, const char* name, u8_t id)
 static void
 dns_check_entry(u8_t i)
 {
-  int err;
+  err_t err;
   struct dns_table_entry *pEntry = &dns_table[i];
 
   LWIP_ASSERT("array index out of bounds", i < DNS_TABLE_SIZE);
@@ -648,11 +648,13 @@ dns_check_entry(u8_t i)
       pEntry->numdns  = 0;
       pEntry->tmr     = 1;
       pEntry->retries = 0;
-
+      
       /* send DNS packet for this entry */
       err = dns_send(pEntry->numdns, pEntry->name, i);
-      if (err)
-        printf("Error in dns_send: %d\n", err);
+      if (err != ERR_OK) {
+        LWIP_DEBUGF(DNS_DEBUG | LWIP_DBG_LEVEL_WARNING,
+                    ("dns_send returned error: %s\n", lwip_strerr(err)));
+      }
       break;
     }
 
@@ -682,8 +684,10 @@ dns_check_entry(u8_t i)
 
         /* send DNS packet for this entry */
         err = dns_send(pEntry->numdns, pEntry->name, i);
-        if (err)
-          printf("Error in dns_send: %d\n", err);
+        if (err != ERR_OK) {
+          LWIP_DEBUGF(DNS_DEBUG | LWIP_DBG_LEVEL_WARNING,
+                      ("dns_send returned error: %s\n", lwip_strerr(err)));
+        }
       }
       break;
     }
@@ -918,6 +922,7 @@ dns_enqueue(const char *name, dns_found_callback found, void *callback_arg)
  *   name is already in the local names table.
  * - ERR_INPROGRESS enqueue a request to be sent to the DNS server
  *   for resolution if no errors are present.
+ * - ERR_ARG: dns client not initialized or invalid hostname
  *
  * @param hostname the hostname that is to be queried
  * @param addr pointer to a ip_addr_t where to store the address if it is already
@@ -937,7 +942,7 @@ dns_gethostbyname(const char *hostname, ip_addr_t *addr, dns_found_callback foun
   if ((dns_pcb == NULL) || (addr == NULL) ||
       (!hostname) || (!hostname[0]) ||
       (strlen(hostname) >= DNS_MAX_NAME_LENGTH)) {
-    return ERR_VAL;
+    return ERR_ARG;
   }
 
 #if LWIP_HAVE_LOOPIF

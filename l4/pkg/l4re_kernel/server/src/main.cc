@@ -55,7 +55,7 @@ public:
   static void setup_wait(L4::Ipc::Istream &istr, bool)
   {
     istr.reset();
-    istr << L4::Small_buf(rcv_cap.cap(), L4_RCV_ITEM_LOCAL_ID);
+    istr << L4::Ipc::Small_buf(rcv_cap.cap(), L4_RCV_ITEM_LOCAL_ID);
     l4_utcb_br_u(istr.utcb())->bdr = 0;
   }
 };

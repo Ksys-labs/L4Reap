@@ -42,7 +42,7 @@ struct parse_cmdline_struct{
 
 #define TRASH(type, val) { type dummy __attribute__ ((unused)) = (val); }
 
-int parse_cmdline(int *argc, const char***argv, char arg0, ...){
+L4_CV int parse_cmdline(int *argc, const char***argv, char arg0, ...){
     va_list va;
     int err;
 
@@ -53,7 +53,7 @@ int parse_cmdline(int *argc, const char***argv, char arg0, ...){
     return err;
 }
 
-int parse_cmdlinev(int *argc, const char***argv, char arg0, va_list va0){
+L4_CV int parse_cmdlinev(int *argc, const char***argv, char arg0, va_list va0){
     va_list va;
     int c, count, shortform, cur_longopt;
     const char*longform, *comment;
@@ -314,7 +314,7 @@ int parse_cmdlinev(int *argc, const char***argv, char arg0, va_list va0){
   return err;
 }
 
-int parse_cmdline_extra(const char*argv0, const char*line, char delim,
+L4_CV int parse_cmdline_extra(const char*argv0, const char*line, char delim,
 			char arg0,...){
     int i, argc_=1;
     char*s, *line_=0;

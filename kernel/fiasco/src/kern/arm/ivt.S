@@ -325,7 +325,7 @@ prefetch_abort: @ A real prefetch abort occured --- handled as a page fault
 	mrc     p15, 0, r1, c5, c0, 1	@ Load IFSR into r1
 	bic	r1, r1, #0x00ff0000
 	orr	r1, r1, #0x00330000     @ Set read bit and prefetch abort
-#if defined(CONFIG_ARM_V6PLUS) && !defined(CONFIG_ARM_1136)
+#if defined(CONFIG_ARM_V6PLUS) && !defined(CONFIG_ARM_1136) && !defined(CONFIG_ARM_MPCORE)
 	mrc	p15, 0, r0, c6, c0, 2   @ Read fault address, for T2: pfa != pc
 #else
 	ldr	r0, [sp, #RF(PC, 5*4)]  @ Get PC from RF and use as pfa

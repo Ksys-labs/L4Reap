@@ -157,7 +157,7 @@ static void ipcp_clear_addrs (int);
 
 /*
  * Lengths of configuration options.
- */ 
+ */
 #define CILEN_VOID     2
 #define CILEN_COMPRESS 4  /* min length for compression protocol opt. */
 #define CILEN_VJ       6  /* length for RFC1332 Van-Jacobson opt. */
@@ -526,7 +526,7 @@ ipcp_ackci(fsm *f, u_char *p, int len)
     goto bad;
   }
   return (1);
-  
+
 bad:
   IPCPDEBUG(LOG_INFO, ("ipcp_ackci: received bad Ack!\n"));
   return (0);

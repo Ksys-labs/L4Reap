@@ -29,10 +29,10 @@ public:
   Sw_icu();
   virtual ~Sw_icu();
 
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
   char const *hid() const { return "L40009"; }
-  int dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc::Iostream &ios);
   bool match_hw_feature(Hw::Dev_feature const *) const { return false; }
 
   bool add_irqs(Adr_resource const *r);
@@ -41,8 +41,8 @@ public:
   bool irqs_allocated(Adr_resource const *r);
 
 private:
-  int bind_irq(l4_msgtag_t tag, unsigned irqn, L4::Snd_fpage const &irqc);
-  int unbind_irq(l4_msgtag_t tag, unsigned irqn, L4::Snd_fpage const &irqc);
+  int bind_irq(l4_msgtag_t tag, unsigned irqn, L4::Ipc::Snd_fpage const &irqc);
+  int unbind_irq(l4_msgtag_t tag, unsigned irqn, L4::Ipc::Snd_fpage const &irqc);
   int unmask_irq(l4_msgtag_t tag, unsigned irqn);
   int set_mode(l4_msgtag_t tag, unsigned irqn, l4_umword_t mode);
 

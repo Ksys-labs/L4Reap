@@ -234,7 +234,7 @@ public:
    *
    * \return 0 for success, error code otherwise
    */
-  static int
+  L4_CV static int
   ext_alloc(Vcpu **vcpu,
             l4_addr_t *ext_state,
             L4::Cap<L4::Task> task = L4Re::Env::env()->task(),

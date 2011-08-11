@@ -34,7 +34,7 @@ namespace L4Re
 long
 Parent::signal(unsigned long sig, unsigned long val) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(Parent_::Signal) << sig << val;
   return l4_error(io.call(cap(), L4Re::Protocol::Parent));
 }

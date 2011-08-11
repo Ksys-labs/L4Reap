@@ -20,8 +20,8 @@ DEFINES += -DL4_CXX_NO_EXCEPTION_BACKTRACE
 
 MMAP_BACKEND   :=
 
-REQUIRES_LIBS  := libc_be_minimal_log_io cxx_io cxx_libc_io libc l4re \
-                  l4re-util libsupc++ l4re-main libloader
+REQUIRES_LIBS  := libc_be_minimal_log_io cxx_io cxx_libc_io libc_minimal l4re \
+                  l4re-util libsupc++_minimal libloader libc_minimal_l4re
 
 include $(L4DIR)/mk/prog.mk
 

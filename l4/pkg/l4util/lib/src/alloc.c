@@ -21,7 +21,7 @@
 
 /*!\brief Initialize allocator array
  */
-l4util_alloc_t *l4util_alloc_init(int count, int base){
+L4_CV l4util_alloc_t *l4util_alloc_init(int count, int base){
     l4util_alloc_t *alloc;
     if((alloc=malloc(sizeof(l4util_alloc_t)))==0) return 0;
     if((alloc->bits = malloc((count+(L4UTIL_ALLOC_BITS_SIZE-1))/8))==0){
@@ -40,7 +40,7 @@ l4util_alloc_t *l4util_alloc_init(int count, int base){
  * \retval 0	not avail
  * \retval 1	avail
  */
-int l4util_alloc_avail(l4util_alloc_t *alloc, int elem){
+L4_CV int l4util_alloc_avail(l4util_alloc_t *alloc, int elem){
     if(elem<alloc->base || elem >= alloc->base+alloc->count) return 0;
     elem-=alloc->base;
     return !l4util_test_bit(elem&(L4UTIL_ALLOC_BITS_SIZE-1),
@@ -53,7 +53,7 @@ int l4util_alloc_avail(l4util_alloc_t *alloc, int elem){
  * \retval 0		OK
  * \retval 1		was occupied already or out of bound
  */
-int l4util_alloc_occupy(l4util_alloc_t *alloc, int elem){
+L4_CV int l4util_alloc_occupy(l4util_alloc_t *alloc, int elem){
     if(elem<alloc->base || elem >= alloc->base+alloc->count) return 1;
     elem-=alloc->base;
     return l4util_test_and_set_bit(elem&(L4UTIL_ALLOC_BITS_SIZE-1),
@@ -65,7 +65,7 @@ int l4util_alloc_occupy(l4util_alloc_t *alloc, int elem){
  * \retval >0		element
  * \retval -1		Error, none free
  */
-int l4util_alloc_alloc(l4util_alloc_t *alloc){
+L4_CV int l4util_alloc_alloc(l4util_alloc_t *alloc){
     int elem=alloc->next_elem;
 
     while(l4util_alloc_occupy(alloc, elem)){
@@ -84,7 +84,7 @@ int l4util_alloc_alloc(l4util_alloc_t *alloc){
  * \retval 0		OK
  * \retval 1		was not occupied or out of bound
  */
-int l4util_alloc_free(l4util_alloc_t *alloc, int elem){
+L4_CV int l4util_alloc_free(l4util_alloc_t *alloc, int elem){
     if(elem < alloc->base || elem >= alloc->base+alloc->count){
 	return 1;
     }

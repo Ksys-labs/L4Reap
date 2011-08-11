@@ -16,9 +16,9 @@
 class Dispatcher : public L4::Server_object
 {
 public:
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
 private:
-  int handle_callback(L4::Ipc_iostream &ios);
-  int handle_exception(L4::Ipc_iostream &ios);
+  int handle_callback(L4::Ipc::Iostream &ios);
+  int handle_exception(L4::Ipc::Iostream &ios);
 };

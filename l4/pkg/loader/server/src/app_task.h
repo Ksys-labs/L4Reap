@@ -30,7 +30,7 @@ public:
   App_task();
   static L4::Cap<L4Re::Mem_alloc> allocator()
   { return L4Re::Env::env()->mem_alloc(); }
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
 
   Region_map *rm() { return &_rm; }

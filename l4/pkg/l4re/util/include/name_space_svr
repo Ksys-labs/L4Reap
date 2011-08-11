@@ -225,7 +225,7 @@ protected:
   // server support --------------------------------------------
   virtual Entry *alloc_dynamic_entry(Name const &n, unsigned flags) = 0;
   virtual void free_dynamic_entry(Entry *e) = 0;
-  virtual int get_capability(L4::Snd_fpage const &cap_fp, L4::Cap<void> *cap,
+  virtual int get_capability(L4::Ipc::Snd_fpage const &cap_fp, L4::Cap<void> *cap,
                              L4::Server_object **lo = 0) = 0;
   virtual int save_capability(L4::Cap<void> *cap) = 0;
   virtual void free_capability(L4::Cap<void> cap) = 0;
@@ -234,11 +234,11 @@ protected:
 
 public:
   // server interface ------------------------------------------
-  int query(L4::Ipc_iostream &ios, char *buffer, size_t blen);
-  int link_entry(L4::Ipc_iostream &ios, char *buffer, size_t blen);
-  int register_entry(L4::Ipc_iostream &ios, char *buffer, size_t blen);
-  int unlink_entry(L4::Ipc_iostream &ios, char *buffer, size_t max_len);
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios, char *buffer,
+  int query(L4::Ipc::Iostream &ios, char *buffer, size_t blen);
+  int link_entry(L4::Ipc::Iostream &ios, char *buffer, size_t blen);
+  int register_entry(L4::Ipc::Iostream &ios, char *buffer, size_t blen);
+  int unlink_entry(L4::Ipc::Iostream &ios, char *buffer, size_t max_len);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios, char *buffer,
                size_t blen);
 
 };

@@ -4,7 +4,7 @@
 ENTRY(_start)
 
 PHDRS {
-  data PT_LOAD;
+  common PT_LOAD;
 #ifdef IMAGE_MODE
   mods PT_LOAD;
 #endif
@@ -14,11 +14,16 @@ SECTIONS
 {
   . = LINKADDR;
   /* Merge .text, .rodata, and .data in one segment to save space */
+  .text :
+  {
+	_stext = .;
+    *(.init)
+    *(.text .text.* .gnu.linkonce.t.*)
+  } : common
+
   .data :
   {
-    *(.init)
-    *(.text .text.* .gnu.linkonce.t*)
-    *(.rodata*)
+    *(.rodata* .gnu.linkonce.r.*)
     . = ALIGN(8);
     *(.data)
     *(.data.*)
@@ -36,7 +41,8 @@ SECTIONS
     . = ALIGN(4096);
     _modules_end = .;
     
-  } : data
+  } : common
+
   _edata  =  .;
   PROVIDE (edata = .);
   . = ALIGN(4096);
@@ -46,7 +52,7 @@ SECTIONS
    *(.bss)
    *(COMMON)
    *(.bss_memmap)
-  } : data
+  } : common
   _end = . ;
   PROVIDE (end = .);
 

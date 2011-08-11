@@ -29,7 +29,7 @@
 #include <l4/cxx/ipc_stream>
 
 inline
-L4::Ipc_istream &operator >> (L4::Ipc_istream &s, L4Re::Dataspace::Stats &v)
+L4::Ipc::Istream &operator >> (L4::Ipc::Istream &s, L4Re::Dataspace::Stats &v)
 { s.get(v); return s; }
 
 namespace L4Re {
@@ -40,14 +40,14 @@ Dataspace::__map(unsigned long offset, unsigned char *size, unsigned long flags,
 {
   l4_addr_t spot = local_addr & ~(~0UL << l4_umword_t(*size));
   l4_addr_t base = local_addr & (~0UL << l4_umword_t(*size));
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(Dataspace_::Map) << offset << spot << flags;
-  io << L4::Rcv_fpage::mem(base, *size, 0);
+  io << L4::Ipc::Rcv_fpage::mem(base, *size, 0);
   long err = l4_error(io.call(cap(), L4Re::Protocol::Dataspace));
   if (err < 0)
     return err;
 
-  L4::Snd_fpage fp;
+  L4::Ipc::Snd_fpage fp;
   io >> fp;
   *size = fp.rcv_order();
   return err;
@@ -107,7 +107,7 @@ Dataspace::map(l4_addr_t offset, unsigned long flags,
 long
 Dataspace::clear(unsigned long offset, unsigned long size) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(Dataspace_::Clear) << offset << size;
   long err = l4_error(io.call(cap(), L4Re::Protocol::Dataspace));
   if (EXPECT_FALSE(err < 0))
@@ -121,7 +121,7 @@ Dataspace::clear(unsigned long offset, unsigned long size) const throw()
 int
 Dataspace::info(Stats *stats) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(Dataspace_::Stats);
   long err = l4_error(io.call(cap(), L4Re::Protocol::Dataspace));
   if (EXPECT_FALSE(err < 0))
@@ -155,7 +155,7 @@ long
 Dataspace::copy_in(unsigned long dst_offs, L4::Cap<Dataspace> src,
                    unsigned long src_offs, unsigned long size) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(Dataspace_::Copy) << dst_offs << src_offs << size << src;
   return l4_error(io.call(cap(), L4Re::Protocol::Dataspace));
 }
@@ -163,7 +163,7 @@ Dataspace::copy_in(unsigned long dst_offs, L4::Cap<Dataspace> src,
 long
 Dataspace::phys(l4_addr_t offset, l4_addr_t &phys_addr, l4_size_t &phys_size) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(Dataspace_::Phys) << offset;
   long err = l4_error(io.call(cap(), L4Re::Protocol::Dataspace));
   if (EXPECT_FALSE(err < 0))
@@ -176,7 +176,7 @@ Dataspace::phys(l4_addr_t offset, l4_addr_t &phys_addr, l4_size_t &phys_size) co
 long
 Dataspace::allocate(l4_addr_t offset, l4_size_t size) throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(Dataspace_::Allocate) << offset << size;
   return l4_error(io.call(cap(), L4Re::Protocol::Dataspace));
 }
@@ -185,7 +185,7 @@ Dataspace::allocate(l4_addr_t offset, l4_size_t size) throw()
 long
 Dataspace::take() const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(Dataspace_::Take);
   return l4_error(io.call(cap(), L4Re::Protocol::Dataspace));
 }
@@ -193,7 +193,7 @@ Dataspace::take() const throw()
 long
 Dataspace::release() const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(Dataspace_::Release);
   return l4_error(io.call(cap(), L4Re::Protocol::Dataspace));
 }

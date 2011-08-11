@@ -55,8 +55,8 @@ char *dopelib_callback_to_bindarg(void (*callback)(dope_event *,void *),
 
 
 /*** INTERFACE: BIND AN EVENT TO A DOpE WIDGET ***/
-void dope_bind(const char *var, const char *event_type,
-               void (*callback)(dope_event *,void *), void *arg)
+L4_CV void dope_bind(const char *var, const char *event_type,
+                     void (*callback)(dope_event *,void *), void *arg)
 {
   char cmdbuf[256];
   char bindbuf[64];
@@ -73,7 +73,7 @@ void dope_bind(const char *var, const char *event_type,
 
 
 /*** INTERFACE: BIND AN EVENT TO A DOpE WIDGET SPECIFIED AS FORMAT STRING ***/
-void dope_bindf(const char *varfmt, const char *event_type,
+L4_CV void dope_bindf(const char *varfmt, const char *event_type,
                 void (*callback)(dope_event *,void *), void *arg,...)
 {
   char varstr[512];
@@ -87,7 +87,7 @@ void dope_bindf(const char *varfmt, const char *event_type,
   dope_bind(varstr, event_type, callback, arg);
 }
 
-char *dope_get_bindarg(l4re_event_t *ev)
+L4_CV char *dope_get_bindarg(l4re_event_t *ev)
 {
   if (!ev->stream_id)
     return NULL;
@@ -99,10 +99,10 @@ char *dope_get_bindarg(l4re_event_t *ev)
   return cb->arg;
 }
 
-void dope_process_event(l4re_event_t *ev);
+L4_CV void dope_process_event(l4re_event_t *ev);
 
 /*** INTERFACE: PROCESS SINGLE DOpE EVENT ***/
-void dope_process_event(l4re_event_t *ev)
+L4_CV void dope_process_event(l4re_event_t *ev)
 {
   if (!ev->stream_id)
     return;
@@ -114,12 +114,12 @@ void dope_process_event(l4re_event_t *ev)
   cb->callback(ev, cb->arg);
 }
 
-void dope_deinit_app(void) {}
+L4_CV void dope_deinit_app(void) {}
 
 
 /*** INTERFACE: DISCONNECT FROM DOpE ***
  *
  * FIXME: wait for the finishing of the current command and block net commands
  */
-void dope_deinit(void) {}
+L4_CV void dope_deinit(void) {}
 

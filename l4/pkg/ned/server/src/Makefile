@@ -8,7 +8,7 @@ SRC_CC          := remote_mem.cc app_model.cc app_task.cc main.cc \
 	           lua_exec.cc lua_factory.cc lua_info.cc server.cc
 OBJS            += ned.lua.bin.o
 
-REQUIRES_LIBS   := libloader l4re-util l4re lua++ libpthread
+REQUIRES_LIBS   := libloader l4re-util l4re lua++ libpthread cxx_libc_io cxx_io
 
 ifeq (1,0)
 DEFINES         += -DUSE_READLINE

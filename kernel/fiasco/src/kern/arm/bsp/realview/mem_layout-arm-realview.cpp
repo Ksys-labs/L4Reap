@@ -75,7 +75,7 @@ public:
     Mp_scu_map_base      = Devices1_map_base,
     Gic_cpu_map_base     = Devices1_map_base + 0x00000100,
     Gic_dist_map_base    = Devices1_map_base + 0x00001000,
-    L220_map_base        = Devices1_map_base + 0x00002000,
+    L2cxx0_map_base      = Devices1_map_base + 0x00002000,
 
     Gic1_cpu_map_base    = Devices0_map_base + 0x00040000,
     Gic1_dist_map_base   = Devices0_map_base + 0x00041000,
@@ -85,7 +85,7 @@ public:
     Mp_scu_phys_base     = 0x1f000000,
     Gic_cpu_phys_base    = Mp_scu_phys_base  + 0x00000100,
     Gic_dist_phys_base   = Mp_scu_phys_base  + 0x00001000,
-    L220_phys_base       = Mp_scu_phys_base  + 0x00002000,
+    L2cxx0_phys_base     = Mp_scu_phys_base  + 0x00002000,
 
     Gic1_cpu_phys_base   = Devices0_phys_base + 0x00040000,
     Gic1_dist_phys_base  = Devices0_phys_base + 0x00041000,
@@ -108,7 +108,7 @@ public:
     Mp_scu_map_base      = Devices1_map_base,
     Gic_cpu_map_base     = Devices1_map_base + 0x00000100,
     Gic_dist_map_base    = Devices1_map_base + 0x00001000,
-    L220_map_base        = Devices1_map_base + 0x00002000,
+    L2cxx0_map_base      = Devices1_map_base + 0x00002000,
 
     Gic1_cpu_map_base    = Devices2_map_base,
     Gic1_dist_map_base   = Devices2_map_base + 0x00001000,
@@ -119,7 +119,7 @@ public:
     Mp_scu_phys_base     = 0x1f000000,
     Gic_cpu_phys_base    = Mp_scu_phys_base + 0x00000100,
     Gic_dist_phys_base   = Mp_scu_phys_base + 0x00001000,
-    L220_phys_base       = Mp_scu_phys_base + 0x00002000,
+    L2cxx0_phys_base     = Mp_scu_phys_base + 0x00002000,
 
     Devices2_phys_base   = 0x1e000000,
     Gic0_cpu_phys_base   = 0x1e000000,
@@ -139,7 +139,7 @@ public:
     Mp_scu_map_base      = Devices1_map_base,
     Gic_cpu_map_base     = Devices1_map_base + 0x00000100,
     Gic_dist_map_base    = Devices1_map_base + 0x00001000,
-    L220_map_base        = Devices1_map_base + 0x00002000,
+    L2cxx0_map_base      = Devices1_map_base + 0x00002000,
 
     Gic2_cpu_map_base    = Devices2_map_base + 0x00020000,
     Gic2_dist_map_base   = Devices2_map_base + 0x00021000,
@@ -152,7 +152,7 @@ public:
     Mp_scu_phys_base     = 0x1f000000,
     Gic_cpu_phys_base    = Mp_scu_phys_base + 0x00000100,
     Gic_dist_phys_base   = Mp_scu_phys_base + 0x00001000,
-    L220_phys_base       = Mp_scu_phys_base + 0x00002000,
+    L2cxx0_phys_base     = Mp_scu_phys_base + 0x00002000,
 
     Devices2_phys_base   = 0x1e000000,
     Gic2_cpu_phys_base   = 0x1e020000,
@@ -172,7 +172,7 @@ public:
     Mp_scu_map_base      = Devices1_map_base,
     Gic_cpu_map_base     = Devices1_map_base + 0x00000100,
     Gic_dist_map_base    = Devices1_map_base + 0x00001000,
-    L220_map_base        = Devices1_map_base + 0x00002000,
+    L2cxx0_map_base      = Devices1_map_base + 0x00002000,
   };
 
   enum Phys_layout_realview_vexpress {
@@ -180,6 +180,6 @@ public:
     Mp_scu_phys_base     = 0x1e000000,
     Gic_cpu_phys_base    = Mp_scu_phys_base + 0x00000100,
     Gic_dist_phys_base   = Mp_scu_phys_base + 0x00001000,
-    L220_phys_base       = Mp_scu_phys_base + 0x00002000,
+    L2cxx0_phys_base     = Mp_scu_phys_base + 0x00002000,
   };
 };

@@ -117,7 +117,7 @@ public:
   l4_uint32_t read_rom() const { return _rom; }
   void write_rom(l4_uint32_t v);
 
-  int vbus_dispatch(l4_umword_t, l4_uint32_t, L4::Ipc_iostream &)
+  int vbus_dispatch(l4_umword_t, l4_uint32_t, L4::Ipc::Iostream &)
   { return -L4_ENOSYS; }
 
   Hw::Pci::If *hwf() const { return _hwf; }
@@ -134,7 +134,7 @@ public:
   bool match_hw_feature(const Hw::Dev_feature *f) const
   { return f == _hwf; }
 
-  int dispatch(l4_umword_t, l4_uint32_t, L4::Ipc_iostream&)
+  int dispatch(l4_umword_t, l4_uint32_t, L4::Ipc::Iostream&)
   { return -L4_ENOSYS; }
 
   void set_host(Device *d) { _host = d; }

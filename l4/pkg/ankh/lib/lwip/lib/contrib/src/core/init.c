@@ -56,6 +56,10 @@
 #include "lwip/dns.h"
 #include "lwip/timers.h"
 #include "netif/etharp.h"
+#include "lwip/ip6.h"
+#include "lwip/nd6.h"
+#include "lwip/mld6.h"
+#include "lwip/api.h"
 
 /* Compile-time sanity checks for configuration errors.
  * These can be done independently of LWIP_DEBUG, without penalty.
@@ -105,6 +109,9 @@
 #if (LWIP_TCP && (TCP_SND_QUEUELEN > 0xffff))
   #error "If you want to use TCP, TCP_SND_QUEUELEN must fit in an u16_t, so, you have to reduce it in your lwipopts.h"
 #endif
+#if (LWIP_TCP && (TCP_SND_QUEUELEN < 2))
+  #error "TCP_SND_QUEUELEN must be at least 2 for no-copy TCP writes to work"
+#endif
 #if (LWIP_TCP && ((TCP_MAXRTX > 12) || (TCP_SYNMAXRTX > 12)))
   #error "If you want to use TCP, TCP_MAXRTX and TCP_SYNMAXRTX must less or equal to 12 (due to tcp_backoff table), so, you have to reduce them in your lwipopts.h"
 #endif
@@ -145,7 +152,7 @@
   #error "One and exactly one of LWIP_EVENT_API and LWIP_CALLBACK_API has to be enabled in your lwipopts.h"
 #endif
 /* There must be sufficient timeouts, taking into account requirements of the subsystems. */
-#if (MEMP_NUM_SYS_TIMEOUT < (LWIP_TCP + IP_REASSEMBLY + LWIP_ARP + (2*LWIP_DHCP) + LWIP_AUTOIP + LWIP_IGMP + LWIP_DNS + PPP_SUPPORT))
+#if LWIP_TIMERS && (MEMP_NUM_SYS_TIMEOUT < (LWIP_TCP + IP_REASSEMBLY + LWIP_ARP + (2*LWIP_DHCP) + LWIP_AUTOIP + LWIP_IGMP + LWIP_DNS + PPP_SUPPORT))
   #error "MEMP_NUM_SYS_TIMEOUT is too low to accomodate all required timeouts"
 #endif
 #if (IP_REASSEMBLY && (MEMP_NUM_REASSDATA > IP_REASS_MAX_PBUFS))
@@ -172,8 +179,8 @@
 #if !LWIP_ETHERNET && (LWIP_ARP || PPPOE_SUPPORT)
   #error "LWIP_ETHERNET needs to be turned on for LWIP_ARP or PPPOE_SUPPORT"
 #endif
-#if LWIP_IGMP && !defined(LWIP_RAND)
-  #error "When using IGMP, LWIP_RAND() needs to be defined to a random-function returning an u32_t random value"
+#if (LWIP_IGMP || LWIP_IPV6) && !defined(LWIP_RAND)
+  #error "When using IGMP or IPv6, LWIP_RAND() needs to be defined to a random-function returning an u32_t random value"
 #endif
 #if LWIP_TCPIP_CORE_LOCKING_INPUT && !LWIP_TCPIP_CORE_LOCKING
   #error "When using LWIP_TCPIP_CORE_LOCKING_INPUT, LWIP_TCPIP_CORE_LOCKING must be enabled, too"
@@ -184,6 +191,32 @@
 #if IP_FRAG && IP_FRAG_USES_STATIC_BUF && LWIP_NETIF_TX_SINGLE_PBUF
   #error "LWIP_NETIF_TX_SINGLE_PBUF does not work with IP_FRAG_USES_STATIC_BUF==1 as that creates pbuf queues"
 #endif
+#if LWIP_NETCONN && LWIP_TCP
+#if NETCONN_COPY != TCP_WRITE_FLAG_COPY
+  #error "NETCONN_COPY != TCP_WRITE_FLAG_COPY"
+#endif
+#if NETCONN_MORE != TCP_WRITE_FLAG_MORE
+  #error "NETCONN_MORE != TCP_WRITE_FLAG_MORE"
+#endif
+#endif /* LWIP_NETCONN && LWIP_TCP */ 
+#if LWIP_SOCKET
+/* Check that the SO_* socket options and SOF_* lwIP-internal flags match */
+#if SO_ACCEPTCONN != SOF_ACCEPTCONN
+  #error "SO_ACCEPTCONN != SOF_ACCEPTCONN"
+#endif
+#if SO_REUSEADDR != SOF_REUSEADDR
+  #error "WARNING: SO_REUSEADDR != SOF_REUSEADDR"
+#endif
+#if SO_KEEPALIVE != SOF_KEEPALIVE
+  #error "WARNING: SO_KEEPALIVE != SOF_KEEPALIVE"
+#endif
+#if SO_BROADCAST != SOF_BROADCAST
+  #error "WARNING: SO_BROADCAST != SOF_BROADCAST"
+#endif
+#if SO_LINGER != SOF_LINGER
+  #error "WARNING: SO_LINGER != SOF_LINGER"
+#endif
+#endif /* LWIP_SOCKET */
 
 
 /* Compile-time checks for deprecated options.
@@ -232,19 +265,6 @@ lwip_sanity_check(void)
   if (TCP_WND < TCP_MSS)
     LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: TCP_WND is smaller than MSS\n"));
 #endif /* LWIP_TCP */
-#if LWIP_SOCKET
-  /* Check that the SO_* socket options and SOF_* lwIP-internal flags match */
-  if (SO_ACCEPTCONN != SOF_ACCEPTCONN)
-    LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: SO_ACCEPTCONN != SOF_ACCEPTCONN\n"));
-  if (SO_REUSEADDR != SOF_REUSEADDR)
-    LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: SO_REUSEADDR != SOF_REUSEADDR\n"));
-  if (SO_KEEPALIVE != SOF_KEEPALIVE)
-    LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: SO_KEEPALIVE != SOF_KEEPALIVE\n"));
-  if (SO_BROADCAST != SOF_BROADCAST)
-    LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: SO_BROADCAST != SOF_BROADCAST\n"));
-  if (SO_LINGER != SOF_LINGER)
-    LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: SO_LINGER != SOF_LINGER\n"));
-#endif /* LWIP_SOCKET */
 }
 #else  /* LWIP_DEBUG */
 #define lwip_sanity_check()
@@ -261,7 +281,9 @@ lwip_init(void)
 
   /* Modules initialization */
   stats_init();
+#if !NO_SYS
   sys_init();
+#endif /* !NO_SYS */
   mem_init();
   memp_init();
   pbuf_init();
@@ -294,6 +316,15 @@ lwip_init(void)
 #if LWIP_DNS
   dns_init();
 #endif /* LWIP_DNS */
+#if LWIP_IPV6
+  ip6_init();
+  nd6_init();
+#if LWIP_IPV6_MLD
+  mld6_init();
+#endif /* LWIP_IPV6_MLD */
+#endif /* LWIP_IPV6 */
 
+#if LWIP_TIMERS
   sys_timeouts_init();
+#endif /* LWIP_TIMERS */
 }

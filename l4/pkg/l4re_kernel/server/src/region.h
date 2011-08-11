@@ -58,16 +58,16 @@ private:
 
 public:
   Region_map();
-  //void setup_wait(L4::Ipc_istream &istr);
-  int handle_pagefault(L4::Ipc_iostream &ios);
-  int handle_rm_request(L4::Ipc_iostream &ios);
+  //void setup_wait(L4::Ipc::Istream &istr);
+  int handle_pagefault(L4::Ipc::Iostream &ios);
+  int handle_rm_request(L4::Ipc::Iostream &ios);
   virtual ~Region_map() {}
 
   void init();
 
   void debug_dump(unsigned long function) const;
 private:
-  int reply_err(L4::Ipc_iostream &ios);
+  int reply_err(L4::Ipc::Iostream &ios);
 };
 
 

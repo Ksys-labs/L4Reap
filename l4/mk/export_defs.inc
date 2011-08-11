@@ -101,6 +101,7 @@ include $(L4DIR)/mk/prog.mk
 
 endif # called for static
 
+#   ----------------------------------------------------
 
 ifeq ($(CALLED_FOR),shared)
 
@@ -110,16 +111,12 @@ ifneq ($(SYSTEM),)
 
 L4_LDFLAGS_LD_SHARED  = $(filter-out -l%,$(BID_LDFLAGS_FOR_LINKING_LD))
 L4_LDFLAGS_GCC_SHARED = $(filter-out -l%,$(BID_LDFLAGS_FOR_LINKING_GCC))
-L4_CRT0_DYN           = $(CRT0_all_lib)
-L4_CRTN_DYN           = $(CRTN_all_lib)
 L4_LDS_so             = $(LDS_so)
 L4_LDS_dyn_bin        = $(LDS_dyn_bin)
 
 all::
 	@$(call do_output_all,L4_LDFLAGS_LD_SHARED)
 	@$(call do_output_all,L4_LDFLAGS_GCC_SHARED)
-	@$(call do_output_all,L4_CRT0_DYN)
-	@$(call do_output_all,L4_CRTN_DYN)
 	@$(call do_output_all,L4_LDS_so)
 	@$(call do_output_all,L4_LDS_dyn_bin)
 
@@ -130,3 +127,23 @@ endif
 include $(L4DIR)/mk/prog.mk
 
 endif # called for shared
+
+#   ----------------------------------------------------
+
+ifeq ($(CALLED_FOR),sharedlib)
+
+ifneq ($(SYSTEM),)
+
+L4_CRT0_SO = $(CRT0)
+L4_CRTN_SO = $(CRTN)
+
+all::
+	@$(call do_output_all,L4_CRT0_SO)
+	@$(call do_output_all,L4_CRTN_SO)
+else
+all::
+endif
+
+include $(L4DIR)/mk/lib.mk
+
+endif # called for sharedlib

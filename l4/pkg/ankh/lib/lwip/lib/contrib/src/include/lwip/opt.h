@@ -69,6 +69,14 @@
 #endif
 
 /**
+ * NO_SYS_NO_TIMERS==1: Drop support for sys_timeout when NO_SYS==1
+ * Mainly for compatibility to old versions.
+ */
+#ifndef NO_SYS_NO_TIMERS
+#define NO_SYS_NO_TIMERS                0
+#endif
+
+/**
  * MEMCPY: override this if you have a faster implementation at hand than the
  * one included in your C library
  */
@@ -260,11 +268,22 @@
 #endif
 
 /**
- * MEMP_NUM_REASSDATA: the number of simultaneously IP packets queued for
+ * MEMP_NUM_REASSDATA: the number of IP packets simultaneously queued for
  * reassembly (whole packets, not fragments!)
  */
 #ifndef MEMP_NUM_REASSDATA
 #define MEMP_NUM_REASSDATA              5
+#endif
+
+/**
+ * MEMP_NUM_FRAG_PBUF: the number of IP fragments simultaneously sent
+ * (fragments, not whole packets!).
+ * This is only used with IP_FRAG_USES_STATIC_BUF==0 and
+ * LWIP_NETIF_TX_SINGLE_PBUF==0 and only has to be > 1 with DMA-enabled MACs
+ * where the packet is not yet sent when netif->output returns.
+ */
+#ifndef MEMP_NUM_FRAG_PBUF
+#define MEMP_NUM_FRAG_PBUF              15
 #endif
 
 /**
@@ -413,11 +432,14 @@
 #endif
 
 /**
- * ARP_QUEUEING==1: Outgoing packets are queued during hardware address
- * resolution.
+ * ARP_QUEUEING==1: Multiple outgoing packets are queued during hardware address
+ * resolution. By default, only the most recent packet is queued per IP address.
+ * This is sufficient for most protocols and mainly reduces TCP connection
+ * startup time. Set this to 1 if you know your application sends more than one
+ * packet in a row to an IP address that is not in the ARP cache.
  */
 #ifndef ARP_QUEUEING
-#define ARP_QUEUEING                    1
+#define ARP_QUEUEING                    0
 #endif
 
 /**
@@ -439,6 +461,8 @@
  * Additionally, you can define ETHARP_VLAN_CHECK to an u16_t VLAN ID to check.
  * If ETHARP_VLAN_CHECK is defined, only VLAN-traffic for this VLAN is accepted.
  * If ETHARP_VLAN_CHECK is not defined, all traffic is accepted.
+ * Alternatively, define a function/define ETHARP_VLAN_CHECK_FN(eth_hdr, vlan)
+ * that returns 1 to accept a packet or 0 to drop a packet.
  */
 #ifndef ETHARP_SUPPORT_VLAN
 #define ETHARP_SUPPORT_VLAN             0
@@ -531,10 +555,12 @@
 /**
  * IP_FRAG_USES_STATIC_BUF==1: Use a static MTU-sized buffer for IP
  * fragmentation. Otherwise pbufs are allocated and reference the original
- * packet data to be fragmented.
+ * packet data to be fragmented (or with LWIP_NETIF_TX_SINGLE_PBUF==1,
+ * new PBUF_RAM pbufs are used for fragments).
+ * ATTENTION: IP_FRAG_USES_STATIC_BUF==1 may not be used for DMA-enabled MACs!
  */
 #ifndef IP_FRAG_USES_STATIC_BUF
-#define IP_FRAG_USES_STATIC_BUF         1
+#define IP_FRAG_USES_STATIC_BUF         0
 #endif
 
 /**
@@ -567,6 +593,17 @@
  */
 #ifndef IP_SOF_BROADCAST_RECV
 #define IP_SOF_BROADCAST_RECV           0
+#endif
+
+/**
+ * IP_FORWARD_ALLOW_TX_ON_RX_NETIF==1: allow ip_forward() to send packets back
+ * out on the netif where it was received. This should only be used for
+ * wireless networks.
+ * ATTENTION: When this is 1, make sure your netif driver correctly marks incoming
+ * link-layer-broadcast/multicast packets as such using the corresponding pbuf flags!
+ */
+#ifndef IP_FORWARD_ALLOW_TX_ON_RX_NETIF
+#define IP_FORWARD_ALLOW_TX_ON_RX_NETIF 0
 #endif
 
 /*
@@ -687,7 +724,7 @@
 
 /**
  * SNMP_CONCURRENT_REQUESTS: Number of concurrent requests the module will
- * allow. At least one request buffer is required. 
+ * allow. At least one request buffer is required.
  * Does not have to be changed unless external MIBs answer request asynchronously
  */
 #ifndef SNMP_CONCURRENT_REQUESTS
@@ -933,7 +970,7 @@
  * as much as (2 * TCP_SND_BUF/TCP_MSS) for things to work.
  */
 #ifndef TCP_SND_QUEUELEN
-#define TCP_SND_QUEUELEN                (4 * (TCP_SND_BUF)/(TCP_MSS))
+#define TCP_SND_QUEUELEN                ((4 * (TCP_SND_BUF) + (TCP_MSS - 1))/(TCP_MSS))
 #endif
 
 /**
@@ -1419,6 +1456,18 @@
 #define SO_REUSE_RXTOALL                0
 #endif
 
+/**
+ * LWIP_FIONREAD_LINUXMODE==0 (default): ioctl/FIONREAD returns the amount of
+ * pending data in the network buffer. This is the way windows does it. It's
+ * the default for lwIP since it is smaller.
+ * LWIP_FIONREAD_LINUXMODE==1: ioctl/FIONREAD returns the size of the next
+ * pending datagram in bytes. This is the way linux does it. This code is only
+ * here for compatibility.
+ */
+#ifndef LWIP_FIONREAD_LINUXMODE
+#define LWIP_FIONREAD_LINUXMODE         0
+#endif
+
 /*
    ----------------------------------------
    ---------- Statistics options ----------
@@ -1520,6 +1569,41 @@
 #define SYS_STATS                       (NO_SYS == 0)
 #endif
 
+/**
+ * IP6_STATS==1: Enable IPv6 stats.
+ */
+#ifndef IP6_STATS
+#define IP6_STATS                       (LWIP_IPV6)
+#endif
+
+/**
+ * ICMP6_STATS==1: Enable ICMP for IPv6 stats.
+ */
+#ifndef ICMP6_STATS
+#define ICMP6_STATS                     (LWIP_IPV6 && LWIP_ICMP6)
+#endif
+
+/**
+ * IP6_FRAG_STATS==1: Enable IPv6 fragmentation stats.
+ */
+#ifndef IP6_FRAG_STATS
+#define IP6_FRAG_STATS                  (LWIP_IPV6 && (LWIP_IPV6_FRAG || LWIP_IPV6_REASS))
+#endif
+
+/**
+ * MLD6_STATS==1: Enable MLD for IPv6 stats.
+ */
+#ifndef MLD6_STATS
+#define MLD6_STATS                      (LWIP_IPV6 && LWIP_IPV6_MLD)
+#endif
+
+/**
+ * ND6_STATS==1: Enable Neighbor discovery for IPv6 stats.
+ */
+#ifndef ND6_STATS
+#define ND6_STATS                       (LWIP_IPV6)
+#endif
+
 #else
 
 #define LINK_STATS                      0
@@ -1533,6 +1617,11 @@
 #define MEMP_STATS                      0
 #define SYS_STATS                       0
 #define LWIP_STATS_DISPLAY              0
+#define IP6_STATS                       0
+#define ICMP6_STATS                     0
+#define IP6_FRAG_STATS                  0
+#define MLD6_STATS                      0
+#define ND6_STATS                       0
 
 #endif /* LWIP_STATS */
 
@@ -1754,6 +1843,259 @@
 #ifndef LWIP_CHECKSUM_ON_COPY
 #define LWIP_CHECKSUM_ON_COPY           0
 #endif
+
+/*
+   ---------------------------------------
+   ---------- IPv6 options ---------------
+   ---------------------------------------
+*/
+/**
+ * LWIP_IPV6==1: Enable IPv6
+ */
+#ifndef LWIP_IPV6
+#define LWIP_IPV6                       0
+#endif
+
+/**
+ * LWIP_IPV6_NUM_ADDRESSES: Number of IPv6 addresses per netif.
+ */
+#ifndef LWIP_IPV6_NUM_ADDRESSES
+#define LWIP_IPV6_NUM_ADDRESSES         3
+#endif
+
+/**
+ * LWIP_IPV6_FORWARD==1: Forward IPv6 packets across netifs
+ */
+#ifndef LWIP_IPV6_FORWARD
+#define LWIP_IPV6_FORWARD               0
+#endif
+
+/**
+ * LWIP_ICMP6==1: Enable ICMPv6 (mandatory per RFC)
+ */
+#ifndef LWIP_ICMP6
+#define LWIP_ICMP6                      (LWIP_IPV6)
+#endif
+
+/**
+ * LWIP_ICMP6_DATASIZE: bytes from original packet to send back in
+ * ICMPv6 error messages.
+ */
+#ifndef LWIP_ICMP6_DATASIZE
+#define LWIP_ICMP6_DATASIZE             8
+#endif
+
+/**
+ * LWIP_ICMP6_HL: default hop limit for ICMPv6 messages
+ */
+#ifndef LWIP_ICMP6_HL
+#define LWIP_ICMP6_HL                   255
+#endif
+
+/**
+ * LWIP_ICMP6_CHECKSUM_CHECK==1: verify checksum on ICMPv6 packets
+ */
+#ifndef LWIP_ICMP6_CHECKSUM_CHECK
+#define LWIP_ICMP6_CHECKSUM_CHECK       1
+#endif
+
+/**
+ * LWIP_IPV6_MLD==1: Enable multicast listener discovery protocol.
+ */
+#ifndef LWIP_IPV6_MLD
+#define LWIP_IPV6_MLD                   (LWIP_IPV6)
+#endif
+
+/**
+ * MEMP_NUM_MLD6_GROUP: Max number of IPv6 multicast that can be joined.
+ */
+#ifndef MEMP_NUM_MLD6_GROUP
+#define MEMP_NUM_MLD6_GROUP             4
+#endif
+
+/**
+ * LWIP_IPV6_FRAG==1: Fragment outgoing IPv6 packets that are too big.
+ */
+#ifndef LWIP_IPV6_FRAG
+#define LWIP_IPV6_FRAG                  0
+#endif
+
+/**
+ * LWIP_IPV6_REASS==1: reassemble incoming IPv6 packets that fragmented
+ */
+#ifndef LWIP_IPV6_REASS
+#define LWIP_IPV6_REASS                 (LWIP_IPV6)
+#endif
+
+/**
+ * LWIP_ND6_QUEUEING==1: queue outgoing IPv6 packets while MAC address
+ * is being resolved.
+ */
+#ifndef LWIP_ND6_QUEUEING
+#define LWIP_ND6_QUEUEING               (LWIP_IPV6)
+#endif
+
+/**
+ * MEMP_NUM_ND6_QUEUE: Max number of IPv6 packets to queue during MAC resolution.
+ */
+#ifndef MEMP_NUM_ND6_QUEUE
+#define MEMP_NUM_ND6_QUEUE              20
+#endif
+
+/**
+ * LWIP_ND6_NUM_NEIGHBORS: Number of entries in IPv6 neighbor cache
+ */
+#ifndef LWIP_ND6_NUM_NEIGHBORS
+#define LWIP_ND6_NUM_NEIGHBORS          10
+#endif
+
+/**
+ * LWIP_ND6_NUM_DESTINATIONS: number of entries in IPv6 destination cache
+ */
+#ifndef LWIP_ND6_NUM_DESTINATIONS
+#define LWIP_ND6_NUM_DESTINATIONS       10
+#endif
+
+/**
+ * LWIP_ND6_NUM_PREFIXES: number of entries in IPv6 on-link prefixes cache
+ */
+#ifndef LWIP_ND6_NUM_PREFIXES
+#define LWIP_ND6_NUM_PREFIXES           5
+#endif
+
+/**
+ * LWIP_ND6_NUM_ROUTERS: number of entries in IPv6 default router cache
+ */
+#ifndef LWIP_ND6_NUM_ROUTERS
+#define LWIP_ND6_NUM_ROUTERS            3
+#endif
+
+/**
+ * LWIP_ND6_MAX_MULTICAST_SOLICIT: max number of multicast solicit messages to send
+ * (neighbor solicit and router solicit)
+ */
+#ifndef LWIP_ND6_MAX_MULTICAST_SOLICIT
+#define LWIP_ND6_MAX_MULTICAST_SOLICIT  3
+#endif
+
+/**
+ * LWIP_ND6_MAX_UNICAST_SOLICIT: max number of unicast neighbor solicitation messages
+ * to send during neighbor reachability detection.
+ */
+#ifndef LWIP_ND6_MAX_UNICAST_SOLICIT
+#define LWIP_ND6_MAX_UNICAST_SOLICIT    3
+#endif
+
+/**
+ * Unused: See ND RFC (time in milliseconds).
+ */
+#ifndef LWIP_ND6_MAX_ANYCAST_DELAY_TIME
+#define LWIP_ND6_MAX_ANYCAST_DELAY_TIME 1000
+#endif
+
+/**
+ * Unused: See ND RFC
+ */
+#ifndef LWIP_ND6_MAX_NEIGHBOR_ADVERTISEMENT
+#define LWIP_ND6_MAX_NEIGHBOR_ADVERTISEMENT  3
+#endif
+
+/**
+ * LWIP_ND6_REACHABLE_TIME: default neighbor reachable time (in milliseconds).
+ * May be updated by router advertisement messages.
+ */
+#ifndef LWIP_ND6_REACHABLE_TIME
+#define LWIP_ND6_REACHABLE_TIME         30000
+#endif
+
+/**
+ * LWIP_ND6_RETRANS_TIMER: default retransmission timer for solicitation messages
+ */
+#ifndef LWIP_ND6_RETRANS_TIMER
+#define LWIP_ND6_RETRANS_TIMER          1000
+#endif
+
+/**
+ * LWIP_ND6_DELAY_FIRST_PROBE_TIME: Delay before first unicast neighbor solicitation
+ * message is sent, during neighbor reachability detection.
+ */
+#ifndef LWIP_ND6_DELAY_FIRST_PROBE_TIME
+#define LWIP_ND6_DELAY_FIRST_PROBE_TIME 5000
+#endif
+
+/**
+ * LWIP_ND6_ALLOW_RA_UPDATES==1: Allow Router Advertisement messages to update
+ * Reachable time and retransmission timers, and netif MTU.
+ */
+#ifndef LWIP_ND6_ALLOW_RA_UPDATES
+#define LWIP_ND6_ALLOW_RA_UPDATES       1
+#endif
+
+/**
+ * LWIP_IPV6_SEND_ROUTER_SOLICIT==1: Send router solicitation messages during
+ * network startup.
+ */
+#ifndef LWIP_IPV6_SEND_ROUTER_SOLICIT
+#define LWIP_IPV6_SEND_ROUTER_SOLICIT   1
+#endif
+
+/**
+ * LWIP_ND6_TCP_REACHABILITY_HINTS==1: Allow TCP to provide Neighbor Discovery
+ * with reachability hints for connected destinations. This helps avoid sending
+ * unicast neighbor solicitation messages.
+ */
+#ifndef LWIP_ND6_TCP_REACHABILITY_HINTS
+#define LWIP_ND6_TCP_REACHABILITY_HINTS 1
+#endif
+
+/**
+ * LWIP_IPV6_AUTOCONFIG==1: Enable stateless address autoconfiguration as per RFC 4862.
+ */
+#ifndef LWIP_IPV6_AUTOCONFIG
+#define LWIP_IPV6_AUTOCONFIG            (LWIP_IPV6)
+#endif
+
+/**
+ * LWIP_IPV6_DUP_DETECT_ATTEMPTS: Number of duplicate address detection attempts.
+ */
+#ifndef LWIP_IPV6_DUP_DETECT_ATTEMPTS
+#define LWIP_IPV6_DUP_DETECT_ATTEMPTS   1
+#endif
+
+/**
+ * LWIP_IPV6_DHCP6==1: enable DHCPv6 stateful address autoconfiguration.
+ */
+#ifndef LWIP_IPV6_DHCP6
+#define LWIP_IPV6_DHCP6                 0
+#endif
+
+/*
+   ---------------------------------------
+   ---------- Hook options ---------------
+   ---------------------------------------
+*/
+
+/* Hooks are undefined by default, define them to a function if you need them. */
+
+/**
+ * LWIP_HOOK_IP4_INPUT(pbuf, input_netif):
+ * - called from ip_input() (IPv4)
+ * - pbuf: received struct pbuf passed to ip_input()
+ * - input_netif: struct netif on which the packet has been received
+ * Return values:
+ * - 0: Hook has not consumed the packet, packet is processed as normal
+ * - != 0: Hook has consumed the packet.
+ * If the hook consumed the packet, 'pbuf' is in the responsibility of the hook
+ * (i.e. free it when done).
+ */
+
+/**
+ * LWIP_HOOK_IP4_ROUTE(dest):
+ * - called from ip_route() (IPv4)
+ * - dest: destination IPv4 address
+ * Returns the destination netif or NULL if no destination netif is found. In
+ * that case, ip_route() continues as normal.
+ */
 
 /*
    ---------------------------------------
@@ -2014,6 +2356,13 @@
  */
 #ifndef DNS_DEBUG
 #define DNS_DEBUG                       LWIP_DBG_OFF
+#endif
+
+/**
+ * IP6_DEBUG: Enable debugging for IPv6.
+ */
+#ifndef IP6_DEBUG
+#define IP6_DEBUG                       LWIP_DBG_OFF
 #endif
 
 #endif /* __LWIP_OPT_H__ */

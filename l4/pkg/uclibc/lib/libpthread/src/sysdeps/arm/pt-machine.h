@@ -35,9 +35,13 @@ testandset (int *spinlock)
 {
   register unsigned int ret;
 
+#if 0
   __asm__ __volatile__("swp %0, %1, [%2]"
 		       : "=r"(ret)
 		       : "0"(1), "r"(spinlock));
+#else
+   ret = l4_atomic_xchg((volatile long int *)spinlock, 1);
+#endif
 
   return ret;
 }

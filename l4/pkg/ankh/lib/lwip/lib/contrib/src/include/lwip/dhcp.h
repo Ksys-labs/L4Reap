@@ -80,10 +80,10 @@ struct dhcp_msg
   PACK_STRUCT_FIELD(u32_t xid);
   PACK_STRUCT_FIELD(u16_t secs);
   PACK_STRUCT_FIELD(u16_t flags);
-  PACK_STRUCT_FIELD(ip_addr_t ciaddr);
-  PACK_STRUCT_FIELD(ip_addr_t yiaddr);
-  PACK_STRUCT_FIELD(ip_addr_t siaddr);
-  PACK_STRUCT_FIELD(ip_addr_t giaddr);
+  PACK_STRUCT_FIELD(ip_addr_p_t ciaddr);
+  PACK_STRUCT_FIELD(ip_addr_p_t yiaddr);
+  PACK_STRUCT_FIELD(ip_addr_p_t siaddr);
+  PACK_STRUCT_FIELD(ip_addr_p_t giaddr);
   PACK_STRUCT_FIELD(u8_t chaddr[DHCP_CHADDR_LEN]);
   PACK_STRUCT_FIELD(u8_t sname[DHCP_SNAME_LEN]);
   PACK_STRUCT_FIELD(u8_t file[DHCP_FILE_LEN]);
@@ -106,6 +106,9 @@ PACK_STRUCT_END
 #endif
 
 void dhcp_set_struct(struct netif *netif, struct dhcp *dhcp);
+/** Remove a struct dhcp previously set to the netif using dhcp_set_struct() */
+#define dhcp_remove_struct(netif) do { (netif)->dhcp = NULL; } while(0)
+void dhcp_cleanup(struct netif *netif);
 /** start DHCP configuration */
 err_t dhcp_start(struct netif *netif);
 /** enforce early lease renewal (not needed normally)*/
@@ -144,45 +147,45 @@ void dhcp_fine_tmr(void);
 #define DHCP_CHADDR_OFS   28
 #define DHCP_SNAME_OFS    44
 #define DHCP_FILE_OFS     108
-#define DHCP_MSG_LEN 236
+#define DHCP_MSG_LEN      236
 
 #define DHCP_COOKIE_OFS   DHCP_MSG_LEN
 #define DHCP_OPTIONS_OFS  (DHCP_MSG_LEN + 4)
 
-#define DHCP_CLIENT_PORT 68  
-#define DHCP_SERVER_PORT 67
+#define DHCP_CLIENT_PORT  68  
+#define DHCP_SERVER_PORT  67
 
 /** DHCP client states */
 #define DHCP_OFF          0
-#define DHCP_REQUESTING 1
-#define DHCP_INIT 2
-#define DHCP_REBOOTING 3
-#define DHCP_REBINDING 4
-#define DHCP_RENEWING 5
-#define DHCP_SELECTING 6
-#define DHCP_INFORMING 7
-#define DHCP_CHECKING 8
-#define DHCP_PERMANENT 9
-#define DHCP_BOUND 10
+#define DHCP_REQUESTING   1
+#define DHCP_INIT         2
+#define DHCP_REBOOTING    3
+#define DHCP_REBINDING    4
+#define DHCP_RENEWING     5
+#define DHCP_SELECTING    6
+#define DHCP_INFORMING    7
+#define DHCP_CHECKING     8
+#define DHCP_PERMANENT    9
+#define DHCP_BOUND        10
 /** not yet implemented #define DHCP_RELEASING 11 */
-#define DHCP_BACKING_OFF 12
+#define DHCP_BACKING_OFF  12
 
 /** AUTOIP cooperatation flags */
-#define DHCP_AUTOIP_COOP_STATE_OFF 0
-#define DHCP_AUTOIP_COOP_STATE_ON 1
+#define DHCP_AUTOIP_COOP_STATE_OFF  0
+#define DHCP_AUTOIP_COOP_STATE_ON   1
  
-#define DHCP_BOOTREQUEST 1
-#define DHCP_BOOTREPLY 2
+#define DHCP_BOOTREQUEST  1
+#define DHCP_BOOTREPLY    2
 
 /** DHCP message types */
 #define DHCP_DISCOVER 1
-#define DHCP_OFFER 2
-#define DHCP_REQUEST 3
-#define DHCP_DECLINE 4
-#define DHCP_ACK 5
-#define DHCP_NAK 6
-#define DHCP_RELEASE 7
-#define DHCP_INFORM 8
+#define DHCP_OFFER    2
+#define DHCP_REQUEST  3
+#define DHCP_DECLINE  4
+#define DHCP_ACK      5
+#define DHCP_NAK      6
+#define DHCP_RELEASE  7
+#define DHCP_INFORM   8
 
 /** DHCP hardware type, currently only ethernet is supported */
 #define DHCP_HTYPE_ETH 1

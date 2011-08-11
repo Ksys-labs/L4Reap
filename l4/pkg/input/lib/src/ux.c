@@ -41,7 +41,7 @@ enum {
 
 static int input_pos;
 static struct l4input *input_mem;
-static void (*input_handler)(struct l4input *);
+static L4_CV void (*input_handler)(struct l4input *);
 
 static int dequeue_event(struct l4input *ev)
 {
@@ -171,7 +171,7 @@ static int ux_flush(void *buffer, int count)
 
 static struct l4input_ops ops = { ux_ispending, ux_flush, 0 };
 
-struct l4input_ops * l4input_internal_ux_init(void (*handler)(struct l4input *))
+struct l4input_ops * l4input_internal_ux_init(L4_CV void (*handler)(struct l4input *))
 {
   input_handler = handler;
 

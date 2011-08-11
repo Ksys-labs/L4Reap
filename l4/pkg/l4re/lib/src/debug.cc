@@ -29,7 +29,7 @@
 int
 L4Re::Debug_obj::debug(unsigned long function) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << function;
   return l4_error(io.call(cap(), L4Re::Protocol::Debug));
 }

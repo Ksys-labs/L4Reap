@@ -91,7 +91,7 @@ lwip_gethostbyname(const char *name)
   HOSTENT_STORAGE struct hostent s_hostent;
   HOSTENT_STORAGE char *s_aliases;
   HOSTENT_STORAGE ip_addr_t s_hostent_addr;
-  HOSTENT_STORAGE ip_addr_t *s_phostent_addr[2] = { 0 };
+  HOSTENT_STORAGE ip_addr_t *s_phostent_addr[2];
 
   /* query host IP address */
   err = netconn_gethostbyname(name, &addr);
@@ -104,6 +104,7 @@ lwip_gethostbyname(const char *name)
   /* fill hostent */
   s_hostent_addr = addr;
   s_phostent_addr[0] = &s_hostent_addr;
+  s_phostent_addr[1] = NULL;
   s_hostent.h_name = (char*)name;
   s_hostent.h_aliases = &s_aliases;
   s_hostent.h_addrtype = AF_INET;
@@ -118,7 +119,7 @@ lwip_gethostbyname(const char *name)
     u8_t idx;
     for ( idx=0; s_hostent.h_aliases[idx]; idx++) {
       LWIP_DEBUGF(DNS_DEBUG, ("hostent.h_aliases[%i]->   == %p\n", idx, s_hostent.h_aliases[idx]));
-      LWIP_DEBUGF(DNS_DEBUG, ("hostent.h_aliases[%i]->   == %s\n",      idx, s_hostent.h_aliases[idx]));
+      LWIP_DEBUGF(DNS_DEBUG, ("hostent.h_aliases[%i]->   == %s\n", idx, s_hostent.h_aliases[idx]));
     }
   }
   LWIP_DEBUGF(DNS_DEBUG, ("hostent.h_addrtype       == %d\n", s_hostent.h_addrtype));

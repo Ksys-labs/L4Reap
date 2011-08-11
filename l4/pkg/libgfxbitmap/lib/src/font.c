@@ -69,14 +69,14 @@ static inline struct psf_font *font_cast(gfxbitmap_font_t font)
 static unsigned char font_yres(struct psf_font *f)
 { return f->header.height; }
 
-unsigned
+L4_CV unsigned
 gfxbitmap_font_width(gfxbitmap_font_t font)
 {
   (void)font;
   return FONT_XRES;
 }
 
-unsigned
+L4_CV unsigned
 gfxbitmap_font_height(gfxbitmap_font_t font)
 {
   struct psf_font *f = font_cast(font);
@@ -90,7 +90,7 @@ get_font_char(struct psf_font *f, unsigned c)
   return &f->data[(FONT_XRES / 8) * font_yres(f) * c];
 }
 
-void *
+L4_CV void *
 gfxbitmap_font_data(gfxbitmap_font_t font, unsigned c)
 {
   struct psf_font *f = font_cast(font);
@@ -100,7 +100,7 @@ gfxbitmap_font_data(gfxbitmap_font_t font, unsigned c)
   return get_font_char(f, c);
 }
 
-void
+L4_CV void
 gfxbitmap_font_text(void *fb, l4re_video_view_info_t *vi,
                     gfxbitmap_font_t font, const char *text, unsigned len,
                     unsigned x, unsigned y,
@@ -139,7 +139,7 @@ gfxbitmap_font_text(void *fb, l4re_video_view_info_t *vi,
 }
 
 
-void
+L4_CV void
 gfxbitmap_font_text_scale(void *fb, l4re_video_view_info_t *vi,
                           gfxbitmap_font_t font, const char *text, unsigned len,
                           unsigned x, unsigned y,
@@ -196,7 +196,7 @@ gfxbitmap_font_text_scale(void *fb, l4re_video_view_info_t *vi,
 }
 
 
-gfxbitmap_font_t
+L4_CV gfxbitmap_font_t
 gfxbitmap_font_get(const char *name)
 {
   unsigned i = 0;
@@ -207,7 +207,7 @@ gfxbitmap_font_get(const char *name)
 }
 
 /** Init lib */
-int
+L4_CV int
 gfxbitmap_font_init(void)
 {
   unsigned chars;

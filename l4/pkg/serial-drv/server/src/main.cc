@@ -32,10 +32,10 @@ class Loop_hooks :
   public L4::Ipc_svr::Compound_reply
 {
 public:
-  void setup_wait(L4::Ipc_istream &istr, bool)
+  void setup_wait(L4::Ipc::Istream &istr, bool)
   {
     istr.reset();
-    istr << L4::Small_buf(srv_rcv_cap.cap(), L4_RCV_ITEM_LOCAL_ID);
+    istr << L4::Ipc::Small_buf(srv_rcv_cap.cap(), L4_RCV_ITEM_LOCAL_ID);
     l4_utcb_br_u(istr.utcb())->bdr = 0;
   }
 };
@@ -69,7 +69,7 @@ public:
   int handle_irq();
 
   bool init();
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
 private:
   bool _running;
@@ -189,7 +189,7 @@ Serial_drv::init()
 }
 
 int
-Serial_drv::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+Serial_drv::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;

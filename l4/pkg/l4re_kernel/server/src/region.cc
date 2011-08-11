@@ -78,9 +78,9 @@ Region_ops::map(Region_handler const *h, l4_addr_t local_adr,
 
   if (h->flags() & Rm::Pager)
     {
-      L4::Ipc_iostream io(l4_utcb());
+      L4::Ipc::Iostream io(l4_utcb());
       io << (local_adr | (writable ? 2 : 0)) << -3UL;
-      io << L4::Rcv_fpage::mem(0, 32, 0);
+      io << L4::Ipc::Rcv_fpage::mem(0, L4_WHOLE_ADDRESS_SPACE, 0);
       io.call(h->memory().cap(), L4_PROTO_PAGE_FAULT);
       return L4_EOK;
     }
@@ -153,7 +153,7 @@ Region_ops::release(Region_handler const * /*h*/)
 
 template<typename T>
 inline
-T extract(L4::Ipc_istream &s)
+T extract(L4::Ipc::Istream &s)
 { T t; s >> t; return t; }
 
 void
@@ -179,7 +179,7 @@ class Rm_server
 public:
   typedef L4::Cap<L4Re::Dataspace> Dataspace;
   enum { Have_find = true };
-  static int validate_ds(L4::Snd_fpage const &ds_cap,
+  static int validate_ds(L4::Ipc::Snd_fpage const &ds_cap,
                          unsigned, L4::Cap<L4Re::Dataspace> *ds)
   {
     // if no cap was sent then the region will be reserved
@@ -198,11 +198,11 @@ public:
 };
 
 int
-Region_map::handle_rm_request(L4::Ipc_iostream &ios)
+Region_map::handle_rm_request(L4::Ipc::Iostream &ios)
 {
   return L4Re::Util::region_map_server<Rm_server>(this, ios);
 }
 
 int
-Region_map::handle_pagefault(L4::Ipc_iostream &ios)
+Region_map::handle_pagefault(L4::Ipc::Iostream &ios)
 { return L4Re::Util::region_pf_handler<Dbg>(this, ios); }

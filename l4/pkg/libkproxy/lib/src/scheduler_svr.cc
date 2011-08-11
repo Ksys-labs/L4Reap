@@ -29,7 +29,7 @@
 
 namespace L4kproxy {
 
-int Scheduler_svr::scheduler_dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+int Scheduler_svr::scheduler_dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   L4::Opcode op;
   ios >> op;
@@ -59,7 +59,7 @@ int Scheduler_svr::scheduler_dispatch(l4_umword_t, L4::Ipc_iostream &ios)
     case L4_SCHEDULER_RUN_THREAD_OP:
         {
 	  l4_sched_param_t sp;
-          L4::Snd_fpage thread;
+          L4::Ipc::Snd_fpage thread;
 	    {
 	      l4_umword_t gran_off, prio, quantum;
 	      ios >> gran_off >> sp.affinity.map >> prio >> quantum >> thread;

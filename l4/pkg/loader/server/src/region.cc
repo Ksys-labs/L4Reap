@@ -85,7 +85,7 @@ void Region_map::global_init()
 
 int
 Region_ops::map(Region_handler const *h, l4_addr_t local_adr,
-                Region const &r, bool writable, L4::Snd_fpage *result)
+                Region const &r, bool writable, L4::Ipc::Snd_fpage *result)
 {
   if ((h->flags() & Rm::Reserved) || !h->memory().is_valid())
     return -L4_ENOENT;
@@ -102,8 +102,8 @@ Region_ops::map(Region_handler const *h, l4_addr_t local_adr,
   if (int err = ds->map(offset, writable, map_area, map_area, map_end))
     return err;
 
-  *result = L4::Snd_fpage::mem(map_area, L4_PAGESHIFT, L4_FPAGE_RWX,
-                               local_adr, L4::Snd_fpage::Grant);
+  *result = L4::Ipc::Snd_fpage::mem(map_area, L4_PAGESHIFT, L4_FPAGE_RWX,
+                               local_adr, L4::Ipc::Snd_fpage::Grant);
   return L4_EOK;
 }
 
@@ -124,7 +124,7 @@ Region_ops::release(Region_handler const * /*h*/)
 
 template<typename T>
 inline
-T extract(L4::Ipc_istream &s)
+T extract(L4::Ipc::Istream &s)
 { T t; s >> t; return t; }
 
 void
@@ -166,7 +166,7 @@ class Rm_server
 public:
   typedef L4::Cap<L4Re::Dataspace> Dataspace;
   enum { Have_find = true };
-  static int validate_ds(L4::Snd_fpage const & /*ds_cap*/, unsigned, L4::Cap<L4Re::Dataspace> *ds)
+  static int validate_ds(L4::Ipc::Snd_fpage const & /*ds_cap*/, unsigned, L4::Cap<L4Re::Dataspace> *ds)
   {
     // XXX: must check that ds is from trusted allocator!
     *ds = L4Re::Util::cap_alloc.alloc<L4Re::Dataspace>();
@@ -182,13 +182,13 @@ public:
 };
 
 int
-Region_map::handle_rm_request(L4::Ipc_iostream &ios)
+Region_map::handle_rm_request(L4::Ipc::Iostream &ios)
 {
   return L4Re::Util::region_map_server<Rm_server>(this, ios);
 }
 
 int
-Region_map::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Region_map::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;

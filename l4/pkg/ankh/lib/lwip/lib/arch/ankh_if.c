@@ -96,11 +96,11 @@ static void *ankhif_recv_fn(void *arg)
 
     for (;;)
     {
-        err = l4shmc_rb_receiver_wait_for_data(rb, 0);
-        if (!err)
-            ankhif_input(netif);
-        else
-            l4_thread_yield();
+        err = l4shmc_rb_receiver_wait_for_data(rb, 1);
+		if (err) {
+			continue;
+		}
+		ankhif_input(netif);
     }
 
     enter_kdebug("exit loop?");
@@ -298,6 +298,7 @@ ankhif_input(struct netif *netif)
   struct ankhif *ankhif;
   struct eth_hdr *ethhdr;
   struct pbuf *p;
+  int x;
 
   ankhif = netif->state;
 
@@ -318,7 +319,8 @@ ankhif_input(struct netif *netif)
   case ETHTYPE_PPPOE:
 #endif /* PPPOE_SUPPORT */
     /* full packet send to tcpip_thread to process */
-    if (netif->input(p, netif)!=ERR_OK)
+	x = netif->input(p, netif);
+    if (x!=ERR_OK)
      { LWIP_DEBUGF(NETIF_DEBUG, ("ankhif_input: IP input error\n"));
        pbuf_free(p);
        p = NULL;
@@ -326,6 +328,7 @@ ankhif_input(struct netif *netif)
     break;
 
   default:
+	printf("unknown ethtype %lx\n", htons(ethhdr->type));
     pbuf_free(p);
     p = NULL;
     break;

@@ -13,7 +13,7 @@
 #include <string.h>
 
 
-int
+L4_CV int
 l4util_kip_kernel_is_ux(l4_kernel_info_t *k)
 {
   const char *s = l4_kip_version_string(k);
@@ -23,7 +23,7 @@ l4util_kip_kernel_is_ux(l4_kernel_info_t *k)
   return 0;
 }
 
-int
+L4_CV int
 l4util_kip_kernel_has_feature(l4_kernel_info_t *k, const char *str)
 {
   const char *s = l4_kip_version_string(k);
@@ -40,7 +40,7 @@ l4util_kip_kernel_has_feature(l4_kernel_info_t *k, const char *str)
   return 0;
 }
 
-unsigned long
+L4_CV unsigned long
 l4util_kip_kernel_abi_version(l4_kernel_info_t *k)
 {
   const char *s = l4_kip_version_string(k);

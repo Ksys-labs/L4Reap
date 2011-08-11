@@ -77,7 +77,7 @@ private:
   public:
     explicit Del_handler(Object_gc *gc) : gc(gc) {}
 
-    int dispatch(l4_umword_t, L4::Ipc_iostream &)
+    int dispatch(l4_umword_t, L4::Ipc::Iostream &)
     {
       gc->gc_step();
       return -L4_ENOREPLY;
@@ -123,7 +123,7 @@ public:
   l4_timeout_t timeout()
   { return l4_timeout(L4_IPC_TIMEOUT_0, l4_timeout_abs(to, 8)); }
 
-  void setup_wait(L4::Ipc_istream &istr, L4::Ipc_svr::Reply_mode reply_mode)
+  void setup_wait(L4::Ipc::Istream &istr, L4::Ipc_svr::Reply_mode reply_mode)
   {
     if (to < l4re_kip()->clock
 	&& reply_mode == L4::Ipc_svr::Reply_separate)
@@ -137,12 +137,12 @@ public:
     }
 
     istr.reset();
-    istr << L4::Small_buf(rcv_cap.cap(), L4_RCV_ITEM_LOCAL_ID);
+    istr << L4::Ipc::Small_buf(rcv_cap.cap(), L4_RCV_ITEM_LOCAL_ID);
     l4_utcb_br_u(istr.utcb())->bdr = 0;
     l4_timeout_abs(to, 8);
   }
 
-  L4::Ipc_svr::Reply_mode before_reply(long, L4::Ipc_iostream &)
+  L4::Ipc_svr::Reply_mode before_reply(long, L4::Ipc::Iostream &)
   {
     if (to < l4re_kip()->clock)
       return L4::Ipc_svr::Reply_separate;

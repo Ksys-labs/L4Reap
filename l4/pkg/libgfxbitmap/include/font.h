@@ -123,7 +123,7 @@ gfxbitmap_font_text(void *fb, l4re_video_view_info_t *vi,
  * \param scale_x Horizonal scale factor.
  * \param scale_y Vertical scale factor.
  */
-void
+L4_CV void
 gfxbitmap_font_text_scale(void *fb, l4re_video_view_info_t *vi,
                           gfxbitmap_font_t font, const char *text, unsigned len,
                           unsigned x, unsigned y,

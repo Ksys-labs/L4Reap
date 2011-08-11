@@ -20,13 +20,13 @@ private:
   ICU *this_icu() { return static_cast<ICU*>(this); }
 
 public:
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &iso);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &iso);
 };
 
 
 template<typename ICU>
 int
-Icu_svr<ICU>::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Icu_svr<ICU>::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   typedef typename ICU::Irq Irq;
   l4_msgtag_t tag;
@@ -41,7 +41,7 @@ Icu_svr<ICU>::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
     case L4_ICU_OP_BIND:
       {
 	l4_umword_t irqnum;
-	L4::Snd_fpage irq_fp;
+	L4::Ipc::Snd_fpage irq_fp;
 	ios >> irqnum >> irq_fp;
 	Irq *irq = this_icu()->icu_get_irq(irqnum);
 	if (!irq)
@@ -52,7 +52,7 @@ Icu_svr<ICU>::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
     case L4_ICU_OP_UNBIND:
       {
 	l4_umword_t irqnum;
-	L4::Snd_fpage irq_fp;
+	L4::Ipc::Snd_fpage irq_fp;
 	ios >> irqnum >> irq_fp;
 	Irq *irq = this_icu()->icu_get_irq(irqnum);
 	if (!irq)
@@ -108,12 +108,12 @@ public:
     void trigger() const
     { _cap->trigger(); }
 
-    int bind(ICU *, L4::Snd_fpage const &irq_fp);
-    int unbind(ICU *, L4::Snd_fpage const &irq_fp);
+    int bind(ICU *, L4::Ipc::Snd_fpage const &irq_fp);
+    int unbind(ICU *, L4::Ipc::Snd_fpage const &irq_fp);
     void mask(bool mask) const
     { (void)mask; }
 
-    int msi_info(L4::Ipc_ostream &) const
+    int msi_info(L4::Ipc::Ostream &) const
     { return -L4_EINVAL; }
 
     L4::Cap<L4::Irq> cap() const { return _cap.get(); }
@@ -150,7 +150,7 @@ public:
 
 template< typename ICU >
 int
-Icu_cap_array_svr<ICU>::Irq::bind(ICU *cfb, L4::Snd_fpage const &irq_fp)
+Icu_cap_array_svr<ICU>::Irq::bind(ICU *cfb, L4::Ipc::Snd_fpage const &irq_fp)
 {
   if (!irq_fp.cap_received())
     return -L4_EINVAL;
@@ -164,7 +164,7 @@ Icu_cap_array_svr<ICU>::Irq::bind(ICU *cfb, L4::Snd_fpage const &irq_fp)
 
 template< typename ICU >
 int
-Icu_cap_array_svr<ICU>::Irq::unbind(ICU *, L4::Snd_fpage const &/*irq_fp*/)
+Icu_cap_array_svr<ICU>::Irq::unbind(ICU *, L4::Ipc::Snd_fpage const &/*irq_fp*/)
 {
   L4Re::Env::env()->task()->unmap(_cap.fpage(L4_FPAGE_RWX), L4_FP_ALL_SPACES);
   _cap = L4::Cap<L4::Irq>::Invalid;

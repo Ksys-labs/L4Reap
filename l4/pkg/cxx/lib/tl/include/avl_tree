@@ -233,7 +233,7 @@ Avl_tree<Node, Get_key, Compare>::insert(Node *new_node)
   // search insertion point
   for (N *p; (p = *t);)
     {
-      Dir b = dir(new_key, p);
+      Dir b = this->dir(new_key, p);
       if (b == Dir::N)
 	return pair(static_cast<Node*>(p), false);
 
@@ -250,7 +250,7 @@ Avl_tree<Node, Get_key, Compare>::insert(Node *new_node)
   A *a = static_cast<A*>(n);
   if (!a->balanced())
     {
-      A::Bal b(greater(new_key, n));
+      A::Bal b(this->greater(new_key, n));
       if (a->balance() != b)
 	{
 	  // ok we got in balance the shorter subtree go higher
@@ -258,7 +258,7 @@ Avl_tree<Node, Get_key, Compare>::insert(Node *new_node)
 	  // propagate the new balance down to the new node
 	  n = N::next(n, b);
 	}
-      else if (b == Bal(greater(new_key, N::next(n, b))))
+      else if (b == Bal(this->greater(new_key, N::next(n, b))))
 	{
 	  // left-left or right-right case -> single rotation
 	  A::rotate(s, b);
@@ -270,12 +270,12 @@ Avl_tree<Node, Get_key, Compare>::insert(Node *new_node)
 	{
 	  // need a double rotation
 	  n = N::next(N::next(n, b), !b);
-	  n = A::rotate2(s, b, n == new_node ? Bal::N : Bal(greater(new_key, n)));
+	  n = A::rotate2(s, b, n == new_node ? Bal::N : Bal(this->greater(new_key, n)));
 	}
     }
 
   for (A::Bal b; n && n != new_node; static_cast<A*>(n)->balance(b), n = N::next(n, b))
-    b = Bal(greater(new_key, n));
+    b = Bal(this->greater(new_key, n));
 
   return pair(new_node, true);
 }
@@ -298,8 +298,8 @@ Node *Avl_tree<Node, Get_key, Compare>::remove(Key_param_type key)
   // find target node and rebalancing entry
   for (N *n; (n = *q); q = N::next_p(n, dir))
     {
-      dir = Dir(greater(key, n));
-      if (dir == Dir::L && !greater(k(n), key))
+      dir = Dir(this->greater(key, n));
+      if (dir == Dir::L && !this->greater(k(n), key))
 	/* found node */
 	t = q;
 
@@ -319,7 +319,7 @@ Node *Avl_tree<Node, Get_key, Compare>::remove(Key_param_type key)
 
   for (N *n; (n = *s); s = N::next_p(n, dir))
     {
-      dir = Dir(greater(key, n));
+      dir = Dir(this->greater(key, n));
 
       if (!N::next(n, dir))
 	break;

@@ -34,7 +34,7 @@ public:
   ~Phys_fb() throw() {}
   virtual bool setup_drv(Prog_args *pa) = 0;
   void setup_ds(char const *name);
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
   int map_hook(l4_addr_t offs, unsigned long flags,
                l4_addr_t min, l4_addr_t max);
 

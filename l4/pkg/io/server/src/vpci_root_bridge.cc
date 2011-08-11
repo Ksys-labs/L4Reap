@@ -18,7 +18,7 @@ class VPci_root : public VDevice
 {
 public:
 
-  int vbus_dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc_iostream &ios);
+  int vbus_dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc::Iostream &ios);
 
   explicit VPci_root() : VDevice() {}
 
@@ -30,16 +30,16 @@ public:
   }
 
 public:
-  int cfg_read(L4::Ipc_iostream &ios);
-  int cfg_write(L4::Ipc_iostream &ios);
-  int irq_enable(L4::Ipc_iostream &ios);
+  int cfg_read(L4::Ipc::Iostream &ios);
+  int cfg_write(L4::Ipc::Iostream &ios);
+  int irq_enable(L4::Ipc::Iostream &ios);
 };
 
 
 // IMPLEMENTATION --------------------------------------------------------
 
 int
-VPci_root::cfg_read(L4::Ipc_iostream &ios)
+VPci_root::cfg_read(L4::Ipc::Iostream &ios)
 {
   l4_uint32_t bus;
   l4_uint32_t devfn;
@@ -58,7 +58,7 @@ VPci_root::cfg_read(L4::Ipc_iostream &ios)
 }
 
 int
-VPci_root::irq_enable(L4::Ipc_iostream &ios)
+VPci_root::irq_enable(L4::Ipc::Iostream &ios)
 {
 #if 0
   l4_uint32_t bus;
@@ -87,7 +87,7 @@ VPci_root::irq_enable(L4::Ipc_iostream &ios)
 }
 
 int
-VPci_root::cfg_write(L4::Ipc_iostream &ios)
+VPci_root::cfg_write(L4::Ipc::Iostream &ios)
 {
   l4_uint32_t bus;
   l4_uint32_t devfn;
@@ -105,7 +105,7 @@ VPci_root::cfg_write(L4::Ipc_iostream &ios)
 }
 
 int
-VPci_root::vbus_dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc_iostream &ios)
+VPci_root::vbus_dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc::Iostream &ios)
 {
   switch (func)
     {

@@ -58,6 +58,7 @@ private:
   Apic *_apic;
   Spin_lock<> _l;
   unsigned _offset;
+  unsigned _irqs;
 
   static Io_apic _apics[Max_ioapics];
   static unsigned _nr_irqs;
@@ -179,11 +180,12 @@ Io_apic::init()
       Io_apic *apic = Io_apic::apic(n_apics);
       apic->_apic = (Io_apic::Apic*)(va + offs);
       apic->write(0, 0);
-      unsigned ne = apic->num_entries();
-      apic->_offset = _nr_irqs;
-      _nr_irqs += ne + 1;
+      apic->_irqs = apic->num_entries() + 1;
+      apic->_offset = ioapic->irq_base;
+      if ((apic->_offset + apic->_irqs) > _nr_irqs)
+	_nr_irqs = apic->_offset + apic->_irqs;
 
-      for (unsigned i = 0; i <= ne; ++i)
+      for (unsigned i = 0; i < apic->_irqs; ++i)
         {
           int v = 0x20+i;
           Io_apic_entry e(v, Io_apic_entry::Fixed, Io_apic_entry::Physical,
@@ -191,7 +193,7 @@ Io_apic::init()
           apic->write_entry(i, e);
         }
 
-      printf("IO-APIC[%2d]: pins %u\n", n_apics, ne);
+      printf("IO-APIC[%2d]: pins %u\n", n_apics, apic->_irqs);
       apic->dump();
     }
 
@@ -223,7 +225,7 @@ unsigned
 Io_apic::total_irqs()
 { return _nr_irqs; }
 
-PUBLIC static 
+PUBLIC static
 unsigned
 Io_apic::legacy_override(unsigned i)
 {
@@ -249,8 +251,7 @@ PUBLIC
 void
 Io_apic::dump()
 {
-  unsigned ne = num_entries();
-  for (unsigned i = 0; i <= ne; ++i)
+  for (unsigned i = 0; i < _irqs; ++i)
     {
       Io_apic_entry e = read_entry(i);
       printf("  PIN[%2u%c]: vector=%2x, del=%u, dm=%s, dest=%u (%s, %s)\n",
@@ -311,10 +312,10 @@ Io_apic::set_dest(unsigned irq, Mword dst)
   modify(0x11 + irq * 2, dst & (~0UL << 24), ~0UL << 24);
 }
 
-PUBLIC inline NEEDS[Io_apic::num_entries]
+PUBLIC inline
 unsigned
 Io_apic::nr_irqs()
-{ return num_entries() + 1; }
+{ return _irqs; }
 
 PUBLIC inline
 unsigned
@@ -331,7 +332,7 @@ Io_apic::find_apic(unsigned irqnum)
 {
   for (unsigned i = Max_ioapics; i > 0; --i)
     {
-      if (_apics[i-1]._apic && _apics[i-1]._offset < irqnum)
+      if (_apics[i-1]._apic && _apics[i-1]._offset <= irqnum)
 	return i - 1;
     }
   return 0;

@@ -34,7 +34,7 @@ class Dev_feature
 public:
   virtual ~Dev_feature() {}
   virtual bool match_hw_feature(Hw::Dev_feature const *) const = 0;
-  virtual int dispatch(l4_umword_t obj, l4_uint32_t func, L4::Ipc_iostream &ios) = 0;
+  virtual int dispatch(l4_umword_t obj, l4_uint32_t func, L4::Ipc::Iostream &ios) = 0;
   virtual Device *host() const = 0;
   virtual void set_host(Device *d) = 0;
 };
@@ -48,7 +48,7 @@ public:
   using Device_tree_mixin<Device>::end;
 
   // disptach helper for server object
-  int vdevice_dispatch(l4_umword_t obj, l4_uint32_t func, L4::Ipc_iostream &ios);
+  int vdevice_dispatch(l4_umword_t obj, l4_uint32_t func, L4::Ipc::Iostream &ios);
 
   typedef std::vector<Dev_feature*> Feature_list;
 
@@ -98,8 +98,8 @@ public:
 
 protected:
   // helper functions
-  int get_by_hid(L4::Ipc_iostream &ios);
-  int vbus_get_device(L4::Ipc_iostream &ios);
+  int get_by_hid(L4::Ipc::Iostream &ios);
+  int vbus_get_device(L4::Ipc::Iostream &ios);
   Device *get_dev_by_id(l4vbus_device_handle_t id);
 
 

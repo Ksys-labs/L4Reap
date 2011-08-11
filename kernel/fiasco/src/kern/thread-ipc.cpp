@@ -117,7 +117,8 @@ Thread::ipc_receiver_aborted()
   receiver()->vcpu_update_state();
   set_receiver(0);
 
-  remote_ready_enqueue();
+  // remote_ready_enqueue(): is only for mp
+  activate();
 }
 
 PUBLIC inline
@@ -768,6 +769,7 @@ Thread::send_exception(Trap_state *ts)
                 l->cap_idx = _exc_handler.raw());
       if (EXPECT_FALSE(space() == sigma0_task))
 	{
+	  ts->dump();
 	  WARNX(Error, "Sigma0 raised an exception --> HALT\n");
 	  panic("...");
 	}

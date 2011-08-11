@@ -22,7 +22,7 @@ public:
 
   explicit Pci_vroot();
 
-  int dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc::Iostream &ios);
 
   ~Pci_vroot() {}
 
@@ -36,9 +36,9 @@ private:
   Device *_host;
 
 public:
-  int cfg_read(L4::Ipc_iostream &ios);
-  int cfg_write(L4::Ipc_iostream &ios);
-  int irq_enable(L4::Ipc_iostream &ios);
+  int cfg_read(L4::Ipc::Iostream &ios);
+  int cfg_write(L4::Ipc::Iostream &ios);
+  int irq_enable(L4::Ipc::Iostream &ios);
   bool match_hw_feature(const Hw::Dev_feature*) const
   { return false; }
 };
@@ -68,7 +68,7 @@ Pci_vroot::Pci_vroot() : Pci_bridge()
 }
 
 int
-Pci_vroot::cfg_read(L4::Ipc_iostream &ios)
+Pci_vroot::cfg_read(L4::Ipc::Iostream &ios)
 {
   l4_uint32_t bus;
   l4_uint32_t devfn;
@@ -106,7 +106,7 @@ Pci_vroot::cfg_read(L4::Ipc_iostream &ios)
   return L4_EOK;
 }
 int
-Pci_vroot::irq_enable(L4::Ipc_iostream &ios)
+Pci_vroot::irq_enable(L4::Ipc::Iostream &ios)
 {
   l4_uint32_t bus;
   l4_uint32_t devfn;
@@ -144,7 +144,7 @@ Pci_vroot::irq_enable(L4::Ipc_iostream &ios)
 }
 
 int
-Pci_vroot::cfg_write(L4::Ipc_iostream &ios)
+Pci_vroot::cfg_write(L4::Ipc::Iostream &ios)
 {
   l4_uint32_t bus;
   l4_uint32_t devfn;
@@ -168,7 +168,7 @@ Pci_vroot::cfg_write(L4::Ipc_iostream &ios)
 }
 
 int
-Pci_vroot::dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc_iostream &ios)
+Pci_vroot::dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc::Iostream &ios)
 {
   switch (func)
     {

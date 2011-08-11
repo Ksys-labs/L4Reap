@@ -27,13 +27,13 @@ public:
 
   int idle_time(l4_sched_cpu_set_t const &cpus);
 
-  int dispatch(l4_umword_t o, L4::Ipc_iostream &ios)
+  int dispatch(l4_umword_t o, L4::Ipc::Iostream &ios)
   { return scheduler_dispatch(o, ios); }
 
   void set_prio(unsigned offs, unsigned limit)
   { _prio_offset = offs; _prio_limit = limit; }
 
-  L4::Cap<L4::Thread> received_thread(L4::Snd_fpage const &fp);
+  L4::Cap<L4::Thread> received_thread(L4::Ipc::Snd_fpage const &fp);
 
   void restrict_cpus(l4_umword_t cpus);
 

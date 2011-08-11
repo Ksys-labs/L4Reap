@@ -63,11 +63,11 @@ l4rtc_if_get_linux_tsc_scaler_component(l4_uint32_t *scaler)
 class Rtc_dispatcher
 {
 public:
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 };
 
 int
-Rtc_dispatcher::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Rtc_dispatcher::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t t;
   ios >> t;

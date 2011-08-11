@@ -36,7 +36,7 @@ using L4::Opcode;
 int
 Goos::info(Info *info) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Goos_::Info);
   long err = l4_error(io.call(cap(), L4Re::Protocol::Goos));
   if (EXPECT_FALSE(err < 0))
@@ -49,25 +49,25 @@ Goos::info(Info *info) const throw()
 int
 Goos::get_static_buffer(unsigned idx, L4::Cap<Dataspace> ds) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Goos_::Get_buffer) << idx;
-  io << L4::Small_buf(ds.cap());
+  io << L4::Ipc::Small_buf(ds.cap());
   return l4_error(io.call(cap(), L4Re::Protocol::Goos));
 }
 
 int
 Goos::create_buffer(unsigned long size, L4::Cap<Dataspace> ds) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Goos_::Create_buffer) << size;
-  io << L4::Small_buf(ds.cap());
+  io << L4::Ipc::Small_buf(ds.cap());
   return l4_error(io.call(cap(), L4Re::Protocol::Goos));
 }
 
 int
 Goos::delete_buffer(unsigned idx) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Goos_::Delete_buffer) << idx;
   return l4_error(io.call(cap(), L4Re::Protocol::Goos));
 }
@@ -75,7 +75,7 @@ Goos::delete_buffer(unsigned idx) const throw()
 int
 Goos::create_view(View *view) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Goos_::Create_view);
   int err = l4_error(io.call(cap(), L4Re::Protocol::Goos));
   if (err < 0)
@@ -88,7 +88,7 @@ Goos::create_view(View *view) const throw()
 int
 Goos::delete_view(View const &v) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Goos_::Delete_view) << v._view_idx;
   return l4_error(io.call(cap(), L4Re::Protocol::Goos));
 }
@@ -96,7 +96,7 @@ Goos::delete_view(View const &v) const throw()
 int
 Goos::refresh(int x, int y, int w, int h) throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Goos_::Screen_refresh) << x << y << w << h;
   return l4_error(io.call(cap(), L4Re::Protocol::Goos));
 }

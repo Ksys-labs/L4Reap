@@ -13,7 +13,7 @@
  * function implementations
  */
 
-slmap_t*
+L4_CV slmap_t*
 map_new_entry(void* key, unsigned key_size, void* data)
 {
   slmap_t* map;
@@ -33,7 +33,7 @@ map_new_entry(void* key, unsigned key_size, void* data)
   return map;
 }
 
-slmap_t*
+L4_CV slmap_t*
 map_new_sentry(char *key, void* data)
 {
   if (!key)
@@ -41,7 +41,7 @@ map_new_sentry(char *key, void* data)
   return map_new_entry((void*)key, strlen(key), data);
 }
 
-slmap_t*
+L4_CV slmap_t*
 map_append(slmap_t* list, slmap_t* new_entry)
 {
   slmap_t *ret = list;
@@ -53,7 +53,7 @@ map_append(slmap_t* list, slmap_t* new_entry)
   return ret;
 }
 
-slmap_t*
+L4_CV slmap_t*
 map_remove(slmap_t* list, slmap_t* entry)
 {
   slmap_t* ret = list;
@@ -78,7 +78,7 @@ map_remove(slmap_t* list, slmap_t* entry)
  return ret;
 }
 
-void
+L4_CV void
 map_free_entry(slmap_t **entry)
 {
   if (*entry)
@@ -88,7 +88,7 @@ map_free_entry(slmap_t **entry)
     }
 }
 
-slmap_t*
+L4_CV slmap_t*
 map_get_at(slmap_t* list, int n)
 {
   int i=0;
@@ -102,7 +102,7 @@ map_get_at(slmap_t* list, int n)
   return list;
 }
 
-slmap_t*
+L4_CV slmap_t*
 map_add(slmap_t* list, slmap_t* entry)
 {
   if (!entry)
@@ -112,7 +112,7 @@ map_add(slmap_t* list, slmap_t* entry)
   return entry;
 }
 
-void
+L4_CV void
 map_insert_after(slmap_t* after, slmap_t* new_entry)
 {
   if (!new_entry)
@@ -123,7 +123,7 @@ map_insert_after(slmap_t* after, slmap_t* new_entry)
   after->next = new_entry;
 }
 
-slmap_t*
+L4_CV slmap_t*
 map_find(slmap_t* list, void* key, unsigned key_size)
 {
   while (list)
@@ -135,11 +135,10 @@ map_find(slmap_t* list, void* key, unsigned key_size)
   return (slmap_t*)0;
 }
 
-slmap_t*
+L4_CV slmap_t*
 map_sfind(slmap_t* list, const char* key)
 {
   if (!key)
     return (slmap_t*)0;
   return map_find(list, (void*)key, strlen(key));
 }
-

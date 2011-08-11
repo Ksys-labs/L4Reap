@@ -90,7 +90,7 @@ void Pbuf::outnstring(char const *str, unsigned long len)
 }
 
 int
-Moe::Log::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Moe::Log::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   enum { Max_tag = 8 };
   l4_msgtag_t tag;
@@ -113,7 +113,7 @@ Moe::Log::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
 
   static Pbuf ob;
 
-  ios >> L4::ipc_buf_cp_in(msg, len_msg);
+  ios >> L4::Ipc::Buf_cp_in<char>(msg, len_msg);
 
   while (len_msg > 0 && msg[0])
     {

@@ -46,10 +46,10 @@ Namespace::_query(char const *name, unsigned len,
   L4::Cap<Namespace> ns(cap());
   while (res > 0)
     {
-      L4::Ipc_iostream io(l4_utcb());
+      L4::Ipc::Iostream io(l4_utcb());
       io << L4::Opcode(L4Re::Namespace_::Query)
-         << L4::ipc_buf_cp_out(n, res);
-      io << L4::Small_buf(target.cap(), local_id ? L4_RCV_ITEM_LOCAL_ID : 0);
+         << L4::Ipc::Buf_cp_out<const char>(n, res);
+      io << L4::Ipc::Small_buf(target.cap(), local_id ? L4_RCV_ITEM_LOCAL_ID : 0);
       l4_msgtag_t r = io.call(ns.cap(), L4Re::Protocol::Namespace);
       long err = l4_error(r);
 
@@ -60,10 +60,10 @@ Namespace::_query(char const *name, unsigned len,
       if (partly)
 	{
 	  l4_umword_t dummy;
-	  io >> dummy >> L4::ipc_buf_in(n, res);
+	  io >> dummy >> L4::Ipc::Buf_in<char const>(n, res);
 	}
 
-      L4::Snd_fpage cap;
+      L4::Ipc::Snd_fpage cap;
       io >> cap;
       if (cap.id_received())
 	{
@@ -124,11 +124,11 @@ long
 Namespace::register_obj(char const *name, L4::Cap<void> const &o,
                         unsigned flags) const throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(L4Re::Namespace_::Register)
-     << flags << L4::ipc_buf_cp_out(name, strlen(name));
+     << flags << L4::Ipc::Buf_cp_out<char const>(name, strlen(name));
   if (o.is_valid())
-    io << L4::Snd_fpage(o.fpage(L4_FPAGE_RWX & flags));
+    io << L4::Ipc::Snd_fpage(o.fpage(L4_FPAGE_RWX & flags));
   l4_msgtag_t res = io.call(cap(), L4Re::Protocol::Namespace);
   return l4_error(res);
 }
@@ -136,9 +136,9 @@ Namespace::register_obj(char const *name, L4::Cap<void> const &o,
 long
 Namespace::unlink(char const *name) throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(L4Re::Namespace_::Unlink)
-     << L4::ipc_buf_cp_out(name, strlen(name));
+     << L4::Ipc::Buf_cp_out<char const>(name, strlen(name));
   l4_msgtag_t res = io.call(cap(), L4Re::Protocol::Namespace);
   return l4_error(res);
 }
@@ -149,11 +149,11 @@ Namespace::link(char const *name, unsigned len,
                 char const *src_name, unsigned src_len,
                 unsigned flags) throw()
 {
-  L4::Ipc_iostream io(l4_utcb());
+  L4::Ipc::Iostream io(l4_utcb());
   io << L4::Opcode(L4Re::Namespace_::Link)
-     << flags << L4::ipc_buf_cp_out(name, len)
-     << L4::ipc_buf_cp_out(src_name, src_len)
-     << L4::Snd_fpage(src_dir.fpage());
+     << flags << L4::Ipc::Buf_cp_out<char const>(name, len)
+     << L4::Ipc::Buf_cp_out<char const>(src_name, src_len)
+     << L4::Ipc::Snd_fpage(src_dir.fpage());
   l4_msgtag_t res = io.call(cap(), L4Re::Protocol::Namespace);
   return l4_error(res);
 }

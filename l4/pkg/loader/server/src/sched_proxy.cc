@@ -141,7 +141,7 @@ Sched_proxy::idle_time(l4_sched_cpu_set_t const &)
 
 
 L4::Cap<L4::Thread>
-Sched_proxy::received_thread(L4::Snd_fpage const &fp)
+Sched_proxy::received_thread(L4::Ipc::Snd_fpage const &fp)
 {
   if (!fp.cap_received())
     return L4::Cap<L4::Thread>::Invalid;

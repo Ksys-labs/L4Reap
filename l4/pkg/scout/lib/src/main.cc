@@ -19,7 +19,6 @@
 #include "factory.h"
 #include "platform.h"
 #include <l4/cxx/exceptions>
-#include <l4/cxx/iostream>
 
 #include <l4/scout-gfx/tick>
 #include <l4/scout-gfx/redraw_manager>
@@ -28,6 +27,8 @@
 #include <l4/scout-gfx/redraw_manager>
 
 #include "browser_window.h"
+#include <iostream>
+#include <l4/cxx/std_exc_io>
 
 using Scout_gfx::Document;
 
@@ -147,8 +148,8 @@ try {
 
   return 0;
 } catch (L4::Runtime_error const &e) {
-    L4::cerr << "Fatal exception: " << e.str() << " '" << e.extra_str()
-             << "'\n" << e;
+    std::cerr << "Fatal exception: " << e.str() << " '" << e.extra_str()
+              << "'\n" << e;
 }
 return 1;
 }

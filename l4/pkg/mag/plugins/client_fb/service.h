@@ -24,7 +24,7 @@ private:
 protected:
   User_state *ust() const { return _core->user_state(); }
   Registry *reg() const { return _core->registry(); }
-  int create(char const *msg, L4::Ipc_iostream &ios);
+  int create(char const *msg, L4::Ipc::Iostream &ios);
 
 public:
   Service(char const *name) : Plugin(name) {}
@@ -33,7 +33,7 @@ public:
 
   //Canvas *screen() const { return _ust.vstack()->canvas(); }
 
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
   void destroy();
   ~Service();

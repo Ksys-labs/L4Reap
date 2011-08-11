@@ -66,7 +66,7 @@ public:
 
   //L4::Cap<L4Re::Mem_alloc> allocator() const { return _ma; }
 
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
   L4::Cap<L4Re::Rm> rm() { return _rm.get(); }
   L4::Cap<L4::Task> task_cap() const { return _task.get(); }

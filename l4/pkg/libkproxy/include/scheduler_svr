@@ -46,8 +46,8 @@ class Scheduler_svr
 public:
   Scheduler_svr(Scheduler_interface *sched)
     : _sched(sched) {}
-  int scheduler_dispatch(l4_umword_t, L4::Ipc_iostream &ios);
-  virtual L4::Cap<L4::Thread> received_thread(L4::Snd_fpage const &fp) = 0;
+  int scheduler_dispatch(l4_umword_t, L4::Ipc::Iostream &ios);
+  virtual L4::Cap<L4::Thread> received_thread(L4::Ipc::Snd_fpage const &fp) = 0;
   virtual ~Scheduler_svr() {}
 
 private:

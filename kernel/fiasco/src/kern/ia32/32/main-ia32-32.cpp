@@ -6,6 +6,7 @@
 INTERFACE[ia32,ux]:
 
 #include "initcalls.h"
+#include "std_macros.h"
 
 class Kernel_thread;
 

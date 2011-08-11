@@ -50,7 +50,7 @@ endef
 add_source_file = $(if $(filter %.c,$(1)),  $(eval $(call add_source_file_x,C$(2),$(1))), \
                   $(if $(filter %.cc,$(1)), $(eval $(call add_source_file_x,CC$(2),$(1))), \
                   $(if $(filter %.S,$(1)),  $(eval $(call add_source_file_x,S$(2),$(1))), \
-                  $(error unkwon source file: $(1)))))
+                  $(error unknown source file: $(1)))))
 
 # generate the search path value for source files
 gen_search_path = $(LIBC_DST_DIR)/$(1)/$(UCLIBC_ARCH) \
@@ -59,8 +59,8 @@ gen_search_path = $(LIBC_DST_DIR)/$(1)/$(UCLIBC_ARCH) \
                   $(LIBC_DST_DIR)/$(1)
 
 # search for a .c, a .S, or a .cc file for the given basename
-search_source_file = $(or $(firstword $(wildcard $(addsuffix /$(2).*,$(1)))), \
-                          $(patsubst %.c,%$(suffix $(2)).c,$(firstword $(wildcard $(addsuffix /$(basename $(2)).*,$(1))))), \
+search_source_file = $(or $(firstword $(foreach d,$(1),$(wildcard $(d)/$(2).[cS] $(d)/$(2).cc))), \
+                          $(patsubst %.c,%$(suffix $(2)).c,$(firstword $(wildcard $(addsuffix /$(basename $(2)).c,$(1))))), \
                           $(error source file for $(2) not found))
 
 # arg 1: directory of the subsystem (e.g., libc/string)

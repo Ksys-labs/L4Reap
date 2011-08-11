@@ -434,6 +434,15 @@ if PLATFORM_PPC_mpc5200
 config PPC_PLATFORM_TYPE
 	string
 	default "mpc5200"
+
+config RAM_BASE
+	hex
+	default 0x0
+
+config RAM_SIZE_MB
+	int "RAM-Memory available on the platform in MB"
+	default 64
+
 endif
 
 endmenu
@@ -449,9 +458,25 @@ config CPU
 	string "Sparc CPU variant"
 	default "v8"
 
+config PLATFORM_SPARC_leon3
+	def_bool y
+
+if PLATFORM_SPARC_leon3
+
 config SPARC_PLATFORM_TYPE
 	string
 	default "leon3"
+
+config RAM_BASE
+	hex
+	default 0x0
+
+config RAM_SIZE_MB
+	int "RAM-Memory available on the platform in MB"
+	default 64
+
+
+endif
 
 endif
 

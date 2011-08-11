@@ -8,22 +8,22 @@ ifneq ($(L4_MULTITHREADED),)
 endif
 
 ifneq ($(MODE_USE_C),)
-  $(error MODE_USE_C is obsolete, add and l4re_c and/or l4re_c-util to REQUIRES_LIBS as needed)
+  $(error MODE_USE_C is obsolete, add l4re_c and/or l4re_c-util to REQUIRES_LIBS as needed)
 endif
 
 ifeq ($(ARCH),sparc)
-CRTBEGIN_so       = $(GCCLIBDIR)/crtbegin.o
-CRTBEGIN_stat_bin = $(GCCLIBDIR)/crtbegin.o
+CRTBEGIN_so       = $(GCCLIB_FILE_crtbegin.o)
+CRTBEGIN_stat_bin = $(GCCLIB_FILE_crtbegin.o)
 else
-CRTBEGIN_so       = $(GCCLIBDIR)/crtbeginS.o
-CRTBEGIN_stat_bin = $(GCCLIBDIR)/crtbeginT.o
+CRTBEGIN_so       = $(GCCLIB_FILE_crtbeginS.o)
+CRTBEGIN_stat_bin = $(GCCLIB_FILE_crtbeginT.o)
 endif
 
-CRTBEGIN_dyn_bin  = $(GCCLIBDIR)/crtbegin.o
+CRTBEGIN_dyn_bin  = $(GCCLIB_FILE_crtbegin.o)
 
-CRTEND_so         = $(GCCLIBDIR)/crtendS.o
-CRTEND_dyn_bin    = $(GCCLIBDIR)/crtend.o
-CRTEND_stat_bin   = $(GCCLIBDIR)/crtend.o
+CRTEND_so         = $(GCCLIB_FILE_crtendS.o)
+CRTEND_dyn_bin    = $(GCCLIB_FILE_crtend.o)
+CRTEND_stat_bin   = $(GCCLIB_FILE_crtend.o)
 
 
 CRT1_so           =
@@ -110,9 +110,7 @@ LDFLAGS_all_shared              = --eh-frame-hdr
 BID_SUPPORTED_all_l4linux       = y
 LIBCINCDIR_all_l4linux          =
 REQUIRES_LIBS_all_l4linux       = 
-L4_LIBS_all_l4linux		= -l4re_main                        \
-				  $(L4_LIBS_all_l4linux_USE_C-y)    \
-                                  -l4re-util                        \
+L4_LIBS_all_l4linux		= -l4re-util                        \
                                   -l4lx-re.o                        \
 				  -ll4sys-l4x -l4re                 \
 				  $(EXTRA_LIBS)                     \

@@ -62,7 +62,7 @@ muldiv (l4_uint32_t val, l4_uint32_t mul, l4_uint32_t div)
 int
 l4rtc_if_get_offset_call(L4::Cap<void> server, l4_uint32_t *offset)
 {
-  L4::Ipc_iostream _(l4_utcb());
+  L4::Ipc::Iostream _(l4_utcb());
   _ << l4_umword_t(L4RTC_OPCODE_get_offset);
   l4_msgtag_t res = _.call(server.cap());
   if (l4_ipc_error(res, l4_utcb()))
@@ -74,7 +74,7 @@ l4rtc_if_get_offset_call(L4::Cap<void> server, l4_uint32_t *offset)
 int
 l4rtc_if_get_linux_tsc_scaler_call(L4::Cap<void> server, l4_uint32_t *scaler)
 {
-  L4::Ipc_iostream _(l4_utcb());
+  L4::Ipc::Iostream _(l4_utcb());
   _ << l4_umword_t(L4RTC_OPCODE_get_linux_tsc_scaler);
   l4_msgtag_t res = _.call(server.cap());
   if (l4_ipc_error(res, l4_utcb()))

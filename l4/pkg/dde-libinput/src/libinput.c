@@ -6,22 +6,22 @@
 
 extern int dde_evdev_open(int i);
 
-int l4input_pcspkr(int tone)
+L4_CV int l4input_pcspkr(int tone)
 {
   return 0;
 }
 
-int l4input_ispending(void)
+L4_CV int l4input_ispending(void)
 {
   return 0;
 }
 
-int l4input_flush(void *buffer, int count)
+L4_CV int l4input_flush(void *buffer, int count)
 {
   return 0;
 }
 
-int l4input_init(int mode, linux_ev_callback cb)
+L4_CV int l4input_init(int mode, linux_ev_callback cb)
 {
 	l4dde26_register_ev_callback(cb);
 

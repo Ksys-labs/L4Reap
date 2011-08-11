@@ -160,18 +160,13 @@ public:
     this->map_initial_caps(ntask, Caps::First_free << L4_CAP_SHIFT);
 
     L4::Thread::Attr th_attr;
-
     th_attr.pager(env->rm());
     th_attr.exc_handler(env->rm());
     th_attr.bind((l4_utcb_t*)this->_info.utcbs_start, ntask);
-
     chksys(nthread->control(th_attr));
-    l4_sched_param_t sp;
-    sp.prio = Prios::Default_thread_prio;
-    sp.quantum = 0;
-    sp.affinity = l4_sched_cpu_set(0, ~0);
 
-    chksys(this->run_thread(nthread, sp));
+    chksys(this->run_thread(nthread,
+                            l4_sched_param(Prios::Default_thread_prio)));
 
     nthread->ex_regs(this->_info.entry, this->_stack.target_ptr(), 0);
   }

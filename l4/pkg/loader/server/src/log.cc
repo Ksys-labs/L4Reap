@@ -39,7 +39,7 @@ static void mycpy(char **buf, int *rem, char const *s, int l)
 static char msgbuf[4096];
 
 int
-Ldr::Log::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Ldr::Log::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;
@@ -59,7 +59,7 @@ Ldr::Log::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
   char *msg = Glbl::log_buffer;
   unsigned long len_msg = sizeof(Glbl::log_buffer);
 
-  ios >> L4::ipc_buf_cp_in(msg, len_msg);
+  ios >> L4::Ipc::Buf_cp_in<char>(msg, len_msg);
 
   int rem = sizeof(msgbuf);
   while (len_msg > 0 && msg[0])

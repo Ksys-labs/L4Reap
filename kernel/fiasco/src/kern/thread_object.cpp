@@ -80,9 +80,6 @@ Thread_object::put()
 
 
 
-/** Deallocator.  This function currently does nothing: We do not free up
-    space allocated to thread-control blocks.
- */
 PUBLIC
 void
 Thread_object::operator delete(void *_t)
@@ -107,7 +104,6 @@ Thread_object::destroy(Kobject ***rl)
   Kobject::destroy(rl);
   check_kdb(kill());
   assert_kdb(_magic == magic);
-
 }
 
 PUBLIC

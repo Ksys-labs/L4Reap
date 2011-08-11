@@ -4,7 +4,7 @@
  *
  * \date	02/2006
  * \author	Adam Lackorzynski <adam@os.inf.tu-dresden.de>
- * 		Frank Mehnert <fm3@os.inf.tu-dresden.de> */
+ *		Frank Mehnert <fm3@os.inf.tu-dresden.de> */
 
 /*
  * (c) 2006-2009 Author(s)
@@ -20,7 +20,7 @@
 /*
  * \return kip address, 0 on error
  */
-l4_kernel_info_t *
+L4_CV l4_kernel_info_t *
 l4sigma0_map_kip(l4_cap_idx_t pager, void *adr, unsigned log2_size)
 {
   l4_msgtag_t tag = l4_msgtag(L4_PROTO_SIGMA0, 1, 0, 0);

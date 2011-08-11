@@ -65,9 +65,9 @@ public:
   Factory_svr(Factory_interface *factory, Cap_allocator_interface *capif)
     : _factory(factory), _capif(capif) {}
 
-  int factory_dispatch(l4_umword_t, L4::Ipc_iostream &ios);
+  int factory_dispatch(l4_umword_t, L4::Ipc::Iostream &ios);
 
-  virtual L4::Cap<L4::Thread> received_thread(L4::Snd_fpage const &fp) = 0;
+  virtual L4::Cap<L4::Thread> received_thread(L4::Ipc::Snd_fpage const &fp) = 0;
 
   template< typename CT >
   L4::Cap<CT> cap_alloc()

@@ -2,7 +2,6 @@
 #include <l4/re/namespace>
 #include <l4/re/util/cap_alloc>
 #include <l4/cxx/ipc_stream>
-#include <l4/cxx/iostream>
 #include <l4/ankh/protocol>
 #include <l4/ankh/shm>
 #include <l4/ankh/session>
@@ -88,7 +87,7 @@ static void ankh_activate()
 		assert(false);
 	}
 
-	L4::Ipc_iostream s(l4_utcb());
+	L4::Ipc::Iostream s(l4_utcb());
 
 	s << l4_umword_t(Ankh::Opcode::Activate);
 

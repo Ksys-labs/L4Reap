@@ -20,6 +20,6 @@ L4_CV void LOG_log(const char *function, const char *format, ...)
 L4_CV void LOG_logl(const char *file, int line, const char *function,
                     const char *format, ...)
   __attribute__((format(printf, 4, 5)));
-void LOG_flush(void);
+L4_CV void LOG_flush(void);
 
 EXTERN_C_END

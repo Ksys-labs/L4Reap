@@ -1,5 +1,3 @@
-#include <l4/cxx/iostream>
-#include <l4/cxx/l4iostream>
 #include "device"
 #include <cstring>
 #include <cstdio>
@@ -8,7 +6,7 @@
 
 void Ankh::Device_manager::add_device(void *ptr)
 {
-//	L4::cout << "Add device @ " << ptr << "\n";
+//	std::cout << "Add device @ " << ptr << "\n";
 	_devices.push_back(new Device(ptr));
 }
 

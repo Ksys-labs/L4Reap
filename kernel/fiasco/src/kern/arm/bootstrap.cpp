@@ -157,7 +157,9 @@ extern "C" void bootstrap_main()
   set_asid();
 
   asm volatile (
-      "mcr p15, 0, %[null], c8, c7, 0x00   \n" // TLB flush
+      "mcr p15, 0, %[null], c7, c10, 4\n" // dsb
+      "mcr p15, 0, %[null], c8, c7, 0 \n" // tlb flush
+      "mcr p15, 0, %[null], c7, c10, 4\n" // dsb
       "mcr p15, 0, %[doms], c3, c0    \n" // domains
       "mcr p15, 0, %[pdir], c2, c0    \n" // pdbr
       "mcr p15, 0, %[control], c1, c0 \n" // control

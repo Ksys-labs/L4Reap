@@ -93,7 +93,7 @@ class svr
 
         enum { Have_find = true };
 
-        static int validate_ds(L4::Snd_fpage const & ds_cap, unsigned flags,
+        static int validate_ds(L4::Ipc::Snd_fpage const & ds_cap, unsigned flags,
                                L4::Cap<L4Re::Dataspace> *ds)
         {
             if (dbg_ds) VG_(debugLog)(4, "vcap", "flags 0x%x\n", flags);
@@ -129,7 +129,7 @@ L4::Cap<L4Re::Rm> set_environment_rm(L4::Cap<void> cap)
 class Region_ops
 {
     public:
-        typedef L4::Snd_fpage Map_result;
+        typedef L4::Ipc::Snd_fpage Map_result;
         typedef L4Re::Util::Region_handler<L4::Cap<L4Re::Dataspace>,
                 Vcap::Rm::Region_ops> MyRegion_handler;
 
@@ -154,7 +154,7 @@ class Region_ops
 
         static int map(MyRegion_handler const *h,
                        l4_addr_t local_addr, L4Re::Util::Region const &r, bool writable,
-                       L4::Snd_fpage *result)
+                       L4::Ipc::Snd_fpage *result)
         {
             int err;
             if (dbg_ds) VG_(debugLog)(4, "vcap", "%s handler %p, local_addr 0x%lx, writable %s\n",
@@ -192,8 +192,8 @@ class Region_ops
 
             if (dbg_ds) VG_(debugLog)(4, "vcap", "ds->map(): %d\n", err);
 
-            *result = L4::Snd_fpage::mem(the_map_area, L4_PAGESHIFT, L4_FPAGE_RWX,
-                                         local_addr, L4::Snd_fpage::Grant);
+            *result = L4::Ipc::Snd_fpage::mem(the_map_area, L4_PAGESHIFT, L4_FPAGE_RWX,
+                                         local_addr, L4::Ipc::Snd_fpage::Grant);
             return L4_EOK;
         }
 
@@ -317,7 +317,7 @@ class rm
 
         rm(unsigned id) : _id(id) { }
 
-        int dispatch(l4_msgtag_t tag, l4_umword_t obj, L4::Ipc_iostream &ios)
+        int dispatch(l4_msgtag_t tag, l4_umword_t obj, L4::Ipc::Iostream &ios)
             throw()
         {
             int err;
@@ -796,7 +796,7 @@ class Vcap_object : public L4::Server_object
             return -L4_EOK;
         }
 
-        int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios) L4_NOTHROW
+        int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios) L4_NOTHROW
         {
             if (dbg_vcap) VG_(debugLog)(4, "vcap", "dispatch\n");
 

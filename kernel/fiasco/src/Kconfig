@@ -98,6 +98,8 @@ config CAN_ARM_CPU_CORTEX_A8
 config CAN_ARM_CPU_CORTEX_A9
 	bool
 
+config CAN_ARM_CACHE_L2CXX0
+	bool
 
 choice
 	prompt "CPU"
@@ -283,6 +285,13 @@ config ARM_CA9_ENABLE_SWP
 	  Enabling this option enables the deprecated 'swp' instruction.
 	  Avoid to enable it.
 
+config ARM_CACHE_L2CXX0
+	bool "Enable L2 Cache"
+	default y
+	depends on CAN_ARM_CACHE_L2CXX0
+	help 
+	  Enable L2 cache functionality.
+
 choice
 	prompt "Timer tick source"
 	depends on PF_PC || PF_UX
@@ -382,8 +391,7 @@ config MP
 config MP_MAX_CPUS
 	int "Maximal supported number of CPUs"
 	depends on MP
-	range 1 32 if BIT32
-	range 1 64 if BIT64
+	range 1 128
 	default 4
 	help
 	  The maximum number of CPUs the kernel supports.
@@ -439,7 +447,7 @@ config ONE_SHOT
 	  possible.  EXPERIMENTAL!
 
 config SYNC_TSC
-	bool "Synchronize KIP time with time-stamp counter"
+	bool "Use time-stamp counter for KIP and scheduling accounting"
 	depends on PF_PC && IA32
 	help
 	  Synchronize the internal kernel clock with the CPU time stamp

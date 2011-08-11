@@ -4,7 +4,7 @@
 #include <l4/input/libinput.h>
 
 /** event callback function */
-typedef void (*linux_ev_callback)(struct l4input *);
+typedef L4_CV void (*linux_ev_callback)(struct l4input *);
 
 extern linux_ev_callback l4dde26_ev_callback;
 

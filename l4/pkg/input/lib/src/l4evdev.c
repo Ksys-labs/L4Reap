@@ -299,7 +299,7 @@ static inline int filter_event(struct input_handle *handle, unsigned int type,
 
 
 /** HANDLE INCOMING EVENTS (CALLBACK VARIANT) **/
-static void(*callback)(struct l4input *) = NULL;
+static L4_CV void(*callback)(struct l4input *) = NULL;
 
 static void l4evdev_event_cb(struct input_handle *handle, unsigned int type,
                              unsigned int code, int value)
@@ -567,7 +567,7 @@ static struct l4input_ops ops = {
 	l4evdev_ispending, l4evdev_flush, l4evdev_pcspkr
 };
 
-struct l4input_ops * l4input_internal_l4evdev_init(void (*cb)(struct l4input *))
+struct l4input_ops * l4input_internal_l4evdev_init(L4_CV void (*cb)(struct l4input *))
 {
 	if (cb) {
 		/* do callbacks */

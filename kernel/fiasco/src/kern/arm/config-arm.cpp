@@ -80,21 +80,9 @@ IMPLEMENTATION [arm]:
 char const Config::char_micro = '\265';
 const char *const Config::kernel_warn_config_string = 0;
 
-//---------------------------------------------------------------------------
-IMPLEMENTATION [arm && serial]:
-
 IMPLEMENT FIASCO_INIT
-void Config::init()
-{
-  serial_esc = SERIAL_ESC_IRQ;
-}
-
-
-//---------------------------------------------------------------------------
-IMPLEMENTATION [arm && !serial]:
-
-IMPLEMENT FIASCO_INIT
-void Config::init()
+void
+Config::init_arch()
 {}
 
 //---------------------------------------------------------------------------

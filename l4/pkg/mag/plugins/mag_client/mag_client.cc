@@ -59,7 +59,7 @@ public:
   char const *type() const { return "Mag client"; }
   void start(Core_api *core);
 
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
   void destroy();
 };
 
@@ -85,14 +85,14 @@ private:
   Buffer_vector _buffers;
   View_vector _views;
 
-  int screen_dispatch(l4_umword_t, L4::Ipc_iostream &ios);
-  int event_dispatch(l4_umword_t, L4::Ipc_iostream &ios);
+  int screen_dispatch(l4_umword_t, L4::Ipc::Iostream &ios);
+  int event_dispatch(l4_umword_t, L4::Ipc::Iostream &ios);
 
 public:
   Mag_goos(Core_api const *core);
 
   void put_event(L4Re::Event_buffer::Event const &ne, bool trigger);
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
   L4::Cap<void> rcv_cap() const { return _core->rcv_cap(); }
 
@@ -143,7 +143,7 @@ public:
   Client_view(Core_api const *core, Mag_goos *screen);
   virtual ~Client_view();
 
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
   void draw(Canvas *, View_stack const *, Mode) const;
   void handle_event(L4Re::Event_buffer::Event const &e, Point const &mouse);
 
@@ -337,7 +337,7 @@ namespace {
 };
 
 int
-Mag_client::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Mag_client::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;
@@ -374,7 +374,7 @@ Mag_client::destroy()
 }
 
 int
-Mag_goos::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+Mag_goos::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;
@@ -396,7 +396,7 @@ Mag_goos::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
 
 
 int
-Mag_goos::event_dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Mag_goos::event_dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   L4::Opcode op;
   ios >> op;
@@ -411,7 +411,7 @@ Mag_goos::event_dispatch(l4_umword_t, L4::Ipc_iostream &ios)
 }
 
 int
-Mag_goos::screen_dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Mag_goos::screen_dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   L4::Opcode op;
   ios >> op;

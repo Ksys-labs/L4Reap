@@ -9,7 +9,7 @@
 namespace L4Re { namespace Util {
 
 template<typename KO>
-long handle_meta_request(L4::Ipc_iostream &ios)
+long handle_meta_request(L4::Ipc::Iostream &ios)
 { return L4::Util::handle_meta_request<KO>(ios); }
 
 }}

@@ -38,7 +38,7 @@ public:
   Allocator *allocator() const { return _alloc; }
   void set_allocator(Allocator *a) { _alloc = a; }
 
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
 
   Region_map *rm() { return &_rm; }

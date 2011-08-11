@@ -26,10 +26,10 @@ typedef L4Re::Util::Region_handler<L4::Cap<L4Re::Dataspace>, Region_ops> Region_
 class Region_ops
 {
 public:
-  typedef L4::Snd_fpage Map_result;
+  typedef L4::Ipc::Snd_fpage Map_result;
   static int map(Region_handler const *h, l4_addr_t addr,
                  L4Re::Util::Region const &r, bool writable,
-                 L4::Snd_fpage *result);
+                 L4::Ipc::Snd_fpage *result);
 
   static void unmap(Region_handler const *h, l4_addr_t vaddr,
                     l4_addr_t offs, unsigned long size);
@@ -52,17 +52,17 @@ public:
   static void global_init();
 
   Region_map();
-  //void setup_wait(L4::Ipc_istream &istr);
-  int handle_pagefault(L4::Ipc_iostream &ios);
-  int handle_rm_request(L4::Ipc_iostream &ios);
+  //void setup_wait(L4::Ipc::Istream &istr);
+  int handle_pagefault(L4::Ipc::Iostream &ios);
+  int handle_rm_request(L4::Ipc::Iostream &ios);
   virtual ~Region_map() {}
 
   void init();
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
   void debug_dump(unsigned long function) const;
 private:
-  int reply_err(L4::Ipc_iostream &ios);
+  int reply_err(L4::Ipc::Iostream &ios);
 };
 
 

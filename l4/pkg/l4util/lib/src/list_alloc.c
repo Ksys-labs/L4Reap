@@ -110,7 +110,7 @@ __merge(l4la_free_t **first)
   __sanity_check_list(first, __FUNCTION__, "exit");
 }
 
-void 
+L4_CV void
 l4la_free(l4la_free_t **first, void *block, l4_size_t size)
 {
   l4la_free_t **c = first;
@@ -132,7 +132,7 @@ l4la_free(l4la_free_t **first, void *block, l4_size_t size)
   assert(*c != block);
   *c = (l4la_free_t*)block;
   assert(*c != next);
- 
+
   (*c)->next = next;
   (*c)->size = size;
 
@@ -143,7 +143,7 @@ l4la_free(l4la_free_t **first, void *block, l4_size_t size)
   __sanity_check_list(first, __FUNCTION__, "exit");
 }
 
-void *
+L4_CV void *
 l4la_alloc(l4la_free_t **first, l4_size_t size, unsigned align)
 {
   void *ret = 0;
@@ -219,7 +219,7 @@ done:
   return ret;
 }
 
-l4_size_t
+L4_CV l4_size_t
 l4la_avail(l4la_free_t **first)
 {
   __sanity_check_list(first, __FUNCTION__, "entry");
@@ -235,7 +235,7 @@ l4la_avail(l4la_free_t **first)
   return a;
 }
 
-void 
+L4_CV void
 l4la_dump(l4la_free_t **first)
 {
   printf("List_alloc [first=%p]\n", *first);
@@ -249,7 +249,7 @@ l4la_dump(l4la_free_t **first)
     printf("  BUG: loop detected\n");
 }
 
-void 
+L4_CV void
 l4la_init(l4la_free_t **first)
 {
   *first = 0;

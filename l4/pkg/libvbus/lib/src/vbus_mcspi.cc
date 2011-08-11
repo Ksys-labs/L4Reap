@@ -15,7 +15,7 @@ int L4_CV
 l4vbus_mcspi_read(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
                   unsigned channel, l4_umword_t *value)
 {
-  L4::Ipc_iostream s(l4_utcb());
+  L4::Ipc::Iostream s(l4_utcb());
   l4vbus_device_msg(handle, L4vbus_mcspi_read, s);
   s << channel;
   int ret = l4_error(s.call(vbus));
@@ -28,7 +28,7 @@ int L4_CV
 l4vbus_mcspi_write(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
                    unsigned channel, l4_umword_t value)
 {
-  L4::Ipc_iostream s(l4_utcb());
+  L4::Ipc::Iostream s(l4_utcb());
   l4vbus_device_msg(handle, L4vbus_mcspi_write, s);
   s << channel << value;
   return l4_error(s.call(vbus));

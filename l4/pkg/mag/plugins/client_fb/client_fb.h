@@ -57,7 +57,7 @@ public:
   void handle_event(L4Re::Event_buffer::Event const &e,
                     Point const &mouse);
 
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &s);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &s);
   int refresh(int x, int y, int w, int h);
 
   Area visible_size() const;

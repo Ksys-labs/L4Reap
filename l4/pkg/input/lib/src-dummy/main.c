@@ -17,24 +17,24 @@
 #include <l4/input/libinput.h>
 #include <l4/sys/err.h>
 
-int l4input_ispending(void)
+L4_CV int l4input_ispending(void)
 {
   return 0;
 }
 
-int l4input_flush(void *buffer, int count)
+L4_CV int l4input_flush(void *buffer, int count)
 {
   (void)buffer; (void)count;
   return 0;
 }
 
-int l4input_pcspkr(int tone)
+L4_CV int l4input_pcspkr(int tone)
 {
   (void)tone;
   return -L4_ENODEV;
 }
 
-int l4input_init(int prio, void (*handler)(struct l4input *))
+L4_CV int l4input_init(int prio, L4_CV void (*handler)(struct l4input *))
 {
   (void)prio; (void)handler;
   return 0;

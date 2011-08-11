@@ -10,6 +10,7 @@ public:
     Devices2_map_base    = Registers_map_start + 0x00200000,
 
     Mp_scu_map_base      = Devices2_map_base + 0x00040000,
+    L2cxx0_map_base      = Devices2_map_base + 0x00043000,
 
     Gic_cpu_map_base     = Devices2_map_base + 0x00040100,
     Gic_dist_map_base    = Devices2_map_base + 0x00041000,

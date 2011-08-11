@@ -18,7 +18,8 @@
  *                  -#L4SIGMA0_IPCERROR IPC error
  *                  -#L4SIGMA0_NOFPAGE  no fpage received
  */
-int l4sigma0_new_client(l4_cap_idx_t pager, l4_cap_idx_t gate)
+L4_CV int
+l4sigma0_new_client(l4_cap_idx_t pager, l4_cap_idx_t gate)
 {
   l4_msgtag_t tag = l4_msgtag(L4_PROTO_SIGMA0, 1, 0, 0);
   l4_utcb_t *utcb = l4_utcb();

@@ -31,10 +31,4 @@
 #  define l4util_idstr(tid)    (tid >> L4_CAP_SHIFT)
 #endif
 
-/* generate printf string of the task number of an L4 thread id */
-//#ifndef l4util_idtskstr
-//#  define l4util_idtskfmt      "#%x"
-//#  define l4util_idtskstr(tid) tid
-//#endif
-
 #endif /* !_L4UTIL__ARCH_X86__L4F__L4_MACROS_H */

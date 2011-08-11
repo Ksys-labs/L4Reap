@@ -37,12 +37,13 @@ public:
 
 protected:
   enum {
-    Op_set_name     = 0,
-    Op_global_id    = 1,
-    Op_kobj_to_id   = 2,
-    Op_query_typeid = 3,
-    Op_switch_log   = 4,
-    Op_get_name     = 5,
+    Op_set_name         = 0,
+    Op_global_id        = 1,
+    Op_kobj_to_id       = 2,
+    Op_query_log_typeid = 3,
+    Op_switch_log       = 4,
+    Op_get_name         = 5,
+    Op_query_log_name   = 6,
   };
 private:
   Jdb_kobject_handler *_next;

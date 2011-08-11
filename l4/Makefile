@@ -160,12 +160,14 @@ generate_l4defs_files = \
 $(L4DEF_FILE_MK): $(BUILD_DIRS) $(DROPSCONF_CONFIG_MK) $(L4DIR)/mk/export_defs.inc
 	$(call generate_l4defs_files,static)
 	$(call generate_l4defs_files,shared)
+	$(call generate_l4defs_files,sharedlib)
 
 $(L4DEF_FILE_SH): $(L4DEF_FILE_MK)
 
 regen_l4defs:
 	$(call generate_l4defs_files,static)
 	$(call generate_l4defs_files,shared)
+	$(call generate_l4defs_files,sharedlib)
 
 .PHONY: l4defs regen_l4defs
 
@@ -205,10 +207,14 @@ ARCH = $(BUILD_ARCH)
 Makeconf.bid.local-helper:
 	$(VERBOSE)echo BUILD_SYSTEMS="$(strip $(ARCH)_$(CPU)            \
 	               $(ARCH)_$(CPU)-$(BUILD_ABI))" >> $(DROPSCONF_CONFIG_MK)
-	$(VERBOSE)$(foreach v, GCCLIBDIR GCCDIR GCCLIB GCCLIB_EH GCCVERSION \
+	$(VERBOSE)$(foreach v, GCCDIR GCCLIB GCCLIB_EH GCCVERSION \
 			GCCMAJORVERSION GCCMINORVERSION GCCSUBVERSION   \
 			GCCNOSTACKPROTOPT LDVERSION GCCSYSLIBDIRS,      \
 			echo $(v)=$(call $(v)_f,$(ARCH))                \
+			>>$(DROPSCONF_CONFIG_MK);)
+	$(VERBOSE)$(foreach v, crtbegin.o crtbeginS.o crtbeginT.o \
+	                       crtendS.o crtend.o, \
+			echo GCCLIB_FILE_$(v)=$(call GCCLIB_file_f,$(v))   \
 			>>$(DROPSCONF_CONFIG_MK);)
 	$(VERBOSE)$(foreach v, LD_GENDEP_PREFIX, echo $v=$($(v)) >>$(DROPSCONF_CONFIG_MK);)
 	$(VERBOSE)echo "HOST_SYSTEM=$(HOST_SYSTEM)" >>$(DROPSCONF_CONFIG_MK)

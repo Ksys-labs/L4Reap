@@ -44,7 +44,7 @@ int region_map_server(RM *rm, IOS &ios)
 	    l4_addr_t start;
 	    unsigned long flags;
 	    l4_cap_idx_t client_cap_idx = L4_INVALID_CAP;
-	    L4::Snd_fpage ds_cap;
+	    L4::Ipc::Snd_fpage ds_cap;
 	    typename Rm_server::Dataspace ds = typename Rm_server::Dataspace();
 	    l4_addr_t offs;
 	    unsigned char align;

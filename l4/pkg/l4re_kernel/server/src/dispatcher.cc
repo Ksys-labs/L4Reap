@@ -24,7 +24,7 @@
 static Dbg dbg(Dbg::Server, "svr");
 
 int
-Dispatcher::handle_exception(L4::Ipc_iostream &ios)
+Dispatcher::handle_exception(L4::Ipc::Iostream &ios)
 {
   l4_exc_regs_t u = *l4_utcb_exc();
 
@@ -34,7 +34,7 @@ Dispatcher::handle_exception(L4::Ipc_iostream &ios)
 }
 
 int
-Dispatcher::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+Dispatcher::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t t;
   ios >> t;

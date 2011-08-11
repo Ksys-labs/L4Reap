@@ -50,17 +50,17 @@ void dopelib_usleep(int usec) {
 	l4_sleep(usec/1000);
 }
 
-void dope_process_event(l4re_event_t *ev, void *data);
+L4_CV void dope_process_event(l4re_event_t *ev, void *data);
 
 /*** INTERFACE: HANDLE EVENTLOOP OF A DOpE CLIENT ***/
-void dope_eventloop(void)
+L4_CV void dope_eventloop(void)
 {
   l4re_event_buffer_consumer_process(&ev_buf, ev_irq,
                                      pthread_getl4cap(pthread_self()), NULL,
                                      dope_process_event);
 }
 
-l4re_event_t *dope_event_get(void)
+L4_CV l4re_event_t *dope_event_get(void)
 {
   return l4re_event_buffer_next(&ev_buf);
 }
@@ -69,7 +69,7 @@ l4re_event_t *dope_event_get(void)
  *
  * return 0 on success, != 0 otherwise
  */
-long dope_init(void)
+L4_CV long dope_init(void)
 {
   static int initialized;
   long ds_size;
@@ -90,6 +90,9 @@ long dope_init(void)
   INFO(printf("DOpElib(dope_init): found some DOpE.\n"));
 
   ev_ds = l4re_util_cap_alloc();
+  if (l4_is_invalid_cap(ev_ds))
+    return -L4_ENOMEM;
+
   ev_irq = l4re_util_cap_alloc();
 
   if (l4_is_invalid_cap(ev_irq))

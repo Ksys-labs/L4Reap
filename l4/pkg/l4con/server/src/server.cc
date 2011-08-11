@@ -17,8 +17,6 @@
 #include <l4/sys/factory>
 #include <l4/sys/typeinfo_svr>
 #include <l4/cxx/ipc_server>
-#include <l4/cxx/iostream>
-#include <l4/cxx/l4iostream>
 #include <l4/cxx/minmax>
 
 #include <l4/re/protocols>
@@ -61,7 +59,7 @@ class Vc : public L4Re::Util::Video::Goos_svr,
 public:
   explicit Vc();
   ~Vc();
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
   void setup_info(l4con_vc *vc);
   void reg_fbds(l4_cap_idx_t c);
@@ -69,15 +67,15 @@ public:
   int create_event();
 
   long close();
-  long pslim_fill(L4::Ipc_iostream &ios);
-  long pslim_copy(L4::Ipc_iostream &ios);
-  long puts(L4::Ipc_iostream &ios);
-  long puts_scale(L4::Ipc_iostream &ios);
-  long get_font_size(L4::Ipc_iostream &ios);
+  long pslim_fill(L4::Ipc::Iostream &ios);
+  long pslim_copy(L4::Ipc::Iostream &ios);
+  long puts(L4::Ipc::Iostream &ios);
+  long puts_scale(L4::Ipc::Iostream &ios);
+  long get_font_size(L4::Ipc::Iostream &ios);
 
   virtual int refresh(int x, int y, int w, int h);
 
-  long vc_dispatch(L4::Ipc_iostream &ios);
+  long vc_dispatch(L4::Ipc::Iostream &ios);
 
   static L4::Cap<void> rcv_cap() { return ::rcv_cap(); }
 private:
@@ -134,7 +132,7 @@ Vc::~Vc()
 }
 
 long
-Vc::pslim_fill(L4::Ipc_iostream &ios)
+Vc::pslim_fill(L4::Ipc::Iostream &ios)
 {
   l4con_pslim_rect_t r;
   l4con_pslim_color_t c;
@@ -151,7 +149,7 @@ Vc::pslim_fill(L4::Ipc_iostream &ios)
 }
 
 long
-Vc::pslim_copy(L4::Ipc_iostream &ios)
+Vc::pslim_copy(L4::Ipc::Iostream &ios)
 {
   l4con_pslim_rect_t r;
   int x, y, w, h;
@@ -168,7 +166,7 @@ Vc::pslim_copy(L4::Ipc_iostream &ios)
 }
 
 long
-Vc::puts(L4::Ipc_iostream &ios)
+Vc::puts(L4::Ipc::Iostream &ios)
 {
   char buf[150];
   char *s = 0;
@@ -179,7 +177,7 @@ Vc::puts(L4::Ipc_iostream &ios)
   l4con_pslim_color_t bg_color;
 
   ios >> x >> y >> fg_color >> bg_color
-      >> L4::ipc_buf_in(s, len);
+      >> L4::Ipc::Buf_in<char>(s, len);
 
   len = cxx::min<unsigned long>(len, sizeof(buf));
   memcpy(buf, s, len);
@@ -188,7 +186,7 @@ Vc::puts(L4::Ipc_iostream &ios)
 }
 
 long
-Vc::puts_scale(L4::Ipc_iostream &ios)
+Vc::puts_scale(L4::Ipc::Iostream &ios)
 {
   char buf[150];
   char *s = 0;
@@ -198,7 +196,7 @@ Vc::puts_scale(L4::Ipc_iostream &ios)
   l4con_pslim_color_t bg_color;
 
   ios >> x >> y >> fg_color >> bg_color >> scale_x >> scale_y
-      >> L4::ipc_buf_in(s, len);
+      >> L4::Ipc::Buf_in<char>(s, len);
 
   len = cxx::min<unsigned long>(len, sizeof(buf));
   memcpy(buf, s, len);
@@ -208,7 +206,7 @@ Vc::puts_scale(L4::Ipc_iostream &ios)
 }
 
 long
-Vc::get_font_size(L4::Ipc_iostream &ios)
+Vc::get_font_size(L4::Ipc::Iostream &ios)
 {
   int w = FONT_XRES, h = FONT_YRES;
   ios << w << h;
@@ -216,7 +214,7 @@ Vc::get_font_size(L4::Ipc_iostream &ios)
 }
 
 long
-Vc::vc_dispatch(L4::Ipc_iostream &ios)
+Vc::vc_dispatch(L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;
@@ -245,7 +243,7 @@ Vc::vc_dispatch(L4::Ipc_iostream &ios)
 }
 
 int
-Vc::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+Vc::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;
@@ -320,11 +318,11 @@ Vc::reg_fbds(l4_cap_idx_t c)
 class Controller : public L4::Server_object
 {
 public:
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 };
 
 int
-Controller::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Controller::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;
@@ -371,10 +369,10 @@ public:
     con_registry.gc_run(500);
   }
 
-  void setup_wait(L4::Ipc_istream &istr, L4::Ipc_svr::Reply_mode)
+  void setup_wait(L4::Ipc::Istream &istr, L4::Ipc_svr::Reply_mode)
   {
     istr.reset();
-    istr << L4::Small_buf(rcv_cap().cap(), L4_RCV_ITEM_LOCAL_ID);
+    istr << L4::Ipc::Small_buf(rcv_cap().cap(), L4_RCV_ITEM_LOCAL_ID);
     l4_utcb_br_u(istr.utcb())->bdr = 0;
   }
 

@@ -25,13 +25,13 @@ public:
   ~System_bus();
 
   // dispatch for the server object
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
-  int dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
+  int dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc::Iostream &ios);
   bool match_hw_feature(Hw::Dev_feature const *) const { return false; }
 
 private:
-  int request_resource(L4::Ipc_iostream &ios);
-  int request_iomem(L4::Ipc_iostream &ios);
+  int request_resource(L4::Ipc::Iostream &ios);
+  int request_iomem(L4::Ipc::Iostream &ios);
 
 public:
   bool resource_allocated(Resource const *) const;

@@ -35,8 +35,15 @@
 
 #include "lwip/opt.h"
 
+/* Timers are not supported when NO_SYS==1 and NO_SYS_NO_TIMERS==1 */
+#define LWIP_TIMERS (!NO_SYS || (NO_SYS && !NO_SYS_NO_TIMERS))
+
+#if LWIP_TIMERS
+
 #include "lwip/err.h"
+#if !NO_SYS
 #include "lwip/sys.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,13 +77,13 @@ struct sys_timeo {
 void sys_timeouts_init(void);
 
 #if LWIP_DEBUG_TIMERNAMES
-void sys_timeout_debug(u32_t msecs, sys_timeout_handler h, void *arg, const char* handler_name);
+void sys_timeout_debug(u32_t msecs, sys_timeout_handler handler, void *arg, const char* handler_name);
 #define sys_timeout(msecs, handler, arg) sys_timeout_debug(msecs, handler, arg, #handler)
 #else /* LWIP_DEBUG_TIMERNAMES */
-void sys_timeout(u32_t msecs, sys_timeout_handler h, void *arg);
+void sys_timeout(u32_t msecs, sys_timeout_handler handler, void *arg);
 #endif /* LWIP_DEBUG_TIMERNAMES */
 
-void sys_untimeout(sys_timeout_handler h, void *arg);
+void sys_untimeout(sys_timeout_handler handler, void *arg);
 #if NO_SYS
 void sys_check_timeouts(void);
 void sys_restart_timeouts(void);
@@ -89,4 +96,5 @@ void sys_timeouts_mbox_fetch(sys_mbox_t *mbox, void **msg);
 }
 #endif
 
+#endif /* LWIP_TIMERS */
 #endif /* __LWIP_TIMERS_H__ */

@@ -12,7 +12,7 @@
 #include <cstdio>
 #include <cstdarg>
 
-static unsigned _debug_level = 2;
+static unsigned _debug_level = 1;
 
 void set_debug_level(unsigned level)
 {

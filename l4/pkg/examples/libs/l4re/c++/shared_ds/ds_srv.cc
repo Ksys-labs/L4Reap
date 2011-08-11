@@ -47,11 +47,11 @@ public:
   /**
    * Dispatch function, dealing with remote requests.
    */
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 };
 
 
-int My_server_obj::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+int My_server_obj::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   // we don't care about the original object reference, however
   // we could read out the access rights from the lowest 2 bits
@@ -103,10 +103,10 @@ public:
    * Dispatch function, dealing with remote requests.
    * This is the ISR.
    */
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 };
 
-int Shm_observer::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+int Shm_observer::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   // we don't care about the original object reference, however
   // we could read out the access rights from the lowest 2 bits

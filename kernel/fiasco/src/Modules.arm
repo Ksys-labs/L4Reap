@@ -18,6 +18,7 @@ PREPROCESS_PARTS-$(CONFIG_FPU)                += fpu
 PREPROCESS_PARTS-$(CONFIG_LIST_ALLOC_SANITY)  += list_alloc_debug
 PREPROCESS_PARTS-$(CONFIG_JDB)                += debug jdb log
 PREPROCESS_PARTS-$(CONFIG_PERF_CNT)           += perf_cnt
+PREPROCESS_PARTS-$(CONFIG_ARM_CACHE_L2CXX0)   += outer_cache outer_cache_l2cxx0
 
 PREPROCESS_PARTS-$(CONFIG_ARM_920T)                 += armv5 arm920t vcache
 PREPROCESS_PARTS-$(CONFIG_ARM_926)                  += armv5 926 vcache
@@ -150,7 +151,7 @@ PREPROCESS_PARTS	+= ulock
 INTERFACES_KERNEL	+= u_semaphore
 
 INTERFACES_KERNEL-$(CONFIG_SERIAL) += uart_console
-INTERFACES_KERNEL-$(CONFIG_ARM_TZ)	+= vm
+INTERFACES_KERNEL-$(CONFIG_ARM_TZ) += vm
 
 INTERFACES_KERNEL += $(INTERFACES_KERNEL-y)
 
@@ -178,7 +179,7 @@ mem_layout_IMPL		:= mem_layout mem_layout-arm mem_layout-noncont
 mem_space_IMPL		:= mem_space mem_space-arm mem_space-user
 kmem_alloc_IMPL		:= kmem_alloc kmem_alloc-arm
 obj_space_IMPL          := obj_space obj_space-$(OBJ_SPACE_TYPE)
-outer_cache_IMPL	:= outer_cache
+outer_cache_IMPL	:= outer_cache outer_cache-l2cxx0
 pagetable_IMPL	  	:= pagetable pagetable-arch
 paging_IMPL	  	:= paging-arm paging
 perf_cnt_IMPL		:= perf_cnt perf_cnt-arm

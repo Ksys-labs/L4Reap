@@ -16,8 +16,6 @@
  * invalidate any other reasons why the executable file might be covered by
  * the GNU General Public License.
  */
-#include <l4/cxx/iostream>
-
 #include <l4/re/util/name_space_svr>
 #include <l4/re/util/debug>
 
@@ -113,11 +111,11 @@ Name_space::find_iter(Name const &pname) const
 
 
 int
-Name_space::query(L4::Ipc_iostream &ios, char *buffer, size_t max_len)
+Name_space::query(L4::Ipc::Iostream &ios, char *buffer, size_t max_len)
 {
   char const *name = 0;
   unsigned long len = max_len;
-  ios >> L4::ipc_buf_in(name, len);
+  ios >> L4::Ipc::Buf_in<char const>(name, len);
 #if 1
   _dbg.printf("query: [%ld] '%.*s'\n", len, (int)len, name);
 #endif
@@ -159,14 +157,14 @@ Name_space::query(L4::Ipc_iostream &ios, char *buffer, size_t max_len)
       if (part < len)
 	{
 	  result |= L4Re::Namespace::Partly_resolved;
-	  ios << (l4_umword_t)0 << L4::ipc_buf_cp_out(buffer, len - part - 1);
+	  ios << (l4_umword_t)0 << L4::Ipc::Buf_cp_out<char>(buffer, len - part - 1);
 	}
 
       unsigned flags = L4_FPAGE_RO;
       if (n->obj()->is_rw())     flags |= L4_FPAGE_RX;
       if (n->obj()->is_strong()) flags |= L4_FPAGE_RW;
 
-      ios << L4::Snd_fpage(n->obj()->cap().fpage(flags));
+      ios << L4::Ipc::Snd_fpage(n->obj()->cap().fpage(flags));
       _dbg.printf(" result = %lx flgs=%x strg=%d\n",
                   result, flags, (int)n->obj()->is_strong());
       return result;
@@ -221,14 +219,14 @@ Name_space::insert_entry(Name const &name, unsigned flags, Entry **e)
 }
 
 int
-Name_space::link_entry(L4::Ipc_iostream &ios, char *buffer, size_t max_len)
+Name_space::link_entry(L4::Ipc::Iostream &ios, char *buffer, size_t max_len)
 {
   char const *name = 0, *src_name = 0;
   unsigned long len, src_len;
   unsigned flags;
-  L4::Snd_fpage src_cap;
-  ios >> flags >> L4::ipc_buf_in(name, len)
-      >> L4::ipc_buf_in(src_name, src_len)
+  L4::Ipc::Snd_fpage src_cap;
+  ios >> flags >> L4::Ipc::Buf_in<char const>(name, len)
+      >> L4::Ipc::Buf_in<char const>(src_name, src_len)
       >> src_cap;
 
   L4::Cap<void> reg_cap(L4::Cap_base::No_init);
@@ -280,13 +278,13 @@ Name_space::link_entry(L4::Ipc_iostream &ios, char *buffer, size_t max_len)
 
 
 int
-Name_space::register_entry(L4::Ipc_iostream &ios, char *buffer, size_t max_len)
+Name_space::register_entry(L4::Ipc::Iostream &ios, char *buffer, size_t max_len)
 {
   char const *name = 0;
   unsigned long len;
   unsigned flags;
-  L4::Snd_fpage cap;
-  ios >> flags >> L4::ipc_buf_in(name, len);
+  L4::Ipc::Snd_fpage cap;
+  ios >> flags >> L4::Ipc::Buf_in<char const>(name, len);
 
   L4::Cap<void> reg_cap(L4_INVALID_CAP);
   l4_msgtag_t tag;
@@ -325,11 +323,11 @@ Name_space::register_entry(L4::Ipc_iostream &ios, char *buffer, size_t max_len)
 }
 
 int
-Name_space::unlink_entry(L4::Ipc_iostream &ios, char *buffer, size_t max_len)
+Name_space::unlink_entry(L4::Ipc::Iostream &ios, char *buffer, size_t max_len)
 {
   char const *name = 0;
   unsigned long len = max_len;
-  ios >> L4::ipc_buf_in(name, len);
+  ios >> L4::Ipc::Buf_in<char const>(name, len);
 #if 1
   _dbg.printf("unlink: [%ld] '%.*s'\n", len, (int)len, name);
 #endif
@@ -366,7 +364,7 @@ Name_space::unlink_entry(L4::Ipc_iostream &ios, char *buffer, size_t max_len)
 
 
 int
-Name_space::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios, char *buffer,
+Name_space::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios, char *buffer,
                      size_t max_len)
 {
   l4_msgtag_t tag;

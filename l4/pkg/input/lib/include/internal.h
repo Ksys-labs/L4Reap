@@ -33,11 +33,11 @@ struct l4input_ops {
 };
 
 /** L4EVDEV input event handler (hardware drivers) **/
-struct l4input_ops * l4input_internal_l4evdev_init(void (*cb)(struct l4input *));
+struct l4input_ops * l4input_internal_l4evdev_init(L4_CV void (*cb)(struct l4input *));
 void l4input_internal_l4evdev_exit(void);
 
 /** UX backend */
-struct l4input_ops * l4input_internal_ux_init(void (*cb)(struct l4input *));
+struct l4input_ops * l4input_internal_ux_init(L4_CV void (*cb)(struct l4input *));
 
 /** INPUT SYSTEM **/
 int  l4input_internal_atkbd_init(void);

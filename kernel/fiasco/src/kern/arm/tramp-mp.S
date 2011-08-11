@@ -62,13 +62,15 @@ _tramp_mp_entry:
 	mcr   p15, 0, r0, c7, c7, 0  // inv both
 #endif
 
+#ifdef CONFIG_ARM_V7
 	// ACTRL is implementation defined
 	mrc   p15, 0, r0, c0, c0, 0  // read MIDR
-	adr   r3, .Lactrl_cpuid      // load addr
+	adr   r3, .Lactrl_cpuid_a9   // load addr
 	ldm   r3, {r1,r2}            // load mask + val
 	and   r0, r1                 // apply mask
 	teq   r0, r2                 // check value
 	bne   2f                     // only do mcr on this CPU
+#endif
 
 	mrc   p15, 0, r0, c1, c0, 1
 #ifdef CONFIG_ARM_V7
@@ -113,7 +115,7 @@ _tramp_mp_entry:
 	.long MPCORE_PHYS_BASE
 
 // only one currently
-.Lactrl_cpuid:
+.Lactrl_cpuid_a9:
          .long 0xff0ffff0
          .long 0x410fc090
 

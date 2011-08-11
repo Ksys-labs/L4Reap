@@ -429,7 +429,7 @@ ChapReceiveChallenge(chap_state *cstate, u_char *inp, u_char id, int len)
   char rhostname[256];
   MD5_CTX mdContext;
   u_char hash[MD5_SIGNATURE_SIZE];
-  
+
   CHAPDEBUG(LOG_INFO, ("ChapReceiveChallenge: Rcvd id %d.\n", id));
   if (cstate->clientstate == CHAPCS_CLOSED ||
     cstate->clientstate == CHAPCS_PENDING) {
@@ -527,7 +527,7 @@ ChapReceiveResponse(chap_state *cstate, u_char *inp, int id, int len)
   MD5_CTX mdContext;
   char secret[MAXSECRETLEN];
   u_char hash[MD5_SIGNATURE_SIZE];
-  
+
   CHAPDEBUG(LOG_INFO, ("ChapReceiveResponse: Rcvd id %d.\n", id));
   
   if (cstate->serverstate == CHAPSS_CLOSED ||
@@ -588,7 +588,7 @@ ChapReceiveResponse(chap_state *cstate, u_char *inp, int id, int len)
   if (!get_secret(cstate->unit, rhostname, cstate->chal_name,
                   secret, &secret_len, 1)) {
     CHAPDEBUG(LOG_WARNING, ("No CHAP secret found for authenticating %s\n",
-    rhostname));
+               rhostname));
   } else {
     /*  generate MD based on negotiated type */
     switch (cstate->chal_type) {
@@ -717,21 +717,21 @@ ChapSendChallenge(chap_state *cstate)
   name_len = (int)strlen(cstate->chal_name);
   outlen = CHAP_HEADERLEN + sizeof (u_char) + chal_len + name_len;
   outp = outpacket_buf[cstate->unit];
-  
+
   MAKEHEADER(outp, PPP_CHAP);    /* paste in a CHAP header */
-  
+
   PUTCHAR(CHAP_CHALLENGE, outp);
   PUTCHAR(cstate->chal_id, outp);
   PUTSHORT(outlen, outp);
-  
+
   PUTCHAR(chal_len, outp);    /* put length of challenge */
   BCOPY(cstate->challenge, outp, chal_len);
   INCPTR(chal_len, outp);
-  
+
   BCOPY(cstate->chal_name, outp, name_len);  /* append hostname */
   
   pppWrite(cstate->unit, outpacket_buf[cstate->unit], outlen + PPP_HDRLEN);
-  
+
   CHAPDEBUG(LOG_INFO, ("ChapSendChallenge: Sent id %d.\n", cstate->chal_id));
   
   TIMEOUT(ChapChallengeTimeout, cstate, cstate->timeouttime);
@@ -748,17 +748,17 @@ ChapSendStatus(chap_state *cstate, int code)
   u_char *outp;
   int outlen, msglen;
   char msg[256]; /* @todo: this can be a char*, no strcpy needed */
-  
+
   if (code == CHAP_SUCCESS) {
     strcpy(msg, "Welcome!");
   } else {
     strcpy(msg, "I don't like you.  Go 'way.");
   }
   msglen = (int)strlen(msg);
-  
+
   outlen = CHAP_HEADERLEN + msglen;
   outp = outpacket_buf[cstate->unit];
-  
+
   MAKEHEADER(outp, PPP_CHAP);    /* paste in a header */
   
   PUTCHAR(code, outp);
@@ -766,7 +766,7 @@ ChapSendStatus(chap_state *cstate, int code)
   PUTSHORT(outlen, outp);
   BCOPY(msg, outp, msglen);
   pppWrite(cstate->unit, outpacket_buf[cstate->unit], outlen + PPP_HDRLEN);
-  
+
   CHAPDEBUG(LOG_INFO, ("ChapSendStatus: Sent code %d, id %d.\n", code,
              cstate->chal_id));
 }
@@ -784,7 +784,7 @@ ChapGenChallenge(chap_state *cstate)
   int chal_len;
   u_char *ptr = cstate->challenge;
   int i;
-  
+
   /* pick a random challenge length between MIN_CHALLENGE_LENGTH and 
      MAX_CHALLENGE_LENGTH */  
   chal_len = (unsigned)
@@ -795,7 +795,7 @@ ChapGenChallenge(chap_state *cstate)
   cstate->chal_len = (u_char)chal_len;
   cstate->chal_id = ++cstate->id;
   cstate->chal_transmits = 0;
-  
+
   /* generate a random string */
   for (i = 0; i < chal_len; i++ ) {
     *ptr++ = (char) (magic() & 0xff);
@@ -812,12 +812,12 @@ ChapSendResponse(chap_state *cstate)
 {
   u_char *outp;
   int outlen, md_len, name_len;
-  
+
   md_len = cstate->resp_length;
   name_len = (int)strlen(cstate->resp_name);
   outlen = CHAP_HEADERLEN + sizeof (u_char) + md_len + name_len;
   outp = outpacket_buf[cstate->unit];
-  
+
   MAKEHEADER(outp, PPP_CHAP);
   
   PUTCHAR(CHAP_RESPONSE, outp);  /* we are a response */
@@ -827,12 +827,12 @@ ChapSendResponse(chap_state *cstate)
   PUTCHAR(md_len, outp);      /* length of MD */
   BCOPY(cstate->response, outp, md_len);    /* copy MD to buffer */
   INCPTR(md_len, outp);
-  
+
   BCOPY(cstate->resp_name, outp, name_len);  /* append our name */
-  
+
   /* send the packet */
   pppWrite(cstate->unit, outpacket_buf[cstate->unit], outlen + PPP_HDRLEN);
-  
+
   cstate->clientstate = CHAPCS_RESPONSE;
   TIMEOUT(ChapResponseTimeout, cstate, cstate->timeouttime);
   ++cstate->resp_transmits;
@@ -851,7 +851,7 @@ ChapPrintPkt( u_char *p, int plen, void (*printer) (void *, char *, ...), void *
   int code, id, len;
   int clen, nlen;
   u_char x;
-  
+
   if (plen < CHAP_HEADERLEN) {
     return 0;
   }

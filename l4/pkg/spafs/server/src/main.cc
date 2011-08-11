@@ -55,14 +55,14 @@ class Fprov_server : public L4::Server_object
 
 public:
   Fprov_server(L4::Cap<L4Re::Dataspace> ds);
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
 private:
   enum {
     Max_filename_len = 1024,
   };
 
-  int get_file(char const *filename, L4::Ipc_iostream &ios);
+  int get_file(char const *filename, L4::Ipc::Iostream &ios);
 
   L4::Cap<L4Re::Dataspace> _ds;
   l4_addr_t _addr;
@@ -105,7 +105,7 @@ Fprov_server::Fprov_server(L4::Cap<L4Re::Dataspace> ds)
 }
 
 int
-Fprov_server::get_file(char const *filename, L4::Ipc_iostream &ios)
+Fprov_server::get_file(char const *filename, L4::Ipc::Iostream &ios)
 {
   //printf("Open file:%s\n", filename);
   Dir_entry *dir_entry = 0;
@@ -130,7 +130,7 @@ Fprov_server::get_file(char const *filename, L4::Ipc_iostream &ios)
     {
       if (verbose)
         printf("file already open: <%s>\n", filename);
-      ios << L4::Snd_fpage(dir_entry->ds.fpage(L4_FPAGE_RO));
+      ios << L4::Ipc::Snd_fpage(dir_entry->ds.fpage(L4_FPAGE_RO));
       return 0;
     }
 
@@ -157,13 +157,13 @@ Fprov_server::get_file(char const *filename, L4::Ipc_iostream &ios)
     }
   dir_entry->ds = file_ds;
 
-  ios << L4::Snd_fpage(file_ds.fpage(L4_FPAGE_RO));
+  ios << L4::Ipc::Snd_fpage(file_ds.fpage(L4_FPAGE_RO));
 
   return 0;
 }
 
 int
-Fprov_server::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Fprov_server::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t t;
   ios >> t;
@@ -181,15 +181,9 @@ Fprov_server::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
     {
     case L4Re::Namespace_::Query:
         {
-          char const *filenamep = 0;
           char filename[Max_filename_len];
           unsigned long len = Max_filename_len;
-          ios >> L4::ipc_buf_in(filenamep, len);
-
-          // copy out of utcb
-          if (Max_filename_len - 1 < len)
-            len = Max_filename_len - 1;
-          memcpy(filename, filenamep, len);
+          ios >> L4::Ipc::Buf_cp_in<char>(filename, len);
           filename[len] = 0;
 
           return get_file(filename, ios);
@@ -213,7 +207,7 @@ class Fprov_service : public L4::Server_object
 
 public:
   Fprov_service() {};
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
   static Fprov_server *create_server(const char *filename);
 };
 
@@ -235,7 +229,7 @@ Fprov_service::create_server(const char *filename)
 }
 
 int
-Fprov_service::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Fprov_service::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t t;
   ios >> t;
@@ -250,7 +244,6 @@ Fprov_service::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
       return -L4_EBADPROTO;
     }
 
-  
   switch (L4::Ipc::read<L4::Factory::Proto>(ios))
     {
     case L4Re::Namespace::Protocol:
@@ -259,7 +252,7 @@ Fprov_service::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
 	  unsigned long name_size = Name_size;
 	  static char config[Name_size];
 
-	  ios >> L4::ipc_buf_cp_in(config, name_size);
+	  ios >> L4::Ipc::Buf_cp_in<char>(config, name_size);
 	  config[name_size] = 0;
 
 	  Fprov_server *server = Fprov_service::create_server(config);

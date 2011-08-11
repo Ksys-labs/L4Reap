@@ -51,8 +51,8 @@ struct Sig_handling
                 struct itimerval *__restrict __old) throw();
 
 public:
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
-  int handle_exception(L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
+  int handle_exception(L4::Ipc::Iostream &ios);
 };
 
 }
@@ -147,7 +147,7 @@ static bool setup_sig_frame(l4_exc_regs_t *u, int signum)
   return true;
 }
 
-int Sig_handling::handle_exception(L4::Ipc_iostream &ios)
+int Sig_handling::handle_exception(L4::Ipc::Iostream &ios)
 {
   l4_exc_regs_t _u;
   l4_exc_regs_t *u = &_u;
@@ -238,7 +238,7 @@ int Sig_handling::handle_exception(L4::Ipc_iostream &ios)
   return -L4_EOK;
 }
 
-int Sig_handling::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+int Sig_handling::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t t;
   ios >> t;
@@ -278,7 +278,7 @@ struct Loop_hooks :
 	  _sig_handling.current_itimerval.it_value.tv_usec));
   }
 
-  void error(l4_msgtag_t res, L4::Ipc_istream &s)
+  void error(l4_msgtag_t res, L4::Ipc::Istream &s)
   {
     long ipc_error = l4_ipc_error(res, s.utcb());
 

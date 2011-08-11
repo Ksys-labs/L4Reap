@@ -14,6 +14,7 @@ config PF_REALVIEW_EB
 	select CAN_ARM_CPU_MPCORE
 	select CAN_ARM_CPU_CORTEX_A8
 	select CAN_ARM_CPU_CORTEX_A9
+	select CAN_ARM_CACHE_L2CXX0 if ARM_MPCORE
 	help
 	  Choose for Emulation Baseboard (EB)
 
@@ -21,6 +22,7 @@ config PF_REALVIEW_PB11MP
 	bool "PB11MP"
 	depends on PF_REALVIEW
 	select CAN_ARM_CPU_MPCORE
+	select CAN_ARM_CACHE_L2CXX0
 	help
 	  Choose for PB11MP
 
@@ -28,6 +30,7 @@ config PF_REALVIEW_PBX
 	bool "PBX"
 	depends on PF_REALVIEW
 	select CAN_ARM_CPU_CORTEX_A9
+	select CAN_ARM_CACHE_L2CXX0
 	help
 	  Choose for PBX-A9.
 
@@ -66,8 +69,3 @@ config PF_REALVIEW_RAM_PHYS_BASE
 	default 0x20000000 if PF_REALVIEW_RAM_PHYS_BASE_0x2
 	default 0x60000000 if PF_REALVIEW_RAM_PHYS_BASE_0x6
 	default 0x70000000 if PF_REALVIEW_RAM_PHYS_BASE_0x7
-
-config PF_REALVIEW_L2CACHE
-	bool "Enable L2 Cache"
-	default y
-	depends on PF_REALVIEW_PB11MP || PF_REALVIEW_PBX || ARM_MPCORE

@@ -46,7 +46,7 @@ int l4input_ispending()
 		return 0;
 }
 
-int l4input_flush(void *buf, int count)
+L4_CV int l4input_flush(void *buf, int count)
 {
 	if (ops->flush)
 		return ops->flush(buf, count);
@@ -54,7 +54,7 @@ int l4input_flush(void *buf, int count)
 		return 0;
 }
 
-int l4input_pcspkr(int tone)
+L4_CV int l4input_pcspkr(int tone)
 {
 	if (ops->pcspkr)
 		return ops->pcspkr(tone);
@@ -77,7 +77,7 @@ int l4input_pcspkr(int tone)
         return error; }
 
 /** L4INPUT LIBRARY INITIALIZATION **/
-int l4input_init(int prio, void (*handler)(struct l4input *))
+L4_CV int l4input_init(int prio, L4_CV void (*handler)(struct l4input *))
 {
 	if (!l4util_kip_kernel_is_ux(l4re_kip())) {
 		printf("L4INPUT native mode activated\n");

@@ -13,8 +13,7 @@
 #include <l4/re/protocols>
 #include <l4/re/util/meta>
 #include <l4/cxx/ipc_server>
-#include <l4/cxx/iostream>
-#include <l4/cxx/l4iostream>
+#include <l4/cxx/std_exc_io>
 #include <l4/dde/linux26/dde26.h>
 
 #include <l4/sys/debugger.h>
@@ -26,7 +25,7 @@
 
 static L4Re::Util::Registry_server<> server;
 
-int Ankh::ServerSession::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+int Ankh::ServerSession::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
 	l4_msgtag_t t;
 	ios >> t;
@@ -62,11 +61,11 @@ int Ankh::ServerSession::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
 class Ankh_server : public L4::Server_object
 {
 	public: 
-		int dispatch(l4_umword_t, L4::Ipc_iostream &ios);
+		int dispatch(l4_umword_t, L4::Ipc::Iostream &ios);
 };
 
 
-int Ankh_server::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+int Ankh_server::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
 	l4_msgtag_t t;
 	ios >> t;
@@ -113,7 +112,7 @@ int Ankh_server::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
 				}
 				else
 				{
-					L4::cerr << "Error creating Ankh session object.\n";
+					std::cerr << "Error creating Ankh session object.\n";
 					return -L4_ENOMEM;
 				}
 			}
@@ -201,7 +200,7 @@ int main()
 	}
 	catch (L4::Base_exception const &e)
 	{
-		L4::cerr << "Error: " << e << '\n';
+		std::cerr << "Error: " << e << '\n';
 		return -1;
 	}
 	catch (std::exception const &e)

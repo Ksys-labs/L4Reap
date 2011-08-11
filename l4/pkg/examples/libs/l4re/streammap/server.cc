@@ -12,8 +12,6 @@
 #include <l4/re/util/cap_alloc>
 #include <l4/re/util/object_registry>
 #include <l4/cxx/ipc_server>
-#include <l4/cxx/iostream>
-#include <l4/cxx/l4iostream>
 
 #include "shared.h"
 
@@ -24,11 +22,11 @@ static L4Re::Util::Registry_server<> server;
 class Smap_server : public L4::Server_object
 {
 public:
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 };
 
 int
-Smap_server::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Smap_server::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t t;
   ios >> t;
@@ -49,7 +47,7 @@ Smap_server::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
       snprintf(page_to_map, sizeof(page_to_map), "Hello from the server!");
       printf("Sending to client\n");
       // send page
-      ios << L4::Snd_fpage::mem((l4_addr_t)page_to_map, L4_PAGESHIFT,
+      ios << L4::Ipc::Snd_fpage::mem((l4_addr_t)page_to_map, L4_PAGESHIFT,
                                 L4_FPAGE_RO, snd_base);
       return L4_EOK;
     default:

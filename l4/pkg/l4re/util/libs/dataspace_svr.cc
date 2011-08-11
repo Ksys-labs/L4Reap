@@ -33,7 +33,7 @@
 
 #if 0
 inline
-L4::Ipc_ostream &operator << (L4::Ipc_ostream &s,
+L4::Ipc::Ostream &operator << (L4::Ipc_ostream &s,
                               L4Re::Dataspace::Stats const &st)
 { s.put(st); return s; }
 #endif
@@ -42,13 +42,13 @@ namespace L4Re { namespace Util {
 
 int
 Dataspace_svr::map(l4_addr_t offs, l4_addr_t hot_spot, unsigned long flags,
-                    l4_addr_t min, l4_addr_t max, L4::Snd_fpage &memory)
+                    l4_addr_t min, l4_addr_t max, L4::Ipc::Snd_fpage &memory)
 {
   int err = map_hook(offs, flags, min, max);
   if (err < 0)
     return err;
 
-  memory = L4::Snd_fpage();
+  memory = L4::Ipc::Snd_fpage();
 
   offs     = l4_trunc_page(offs);
   hot_spot = l4_trunc_page(hot_spot);
@@ -95,7 +95,7 @@ Dataspace_svr::map(l4_addr_t offs, l4_addr_t hot_spot, unsigned long flags,
 
   l4_fpage_t fpage = l4_fpage(map_base, order, flags && is_writable() ?  L4_FPAGE_RWX : L4_FPAGE_RX);
   
-  memory = L4::Snd_fpage(fpage, hot_spot, _map_flags, _cache_flags);
+  memory = L4::Ipc::Snd_fpage(fpage, hot_spot, _map_flags, _cache_flags);
 
   return L4_EOK;
 }
@@ -129,7 +129,7 @@ Dataspace_svr::phys(l4_addr_t /*offset*/, l4_addr_t &/*phys_addr*/, l4_size_t &/
 }
 
 int
-Dataspace_svr::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+Dataspace_svr::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   L4::Opcode op;
   ios >> op;
@@ -150,7 +150,7 @@ Dataspace_svr::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
 	bool read_only = !is_writable() || !(obj & L4_FPAGE_X);
 	l4_addr_t offset, spot;
 	unsigned long flags;
-	L4::Snd_fpage fp;
+	L4::Ipc::Snd_fpage fp;
 	ios >> offset >> spot >> flags;
 #if 0
 	L4::cout << "MAPrq: " << L4::hex << offset << ", " << spot << ", "
@@ -198,7 +198,7 @@ Dataspace_svr::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
 	l4_addr_t dst_offs;
 	l4_addr_t src_offs;
 	unsigned long sz;
-	L4::Snd_fpage src_cap;
+	L4::Ipc::Snd_fpage src_cap;
 
 	ios >> dst_offs >> src_offs >> sz >> src_cap;
 

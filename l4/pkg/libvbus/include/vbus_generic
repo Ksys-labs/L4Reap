@@ -16,7 +16,7 @@
 
 inline void
 l4vbus_device_msg(l4vbus_device_handle_t handle, l4_uint32_t op,
-                  L4::Ipc_iostream &s)
+                  L4::Ipc::Iostream &s)
 {
   s << handle << op;
 }

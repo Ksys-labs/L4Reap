@@ -139,7 +139,7 @@ namespace Ankh
 			static int count;
 
 		public:
-			int dispatch(l4_umword_t, L4::Ipc_iostream &ios);
+			int dispatch(l4_umword_t, L4::Ipc::Iostream &ios);
 
 			ServerSession(bool want_phys, bool promisc,bool debug,
 			              char const *name, char const *shmname, unsigned bufsize,

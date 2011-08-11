@@ -12,6 +12,6 @@ SHARED_FLAGS-$(CONFIG_ARM_CORTEX_A8) += $(call CHECKCC,-mcpu=cortex-a8)
 SHARED_FLAGS-$(CONFIG_ARM_CORTEX_A9) += $(call CHECKCC,-mcpu=cortex-a9)
 SHARED_FLAGS			  += -msoft-float
 SHARED_FLAGS                      += $(call CHECKCC,-mno-thumb-interwork)
-SHARED_FLAGS                      += -mabi=apcs-gnu
+SHARED_FLAGS                      += -marm -mabi=apcs-gnu
 LDFLAGS                           += --no-warn-mismatch
 LD_EMULATION_CHOICE               := armelf armelf_linux_eabi armelf_fbsd

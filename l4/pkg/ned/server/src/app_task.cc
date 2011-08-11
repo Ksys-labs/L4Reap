@@ -37,7 +37,7 @@ void App_task::operator delete (void *m) throw()
 #endif
 
 int
-App_task::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+App_task::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   (void)obj;
   l4_msgtag_t tag;

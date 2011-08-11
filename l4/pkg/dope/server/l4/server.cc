@@ -41,8 +41,6 @@
 #include <l4/sys/typeinfo_svr>
 #include <l4/cxx/exceptions>
 
-#include <l4/cxx/iostream>
-#include <l4/cxx/l4iostream>
 #include <l4/cxx/minmax>
 
 #include <l4/re/protocols>
@@ -224,13 +222,13 @@ class Dope_app : public Dope_base
 {
 public:
   explicit Dope_app(const char *configstr);
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
-  int dispatch_dope_app(l4_umword_t, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
+  int dispatch_dope_app(l4_umword_t, L4::Ipc::Iostream &ios);
 
-  int client_cmd(L4::Ipc_iostream &ios);
-  int client_cmd_req(L4::Ipc_iostream &ios);
-  int client_vscreen_get_fb(L4::Ipc_iostream &ios);
-  int client_get_keystate(L4::Ipc_iostream &ios);
+  int client_cmd(L4::Ipc::Iostream &ios);
+  int client_cmd_req(L4::Ipc::Iostream &ios);
+  int client_vscreen_get_fb(L4::Ipc::Iostream &ios);
+  int client_get_keystate(L4::Ipc::Iostream &ios);
 };
 
 Dope_app::Dope_app(const char *configstr)
@@ -260,27 +258,27 @@ Dope_app::Dope_app(const char *configstr)
   INFO(printf("Server(init_app): application init request. appname=%s\n", appname));
 }
 
-int Dope_app::client_cmd(L4::Ipc_iostream &ios)
+int Dope_app::client_cmd(L4::Ipc::Iostream &ios)
 {
   unsigned long len;
   char buf_in[256];
 
   len = sizeof(buf_in);
-  ios >> L4::ipc_buf_cp_in(buf_in, len);
+  ios >> L4::Ipc::Buf_cp_in<char>(buf_in, len);
   buf_in[len] = 0;
 
   cmd(buf_in);
   return -L4_EOK;
 }
 
-int Dope_app::client_cmd_req(L4::Ipc_iostream &ios)
+int Dope_app::client_cmd_req(L4::Ipc::Iostream &ios)
 {
   unsigned long len;
   char buf_in[256];
   char buf_out[256];
 
   len = sizeof(buf_in);
-  ios >> L4::ipc_buf_cp_in(buf_in, len);
+  ios >> L4::Ipc::Buf_cp_in<char>(buf_in, len);
   buf_in[len] = 0;
 
   cmd_ret(buf_in, buf_out, sizeof(buf_out));
@@ -292,19 +290,19 @@ int Dope_app::client_cmd_req(L4::Ipc_iostream &ios)
       buf_out[sizeof(buf_out) - 1] = 0;
     }
 
-  ios << L4::ipc_buf_cp_out(buf_out, len);
+  ios << L4::Ipc::Buf_cp_out<char>(buf_out, len);
 
   return -L4_EOK;
 }
 
-int Dope_app::client_vscreen_get_fb(L4::Ipc_iostream &ios)
+int Dope_app::client_vscreen_get_fb(L4::Ipc::Iostream &ios)
 {
   unsigned long len;
   char buf_in[30];
   char buf[40];
 
   len = sizeof(buf_in);
-  ios >> L4::ipc_buf_cp_in(buf_in, len);
+  ios >> L4::Ipc::Buf_cp_in<char>(buf_in, len);
   buf_in[len] = 0;
 
   snprintf(buf, sizeof(buf), "%s.map()", buf_in);
@@ -315,7 +313,7 @@ int Dope_app::client_vscreen_get_fb(L4::Ipc_iostream &ios)
   return -L4_EOK;
 }
 
-int Dope_app::client_get_keystate(L4::Ipc_iostream &ios)
+int Dope_app::client_get_keystate(L4::Ipc::Iostream &ios)
 {
   long x;
   ios >> x; // get keycode
@@ -324,7 +322,7 @@ int Dope_app::client_get_keystate(L4::Ipc_iostream &ios)
   return -L4_EOK;
 }
 
-int Dope_app::dispatch_dope_app(l4_umword_t, L4::Ipc_iostream &ios)
+int Dope_app::dispatch_dope_app(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   L4::Opcode op;
   ios >> op;
@@ -344,7 +342,7 @@ int Dope_app::dispatch_dope_app(l4_umword_t, L4::Ipc_iostream &ios)
     };
 }
 
-int Dope_app::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+int Dope_app::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;
@@ -369,7 +367,7 @@ class Dope_fb : public L4Re::Util::Video::Goos_svr,
 {
 public:
   explicit Dope_fb(L4::Ipc::Istream &is);
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
   virtual int refresh(int x, int y, int w, int h);
 };
@@ -517,7 +515,7 @@ int Dope_fb::refresh(int x, int y, int w, int h)
   return L4_EOK;
 }
 
-int Dope_fb::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+int Dope_fb::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;
@@ -539,11 +537,11 @@ int Dope_fb::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
 class Controller : public L4::Server_object
 {
 public:
-  int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+  int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 };
 
 int
-Controller::dispatch(l4_umword_t, L4::Ipc_iostream &ios)
+Controller::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t tag;
   ios >> tag;
@@ -603,10 +601,10 @@ struct My_loop_hooks :
   public L4::Ipc_svr::Default_timeout,
   public L4::Ipc_svr::Compound_reply
 {
-  void setup_wait(L4::Ipc_istream &istr, L4::Ipc_svr::Reply_mode)
+  void setup_wait(L4::Ipc::Istream &istr, L4::Ipc_svr::Reply_mode)
   {
     istr.reset();
-    istr << L4::Small_buf(rcv_cap().cap(), L4_RCV_ITEM_LOCAL_ID);
+    istr << L4::Ipc::Small_buf(rcv_cap().cap(), L4_RCV_ITEM_LOCAL_ID);
     l4_utcb_br_u(istr.utcb())->bdr = 0;
   }
 };

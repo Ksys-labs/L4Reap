@@ -328,7 +328,7 @@ Client_fb::refresh(int x, int y, int w, int h)
 }
 
 int
-Client_fb::dispatch(l4_umword_t obj, L4::Ipc_iostream &s)
+Client_fb::dispatch(l4_umword_t obj, L4::Ipc::Iostream &s)
 {
   l4_msgtag_t tag;
   s >> tag;

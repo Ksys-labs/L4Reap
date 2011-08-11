@@ -9,7 +9,7 @@
 #include <l4/sys/kdebug.h>
 #include <l4/util/reboot.h>
 
-void
+L4_CV void
 l4util_reboot(void)
 {
   enter_kdebug("*#^");          /* Always available */

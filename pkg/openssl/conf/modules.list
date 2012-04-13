@@ -1,0 +1,97 @@
+# vim:set ft=l4mods:
+# Module configuration file for single image mode
+#
+# kernel, sigma0 and moe are always loaded automatically
+#
+# add kernel command line arguments with
+#  kernel fiasco arguments...
+# the seconds argument here is the binary name
+#
+# add sigma command line arguments with
+#  sigma0 sigma0 arguments...
+# the second sigma0 is the binary name
+#
+# add roottask command line arguments with
+#  roottask moe arguments...
+# the second roottask is the binary name
+#
+# modaddr: address where modules start, relative to begin of RAM
+#   this statement is either global (before first entry statement)
+#   or per entry
+#
+# 'module' variants
+# - module file: add file
+# - module-glob /some/path/*.foo: add all file matching
+# - module-perl perl-code: Perl code returns array of files to include
+# - moe file.cfg: expands to
+#        roottask moe rom/file.cfg
+#        module file.cfg
+#
+# Define a module group:
+#  group oftenneedthose
+#  module one
+#  module two
+#  module ...
+#
+# Use a module group:
+#  entry someentry
+#  module-group oftenneedthose
+#
+# Set defaults:
+# - default-kernel: set default kernel including arguments
+# - default-sigma0: set default sigma0 including arguments
+# - default-roottask: set default roottask including arguments
+
+modaddr 0x01100000
+
+
+entry openssl-tests
+roottask moe rom/openssl-tests.cfg
+module l4re
+module ned
+module openssl-tests.cfg
+module libld-l4.so
+module libcrypto.so
+module libssl.so
+module libc_be_sig.so
+module libdl.so
+module libc_support_misc.so
+module libc_be_socket_noop.so
+module lib4re-util.so
+module libc_be_l4refile.so
+module libc_be_l4re.so
+module libsupc++.so
+module libuc_c.so
+module lib4re.so
+module libl4util.so
+module libl4sys.so
+module destest
+module ideatest
+module shatest
+module sha1test
+module sha256t
+module sha512t
+module md4test
+module md5test
+module hmactest
+module md2test
+module mdc2test
+module wp_test
+module rmdtest
+module rc2test
+module rc4test
+module rc5test
+module bftest
+module casttest
+module randtest
+module exptest
+module ectest
+module ecdsatest
+module ecdhtest
+module rsa_test
+module dhtest
+module dsatest
+module enginetest
+module evp_test
+module evptests.txt
+module ssltest

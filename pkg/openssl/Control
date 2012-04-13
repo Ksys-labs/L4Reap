@@ -1,0 +1,3 @@
+Provides: libcrypto libssl
+Requires: libc_be_sig stdlibs-sh
+Maintainer: ivan.loskutov@ksyslabs.org

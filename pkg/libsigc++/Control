@@ -1,0 +1,3 @@
+Provides: libsigc++
+Requires: libstdc++
+Maintainer: ivan.loskutov@ksyslabs.org

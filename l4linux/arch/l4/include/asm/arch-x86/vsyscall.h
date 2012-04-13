@@ -1,0 +1,12 @@
+#ifndef __INCLUDE__ASM__ARCH_X86__VSYSCALL_H__
+#define __INCLUDE__ASM__ARCH_X86__VSYSCALL_H__
+
+#include <asm-x86/vsyscall.h>
+
+#undef VSYSCALL_START
+#undef VSYSCALL_END
+
+#define VSYSCALL_START 0x0000000020000000
+#define VSYSCALL_END   0x0000000020800000
+
+#endif /* ! __INCLUDE__ASM__ARCH_X86__VSYSCALL_H__ */

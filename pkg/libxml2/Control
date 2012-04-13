@@ -1,0 +1,3 @@
+Provides: libxml2
+Requires: 
+Maintainer: ivan.loskutov@ksyslabs.org

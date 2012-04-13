@@ -1,0 +1,110 @@
+plus.o: plus.cpp ../include/wh/whio/whio_streams.h \
+ ../include/wh/whio/whio_stream.h ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_stream_stl.hpp ../include/wh/whio/whio_stream.h
+whio-test.o: whio-test.c ../include/wh/whio/whio.h \
+ ../include/wh/whio/whio_devs.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_streams.h ../include/wh/whio/whio_stream.h \
+ ../include/wh/whio/whio_encode.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_zlib.h
+rm.o: rm.c WHEFSApp.c ../src/whefs_details.c ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h ../src/whefs_inode.h \
+ ../include/wh/whefs/whefs_string.h ../src/whdbg.h ../src/whbits.h \
+ ../src/whefs_encode.h ../include/wh/whio/whio_encode.h \
+ ../src/whefs_hash.h whargv.h ../include/wh/whglob.h \
+ ../include/wh/whefs/whefs_client_util.h ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_string.h
+whargv.o: whargv.c whargv.h
+x.o: x.c
+mkfs.o: mkfs.c ../include/wh/whio/whio_devs.h \
+ ../include/wh/whio/whio_dev.h ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h WHEFSApp.c ../src/whefs_details.c \
+ ../include/wh/whefs/whefs.h ../include/wh/whefs/whefs_config.h \
+ ../include/wh/whefs/whefs_license.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_dev.h ../include/wh/whio/whio_stream.h \
+ ../src/whefs_inode.h ../include/wh/whefs/whefs_string.h ../src/whdbg.h \
+ ../src/whbits.h ../src/whefs_encode.h ../include/wh/whio/whio_encode.h \
+ ../src/whefs_hash.h whargv.h ../include/wh/whglob.h
+subfs.o: subfs.c ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h ../include/wh/whio/whio_devs.h \
+ ../include/wh/whio/whio_dev.h
+cp.o: cp.c ../include/wh/whefs/whefs.h ../include/wh/whefs/whefs_config.h \
+ ../include/wh/whefs/whefs_license.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_dev.h ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_stream.h \
+ whargv.h ../include/wh/whio/whio_devs.h ../include/wh/whio/whio_dev.h \
+ WHEFSApp.c ../src/whefs_details.c ../src/whefs_inode.h \
+ ../include/wh/whefs/whefs_string.h ../src/whdbg.h ../src/whbits.h \
+ ../src/whefs_encode.h ../include/wh/whio/whio_encode.h \
+ ../src/whefs_hash.h ../include/wh/whglob.h \
+ ../include/wh/whefs/whefs_client_util.h ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_string.h
+test.o: test.c ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h ../include/wh/whefs/whefs_client_util.h \
+ ../include/wh/whefs/whefs.h ../include/wh/whefs/whefs_string.h \
+ ../include/wh/whio/whio_encode.h WHEFSApp.c ../src/whefs_details.c \
+ ../src/whefs_inode.h ../include/wh/whefs/whefs_string.h ../src/whdbg.h \
+ ../src/whbits.h ../src/whefs_encode.h ../src/whefs_hash.h whargv.h \
+ ../include/wh/whglob.h ../src/whefs_encode.h ../src/whefs_hash.h
+cat.o: cat.c WHEFSApp.c ../src/whefs_details.c \
+ ../include/wh/whefs/whefs.h ../include/wh/whefs/whefs_config.h \
+ ../include/wh/whefs/whefs_license.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_dev.h ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_stream.h \
+ ../src/whefs_inode.h ../include/wh/whefs/whefs_string.h ../src/whdbg.h \
+ ../src/whbits.h ../src/whefs_encode.h ../include/wh/whio/whio_encode.h \
+ ../src/whefs_hash.h whargv.h ../include/wh/whglob.h \
+ ../include/wh/whio/whio_streams.h ../include/wh/whio/whio_stream.h \
+ ../include/wh/whio/whio_dev.h
+ls.o: ls.c WHEFSApp.c ../src/whefs_details.c ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h ../src/whefs_inode.h \
+ ../include/wh/whefs/whefs_string.h ../src/whdbg.h ../src/whbits.h \
+ ../src/whefs_encode.h ../include/wh/whio/whio_encode.h \
+ ../src/whefs_hash.h whargv.h ../include/wh/whglob.h
+whefs2c.o: whefs2c.c
+bin2c.o: bin2c.c
+avl.o: avl.c ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h ../include/wh/whefs/whefs_client_util.h \
+ ../include/wh/whefs/whefs.h ../include/wh/whefs/whefs_string.h \
+ ../include/wh/whio/whio_devs.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_encode.h WHEFSApp.c ../src/whefs_details.c \
+ ../src/whefs_inode.h ../include/wh/whefs/whefs_string.h ../src/whdbg.h \
+ ../src/whbits.h ../src/whefs_encode.h ../src/whefs_hash.h whargv.h \
+ ../include/wh/whglob.h ../src/whefs_encode.h
+WHEFSApp.o: WHEFSApp.c ../src/whefs_details.c ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h ../src/whefs_inode.h \
+ ../include/wh/whefs/whefs_string.h ../src/whdbg.h ../src/whbits.h \
+ ../src/whefs_encode.h ../include/wh/whio/whio_encode.h \
+ ../src/whefs_hash.h whargv.h ../include/wh/whglob.h
+addblocks.o: addblocks.c ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h whargv.h ../include/wh/whio/whio_devs.h \
+ ../include/wh/whio/whio_dev.h WHEFSApp.c ../src/whefs_details.c \
+ ../src/whefs_inode.h ../include/wh/whefs/whefs_string.h ../src/whdbg.h \
+ ../src/whbits.h ../src/whefs_encode.h ../include/wh/whio/whio_encode.h \
+ ../src/whefs_hash.h ../include/wh/whglob.h
+whargv.o: whargv.h
+foo.o: foo.h avl_tree.h
+avl_tree.o: avl_tree.h
+bar.o: bar.h

@@ -1,0 +1,27 @@
+This is the README for the whefs library.
+
+whefs is a C library implementing a virtual/embedded filesystem.
+
+For more information, please see the home page:
+
+http://code.google.com/p/whefs/
+
+The current build tree requires GNU Make 3.81 or higher.
+
+To build it, simply run:
+
+  make
+
+The main source is in ./src and the test and tool binaries are in
+./app.
+
+To install it:
+
+  - Copy (recursively) ./include/wh to a directory in your normal
+  INCLUDES path.
+
+  - Copy app/whefs-* to a directory in your $PATH.
+
+  - Copy src/libwhefs.* to a directory in your $LD_LIBRARY_PATH (or
+  equivalent).
+

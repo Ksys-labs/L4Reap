@@ -1,0 +1,155 @@
+whefs_fs.o: whefs_fs.c ../include/wh/whefs/whefs_config.h \
+ ../include/wh/whefs/whefs_license.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whefs/whefs.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h ../include/wh/whefs/whefs_string.h \
+ whefs_encode.h ../include/wh/whio/whio_encode.h whefs_cache.h \
+ ../include/wh/whio/whio_devs.h ../include/wh/whio/whio_dev.h \
+ whefs_details.c whefs_inode.h whdbg.h whbits.h whefs_hash.h \
+ ../include/wh/whglob.h
+whio_dev_subdev.o: whio_dev_subdev.c ../include/wh/whio/whio_devs.h \
+ ../include/wh/whio/whio_dev.h ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h
+whdbg.o: whdbg.c whdbg.h
+whio_stream.o: whio_stream.c ../include/wh/whio/whio.h \
+ ../include/wh/whio/whio_devs.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_streams.h ../include/wh/whio/whio_stream.h \
+ ../include/wh/whio/whio_stream.h ../include/wh/whprintf.h
+whio.o: whio.c ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h
+whprintf.o: whprintf.c ../include/wh/whprintf.h
+whio_dev.o: whio_dev.c ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_devs.h \
+ ../include/wh/whio/whio_dev.h ../include/wh/whprintf.h
+whio_common.o: whio_common.c ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h
+whio_stream_FILE.o: whio_stream_FILE.c ../include/wh/whio/whio_stream.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h
+whio_dev_FILE.o: whio_dev_FILE.c ../include/wh/whio/whio_devs.h \
+ ../include/wh/whio/whio_dev.h ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h
+whefs_nodedev.o: whefs_nodedev.c whefs_details.c \
+ ../include/wh/whefs/whefs.h ../include/wh/whefs/whefs_config.h \
+ ../include/wh/whefs/whefs_license.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_dev.h ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_stream.h \
+ whefs_inode.h ../include/wh/whefs/whefs_string.h whdbg.h whbits.h \
+ whefs_encode.h ../include/wh/whio/whio_encode.h whefs_hash.h
+whefs_inode.o: whefs_inode.c whefs_details.c ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h whefs_inode.h \
+ ../include/wh/whefs/whefs_string.h whdbg.h whbits.h whefs_encode.h \
+ ../include/wh/whio/whio_encode.h whefs_hash.h whefs_cache.h \
+ ../include/wh/whio/whio_devs.h ../include/wh/whio/whio_dev.h
+whio_zlib.o: whio_zlib.c ../include/wh/whio/whio_zlib.h \
+ ../include/wh/whio/whio_stream.h ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_config.h
+whefs_fs_closer.o: whefs_fs_closer.c whefs_details.c \
+ ../include/wh/whefs/whefs.h ../include/wh/whefs/whefs_config.h \
+ ../include/wh/whefs/whefs_license.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_dev.h ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_stream.h \
+ whefs_inode.h ../include/wh/whefs/whefs_string.h whdbg.h whbits.h \
+ whefs_encode.h ../include/wh/whio/whio_encode.h whefs_hash.h
+whio_encode.o: whio_encode.c ../include/wh/whio/whio_encode.h \
+ ../include/wh/whio/whio_dev.h ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_common.h
+whglob.o: whglob.c ../include/wh/whglob.h
+whio_stream_dev.o: whio_stream_dev.c ../include/wh/whio/whio_streams.h \
+ ../include/wh/whio/whio_stream.h ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h
+whefs_file.o: whefs_file.c whefs_details.c ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h whefs_inode.h \
+ ../include/wh/whefs/whefs_string.h whdbg.h whbits.h whefs_encode.h \
+ ../include/wh/whio/whio_encode.h whefs_hash.h \
+ ../include/wh/whio/whio_streams.h ../include/wh/whio/whio_stream.h \
+ ../include/wh/whio/whio_dev.h
+whefs_client_util.o: whefs_client_util.c whefs_details.c \
+ ../include/wh/whefs/whefs.h ../include/wh/whefs/whefs_config.h \
+ ../include/wh/whefs/whefs_license.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_dev.h ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_stream.h \
+ whefs_inode.h ../include/wh/whefs/whefs_string.h whdbg.h whbits.h \
+ whefs_encode.h ../include/wh/whio/whio_encode.h whefs_hash.h \
+ ../include/wh/whefs/whefs_client_util.h ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_string.h ../include/wh/whglob.h
+whefs_details.o: whefs_details.c ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h whefs_inode.h \
+ ../include/wh/whefs/whefs_string.h whdbg.h whbits.h whefs_encode.h \
+ ../include/wh/whio/whio_encode.h whefs_hash.h
+whefs.o: whefs.c ../include/wh/whefs/whefs_config.h \
+ ../include/wh/whefs/whefs_license.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whefs/whefs.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h whefs_details.c whefs_inode.h \
+ ../include/wh/whefs/whefs_string.h whdbg.h whbits.h whefs_encode.h \
+ ../include/wh/whio/whio_encode.h whefs_hash.h
+whbits.o: whbits.c whbits.h
+whefs_string.o: whefs_string.c ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h ../include/wh/whefs/whefs_string.h
+whefs_block.o: whefs_block.c whefs_details.c ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h whefs_inode.h \
+ ../include/wh/whefs/whefs_string.h whdbg.h whbits.h whefs_encode.h \
+ ../include/wh/whio/whio_encode.h whefs_hash.h
+whio_dev_fileno.o: whio_dev_fileno.c ../include/wh/whio/whio_devs.h \
+ ../include/wh/whio/whio_dev.h ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h
+whio_dev_mem.o: whio_dev_mem.c ../include/wh/whio/whio_devs.h \
+ ../include/wh/whio/whio_dev.h ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h
+whefs_hash.o: whefs_hash.c ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h whefs_hash.h whefs_details.c \
+ whefs_inode.h ../include/wh/whefs/whefs_string.h whdbg.h whbits.h \
+ whefs_encode.h ../include/wh/whio/whio_encode.h
+whefs_cache.o: whefs_cache.c whefs_details.c ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h whefs_inode.h \
+ ../include/wh/whefs/whefs_string.h whdbg.h whbits.h whefs_encode.h \
+ ../include/wh/whio/whio_encode.h whefs_hash.h whefs_cache.h \
+ ../include/wh/whio/whio_devs.h ../include/wh/whio/whio_dev.h
+whefs_encode.o: whefs_encode.c whefs_encode.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_encode.h \
+ ../include/wh/whio/whio_dev.h ../include/wh/whio/whio_common.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whefs/whefs.h \
+ ../include/wh/whio/whio_stream.h
+whefs_hash.o: whefs_hash.h ../include/wh/whefs/whefs_config.h \
+ ../include/wh/whefs/whefs_license.h ../include/wh/whio/whio_config.h
+whefs_cache.o: whefs_cache.h ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h ../include/wh/whefs/whefs_string.h \
+ ../include/wh/whio/whio_devs.h ../include/wh/whio/whio_dev.h
+whefs_encode.o: whefs_encode.h ../include/wh/whefs/whefs_config.h \
+ ../include/wh/whefs/whefs_license.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_encode.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h
+whdbg.o: whdbg.h
+whefs_inode.o: whefs_inode.h ../include/wh/whefs/whefs.h \
+ ../include/wh/whefs/whefs_config.h ../include/wh/whefs/whefs_license.h \
+ ../include/wh/whio/whio_config.h ../include/wh/whio/whio_dev.h \
+ ../include/wh/whio/whio_common.h ../include/wh/whio/whio_config.h \
+ ../include/wh/whio/whio_stream.h ../include/wh/whefs/whefs_string.h
+whbits.o: whbits.h

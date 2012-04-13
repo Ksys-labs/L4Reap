@@ -1,0 +1,320 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, framework, linux, embedded devices, open source, documentation, gui, reference, examples" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation - GUI-Reference</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../css/style.css">
+<body>
+
+<h1 id="gui-examples">GUI examples</h1>
+
+<h2 id="example1">Example 1 - Hello World dialog</h2>
+The dialog manager creates a <a href="windows/mainwindow.html"><span class="inline-code">&lt;mainwindow&gt;</span></a>
+with only one <a href="widgets/label.html"><span class="inline-code">&lt;label&gt;</span></a> widget which
+prints <span class="inline-code">"HELLO WORLD"</span>.
+
+<pre class="codelisting">
+&lt;mmsdialog&gt;
+    &lt;description author="disko-team" email="info@berlinux-solutions.de" desc="example"/&gt;
+    &lt;mainwindow w="600" h="450" alignment="center"&gt;
+        &lt;label text="HELLO WORLD"/&gt;
+    &lt;/mainwindow&gt;
+&lt;/mmsdialog&gt;
+</pre>
+
+<h2 id="example2">Example 2 - Simple Listbox</h2>
+The dialog manager creates a 
+<a href="windows/mainwindow.html"><span class="inline-code">&lt;mainwindow&gt;</span></a>
+with one 
+<a href="widgets/menu.html"><span class="inline-code">&lt;menu&gt;</span></a> 
+widget named <span class="inline-code">listbox</span>. The item template
+of this menu consists of only one 
+<a href="widgets/label.html"><span class="inline-code">&lt;label&gt;</span></a> 
+widget as top-level widget.
+
+<pre class="codelisting">
+&lt;mmsdialog&gt;
+    &lt;mainwindow w="320" h="320"&gt;
+        &lt;menu name="listbox" item_height="32px"&gt;
+            &lt;label margin="1" font.size="22px"/&gt;
+        &lt;/menu&gt;
+    &lt;/mainwindow&gt;
+&lt;/mmsdialog&gt;
+</pre>
+
+<h2 id="example3">Example 3 - Listbox with image</h2>
+The dialog manager creates a 
+<a href="windows/mainwindow.html"><span class="inline-code">&lt;mainwindow&gt;</span></a>
+with one 
+<a href="widgets/menu.html"><span class="inline-code">&lt;menu&gt;</span></a>
+widget with the name <span class="inline-code">listbox</span>. The item
+template of this menu consists of a 
+<a href="widgets/button.html"><span class="inline-code">&lt;button&gt;</span></a>
+widget as top-level widget. This 
+<a href="widgets/button.html"><span class="inline-code">&lt;button&gt;</span></a> has a
+<a href="widgets/hbox.html"><span class="inline-code">&lt;hbox&gt;</span></a> as a child. And the 
+<a href="widgets/hbox.html"><span class="inline-code">&lt;hbox&gt;</span></a> includes an 
+<a href="widgets/image.html"><span class="inline-code">&lt;image&gt;</span></a> and a
+<a href="widgets/label.html"><span class="inline-code">&lt;label&gt;</span></a>.<br />
+<br />
+In your plugin you can access the 
+<a href="widgets/image.html"><span class="inline-code">&lt;image&gt;</span></a> of each item through the name
+<span class="inline-code">listbox_image</span> and the 
+<a href="widgets/label.html"><span class="inline-code">&lt;label&gt;</span></a> 
+through the name <span class="inline-code">listbox_label</span>.
+
+<pre class="codelisting">
+&lt;mmsdialog&gt;
+    &lt;mainwindow w="320" h="320"&gt;
+        &lt;menu name="listbox" item_height="32px"&gt;
+            &lt;button margin="1"&gt;
+                &lt;hbox&gt;
+                    &lt;image name="listbox_image" size="30px"/&gt;
+                    &lt;label name="listbox_label" font.size="22px"/&gt;
+                &lt;/hbox&gt;
+            &lt;/button&gt;
+        &lt;/menu&gt;
+    &lt;/mainwindow&gt;
+&lt;/mmsdialog&gt;
+</pre>
+
+<h2 id="example4">Example 4 - Image Menu</h2>
+The dialog manager creates a 
+<a href="windows/mainwindow.html"><span class="inline-code">&lt;mainwindow&gt;</span></a>
+with one 
+<a href="widgets/menu.html"><span class="inline-code">&lt;menu&gt;</span></a>
+widget with the name <span class="inline-code">images</span>. The item
+template of this menu consists of a 
+<a href="widgets/button.html"><span class="inline-code">&lt;button&gt;</span></a>
+widget as top-level widget. This 
+<a href="widgets/button.html"><span class="inline-code">&lt;button&gt;</span></a>
+has a
+<a href="widgets/vbox.html"><span class="inline-code">&lt;vbox&gt;</span></a>
+as a child. And so on...<br />
+This menu has two columns and two visible rows (50% each item). Each item
+displays an image and a text below it.<br />
+In your plugin you can access the 
+<a href="widgets/image.html"><span class="inline-code">&lt;image&gt;</span></a>
+of each item through the name <span class="inline-code">item_image</span> and the
+<a href="widgets/textbox.html"><span class="inline-code">&lt;textbox&gt;</span></a> 
+through the name <span class="inline-code">&lt;item_textbox</span>.
+
+<pre class="codelisting">
+&lt;mmsdialog&gt;
+    &lt;mainwindow w="320" h="320"&gt;
+        &lt;menu name="images" item_height="50%" item_height="50%"&gt;
+            &lt;button margin="10"/&gt;
+                &lt;vbox&gt;
+                    &lt;hbox&gt;
+                        &lt;hbox size="20%"/&gt;
+                        &lt;image name="item_image"/&gt;
+                        &lt;hbox size="20%"/&gt;
+                    &lt;/hbox&gt;
+                    &lt;textbox name="item_textbox" size="44px" font.size="22px"/&gt;
+                &lt;/vbox&gt;
+            &lt;/button&gt;
+        &lt;/menu&gt;
+    &lt;/mainwindow&gt;
+&lt;/mmsdialog&gt;
+</pre>
+
+<h2 id="example5">Example 5 - Set defaults for <a href="windows/mainwindow.html"><span class="inline-code">&lt;mainwindow&gt;</span></a></h2>
+
+This example demonstrates how you can set/change default values for
+<a href="windows/mainwindow.html"><span class="inline-code">&lt;mainwindow&gt;</span></a>
+with the usage of 
+<a href="mmstheme.html"><span class="inline-code">&lt;mmstheme&gt;</span></a>.
+The window size is set to 90% of the whole screen width and height. The background is light red.
+The window is a little bit transparent (<span class="inline-code">opacity="200"</span>).
+If the window will be shown or hidden the fade effect is used. There are
+four images at the corners of the window. Each of this images should
+have a size of 8x8 pixels (see <span class="inline-code">border.thickness</span>).
+
+<pre class="codelisting">
+&lt;mmstheme&gt;
+    &lt;description author="disko-team" email="info@berlinux-solutions.de" desc="example"/&gt;
+    &lt;mainwindow
+                alignment="center"
+                w="90%"
+                h="90%"
+                bgcolor="#ffa0a0ff"
+                bgimage=""
+                opacity="200"
+                fadein="true"
+                fadeout="true"
+                border.image.path="./themes/default"
+                border.image.top-left="corner1.png"
+                border.image.top-right="corner2.png"
+                border.image.bottom-right="corner3.png"
+                border.image.bottom-left="corner4.png"
+                border.color.a="0"
+                border.selcolor.a="0"
+                border.thickness="8"
+                border.margin="0"
+                border.rcorners="false"
+    /&gt;
+&lt;/mmstheme&gt;
+</pre>
+
+<h2 id="example6">Example 6 - A <a href="widgets/progressbar.html"><span class="inline-code">&lt;progressbar&gt;</span></a> theme class</h2>
+This example demonstrates how you can create a theme class named
+<span class="inline-code">myprogressbar</span>. It is very important to
+set the type to <span class="inline-code">"progressbar"</span>. Thus the
+mapping between class and <a href="elements.html">element</a> can be done.
+After the <span class="inline-code">type</span> attribute some progressbar-specific
+attributes will be set. For example the two pixels wide white border.
+
+<pre class="codelisting">
+&lt;mmstheme&gt;
+    &lt;description author="disko-team" email="info@berlinux-solutions.de" desc="example"/&gt;
+    &lt;class
+           name="myprogressbar"
+           type="progressbar"
+           color="#ff0000ff"
+           bgcolor="#800000ff"
+           margin="1"
+           border.color="#ffffffff"
+           border.thickness="2"
+           border.margin="1"
+           percent="100"
+    /&gt;
+&lt;/mmstheme&gt;
+</pre>
+
+<h2 id="example7">Example 7 - Use a template class <span class="inline-code">right_textbox</span></h2>
+This example demonstrates how you can create a template class.
+It is very important to set the type to <span class="inline-code">"template"</span>. 
+Thus the mapping between class and <a href="elements.html">element</a> can be done.
+The name of the class is <span class="inline-code">right_textbox</span>.
+
+<pre class="codelisting">
+&lt;mmstheme&gt;
+    &lt;class name="right_textbox" type="template"&gt;
+        &lt;hbox&gt;
+            &lt;vbox size="14px"&gt;
+                &lt;image size="4px" image.name="./themes/default/textbox-top-left.png"/&gt;
+                &lt;image image.name="./themes/default/textbox-left.png"/&gt;
+                &lt;image size="4px" image.name="./themes/default/textbox-bottom-left.png"/&gt;
+            &lt;/vbox&gt;
+            &lt;textbox name="mytextbox" 
+			            text="" focusable="false"
+			            alignment="justify" 
+						border.thickness="10" 
+						border.color="#ffffffff"/&gt;
+        &lt;/hbox&gt;
+    &lt;/class&gt;
+&lt;/mmstheme&gt;
+</pre>
+
+Now let's create a dialog that uses this template.<br />
+This dialog displays the text <span class="inline-code">'left text'</span>
+on the left side. On the right it displays the <span class="inline-code">right_textbox</span>.
+The <span class="inline-code">right_textbox</span> displays the text
+<span class="inline-code">'What a wonderful textbox.'</span>. 
+You see that you can access the 
+<a href="widgets/textbox.html"><span class="inline-code">&lt;textbox&gt;</span></a> 
+element <span class="inline-code">mytextbox</span> from the template with
+the attribute <span class="inline-code">widget.mytextbox</span>. All named
+elements in the template can be accessed with the attribute syntax:
+<span class="inline-code">widget.&lt;name&gt;</span>.
+
+<pre class="codelisting">
+&lt;mmsdialog&gt;
+    &lt;mainwindow w="600px" h="340px" alignment="center"&gt;
+        &lt;hbox&gt;
+            &lt;label text="left text"/&gt;
+            &lt;template name="infotext" 
+			             class="right_textbox" 
+						 widget.mytextbox.text="What a wonderful textbox."/&gt;
+        &lt;/hbox&gt;
+    &lt;/mainwindow&gt;
+&lt;/mmsdialog&gt;
+</pre>
+
+<h2 id="example8">Example 8 - Image menu using <a href="mmstheme.html"><span class="inline-code">&lt;mmstheme&gt;</span></a></h2>
+This example demonstrates how to define a complete menu layout within
+<a href="mmstheme.html"><span class="inline-code">&lt;mmstheme&gt;</span></a>
+and using it within a dialog.<br />
+<br />
+The dialog manager creates a 
+<a href="windows/mainwindow.html"><span class="inline-code">&lt;mainwindow&gt;</span></a>
+with one 
+<a href="widgets/menu.html"><span class="inline-code">&lt;menu&gt;</span></a>
+widget with the name <span class="inline-code">images</span> and the
+theme class <span class="inline-code">image_menu</span>. Each item 
+displays an image and a text below. 
+In your plugin you can access the 
+<a href="widgets/image.html"><span class="inline-code">&lt;image&gt;</span></a>
+of each item over the name <span class="inline-code">item_image</span> and the 
+<a href="widgets/image.html"><span class="inline-code">&lt;textbox&gt;</span></a>
+over the name <span class="inline-code">item_textbox</span>.
+
+<pre class="codelisting">
+&lt;mmsdialog&gt;
+    &lt;mainwindow w="320" h="320"&gt;
+        &lt;menu name="images" class="image_menu"/&gt;
+    &lt;/mainwindow&gt;
+&lt;/mmsdialog&gt;
+</pre>
+
+The item template of this menu consists of a 
+<a href="widgets/button.html"><span class="inline-code">&lt;button&gt;</span></a>
+widget as top-level widget. This 
+<a href="widgets/button.html"><span class="inline-code">&lt;button&gt;</span></a>
+has a
+<a href="widgets/vbox.html"><span class="inline-code">&lt;vbox&gt;</span></a>
+as child. And so on...<br />
+This menu has two columns and two visible rows (50% each item).
+
+<pre class="codelisting">
+&lt;mmstheme&gt;
+    &lt;class name="image_menu" type="menu" item_height="50%" item_height="50%"&gt;
+        &lt;button margin="10"/&gt;
+            &lt;vbox&gt;
+                &lt;hbox&gt;
+                    &lt;hbox size="20%"/&gt;
+                    &lt;image name="item_image"/&gt;
+                    &lt;hbox size="20%"/&gt;
+                &lt;/hbox&gt;
+                &lt;textbox name="item_textbox" size="44px" font.size="22px"/&gt;
+            &lt;/vbox&gt;
+        &lt;/button&gt;
+    &lt;/class&gt;
+&lt;/mmstheme&gt;
+</pre>
+
+<h2 id="example9">Example 9 - Create and fill a simple listbox</h2>
+The dialog manager creates a 
+<a href="windows/mainwindow.html"><span class="inline-code">&lt;mainwindow&gt;</span></a>
+with one 
+<a href="widgets/menu.html"><span class="inline-code">&lt;menu&gt;</span></a>
+widget with the name <span class="inline-code">listbox</span>. The item
+template of this menu consists of only one 
+<a href="widgets/label.html"><span class="inline-code">&lt;label&gt;</span></a>
+widget as top-level widget (named <span class="inline-code">mylabel</span>). 
+After creation three items will be added to the <span class="inline-code">listbox</span>
+by the dialogmanager.
+
+<pre class="codelisting">
+&lt;mmsdialog&gt;
+    &lt;mainwindow w="320" h="320"&gt;
+        &lt;menu name="listbox" item_height="32px"&gt;
+            &lt;label name="mylabel" margin="1" font.size="22px"/&gt;
+            &lt;menuitem widget.mylabel.text="First item"/&gt;
+            &lt;menuitem widget.mylabel.text="Second item"/&gt;
+            &lt;menuitem widget.mylabel.text="Third item"/&gt;
+        &lt;/menu&gt;
+    &lt;/mainwindow&gt;
+&lt;/mmsdialog&gt;
+</pre>
+
+<hr />
+
+<a target=_new href="index.html">&lt;&lt;&lt; GUI-Reference</a>
+
+</body>
+</html>

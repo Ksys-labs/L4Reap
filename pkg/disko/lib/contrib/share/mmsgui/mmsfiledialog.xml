@@ -1,0 +1,83 @@
+<mmsdialog>
+    <description
+    	author = "Jens Schneider"
+    	email  = "jens.schneider@diskohq.org"
+    	desc   = ""
+   	/>
+   	<childwindow w="600px" h="450px" bgcolor="#00000000" border.color="#606060ff" border.thickness="1">
+   	    <childwindow w="100%" h="32px" alignment="top-center" show="true" bgcolor="#000060ff">
+			<label name="filedialog_title" alignment = "center" font.path = "" font.size="18" font.name = "FreeSansBold.ttf"
+					color="#ffffffff" text="File Dialog"/>
+   	    </childwindow>
+   	    <childwindow w="100%" h="100%-32" alignment="bottom-center" show="true" bgcolor="#a0a0a0ff">
+   	    	<vbox>
+   	    		<hbox size="10px"/>
+   	    		<hbox>
+	   	    		<hbox size="10px"/>
+	   	    		<vbox>
+						<label name="filedialog_path" size="32px" alignment="left" font.path = "" font.size="18" font.name = "FreeSansBold.ttf"
+								color="#ffffffff" text=""
+								border.margin = "2" border.color="#606060ff" border.selcolor="#606060ff" border.thickness="1"/>
+						<hbox size="10px"/>
+						<hbox>
+							<menu
+								name = "filedialog_filelist"
+								focusable    = "true"
+								item_width   = "50%"
+								item_height  = "24px"
+								item_hmargin = "0"
+								item_vmargin = "0"
+								cols         = "2"
+								margin = "0"
+								bgcolor="#ffffffff"
+								selbgcolor="#ffffffff"
+								trans_items = "96"
+								border.color="#606060ff" border.selcolor="#606060ff" border.thickness="1"
+								vslider="filedialog_slider">
+								<button margin="0" border.thickness="1" selbgcolor="#000060ff" border.selcolor="#606060ff">
+									<label alignment = "left" name="pof" font.path = "" font.size="18" font.name = "FreeSansBold.ttf"
+												color="#000000ff" selcolor="#ffffffff"
+												border.margin="2"/>
+								</button>
+							</menu>
+							<vbox size="21px">
+								<button name="filedialog_up" size="20px" border.color="#606060ff" border.selcolor="#606060ff" border.thickness="1"
+								             bgcolor_p="#808080ff" selectable="false">
+									<arrow direction="up" margin="5" color="#000000ff"/>
+								</button>
+								<slider name="filedialog_slider" border.color="#606060ff" border.selcolor="#606060ff" border.thickness="1"
+										bgcolor="#808080ff" image.name="filedialog_slider.png"/>
+								<button name="filedialog_down" size="20px" border.color="#606060ff" border.selcolor="#606060ff" border.thickness="1"
+								             bgcolor_p="#808080ff" selectable="false">
+									<arrow direction="down" margin="5" color="#000000ff"/>
+								</button>
+							</vbox>
+						</hbox>
+						<hbox size="10px"/>
+						<input name="filedialog_name" size="64px" alignment="left" font.path = "" font.size="18" font.name = "FreeSansBold.ttf"
+								color="#ffffffff" text=""
+								border.margin = "2" border.color="#606060ff" border.selcolor="#606060ff" border.thickness="1"
+								selcolor="#000000ff" selbgcolor="#ffffffff"/>
+						<hbox size="10px"/>
+						<hbox size="32px">
+							<hbox/>
+							<button name="filedialog_ok" size="100px" border.color="#606060ff" border.selcolor="#606060ff" border.thickness="1"
+								bgcolor="#a0a0a0ff" selbgcolor="#808080ff">
+								<label alignment="center" font.path = "" font.size="18" font.name = "FreeSansBold.ttf"
+										color="#000000ff" selcolor="#000000ff" text="OK"/>
+							</button>
+							<hbox size="10px"/>
+							<button name="filedialog_cancel" size="100px" border.color="#606060ff" border.selcolor="#606060ff" border.thickness="1"
+								bgcolor="#a0a0a0ff" selbgcolor="#808080ff">
+								<label alignment="center" font.path = "" font.size="18" font.name = "FreeSansBold.ttf"
+										color="#000000ff" selcolor="#000000ff" text="Cancel"/>
+							</button>
+						</hbox>
+					</vbox>
+	   	    		<hbox size="10px"/>
+				</hbox>
+   	    		<hbox size="10px"/>
+			</vbox>
+   	    </childwindow>
+	</childwindow>
+</mmsdialog>

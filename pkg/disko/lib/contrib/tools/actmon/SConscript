@@ -1,0 +1,32 @@
+Import('env idir_bin')
+
+actmonEnv = env.Clone()
+
+if env['big_lib']:
+	Import('libdisko_shared')
+	actmonEnv['LIBS'] = (['disko']) + actmonEnv['LIBS']
+elif env['static_lib']:
+	Import('libdisko_static')
+	actmonEnv['LIBS'] = (['disko']) + actmonEnv['LIBS']
+else:
+	Import('libmmsinfo libmmsconfig libmmstools libmmsgui libmmscore libmmsinput libmmsbase')
+	if env['media']:
+		Import('libmmsmedia')
+		actmonEnv['LIBS'] = (['mmsmedia', 'mmsinfo', 'mmsconfig', 'mmstools', 'mmsgui', 'mmscore', 'mmsinput', 'mmsbase']) + actmonEnv['LIBS']
+	else:
+		actmonEnv['LIBS'] = (['mmsinfo', 'mmsconfig', 'mmstools', 'mmsgui', 'mmscore', 'mmsinput', 'mmsbase']) + actmonEnv['LIBS']
+
+actmonEnv.Append(LIBPATH = ['../../../lib'])
+actmon = actmonEnv.Program('../../../bin/actmon', Glob('src/*.cpp'))
+
+if env['big_lib']:
+	Depends(actmon, [libdisko_shared])
+elif env['static_lib']:
+	Depends(actmon, [libdisko_static])
+else:
+	Depends(actmon, [libmmsinfo, libmmsconfig, libmmstools, libmmsgui, libmmscore, libmmsinput, libmmsbase])
+	if env['media']:
+		Depends(actmon, [libmmsmedia])
+
+env.Install(idir_bin, actmon)
+Export('actmon')

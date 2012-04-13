@@ -1,0 +1,66 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, framework, linux, embedded devices, open source, documentation, gui, reference, class" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation - GUI-Reference</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../css/style.css">
+<body>
+
+<h1 id="gui-class">Element class</h1>
+
+<h2>Description</h2>
+This element works only for <a href="mmstheme.html">&lt;mmstheme&gt;</a>.
+With the special element <span class="inline-code">&lt;class&gt;</span>
+you can define various classes of the same base element. Each class has
+a unique name. This name can be used to connect an <a href="elements.html">element</a> 
+within the dialog file to a special class defined in the theme file.
+
+<h2>XML-Tag</h2>
+<pre class="inline-code">
+&lt;class&gt;
+</pre>
+
+<h2>Attributes</h2>
+
+<table class="example">
+	<tr>
+		<th>Attribute</th>
+		<th>Description</th>
+	</tr>
+	<tr>
+		<td>name</td>
+		<td>Unique name of the class.</td>
+	</tr>
+	<tr>
+		<td>type</td>
+		<td>The type describes which base element the class represents. 
+		    For example you can use <span class="inline-code">type="mainwindow", type="label", type="menu"</span>
+			and so on (see <a href="elements.html">elements</a>). Based
+			on the element type you can work with element-specific attributes.
+		</td>
+	</tr>
+</table>
+
+<h2>Remarks</h2>
+This element can only be used within <a href="mmstheme.html">&lt;mmstheme&gt;</a>.
+
+<h2>Examples</h2>
+
+<ul>
+	<li><a href="gui-examples.html#example6">A <span class="inline-code">&lt;progressbar&gt;</span> theme class</a></li>
+</ul>
+
+<h2>Related elements</h2>
+<a href="mmstheme.html">&lt;mmstheme&gt;</a>, see <a href="elements.html">elements</a><br />
+<br />
+
+<hr />
+
+<a target=_new href="index.html">&lt;&lt;&lt; GUI-Reference</a>
+
+</body>
+</html>

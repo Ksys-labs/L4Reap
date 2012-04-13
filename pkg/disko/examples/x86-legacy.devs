@@ -1,0 +1,50 @@
+# vim:set ft=ioconfig:
+# extend the real system bus with some platform devices
+hw-root
+{
+  PS2 => new Device()
+  {
+    .hid = "PNP0303";
+    new-res Io(0x60);
+    new-res Io(0x64);
+    new-res Irq(1,  0x000000);
+    new-res Irq(12, 0x000000);
+  }
+
+  RTC => new Device()
+  {
+    .hid = "PNP0B00";
+    new-res Io(0x70 .. 0x71);
+  }
+
+  # port 80 device for giving access to the port 0x80 used for IO-delay...
+  P80 => new Device()
+  {
+    .hid = "P80";
+    new-res Io(0x80);
+  }
+
+  BIOS => new Device()
+  {
+    .hid = "BIOS";
+    new-res Mmio(0x0 .. 0xfff, 0xc000);
+    new-res Mmio(0x9f000 .. 0x9ffff, 0xc000);
+    new-res Mmio(0xc0000 .. 0xfffff, 0xc000);
+  }
+
+  VGA => new Device()
+  {
+    .hid = "PNP0900";
+    new-res Io(0x3b0 .. 0x3bf); # MDA
+    new-res Io(0x3c0 .. 0x3df); # EGA/VGA
+    new-res Mmio(0xa0000 .. 0xbffff, 0xc000);
+  }
+
+  PORT_PIT => new Device()
+  {
+    .hid = "PNP0100";
+    new-res Io(0x40 .. 0x43);
+    new-res Io(0x61);
+  }
+}
+

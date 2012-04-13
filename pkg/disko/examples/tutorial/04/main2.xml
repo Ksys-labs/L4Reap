@@ -1,0 +1,44 @@
+<mmsdialog>
+    <description
+    	author = "disko tutorial"
+    	email  = "disko@morphine.tv"
+    	desc   = ""
+   	/>
+	<mainwindow w="80%" h="80%" margin="0" alignment="center" border.thickness="0" bgcolor="#000000a0"
+	            opacity="255" movein="left" own_surface="true">
+
+	    <childwindow name="childwin1" alignment="top-left" w="120px" h="90px" dx="70px" dy="50px"
+	                 bgcolor="#000000ff" border.thickness="2" border.color="#ffffffff"
+	                 movein="left" fadeout="true" show="true">
+			<label class="myLabelClass" text="childwin1"/>
+		</childwindow>
+
+	    <childwindow name="childwin2" alignment="center" w="120px" h="90px"
+	                 bgcolor="#00000080" border.thickness="4" border.color="#ffff00ff" border.rcorners="true"
+	                 movein="down" moveout="down" show="true">
+			<label class="myLabelClass" text="childwin2"/>
+		</childwindow>
+
+	    <childwindow name="childwin3" alignment="bottom-right" w="120px" h="90px" dx="-70px" dy="-50px"
+	                 bgcolor="#00000000" border.thickness="8" border.color="#ff00ffff" border.rcorners="true"
+	                 movein="down" moveout="left" show="true">
+			<label class="myLabelClass" text="childwin3"/>
+		</childwindow>
+
+	    <childwindow name="childwin4" alignment="center" w="400px" h="300px"
+	                 bgcolor="#80808080" border.thickness="16" border.color="#00ffffff" border.rcorners="true"
+	                 fadein="true" moveout="up" fadeout="true" show="false">
+	        <vbox>
+	        	<hbox/>
+	        	<hbox size="64px">
+	        		<hbox/>
+					<label size="300px" class="myLabelClass" text="childwin4" font.size="48" bgcolor="#000000ff"/>
+					<hbox/>
+				</hbox>
+				<hbox/>
+			</vbox>
+		</childwindow>
+
+	</mainwindow>
+</mmsdialog>
+

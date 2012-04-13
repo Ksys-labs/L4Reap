@@ -1,0 +1,204 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, UI, linux, framebuffer, setup, OMAP, DaVinci" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation - Working with layers and windows</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../css/style.css">
+<body>
+<h1>Working with layers and windows</h1>
+
+<h2>What is a layer?</h2>
+<p>
+A layer represents a framebuffer (fbdev) or under X11 a image which will be put to the XServer via XSHM or XVSHM.
+The resolution of a layer can be set in the diskorc file.
+</p>
+<h3>Graphics section from diskorc to setup the X11 single-layer mode</h3>
+<code>
+<pre class="codelisting" >
+    &lt;graphics&gt;
+        &lt;parameter name="backend"                    value="X11"         /&gt;
+        &lt;parameter name="outputtype"                 value="XSHM"        /&gt;
+        &lt;parameter name="xres"                       value="1024"        /&gt;
+        &lt;parameter name="yres"                       value="768"         /&gt;
+        &lt;parameter name="xpos"                       value="0"           /&gt;
+        &lt;parameter name="ypos"                       value="0"           /&gt;
+        &lt;parameter name="videolayerid"               value="0"           /&gt;
+        &lt;parameter name="videolayerpixelformat"      value="RGB32"       /&gt;
+        &lt;parameter name="videolayerbuffermode"       value="BACKSYSTEM"  /&gt;
+        &lt;parameter name="graphicslayerid"            value="0"           /&gt;
+        &lt;parameter name="graphicslayerpixelformat"   value="RGB32"       /&gt;
+        &lt;parameter name="graphicslayerbuffermode"    value="BACKSYSTEM"  /&gt;
+    &lt;/graphics&gt;
+</pre>
+</code>
+
+<h2>What are windows?</h2>
+<p>
+In Disko we have four window types - Root, Main, Popup and Child windows. Windows are containers for widgets or
+Child windows.
+</p>
+<div style="margin-left:20px;">
+<img src="../pics/layersandwindows.png">
+</div>
+<p>
+Root, Main and Popup windows will be displayed on a layer. Child windows can be used within these three windows.
+Only one Root and Main window can be displayed at the same time. Root windows will normally be used to display media
+streams such as TV, DVD, Video. Main windows normally shows the switcher and the context menu.
+</p>
+<p>
+The size of windows can be set in pixels or in percent. The percent value is related to the layer size for Root, Main
+and Popup windows. The size of a Child window is related to the size of the parent window. 
+You should use percent values in your application wherever possible. So the port to different layer resolutions will
+be alleviated. For example to get a full screen window you should use 100% for it's width and height. So it will be
+dynamically fit to the layer size.
+</p>
+<code>
+<pre class="codelisting" >
+    &lt;mainwindow name="mywindow" w="100%" h="100%"&gt;
+        &lt;button name="button1" bgcolor="#800000ff" selbgcolor="#ff0000ff"/&gt;
+        &lt;button name="button2" bgcolor="#008000ff" selbgcolor="#00ff00ff"/&gt;
+        &lt;button name="button3" bgcolor="#000080ff" selbgcolor="#0000ffff"/&gt;
+    &lt;/mainwindow&gt;
+</pre>
+</code>
+
+<h2>Video and Graphics layer</h2>
+<p>
+Any application based on the Disko framework is a two layer application. This is independent from the underlaying
+hardware, framebuffer, etc. We use the video layer to display different kind of media streams and the graphics layer
+for the On-Screen-Display. In the diskorc file you specify, if your system supports (and if you want to use) two
+layers. In single-layer mode, the video and graphics layer will be automatically merged without changing your
+application.
+</p>
+<p>
+Main and Popup windows will always be displayed on the graphics layer. Root windows can also be displayed on the
+graphics layer, but can be displayed on the video layer too (if two-layer mode is enabled in diskorc). You have to
+specify the MMSW_VIDEO flag if you want to play media streams on a MMSRootWindow which should be reside on the video
+layer (if two-layer mode is enabled in diskorc). 
+</p>
+<code>
+<pre class="codelisting" >
+    // construct the root window with MMSW_VIDEO flag
+    // in two-layer-mode it will be displayed directly on the video layer (layer surface will be used)
+    // in single-layer-mode it will be displayed in the background (lowest level in the window stack)
+    MMSRootWindow *window = new MMSRootWindow("", "100%", "100%", MMSALIGNMENT_CENTER, MMSW_VIDEO);
+    if (window) {
+        // fill it white
+        window->setBgColor(MMSFBColor(0xff,0xff,0xff,0xff));
+        // show it
+        window->show();
+    }
+</pre>
+</code>
+
+<h2>Single-layer mode</h2>
+<p>
+If you use the X11 backend or a framebuffer which supports only one layer, you configure the videolayer and the
+graphicslayer to the same id - normally set it to zero. It is also possible to setup the graphicslayer only. Then
+Disko assumes, that the video layer is the same. The above-named MMSW_VIDEO flag will be ignored. 
+</p>
+<h3>Graphics section from diskorc to setup X11/XVSHM</h3>
+<code>
+<pre class="codelisting" >
+    &lt;graphics&gt;
+        &lt;parameter name="backend"         value="X11"        /&gt;
+        &lt;parameter name="outputtype"      value="XVSHM"      /&gt;
+        &lt;graphicslayer&gt;
+            &lt;parameter name="id"          value="0"          /&gt;
+            &lt;parameter name="xres"        value="800"        /&gt;
+            &lt;parameter name="yres"        value="600"        /&gt;
+            &lt;parameter name="xpos"        value="0"          /&gt;
+            &lt;parameter name="ypos"        value="0"          /&gt;
+            &lt;parameter name="pixelformat" value="YV12"       /&gt;
+            &lt;parameter name="options"     value=""           /&gt;
+            &lt;parameter name="buffermode"  value="BACKSYSTEM" /&gt;
+        &lt;/graphicslayer&gt;
+    &lt;/graphics&gt;
+</pre>
+</code>
+
+<h2>Two-layer mode</h2>
+<p>
+In this mode, the media streams can be put directly to the separate video layer. The blending of video and OSD will
+be done by the hardware. The layer settings are dependent on the backend (FBDEV, X11, DFB) and the particular
+outputtype (STDFB, OMAPFB, XVSHM, XSHM, DAVINCIFB, MATROXFB, ...). It is possible to use different resolutions for
+both layers.
+</p>
+<h3>Graphics section from diskorc to setup the davinci framebuffer with video and transparent OSD layer</h3>
+<code>
+<pre class="codelisting" >
+    &lt;graphics&gt;
+        &lt;parameter name="backend"         value="FBDEV"      /&gt;
+        &lt;parameter name="outputtype"      value="DAVINCIFB"  /&gt;
+        &lt;graphicslayer&gt;
+            &lt;parameter name="id"          value="0"          /&gt;
+            &lt;parameter name="xres"        value="720"        /&gt;
+            &lt;parameter name="yres"        value="480"        /&gt;
+            &lt;parameter name="xpos"        value="0"          /&gt;
+            &lt;parameter name="ypos"        value="0"          /&gt;
+            &lt;parameter name="pixelformat" value="ARGB3565"   /&gt;
+            &lt;parameter name="options"     value=""           /&gt;
+            &lt;parameter name="buffermode"  value="BACKSYSTEM" /&gt;
+        &lt;/graphicslayer&gt;
+        &lt;videolayer&gt;
+            &lt;parameter name="id"          value="1"          /&gt;
+            &lt;parameter name="xres"        value="640"        /&gt;
+            &lt;parameter name="yres"        value="480"        /&gt;
+            &lt;parameter name="xpos"        value="0"          /&gt;
+            &lt;parameter name="ypos"        value="0"          /&gt;
+            &lt;parameter name="pixelformat" value="YUY2"       /&gt;
+            &lt;parameter name="options"     value=""           /&gt;
+            &lt;parameter name="buffermode"  value="BACKSYSTEM" /&gt;
+        &lt;/videolayer&gt;
+    &lt;/graphics&gt;
+</pre>
+</code>
+<h3>Note</h3>
+<p>
+For applications it is not recommended to put decoded stream data directly to the surface of the video layer.
+Applications should always use Root windows with the MMSW_VIDEO flag for that. You can get access to the surface of
+the window and play streams on it or use the Disko media classes MMSAV, MMSTV, MMSDVD and MMSVideo to play your media
+sources to your Root window.
+</p>
+
+<h2>Example: playing a video</h2>
+<p>
+Using the Disko framework it is very simple to play any media sources. Here we show the usage of the MMSVideo class
+which is derived from MMSAV class. At first we create a new Root window, make it visible and construct a new MMSVideo
+class with it. MMSVideo will use the surface of the window to display the stream. This code works with any layer
+settings from diskorc (especially single- or two-layer mode). In two-layer mode the decoded stream will be directly
+put to the video layer. 
+</p>
+<code>
+<pre class="codelisting" >
+    // construct the root window with MMSW_VIDEO flag
+    // in two-layer-mode it will be displayed directly on the video layer (layer surface will be used)
+    // in single-layer-mode it will be displayed in the background (lowest level in the window stack)
+    MMSRootWindow *window = new MMSRootWindow("", "100%", "100%", MMSALIGNMENT_CENTER, MMSW_VIDEO);
+    MMSVideo *video = NULL;
+    if (window) {
+        // show it
+        window->show();
+        // construct video class
+        video = new MMSVideo(window);
+    }
+    if (video) {
+        // play a video
+        video->startPlaying("videofile_or_uri");
+    }
+</pre>
+</code>
+
+<p>If there are any flaws or mistakes in this article. Just feel free to report this at our <a href="http://www.diskohq.org/forum">Forum</a></p>
+
+<hr />
+
+<a href="index.html">&lt;&lt;&lt; HowTos</a>
+
+</body>
+</html>
+

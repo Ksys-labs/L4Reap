@@ -1,0 +1,26 @@
+# TODO: optimize installation of headers
+
+import os
+import scons.helpers
+Import('env idir_lib idir_inc idir_data')
+
+sourceFiles = scons.helpers.findFiles(env['TOP_DIR'] + '/src/mmsgui', '*.cpp')
+
+if not env['big_lib'] and not env['static_lib']:
+	Import('libmmsinfo')
+	libmmsgui = env.SharedLibrary(env['TOP_DIR'] + '/lib/libmmsgui', sourceFiles, LIBS = "")
+	env.Requires(libmmsgui, libmmsinfo)
+	env.Install(idir_lib, libmmsgui)
+	Export('libmmsgui')
+	
+headerFiles = scons.helpers.findFiles(env['TOP_DIR'] + '/inc/mmsgui', '*.h')
+for header in headerFiles:
+	env.Install(os.path.dirname(header.replace(env['TOP_DIR'] + '/inc/mmsgui', idir_inc + '/mmsgui')), header)
+
+share = Glob(env['TOP_DIR'] + '/share/mmsgui/*')
+env.Install(idir_data + '/mmsgui', share)
+
+share = Glob(env['TOP_DIR'] + '/share/themes/*')
+env.Install(idir_data + '/themes', share)
+
+env['diskoSources'].append(sourceFiles)

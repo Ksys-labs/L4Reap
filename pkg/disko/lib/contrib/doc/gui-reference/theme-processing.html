@@ -1,0 +1,137 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, framework, linux, embedded devices, open source, documentation, gui, reference, theme, themes" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation - GUI-Reference</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../css/style.css">
+<body>
+
+<h1 id="gui-themeprocessing">Working with themes</h1>
+
+<h2>How are themes stored?</h2>
+There is a subdirectory for each theme. The name of this directory is the
+name of the theme. The directory includes the file theme.xml where the
+definition of the theme classes are stored. Additionally images and fonts
+which are used by the theme can be stored under this theme directory.
+
+<h2>Switch to another theme</h2>
+To change the theme you have to edit the <i>diskorc.xml</i>
+located under your applications <i>&lt;install path&gt;/etc</i> (<b>Note:</b> The filename
+and location may differ depending on how you load your configuration).<br />
+Change the value of the parameter <span class="inline-code">"theme"</span>. 
+Per default it is set to <span class="inline-code">"default"</span>.
+
+<h2>Global and plugin specific themes</h2>
+Global themes are themes which are available for all plugins. These themes
+will usually be stored under <i>&lt;install path&gt;/themes</i>.<br />
+<br />
+Plugin specific themes includes necessary adjustments for the global themes
+needed by the plugin. That means plugins should use the global themes but
+can change or add theme classes. Plugin specific themes will be stored under
+<i>&lt;install path&gt;/plugins/&lt;plugin name&gt;/themes</i>.<br />
+<br />
+Your application should have at least the global <span class="inline-code">default</span>
+theme.
+
+<h2>The four internal theme processing levels</h2>
+If your plugin creates a dialog (usually with the dialog manager) the GUI
+internally searches for the requested window or widget theme classes.<br />
+<br />
+This search is carried out in the following four levels. In this example
+we assume that the current theme (set in <i>diskorc.xml</i>) is
+<span class="inline-code">white_theme</span> and the plugin name is 
+<span class="inline-code">myplugin</span>:<br />
+<br />
+Level 1: Search in <i>&lt;install path&gt;/plugins/myplugin/themes/white_theme/theme.xml</i><br />
+Level 2: Search in <i>&lt;install path&gt;/plugins/myplugin/themes/default/theme.xml</i><br />
+Level 3: Search in <i>&lt;install path&gt;/themes/white_theme/theme.xml</i><br />
+Level 4: Search in <i>&lt;install path&gt;/themes/default/theme.xml</i><br />
+<br />
+<b>Note</b>:<br />
+<ul>
+<li>If the theme class will not be found in all four levels, 
+default values for the particular window or widget type will be used.</li>
+<li>If the theme class is multiple specified in more than one level
+(maybe in all four levels), the class values will be overloaded beginning
+from level four to level one.</li>
+<li>The level four is required. The other three levels are optional.</li>
+<li>If the levels one to three do not exist (e.g. the current configured
+theme name from <i>diskorc.xml</i> does not exist and/or the plugin has
+no specific theme files), the system works with level four only.</li>
+</ul>
+
+<h2>Example</h2>
+Here we are defining a theme class of the <a href="widgets/arrow.html">
+<span class="inline-code">&lt;arrow&gt;</span></a> widget. We demonstrate the
+four levels of theme processing.<br />
+<br />
+The current theme is <span class="inline-code">"blue_eye"</span> and the
+plugin name is <span class="inline-code">"explugin"</span>.
+We begin with level four.<br />
+<br />
+Level 4: <i>&lt;install path&gt;/themes/default/theme.xml</i>
+
+<pre class="codelisting">
+&lt;mmstheme&gt;
+    &lt;class
+        name = "myarrow"
+        type = "arrow"
+        bgcolor = "#000080ff"
+    /&gt;
+&lt;/mmstheme&gt;
+</pre>
+
+Level 3: <i>&lt;install path&gt;/themes/blue_eye/theme.xml</i>
+
+<pre class="codelisting">
+&lt;mmstheme&gt;
+    &lt;class
+        name = "myarrow"
+        type = "arrow"
+        bgcolor = "#0000b0ff"
+    /&gt;
+&lt;/mmstheme&gt;
+</pre>
+
+Level 2: <i>&lt;install path&gt;/plugins/explugin/themes/default/theme.xml</i>
+
+<pre class="codelisting">
+&lt;mmstheme&gt;
+    &lt;class
+        name = "myarrow"
+        type = "arrow"
+        direction = "left"
+    /&gt;
+&lt;/mmstheme&gt;
+</pre>
+
+Level 1: <i>&lt;install path&gt;/plugins/explugin/themes/blue_eye/theme.xml</i>
+
+<pre class="codelisting">
+&lt;mmstheme&gt;
+    &lt;class
+        name = "myarrow"
+        type = "arrow"
+        bgcolor = "#00000000"
+    /&gt;
+&lt;/mmstheme&gt;
+</pre>
+
+The result is an arrow class <span class="inline-code">myarrow</span> with
+the following values:<br />
+<ul>
+    <li><span class="inline-code">bgcolor</span> is not set (<span class="inline-code">"#00000000"</span>)</li>
+    <li><span class="inline-code">color</span> is set to <span class="inline-code">"#0000b0ff"</span></li>
+    <li><span class="inline-code">direction</span> is set to <span class="inline-code">"left"</span></li>
+</ul>
+
+<hr />
+
+<a target=_new href="index.html">&lt;&lt;&lt; GUI-Reference</a>
+
+</body>
+</html>

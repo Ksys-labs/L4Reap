@@ -1,0 +1,44 @@
+Disko - An application framework for digital media devices
+==============================================================================
+
+For information about disko take a look at <http://www.diskohq.org>.
+
+------------------------------------------------------------------------------
+1. Howto install disko?
+------------------------------------------------------------------------------
+
+Generally you would do the following:
+
+    # tar -jxvf disko-<version>.tar.bz2
+    # cd disko-<version>
+    # scons -h
+    # followed by the selection of parameters by your choice
+    # scons install
+    
+This will install disko into /usr. If you want to
+install it somewhere else, you can set the prefix option in the scons commandlne.
+
+If you choose to compile disko with other parameters, it is recommended to issue a 
+
+    # scons -c
+    
+before you do so. Every other approach will lead to unexpected results! 
+    
+------------------------------------------------------------------------------
+2. What about documentation?
+------------------------------------------------------------------------------
+
+We are using doxygen (http://www.doxygen.org) to create documentation
+from our code.
+
+To create it, just enter:
+    
+    # scons doc
+    
+Now there will be a directory disko-<version>/doc/html. Point your browser
+to index.html and you will have access to our doxgen API documentation.
+
+
+have fun
+the Disko team
+

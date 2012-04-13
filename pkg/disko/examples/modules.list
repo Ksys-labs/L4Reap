@@ -1,0 +1,91 @@
+# vim:set ft=l4mods:
+# Module configuration file for single image mode
+#
+# kernel, sigma0 and moe are always loaded automatically
+#
+# add kernel command line arguments with
+#  kernel fiasco arguments...
+# the seconds argument here is the binary name
+#
+# add sigma command line arguments with
+#  sigma0 sigma0 arguments...
+# the second sigma0 is the binary name
+#
+# add roottask command line arguments with
+#  roottask moe arguments...
+# the second roottask is the binary name
+#
+# modaddr: address where modules start, relative to begin of RAM
+#   this statement is either global (before first entry statement)
+#   or per entry
+#
+# 'module' variants
+# - module file: add file
+# - module-glob /some/path/*.foo: add all file matching
+# - module-perl perl-code: Perl code returns array of files to include
+# - moe file.cfg: expands to
+#        roottask moe rom/file.cfg
+#        module file.cfg
+#
+# Define a module group:
+#  group oftenneedthose
+#  module one
+#  module two
+#  module ...
+#
+# Use a module group:
+#  entry someentry
+#  module-group oftenneedthose
+#
+# Set defaults:
+# - default-kernel: set default kernel including arguments
+# - default-sigma0: set default sigma0 including arguments
+# - default-roottask: set default roottask including arguments
+
+modaddr 0x01100000
+
+
+entry disko-01-x86
+roottask moe rom/disko-t01.cfg
+module l4re
+module ned
+module disko-t01.cfg
+module x86-legacy.devs
+module l4lx-x86.io
+module io
+module fb-drv
+module disko-tutorial-01
+module diskorc.xml
+module inputmap.xml
+module DejaVuSansMono.ttf
+module disko.whefs
+
+entry disko-04-x86
+roottask moe rom/disko-t04.cfg
+module l4re
+module ned
+module disko-t04.cfg
+module x86-legacy.devs
+module l4lx-x86.io
+module io
+module fb-drv
+module disko-tutorial-04
+module diskorc.xml
+module inputmap.xml
+module DejaVuSansMono.ttf
+module disko.whefs
+
+entry disko-05-x86
+roottask moe rom/disko-t05.cfg
+module l4re
+module ned
+module disko-t05.cfg
+module x86-legacy.devs
+module l4lx-x86.io
+module io
+module fb-drv
+module disko-tutorial-05
+module diskorc.xml
+module inputmap.xml
+module DejaVuSansMono.ttf
+module disko.whefs

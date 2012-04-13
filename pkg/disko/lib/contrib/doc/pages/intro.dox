@@ -1,0 +1,66 @@
+/**
+ * \defgroup mmslibs Disko Libraries
+ * \{
+ *   \defgroup mmsbase Base Libraries (mmsbase)
+ *     Implementation of basic Disko features like plugin and event handling.
+ *
+ *   \defgroup mmsconfig Configuration (mmsconfig)
+ *     Handling of plugin configuration settings.
+ *
+ *   \defgroup mmscore Core features (mmscore)
+ *     Basic Disko features on a more abstract level than provided by the Base Libraries.
+ *
+ *   \defgroup mmsflash Flash support (mmsflash)
+ *     Implementation of flash support.
+ *
+ *   \defgroup mmsgui Graphical user interface (mmsgui)
+ *     Classes for handling everything GUI related.
+ *
+ *   \defgroup mmsinfo Installation specific settings (mmsinfo)
+ *     Functions to get settings regarding the Disko installation.
+ *
+ *   \defgroup mmsinput Input handling (mmsinput)
+ *     Input handling classes.
+ *
+ *   \defgroup mmsmedia Media playback (mmsmedia)
+ *     Classes to implement audio and video playback.
+ *
+ *   \defgroup mmstools Generic helper classes (mmstools)
+ *   \ingroup mmslibs
+ *     Helpful classes that didn't fit in any category.
+ * \}
+ *
+ * \defgroup tools Disko Tools
+ * \{
+ *    \defgroup taff Taff
+ *    \ingroup tools
+ *      Commandline-Tool to generate TAFF files from dialog files and images.
+ *
+ * \}
+ */
+
+/** \mainpage Disko
+ *
+ * \htmlonly
+ * <div align="center">
+ * <a href="start.html"><img src="disko_claimed_blkontransp.png" alt="More..." border="0"></a>
+ * </div>
+ * \endhtmlonly
+ */
+
+/** \page start Disko API Reference
+ *
+ * Disko is a LGPL-licensed application framework, that can be used to develop GUI applications for
+ * embedded devices. It uses different backends for graphics and it is specialised in touchscreen
+ * and remote control navigation. It provides a plugin based management component, which enables
+ * easy writing and extending embedded applications. 
+ * Media playback (DVD, DVB, IPTV and audio streams) is provided by the well known xine media library
+ * or gstreamer.
+ * 
+ * For further information go to <a href="http://www.diskohq.com">www.diskohq.com</a> or directly
+ * to the <a href="../installation/ubuntu.html">documentation section</a>.
+ *
+ * A good starting point for the API reference is the <a href="modules.html">overview of our modules</a>.
+ *
+ * If you have any questions, feel free to join our <a href="http://ml.diskohq.com/cgi-bin/mailman/listinfo/disko-devel">mailing list</a>.
+ */

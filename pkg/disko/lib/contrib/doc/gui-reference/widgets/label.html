@@ -1,0 +1,122 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, framework, linux, embedded devices, open source, documentation, gui, reference, widget, label" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation - GUI-Reference</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../../css/style.css">
+<body>
+
+<h1 id="gui-label">Label</h1>
+
+<h2>Description</h2>
+Specifies a label. A label is a widget which can be selected but not focused.
+
+<h2>XML-Tag</h2>
+<pre class="inline-code">
+&lt;label&gt;
+</pre>
+
+<h2>Attributes</h2>
+
+<table class="example">
+	<tr>
+		<th>Attribute</th>
+		<th>Domain</th>
+		<th>Default Value</th>
+		<th>Description</th>
+	</tr>
+	<tr>
+		<td>color</td>
+		<td><a href="general.html#colors">color</a></td>
+		<td class="inline-code">"#C0C0C0FF"</td>
+		<td>Specifies the color of the text.</td>
+	</tr>
+	<tr>
+		<td>selcolor</td>
+		<td><a href="general.html#colors">color</a></td>
+		<td class="inline-code">"#FFFFFFFF"</td>
+		<td>Specifies the color of the text which will be used if the element is selcted.</td>
+	</tr>
+	<tr>
+		<td>alignment</td>
+		<td><a href="#alignments">alignment</a></td>
+		<td class="inline-code">"center"</td>
+		<td>Specifies the color of the text which will be used if the element is selcted.</td>
+	</tr>
+	<tr>
+		<td>translate</td>
+		<td>boolean</td>
+		<td class="inline-code">"false"</td>
+		<td>If set to <span class="inline-code">"true"</span>, the internal
+		    translation feature is used. For more info look <a href="../../howtos/translations.html">here</a>.</td>
+	</tr>
+</table>
+
+Additionally all <a href="general.html">general attributes</a> can be used.
+
+<h2 id="alignment">Alignment values</h2>
+
+<table class="example">
+	<tr>
+		<th>Value</th>
+		<th>Description</th>
+	</tr>
+	<tr>
+		<td>center</td>
+		<td>Horizontally and vertically centered.</td>
+	</tr>
+	<tr>
+		<td>left</td>
+		<td>Left-aligned and vertically centered.</td>
+	</tr>
+	<tr>
+		<td>right</td>
+		<td>Right-aligned and vertically centered.</td>
+	</tr>
+	<tr>
+		<td>top-center</td>
+		<td>Top-aligned and horizontally centered.</td>
+	</tr>
+	<tr>
+		<td>top-left</td>
+		<td>Top- and left-aligned.</td>
+	</tr>
+	<tr>
+		<td>top-right</td>
+		<td>Top- and right-aligned.</td>
+	</tr>
+	<tr>
+		<td>bottom-center</td>
+		<td>Bottom-aligned and horizontally centered.</td>
+	</tr>
+	<tr>
+		<td>bottom-left</td>
+		<td>Bottom- and left-aligned.</td>
+	</tr>
+	<tr>
+		<td>bottom-right</td>
+		<td>Bottom- and right-aligned.</td>
+	</tr>
+</table>
+
+<h2>Remarks</h2>
+This element can be used within <a href="../mmsdialog.html">&lt;mmsdialog&gt;</a>
+and <a href="../mmstheme.html">&lt;mmstheme&gt;</a>.<br />
+This element can have a maximum of one child widget.
+
+<h2>Related elements</h2>
+<a href="../mmsdialog.html">&lt;mmsdialog&gt;</a>,
+<a href="../mmstheme.html">&lt;mmstheme&gt;</a>,
+<a href="../elements.html">elements</a><br />
+<br />
+
+<hr />
+
+<a target=_new href="../index.html">&lt;&lt;&lt; GUI-Reference</a>
+
+</body>
+</html>

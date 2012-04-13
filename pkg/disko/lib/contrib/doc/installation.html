@@ -1,0 +1,219 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, framework, linux, embedded devices, open source, documentation, installation" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation</title>
+</head>
+<link rel="stylesheet" type="text/css" href="css/style.css">
+<body>
+
+<h1 id="installation">Installation</h1>
+The installation of Disko is highly customizable. Since lots of developers
+asked for a minimal installation, we provide the steps to do so. Based on
+this, you can add the features you want, as you can see in the following
+sections.
+
+<h2 id="installation-minimal">Minimal installation</h2>
+To use basic disko features but avoid the installation of lots of
+dependencies, you can use this type of installation. You still have to
+install some packages first. Usually your distribution will provide them,
+if not, you can use the download links.
+
+<h3>Required packages</h3>
+<ul class="example-bullets" >
+	<li><a href="http://gcc.gnu.org">g++</a></li>
+	<li><a href="http://pkg-config.freedesktop.org/wiki">pkg-config</a></li>
+	<li><a href="http://www.scons.org">scons</a></li>
+	<li><a href="http://libsigc.sourceforge.net">libsigc++</a></li>
+	<li><a href="http://xmlsoft.org">libxml2</a> - minimal version 2.6</li>
+	<li><a href="http://www.freetype.org/index2.html">freetype2</a></li>
+</ul>
+
+Now you're ready to choose the graphics backend, you're going to use.
+The following table shows the available backends as well as their
+dependencies:
+
+<table class="example">
+	<tr>
+		<th>Graphics backend</th>
+		<th>Dependencies</th>
+	</tr>
+	<tr>
+		<td>FBDev</td>
+		<td>Kernel-Headers</td>
+	</tr>
+	<tr>
+		<td>X11</td>
+		<td><a href="http://www.x.org">libx11</a></td>
+	</tr>
+	<tr>
+		<td></td>
+		<td><a href="http://www.x.org">libxv</a></td>
+	</tr>
+	<tr>
+		<td></td>
+		<td><a href="http://www.x.org">libxxf86vm</a></td>
+	</tr>
+	<tr>
+		<td>DirectFB</td>
+		<td><a href="http://www.directfb.org">http://www.directfb.org</a></td>
+	</tr>
+</table>
+
+Then you have to choose one database backend. Here is a list of the
+supported ones and their dependencies:
+
+<table class="example">
+	<tr>
+		<th>Database backend</th>
+		<th>Dependencies</th>
+	</tr>
+	<tr>
+		<td>SQLite3</td>
+		<td><a href="http://www.sqlite.org">http://www.sqlite.org</a></td>
+	</tr>
+	<tr>
+		<td>MySQL</td>
+		<td><a href="http://www.mysql.com">http://www.mysql.com</a></td>
+	</tr>
+	<tr>
+		<td>ODBC</td>
+		<td><a href="http://www.unixodbc.org">http://www.unixodbc.org</a></td>
+	</tr>
+</table>
+
+<h3>Building and Installing</h3>
+After you have finished installing the required packages described in the
+previous section, you can start building the Disko-Framework.
+
+<pre class="codelisting">
+# cd &lt;path to disko directory&gt;
+# scons graphics=[fbdev|x11|dfb]
+# scons [prefix=...] install
+</pre>
+
+The parameter <span class="inline-code">graphics</span> lets you choose
+the graphics backend.<br />
+<br />
+The database backend will be chosen automatically by checking the 
+installed requirements (priority order: SQLite3, MySQL, ODBC).
+If you want to choose it manually, use the <span class="inline-code">database</span>
+option (i.e. <span class="inline-code">database=sqlite3</span>).<br />
+<br />
+<span class="inline-code">prefix</span> is used to determine the location of
+your disko installation. The default is <span class="inline-code">/usr</span>.<br />
+<br />
+<b>Note:</b> Remember to set the environment variable 
+<span class="inline-code">PKG_CONFIG_PATH</span> if you are installing to
+an extraordinary location.
+
+<h2 id="installation-media">Using a media backend</h2>
+If you meet all requirements of the <a href="#installation-minimal">minimal installation</a>
+and want to use media playback facilities, you can choose between xine and/or gstreamer.
+
+<h3 id="installation-media-xine">xine</h3>
+At first you have to install <a href="http://www.xine-project.org">libxine</a>. Please
+install at least version 1.1.15 otherwise disko won't compile.<br />
+<br />
+Now you can build disko with the parameter <span class="inline-code">media=xine</span>
+to enable xine-support.
+
+<h3 id="installation-media-gstreamer">gstreamer</h3>
+Disko was and is using libxine for media playback for good reason for years now.
+In the last years GStreamer developed into a very serious alternative
+on embedded devices. Now that TI is going to support GStreamer for their
+Davinci and OMAP platforms there is a way to add GSreamer support to Disko.<br />
+Actually thats a bit tricky, because a little bootstrapping needs to be done here.
+This section will create a basic GSTreamer instance from scratch, not
+using any distribution GStreamer packages.<br />
+<br />
+We assume that you have already a working disko installation. If not, see
+<a href="#installation-minimal">here</a>. To install gstreamer there are
+some more dependencies. Probably your distribution will have packaged them.
+
+<ul class="example-bullets" >
+	<li><a href="http://http://www.gnu.org/software/bison">bison</a></li>
+	<li><a href="http://flex.sourceforge.net">flex</a></li>
+	<li><a href="http://ftp.gnome.org/pub/gnome/sources/glib/2.20/">glib</a></li>
+</ul>
+
+Once you meet all dependencies, you can start by downloading and installing GStreamer:<br />
+<pre class="codelisting" >
+# wget http://gstreamer.freedesktop.org/src/gstreamer/gstreamer-0.10.23.tar.bz2
+# tar jxf gstreamer-0.10.23.tar.bz2
+# cd gstreamer-0.10.23
+# ./configure [--prefix=&lt;gstreamer-location&gt;] && make && make install;
+</pre>
+If you are using <span class="inline-code">--prefix</span>, don't forget
+to set <span class="inline-code">PKG_CONFIG_PATH</span>:
+<pre class="codelisting">
+# export PKG_CONFIG_PATH=&lt;gstreamer-location&gt;/lib/pkgconfig
+</pre>
+
+Now you can install the GStreamer base plugins:
+<pre class="codelisting">
+# wget http://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-0.10.23.tar.bz2
+# tar jxf gst-plugins-base-0.10.23.tar.bz2
+# cd gst-plugins-base-0.10.23
+# ./configure [--prefix=&lt;gstreamer-location&gt;] && make && make install;
+</pre>
+
+And now the bad plugins. Naturally the Disko output plugin resides here, 
+as we plan to propose Disko to be added to the GStreamer upstream.
+<pre class="codelisting">
+# wget http://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-0.10.12.tar.bz2
+# tar jxf gst-plugins-bad-0.10.13.tar.bz2
+# cd gst-plugins-bad-0.10.13
+</pre>
+
+Before the bad plugins are installed the disko patch has to be applied. 
+It can be found in the disko source tree as <i>ext/gst-plugins-bad-0.10.13_diskovideosink.diff.</i>
+<pre class="codelisting">
+# patch -Np1 &lt; gst-plugins-bad-0.10.13_diskovideosink.diff
+</pre>
+
+After that compile and install the plugins the usual way. Make sure that
+the <span class="inline-code">PKG_CONFIG_PATH</span> includes the current
+disko installation. 
+<pre class="codelisting">
+# ./configure [--prefix=&lt;gstreamer-location&gt;] && make && make install;
+</pre>
+
+After gstreamer is installed, Disko needs to be rebuilt. This is necessary
+to compile the now provided GStreamer support into the Disko installation.
+This process is needed because disko is a single package within the SCons
+build system. This should be fixed somewhen, but today this seems to be
+sufficent for testing.<br />
+<br />
+If the <span class="inline-code">PKG_CONFIG_PATH</span> is set correctly
+and scons is invoked with the parameter <span class="inline-code">media=gstreamer</span>,
+the build should result in a Disko installation supporting GStreamer.<br />
+<br />
+<b>Some words on how it works:</b><br />
+Multimedia playback is done using the mmsmedia component. Using xine as
+backend made the handling of different content fairly easy, by using
+MRLs to identify sources. GStreamer does not support this by its engine.
+Therefore we are using the GSTreamer <i>playbin</i> plugin to achieve
+this result.<br />
+<br />
+To cut a long story short, from the application point of view there are
+no changes to be made. An application like <a href="http://www.morphine.tv">Morphine.TV</a>
+is working without any change on GStreamer.
+
+<h3 id="installation-media-mixer">Mixer facilities</h3>
+The mixer classes of mmsmedia provide a simple interface to access
+volume settings of your soundcard.<br />
+To install the mixer classes, you have to install
+<a href="http://www.alsa-project.org">alsa-libs</a> first. In Debian
+based distributions the package is named <i>libasound2-dev</i>. Now the mixer
+will be enabled automatically if using one of the media backends.
+
+<hr />
+
+<a href="index.html">&lt;&lt;&lt; Overview</a>
+
+</body>
+</html>

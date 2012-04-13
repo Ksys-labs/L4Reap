@@ -1,0 +1,156 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, framework, linux, embedded devices, open source, documentation, gui, reference, widget, textbox" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation - GUI-Reference</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../../css/style.css">
+<body>
+
+<h1 id="gui-textbox">Textbox</h1>
+
+<h2>Description</h2>
+Specifies a textbox. A textbox is a widget which can be selected and focused.
+
+<h2>XML-Tag</h2>
+<pre class="inline-code">
+&lt;textbox&gt;
+</pre>
+
+<h2>Attributes</h2>
+
+<table class="example">
+	<tr>
+		<th>Attribute</th>
+		<th>Domain</th>
+		<th>Default Value</th>		
+		<th>Description</th>
+	</tr>
+	<tr>
+		<td>font.path</td>
+		<td>string</td>
+		<td class="inline-code">""</td>
+		<td>Specifies the directory where the font file is located.</td>
+	</tr>
+	<tr>
+		<td>font.name</td>
+		<td>string</td>
+		<td class="inline-code">""</td>
+		<td>Specifies the filename of the font to use.</td>
+	</tr>
+	<tr>
+		<td>font.size</td>
+		<td>pixel</td>
+		<td class="inline-code">"22"</td>
+		<td>Specifies the font size in pixel.</td>
+	</tr>
+	<tr>
+		<td>color</td>
+		<td><a href="general.html#colors">color</a></td>
+		<td class="inline-code">"#c0c0c0ff"</td>
+		<td>Specifies the text color.</td>
+	</tr>
+	<tr>
+		<td>selcolor</td>
+		<td><a href="general.html#colors">color</a></td>
+		<td class="inline-code">"#ffffffff"</td>
+		<td>Specifies the text color of the textbox in selected state.</td>
+	</tr>
+	<tr>
+		<td>alignment</td>
+		<td><a href="#alignment">alignment value</a></td>
+		<td class="inline-code">"center"</td>
+		<td>Specifies the alignment of the text inside the textbox.</td>
+	</tr>
+	<tr>
+		<td>wrap</td>
+		<td>boolean</td>
+		<td class="inline-code">"true"</td>
+		<td>Specifies if the text should be wrapped.</td>
+	</tr>
+	<tr>
+		<td>splitwords</td>
+		<td>boolean</td>
+		<td class="inline-code">"true"</td>
+		<td>Specifies if words at the end of a line should be split. Works only if <span class="inline-code">wrap="true"</span>.</td>
+	</tr>
+	<tr>
+		<td>text</td>
+		<td>string</td>
+		<td class="inline-code">""</td>
+		<td>This is the content of the textbox. The text can have linefeeds (\n / 0x0a) to separate paragraphs.</td>
+	</tr>
+	<tr>
+		<td>translate</td>
+		<td>boolean</td>
+		<td class="inline-code">"false"</td>
+		<td>If set to <span class="inline-code">"true"</span>, the internal
+		    translation feature is used. For more info look <a href="../../howtos/translations.html">here</a>.</td>
+	</tr>
+</table>
+
+Additionally all <a href="general.html#gui-general-attributes">general</a> and 
+<a href="general.html#gui-border-attributes">border</a> attributes can be used.
+
+<h2 id="alignment">Alignment values</h2>
+
+<table class="example">
+	<tr>
+		<th>Value</th>
+		<th>Description</th>
+	</tr>
+	<tr>
+		<td>center</td>
+		<td>Horizontally and vertically centered.</td>
+	</tr>
+	<tr>
+		<td>left</td>
+		<td>Left-aligned and vertically centered.</td>
+	</tr>
+	<tr>
+		<td>right</td>
+		<td>Right-aligned and vertically centered.</td>
+	</tr>
+	<tr>
+		<td>top-center</td>
+		<td>Top-aligned and horizontally centered.</td>
+	</tr>
+	<tr>
+		<td>top-left</td>
+		<td>Top- and left-aligned.</td>
+	</tr>
+	<tr>
+		<td>top-right</td>
+		<td>Top- and right-aligned.</td>
+	</tr>
+	<tr>
+		<td>bottom-center</td>
+		<td>Bottom-aligned and horizontally centered.</td>
+	</tr>
+	<tr>
+		<td>bottom-left</td>
+		<td>Bottom- and left-aligned.</td>
+	</tr>
+	<tr>
+		<td>bottom-right</td>
+		<td>Bottom- and right-aligned.</td>
+	</tr>
+</table>
+
+<h2>Remarks</h2>
+This element can be used as child within windows and widgets.<br />
+It cannot have any child widgets.
+
+<h2>Related elements</h2>
+<a href="../elements.html">elements</a><br />
+<br />
+
+<hr />
+
+<a target=_new href="../index.html">&lt;&lt;&lt; GUI-Reference</a>
+
+</body>
+</html>

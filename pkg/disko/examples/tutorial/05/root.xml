@@ -1,0 +1,17 @@
+<mmsdialog>
+    <description
+    	author = "disko tutorial"
+    	email  = "disko@morphine.tv"
+    	desc   = ""
+   	/>
+	<mainwindow w="100%" h="100%" margin="0" alignment="center" border.thickness="0" bgcolor="#00000000" bgimage="vladstudio_xeroxplain_800x600_gray.png" opacity="255">
+	<vbox>
+		<menu class="default_menu" name="mymenu" >
+			<menuitem widget.itemtext.text="Кнопка 1" widget.menubutton.data="Button Data 1" />
+			<menuitem widget.itemtext.text="Кнопка 2" widget.menubutton.data="Button Data 2"/>
+			<menuitem widget.itemtext.text="Кнопка 3" widget.menubutton.data="Button Data 3"/>
+		</menu>
+	</vbox>
+	</mainwindow>
+</mmsdialog>
+

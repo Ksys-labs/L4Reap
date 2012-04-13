@@ -1,0 +1,113 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, UI, linux, framebuffer, setup, OMAP, DaVinci" />
+    <meta name="description" content="This howto describes the usage of the disko framebuffer backend on different framebuffer implementations." />
+    <title>Documentation - How to setup the Disko framebuffer backend: www.diskohq.org</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../css/style.css">
+<body>
+<h1>How to setup the Linux framebuffer with disko</h1>
+<h2>Preface</h2>
+<p>Disko was intended to work mainly with DirectFB. In the course of the development we dicided to add more backends to disko. One of them is the <i>FBDEV</i> backend. This consist of a generic linux fbdev implementation as well as  specific implementations for OMAP, DaVinci and Matrox.</p>
+<p>This howto should cover the compilation and configuration issues for that purpose.</p>
+<h2>Preparation</h2>
+<p>In order to function properly, Disko has to be compiled with <i>FBDEV</i> support. To achieve this add the parameter <i>graphics=fbdev</i> to the scons commandline. This parameter also could contain a list of comma separated backend like <i>graphics=x11,dfb,fbdev</i>. Currently this works with the git version and will be included into Disko   ex version 1.6.0.</p>
+
+<h2>Configuration</h2>
+<p>After Disko is compiled sucessfully graphics section of the diskorc.xml file has to be edited to match the system's framebuffer setup.</p>
+<h3>Generic Framebuffer</h3>
+To support a generic framebuffer device, the parameter <i>backend</i> has to be set to "fbdev". The parameter <i>outputtype</i> has to be set to "stdfb". The parameters <i>xres</i> and <i>yres</i> need to be set appropriately. If the framebuffer does not support mode switching these values have to reflect the current resolution.
+<code>
+<pre class="codelisting" >
+    &lt;graphics&gt;
+        &lt;parameter name="xres"                       value="640"        /&gt;
+        &lt;parameter name="yres"                       value="480"        /&gt;
+        &lt;parameter name="<strong>backend</strong>"                    value="<strong>fbdev</strong>"      /&gt;
+        &lt;parameter name="<strong>outputtype</strong>"                 value="<strong>stdfb</strong>"     /&gt;
+        &lt;parameter name="videolayerid"               value="0"          /&gt;
+        &lt;parameter name="videolayerpixelformat"      value="RGB32"      /&gt;
+        &lt;parameter name="videolayeroptions"          value=""           /&gt;
+        &lt;parameter name="videolayerbuffermode"       value="BACKSYSTEM" /&gt;
+        &lt;parameter name="graphicslayerid"            value="0"          /&gt;
+        &lt;parameter name="graphicslayerpixelformat"   value="RGB32"      /&gt;
+        &lt;parameter name="graphicslayeroptions"       value=""           /&gt;
+        &lt;parameter name="graphicslayerbuffermode"    value="BACKSYSTEM" /&gt;
+        &lt;parameter name="pointer"                    value="internal"   /&gt;
+        &lt;parameter name="graphicswindowpixelformat"  value="ARGB"       /&gt;
+        &lt;parameter name="graphicssurfacepixelformat" value="ARGB"       /&gt;
+        &lt;parameter name="extendedaccel"              value="true"       /&gt;
+        &lt;parameter name="allocmethod"                value="malloc"     /&gt;
+    &lt;/graphics&gt;
+</pre>
+</code>
+<p>This setup will set up a single hardware layer with RGB32 using Disko software routines to do the blending between the graphics and the video layer utilizing the internal graphics format ARGB. The generic Framebuffer currently does only support layer id <i>0</i>. This will change in the near future hopefully.</p>
+<h3>OMAP35X0 Framebuffer</h3>
+<p>The framebuffer driver for OMAP exists in 2 main implemations. As of 2.6.29 the driver has been rewritten to add some advanced features like alpha-channel blending between layers. This example covers this driver. The colorkeying method will be covered in the OMAP part of the disko documentation.</p>
+<p>This setup assumes that the omapfb was initialized with 3 framebuffer devices. Layer id <i>0</i> corresponds to <i>/dev/fb0</i>, layer id <i>1</i> to <i>/dev/fb1</i>, etc.</p>
+<p>The diskorc.xml should look as follows:</p>
+<code>
+<pre class="codelisting" >
+    &lt;graphics&gt;
+        &lt;parameter name="xres"                       value="640"        /&gt;
+        &lt;parameter name="yres"                       value="480"        /&gt;
+        &lt;parameter name="<strong>backend</strong>"                    value="<strong>fbdev</strong>"      /&gt;
+        &lt;parameter name="<strong>outputtype</strong>"                 value="<strong>omapfb</strong>"     /&gt;
+        &lt;parameter name="videolayerid"               value="1"          /&gt;
+        &lt;parameter name="videolayerpixelformat"      value="I420"       /&gt;
+        &lt;parameter name="videolayeroptions"          value=""           /&gt;
+        &lt;parameter name="videolayerbuffermode"       value="BACKSYSTEM" /&gt;
+        &lt;parameter name="graphicslayerid"            value="2"          /&gt;
+        &lt;parameter name="graphicslayerpixelformat"   value="ARGB"       /&gt;
+        &lt;parameter name="graphicslayeroptions"       value=""           /&gt;
+        &lt;parameter name="graphicslayerbuffermode"    value="BACKSYSTEM" /&gt;
+        &lt;parameter name="pointer"                    value="internal"   /&gt;
+        &lt;parameter name="graphicswindowpixelformat"  value="ARGB"       /&gt;
+        &lt;parameter name="graphicssurfacepixelformat" value="ARGB"       /&gt;
+        &lt;parameter name="extendedaccel"              value="true"       /&gt;
+        &lt;parameter name="allocmethod"                value="malloc"     /&gt;
+    &lt;/graphics&gt;
+</pre>
+</code>
+<p>This setup will use a seperate video and graphics layer as well as the alpha channel capabilities of the omapfb driver. Currently only I420 is supported for the video layer. If media playback via dmai is used, this doesn't matter at all. In this case the video layer will be dynamically released by Disko.</p>
+
+<h3>DaVinci Framebuffer</h3>
+<p>The framebuffer driver for DaVinci works with 2 video layers (one of them for V4L2) an rgb16 graphics overlay an attribute layer that can be used to store an alpha channel. The attribute Layer and the RGB16 graphics overlay are combined to one by the DaVinciFB backend of Disko using ARGB3565 as pixelformat.</p>
+<p>The diskorc.xml should look as follows:</p>
+<code>
+<pre class="codelisting" >
+    &lt;graphics&gt;
+        &lt;parameter name="xres"                       value="640"        /&gt;
+        &lt;parameter name="yres"                       value="480"        /&gt;
+        &lt;parameter name="<strong>backend</strong>"                    value="<strong>fbdev</strong>"      /&gt;
+        &lt;parameter name="<strong>outputtype</strong>"                 value="<strong>davincifb</strong>"  /&gt;
+        &lt;parameter name="videolayerid"               value="1"          /&gt;
+        &lt;parameter name="videolayerpixelformat"      value="YUY2"       /&gt;
+        &lt;parameter name="videolayeroptions"          value=""           /&gt;
+        &lt;parameter name="videolayerbuffermode"       value="BACKSYSTEM" /&gt;
+        &lt;parameter name="graphicslayerid"            value="0"          /&gt;
+        &lt;parameter name="graphicslayerpixelformat"   value="ARGB3565"   /&gt;
+        &lt;parameter name="graphicslayeroptions"       value=""           /&gt;
+        &lt;parameter name="graphicslayerbuffermode"    value="BACKSYSTEM" /&gt;
+        &lt;parameter name="pointer"                    value="internal"   /&gt;
+        &lt;parameter name="graphicswindowpixelformat"  value="ARGB"       /&gt;
+        &lt;parameter name="graphicssurfacepixelformat" value="ARGB"       /&gt;
+        &lt;parameter name="extendedaccel"              value="true"       /&gt;
+        &lt;parameter name="allocmethod"                value="malloc"     /&gt;
+    &lt;/graphics&gt;
+</pre>
+</code>
+<p>This setup will use a seperate video and graphics layer combined by an 3bit alpha channel. Currently only YUY2 is supported for the video layer. If media playback via dmai is used, this doesn't matter at all. In this case the video layer will be dynamically released by Disko.</p>
+
+
+<p>If there are any flaws or mistakes in this article. Just feel free to report this at our <a href="http://www.diskohq.org/forum">Forum</a></p>
+
+<hr />
+
+<a href="index.html">&lt;&lt;&lt; HowTos</a>
+
+</body>
+</html>
+

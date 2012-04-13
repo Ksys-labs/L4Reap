@@ -1,0 +1,68 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, framework, linux, embedded devices, open source, documentation, gui, reference, widget, progressbar" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation - GUI-Reference</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../../css/style.css">
+<body>
+
+<h1 id="gui-progressbar">Progressbar</h1>
+
+<h2>Description</h2>
+Specifies a progressbar. A progressbar is a widget which can be selected but not focused.
+
+<h2>XML-Tag</h2>
+<pre class="inline-code">
+&lt;progressbar&gt;
+</pre>
+
+<h2>Attributes</h2>
+
+<table class="example">
+	<tr>
+		<th>Attribute</th>
+		<th>Domain</th>
+		<th>Default Value</th>		
+		<th>Description</th>
+	</tr>
+	<tr>
+		<td>color</td>
+		<td><a href="general.html#colors">color</a></td>
+		<td class="inline-code">"#00000000"</td>
+		<td>Specifies the foreground color of the progressbar.</td>
+	</tr>
+	<tr>
+		<td>selcolor</td>
+		<td><a href="general.html#colors">color</a></td>
+		<td class="inline-code">"#00000000"</td>
+		<td>Specifies the foreground color of the progressbar in selected state.</td>
+	</tr>
+	<tr>
+		<td>progress</td>
+		<td>0 - 100</td>
+		<td class="inline-code">"0"</td>
+		<td>Sets the progress in percent.</td>
+	</tr>
+</table>
+
+Additionally all <a href="general.html#gui-general-attributes">general</a> and 
+<a href="general.html#gui-border-attributes">border</a> attributes can be used.
+
+<h2>Remarks</h2>
+This element can be used as child within windows and widgets.<br />
+It can have only one child widget.
+
+<h2>Related elements</h2>
+<a href="../elements.html">elements</a><br />
+<br />
+
+<hr />
+
+<a target=_new href="../index.html">&lt;&lt;&lt; GUI-Reference</a>
+
+</body>
+</html>

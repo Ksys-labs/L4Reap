@@ -1,0 +1,57 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, framework, linux, embedded devices, open source, documentation, gui, reference, window, popupwindow" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation - GUI-Reference</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../../css/style.css">
+<body>
+
+<h1 id="gui-popupwindow">Popupwindow</h1>
+
+<h2>Description</h2>
+Specifies a popupwindow. Popup windows will be shown above main windows and will be automatically hidden after the specified duration.
+
+<h2>XML-Tag</h2>
+<pre class="inline-code">
+&lt;popupwindow&gt;
+</pre>
+
+<h2>Attributes</h2>
+
+<table class="example">
+	<tr>
+		<th>Attribute</th>
+		<th>Domain</th>
+		<th>Default Value</th>
+		<th>Description</th>
+	</tr>
+		<td>duration</td>
+		<td>integer</td>
+		<td class="inline-code">"5"</td>
+		<td>Time in seconds the window is shown.If <span class="inline-code">duration="0"</span>, it will not hide automatically.</td>
+	</tr>
+</table>
+Additionally all <a href="general.html">general window attributes</a> can be used.
+
+
+<h2>Remarks</h2>
+This element can be used within <a href="../mmsdialog.html">&lt;mmsdialog&gt;</a>
+and <a href="../mmstheme.html">&lt;mmstheme&gt;</a>.<br />
+This element can have a maximum of one child widget.
+
+<h2>Related elements</h2>
+<a href="../mmsdialog.html">&lt;mmsdialog&gt;</a>,
+<a href="../mmstheme.html">&lt;mmstheme&gt;</a>,
+<a href="../elements.html">elements</a><br />
+<br />
+
+<hr />
+
+<a target=_new href="../index.html">&lt;&lt;&lt; GUI-Reference</a>
+
+</body>
+</html>

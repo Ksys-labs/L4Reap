@@ -1,0 +1,138 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, UI, linux, gestures, drag" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation - Utilizing dragging and gestures</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../css/style.css">
+<body>
+<h1>Utilizing dragging and gestures</h1>
+<p>This artice should describe the different possibilities of Disko to handle user input. It will focus on the abilities to process user input for dragging elements within a gui application.</p>
+<h2>Input Types</h2>
+<p>Disko disko can handle input events from mulitiple sources like X11, DirectFB or the Linux input sybsytem. It distinguishes two fundamental types of inputs: Keyboard events (like keys on a keyboard or ther dedicated hardware buttons) and pointer events (mouse clicks, mouse movement or touchscreen events). Any input event will be one of:
+<ul class="example-bullet">
+<li>Keypress, Keyrelease</li>
+<li>Buttonpress, Buttonrelease</li>
+<li>Axismotion</li>
+</ul>
+The appropriate inputs are automatically seleceted implicitly by the desired backend system (Linux Framebuffer, X11, DirectFB).
+</p>
+<h2>Handling Inputs</h2>
+<p>The direct inputs from the hardware are normally handled by disko and its gui elements automatically (widget inputs, z-order changes, focus changes, etc). However if the interface needs to be a little smarter than the default beahaviour of disko there are some ways of controlling the inputs for the developer.<p>
+<h2>Intercepting window inputs</h2>
+<p>The window input handling can be interfaced using one of emmited signals, that are emitted during the input event processing:</p>
+<p><b>MMSWindow::onHandleInput()</b><br> is emitted if the default processing of focused <i>MMSWindow()</i> was not able to process the event.</p>
+<p><b>MMSWindow::obBeforeHandleInput()</b><br>is emitted before any default event handling took place. This signal can be used to collect data that can used to interpret complex user input like gestures drag events. If the user input is analyzed and processed, the callback can return <i>true</i> to end the processing chain. If <i>false</i> is returned the processing takes place in the normal way.</p>
+<h2>Guessing user input</h2>
+<div class="group">
+<p>Disko provides a very  way of guessing basic gestures. The class <i>MMSInputGesture</i> is provided for that purpose. It can collect Axismotion events, and the can taḱe a guess if and in which direction a swipe gesture took place. A sample window callback could look like this:</p>
+<pre class="codelisting">bool beforeInputCB(MMSWindow *win, MMSInputEvent *event) {
+    static MMSInputGesture gest;
+    gest.addInfo(event);
+    MMSINPUTGESTURE guess = gest.guess();
+    switch(guess) {
+        case MMSINPUTGESTURE_UKN: 
+            break;		
+
+        case MMSINPUTGESTURE_UP:
+        case MMSINPUTGESTURE_DOWN:
+
+            //handle vertical swipe
+            handleVSwipe(guess);
+
+            //stop processing chain
+            return true;
+        case MMSINPUTGESTURE_LEFT:
+	    case MMSINPUTGESTURE_RIGHT:
+
+            //handle horizontal swipe
+            handleHSwipe(guess);
+
+            //stop processing chain
+            return true;
+    }
+    
+    //proceed normally
+    return false;
+}</pre>
+</div>
+<h2>Identify dragging events</h2>
+<p>To identify a dragging event it is necessary to identify a sequence of input events: ButtonPress -> AxisMotion -> ButtonRelease.</p>
+
+<div class="group">
+<p>A Simple dragging of a Window could be achieved easily:</p>
+<pre class="codelisting">bool beforeInputCB(MMSWindow *win, MMSInputEvent *event) {
+    static bool drag=false;
+    
+    if(event->type == MMSINPUTEVENTTYPE_BUTTONPRESS) {
+    	drag=true;
+    	
+        //proceed normally
+        return false;
+    }
+    if(event->type == MMSINPUTEVENTTYPE_BUTTONRELEASE) {
+        drag=false;
+
+        //proceed normally
+        return false;
+    }
+    if(event->type == MMSINPUTEVENTTYPE_AXISMOTION) {
+    	MMSFBRectangle rect=win->getGeometry();
+        win->moveTo(rect.x+event->dx, rect.y+event->dy);
+        
+        //end event processing
+        return true;
+    }
+	
+    //proceed normally
+    return false;
+}</pre>
+<p>This example will simply change the window position according to the pointer movement that to place between the <i>>press</i> and <i>release</i> envents.</p>
+<p>In our latest version of the disko demos (LINK HIER!!!!!!!!!!) we utilize some additional mechanism to reduce spent cpu power and to create a more convenient user experience. Before an actual dragging operation is started, the axismotion dx or dy amounts must exceed a specific threshold. This ensures that slight slips in the handling (like when using an on screen keyboard) do trigger the dragging mode. Theres also a threshold that needs to be exceeded for redrawing the user interface during a draggin operation (e.g. every 10px). This leads to a much reduced cpu usage.</p> 
+</div>
+<h2>MMSInputEvent in Detail</h2>
+<div class="group">
+<p>The <i>MMSinputEvent</i> provides several different informations. It contais the event type, a keysymbol if applicabe (keypress, keyrelease) and 3 sets of coordinates for different purposes:</p>
+<table class="example">
+	<tr>
+		<th>Attribute</th>
+		<th>Description</th>
+
+	</tr>
+	<tr>
+		<td>type</td>
+		<td>Type of the event</td>
+	</tr>
+
+	<tr>
+		<td>key</td>
+		<td>Contains the MMSKeySymbol for the pressed or released key.</td>
+
+	</tr>
+	<tr>
+		<td>posx, posy</td>
+		<td>Contains the position of the pointer relative to the window geometry.</td>
+	</tr>
+	<tr>
+		<td>absx, absy</td>
+		<td>Contains the position of the pointer relative to the layer geometry.</td>
+	</tr>
+	<tr>
+		<td>dx, dy</td>
+		<td>Contains the relative change of the pointer position since the last processed axismotion event.</td>
+	</tr>
+</table>
+</div>
+
+<p>If there are any flaws or mistakes in this article. Just feel free to report this at our <a href="http://www.diskohq.org/forum">Forum</a></p>
+
+<hr />
+
+<a href="index.html">&lt;&lt;&lt; HowTos</a>
+
+</body>
+</html>
+

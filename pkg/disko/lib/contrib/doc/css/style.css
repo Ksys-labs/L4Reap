@@ -1,0 +1,98 @@
+body {
+        color:#333333;
+        font-family:Helvetica,Arial,sans-serif;
+        font-size:12px;
+        line-height:1.3em;
+}
+
+a:link, a:visited {
+        font-weight:normal;
+        text-decoration:none;
+}
+
+a:hover {
+        font-weight:normal;
+        text-decoration:underline;
+}
+
+h1 {
+        color:#135CAE;
+        font-family:Helvetica,Arial,sans-serif;
+        font-size:1.5em;
+        font-weight:bold;
+        padding:0;
+        text-align:left;
+        vertical-align:bottom;
+        width:100%;
+}
+
+h2 {
+        color:#333333;
+        font-family:Arial,Helvetica,sans-serif;
+        font-size:1.4em;
+        font-weight:bold;
+        padding:0;
+        text-align:left;
+        vertical-align:bottom;
+        width:100%;
+}
+
+h3 {
+        font-family:Helvetica,Arial,sans-serif;
+        font-size:1.0em;
+        padding-left:0;
+		margin: 10px 0;
+        text-align:left;
+}
+
+h4 {
+        color:#666666;
+        font-family:Arial,Helvetica,sans-serif;
+        font-size:1.0em;
+        padding-left:0;
+		margin: 10px 0;
+        text-align:left;
+}
+
+.codelisting { 
+	background:#FAF9BD none repeat scroll 0 0;
+	border:1px solid black;
+	padding:5px;
+	margin:20px; 
+	font-family:Courier;
+	width:710px;
+}
+
+.inline-code { 
+	font-family:Courier; 
+}
+
+.inline-code a { 
+	font-family:Courier; 
+}
+
+table.example { 
+	background:#FAF9BD none repeat scroll 0 0;
+	border:1px solid black;
+	padding:3px; 
+	margin:20px; 
+	font-size:12px;
+	text-align:left; 
+}
+
+table.example th {
+	white-space: nowrap;
+	padding-right: 20px; 
+}
+
+table.example td { 
+	padding-right: 20px; 
+}
+
+.field-white { 
+	background-color:#ffffff; 
+}
+
+.table-heading { 
+	background-color:#fff4c8; 
+}

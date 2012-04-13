@@ -1,0 +1,127 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, framework, linux, embedded devices, open source, documentation, omap, ti, texas instruments, arm" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../css/style.css">
+<body>
+
+<h1>Beagleboard</h1>
+The <a target="_new" href="http://www.beagleboard.org">Beagleboard</a> is one of
+many OMAP development boards.<br />
+<br />
+It is based on <a target="_new" href="http://www.ti.com">Texas Instruments'</a>
+<a target="_new" href="http://focus.ti.com/docs/prod/folders/print/omap3530.html">OMAP3530</a>
+processor featuring ARM Cortex-A8.<br />
+<br />
+<div style="margin-left:20px;">
+<img src="http://farm4.static.flickr.com/3018/2649954226_e5fac5772e.jpg"><br />
+<div xmlns:cc="http://creativecommons.org/ns#" about="http://www.flickr.com/photos/jadon/3309319666/"><a target="_new" rel="cc:attributionURL" href="http://www.flickr.com/photos/jadon/">Photo by jadon</a> / <a target="_new" rel="license" href="http://creativecommons.org/licenses/by-sa/2.0/">CC BY-SA 2.0</a></div>
+</div>
+
+<h2>How to install disko on the Beagleboard</h2>
+We are using <a target="_new" href="http://wiki.openembedded.net">OpenEmbedded</a> as our
+cross-compile environment. So let's start by installing and configuring it
+for the Beagleboard.<br />
+<br />
+<strong>Note:</strong> In the following section we refer to your installation directory
+by the term <span class="inline-code">&lt;oe-home&gt;</span>
+
+<h3>Installing OpenEmbedded</h3>
+Since the stable version of OpenEmbedded doesn't include the required kernel
+for OMAP3530 devices, that is needed by disko, we are using the development
+branch of their git repository. A good place to start is by using the following <a href="http://elinux.org/BeagleBoardAndOpenEmbeddedGit" target="_new">tutorial</a>.
+
+<pre class="codelisting">
+cd &lt;oe-home&gt;
+git clone git://git.openembedded.net/openembedded
+</pre>
+
+<h3>Installation of the BerLinux overlay</h3>
+This overlay includes all OpenEmbedded recipes that are needed to install
+disko on the Beagleboard.
+
+<pre class="codelisting">
+cd &lt;oe-home&gt;
+git clone git://diskohq.org/disko-oe.git berlinux
+</pre>
+
+Now you have to edit the file <i>&lt;oe-home&gt;/berlinux/env_beagleboard.sh</i>.
+Set <span class="inline-code">OE_HOME</span> to <span class="inline-code">&lt;oe-home&gt;</span>.
+
+<h3>Installation of TI software</h3>
+To use the DSP accelerated features of the Beagleboard, you have to install
+additional software from Texas Instruments.<br />
+<br />
+Download the following packages and copy them into the 
+<span class="inline-code">&lt;oe-home&gt;/berlinux/binaries/dvsdk</span> folder.<br />
+<br />
+<strong>Note:</strong> You need to register at the TI website to download them.
+
+<ul>
+	<li><a target="_new" href="http://software-dl.ti.com/dsps/dsps_registered_sw/sdo_sb/targetcontent/bios/bios_5_33/index_external.html">http://software-dl.ti.com/dsps/dsps_registered_sw/sdo_sb/targetcontent/bios/bios_5_33/index_external.html</a> - Version 5.33.02</li>
+	<li><a target="_new" href="http://software-dl.ti.com/dsps/dsps_registered_sw/sdo_sb/targetcontent/rtsc/xdctools_3_10/xdctools_3_10_03/index_external.html">http://software-dl.ti.com/dsps/dsps_registered_sw/sdo_sb/targetcontent/rtsc/xdctools_3_10/xdctools_3_10_03/index_external.html</a> - Version 3.10.03</li>
+	<li><a target="_new" href="http://software-dl.ti.com/dsps/dsps_registered_sw/sdo_ccstudio/codegen/C6000/6.0.21/ti_cgt_c6000_6.0.21_setup_linux_x86.bin">http://software-dl.ti.com/dsps/dsps_registered_sw/sdo_ccstudio/codegen/C6000/6.0.21/ti_cgt_c6000_6.0.21_setup_linux_x86.bin</a></li>
+	<li><a target="_new" href="http://software-dl.ti.com/dsps/dsps_registered_sw/sdo_sb/targetcontent/CE/ce_2_23/index.html">http://software-dl.ti.com/dsps/dsps_registered_sw/sdo_sb/targetcontent/CE/ce_2_23/index.html</a></li>
+</ul>
+
+<h3>Building the image</h3>
+Now you can start building the disko base image which is based
+on the <a target="_new" href="http://www.angstrom-distribution.org/">Ångström distribution</a>
+and additionally includes the disko framework and its dependencies.
+
+<pre class="codelisting">
+cd &lt;oe-home&gt;
+source ./berlinux/env_beagleboard.sh
+bitbake disko-image
+</pre>
+
+The resulting image is located in <span class="inline-code">&lt;oe-home&gt;/angstrom-dev/deploy/glibc/images/beagleboard/disko-image-beagleboard.tar.bz2</span>. The image should be extracted as described in the above mentioned tutorial.
+
+<h3>Configuring u-boot</h3>
+Enter the following commands at the u-boot prompt:
+
+<pre class="codelisting">
+setenv bootcmd 'mmcinit; fatload mmc 0:1 0x80000000 uImage; bootm;'
+setenv bootargs 'console=ttyS2,115200n8 root=/dev/mmcblk0p2 rw rootfstype=ext3 rootwait \
+                 omapfb.mode=dvi:640x480MR-32@60 mem=88M vram=12M omapfb.vram=1:4M,2:4M'
+saveenv
+boot
+</pre>
+
+<h3>Start the disko test application</h3>
+In order to use the DSP, you have to load some modules.
+
+<pre class="codelisting">
+cd /usr/share/ti/gst/omap3530/
+./loadmodules.sh
+</pre>
+
+Start the test:
+
+<pre class="codelisting">
+cd /opt/disko-testprog
+./disko-test
+</pre>
+
+<h3>Notes</h3>
+To enable debugging information from the DSP, you can enter <span class="inline-code">export CE_DEBUG=2</span>.
+
+<h2>Further links</h2>
+<ul>
+	<li><a target="_new" href="http://software-dl.ti.com/dsps/dsps_public_sw/sdo_sb/S1SDKLNX/DVSDK_OMAP3530/index_FDS.html">DVSDK for OMAP3530</a></li>
+	<li><a href="http://elinux.org/BeagleBoardAndOpenEmbeddedGit" target="_new">Openembedded and Beagleboard tutorial</a></li>
+</ul>
+
+<br />
+
+<hr />
+
+<a href="index.html">&lt;&lt;&lt; OMAP Support</a>
+
+</body>
+</html>

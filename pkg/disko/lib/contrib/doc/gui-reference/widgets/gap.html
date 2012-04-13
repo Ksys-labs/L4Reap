@@ -1,0 +1,67 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, framework, linux, embedded devices, open source, documentation, gui, reference, widget, gap, spacer" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation - GUI-Reference</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../../css/style.css">
+<body>
+
+<h1 id="gui-gap">Gap</h1>
+
+<h2>Description</h2>
+The <span class="inline-code"><a href="#">&lt;gap&gt;</a></span> widget
+is a spacer needed to arrange other widgets within 
+<span class="inline-code"><a href="hbox.html">&lt;hbox&gt;</a></span> and
+<span class="inline-code"><a href="vbox.html">&lt;vbox&gt;</a></span> 
+elements.<br />
+This widget cannot have any children. It cannot be focused and displays nothing.
+
+<h2>XML-Tag</h2>
+<pre class="inline-code">
+&lt;gap&gt;
+</pre>
+
+<h2>Attributes</h2>
+
+The gap widget can only have <span class="inline-code">name</span> and
+<span class="inline-code">size</span> attributes, which are described
+<a href="general.html#gui-general-attributes">here</a>.
+
+<h2>Remarks</h2>
+<p>
+This element can be used as child within 
+<span class="inline-code"><a href="hbox.html">&lt;hbox&gt;</a></span> and
+<span class="inline-code"><a href="vbox.html">&lt;vbox&gt;</a></span> 
+elements.<br />
+It cannot have any child widgets.</p>
+<p>An example how a &lt;gap&gt; widget behaves in a &lt;hbox&gt; widget looks as follows:</p>
+<p>
+<img src="../../pics/gap.png" alt="gap widget" />
+</p>
+<p>Translated to xml it would look like this:</p>
+<pre class="codelisting">
+    &lt;mainwindow w="100%" h="100%" &gt;
+        &lt;hbox&gt;
+            &lt;gap size="20%" /&gt;
+            &lt;label size="60%" /&gt;
+            &lt;gap size="20%" /&gt;
+        &lt;/hbox&gt;
+   &lt;/mainwindow&gt;
+</pre>
+<p>The gap widget can be used within nested combinations of &lt;vbox&gt; and &lt;vbox&gt;</p>
+<h2>Related elements</h2>
+<span class="inline-code"><a href="hbox.html">&lt;hbox&gt;</a></span>,
+<span class="inline-code"><a href="vbox.html">&lt;vbox&gt;</a></span>,
+<a href="../elements.html">elements</a><br />
+<br />
+
+<hr />
+
+<a target=_new href="../index.html">&lt;&lt;&lt; GUI-Reference</a>
+
+</body>
+</html>

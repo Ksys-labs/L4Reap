@@ -1,0 +1,10 @@
+<mmsinputmaps>
+    <map name="default">
+        <key name="return"       mapto="return" />
+        <key name="small_m"      mapto="menu"/>
+        <key name="cursor_left"  mapto="cursor_left" />
+        <key name="cursor_right" mapto="cursor_right" />
+        <key name="cursor_down"  mapto="cursor_down" />
+        <key name="cursor_up"    mapto="cursor_up" />
+    </map>
+</mmsinputmaps>

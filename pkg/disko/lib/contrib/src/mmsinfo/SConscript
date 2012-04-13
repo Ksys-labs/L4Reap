@@ -1,0 +1,19 @@
+import re
+Import('env idir_lib idir_inc')
+
+def prefixAdd():
+	o = open(env['TOP_DIR'] + '/inc/mmsinfo/mmsinfo.h', 'w')
+	data = open(env['TOP_DIR'] + '/inc/mmsinfo/mmsinfo.h.tmpl').read()
+	o.write(re.sub('__DISKO_PREFIX__', env['prefix'], data))
+	o.close()
+
+prefixAdd()
+
+if not env['big_lib'] and not env['static_lib']:
+	libmmsinfo = env.SharedLibrary('../../../lib/libmmsinfo', Glob('*.cpp'), LIBS = "")
+	env.Install(idir_lib, libmmsinfo)
+	Export('libmmsinfo')
+	
+env.Install(idir_inc + '/mmsinfo', Glob('../../../inc/mmsinfo/*.h'))
+
+env['diskoSources'].append(Glob('*.cpp'))

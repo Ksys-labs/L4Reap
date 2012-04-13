@@ -1,0 +1,14 @@
+import os
+import scons.helpers
+Import('env idir_lib idir_inc')
+
+if not env['big_lib'] and not env['static_lib']:
+	libmmstools = env.SharedLibrary('../../../lib/libmmstools', Glob('*.cpp'), LIBS = "")
+	env.Install(idir_lib, libmmstools)
+	Export('libmmstools')
+
+headerFiles = scons.helpers.findFiles(env['TOP_DIR'] + '/inc/mmstools', '*.h')
+for header in headerFiles:
+	env.Install(os.path.dirname(header.replace(env['TOP_DIR'] + '/inc/mmstools', idir_inc + '/mmstools')), header)
+
+env['diskoSources'].append(Glob('*.cpp'))

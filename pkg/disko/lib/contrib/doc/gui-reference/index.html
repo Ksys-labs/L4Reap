@@ -1,0 +1,53 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, framework, linux, embedded devices, open source, documentation, gui, reference" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation - GUI-Reference</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../css/style.css">
+<body>
+
+<h1 id="gui">GUI-Reference</h1>
+The MMSGUI functionality includes the management of windows, widgets, 
+themes and dialogs.
+
+<h2>Theme Manager</h2>
+The Theme Manager uses so-called theme files to setup default values for
+windows and widgets. Theme files will be written in XML. Images and
+fonts can also be components of a theme.<br />
+The root tag for theme files is <a href="mmstheme.html">&lt;mmstheme&gt;</a>.<br />
+<br />
+With theme files you can also build classes of windows and widgets
+which can be used within dialog files.<br />
+To do this you have to use the <a href="class.html">&lt;class&gt;</a>
+element which is only valid within <a href="mmstheme.html">&lt;mmstheme&gt;</a>.<br />
+<br />
+For plugin developers it is important to understand where the theme classes
+are stored, where the plugin can store private classes and how the themes
+can be switched. These informations can be found <a href="theme-processing.html">here</a>.
+
+<h2>Dialog Manager</h2>
+The Dialog Manager uses so-called dialog files to create windows and widgets
+dynamically. Dialog files will be written in XML.<br />
+The root tag for dialog files is <a href="mmsdialog.html">&lt;mmsdialog&gt;</a>.<br />
+<br />
+With dialog files you can easily layout dialog windows for Disko. 
+When you want to show something on the screen we recommend you to use
+this XML interface to MMSGUI. Because working with dialog files is much 
+easier then building layouts with MMSGUIs C++ API.
+
+<h2>Elements for Theme &amp; Dialog Manager</h2>
+The currently supported elements are described <a href="elements.html">here</a>.
+
+<h2>Examples</h2>
+A list of GUI examples you can find <a href="gui-examples.html">here</a>.<br />
+<br />
+
+<hr />
+
+<a target="_new" href="../index.html">&lt;&lt;&lt; Overview</a>
+</body>
+</html>

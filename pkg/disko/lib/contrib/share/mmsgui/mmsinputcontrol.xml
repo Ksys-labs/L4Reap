@@ -1,0 +1,20 @@
+<mmsdialog>
+    <description
+    	author = "Jens Schneider"
+    	email  = "jens.schneider@diskohq.org"
+    	desc   = ""
+   	/>
+   	
+	<childwindow show="true" w="90%" h="20%" alignment="bottom-center" bgcolor="#000000a0" border.thickness="4" border.color="#ffffffff" border.rcorners="true">
+		<childwindow name="inputcontrol_textwin" show="true">
+			<input name="inputcontrol_text" font.name  = "DejaVuSansMono.ttf" font.size  = "12"
+			        selcolor   = "#ffffffff" color   = "#ffffff80"
+			        bgcolor = "#ff000080" selbgcolor="#ff000040"/>
+		</childwindow>
+		<childwindow name="inputcontrol_sprite" show="false" w="64px" h="64px" alignment="top-left" bgcolor="#00000080">
+			<label name="inputcontrol_stext" font.name  = "DejaVuSansMono.ttf" font.size  = "44" alignment="center"
+			        color   = "#ffff00ff"
+			        bgcolor = "#00000000"/>
+		</childwindow>
+	</childwindow>
+</mmsdialog>

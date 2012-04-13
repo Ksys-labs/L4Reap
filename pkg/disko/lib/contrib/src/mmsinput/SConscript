@@ -1,0 +1,10 @@
+Import('env idir_lib idir_inc')
+
+if not env['big_lib'] and not env['static_lib']:
+	libmmsinput = env.SharedLibrary('../../../lib/libmmsinput', Glob('*.cpp'), LIBS = "")
+	env.Install(idir_lib, libmmsinput)
+	Export('libmmsinput')
+	
+env.Install(idir_inc + '/mmsinput', Glob('../../../inc/mmsinput/*.h'))
+
+env['diskoSources'].append(Glob('*.cpp'))

@@ -1,0 +1,99 @@
+<html>
+<head>
+<title>How to add gstreamer support to Disko</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../css/style.css">
+<body>
+<h1>How to add gstreamer support to Disko</h1>
+<h2>Preface</h2>
+<p>Disko was and is using libxine for media playback for good reason for years now. In the last 2 years GStreamer developed into a very serious alternative on embedded devices. Now that TI is going to support GStreamer for their Davinci and OMAP platforms there is way but to add GSreamer support to Disko</p>
+<p>Actually thats a bit tricky, because a little bootstrapping needs to be done here. This tutorial will create a basic GSTreamer instance from scratch, not using any distribution GStreamer packages.</p>
+<h2>Prerequisites</h2>
+<p>To compile and install gstreamer sucessfully, following Debian/Ubuntu packages need to be installed in advance:</p>
+<ul class="example-bullets" >
+<li>build-essential</li>
+<li>pkg-config</li>
+<li>bison</li>
+<li>flex</li>
+<li>libxml2-dev</li>
+<li>libglib-2.0-dev</li>
+</ul>
+<p>Disko > 1.5.x has to be already compiled and installed for this stage as well. We have to compile and install it again after GStreamer with Disko support is compiled and ready.</p>
+<p>As we plan to install GStreamer into the users home directory, set the <i>PKG_CONFIG_PATH</i> to the <i>$HOME/gstreamer/lib/pkgconfig</i></p>
+<code>
+<pre class="codelisting" >
+ export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$HOME/gstreamer/lib/pkgconfig
+</pre>
+</code>
+<h2>GStreamer engine</h2>
+<p>First step ist to download and install GStreamer:</p>
+<code>
+<pre class="codelisting" >
+ wget http://gstreamer.freedesktop.org/src/gstreamer/gstreamer-0.10.23.tar.bz2
+</pre>
+</code>
+<code>
+<pre class="codelisting" >
+ tar jxf gstreamer-0.10.23.tar.bz2
+ cd gstreamer-0.10.23
+</pre>
+</code>
+<code>
+<pre class="codelisting" >
+ ./configure --prefix=$HOME/gstreamer && make && make install;
+</pre>
+</code>
+<h2>GStreamer base plugins</h2>
+<p>Second step in the installation process are the base plugins.</p>
+<code>
+<pre class="codelisting" >
+ wget http://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-0.10.23.tar.bz2
+</pre>
+</code>
+<code>
+<pre class="codelisting" >
+ tar jxf gst-plugins-base-0.10.23.tar.bz2
+ cd gst-plugins-base-0.10.23
+</pre>
+</code>
+<code>
+<pre class="codelisting" >
+ ./configure --prefix=$HOME/gstreamer && make && make install;
+</pre>
+</code>
+<h2>GStreamer bad plugins</h2>
+<p>Second step in the installation process are the bad plugins. Naturally the Disko output plugin resides here, as we plan to propose Disko to be added to the GStreamer upstream.</p>
+<code>
+<pre class="codelisting" >
+ wget http://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-0.10.12.tar.bz2
+</pre>
+</code>
+<code>
+<pre class="codelisting" >
+ tar jxf gst-plugins-bad-0.10.12.tar.bz2
+</pre>
+</code>
+<p>Before the bad plugins are installed the disko patch has to be applied. The patch can be found in the disko source tree as <i>ext/gst-plugins-bad-0.10.12_diskovideosink.diff</i></p>
+<code>
+<pre class="codelisting" >
+ cd gst-plugins-bad-0.10.12 
+ patch -Np1 -i gst-plugins-bad-0.10.12_diskovideosink.diff
+</pre>
+</code>
+After that compile and install the plugins the usual way. Make sure that the <i>PKG_CONFIG_PATH</i> includes the current disko installation. 
+<code>
+<pre class="codelisting" >
+ ./configure --prefix=$HOME/gstreamer && make && make install;
+</pre>
+</code>
+<h2>Rebuild Disko</h2>
+<p>After gstreameer is installed Disko needs to be rebuilt. This is necessary to compile the now provided GStreamer support into the Disko installation. This process is needed because disko is a single package within the SCons build system. This should be fixed somewhen, but today this seems to be sufficent for testing.</p>
+<p>If the <i>PKG_CONFIG_PATH</i> is set correctly and scons is invoked with the parameter <i>media=gstreamer</i> the build should result in a Disko installation supporting GStreamer.</p>
+<h2>How it works</h2>
+<p>Multimedia playback is done using the mmsmedia component. Using xine as backed made the handling of different content fairly easy, by using MRLs to identify sources. GStreamer does not support this by its engine. Therefor we are using the GSTreamer <i>playbin</i> plugin to achieve this result.</p>
+<p>To cut a long story short, from the application point of view there are no changes to be made. An application like <a href="http://www.morphine.tv">Morphine.TV</a> is working without any change on GStreamer.</p>
+
+<p>If there are any flaws or mistakes in this article. Just feel free to report this at our <a href="http://www.diskohq.org/forum">Forum</a></p>
+</body>
+</html>
+

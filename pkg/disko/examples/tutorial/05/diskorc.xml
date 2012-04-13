@@ -1,0 +1,71 @@
+<mmsrc version="1.5.0">
+    <global>
+        <!-- logfile location (logfile was only written if disko built with messages=y) -->
+        <parameter name="logfile"     value=""/>
+        <!-- the inputmap.xml have to stored under the current path,
+             and here we use the map named as "default"-->
+        <parameter name="inputmap"    value="default"/>
+        <parameter name="prefix"      value=""/>
+        <parameter name="sysconfig"   value="rom"/>
+        <parameter name="data"        value="rom"/>
+        <!-- the theme.xml file have to stored under ./themes/default, because "default"
+             is the current activated theme -->
+        <parameter name="theme"       value="default"/>
+        <!-- if you set the firstplugin with an available pluginid, the MMSSwitcher
+             switches direct to this plugin during startup -->
+        <parameter name="firstplugin" value=""/>
+        <parameter name="shutdown"    value="false"/>
+        <parameter name="shutdowncmd" value=""/>
+    </global>
+    <dbsettings type="config">
+        <parameter name="database" value="" />
+    </dbsettings>
+    <dbsettings type="data">
+        <parameter name="database" value="" />
+    </dbsettings>
+    <graphics>
+        <!-- initializing the framebuffer with following value -->
+        <parameter name="xres"                       value="1024"/>
+        <parameter name="yres"                       value="768"/>
+        <parameter name="backend"                    value="l4re"/>
+        <parameter name="outputtype"                 value="l4fb"/>
+        <parameter name="videolayerid"               value="0"/>
+        <parameter name="videolayerpixelformat"      value="RGB16"/>
+        <parameter name="videolayeroptions"          value=""/>
+        <parameter name="videolayerbuffermode"       value="BACKSYSTEM"/>
+        <parameter name="graphicslayerid"            value="0"/>
+        <parameter name="graphicslayerpixelformat"   value="RGB16"/>
+        <parameter name="graphicslayeroptions"       value=""/>
+        <parameter name="graphicslayerbuffermode"    value="BACKSYSTEM"/>
+        <!-- set the visible rectangle to handle TV over scan
+             please note: if you set vrect.w and vrect.h to "0"
+                          the visible screen area will be set to 0,0,xres,yres -->
+        <parameter name="vrect.x"                    value="0"/>
+        <parameter name="vrect.y"                    value="0"/>
+        <parameter name="vrect.w"                    value="0"/>
+        <parameter name="vrect.h"                    value="0"/>
+        <!-- handle touchpad resolution -->
+        <parameter name="touchrect.x"                value="0"/>
+        <parameter name="touchrect.y"                value="0"/>
+        <parameter name="touchrect.w"                value="0"/>
+        <parameter name="touchrect.h"                value="0"/>
+        <!-- show diskos mouse pointer? -->
+        <parameter name="pointer"              	     value="true"/>
+        <!-- for optimization, set the pixelformat for Root, Main and Popup
+             Windows (ARGB, AiRGB, AYUV, auto) -->
+        <parameter name="graphicswindowpixelformat"  value="ARGB"/>
+        <!-- for optimization, set the pixelformat for Disko internal surfaces
+             (ARGB, AiRGB, AYUV, auto) -->
+        <parameter name="graphicssurfacepixelformat" value="ARGB"/>
+        <!-- enable extended graphic acceleration routines which are part of Disko -->
+        <parameter name="extendedaccel"              value="true"/>
+        <!-- set the allocation method which is used to allocate surface memory
+             ("malloc" - Disko allocates surface memory with malloc(),
+              "dfb"    - surfaces will be allocated by directfb)
+             Please note: if you want to use the Disko X11 backend you have to set
+                          extendedaccel="true" and allocmethod="malloc" -->
+        <parameter name="allocmethod"                value="malloc"/>
+        <!-- the Disko X11 backend can switch to full screen if set to true -->
+        <parameter name="fullscreen"                 value="true"/>
+    </graphics>
+</mmsrc>

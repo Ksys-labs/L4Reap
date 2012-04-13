@@ -1,0 +1,16 @@
+<mmstheme name="default">
+    <description
+    	author = "Disko Team"
+    	email  = "info@berlinux-solutions.de"
+    	desc   = "This is the default disko theme..."
+   	/>
+
+   	<label
+		font.name = "DejaVuSansMono.ttf"
+        font.size = "12"
+        alignment = "left"
+		color	  =	"#c0c0c0ff"
+        selcolor  = "#ffffffff"
+	/>
+   	
+</mmstheme>

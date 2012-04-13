@@ -1,0 +1,224 @@
+<mmstheme name="default">
+
+    <!-- my label class -->
+    <class
+        name = "myLabelClass"
+        type = "label"
+
+        bgcolor        = "#00000000"
+	    bgimage        = ""
+        selbgcolor     = "#00000000"
+	    selbgimage     = ""
+		margin         = "0"
+		focusable      = "false"
+		selectable     = "true"
+		up_arrow       = ""
+		down_arrow     = ""
+		left_arrow     = ""
+		right_arrow    = ""
+		navigate_up    = ""
+		navigate_down  = ""
+		navigate_left  = ""
+		navigate_right = ""
+
+		border.image.path         = "" 
+		border.image.top-left     = ""
+		border.image.top          = ""
+		border.image.top-right    = ""
+		border.image.right        = ""
+		border.image.bottom-right = ""
+		border.image.bottom       = ""
+		border.image.bottom-left  = ""
+		border.image.left         = ""
+
+		border.selimage.path         = "" 
+		border.selimage.top-left     = ""
+		border.selimage.top          = ""
+		border.selimage.top-right    = ""
+		border.selimage.right        = ""
+		border.selimage.bottom-right = ""
+		border.selimage.bottom       = ""
+		border.selimage.bottom-left  = ""
+		border.selimage.left         = ""
+
+		border.color    = "#00000000"
+		border.selcolor = "#00000000"
+
+		border.thickness = "0"
+		border.margin    = "0"
+		border.rcorners  = "false"
+    
+        font.path = ""
+        font.name = "DejaVuSansMono.ttf"
+        font.size = "18"
+        alignment = "center"
+		color	  =	"#999999ff"
+        selcolor  = "#ccccccff"
+        text      = ""
+	/>
+
+    <!-- default rootwindow -->
+    <class
+        name = "default_rootwindow"
+        type = "rootwindow"
+
+        alignment   = "center"
+        dx          = "0px"
+        dy          = "0px"
+        w           = "100%"
+        h           = "100%"
+        bgcolor     = "#000000ff"
+        bgimage     = ""
+        opacity     = "255"
+        fadein      = "false"
+        fadeout     = "false"
+        debug       = "false"
+        margin      = "0"
+        own_surface = "true"
+
+        border.image.path         = "" 
+        border.image.top-left     = ""
+        border.image.top          = ""
+        border.image.top-right    = ""
+        border.image.right        = ""
+        border.image.bottom-right = ""
+        border.image.bottom       = ""
+        border.image.bottom-left  = ""
+        border.image.left         = ""
+
+        border.color    = "#08348bff"
+        border.selcolor = "#08348bff"
+
+        border.thickness = "0"
+        border.margin    = "0"
+        border.rcorners  = "false"
+  	/>
+
+    <!-- default button -->
+    <class
+        name = "default_button"
+        type = "button"
+
+        bgcolor        = "#2f54acff"
+        bgcolor_i        = "#2f54acff"
+	    bgimage.name   = ""
+        selbgcolor     = "#f9e258ff"
+        selbgcolor_i     = "#f9e258ff"
+	    selbgimage.name= ""
+		margin         = "10"
+		focusable      = "true"
+		selectable     = "true"
+		up_arrow       = ""
+		down_arrow     = ""
+		left_arrow     = ""
+		right_arrow    = ""
+		navigate_up    = ""
+		navigate_down  = ""
+		navigate_left  = ""
+		navigate_right = ""
+
+		border.image.path         = "" 
+		border.image.top-left     = ""
+		border.image.top          = ""
+		border.image.top-right    = ""
+		border.image.right        = ""
+		border.image.bottom-right = ""
+		border.image.bottom       = ""
+		border.image.bottom-left  = ""
+		border.image.left         = ""
+
+		border.selimage.path         = "" 
+		border.selimage.top-left     = ""
+		border.selimage.top          = ""
+		border.selimage.top-right    = ""
+		border.selimage.right        = ""
+		border.selimage.bottom-right = ""
+		border.selimage.bottom       = ""
+		border.selimage.bottom-left  = ""
+		border.selimage.left         = ""
+
+		border.color    = "#08348bff"
+		border.selcolor = "#f9e258ff"
+
+		border.thickness = "1"
+		border.margin    = "0"
+		border.rcorners  = "true"
+	/>
+  	
+    <!-- a default menu -->
+    <class
+        name = "default_menu"
+        type = "menu"
+
+        bgcolor        = "#00000000"
+	    bgimage        = ""
+        selbgcolor     = "#00000000"
+	    selbgimage     = ""
+		margin         = "0"
+		focusable      = "true"
+		selectable     = "true"
+		up_arrow       = ""
+		down_arrow     = ""
+		left_arrow     = ""
+		right_arrow    = ""
+		navigate_up    = ""
+		navigate_down  = ""
+		navigate_left  = ""
+		navigate_right = ""
+
+		border.image.path         = "" 
+		border.image.top-left     = ""
+		border.image.top          = ""
+		border.image.top-right    = ""
+		border.image.right        = ""
+		border.image.bottom-right = ""
+		border.image.bottom       = ""
+		border.image.bottom-left  = ""
+		border.image.left         = ""
+
+		border.selimage.path         = "" 
+		border.selimage.top-left     = ""
+		border.selimage.top          = ""
+		border.selimage.top-right    = ""
+		border.selimage.right        = ""
+		border.selimage.bottom-right = ""
+		border.selimage.bottom       = ""
+		border.selimage.bottom-left  = ""
+		border.selimage.left         = ""
+
+		border.color    = "#00000000"
+		border.selcolor = "#00000000"
+
+		border.thickness = "0"
+		border.margin    = "0"
+		border.rcorners  = "false"
+
+		item_width   = "100%"
+		item_height  = "62px"
+		item_hmargin = "10"
+		item_vmargin = "5"
+		cols         = "1"
+		dim_items    = "0"
+		fixed_pos    = "-1"
+		hloop        = "false"
+		vloop        = "false"
+		trans_items  = "0"
+		dim_top      = "0"
+		dim_bottom   = "0"
+		dim_left     = "0"
+		dim_right    = "0"
+		trans_top    = "0"
+		trans_bottom = "0"
+		trans_left   = "0"
+		trans_right  = "0"
+		>
+		<button class="default_button" name="menubutton" margin="0"  >
+			<hbox>
+				<vbox size="10px"/>
+				<label class="myLabelClass" name="itemtext" alignment="center"/>
+			</hbox>
+		</button>
+	</class>
+
+
+</mmstheme>

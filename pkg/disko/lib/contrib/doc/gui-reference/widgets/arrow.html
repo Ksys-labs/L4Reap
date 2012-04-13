@@ -1,0 +1,77 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, framework, linux, embedded devices, open source, documentation, gui, reference, widget, arrow" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation - GUI-Reference</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../../css/style.css">
+<body>
+
+<h1 id="gui-arrow">Arrow</h1>
+
+<h2>Description</h2>
+Specifies an arrow. An arrow is a widget which can be selected but not focused.
+
+<h2>XML-Tag</h2>
+<pre class="inline-code">
+&lt;arrow&gt;
+</pre>
+
+<h2>Attributes</h2>
+
+<table class="example">
+	<tr>
+		<th>Attribute</th>
+		<th>Domain</th>
+		<th>Default Value</th>		
+		<th>Description</th>
+	</tr>
+	<tr>
+		<td>color</td>
+		<td><a href="general.html#colors">color</a></td>
+		<td class="inline-code">"#c0c0c0ff"</td>
+		<td>Specifies the text color.</td>
+	</tr>
+	<tr>
+		<td>selcolor</td>
+		<td><a href="general.html#colors">color</a></td>
+		<td class="inline-code">"#ffffffff"</td>
+		<td>Specifies the text color of the textbox in selected state.</td>
+	</tr>
+	<tr>
+		<td>direction</td>
+		<td>"left" | "right" | "up" | "down"</td>
+		<td class="inline-code">"left"</td>
+		<td>Specifies the direction of the arrow.</td>
+	</tr>
+	<tr>
+		<td>check_selected</td>
+		<td>boolean</td>
+		<td class="inline-code">"false"</td>
+		<td>If set to <span class="inline-code">"true"</span>, navigation
+		    input events will only be send, if the arrow widget is in
+			selected state.
+		</td>
+	</tr>
+</table>
+
+Additionally all <a href="general.html#gui-general-attributes">general</a> and 
+<a href="general.html#gui-border-attributes">border</a> attributes can be used.
+
+<h2>Remarks</h2>
+This element can be used as child within windows and widgets.<br />
+This element can only have one child widget.
+
+<h2>Related elements</h2>
+<a href="../elements.html">elements</a><br />
+<br />
+
+<hr />
+
+<a target=_new href="../index.html">&lt;&lt;&lt; GUI-Reference</a>
+
+</body>
+</html>

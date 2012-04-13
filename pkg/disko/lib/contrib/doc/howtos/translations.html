@@ -1,0 +1,100 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, framework, linux, embedded devices, open source, documentation, translate, localization" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation - How to translate a Disko application</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../css/style.css">
+<body>
+<h1>How to translate a Disko application</h1>
+<h2>Preface</h2>
+<p>In most cases a Disko application deals with information that is presented to the user. The user may want to have them presented in his or her national language. To fulfill this demand disko applications can be translated even if they were not intentionally designed to be translated.</p>
+<p>For this purpose, we have decided to use translation files, to translate any texts automatically, which are handled by the gui component.</p>
+<h2>Configuration</h2>
+<p>The concerning diskorc file (disko git version only) needs to contain following information:</p>
+<code>
+<pre class="codelisting" >
+&lt;mmsrc version="1.5.0"&gt;
+    ...
+    &lt;language&gt;
+        &lt;parameter name="sourcelang"      value="msgid"        /&gt;
+        &lt;parameter name="defaultdestlang" value="en"           /&gt;
+        &lt;parameter name="addtranslations" value="true"         /&gt;
+        &lt;parameter name="languagefiledir" value="./share/lang" /&gt;
+    &lt;/language&gt;
+&lt;/mmsrc&gt;
+</pre>
+</code>
+<p>The parameter <b>sourcelang</b> defines the language that is been used within the application. That means the texts within the dialog files and/or the database. This is done by using the usual two letter codes (en for english, de for german, etc). In this example the sourcelang is set to <i>msgid</i> which means the source is no language just a placeholder. This should be your idea of using texts within your application from the very beginning. Image what problems it will cause, if you are going to correct any spell mistakes whitin your application.</p>
+<p>The parameter <b>defaultdestlang</b> defines the target language that should be displayed when the application starts. The language could be changed at runtime as well. That is shown later on.</p>
+<p style="page-break-before: always">The parameter <b>languagefiledir</b> defines the central location of the translation files. At the program start the plugin home directories are searched for translation files as well, so that any 3rd party plugins, that provide translations, can easily be deployed as usual.</p> 
+<p>The parameter <b>addtranslations</b> triggers the automatic adding of text for which no translation exist in the translation files. This can be used to "generate" new skeleton files for a new language. Just create a fresh <i>translation.en</i> and watch it being filled automatically when choosing english for target language.</p>
+
+<h2>Translation files</h2>
+<p> They are named <i>translation.&lt;xx&gt;</i> wheras xx stands for the target language code. A typical translation.en where the source language are ids looks as follows:</p>
+<code>
+<pre class="codelisting" >
+MSG_WELCOME===Welcome
+MSG_ERROR_OCCURED===There has been an error reported!
+...
+</pre>
+</code>
+<p>It is very simple. Its the sourcetext followed by 3 equal signs to separate it from the translated text. A newline finishes a single translation.</p>
+
+<h2 style="page-break-before: always">Programming example</h2>
+<p>This is a very basic example of showing the "usage" of MMSTranslator. From the programming point of view theres not much to be done. Just the .setTargetLang() method must be called to change the language which is to be displayed.</p>
+<code>
+<pre class="codelisting" >
+#include &lt;mms.h&gt;
+#include &lt;mmscore/mmstranslator.h&gt;
+
+int main(int argc, char *argv[]) {
+    try {
+        mmsInit(MMSINIT_WINDOWS,0,NULL,"./diskorc");
+        MMSTranslator trans;
+	
+        //create my rootwindow
+        MMSWindow *window;
+        window = new MMSRootWindow("default_rootwindow",
+                                   "100%","100%",
+                                   MMSALIGNMENT_CENTER,
+                                   MMSW_NONE,NULL);
+        //create a label
+        MMSLabelWidget *label
+        label = new MMSLabelWidget(window, 
+                                   "default_label", 
+                                   NULL);
+        string source="WELCOMEMSG";
+        label->setText(source);
+
+        //add the label to window
+        window->add(label);
+        window->show();
+        sleep(2);
+        
+        //reset translation to a different language.
+        trans.setTargetLang("de");
+    } catch (MMSError *err) {
+        fprintf(stderr,"%s\n",err->getMessage().c_str());
+    }
+
+    //do nothing in particular
+    while(1) sleep(1);
+
+    return 0;
+}
+</pre>
+</code>
+<p>To compile &amp; link the sample type <i>make</i> in the root directory of the sample application. The application can be downloaded from <a href="http://www.diskohq.com/downloads/translationapp.tar.gz">here</a>.</p>
+<p>If there are any flaws or mistakes in this article. Just feel free to report this at our <a href="http://www.diskohq.org/forum">Forum</a></p>
+
+<hr />
+
+<a href="index.html">&lt;&lt;&lt; HowTos</a>
+
+</body>
+</html>
+

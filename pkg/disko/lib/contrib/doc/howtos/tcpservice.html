@@ -1,0 +1,72 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, framework, linux, embedded devices, open source, documentation, tcp/ip server" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation - Using the TCP/IP Server</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../css/style.css">
+<body>
+<h1>Using the TCP/IP Server</h1>
+<h2>Preface</h2>
+<p>The disko lbrary does contain various functions for the application programmer. One of them is a simple to use TCP/IP server which shall be shown in this Tutorial. The server working with various interfaces for a single port. The communication has to be set up, that the involved interfaces act in a cooperative way.</p>
+<h2>Involved Classes</h2>
+<p>The classes involved in this are <i>MMSTCPServer</i>, <i>MMSServerInterface</i> and <i>MMSTCPClient</i>. The <i>MMSTCPServer</i> contains the Server functionalities, it takes a vector of interface classes (<i>MMSServerInterface</i>) that will process the requests. The <i>MMSTCPClient</i> class is used to connect to a TCP/IP server, and to send and receive some messages.</p>
+<h2>The Server</h2>
+<p>First step to implement a basic server is to derive a server interface from the <i>MMSServerInterface</i> class and to overwrite the <i>processRequest()</i> method.</p>
+<code>
+<pre class="codelisting" >
+class MyInterface : public MMSServerInterface {
+    public:
+        MyInterface() : MMSServerInterface("iface1") {};
+        ~MyInterface() {};
+        bool processRequest(string *request, string *answer);
+};
+
+bool MyInterface::processRequest(string *request, string *answer) {
+
+    cout << "request is: " << *request << endl;
+    answer->append("request done!\n");
+    return true;
+}
+</pre>
+</code>
+<p>Then create an instance and append it to the interface vector</p>
+<code>
+<pre class="codelisting" >
+MyInterface *iface = new MyInterface();
+&lt;MMSServerInterface*&gt; interfaces;
+interfaces.push_back(iface);
+</pre>
+</code>
+<p>After that create an instance of the server passing the interface vector listen address and port to the constructor and start the server.</p>
+<code>
+<pre class="codelisting" >
+MMSTCPServer *server = new MMSTCPServer(interfaces,"127.0.0.1",11111);
+server->start();
+</pre>
+</code>
+<h2>The client</h2>
+<p>The client is fairly easy to use. Just create an instance of the <i>MMSTCPClient</i> passing the target address and port to the constructor. After that just send a message to the server.</p>
+<code>
+<pre class="codelisting" >
+MMSTCPClient *client = new MMSTCPClient("127.0.0.1",11111);
+string retstr;
+client->sendAndReceive("Heres my client message!", &retstr);
+
+cout  << "answer was: " << retstr << endl;
+</pre>
+</code>
+<p>Whe all went well the server should print <b>request is: Heres my client message!</b> and the client should print <b>answer was: request done!</b>.</p>
+<p>A sample server and client application can be downloaded from <a href="http://www.diskohq.org/downloads/mmstcp.tar.gz">here</a>. To compile &amp; link the sample type <i>make</i> in the root directory of the sample application.</p>
+<p>If there are any flaws or mistakes in this article. Just feel free to report this at our <a href="http://www.diskohq.org/forum">Forum</a></p>
+
+<hr />
+
+<a href="index.html">&lt;&lt;&lt; HowTos</a>
+
+</body>
+</html>
+

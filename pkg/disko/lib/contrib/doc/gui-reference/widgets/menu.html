@@ -1,0 +1,319 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-gb" lang="en-gb" >
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="Disko, Disko framework, framework, linux, embedded devices, open source, documentation, gui, reference, widget, menu" />
+    <meta name="description" content="Disko a linux application framework for embedded devices" />
+    <title>Disko Framework - Documentation - GUI-Reference</title>
+</head>
+<link rel="stylesheet" type="text/css" href="../../css/style.css">
+<body>
+
+<h1 id="gui-menu">Menu</h1>
+
+<h2>Description</h2>
+Specifies a menu. A menu is a widget which can be selected and focused.
+
+<h2>XML-Tag</h2>
+<pre class="inline-code">
+&lt;menu&gt;
+</pre>
+
+<h2>Attributes</h2>
+
+<table class="example">
+	<tr>
+		<th>Attribute</th>
+		<th>Domain</th>
+		<th>Default Value</th>		
+		<th>Description</th>
+	</tr>
+	<tr>
+		<td>focusable</td>
+		<td>boolean</td>
+		<td class="inline-code">"true"</td>
+		<td>Specifies if the element is focusable.</td>
+	</tr>
+	<tr>
+		<td>selectable</td>
+		<td>boolean</td>
+		<td class="inline-code">"true"</td>
+		<td>Specifies if the element is selectable.</td>
+	</tr>
+	<tr>
+		<td>item_width</td>
+		<td><a href="general.html#sizes">size</a></td>
+		<td class="inline-code">"100%"</td>
+		<td>Specifies the width of an item in the menu.</td>
+	</tr>
+	<tr>
+		<td>item_height</td>
+		<td><a href="general.html#sizes">size</a></td>
+		<td class="inline-code">"100%"</td>
+		<td>Specifies the height of an item in the menu.</td>
+	</tr>
+	<tr>
+		<td>item_hmargin</td>
+		<td>pixel</td>
+		<td class="inline-code">"0"</td>
+		<td>You can set an additional horizontal margin for each item.</td>
+	</tr>
+	<tr>
+		<td>item_vmargin</td>
+		<td>pixel</td>
+		<td class="inline-code">"0"</td>
+		<td>You can set an additional vertical margin for each item.</td>
+	</tr>
+	<tr>
+		<td>cols</td>
+		<td>number</td>
+		<td class="inline-code">"0"</td>
+		<td>The number of visible columns will be calculated based on
+		    the <span class="inline-code">item_width</span> attribute. 
+			If you want to have a specific number of columns (visible and
+			invisible) you should set this <span class="inline-code">cols</span>
+			attribute. If set to <span class="inline-code">"0"</span>, 
+			the menu uses only visible columns.
+		</td>
+	</tr>
+	<tr>
+		<td>fixed_pos</td>
+		<td>number</td>
+		<td class="inline-code">"-1"</td>
+		<td>You can set a fixed position of the selected item. This works
+		    only for menus with <span class="inline-code">cols="1"</span>
+			(vertical menu with single column) or menus with <span class="inline-code">cols="9999"</span>
+			(horizontal menu with single row). The position 0 is the 
+			first item. If you set a value greater or equal than the
+			number of visible items, the fixed selected item is in the
+			middle. If you do not want a fixed position you should use
+			<span class="inline-code">fixed_pos="-1"</span>.
+		</td>
+	</tr>
+	<tr>
+		<td>hloop</td>
+		<td>boolean</td>
+		<td class="inline-code">"false"</td>
+		<td>If set to <span class="inline-code">"true"</span>, you can
+		    press LEFT/RIGHT keys and the menu items will rotate horizontally
+			without jumping out of the menu.
+		</td>
+	</tr>
+	<tr>
+		<td>vloop</td>
+		<td>boolean</td>
+		<td class="inline-code">"false"</td>
+		<td>If set to <span class="inline-code">"true"</span>, you can
+		    press UP/DOWN keys and the menu items will rotate vertically
+			without jumping out of the menu.
+		</td>
+	</tr>
+	<tr>
+		<td>dim_items</td>
+		<td>0 - 255</td>
+		<td class="inline-code">"0"</td>
+		<td>It is possible to dim out all menu items if the menu has not
+		    the focus. The value <span class="inline-code">"255"</span> 
+			means maximum dim-out.
+		</td>
+	</tr>
+	<tr>
+		<td>dim_top</td>
+		<td>0 - 255</td>
+		<td class="inline-code">"0"</td>
+		<td>Dim out items at the top of the menu. This works only for
+		    menus with fixed selection 
+			(see <span class="inline-code">fixed_pos</span> attribute). 
+			The value <span class="inline-code">"255"</span> means maximum
+			dim-out.
+		</td>
+	</tr>
+	<tr>
+		<td>dim_bottom</td>
+		<td>0 - 255</td>
+		<td class="inline-code">"0"</td>
+		<td>Dim out items at the bottom of the menu. This works only for
+		    menus with fixed selection 
+			(see <span class="inline-code">fixed_pos</span> attribute). 
+			The value <span class="inline-code">"255"</span> means maximum
+			dim-out.
+		</td>
+	</tr>
+	<tr>
+		<td>dim_left</td>
+		<td>0 - 255</td>
+		<td class="inline-code">"0"</td>
+		<td>Dim out items on the left of the menu. This works only for
+		    menus with fixed selection 
+			(see <span class="inline-code">fixed_pos</span> attribute). 
+			The value <span class="inline-code">"255"</span> means maximum
+			dim-out.
+		</td>
+	</tr>
+	<tr>
+		<td>dim_right</td>
+		<td>0 - 255</td>
+		<td class="inline-code">"0"</td>
+		<td>Dim out items on the right of the menu. This works only for
+		    menus with fixed selection 
+			(see <span class="inline-code">fixed_pos</span> attribute). 
+			The value <span class="inline-code">"255"</span> means maximum
+			dim-out.
+		</td>
+	</tr>
+	<tr>
+		<td>trans_items</td>
+		<td>0 - 255</td>
+		<td class="inline-code">"0"</td>
+		<td>It is possible to make all menu items transparent if the 
+		    menu doesn't have the focus.
+			The value <span class="inline-code">"255"</span> means maximum
+			transparency.
+		</td>
+	</tr>
+	<tr>
+		<td>trans_top</td>
+		<td>0 - 255</td>
+		<td class="inline-code">"0"</td>
+		<td>Items at the top of the menu can be made transparent.
+		    This works only for menus with fixed selection 
+			(see <span class="inline-code">fixed_pos</span> attribute). 
+			The value <span class="inline-code">"255"</span> means maximum
+			transparency.
+		</td>
+	</tr>
+	<tr>
+		<td>trans_bottom</td>
+		<td>0 - 255</td>
+		<td class="inline-code">"0"</td>
+		<td>Items at the bottom of the menu can be made transparent.
+		    This works only for menus with fixed selection 
+			(see <span class="inline-code">fixed_pos</span> attribute). 
+			The value <span class="inline-code">"255"</span> means maximum
+			transparency.
+		</td>
+	</tr>
+	<tr>
+		<td>trans_left</td>
+		<td>0 - 255</td>
+		<td class="inline-code">"0"</td>
+		<td>Items on the left of the menu can be made transparent.
+		    This works only for menus with fixed selection 
+			(see <span class="inline-code">fixed_pos</span> attribute). 
+			The value <span class="inline-code">"255"</span> means maximum
+			transparency.
+		</td>
+	</tr>
+	<tr>
+		<td>trans_right</td>
+		<td>0 - 255</td>
+		<td class="inline-code">"0"</td>
+		<td>Items on the right of the menu can be made transparent.
+		    This works only for menus with fixed selection 
+			(see <span class="inline-code">fixed_pos</span> attribute). 
+			The value <span class="inline-code">"255"</span> means maximum
+			transparency.
+		</td>
+	</tr>
+	<tr>
+		<td>zoomsel_width</td>
+		<td>pixel</td>
+		<td class="inline-code">"0"</td>
+		<td>Selected items will be stretched horizontally by the given amount of pixels.</td>
+	</tr>
+	<tr>
+		<td>zoomsel_height</td>
+		<td>pixel</td>
+		<td class="inline-code">"0"</td>
+		<td>Selected items will be stretched vertically by the given amount of pixels.</td>
+	</tr>
+	<tr>
+		<td>zoomsel_shiftx</td>
+		<td>pixel</td>
+		<td class="inline-code">"0"</td>
+		<td>Selected items will be shifted horizontally by the given amount of pixels.</td>
+	</tr>
+	<tr>
+		<td>zoomsel_shifty</td>
+		<td>pixel</td>
+		<td class="inline-code">"0"</td>
+		<td>Selected items will be shifted vertically by the given amount of pixels.</td>
+	</tr>
+	<tr>
+		<td>smooth_scrolling</td>
+		<td>boolean</td>
+		<td class="inline-code">"false"</td>
+		<td>If set to <span class="inline-code">"true"</span> switching 
+		    between menu items will be animated by a smooth movement into
+			the right position.
+		</td>
+	</tr>
+	<!--<tr>
+		<td>smooth_selection</td>
+		<td>boolean</td>
+		<td class="inline-code">"false"</td>
+		<td>...</td>
+	</tr>
+	<tr>
+		<td>smooth_delay</td>
+		<td>number</td>
+		<td class="inline-code">"0"</td>
+		<td>...</td>
+	</tr>-->
+	<tr>
+		<td>selimage</td>
+		<td><a href="general.html#images">image</a></td>
+		<td class="inline-code">""</td>
+		<td>Specifies the image to be used if the menuitem is selected.
+		    This image will be drawn on top of <span class="inline-code">selbgimage</span>.
+		</td>
+	</tr>
+	<!--<tr>
+		<td>parent_window</td>
+		<td>string</td>
+		<td class="inline-code">""</td>
+		<td>...</td>
+	</tr>-->
+</table>
+
+Additionally all <a href="general.html#gui-general-attributes">general</a> and 
+<a href="general.html#gui-border-attributes">border</a> attributes can be used.
+
+<h2>Set an item template</h2>
+The specific feature of the menu widget is that you can dynamically add
+and delete items. The layout of these items is free. Free means that you
+can use all widgets listed here (except <span class="inline-code">&lt;menu&gt;</span> itself)
+to build your own item template.<br />
+<br />
+One requirement to the item template: The top-level widget must be selectable.<br />
+<br />
+The examples below demonstrates how you can build different kind of menus.
+
+<h2>Remarks</h2>
+This element can be used as child within windows and widgets.<br />
+<br />
+If you use <span class="inline-code"><a href="menuitem.html">&lt;menuitem&gt;</a></span>
+the dialogmanager can add one or more menu items. 
+For fixed menus you do not need to add it with usage of the C++ API.
+
+<h2>Examples</h2>
+
+<ul>
+	<li><a href="../gui-examples.html#example2">Simple Listbox</a></li>
+	<li><a href="../gui-examples.html#example3">Listbox with image</a></li>
+	<li><a href="../gui-examples.html#example4">Image Menu</a></li>
+	<li><a href="../gui-examples.html#example8">Image menu using <span class="inline-code">&lt;mmstheme&gt;</span></a></li>
+	<li><a href="../gui-examples.html#example9">Create and fill a simple listbox</a></li>
+</ul>
+
+<h2>Related elements</h2>
+all windows and all widgets see <a href="../elements.html">here</a><br />
+<br />
+
+<hr />
+
+<a target=_new href="../index.html">&lt;&lt;&lt; GUI-Reference</a>
+
+</body>
+</html>

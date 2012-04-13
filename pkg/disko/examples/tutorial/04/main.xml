@@ -1,0 +1,12 @@
+<mmsdialog>
+    <description
+    	author = "disko tutorial"
+    	email  = "disko@morphine.tv"
+    	desc   = ""
+   	/>
+	<mainwindow w="80%" h="80%" margin="0" alignment="center" border.thickness="0" bgcolor="#000000a0"
+	            opacity="255" fadein="true" fadeout="true">
+		<label class="myLabelClass" name="label1" text="Hello World" />
+	</mainwindow>
+</mmsdialog>
+

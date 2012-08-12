@@ -102,6 +102,19 @@ public:
     return cap.release();
   }
 
+  L4::Cap<L4::Irq> register_irq_obj(L4::Server_object *o,
+                                    L4::Cap<L4::Irq> const &irq)
+  {
+    l4_umword_t id = l4_umword_t(o);
+    int err = l4_error(irq->attach(id, _server));
+
+    if (err < 0)
+      return L4::Cap<L4::Irq>(err | L4_INVALID_CAP_BIT);
+
+    o->obj_cap(irq);
+    return irq;
+  }
+
 
   bool unregister_obj(L4::Server_object *o)
   {
@@ -135,7 +148,7 @@ public:
   Object_registry const *registry() const { return &_registry; }
   Object_registry *registry() { return &_registry; }
 
-  void loop()
+  void L4_NORETURN loop()
   { Base::loop(_registry); }
 };
 

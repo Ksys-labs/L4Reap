@@ -89,10 +89,7 @@ Device::get_by_hid(L4::Ipc::Iostream &ios)
 
   for (; c != end(); ++c)
     if (mh(*c) == 1)
-      {
-	ios << l4vbus_device_handle_t(mh.dev);
-	return L4_EOK;
-      }
+      return dynamic_cast<Device*>(*c)->vbus_get_device(ios);
 
   return -L4_ENOENT;
 }
@@ -105,7 +102,7 @@ Device::vbus_get_device(L4::Ipc::Iostream &ios)
   inf.num_resources = resources()->size();
   if (hid())
     {
-      strncpy(inf.name, hid(), sizeof(inf.name));
+      strncpy(inf.name, name(), sizeof(inf.name));
       inf.name[sizeof(inf.name) - 1] = 0;
     }
   else

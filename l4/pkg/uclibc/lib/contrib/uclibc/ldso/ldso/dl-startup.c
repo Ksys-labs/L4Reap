@@ -300,7 +300,7 @@ DL_START(unsigned long args)
  			 * Since ldso is linked with -Bsymbolic, all relocs should be RELATIVE.  All archs
 			 * that need bootstrap relocations need to define ARCH_NEEDS_BOOTSTRAP_RELOCS.
 			 */
-#ifdef ARCH_NEEDS_BOOTSTRAP_RELOCS
+#if 1 //def ARCH_NEEDS_BOOTSTRAP_RELOCS
 			{
 				ELF_RELOC *rpnt;
 				unsigned int i;

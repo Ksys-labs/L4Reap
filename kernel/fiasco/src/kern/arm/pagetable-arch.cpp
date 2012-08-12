@@ -124,9 +124,6 @@ private:
     Pt_base_mask     = 0xfffffc00,
     Pde_type_coarse  = 0x01,
   };
-
-private:
-  static Per_cpu<Page_table *> _current;
 };
 
 //---------------------------------------------------------------------------
@@ -204,8 +201,6 @@ PUBLIC inline NEEDS[Mem_page_attr::get_ap]
 bool
 Mem_page_attr::permits(unsigned long attr)
 { return (get_ap() & attr) == attr; }
-
-Per_cpu<Page_table *> DEFINE_PER_CPU Page_table::_current;
 
 PUBLIC inline
 unsigned long
@@ -364,22 +359,18 @@ Pte::attr(Mem_page_attr const &attr, bool write_back)
 PUBLIC /*inline*/
 void Page_table::activate()
 {
-  Pte p = walk(this, 0, false, 0);
-  if (_current.cpu(current_cpu()) != this)
-    {
-      _current.cpu(current_cpu()) = this;
-      Mem_unit::flush_vcache();
-      asm volatile (
-          "mcr p15, 0, r0, c8, c7, 0 \n" // TLB flush
-          "mcr p15, 0, %0, c2, c0    \n" // pdbr
+  Pte p = walk(this, 0, false, Ptab::Null_alloc(), 0);
+  Mem_unit::flush_vcache();
+  asm volatile (
+      "mcr p15, 0, r0, c8, c7, 0 \n" // TLB flush
+      "mcr p15, 0, %0, c2, c0    \n" // pdbr
 
-          "mrc p15, 0, r1, c2, c0    \n"
-          "mov r1, r1                \n"
-          "sub pc, pc, #4            \n"
-          :
-          : "r" (p.phys(this))
-          : "r1");
-    }
+      "mrc p15, 0, r1, c2, c0    \n"
+      "mov r1, r1                \n"
+      "sub pc, pc, #4            \n"
+      :
+      : "r" (p.phys(this))
+      : "r1");
 }
 
 
@@ -468,25 +459,21 @@ IMPLEMENTATION [armv6 || armca8]:
 PUBLIC
 void Page_table::activate(unsigned long asid)
 {
-  Pte p = walk(this, 0, false, 0);
-  if (_current.cpu(current_cpu()) != this)
-    {
-      _current.cpu(current_cpu()) = this;
-      asm volatile (
-          "mcr p15, 0, %2, c7, c5, 6    \n" // bt flush
-          "mcr p15, 0, r0, c7, c10, 4   \n" // dsb
-          "mcr p15, 0, %0, c2, c0       \n" // set TTBR
-          "mcr p15, 0, r0, c7, c10, 4   \n" // dsb
-          "mcr p15, 0, %1, c13, c0, 1   \n" // set new ASID value
-          "mcr p15, 0, r0, c7, c5, 4    \n" // isb
-          "mcr p15, 0, %2, c7, c5, 6    \n" // bt flush
-          "mrc p15, 0, r1, c2, c0       \n"
-          "mov r1, r1                   \n"
-          "sub pc, pc, #4               \n"
-          :
-          : "r" (p.phys(this) | Ttbr_bits), "r"(asid), "r" (0)
-          : "r1");
-    }
+  Pte p = walk(this, 0, false, Ptab::Null_alloc(), 0);
+  asm volatile (
+      "mcr p15, 0, %2, c7, c5, 6    \n" // bt flush
+      "mcr p15, 0, r0, c7, c10, 4   \n" // dsb
+      "mcr p15, 0, %0, c2, c0       \n" // set TTBR
+      "mcr p15, 0, r0, c7, c10, 4   \n" // dsb
+      "mcr p15, 0, %1, c13, c0, 1   \n" // set new ASID value
+      "mcr p15, 0, r0, c7, c5, 4    \n" // isb
+      "mcr p15, 0, %2, c7, c5, 6    \n" // bt flush
+      "mrc p15, 0, r1, c2, c0       \n"
+      "mov r1, r1                   \n"
+      "sub pc, pc, #4               \n"
+      :
+      : "r" (p.phys(this) | Ttbr_bits), "r"(asid), "r" (0)
+      : "r1");
 }
 
 //-----------------------------------------------------------------------------
@@ -495,27 +482,23 @@ IMPLEMENTATION [armv7 && armca9]:
 PUBLIC
 void Page_table::activate(unsigned long asid)
 {
-  Pte p = walk(this, 0, false, 0);
-  if (_current.cpu(current_cpu()) != this)
-    {
-      _current.cpu(current_cpu()) = this;
-      asm volatile (
-          "mcr p15, 0, %2, c7, c5, 6    \n" // bt flush
-          "dsb                          \n"
-          "mcr p15, 0, %2, c13, c0, 1   \n" // change ASID to 0
-          "isb                          \n"
-          "mcr p15, 0, %0, c2, c0       \n" // set TTBR
-          "isb                          \n"
-          "mcr p15, 0, %1, c13, c0, 1   \n" // set new ASID value
-          "isb                          \n"
-          "mcr p15, 0, %2, c7, c5, 6    \n" // bt flush
-          "isb                          \n"
-          "mov r1, r1                   \n"
-          "sub pc, pc, #4               \n"
-          :
-          : "r" (p.phys(this) | Ttbr_bits), "r"(asid), "r" (0)
-          : "r1");
-    }
+  Pte p = walk(this, 0, false, Ptab::Null_alloc(), 0);
+  asm volatile (
+      "mcr p15, 0, %2, c7, c5, 6    \n" // bt flush
+      "dsb                          \n"
+      "mcr p15, 0, %2, c13, c0, 1   \n" // change ASID to 0
+      "isb                          \n"
+      "mcr p15, 0, %0, c2, c0       \n" // set TTBR
+      "isb                          \n"
+      "mcr p15, 0, %1, c13, c0, 1   \n" // set new ASID value
+      "isb                          \n"
+      "mcr p15, 0, %2, c7, c5, 6    \n" // bt flush
+      "isb                          \n"
+      "mov r1, r1                   \n"
+      "sub pc, pc, #4               \n"
+      :
+      : "r" (p.phys(this) | Ttbr_bits), "r"(asid), "r" (0)
+      : "r1");
 }
 
 //-----------------------------------------------------------------------------
@@ -525,7 +508,7 @@ PRIVATE inline
 Mword
 Page_table::current_virt_to_phys(void *virt)
 {
-  return current()->walk(virt, 0, false, 0).phys(virt);
+  return walk(virt, 0, false, Ptab::Null_alloc(), 0).phys(virt);
 }
 
 //-----------------------------------------------------------------------------
@@ -554,11 +537,13 @@ Page_table::current_virt_to_phys(void *virt)
 //-----------------------------------------------------------------------------
 IMPLEMENTATION [arm]:
 
-#include "globals.h"
+#include <cassert>
+#include "bug.h"
+#include "auto_quota.h"
 #include "mem.h"
-
+#if 0
 IMPLEMENT
-void *Page_table::operator new(size_t s)
+void *Page_table::operator new(size_t s) throw()
 {
   (void)s;
   assert(s == 16*1024);
@@ -570,7 +555,7 @@ void Page_table::operator delete(void *b)
 {
   alloc()->free(14, b);
 }
-
+#endif
 
 IMPLEMENT
 Page_table::Page_table()
@@ -580,8 +565,9 @@ Page_table::Page_table()
     Mem_unit::clean_dcache(raw, (char *)raw + sizeof(raw));
 }
 
-PUBLIC
-void Page_table::free_page_tables(void *start, void *end)
+
+PUBLIC template< typename ALLOC >
+void Page_table::free_page_tables(void *start, void *end, ALLOC const &a)
 {
   for (unsigned i = (Address)start >> 20; i < ((Address)end >> 20); ++i)
     {
@@ -589,7 +575,11 @@ void Page_table::free_page_tables(void *start, void *end)
       if (p.valid() && !p.superpage())
 	{
 	  void *pt = (void*)Mem_layout::phys_to_pmem(p.raw() & Pt_base_mask);
-	  alloc()->free(10, pt);
+
+          BUG_ON(pt == (void*)~0UL, "cannot get virtual (pmem) address for %lx (pte @ %p)\n",
+              p.raw() & Pt_base_mask, p._pte);
+
+	  a.free(pt, 1<<10);
 	}
     }
 }
@@ -606,9 +596,12 @@ static unsigned Page_table::pt_index( void const *const address )
   return ((Mword)address >> 12) & 255; // 4KB steps for coarse pts
 }
 
-PUBLIC
+PUBLIC template< typename Alloc >
+inline NEEDS[<cassert>, "bug.h", Page_table::pd_index,
+             Page_table::current_virt_to_phys, Page_table::pt_index]
 Pte
-Page_table::walk(void *va, unsigned long size, bool write_back, Ram_quota *q)
+Page_table::walk(void *va, unsigned long size, bool write_back, Alloc const &q,
+                 Page_table *ldir)
 {
   unsigned const pd_idx = pd_index(va);
 
@@ -620,22 +613,17 @@ Page_table::walk(void *va, unsigned long size, bool write_back, Ram_quota *q)
     {
       if (size == (4 << 10))
 	{
-	  assert(q);
-	  if (q->alloc(1<<10))
-	    {
-	      pt = (Mword*)alloc()->alloc(10);
-	      if (EXPECT_FALSE(!pt))
-		q->free(1<<10);
-	    }
-	  if (!pt)
-	    return pde;
+	  assert (q.valid());
+          pt = (Mword*)q.alloc(1<<10);
+          if (EXPECT_FALSE(!pt))
+            return pde;
 
 	  Mem::memset_mwords(pt, 0, 1024 >> 2);
 
 	  if (write_back || Pte::need_cache_clean())
 	    Mem_unit::clean_dcache(pt, (char*)pt + 1024);
 
-	  raw[pd_idx] = current_virt_to_phys(pt) | Pde_type_coarse;
+	  raw[pd_idx] = ldir->current_virt_to_phys(pt) | Pde_type_coarse;
 
 	  if (write_back || Pte::need_cache_clean())
 	    Mem_unit::clean_dcache(raw + pd_idx);
@@ -649,17 +637,17 @@ Page_table::walk(void *va, unsigned long size, bool write_back, Ram_quota *q)
   if (!pt)
     pt = (Mword *)Mem_layout::phys_to_pmem(pde.raw() & Pt_base_mask);
 
-  unsigned const pt_idx = pt_index(va);
+  BUG_ON(pt == (void*)~0UL, "could not get virtual address for %lx (from pte @%p)\n",
+         pde.raw(), pde._pte);
 
-  return Pte(this, 1, pt + pt_idx);
+  return Pte(this, 1, pt + pt_index(va));
 }
 
 
 IMPLEMENT
-void Page_table::init(Page_table *current)
+void Page_table::init()
 {
   unsigned domains      = 0x0001;
-  _current.cpu(0) = current;
 
   asm volatile (
       "mcr p15, 0, %0, c3, c0       \n" // domains
@@ -734,14 +722,6 @@ Page_table::invalidate(void *my_base, unsigned size, unsigned long asid = ~0UL)
     Mem_unit::tlb_flush(asid);
 }
 #endif
-
-PUBLIC static inline
-Page_table *Page_table::current(unsigned cpu)
-{ return _current.cpu(cpu); }
-
-IMPLEMENT inline NEEDS["globals.h"]
-Page_table *Page_table::current()
-{ return _current.cpu(current_cpu()); }
 
 IMPLEMENT
 void *

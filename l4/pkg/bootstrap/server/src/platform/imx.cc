@@ -26,19 +26,20 @@ class Platform_arm_imx : public Platform_single_region_ram
   void init()
   {
 #ifdef PLATFORM_TYPE_imx21
-    static L4::Uart_imx21 _uart(0, 0);
-    _uart.startup(0x1000A000);
+    static L4::Io_register_block_mmio r(0x1000A000);
+    static L4::Uart_imx21 _uart;
 #elif defined(PLATFORM_TYPE_imx35)
-    static L4::Uart_imx35 _uart(0, 0);
-    _uart.startup(0x43f90000); // UART-1
-    //_uart.startup(0x43f94000); // UART-2
-    //_uart.startup(0x5000c000); // UART-3
+    static L4::Uart_imx35 _uart;
+    static L4::Io_register_block_mmio r(0x43f90000); // UART-1
+    //static L4::Io_register_block_mmio r(0x43f94000); // UART-2
+    //static L4::Io_register_block_mmio r(0x5000c000); // UART-3
 #elif defined(PLATFORM_TYPE_imx51)
-    static L4::Uart_imx51 _uart(0, 0);
-    _uart.startup(0x73fbc000);
+    static L4::Io_register_block_mmio r(0x73fbc000);
+    static L4::Uart_imx51 _uart;
 #else
 #error Which platform type?
 #endif
+    _uart.startup(&r);
     set_stdio_uart(&_uart);
   }
 };

@@ -44,7 +44,7 @@ Jdb_tid_ext::update()
 //static Jdb_tid_ext jdb_tid_ext INIT_PRIORITY(JDB_MODULE_INIT_PRIO);
 
 //---------------------------------------------------------------------------
-IMPLEMENTATION [arm || ux || ppc32]:
+IMPLEMENTATION [arm || ux || ppc32 || sparc]:
 
 #include "mem_layout.h"
 

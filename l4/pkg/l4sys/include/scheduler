@@ -23,6 +23,7 @@
  */
 #pragma once
 
+#include <l4/sys/icu>
 #include <l4/sys/scheduler.h>
 #include <l4/sys/capability>
 
@@ -37,7 +38,7 @@ namespace L4 {
  * \see \ref l4_scheduler_api for an overview description.
  *
  */
-class Scheduler : public Kobject_t<Scheduler, Kobject, L4_PROTO_SCHEDULER>
+class Scheduler : public Kobject_t<Scheduler, Icu, L4_PROTO_SCHEDULER>
 {
   L4_KOBJECT(Scheduler)
 

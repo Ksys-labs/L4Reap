@@ -127,10 +127,10 @@ Filter_console::getchar(bool b = true)
   int ch;
 
  get_char:
-  if (state==UNKNOWN_ESC && pos)
+  if (state == UNKNOWN_ESC && pos)
     {
       ch = ibuf[0];
-      memmove(ibuf,ibuf+1,--pos);
+      memmove(ibuf, ibuf + 1, --pos);
     }
   else
     ch = _o->getchar(b);
@@ -158,7 +158,7 @@ Filter_console::getchar(bool b = true)
 	{
 	  ibuf[pos++] = 27;
 	  int nc = getchar_timeout(csi_timeout);
-	  if (nc==-1)
+	  if (nc == -1)
 	    {
 	      pos = 0;
 	      return 27;
@@ -167,10 +167,10 @@ Filter_console::getchar(bool b = true)
 	    {
 	      if (pos < sizeof(ibuf))
 		ibuf[pos++] = nc;
-	      if (nc=='[' || nc=='O')
+	      if (nc=='[' || nc == 'O')
 		{
 		  arg = 0;
-		  memset(args,0,sizeof(args));
+		  memset(args, 0, sizeof(args));
 		  state = GOT_CSI;
 		  break;
 		}
@@ -204,7 +204,7 @@ Filter_console::getchar(bool b = true)
 	  state = NORMAL;
 	  if (pos < sizeof(ibuf))
 	    ibuf[pos++] = ch;
-	  
+
 	  switch(ch)
 	    {
 	    case 'A': pos = 0; return KEY_CURSOR_UP;
@@ -248,7 +248,7 @@ Filter_console::getchar(bool b = true)
       break;
     }
 
-  if(b)
+  if (b)
     goto get_char;
   else if (loop_count)
     {

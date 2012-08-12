@@ -3,15 +3,71 @@ INTERFACE [sched_fp_wfq]:
 #include "ready_queue_fp.h"
 #include "ready_queue_wfq.h"
 
-
 class Sched_context
 {
   MEMBER_OFFSET();
   friend class Jdb_list_timeouts;
   friend class Jdb_thread_list;
 
+  struct Ready_list_item_concept
+  {
+    typedef Sched_context Item;
+    static Sched_context *&next(Sched_context *e) { return e->_sc.fp._ready_next; }
+    static Sched_context *&prev(Sched_context *e) { return e->_sc.fp._ready_prev; }
+    static Sched_context const *next(Sched_context const *e)
+    { return e->_sc.fp._ready_next; }
+    static Sched_context const *prev(Sched_context const *e)
+    { return e->_sc.fp._ready_prev; }
+  };
+
 public:
   enum Type { Fixed_prio, Wfq };
+
+  typedef cxx::Sd_list<Sched_context, Ready_list_item_concept> Fp_list;
+
+private:
+  Type _t;
+
+  struct B_sc
+  {
+    unsigned short _p;
+    unsigned _q;
+    Unsigned64 _left;
+
+    unsigned prio() const { return _p; }
+  };
+
+
+  struct Fp_sc : public B_sc
+  {
+    Sched_context *_ready_next, *_ready_prev;
+  };
+
+  struct Wfq_sc : public B_sc
+  {
+    Sched_context **_ready_link;
+    bool _idle:1;
+    Unsigned64 _dl;
+
+    unsigned _w;
+    unsigned _qdw;
+    bool operator <= (Wfq_sc const &o) const
+    { return _dl <= o._dl; }
+
+    bool operator < (Wfq_sc const &o) const
+    { return _dl < o._dl; }
+  };
+
+  union Sc
+  {
+    Wfq_sc wfq;
+    Fp_sc fp;
+  };
+
+  Sc _sc;
+
+public:
+  static Wfq_sc *wfq_elem(Sched_context *x) { return &x->_sc.wfq; }
 
   struct Ready_queue
   {
@@ -42,56 +98,6 @@ public:
   };
 
   Context *context() const { return context_of(this); }
-
-private:
-
-  unsigned short _p;
-  Type _t;
-
-  struct B_sc
-  {
-    unsigned short _p;
-    unsigned _q;
-    Unsigned64 _left;
-
-    unsigned prio() const { return _p; }
-  };
-
-
-  struct Fp_sc : public B_sc
-  {
-    Sched_context *_ready_next;
-    Sched_context *_ready_prev;
-  };
-
-  struct Wfq_sc : public B_sc
-  {
-    Sched_context **_ready_link;
-    bool _idle:1;
-    Unsigned64 _dl;
-
-    unsigned _w;
-    unsigned _qdw;
-    bool operator <= (Wfq_sc const &o) const
-    { return _dl <= o._dl; }
-
-    bool operator < (Wfq_sc const &o) const
-    { return _dl < o._dl; }
-  };
-
-  union Sc
-  {
-    Wfq_sc wfq;
-    Fp_sc fp;
-  };
-
-  Sc _sc;
-
-
-public:
-  static Wfq_sc *wfq_elem(Sched_context *x) { return &x->_sc.wfq; }
-  static Fp_sc *fp_elem(Sched_context *x) { return &x->_sc.fp; }
-
 };
 
 
@@ -110,9 +116,9 @@ PUBLIC
 Sched_context::Sched_context()
 {
   _t = Fixed_prio;
-  _sc.fp._p = Config::default_prio;
-  _sc.fp._q = Config::default_time_slice;
-  _sc.fp._left = Config::default_time_slice;
+  _sc.fp._p = Config::Default_prio;
+  _sc.fp._q = Config::Default_time_slice;
+  _sc.fp._left = Config::Default_time_slice;
   _sc.fp._ready_next = 0;
 }
 
@@ -135,6 +141,9 @@ PUBLIC inline
 Mword
 Sched_context::in_ready_list() const
 {
+  // this magically works for the fp list and the heap,
+  // because wfq._ready_link and fp._ready_next are the
+  // same memory location
   return _sc.wfq._ready_link != 0;
 }
 

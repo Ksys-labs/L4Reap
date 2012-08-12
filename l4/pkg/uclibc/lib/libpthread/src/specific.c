@@ -40,7 +40,9 @@ static pthread_mutex_t pthread_keys_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* Create a new key */
 
-int __pthread_key_create(pthread_key_t * key, destr_function destr)
+int
+attribute_hidden
+__pthread_key_create(pthread_key_t * key, destr_function destr)
 {
   int i;
 
@@ -142,7 +144,9 @@ int pthread_key_delete(pthread_key_t key)
 
 /* Set the value of a key */
 
-int __pthread_setspecific(pthread_key_t key, const void * pointer)
+int
+attribute_hidden
+__pthread_setspecific(pthread_key_t key, const void * pointer)
 {
   pthread_descr self = thread_self();
   unsigned int idx1st, idx2nd;
@@ -164,7 +168,9 @@ strong_alias (__pthread_setspecific, pthread_setspecific)
 
 /* Get the value of a key */
 
-void * __pthread_getspecific(pthread_key_t key)
+attribute_hidden
+void *
+__pthread_getspecific(pthread_key_t key)
 {
   pthread_descr self = thread_self();
   unsigned int idx1st, idx2nd;
@@ -182,7 +188,9 @@ strong_alias (__pthread_getspecific, pthread_getspecific)
 
 /* Call the destruction routines on all keys */
 
-void __pthread_destroy_specifics()
+void
+attribute_hidden
+__pthread_destroy_specifics()
 {
   pthread_descr self = thread_self();
   int i, j, round, found_nonzero;
@@ -221,6 +229,7 @@ void __pthread_destroy_specifics()
 /* Thread-specific data for libc. */
 
 int
+attribute_hidden
 __pthread_internal_tsd_set (int key, const void * pointer)
 {
   pthread_descr self = thread_self();
@@ -230,6 +239,7 @@ __pthread_internal_tsd_set (int key, const void * pointer)
 }
 
 void *
+attribute_hidden
 __pthread_internal_tsd_get (int key)
 {
   pthread_descr self = thread_self();
@@ -238,6 +248,7 @@ __pthread_internal_tsd_get (int key)
 }
 
 void ** __attribute__ ((__const__))
+attribute_hidden
 __pthread_internal_tsd_address (int key)
 {
   pthread_descr self = thread_self();

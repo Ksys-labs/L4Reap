@@ -300,7 +300,7 @@ One loader implementation is the \em Moe root task.  Moe usually starts an \em
 init process that is responsible for coordinating the further boot
 process.  The default \em init process is \em Ned, which implements a
 script-based configuration and startup of other processes.  Ned uses Lua
-(http://www.lua.org) as its scripting language, see \ref l4re_ned_script
+(http://www.lua.org) as its scripting language, see \ref l4re_servers_ned
 "Ned Script example" for more details.
 
 
@@ -491,7 +491,7 @@ api_l4re_rm Region Map\endlink are explained in more detail in the following
 section.
 
 
-In Fiasco.OS capabilities are addressed in two different
+In Fiasco.OC capabilities are addressed in two different
 ways.
 
 A capability can be addressed with the help of a capability

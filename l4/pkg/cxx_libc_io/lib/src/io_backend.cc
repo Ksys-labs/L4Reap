@@ -50,6 +50,8 @@ namespace L4 {
   static Fake_iobackend _iob_out;
   static Fake_iobackend _iob_err;
 
+  void iostream_init();
+
   void iostream_init()
   {
     static l4_umword_t _initialized;

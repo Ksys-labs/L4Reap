@@ -3,6 +3,7 @@ OUTPUT_FORMAT("elf64-x86-64", "elf64-x86-64",
 	      "elf64-x86-64")
 OUTPUT_ARCH(i386:x86-64)
 ENTRY(_start)
+
 PHDRS
 {
   phdr PT_PHDR PHDRS;
@@ -10,9 +11,11 @@ PHDRS
   ro PT_LOAD FILEHDR PHDRS;
   rw PT_LOAD;
   dyn PT_DYNAMIC;
+  tls PT_TLS;
   ehf PT_GNU_EH_FRAME;
   L4_DEFINE_L4PHDRS
 }
+
 
 SECTIONS
 {
@@ -113,14 +116,14 @@ SECTIONS
   } :rw
   .gcc_except_table   : ONLY_IF_RW { *(.gcc_except_table .gcc_except_table.*) } :rw
   /* Thread Local Storage sections  */
-  .tdata	  : { *(.tdata .tdata.* .gnu.linkonce.td.*) } :rw
+  .tdata	  : { *(.tdata .tdata.* .gnu.linkonce.td.*) } :rw : tls
   .tbss		  : { *(.tbss .tbss.* .gnu.linkonce.tb.*) *(.tcommon) }
   .preinit_array     :
   {
     PROVIDE_HIDDEN (__preinit_array_start = .);
     KEEP (*(.preinit_array))
     PROVIDE_HIDDEN (__preinit_array_end = .);
-  }
+  } : rw
   .init_array     :
   {
      PROVIDE_HIDDEN (__init_array_start = .);
@@ -135,7 +138,7 @@ SECTIONS
     KEEP (*(SORT(.fini_array.*)))
     PROVIDE_HIDDEN (__fini_array_end = .);
   }
-  .ctors          :
+  .ctors :
   {
 /*    KEEP (*(.mark_beg_l4dde_ctors))
     KEEP (*(.l4dde_ctors))
@@ -246,7 +249,7 @@ SECTIONS
   _end = .; PROVIDE (end = .);
   . = DATA_SEGMENT_END (.);
   /* Stabs debugging sections.  */
-  .stab          0 : { *(.stab) }  :NONE
+  .stab          0 : { *(.stab) } :NONE
   .stabstr       0 : { *(.stabstr) }
   .stab.excl     0 : { *(.stab.excl) }
   .stab.exclstr  0 : { *(.stab.exclstr) }

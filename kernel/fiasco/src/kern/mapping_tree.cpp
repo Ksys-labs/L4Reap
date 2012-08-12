@@ -1,11 +1,12 @@
 INTERFACE:
 
+#include "config.h"
 #include "l4_types.h"
 #include "lock.h"
 #include "mapping.h"
-#include "pages.h"
+#include "types.h"
 
-#include <auto_ptr.h>
+#include <unique_ptr.h>
 
 class Ram_quota;
 
@@ -115,9 +116,14 @@ class Simple_tree_submap_ops
 INTERFACE [!big_endian]:
 //
 // Mapping_tree
-//
+// FIXME: do we need this depending on endianess ?
 struct Mapping_tree
 {
+  enum Size_id
+  {
+    Size_id_min = 0,
+    Size_id_max = 9		// can be up to 15 (4 bits)
+  };
   // DATA
   unsigned _count: 16;		///< Number of live entries in this tree.
   unsigned _size_id: 4;		///< Tree size -- see number_of_entries().
@@ -128,15 +134,21 @@ struct Mapping_tree
   unsigned _unused: 1;		// (make this 32 bits to avoid a compiler bug)
 
   Mapping _mappings[0];
+
 };
 
 
 INTERFACE [big_endian]:
 //
 // Mapping_tree
-//
+// FIXME: do we need this depending on endianess ?
 struct Mapping_tree
 {
+  enum Size_id
+  {
+    Size_id_min = 0,
+    Size_id_max = 9		// can be up to 15 (4 bits)
+  };
   // DATA
   unsigned _unused: 1;		// (make this 32 bits to avoid a compiler bug)
   unsigned _size_id: 4;		///< Tree size -- see number_of_entries().
@@ -158,7 +170,7 @@ class Base_mappable
 {
 public:
   // DATA
-  auto_ptr<Mapping_tree> tree;
+  cxx::unique_ptr<Mapping_tree> tree;
   typedef ::Lock Lock;
   Lock lock;
 }; // struct Physframe
@@ -169,7 +181,6 @@ IMPLEMENTATION:
 
 #include <cassert>
 #include <cstring>
-#include <auto_ptr.h>
 
 #include "config.h"
 #include "globals.h"
@@ -220,6 +231,22 @@ enum Mapping_tree_size
   Size_factor = 4,
   Size_id_max = 9		// can be up to 15 (4 bits)
 };
+
+PUBLIC inline
+Mapping_tree::Size_id
+Mapping_tree::shrink()
+{
+  unsigned sid = _size_id - 1;
+  while (sid > 0 && ((static_cast<unsigned>(_count) << 2) < ((unsigned)Size_factor << sid)))
+    --sid;
+
+  return Size_id(sid);
+}
+
+PUBLIC inline
+Mapping_tree::Size_id
+Mapping_tree::bigger()
+{ return Mapping_tree::Size_id(_size_id + 1); }
 
 template<int SIZE_ID>
 struct Mapping_tree_allocator
@@ -280,11 +307,8 @@ Mapping_tree::quota(Space *space)
 
 PUBLIC
 void*
-Mapping_tree::operator new (size_t, unsigned size_factor) throw()
-{
-  void *t = allocator_for_treesize(size_factor)->alloc();
-  return t;
-}
+Mapping_tree::operator new (size_t, Mapping_tree::Size_id size_id) throw()
+{ return allocator_for_treesize(size_id)->alloc(); }
 
 PUBLIC
 void
@@ -302,11 +326,11 @@ Mapping_tree::operator delete (void* block)
 }
 
 PUBLIC //inline NEEDS[Mapping_depth, Mapping_tree::last]
-Mapping_tree::Mapping_tree(unsigned size_factor, Page_number page,
+Mapping_tree::Mapping_tree(Size_id size_id, Page_number page,
                            Space *owner)
 {
   _count = 1;			// 1 valid mapping
-  _size_id = size_factor;	// size is equal to Size_factor << 0
+  _size_id = size_id;   	// size is equal to Size_factor << 0
 #ifndef NDEBUG
   _empty_count = 0;		// no gaps in tree representation
 #endif
@@ -314,7 +338,6 @@ Mapping_tree::Mapping_tree(unsigned size_factor, Page_number page,
   _mappings[0].set_depth(Mapping::Depth_root);
   _mappings[0].set_page(page);
   _mappings[0].set_space(owner);
-  _mappings[0].set_tag(0); // FIXME support mapping tags
 
   _mappings[1].set_depth(Mapping::Depth_end);
 
@@ -335,9 +358,9 @@ Mapping_tree::~Mapping_tree()
 }
 
 PUBLIC //inline NEEDS[Mapping_depth, Mapping_tree::last]
-Mapping_tree::Mapping_tree(unsigned size_factor, Mapping_tree* from_tree)
+Mapping_tree::Mapping_tree(Size_id size_id, Mapping_tree* from_tree)
 {
-  _size_id = size_factor;
+  _size_id = size_id;
   last()->set_depth(Mapping::Depth_end);
 
   copy_compact_tree(this, from_tree);
@@ -348,7 +371,7 @@ PUBLIC inline NEEDS[Mapping_tree_size]
 unsigned
 Mapping_tree::number_of_entries() const
 {
-  return Size_factor << _size_id;
+  return Size_factor << (unsigned long)_size_id;
 }
 
 PUBLIC inline
@@ -574,7 +597,8 @@ Mapping *
 Mapping_tree::allocate(Ram_quota *payer, Mapping *parent,
                        bool insert_submap = false)
 {
-  if (EXPECT_FALSE(!payer->alloc(sizeof(Mapping))))
+  Auto_quota<Ram_quota> q(payer, sizeof(Mapping));
+  if (EXPECT_FALSE(!q))
     return 0;
 
   // After locating the right place for the new entry, it will be
@@ -586,18 +610,15 @@ Mapping_tree::allocate(Ram_quota *payer, Mapping *parent,
   // couldn't allocate a bigger array.  In this case, signal an
   // out-of-memory condition.
   if (EXPECT_FALSE (! last()->unused()))
-    {
-      payer->free(sizeof(Mapping));
-      return 0;
-    }
-  
+    return 0;
+
   // If the parent mapping already has the maximum depth, we cannot
   // insert a child.
   if (EXPECT_FALSE (parent->depth() == Mapping::Depth_max))
-    {
-      payer->free(sizeof(Mapping));
-      return 0;
-    }
+    return 0;
+
+  //allocation is done, so...
+  q.release();
 
   Mapping *insert = 0, *free = 0;
   // - Find an insertion point for the new entry. Acceptable insertion
@@ -863,19 +884,19 @@ Base_mappable::insert(Mapping* parent, Space *space, Page_number page)
   if (!t)
     {
       assert (parent == 0);
-      if (EXPECT_FALSE(!Mapping_tree::quota(space)->alloc(sizeof(Mapping))))
+      Auto_quota<Ram_quota> q(Mapping_tree::quota(space), sizeof(Mapping));
+      if (EXPECT_FALSE(!q))
         return 0;
 
-      auto_ptr<Mapping_tree> new_tree(new (0) Mapping_tree (0, page, space));
+      Mapping_tree::Size_id min_size = Mapping_tree::Size_id_min;
+      cxx::unique_ptr<Mapping_tree> new_tree(new (min_size) Mapping_tree (min_size, page, space));
 
-      if (EXPECT_FALSE(!new_tree.get()))
-        {
-          Mapping_tree::quota(space)->free(sizeof(Mapping));
-          return 0;
-        }
+      if (EXPECT_FALSE(!new_tree))
+        return 0;
 
-      tree = new_tree;
-      return tree.get()->mappings();
+      tree = cxx::move(new_tree);
+      q.release();
+      return tree->mappings();
     }
 
   Mapping *free = t->allocate(Mapping_tree::quota(space), parent, false);
@@ -884,7 +905,6 @@ Base_mappable::insert(Mapping* parent, Space *space, Page_number page)
         return 0;
 
   free->set_space(space);
-  free->set_tag(0); // FIXME: support unmap tags
   free->set_page(page);
 
   t->check_integrity();
@@ -912,22 +932,20 @@ Base_mappable::pack()
   do // (this is not actually a loop, just a block we can "break" out of)
     {
       // (1) Do we need to allocate a smaller tree?
-      if (t->_size_id > 0	// must not be smallest size
+      if (t->_size_id > Mapping_tree::Size_id_min // must not be smallest size
           && (static_cast<unsigned>(t->_count) << 2) < t->number_of_entries())
         {
-          unsigned sid = t->_size_id - 1;
-          while (sid > 0 && (((unsigned)t->_count << 2) < ((unsigned)Size_factor << sid))) --sid;
+          Mapping_tree::Size_id sid = t->Mapping_tree::shrink();
+          cxx::unique_ptr<Mapping_tree> new_t(new (sid) Mapping_tree(sid, t));
 
-          auto_ptr<Mapping_tree> new_t(new (sid) Mapping_tree(sid, t));
-
-          if (new_t.get())
+          if (new_t)
             {
               // ivalidate node 0 because we must not free the quota for it
               t->reset();
               t = new_t.get();
 
               // Register new tree.
-              tree = new_t;
+              tree = cxx::move(new_t);
 
               break;
             }
@@ -958,17 +976,17 @@ Base_mappable::pack()
 
       // (4) OK, allocate a bigger array.
 
-      auto_ptr<Mapping_tree> new_t(
-        new (t->_size_id + 1) Mapping_tree(t->_size_id + 1, t));
+      Mapping_tree::Size_id sid = t->bigger();
+      cxx::unique_ptr<Mapping_tree> new_t(new (sid) Mapping_tree(sid, t));
 
-      if (new_t.get())
+      if (new_t)
         {
           // ivalidate node 0 because we must not free the quota for it
           t->reset();
           t = new_t.get();
 
           // Register new tree. 
-          tree = new_t;
+          tree = cxx::move(new_t);
         }
       else
         {

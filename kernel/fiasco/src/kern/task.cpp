@@ -7,8 +7,6 @@ INTERFACE:
 #include "space.h"
 #include "spin_lock.h"
 
-class slab_cache_anon;
-
 /**
  * \brief A task is a protection domain.
  *
@@ -27,10 +25,7 @@ class Task :
 
 private:
   /// \brief Do host (platform) specific initialization.
-  void host_init();
-
-  /// \brief Map the trace buffer to the user address space.
-  void map_tbuf();
+  void ux_init();
 
 public:
   enum Operation
@@ -40,7 +35,6 @@ public:
     Cap_info    = 2,
     Add_ku_mem  = 3,
     Ldt_set_x86 = 0x11,
-    Vm_ops      = 0x20,
   };
 
 private:
@@ -53,26 +47,26 @@ private:
 IMPLEMENTATION:
 
 #include "atomic.h"
-#include "auto_ptr.h"
+#include "unique_ptr.h"
 #include "config.h"
 #include "entry_frame.h"
 #include "globals.h"
 #include "kdb_ke.h"
 #include "kmem.h"
-#include "kmem_slab_simple.h"
+#include "kmem_slab.h"
 #include "l4_types.h"
 #include "l4_buf_iter.h"
 #include "logdefs.h"
 #include "map_util.h"
 #include "mem_layout.h"
 #include "ram_quota.h"
+#include "thread_state.h"
 #include "paging.h"
-#include "vmem_alloc.h"
 
 FIASCO_DEFINE_KOBJ(Task);
 
 static Kmem_slab_t<Task::Ku_mem> _k_u_mem_list_alloc("Ku_mem");
-slab_cache_anon *Space::Ku_mem::a = &_k_u_mem_list_alloc;
+Slab_cache *Space::Ku_mem::a = &_k_u_mem_list_alloc;
 
 extern "C" void vcpu_resume(Trap_state *, Return_frame *sp)
    FIASCO_FASTCALL FIASCO_NORETURN;
@@ -91,8 +85,11 @@ Task::resume_vcpu(Context *ctxt, Vcpu_state *vcpu, bool user_mode)
   // FIXME: UX is currently broken
   /* UX:ctxt->vcpu_resume_user_arch(); */
   if (user_mode)
-    vcpu->state |= Vcpu_state::F_traps | Vcpu_state::F_exceptions
-                   | Vcpu_state::F_debug_exc;
+    {
+      ctxt->state_add_dirty(Thread_vcpu_user);
+      vcpu->state |= Vcpu_state::F_traps | Vcpu_state::F_exceptions
+                     | Vcpu_state::F_debug_exc;
+    }
 
   ctxt->space_ref()->user_mode(user_mode);
   switchin_context(ctxt->space());
@@ -110,7 +107,7 @@ Task::alloc_ku_mem_chunk(User<void>::Ptr u_addr, unsigned size, void **k_addr)
 {
   assert_kdb ((size & (size - 1)) == 0);
 
-  Mapped_allocator *const alloc = Mapped_allocator::allocator();
+  Kmem_alloc *const alloc = Kmem_alloc::allocator();
   void *p = alloc->q_unaligned_alloc(ram_quota(), size);
 
   if (EXPECT_FALSE(!p))
@@ -131,13 +128,13 @@ Task::alloc_ku_mem_chunk(User<void>::Ptr u_addr, unsigned size, void **k_addr)
     {
       Address kern_va = (Address)p + i;
       Address user_va = (Address)u_addr.get() + i;
-      Address pa = mem_space()->pmem_to_phys(kern_va);
+      Address pa = pmem_to_phys(kern_va);
 
       // must be valid physical address
       assert(pa != ~0UL);
 
       Mem_space::Status res =
-	mem_space()->v_insert(Mem_space::Phys_addr(pa),
+	static_cast<Mem_space*>(this)->v_insert(Mem_space::Phys_addr(pa),
 	    Mem_space::Addr(user_va), Mem_space::Size(page_size),
 	    Mem_space::Page_writable | Mem_space::Page_user_accessible
 	    | Mem_space::Page_cacheable);
@@ -194,12 +191,7 @@ Task::alloc_ku_mem(L4_fpage ku_area)
   m->k_addr = p;
   m->size = sz;
 
-  // safely add the new Ku_mem object to the list
-  do
-    {
-      m->next = _ku_mem;
-    }
-  while (!mp_cas(&_ku_mem, m->next, m));
+  _ku_mem.add(m, mp_cas<cxx::S_list_item*>);
 
   return 0;
 }
@@ -218,7 +210,7 @@ Task::free_ku_mem_chunk(void *k_addr, User<void>::Ptr u_addr, unsigned size,
                         unsigned mapped_size)
 {
 
-  Mapped_allocator * const alloc = Mapped_allocator::allocator();
+  Kmem_alloc * const alloc = Kmem_alloc::allocator();
   unsigned long page_size = Config::PAGE_SIZE;
 
   // the following works because the size is a poer of two
@@ -230,7 +222,7 @@ Task::free_ku_mem_chunk(void *k_addr, User<void>::Ptr u_addr, unsigned size,
   for (unsigned long i = 0; i < mapped_size; i += page_size)
     {
       Address user_va = (Address)u_addr.get() + i;
-      mem_space()->v_delete(Mem_space::Addr(user_va),
+      static_cast<Mem_space*>(this)->v_delete(Mem_space::Addr(user_va),
                             Mem_space::Size(page_size));
     }
 
@@ -241,16 +233,8 @@ PRIVATE
 void
 Task::free_ku_mem()
 {
-  Ku_mem *m = _ku_mem;
-  _ku_mem = 0;
-
-  while (m)
-    {
-      Ku_mem *d = m;
-      m = m->next;
-
-      free_ku_mem(d);
-    }
+  while (Ku_mem *m = _ku_mem.pop_front())
+    free_ku_mem(m);
 }
 
 
@@ -261,6 +245,9 @@ PUBLIC
 bool
 Task::initialize()
 {
+  if (!Mem_space::initialize())
+    return false;
+
   // For UX, map the UTCB pointer page. For ia32, do nothing
   map_utcb_ptr_page();
 
@@ -271,23 +258,18 @@ Task::initialize()
  * \brief Create a normal Task.
  * \pre \a parent must be valid and exist.
  */
-PUBLIC
-template< typename SPACE_FACTORY >
-Task::Task(SPACE_FACTORY const &sf, Ram_quota *q)
-  : Space(sf, q)
+PUBLIC explicit
+Task::Task(Ram_quota *q) : Space(q)
 {
-  host_init();
+  ux_init();
 
   // increment reference counter from zero
   inc_ref(true);
-
-  if (mem_space()->is_sigma0())
-    map_tbuf();
 }
 
-PROTECTED template<typename SPACE_FACTORY>
-Task::Task(SPACE_FACTORY const &sf, Ram_quota *q, Mem_space::Dir_type* pdir)
-  : Space(sf, q, pdir)
+PROTECTED
+Task::Task(Ram_quota *q, Mem_space::Dir_type* pdir)
+: Space(q, pdir)
 {
   // increment reference counter from zero
   inc_ref(true);
@@ -297,14 +279,14 @@ Task::Task(SPACE_FACTORY const &sf, Ram_quota *q, Mem_space::Dir_type* pdir)
 static Kmem_slab_t<Task> _task_allocator("Task");
 
 PROTECTED static
-slab_cache_anon*
+Slab_cache*
 Task::allocator()
 { return &_task_allocator; }
 
 
-PROTECTED inline NEEDS["kmem_slab_simple.h"]
+PROTECTED inline
 void *
-Task::operator new (size_t size, void *p)
+Task::operator new (size_t size, void *p) throw()
 {
   (void)size;
   assert (size == sizeof (Task));
@@ -312,7 +294,7 @@ Task::operator new (size_t size, void *p)
 }
 
 
-PUBLIC //inline NEEDS["kmem_slab_simple.h"]
+PUBLIC //inline
 void
 Task::operator delete (void *ptr)
 {
@@ -328,19 +310,21 @@ Task::operator delete (void *ptr)
 }
 
 
-PUBLIC template< typename SPACE_FACTORY >
+PUBLIC template< typename TARGET >
 static
 Task *
-Task::create(SPACE_FACTORY const &sf, Ram_quota *quota,
-             L4_fpage const &utcb_area)
+Task::create(Ram_quota *quota, L4_fpage const &utcb_area)
 {
   void *t = allocator()->q_alloc(quota);
   if (!t)
     return 0;
 
-  auto_ptr<Task> a(new (t) Task(sf, quota));
-  if (!a->valid())
+  cxx::unique_ptr<Task> a(new (t) TARGET(quota));
+
+  if (!a->initialize())
     return 0;
+
+  a->sync_kernel();
 
   if (utcb_area.is_valid())
     {
@@ -351,12 +335,6 @@ Task::create(SPACE_FACTORY const &sf, Ram_quota *quota,
 
   return a.release();
 }
-
-PUBLIC inline
-bool
-Task::valid() const
-{ return mem_space()->valid(); }
-
 
 /**
  * \brief Shutdown the task.
@@ -373,6 +351,7 @@ Task::destroy(Kobject ***reap_list)
   Kobject::destroy(reap_list);
 
   fpage_unmap(this, L4_fpage::all_spaces(L4_fpage::RWX), L4_map_mask::full(), reap_list);
+  Space::destroy();
 }
 
 PRIVATE inline NOEXPORT
@@ -390,7 +369,8 @@ Task::sys_map(unsigned char rights, Syscall_frame *f, Utcb *utcb)
 
   L4_msg_tag const tag = f->tag();
 
-  Obj_space *s = current()->space()->obj_space();
+  Obj_space *s = current()->space();
+  assert (s);
   L4_snd_item_iter snd_items(utcb, tag.words());
 
   if (EXPECT_FALSE(!tag.items() || !snd_items.next()))
@@ -404,7 +384,7 @@ Task::sys_map(unsigned char rights, Syscall_frame *f, Utcb *utcb)
   if (!from)
     return commit_result(-L4_err::EInval);
 
-  Reap_list rl;
+  ::Reap_list rl;
   L4_error ret;
 
     {
@@ -439,7 +419,7 @@ PRIVATE inline NOEXPORT
 L4_msg_tag
 Task::sys_unmap(Syscall_frame *f, Utcb *utcb)
 {
-  Reap_list rl;
+  ::Reap_list rl;
   unsigned words = f->tag().words();
 
   LOG_TRACE("Task unmap", "unm", ::current(), __task_unmap_fmt,
@@ -483,7 +463,7 @@ Task::sys_cap_valid(Syscall_frame *, Utcb *utcb)
   if (obj.special())
     return commit_result(0);
 
-  Obj_space::Capability cap = obj_space()->lookup(obj.cap());
+  Obj_space::Capability cap = lookup(obj.cap());
   if (EXPECT_TRUE(cap.valid()))
     {
       if (!(utcb->values[1] & 1))
@@ -508,8 +488,8 @@ Task::sys_caps_equal(Syscall_frame *, Utcb *utcb)
   if (obj_a.special() || obj_b.special())
     return commit_result(obj_a.special_cap() == obj_b.special_cap());
 
-  Obj_space::Capability c_a = obj_space()->lookup(obj_a.cap());
-  Obj_space::Capability c_b = obj_space()->lookup(obj_b.cap());
+  Obj_space::Capability c_a = lookup(obj_a.cap());
+  Obj_space::Capability c_b = lookup(obj_b.cap());
 
   return commit_result(c_a == c_b);
 }
@@ -586,20 +566,8 @@ Task::invoke(L4_obj_ref, Mword rights, Syscall_frame *f, Utcb *utcb)
 //---------------------------------------------------------------------------
 IMPLEMENTATION [!ux]:
 
-IMPLEMENT inline
-void
-Task::map_utcb_ptr_page()
-{}
-
-IMPLEMENT inline
-void
-Task::host_init()
-{}
-
-IMPLEMENT inline
-void
-Task::map_tbuf()
-{}
+IMPLEMENT inline void Task::map_utcb_ptr_page() {}
+IMPLEMENT inline void Task::ux_init() {}
 
 PUBLIC inline
 Task::~Task()

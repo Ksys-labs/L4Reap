@@ -53,7 +53,6 @@ IMPLEMENTATION [jdb_disasm]:
 #include <cstring>
 #include <cstdarg>
 
-#include "alloca.h"
 #include "disasm.h"
 #include "jdb.h"
 #include "jdb_bp.h"
@@ -162,8 +161,8 @@ Jdb_disasm::show_disasm_line(int len, Address &addr,
       clreol = 1;
     }
 
-  char *line = (char*)alloca(len);
-  if (line && disasm_line(line, len, addr, show_symbols, task))
+  char line[len];
+  if (disasm_line(line, len, addr, show_symbols, task))
     {
       if (clreol)
 	printf("%.*s\033[K\n", len, line);
@@ -237,7 +236,7 @@ Jdb_disasm::show(Address virt, Space *task, int level, bool do_clear_screen = fa
               stat_str[1] = '0'+i;
             }
 
-	  printf("%s"L4_PTR_FMT"%s%s  ", 
+	  printf("%s" L4_PTR_FMT "%s%s  ", 
 	         addr == enter_addr ? Jdb::esc_emph : "", addr, stat_str,
 		 addr == enter_addr ? "\033[m" : "");
 	  show_disasm_line(
@@ -252,7 +251,7 @@ Jdb_disasm::show(Address virt, Space *task, int level, bool do_clear_screen = fa
       static char const * const line_mode[] = { "", "[Source]", "[Headers]" };
       static char const * const syntax_mode[] = { "[AT&T]", "[Intel]" };
       Jdb::printf_statline("dis", "<Space>=lines mode",
-			   "<"L4_PTR_FMT"> task %-3p  %-9s  %-7s",
+			   "<" L4_PTR_FMT "> task %-3p  %-9s  %-7s",
 			   virt, task, line_mode[(int)show_lines], 
 			   syntax_mode[(int)show_intel_syntax]);
 

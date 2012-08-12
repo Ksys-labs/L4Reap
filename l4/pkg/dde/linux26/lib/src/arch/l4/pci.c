@@ -1,7 +1,7 @@
 /*
  * This file is part of DDE/Linux2.6.
  *
- * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ * (c) 2006-2012 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
  *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
  *     economic rights: Technische Universitaet Dresden (Germany)
  *
@@ -196,6 +196,7 @@ void __init l4dde26_init_pci(void)
 	Assert(pci_bus);
 
 	pci_do_scan_bus(pci_bus);
+	pci_walk_bus(pci_bus, pci_irq_enable, NULL);
 
 	INITIALIZE_INITVAR(dde26_pci);
 }

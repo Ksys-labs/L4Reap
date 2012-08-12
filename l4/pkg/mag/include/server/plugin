@@ -54,7 +54,6 @@ public:
   virtual Registry *registry() const = 0;
   virtual void set_session_options(Session *s, L4::Ipc::Istream &ios,
                                    Session::Property_handler const *extra = 0) const;
-  virtual void get_refs_table() const;
   virtual void add_input_source(Input_source *i) = 0;
   virtual void register_session(Session *) const = 0;
   virtual Session_list *sessions() const = 0;

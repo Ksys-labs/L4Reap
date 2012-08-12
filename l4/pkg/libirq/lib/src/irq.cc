@@ -3,7 +3,7 @@
  * \brief IRQ handling routines.
  */
 /*
- * (c) 2008-2009 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
+ * (c) 2008-2011 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
  *               Alexander Warg <warg@os.inf.tu-dresden.de>
  *     economic rights: Technische Universität Dresden (Germany)
  *
@@ -40,7 +40,6 @@ struct l4irq_t {
   pthread_t              thread;
   void                  *(*isr_func)(void *);
   void                  *isr_data;
-  enum L4_irq_flow_type  irq_type;
 };
 
 static l4irq_t *release(l4irq_t *i, unsigned what)
@@ -59,7 +58,8 @@ static l4irq_t *release(l4irq_t *i, unsigned what)
 }
 
 static l4irq_t *
-alloc_and_get_irq(enum l4irq_type type, int irqnum, l4_cap_idx_t given_cap)
+alloc_and_get_irq(enum l4irq_type type, int irqnum, l4_cap_idx_t given_cap,
+                  L4::Icu::Flow_type ft)
 {
   l4irq_t *irq = (l4irq_t *)malloc(sizeof(*irq));
 
@@ -82,13 +82,16 @@ alloc_and_get_irq(enum l4irq_type type, int irqnum, l4_cap_idx_t given_cap)
       L4::Cap<L4::Icu> icu(l4io_request_icu());
 
       long ret = l4_error(icu->bind(irqnum, irq->cap));
-
       if (ret < 0)
 	return release(irq, 2);
       if (ret == 1)
 	irq->eoi_cap = icu;
       else
 	irq->eoi_cap = irq->cap;
+
+      ret = l4_error(icu->set_mode(irqnum, ft));
+      if (ret < 0)
+        printf("setting mode/flow-type failed\n");
     }
   else
     {
@@ -134,12 +137,12 @@ do_l4irq_request(enum l4irq_type type, int irqnum, l4_cap_idx_t given_cap,
 {
   l4irq_t *irq;
 
-  if (!(irq = alloc_and_get_irq(type, irqnum, given_cap)))
+  if (!(irq = alloc_and_get_irq(type, irqnum, given_cap,
+                                (L4::Icu::Flow_type)flow_type)))
     return NULL;
 
-  irq->isr_func = (void *(*)(void *))isr_handler;
-  irq->isr_data = isr_data;
-  irq->irq_type = (enum L4_irq_flow_type)flow_type;
+  irq->isr_func  = (void *(*)(void *))isr_handler;
+  irq->isr_data  = isr_data;
 
   pthread_attr_t a;
   pthread_attr_init(&a);
@@ -187,29 +190,13 @@ l4irq_release(l4irq_t *irq)
 }
 
 
-#if 0
-l4irq_t *
-l4irq_attach_thread_ft(int irqnum, l4_cap_idx_t to_thread,
-                       unsigned flow_type)
-{
-  l4irq_t *irq;
-
-  if (!(irq = alloc_and_get_irq(IRQ_TYPE_L4IO, irqnum, L4_INVALID_CAP)))
-    return NULL;
-
-  if (attach_to_irq(irq, to_thread, flow_type))
-    return NULL;
-
-  return irq;
-}
-#endif
-
 l4irq_t *
 l4irq_attach_thread(int irqnum, l4_cap_idx_t to_thread)
 {
   l4irq_t *irq;
 
-  if (!(irq = alloc_and_get_irq(IRQ_TYPE_L4IO, irqnum, L4_INVALID_CAP)))
+  if (!(irq = alloc_and_get_irq(IRQ_TYPE_L4IO, irqnum, L4_INVALID_CAP,
+                                L4::Icu::F_none)))
     return NULL;
 
   if (attach_to_irq(irq, to_thread))
@@ -217,15 +204,6 @@ l4irq_attach_thread(int irqnum, l4_cap_idx_t to_thread)
 
   return irq;
 }
-
-#if 0
-l4irq_t *
-l4irq_attach_ft(int irqnum, unsigned flow_type)
-{
-  return l4irq_attach_thread_ft(irqnum, pthread_getl4cap(pthread_self()),
-                                flow_type);
-}
-#endif
 
 l4irq_t *
 l4irq_attach(int irqnum)
@@ -233,29 +211,12 @@ l4irq_attach(int irqnum)
   return l4irq_attach_thread(irqnum, pthread_getl4cap(pthread_self()));
 }
 
-#if 0
-l4irq_t *
-l4irq_attach_thread_cap_ft(l4_cap_idx_t irqcap, l4_cap_idx_t to_thread,
-                           unsigned flow_type)
-{
-  l4irq_t *irq;
-
-  if (!(irq = alloc_and_get_irq(IRQ_TYPE_GIVEN, -1, irqcap)))
-    return NULL;
-
-  if (attach_to_irq(irq, to_thread, flow_type))
-    return NULL;
-
-  return irq;
-}
-#endif
-
 l4irq_t *
 l4irq_attach_thread_cap(l4_cap_idx_t irqcap, l4_cap_idx_t to_thread)
 {
   l4irq_t *irq;
 
-  if (!(irq = alloc_and_get_irq(IRQ_TYPE_GIVEN, -1, irqcap)))
+  if (!(irq = alloc_and_get_irq(IRQ_TYPE_GIVEN, -1, irqcap, L4::Icu::F_none)))
     return NULL;
 
   if (attach_to_irq(irq, to_thread))
@@ -263,15 +224,6 @@ l4irq_attach_thread_cap(l4_cap_idx_t irqcap, l4_cap_idx_t to_thread)
 
   return irq;
 }
-
-#if 0
-l4irq_t *
-l4irq_attach_cap_ft(l4_cap_idx_t irqcap, unsigned flow_type)
-{
-  return l4irq_attach_thread_cap_ft(irqcap, pthread_getl4cap(pthread_self()),
-                                    flow_type);
-}
-#endif
 
 l4irq_t *
 l4irq_attach_cap(l4_cap_idx_t irqcap)
@@ -308,8 +260,6 @@ l4irq_wait_any(l4irq_t **irq)
   l4_msgtag_t res = l4_ipc_wait(l4_utcb(), (l4_umword_t *)irq, L4_IPC_NEVER);
   return l4_ipc_error(res, l4_utcb());
 }
-
-
 
 long
 l4irq_detach(l4irq_t *irq)

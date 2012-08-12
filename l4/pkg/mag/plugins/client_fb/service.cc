@@ -77,9 +77,11 @@ Service::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 	  x->setup();
 
 	  _core->register_session(x.get());
+	  ust()->vstack()->push_top(x.get());
+          x->view_setup();
+
 	  reg()->register_obj(x);
 	  x->obj_cap()->dec_refcnt(1);
-	  ust()->vstack()->push_top(x.ptr());
 	  ios << x->obj_cap();
 	  return 0;
 	}

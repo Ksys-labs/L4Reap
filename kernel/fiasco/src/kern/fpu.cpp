@@ -9,10 +9,9 @@ INTERFACE:
 #include "per_cpu_data.h"
 #include "types.h"
 
-class slab_cache_anon;
 class Context;
 class Fpu_state;
-struct Trap_state;
+class Trap_state;
 
 
 class Fpu
@@ -43,7 +42,7 @@ IMPLEMENTATION:
 
 #include "fpu_state.h"
 
-Per_cpu<Fpu> DEFINE_PER_CPU Fpu::_fpu;
+DEFINE_PER_CPU Per_cpu<Fpu> Fpu::_fpu;
 
 IMPLEMENT inline
 Context * Fpu::owner(unsigned cpu)

@@ -27,7 +27,7 @@
 #define ASSERT_GREATER_EQ(a,b)  DO_NOTHING
 #define ASSERT_BETWEEN(a,b,c)   DO_NOTHING
 #define ASSERT_IPC_OK(i)        DO_NOTHING
-#define ASSERT_OK(e)            DO_NOTHING
+#define ASSERT_OK(e)            do { (void)e; } while (0)
 #define ASSERT_NOT_NULL(p)      DO_NOTHING
 #ifndef assert
 #define assert(cond)            DO_NOTHING

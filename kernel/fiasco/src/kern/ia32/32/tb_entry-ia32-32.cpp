@@ -15,8 +15,14 @@ class Tb_entry_ke_reg : public Tb_entry
 private:
   struct Payload
   {
-    char		_msg[18];	///< debug message
-    Mword		_eax, _ecx, _edx; ///< registers
+    union {
+      char  _msg[18];        ///< debug message
+      struct {
+	char _pad[3];
+	const char *_m;
+      } _const_msg __attribute__((packed));
+    };
+    Mword  _eax, _ecx, _edx; ///< registers
   } __attribute__((packed));
 };
 
@@ -64,15 +70,16 @@ Tb_entry_ke_reg::set_const(Context const *ctx, Mword eip,
                            Mword eax, Mword ecx, Mword edx)
 {
   set(ctx, eip, eax, ecx, edx);
-  payload<Payload>()->_msg[0] = 0; payload<Payload>()->_msg[1] = 1;
-  *(char const ** const)(payload<Payload>()->_msg + 3) = msg;
+  payload<Payload>()->_msg[0] = 0;
+  payload<Payload>()->_msg[1] = 1;
+  payload<Payload>()->_const_msg._m = msg;
 }
 
 PUBLIC inline
 void
 Tb_entry_ke_reg::set_buf(unsigned i, char c)
 {
-  if (i < sizeof(payload<Payload>()->_msg)-1)
+  if (i < sizeof(payload<Payload>()->_msg) - 1)
     payload<Payload>()->_msg[i] = c >= ' ' ? c : '.';
 }
 
@@ -84,9 +91,10 @@ Tb_entry_ke_reg::term_buf(unsigned i)
 PUBLIC inline
 const char *
 Tb_entry_ke_reg::msg() const
-{ 
-  return payload<Payload>()->_msg[0] == 0 && payload<Payload>()->_msg[1] == 1
-    ? *(char const ** const)(payload<Payload>()->_msg + 3) : payload<Payload>()->_msg;
+{
+  return payload<Payload>()->_msg[0] == 0 &&
+         payload<Payload>()->_msg[1] == 1 ? payload<Payload>()->_const_msg._m
+                                          : payload<Payload>()->_msg;
 }
 
 PUBLIC inline
@@ -113,9 +121,9 @@ Tb_entry_trap::set(Context const *ctx, Mword eip, Trap_state *ts)
   payload<Payload>()->_trapno = ts->_trapno;
   payload<Payload>()->_error  = ts->_err;
   payload<Payload>()->_cr2    = ts->_cr2;
-  payload<Payload>()->_eax    = ts->_ax; 
+  payload<Payload>()->_eax    = ts->_ax;
   payload<Payload>()->_cs     = (Unsigned16)ts->cs();
-  payload<Payload>()->_ds     = (Unsigned16)ts->_ds;  
+  payload<Payload>()->_ds     = (Unsigned16)ts->_ds;
   payload<Payload>()->_esp    = ts->sp();
   payload<Payload>()->_eflags = ts->flags();
 }
@@ -173,5 +181,3 @@ PUBLIC inline
 Mword
 Tb_entry_trap::flags() const
 { return payload<Payload>()->_eflags; }
-
-

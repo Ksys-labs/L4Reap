@@ -45,15 +45,19 @@ SECTIONS {
     PROVIDE (__preinit_array_end = .);
   }
 
+  /* 
   .init_array : {
     PROVIDE (__init_array_start = .);
-    *(.init_array)
+    KEEP (*(SORT (.init_array.*)))
+    KEEP (*(.init_array))
     PROVIDE (__init_array_end = .);
   }
+  */
 
   .fini_array : {
     PROVIDE (__fini_array_start = .);
     *(.fini_array)
+    *(.fini_array.*)
     PROVIDE (__fini_array_end = .);
   }
 
@@ -73,6 +77,42 @@ SECTIONS {
   .data : {
     PROVIDE (_kernel_data_start = .);
     *(.data .data.* .gnu.linkonce.d.*)
+
+    __PER_CPU_INIT_ARRAY_START__ = .;
+    KEEP (*(.init_array.65534))
+    KEEP (*(.init_array.65533))
+    KEEP (*(.init_array.65532))
+    KEEP (*(.init_array.65531))
+    KEEP (*(.init_array.65530))
+    KEEP (*(.init_array.65529))
+    KEEP (*(.init_array.65528))
+    KEEP (*(.init_array.65527))
+    KEEP (*(.init_array.65526))
+    KEEP (*(.init_array.65525))
+    __PER_CPU_INIT_ARRAY_END__ = .;
+
+    __PER_CPU_LATE_INIT_ARRAY_START__ = .;
+    KEEP (*(.init_array.65524))
+    KEEP (*(.init_array.65523))
+    KEEP (*(.init_array.65522))
+    KEEP (*(.init_array.65521))
+    KEEP (*(.init_array.65520))
+    KEEP (*(.init_array.65519))
+    KEEP (*(.init_array.65518))
+    KEEP (*(.init_array.65517))
+    KEEP (*(.init_array.65516))
+    KEEP (*(.init_array.65515))
+    __PER_CPU_LATE_INIT_ARRAY_END__ = .;
+
+    __INIT_ARRAY_START__ = .;
+    PROVIDE (__init_array_start = .);
+    KEEP (*(SORT (.init_array.*)))
+    KEEP (*(.init_array))
+    PROVIDE (__init_array_end = .);
+    __INIT_ARRAY_END__ = .;
+    __CTOR_LIST__ = .;
+    __CTOR_END__ = .;
+
     SORT (CONSTRUCTORS)
 
     __PER_CPU_CTORS_END__ = .;
@@ -161,6 +201,10 @@ SECTIONS {
   . = ALIGN(4096);
   .bss : {			/* Linux 2.2 requires BSS to be last */
     *(.dynbss)
+    . = ALIGN(4);
+    _per_cpu_ctor_data_start = .;
+    KEEP (*(.bss.per_cpu_ctor_data))
+    _per_cpu_ctor_data_end = .;
     *(.bss .bss.* .gnu.linkonce.b.*)
     *(COMMON)
   }
@@ -170,6 +214,10 @@ SECTIONS {
   /* make the kip_init code happy */
   PROVIDE (_boot_sys_start = .);
   PROVIDE (_boot_sys_end   = .);
+
+  /* make the construction.cc code happy w/o dtros */
+  PROVIDE (__DTOR_END__ = .);
+  PROVIDE (__DTOR_LIST__ = __DTOR_END__);
 
   /DISCARD/ : {
     *(.note)

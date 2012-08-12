@@ -13,7 +13,7 @@ enum Warn_level
 
 #define WARNX(level,fmt...) \
   do {							\
-       if (level   <= Config::warn_level)		\
+       if (level   <= (int)Config::Warn_level)		\
 	 printf("\n\033[31mKERNEL\033[m: Warning: " fmt);	\
      } while (0)
 

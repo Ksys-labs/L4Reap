@@ -11,4 +11,4 @@ char *strchr(register const char *t, int c) {
   return (char*)t;
 }
 
-char *index(char *t,int c)	__attribute__((weak,alias("strchr")));
+char *index(const char *t,int c)	__attribute__((weak,alias("strchr")));

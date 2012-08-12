@@ -46,7 +46,7 @@ PRIVATE static inline
 void
 Jdb_kern_info_bench::stop_timer()
 {
-  Idt::set_vectors_stop();
+  Timer_tick::set_vectors_stop();
 }
 
 //---------------------------------------------------------------------------

@@ -5,6 +5,7 @@
 #   - Image mode (image)
 #   - ISO images (grub1iso, grub2iso)
 #   - VirtualBox
+#   - Fastboot
 #
 # This is a make snippet.
 #
@@ -85,3 +86,6 @@ UX_OPTIONS     = -m 128
 VBOX_VM                = L4
 VBOX_ISOTARGET         = grub1iso
 #VBOX_OPTIONS          += --memory 256
+
+# Fastboot
+# FASTBOOT_BOOT_CMD = path/to/fastboot boot

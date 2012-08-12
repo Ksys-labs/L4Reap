@@ -1,16 +1,16 @@
 INTERFACE [arm && pic_gic]:
 
 #include "kmem.h"
-#include "irq_chip.h"
-#include "irq_pin.h"
+#include "irq_chip_generic.h"
 
 
-class Gic
+class Gic : public Irq_chip_gen
 {
 private:
   Address _cpu_base;
   Address _dist_base;
 
+public:
   enum
   {
     DIST_CTRL         = 0x000,
@@ -66,56 +66,22 @@ INTERFACE [arm && !tz]:
 
 EXTENSION class Gic { enum { Config_tz = 0 }; };
 
-// ------------------------------------------------------------------------
-INTERFACE [arm && pic_gic]:
-
-class Gic_pin : public Irq_pin
-{
-public:
-  Gic_pin(unsigned gic_idx, unsigned irq)
-  { payload()[0] = (gic_idx << 16) | irq; }
-
-  unsigned irq() const { return payload()[0] & 0xffff; }
-  Gic *gic() const { return &_gic[payload()[0] >> 16]; }
-
-  static Gic _gic[];
-};
-
-class Gic_cascade_pin : public Gic_pin
-{
-public:
-  Gic_cascade_pin(unsigned gic_idx, unsigned irq)
-    : Gic_pin(gic_idx, irq) {}
-};
-
-class Gic_cascade_irq : public Irq_base
-{
-public:
-  explicit Gic_cascade_irq(Gic *child_gic, Unsigned32 irq_offset)
-    : _child_gic(child_gic), _irq_offset(irq_offset) {}
-
-  Unsigned32 irq_offset() const { return _irq_offset; }
-  Gic *child_gic() const { return _child_gic; }
-private:
-  Gic *_child_gic;
-  Unsigned32 _irq_offset;
-};
 
 //-------------------------------------------------------------------
 IMPLEMENTATION [arm && pic_gic]:
 
+#include <cassert>
 #include <cstring>
 #include <cstdio>
 
+#include "cascade_irq.h"
 #include "io.h"
-#include "irq.h"
 #include "irq_chip_generic.h"
 #include "panic.h"
-#include "vkey.h"
 
 PUBLIC inline NEEDS["io.h"]
 unsigned
-Gic::nr_irqs()
+Gic::hw_nr_irqs()
 { return ((Io::read<Mword>(_dist_base + DIST_CTR) & 0x1f) + 1) * 32; }
 
 PUBLIC inline NEEDS["io.h"]
@@ -142,23 +108,22 @@ Gic::init_ap()
 }
 
 PUBLIC
-void
-Gic::init(Address cpu_base, Address dist_base)
+Gic::Gic(Address cpu_base, Address dist_base, int nr_irqs_override = -1)
+  : _cpu_base(cpu_base), _dist_base(dist_base)
 {
-  _cpu_base = cpu_base;
-  _dist_base = dist_base;
-
   Io::write<Mword>(0, _dist_base + DIST_CTRL);
 
-  unsigned num = nr_irqs();
+  unsigned num = hw_nr_irqs();
+  if (nr_irqs_override != -1)
+    num = nr_irqs_override;
   printf("Number of IRQs available at this GIC: %d\n", num);
-
-  unsigned int intmask = 1 << Proc::cpu_id();
-  intmask |= intmask << 8;
-  intmask |= intmask << 16;
 
   if (!Config_mxc_tzic)
     {
+      unsigned int intmask = 1 << Proc::cpu_id();
+      intmask |= intmask << 8;
+      intmask |= intmask << 16;
+
       for (unsigned i = 32; i < num; i += 16)
         Io::write<Mword>(0, _dist_base + DIST_CONFIG + i * 4 / 16);
       for (unsigned i = 32; i < num; i += 4)
@@ -190,6 +155,8 @@ Gic::init(Address cpu_base, Address dist_base)
       Io::write<Mword>(0xf0, _cpu_base + CPU_PRIMASK);
     }
 
+  Irq_chip_gen::init(num);
+
   //enable_tz_support();
 }
 
@@ -201,8 +168,8 @@ PUBLIC inline NEEDS["io.h"]
 void Gic::enable_locked(unsigned irq, unsigned /*prio*/)
 { Io::write<Mword>(1 << (irq % 32), _dist_base + DIST_ENABLE_SET + (irq / 32) * 4); }
 
-PUBLIC inline NEEDS [Gic::enable_locked]
-void Gic::acknowledge_locked( unsigned irq )
+PUBLIC inline
+void Gic::acknowledge_locked(unsigned irq)
 {
   if (!Config_mxc_tzic)
     Io::write<Mword>(irq, _cpu_base + CPU_EOI);
@@ -210,85 +177,63 @@ void Gic::acknowledge_locked( unsigned irq )
 
 PUBLIC
 void
-Gic_pin::unbind_irq()
-{
-  mask();
-  disable();
-  Irq_chip::hw_chip->free(Irq::self(this), irq());
-  replace<Sw_irq_pin>();
-}
-
-PUBLIC
-void
-Gic_pin::do_mask()
+Gic::mask(Mword pin)
 {
   assert (cpu_lock.test());
-  gic()->disable_locked(irq());
+  disable_locked(pin);
 }
 
 PUBLIC
 void
-Gic_pin::do_mask_and_ack()
+Gic::mask_and_ack(Mword pin)
 {
   assert (cpu_lock.test());
-  __mask();
-  gic()->disable_locked(irq());
-  gic()->acknowledge_locked(irq());
+  disable_locked(pin);
+  acknowledge_locked(pin);
 }
 
 PUBLIC
 void
-Gic_pin::ack()
+Gic::ack(Mword pin)
 {
-  gic()->acknowledge_locked(irq());
+  acknowledge_locked(pin);
 }
 
 
 PUBLIC
 void
-Gic_pin::do_unmask()
+Gic::unmask(Mword pin)
 {
   assert (cpu_lock.test());
-  gic()->enable_locked(irq(), 0xa);
+  enable_locked(pin, 0xa);
 }
 
 PUBLIC
+unsigned
+Gic::set_mode(Mword, unsigned)
+{ return Irq_base::Trigger_level; }
+
+PUBLIC inline
 void
-Gic_pin::do_set_mode(unsigned)
-{}
-
-PUBLIC
-bool
-Gic_pin::check_debug_irq()
+Gic::hit(Upstream_irq const *u)
 {
-  return !Vkey::check_(irq());
-}
-
-
-PUBLIC static inline
-Gic_cascade_irq *
-Gic_cascade_irq::self(Irq_pin const *pin)
-{
-#define MYoffsetof(TYPE, MEMBER) (((size_t) &((TYPE *)10)->MEMBER) - 10)
-  return reinterpret_cast<Gic_cascade_irq*>(reinterpret_cast<Mword>(pin)
-                - MYoffsetof(Gic_cascade_irq, _pin));
-#undef MYoffsetof
-
-}
-
-PUBLIC
-void
-Gic_cascade_irq::hit()
-{
-  Unsigned32 num = child_gic()->pending();
-  if (num == 0x3ff)
+  Unsigned32 num = pending();
+  if (EXPECT_FALSE(num == 0x3ff))
     return;
 
-  Irq *i = nonull_static_cast<Irq*>(Irq_chip_gen::lookup(num + irq_offset()));
-  i->hit();
+  handle_irq<Gic>(num, u);
+}
 
-  Gic_pin *gp = static_cast<Gic_pin*>(pin());
-  gp->gic()->acknowledge_locked(gp->irq());
+PUBLIC static
+void
+Gic::cascade_hit(Irq_base *_self, Upstream_irq const *u)
+{
+  // this function calls some virtual functions that might be
+  // ironed out
+  Cascade_irq *self = nonull_static_cast<Cascade_irq*>(_self);
+  Gic *gic = nonull_static_cast<Gic*>(self->child());
+  Upstream_irq ui(self, u);
+  gic->hit(&ui);
 }
 
 //-------------------------------------------------------------------
@@ -296,7 +241,7 @@ IMPLEMENTATION [arm && !mp && pic_gic]:
 
 PUBLIC
 void
-Gic_pin::set_cpu(unsigned)
+Gic::set_cpu(Mword, unsigned)
 {}
 
 PUBLIC inline NEEDS["io.h"]
@@ -336,23 +281,17 @@ Unsigned32 Gic::pending()
 
 PUBLIC inline NEEDS["cpu.h"]
 void
-Gic::set_cpu(unsigned irq, unsigned cpu)
+Gic::set_cpu(Mword pin, unsigned cpu)
 {
-  Mword reg = _dist_base + DIST_TARGET + (irq & ~3);
+  Mword reg = _dist_base + DIST_TARGET + (pin & ~3);
   Mword val = Io::read<Mword>(reg);
 
-  int shift = (irq % 4) * 8;
+  int shift = (pin % 4) * 8;
   val = (val & ~(0xf << shift)) | (1 << (Cpu::cpus.cpu(cpu).phys_id() + shift));
 
   Io::write<Mword>(val, reg);
 }
 
-PUBLIC
-void
-Gic_pin::set_cpu(unsigned cpu)
-{
-  gic()->set_cpu(irq(), cpu);
-}
 
 //-------------------------------------------------------------------
 IMPLEMENTATION [arm && pic_gic && tz]:
@@ -392,5 +331,5 @@ IMPLEMENTATION [debug]:
 
 PUBLIC
 char const *
-Gic_pin::pin_type() const
-{ return "HW GIC IRQ"; }
+Gic::chip_type() const
+{ return "GIC"; }

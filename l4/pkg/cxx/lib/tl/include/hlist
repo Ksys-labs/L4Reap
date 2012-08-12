@@ -19,22 +19,23 @@
 
 #pragma once
 
+#include "bits/list_basics.h"
+
 namespace cxx {
 
-template< typename T > class H_list;
-
-template< typename T >
 class H_list_item
 {
-private:
-  friend class H_list<T>;
-
-  H_list_item *_n, **_pn;
-
 public:
-  H_list_item() : _n(0), _pn(0) {}
+  H_list_item() : _pn(0) {}
+  ~H_list_item() { l_remove(); }
 
-  T *l_next() const { return static_cast<T*>(_n); }
+private:
+  H_list_item(H_list_item const &);
+  void operator = (H_list_item const &);
+
+  template<typename T, typename P> friend class H_list;
+  template<typename T, typename X> friend class Bits::Basic_list_policy;
+
   void l_remove()
   {
     if (!_pn)
@@ -47,32 +48,90 @@ public:
     _pn = 0;
   }
 
-  bool l_in_list() const { return _pn; }
+  H_list_item *_n, **_pn;
+};
 
-  ~H_list_item() { l_remove(); }
+template< typename T, typename POLICY = Bits::Basic_list_policy< T, H_list_item > >
+class H_list : public Bits::Basic_list<POLICY> 
+{
+private:
+  typedef Bits::Basic_list<POLICY> Base;
+  H_list(H_list const &);
+  void operator = (H_list const &);
+
+public:
+  typedef typename Base::Iterator Iterator;
+
+  // BSS allocation
+  explicit H_list(bool x) : Base(x) {}
+  H_list() : Base() {}
+
+  static Iterator iter(T *c) { return Base::__iter(c->_pn); }
+
+  static bool in_list(T const *e) { return e->_pn; }
+
+  void add(T *e)
+  {
+    if (this->_f)
+      this->_f->_pn = &e->_n;
+    e->_n = this->_f;
+    e->_pn = &this->_f;
+    this->_f = e;
+  }
+
+  void push_front(T *e) { add(e); }
+
+  void insert(T *e, Iterator const &pred)
+  {
+    H_list_item **x = &this->_f;
+    if (pred != Base::end())
+      x = &(*pred)->_n;
+
+    e->_n = *x;
+
+    if (*x)
+      (*x)->_pn = &(e->_n);
+
+    e->_pn = x;
+    *x = e;
+  }
+
+  static void insert_before(T *e, Iterator const &succ)
+  {
+    H_list_item **x = Base::__get_internal(succ);
+
+    e->_n = *x;
+    e->_pn = x;
+
+    if (*x)
+      (*x)->_pn = &e->_n;
+
+    *x = e;
+  }
+
+  static void replace(T *p, T *e)
+  {
+    e->_n = p->_n;
+    e->_pn = p->_pn;
+    *(p->_pn) = e;
+    if (e->_n)
+      e->_n->_pn = &(e->_n);
+
+    p->_pn = 0;
+  }
+
+  static void remove(T *e)
+  { e->H_list_item::l_remove(); }
+
+  static Iterator erase(Iterator const &e)
+  { e->H_list_item::l_remove(); return e; }
 };
 
 template< typename T >
-class H_list
+class H_list_bss : public H_list<T>
 {
-private:
-  H_list_item<T> *_f;
-
 public:
-  typedef T Item;
-
-  H_list() : _f(0) {}
-
-  T *first() const { return static_cast<T*>(_f); }
-  static T *next(T *c) { return c->l_next(); }
-  void add(T *e)
-  {
-    if (_f)
-      _f->_pn = &e->_n;
-    e->_n = _f;
-    e->_pn = &_f;
-    _f = e;
-  }
+  H_list_bss() : H_list<T>(true) {}
 };
 
 }

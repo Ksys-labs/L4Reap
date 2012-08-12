@@ -7,7 +7,7 @@ WRAPPERS		:= libwrappers.a
 # Original Fiasco modules needed by wrappers that run under Unix
 # without modification
 
-INTERFACES_WRAPPERS	:= atomic lock_guard simple_lock slab_cache_anon \
+INTERFACES_WRAPPERS	:= atomic lock_guard simple_lock slab_cache \
 			   auto_ptr l4_types l4_ipc
 
 l4_types_IMPL		:= l4_types-arch l4_types

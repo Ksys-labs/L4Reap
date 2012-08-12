@@ -1,7 +1,6 @@
 INTERFACE:
 
 #include "types.h"
-#include "pages.h"
 #include "space.h"
 #include "kobject.h"
 
@@ -84,7 +83,7 @@ Kobject_mapdb::valid_address(Phys_addr obj)
 // FAKE
 PUBLIC static inline 
 Page_number
-Kobject_mapdb::vaddr (const Frame&, Mapping*)
+Kobject_mapdb::vaddr(const Frame&, Mapping*)
 { return Page_number(0); }
 
 PUBLIC inline
@@ -110,13 +109,7 @@ Kobject_mapdb::insert(const Frame&, Mapping*, Space *,
   Mapping *m = va._c;
   Kobject_mappable *rn = o->map_root();
   //LOG_MSG_3VAL(current(), "ins", o->dbg_id(), (Mword)m, (Mword)va._a.value());
-  m->_pn = &rn->_root;
-  m->_n = rn->_root;
-
-  if (rn->_root)
-    rn->_root->_pn = &m->_n;
-
-  rn->_root = m;
+  rn->_root.add(m);
 
   Obj::Entry *e = static_cast<Obj::Entry*>(m);
   if (e->ref_cnt()) // counted
@@ -134,11 +127,8 @@ Kobject_mapdb::grant(const Frame &f, Mapping *sm, Space *,
   Obj::Entry *se = static_cast<Obj::Entry*>(sm);
   //LOG_MSG_3VAL(current(), "gra", f.frame->dbg_id(), (Mword)sm, (Mword)va._a.value());
 
-  re->_n = se->_n;
-  re->_pn = se->_pn;
-  *re->_pn = re;
-  if (re->_n)
-    re->_n->_pn = &re->_n;
+  // replace the source cap with the destination cap in the list
+  Mapping::List::replace(se, re);
 
   if (se->ref_cnt() && !re->ref_cnt())
     --f.frame->_cnt;
@@ -173,23 +163,20 @@ Kobject_mapdb::flush(const Frame& f, Mapping *m, L4_map_mask mask,
 	flush = --f.frame->_cnt <= 0;
 
       if (!flush)
-	{
-	  *m->_pn = m->_n;
-	  if (m->_n)
-	    m->_n->_pn = m->_pn;
-	}
+	Mapping::List::remove(m);
     }
 
   if (flush)
     {
-      for (Mapping *i = f.frame->_root; i; i = i->_n)
+      for (Mapping::List::Iterator i = f.frame->_root.begin();
+           i != Mapping::List::end(); ++i)
 	{
-	  Obj::Entry *e = static_cast<Obj::Entry*>(i);
+	  Obj::Entry *e = static_cast<Obj::Entry*>(*i);
 	  if (e->ref_cnt()) // counted
 	    --f.frame->_cnt;
 	  e->invalidate();
 	}
-      f.frame->_root = 0;
+      f.frame->_root.clear();
     }
 
 } // flush()

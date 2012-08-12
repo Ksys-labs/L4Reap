@@ -33,8 +33,7 @@ PREPROCESS_PARTS	+= libuart
 endif
 
 OBJECTS_LIBUART		+= uart_of.o uart_mpc52xx.o
-VPATH_LIBUART		:= $(srcdir)/lib/uart \
-			   $(srcdir)/lib/uart/$(CONFIG_XARCH)
+VPATH_LIBUART		:= $(srcdir)/lib/uart
 PRIVATE_INCDIR		+= lib/uart drivers/$(CONFIG_XARCH)/include
 
 #
@@ -47,10 +46,9 @@ INTERFACES_DRIVERS	:= mux_console console mem reset uart filter_console \
 			   processor delayloop io
 io_IMPL			:= io io-ppc32
 mem_IMPL		:= mem mem-ppc32
-#uart_IMPL		:= uart uart-sa1100 uart-16550 uart-pl011
+uart_IMPL		:= uart uart-mmio
 reset_IMPL		:= reset-ppc32
 processor_IMPL		:= processor processor-ppc32
-uart_IMPL		:= uart
 CXXSRC_DRIVERS		:= glue_libc.cc
 NOOPT			+= $(patsubst %.o, %, $(OBJ_DRIVERS))
 
@@ -65,7 +63,7 @@ CSRC_MINILIBC	:= atexit.c memccpy.c memcmp.c memmove.c memset.c memcpy.c \
 		   strncmp.c strncpy.c strstr.c __assert_fail.c printf.c \
 		   __v_printf.c vprintf.c strtol.c strtoul.c __lltostr.c \
 		   __ltostr.c putchar.c puts.c getchar.c gets.c \
-		   construction.c sprintf.c snprintf.c vsnprintf.c vsprintf.c \
+		   sprintf.c snprintf.c vsnprintf.c vsprintf.c \
 		   longjmp.c isalnum.c isalpha.c isascii.c isblank.c \
 		   iscntrl.c isdigit.c isgraph.c islower.c isprint.c \
 		   ispunct.c isspace.c isupper.c isxdigit.c strspn.c \
@@ -102,10 +100,8 @@ VPATH		+= jdb/$(CONFIG_XARCH) jdb
 PRIVATE_INCDIR 	+= kern/$(CONFIG_XARCH) kern kern/ia32
 
 INTERFACES_KERNEL +=	boot_uart_init bootstrap decrementer msr ppc_types     \
-			util utcb_support irq_chip_generic
+			util utcb_support irq_chip_generic dirq
 
-PREPROCESS_PARTS	+= ulock
-INTERFACES_KERNEL	+= u_semaphore
 INTERFACES_KERNEL-$(CONFIG_SERIAL) += uart_console
 
 INTERFACES_KERNEL += $(INTERFACES_KERNEL-y)
@@ -118,7 +114,7 @@ context_IMPL		:= context context-ppc32 context-vcpu
 continuation_IMPL	:= continuation-ppc32
 cpu_IMPL		:= cpu cpu-ppc32
 cpu_lock_IMPL		:= cpu_lock cpu_lock-generic
-dirq_IMPL		:= dirq dirq-ppc32
+dirq_IMPL		:= dirq-ppc32
 entry_frame_IMPL	:= entry_frame entry_frame-ppc32
 kdb_ke_IMPL		:= kdb_ke kdb_ke-ppc32
 kernel_task_IMPL	:= kernel_task kernel_task-ppc32
@@ -130,7 +126,7 @@ mapping_IMPL		:= mapping-ppc32 mapping
 mem_layout_IMPL		:= mem_layout mem_layout-ppc32
 mem_unit_IMPL		:= mem_unit-ppc32
 mem_space_IMPL		:= mem_space mem_space-user mem_space-ppc32 \
-			   mem_space-htab mem_space-cache mem_space-user-ppc32
+			   mem_space-htab mem_space-cache
 obj_space_IMPL		:= obj_space obj_space-phys
 paging_IMPL		:= paging-ppc32 paging
 pic_IMPL		:= pic
@@ -141,9 +137,10 @@ startup_IMPL		:= startup startup-ppc32
 sys_call_page_IMPL	:= sys_call_page sys_call_page-ppc32
 task_IMPL		:= task task-ppc32
 timer_IMPL		:= timer timer-decr-ppc32
+timer_tick_IMPL         := timer_tick timer_tick-ppc32
 thread_IMPL		:= thread thread-log thread-pagefault \
 			   thread-ppc32 thread-ipc thread-jdb \
-			   thread-ulock thread-vcpu
+			   thread-vcpu
 utcb_init_IMPL		:= utcb_init utcb_init-ppc32
 utcb_support_IMPL	:= utcb_support utcb_support-ppc32
 vmem_alloc_IMPL		:= vmem_alloc vmem_alloc-ppc32
@@ -205,7 +202,8 @@ LIBK 		:= libk.a
 VPATH          	+= lib/libk/$(CONFIG_XARCH) lib/libk
 PRIVATE_INCDIR 	+= lib/libk/$(CONFIG_XARCH) lib/libk
 
-INTERFACES_LIBK	:= auto_ptr atomic dlist lock_guard std_macros
+INTERFACES_LIBK	:= auto_ptr atomic lock_guard std_macros
+CXXSRC_LIBK     += construction.cc
 atomic_IMPL     := atomic atomic-ppc32
 
 #
@@ -228,7 +226,8 @@ ifeq ("$(CONFIG_JDB_DISASM)","y")
                          lib/disasm/include/opcode lib/disasm/opcodes \
                          lib/disasm/libiberty lib/disasm/bfd
   PRIVATE_INCDIR      += lib/disasm
-  CSRC_LIBDISASM      := disasm.c ppc-dis.c ppc-opc.c dis-init.c dis-buf.c \
+  CXXSRC_LIBDISASM    := disasm.cc
+  CSRC_LIBDISASM      := ppc-dis.c ppc-opc.c dis-init.c dis-buf.c \
                          safe-ctype.c libbfd.c
   NOOPT               += $(patsubst %.o, %, $(OBJ_LIBDISASM))
 endif

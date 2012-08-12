@@ -82,59 +82,54 @@ namespace L4
 
   };
 
-  unsigned long Uart_imx::rd(unsigned long reg) const
-  { return *(volatile unsigned long *)(_base + reg); }
-  void Uart_imx::wr(unsigned long reg, unsigned long val) const
-  { *(volatile unsigned long *)(_base + reg) = val; }
-
-  bool Uart_imx::startup(unsigned long base)
+  bool Uart_imx::startup(Io_register_block const *regs)
   {
-    _base = base;
+    _regs = regs;
 
     // 115200Baud, 8n1
     switch (_type)
       {
       case Type_imx21:
-        wr(UBIR, 0x0344);
-        wr(UBMR, 0x270f);
+        _regs->write<unsigned int>(UBIR, 0x0344);
+        _regs->write<unsigned int>(UBMR, 0x270f);
         break;
       case Type_imx35:
-        wr(UBIR, 0xf);
-        wr(UBMR, 0x1b2);
+        _regs->write<unsigned int>(UBIR, 0xf);
+        _regs->write<unsigned int>(UBMR, 0x1b2);
         break;
       case Type_imx51:
-        wr(UBIR, 0xf);
-        wr(UBMR, 0x120);
+        _regs->write<unsigned int>(UBIR, 0xf);
+        _regs->write<unsigned int>(UBMR, 0x120);
         break;
       }
 
-    wr(UCR1, UCR1_EN);
-    wr(UCR2, UCR2_SRST | UCR2_RXEN | UCR2_TXEN | UCR2_WS | UCR2_IRTS); // note: no IRQs enabled
-    wr(UCR3, UCR3_RXDMUXSEL);
-    wr(UCR4, UCR4_CTSTL_32);
-    wr(UFCR, UFCR_TXTL_8 | UFCR_RFDIV_2 | UFCR_RXTL_1);
+    _regs->write<unsigned int>(UCR1, UCR1_EN);
+    _regs->write<unsigned int>(UCR2, UCR2_SRST | UCR2_RXEN | UCR2_TXEN | UCR2_WS | UCR2_IRTS); // note: no IRQs enabled
+    _regs->write<unsigned int>(UCR3, UCR3_RXDMUXSEL);
+    _regs->write<unsigned int>(UCR4, UCR4_CTSTL_32);
+    _regs->write<unsigned int>(UFCR, UFCR_TXTL_8 | UFCR_RFDIV_2 | UFCR_RXTL_1);
 
     return true;
   }
 
   void Uart_imx::shutdown()
   {
-    wr(UCR1, 0); // Disable UART
+    _regs->write<unsigned int>(UCR1, 0); // Disable UART
   }
 
   bool Uart_imx::enable_rx_irq(bool enable)
   {
     if (enable)
       {
-	wr(UCR2, rd(UCR2) | UCR2_RTEC_ANY);
-	wr(UCR4, rd(UCR4) | UCR4_DREN);
+	_regs->write<unsigned int>(UCR2, _regs->read<unsigned int>(UCR2) | UCR2_RTEC_ANY);
+	_regs->write<unsigned int>(UCR4, _regs->read<unsigned int>(UCR4) | UCR4_DREN);
       }
     else
-      wr(UCR4, rd(UCR4) & ~UCR4_DREN);
+      _regs->write<unsigned int>(UCR4, _regs->read<unsigned int>(UCR4) & ~UCR4_DREN);
 
     return true;
   }
-  bool Uart_imx::enable_tx_irq(bool /*enable*/) { return false; }
+
   bool Uart_imx::change_mode(Transfer_mode, Baud_rate)
   { return true; }
 
@@ -143,32 +138,28 @@ namespace L4
     while (!char_avail())
       if (!blocking) return -1;
 
-    return rd(URXD) & 0xff;
+    return _regs->read<unsigned int>(URXD) & 0xff;
   }
 
   int Uart_imx::char_avail() const
   {
-    return rd(USR2) & USR2_RDR;
+    return _regs->read<unsigned int>(USR2) & USR2_RDR;
   }
 
   void Uart_imx::out_char(char c) const
   {
-    while (!(rd(USR1) & USR1_TRDY))
+    while (!(_regs->read<unsigned int>(USR1) & USR1_TRDY))
      ;
-    wr(UTXD, c);
+    _regs->write<unsigned int>(UTXD, c);
   }
 
   int Uart_imx::write(char const *s, unsigned long count) const
   {
     unsigned long c = count;
-    while (c)
-    {
-      if (*s == 10)
-	out_char(13);
+    while (c--)
       out_char(*s++);
-      --c;
-    }
-    while (!(rd(USR2) & USR2_TXDC))
+
+    while (!(_regs->read<unsigned int>(USR2) & USR2_TXDC))
       ;
 
     return count;

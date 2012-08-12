@@ -32,8 +32,8 @@ include $(L4DIR)/mk/lib.mk
 
 crt0.o: crt0_x.o init_eh_frame.o
 	@$(LINK_MESSAGE)
-	$(VERBOSE)$(LD) $(filter-out -gc-sections,$(LDFLAGS)) -r $(filter %.o,$^) -m $(LD_EMULATION) -o $@
+	$(VERBOSE)$(LD) $(filter-out -gc-sections,$(LDFLAGS)) -r $(filter %.o,$^) -o $@
 
 crt0.s.o: support.s.o .general.d
 	@$(LINK_MESSAGE)
-	$(VERBOSE)$(LD) $(LDFLAGS) -m $(LD_EMULATION) -r $(filter %.o,$^) -o $@
+	$(VERBOSE)$(LD) $(LDFLAGS) -r $(filter %.o,$^) -o $@

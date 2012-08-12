@@ -1,10 +1,12 @@
 INTERFACE:
 
+#include "slab_cache.h"
+#include "l4_types.h"
 #include "types.h"
 #include "mapping.h"
-#include "pages.h"
+#include "auto_quota.h"
 
-class Mapping_tree;		// forward decls
+struct Mapping_tree;		// forward decls
 class Physframe;
 class Treemap;
 class Space;
@@ -169,17 +171,16 @@ IMPLEMENTATION:
 #include <cassert>
 #include <cstring>
 
-#include <auto_ptr.h>
-
 #include "config.h"
 #include "globals.h"
 #include "helping_lock.h"
-#include "mapped_alloc.h"
+#include "kmem_alloc.h"
 #include "mapping_tree.h"
 #include "paging.h"
 #include "kmem_slab.h"
 #include "ram_quota.h"
 #include "std_macros.h"
+#include <new>
 
 // 
 // class Physframe
@@ -205,37 +206,37 @@ Physframe::operator new (size_t, void *p)
 { return p; }
 #endif
 
+PUBLIC static inline
+unsigned long
+Physframe::mem_size(size_t size)
+{
+  return (size*sizeof(Physframe) + 1023) & ~1023;
+}
+
 static inline
 Physframe *
-Physframe::alloc(Ram_quota *q, size_t size)
+Physframe::alloc(size_t size)
 {
-  unsigned long ps = (size*sizeof(Physframe) + 1023) & ~1023;
-
-  if (!q->alloc(ps))
-    return 0;
-
   Physframe* block
-    = (Physframe*)Mapped_allocator::allocator()->unaligned_alloc(ps);
-  
+    = (Physframe*)Kmem_alloc::allocator()->unaligned_alloc(mem_size(size));
+
 #if 1				// Optimization: See constructor
   if (block) 
     memset(block, 0, size * sizeof(Physframe));
-  else
-    q->free(ps);
 #else
   assert (block);
   for (unsigned i = 0; i < size; ++i)
     new (block + i) Physframe();
 #endif
-  
+
   return block;
 }
 
-inline NOEXPORT 
+inline NOEXPORT
        NEEDS["mapping_tree.h", Treemap::~Treemap, Treemap::operator delete]
 Physframe::~Physframe()
 {
-  if (tree.get())
+  if (tree)
     {
       Lock_guard <Base_mappable::Lock> guard(&lock);
 
@@ -254,14 +255,12 @@ Physframe::~Physframe()
 
 static // inline NEEDS[Physframe::~Physframe]
 void 
-Physframe::free(Ram_quota *q, Physframe *block, size_t size)
+Physframe::free(Physframe *block, size_t size)
 {
   for (unsigned i = 0; i < size; ++i)
     block[i].~Physframe();
-  
-  size = (size*sizeof(Physframe) + 1023) & ~1023;
-  Mapped_allocator::allocator()->unaligned_free(size, block);
-  q->free(size);
+
+  Kmem_alloc::allocator()->unaligned_free(Physframe::mem_size(size), block);
 }
 
 // 
@@ -313,7 +312,7 @@ Treemap_ops::mem_size(Treemap const *submap) const
       ++key)
     {
       Physframe* subframe = submap->frame(key);
-      if (subframe->tree.get())
+      if (subframe->tree)
 	quota += sizeof(Mapping);
     }
 
@@ -383,6 +382,7 @@ Treemap_ops::flush(Treemap *submap,
       else
 	{
 	  Page_count psz = Page_count::create(1UL << _page_shift);
+          // FIXME: do we have to check for subframe->tree != 0 here ?
 	  submap->flush(subframe, subframe->tree->mappings(), false,
 	    page_offs_begin > offs_begin
 	    ? Page_number::create(0) : offs_begin.offset(psz),
@@ -399,28 +399,63 @@ Treemap_ops::flush(Treemap *submap,
 // Treemap members
 //
 
-PUBLIC
+PRIVATE inline
 Treemap::Treemap(Page_number key_end, Space *owner_id,
                  Page_number page_offset, size_t page_shift,
-                 const size_t* sub_shifts, unsigned sub_shifts_max)
+                 const size_t* sub_shifts, unsigned sub_shifts_max,
+                 Physframe *physframe)
   : _key_end(key_end),
     _owner_id(owner_id),
     _page_offset(page_offset),
     _page_shift(page_shift),
-    _physframe(Physframe::alloc(Mapping_tree::quota(owner_id),
-               key_end.value())),
+    _physframe(physframe),
     _sub_shifts(sub_shifts),
     _sub_shifts_max(sub_shifts_max)
 {
   assert (_physframe);
 }
 
+PRIVATE static inline
+unsigned long
+Treemap::quota_size(Page_number key_end)
+{ return Physframe::mem_size(key_end.value()) + sizeof(Treemap); }
+
+PUBLIC static
+Treemap *
+Treemap::create(Page_number key_end, Space *owner_id,
+                Page_number page_offset, size_t page_shift,
+                const size_t* sub_shifts, unsigned sub_shifts_max)
+{
+  Auto_quota<Ram_quota> quota(Mapping_tree::quota(owner_id), quota_size(key_end));
+
+  if (EXPECT_FALSE(!quota))
+    return 0;
+
+
+  Physframe *pf = Physframe::alloc(key_end.value());
+
+  if (EXPECT_FALSE(!pf))
+    return 0;
+
+  void *m = allocator()->alloc();
+  if (EXPECT_FALSE(!m))
+    {
+      Physframe::free(pf, key_end.value());
+      return 0;
+    }
+
+  quota.release();
+  return new (m) Treemap(key_end, owner_id, page_offset, page_shift, sub_shifts,
+                         sub_shifts_max, pf);
+}
+
+
+
 PUBLIC
 inline NEEDS[Physframe::free, Mapdb] //::Iterator::neutralize]
 Treemap::~Treemap()
 {
-  Physframe::free(Mapping_tree::quota(_owner_id),
-      _physframe, _key_end.value());
+  Physframe::free(_physframe, _key_end.value());
 
   // Make sure that _unwind.~Mapdb_iterator is harmless: Reinitialize it.
   _unwind.neutralize();
@@ -429,25 +464,10 @@ Treemap::~Treemap()
 static Kmem_slab_t<Treemap> _treemap_allocator("Treemap");
 
 static
-slab_cache_anon*
+Slab_cache *
 Treemap::allocator()
 { return &_treemap_allocator; }
 
-PUBLIC
-inline
-void*
-Treemap::operator new (size_t /*size*/, Ram_quota *q) throw()
-{
-  if (EXPECT_FALSE(!q->alloc(sizeof(Treemap))))
-    return 0;
-
-  void *m;
-  if (EXPECT_TRUE(!!(m = allocator()->alloc())))
-    return m;
-
-  q->free(sizeof(Treemap));
-  return 0;
-}
 
 PUBLIC
 inline
@@ -457,7 +477,7 @@ Treemap::operator delete (void *block)
   Treemap *t = reinterpret_cast<Treemap*>(block);
   Space *id = t->_owner_id;
   allocator()->free(block);
-  Mapping_tree::quota(id)->free(sizeof(Treemap));
+  Mapping_tree::quota(id)->free(Treemap::quota_size(t->_key_end));
 }
 
 PUBLIC inline
@@ -505,26 +525,27 @@ Treemap::tree(Page_number key)
 
   f->lock.lock();
 
-  if (! f->tree.get())
+  if (! f->tree)
     {
-      if (!Mapping_tree::quota(_owner_id)->alloc(sizeof(Mapping)))
-	{
-	  f->lock.clear();
-	  return 0;
-	}
+      Auto_quota<Ram_quota> q(Mapping_tree::quota(_owner_id), sizeof(Mapping));
+      if (EXPECT_FALSE(!q))
+        {
+          f->lock.clear();
+          return 0;
+        }
 
-      auto_ptr<Mapping_tree> new_tree
-	(new (0) Mapping_tree(0, key + (_page_offset >> _page_shift), 
+      cxx::unique_ptr<Mapping_tree> new_tree
+	(new (Mapping_tree::Size_id_min) Mapping_tree(Mapping_tree::Size_id_min, key + (_page_offset >> _page_shift),
 	                      _owner_id));
 
-      if (EXPECT_FALSE(!new_tree.get()))
-	{
-	  Mapping_tree::quota(_owner_id)->free(sizeof(Mapping));
-	  f->lock.clear();
-	  return 0;
-	}
+      if (EXPECT_FALSE(!new_tree))
+        {
+          f->lock.clear();
+          return 0;
+        }
 
-      f->tree = new_tree;
+      q.release();
+      f->tree = cxx::move(new_tree);
     }
 
   return f;
@@ -612,7 +633,7 @@ Treemap::insert(Physframe* frame, Mapping* parent, Space *space,
     {
       // first check quota! In case of a new submap the parent pays for 
       // the node...
-      payer = Mapping_tree::quota(insert_submap?parent->space():space);
+      payer = Mapping_tree::quota(insert_submap ? parent->space() : space);
 
       Mapping *free = t->allocate(payer, parent, insert_submap);
       if (EXPECT_FALSE(!free))
@@ -622,7 +643,6 @@ Treemap::insert(Physframe* frame, Mapping* parent, Space *space,
       if (! insert_submap)	// Not a submap entry
 	{
 	  free->set_space(space);
-	  free->set_tag(0); // FIXME: support mapping tags
 	  set_vaddr(free, va);
 
 	  t->check_integrity(_owner_id);
@@ -631,10 +651,10 @@ Treemap::insert(Physframe* frame, Mapping* parent, Space *space,
 
       assert (_sub_shifts_max > 0);
 
-      submap = new (Mapping_tree::quota(parent->space())) 
-	Treemap(Page_number::create(1UL << (_page_shift - _sub_shifts[0])),
-	        parent->space(), vaddr(parent), _sub_shifts[0],
-	        _sub_shifts + 1, _sub_shifts_max - 1);
+      submap
+        = Treemap::create(Page_number::create(1UL << (_page_shift - _sub_shifts[0])),
+            parent->space(), vaddr(parent), _sub_shifts[0],
+            _sub_shifts + 1, _sub_shifts_max - 1);
       if (! submap)
 	{
 	  // free the mapping got with allocate
@@ -667,7 +687,7 @@ void
 Treemap::free(Physframe* f)
 {
   f->pack();
-  f->tree.get()->check_integrity(_owner_id);
+  f->tree->check_integrity(_owner_id);
 
   // Unlock tree.
   f->lock.clear();
@@ -694,9 +714,11 @@ PUBLIC
 bool
 Treemap::grant(Physframe* f, Mapping* m, Space *new_space, Page_number va)
 {
-  return f->tree.get()->grant(m, new_space, va >> _page_shift,
-                              Treemap_ops(_page_shift));
+  return f->tree->grant(m, new_space, va >> _page_shift,
+                        Treemap_ops(_page_shift));
 }
+
+
 
 //
 // class Mapdb_iterator
@@ -731,7 +753,7 @@ Mapdb::Iterator::Iterator(const Mapdb::Frame& f, Mapping* parent,
   ++*this;
 }
 
-IMPLEMENT inline NEEDS[Physframe, <auto_ptr.h>, "helping_lock.h", Treemap]
+IMPLEMENT inline NEEDS[Physframe, "helping_lock.h", Treemap]
 Mapdb::Iterator::~Iterator()
 {
   // unwind lock information
@@ -839,7 +861,7 @@ Mapdb::Iterator::operator++ ()
 	    break;
 	}
       
-      if (f && f->tree.get())	// Found a subframe
+      if (f && f->tree)	// Found a subframe
 	{
 	  _subframe = f;
 	  f->lock.lock();	// Lock it
@@ -863,13 +885,14 @@ Mapdb::Iterator::operator++ ()
            Config::Mapdb_ram_only is true.) 
  */
 PUBLIC
-Mapdb::Mapdb(Space *owner, Page_number end_frame, const size_t* page_shifts,
+Mapdb::Mapdb(Space *owner, Page_number end_frame, size_t const *page_shifts,
              unsigned page_shifts_max)
-: _treemap(new (Ram_quota::root) Treemap(end_frame, owner,
-                                         Page_number::create(0),
-                                         page_shifts[0], page_shifts + 1,
-                                         page_shifts_max - 1))
+: _treemap(Treemap::create(end_frame, owner,
+                           Page_number::create(0),
+                           page_shifts[0], page_shifts + 1,
+                           page_shifts_max - 1))
 {
+  // assert (boot_time);
   assert (_treemap);
 } // Mapdb()
 
@@ -1037,4 +1060,61 @@ Mapdb::check_for_upgrade(Page_number phys,
     }
   return 0;
 }
+
+
+IMPLEMENTATION [debug]:
+
+PUBLIC
+bool
+Treemap::find_space(Space *s)
+{
+  bool bug = _owner_id == s;
+  for (unsigned i = 0; i < _key_end.value(); ++i)
+    {
+      bool tree_bug = false;
+      Mapping_tree *t = _physframe[i].tree.get();
+      if (!t)
+        continue;
+
+      t->check_integrity();
+      Mapping *m = t->mappings();
+      for (unsigned mx = 0; mx < t->number_of_entries(); ++mx)
+        {
+          bool mapping_bug = false;
+          Mapping *ma = m + mx;
+          if (ma->is_end_tag())
+            break;
+
+          if (ma->unused())
+            continue;
+
+          if (ma->submap())
+            mapping_bug = ma->submap()->find_space(s);
+          else if (ma->space() == s)
+            {
+              mapping_bug = true;
+              printf("MAPDB: found space %p in mapdb (idx=%d, mapping=%p, depth=%d, page=%lx)\n",
+                     s, mx, ma, ma->depth(), ma->page().value());
+            }
+
+          tree_bug |= mapping_bug;
+        }
+
+      if (tree_bug)
+        printf("MAPDB: error in mapping tree: index=%d\n", i);
+
+      bug |= tree_bug;
+    }
+
+  if (bug)
+    printf("MAPDB: error in treemap: owner(space)=%p, offset=%lx, size=%lx, pageshift=%zd\n",
+           _owner_id, _page_offset.value(), _key_end.value(), _page_shift);
+
+  return bug;
+}
+
+PUBLIC
+bool
+Mapdb::find_space(Space *s)
+{ return _treemap->find_space(s); }
 

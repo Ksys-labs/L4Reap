@@ -18,7 +18,7 @@ use L4::Grub;
 use File::Temp qw/tempdir/;
 
 my $module_path  = $ENV{SEARCHPATH} || ".";
-my %opts = L4::Grub::parse_gengrub_args();
+my %opts         = L4::Grub::parse_gengrub_args();
 my $modulesfile  = shift;
 my $isofilename  = shift;
 
@@ -28,18 +28,15 @@ unless (defined $isofilename) {
 }
 
 my $tmpdir    = tempdir(CLEANUP => 1); 
-mkdir "$tmpdir/boot";
-mkdir "$tmpdir/boot/grub";
+
+L4::Grub::prepare_grub2_dir($tmpdir);
 open(A, ">$tmpdir/boot/grub/grub.cfg")
   || die "Cannot create '$tmpdir/boot/grub/grub.cfg': $!!";
 
-if ($opts{serial})
-  {
-    print A "serial\n";
-    print A "terminal_output serial\n";
-    print A "terminal_input serial\n";
-  }
-print A "set timeout=$opts{timeout}\n" if defined $opts{timeout};
+delete $opts{timeout}
+  if @ARGV > 1 and defined $opts{timeout} and $opts{timeout} == 0;
+
+print A L4::Grub::grub2_config_prolog(%opts);
 
 my %files;
 

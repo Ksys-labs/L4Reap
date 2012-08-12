@@ -7,8 +7,8 @@
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
  */
+#include "input_source"
 #include "user_state"
-#include "lua"
 
 #include <lua.h>
 #include <lauxlib.h>
@@ -17,270 +17,318 @@
 #include <l4/cxx/exceptions>
 #include <l4/re/event_enums.h>
 #include <errno.h>
+#include <cstring>
 
+#include "lua_glue.swg.h"
+
+//#define CONFIG_SCREENSHOT
+#if defined (CONFIG_SCREENSHOT)
+# include <zlib.h>
+
+
+namespace {
+
+using namespace Mag_server;
+
+static void base64_encodeblock(char const *_in, char *out)
+{
+  unsigned char const *in = (unsigned char const *)_in;
+
+  out[0] = (in[0] >> 2) + ' ';
+  out[1] = (((in[0] & 0x03) << 4) | ((in[1] & 0xf0) >> 4)) + ' ';
+  out[2] = (((in[1] & 0x0f) << 2) | ((in[2] & 0xc0) >> 6)) + ' ';
+  out[3] = (in[2] & 0x3f) + ' ';
+}
+
+static void uuencode(char const *in, unsigned long bytes)
+{
+  char uubuf[100];
+  char *out;
+
+  while (bytes)
+    {
+      unsigned cnt = 0;
+      out = uubuf;
+
+      while (bytes)
+	{
+	  unsigned n = 3;
+	  if (bytes < n)
+	    n = bytes;
+
+	  if (cnt + n > 45)
+	    break;
+
+	  base64_encodeblock(in, out);
+	  in += 3;
+	  out += 4;
+
+	  bytes -= n;
+	  cnt += n;
+	}
+      *out = 0;
+
+      printf("%c%s\n", cnt + ' ', uubuf);
+    }
+}
+
+static void maybe_screenshot(User_state *ust, User_state::Event const &e)
+{
+  if (e.payload.type != L4RE_EV_KEY || e.payload.value != 1
+      || e.payload.code != L4RE_KEY_F12)
+    return;
+
+  char obuf[1024];
+  int flush;
+  printf("Start screen shot ==========================\n");
+  printf("begin 600 screenshot.Z\n");
+
+  z_stream s;
+  s.zalloc = Z_NULL;
+  s.zfree = Z_NULL;
+  s.opaque = Z_NULL;
+  s.next_in = (Bytef*)ust->vstack()->canvas()->buffer();
+  s.avail_in = ust->vstack()->canvas()->size().h() * ust->vstack()->canvas()->bytes_per_line();
+  s.total_in = s.avail_in;
+  s.total_out = 0;
+
+  deflateInit2(&s, 9, Z_DEFLATED, 16 + 15, 9, Z_DEFAULT_STRATEGY);
+
+  do
+    {
+      flush = s.avail_in ? Z_NO_FLUSH : Z_FINISH;
+      do
+	{
+	  s.next_out = (Bytef*)obuf;
+	  s.avail_out = sizeof(obuf);
+
+	  if (deflate(&s, flush) == Z_STREAM_ERROR)
+	    {
+	      printf("\nERROR: compressing screenshot\n");
+	      break;
+	    }
+
+	  unsigned b = sizeof(obuf) - s.avail_out;
+	  if (b)
+	    uuencode(obuf, b);
+	}
+      while (s.avail_out == 0);
+    }
+  while (flush != Z_FINISH); //s.avail_out == 0);
+
+  deflateEnd(&s);
+  printf(" \nend\n");
+  printf("\nEND screen shot ==========================\n");
+}
+
+}
+#else
+inline void maybe_screenshot(Mag_server::User_state *, Mag_server::User_state::Event const &) {}
+#endif
+
+int luaopen_Mag(lua_State*);
 
 namespace Mag_server {
 
+User_state *user_state;
+
+Hid_report::Hid_report(l4_umword_t dev_id, unsigned rels, unsigned abss, unsigned mscs,
+                       unsigned sws, unsigned mts)
+: _device_id(dev_id), _kevs(0), _abs_info(0)
+{
+  _vals[0].create(rels, 0);
+  _vals[1].create(abss, 0);
+  _vals[2].create(mscs, 0);
+  _vals[3].create(sws, 0);
+
+  _mts = 0;
+  if (mts)
+    {
+      _mts = mts + 1;
+      _mt = new Valuator<int>[_mts];
+    }
+
+  for (unsigned i = 0; i < _mts; ++i)
+    _mt[i].create(Num_mt_vals, Mt_val_offset); // 13 mt axes, currently
+}
+
+Hid_report::~Hid_report()
+{
+  if (_mts)
+    delete [] _mt;
+}
+
 void
-User_state::set_pointer(int x, int y)
+Hid_report::clear()
+{
+  for (unsigned i = 0; i < Num_types; ++i)
+    _vals[i].clear();
+
+  for (unsigned i = 0; i < _mts; ++i)
+    _mt[i].clear();
+
+  _kevs = 0;
+}
+
+Valuator<int> const *
+Hid_report::get_vals(unsigned char type) const
+{
+  // check for out of range...
+  if (type < Type_offset || (type = type - Type_offset) >= Num_types)
+    return 0;
+
+  return &_vals[type];
+}
+
+Valuator<int> *
+Hid_report::get_vals(unsigned char type)
+{
+  // check for out of range...
+  if (type < Type_offset || (type = type - Type_offset) >= Num_types)
+    return 0;
+
+  return &_vals[type];
+}
+
+Valuator<int> const *
+Hid_report::get_mt_vals(unsigned id) const
+{
+  if (_mts && id < _mts - 1)
+    return &_mt[id];
+
+  return 0;
+}
+
+bool
+Hid_report::get(unsigned char type, unsigned code, int &val) const
+{
+  // check for out of range...
+  if (type < Type_offset || (type = type - Type_offset) >= Num_types)
+    return false;
+
+  if (!_vals[type].valid(code))
+    return false;
+
+  val = _vals[type][code].val();
+  return true;
+}
+
+void
+Hid_report::set(unsigned char type, unsigned code, int val)
+{
+  // check for out of range...
+  if (type < Type_offset || (type = type - Type_offset) >= Num_types)
+    return;
+
+  _vals[type].set(code, val);
+}
+
+bool
+Hid_report::mt_get(unsigned id, unsigned code, int &val) const
+{
+  if (id >= _mts)
+    return false;
+
+  if (!_mt[id].valid(code))
+    return false;
+
+  val = _mt[id][code].val();
+  return true;
+}
+
+void
+Hid_report::mt_set(unsigned code, int val)
+{
+  if (!_mts)
+    return;
+
+  _mt[_mts-1].set(code, val);
+}
+
+bool
+Hid_report::submit_mt()
+{
+  if (!_mts)
+    return false;
+
+  Valuator<int> &s = _mt[_mts-1];
+  Value<int> id = s[0x39];
+  if (!id.valid())
+    {
+      s.clear();
+      return false;
+    }
+
+  if (id.val() >= (long)_mts - 1)
+    {
+      s.clear();
+      return false;
+    }
+
+  _mt[id.val()].swap(s);
+  return true;
+}
+
+bool
+Hid_report::add_key(int code, int value)
+{
+  if (_kevs >= Num_key_events)
+    return false;
+
+  _kev[_kevs].code = code;
+  _kev[_kevs].value = value;
+  ++_kevs;
+  return true;
+}
+
+Hid_report::Key_event const *
+Hid_report::get_key_event(unsigned idx) const
+{
+  if (idx < _kevs)
+    return _kev + idx;
+
+  return 0;
+}
+
+Hid_report::Key_event const *
+Hid_report::find_key_event(int code) const
+{
+  for (unsigned i = 0; i < _kevs; ++i)
+    if (_kev[i].code == code)
+      return _kev + i;
+
+  return 0;
+}
+
+void
+Hid_report::remove_key_event(int code)
+{
+  unsigned i;
+  for (i = 0; i < _kevs && _kev[i].code != code; ++i)
+    ;
+
+  if (i >= _kevs)
+    return;
+
+  memmove(_kev + i, _kev + i + 1, (_kevs - i - 1) * sizeof(Key_event));
+  --_kevs;
+}
+
+
+void
+User_state::set_pointer(int x, int y, bool hide)
 {
   Point p(x, y);
   Rect scr(Point(0, 0), vstack()->canvas()->size());
   p = p.min(scr.p2());
   p = p.max(scr.p1());
 
-  if (_mouse_pos != p)
-    {
-      _mouse_pos = p;
-      vstack()->viewport(_mouse_cursor, Rect(_mouse_pos, _mouse_cursor->size()), true);
-    }
-}
+  _mouse_pos = p;
+  if (hide && _mouse_cursor->x1() < scr.x2())
+    vstack()->viewport(_mouse_cursor, Rect(scr.p2(), _mouse_cursor->size()), true);
 
-namespace {
-
-namespace Lua {
-
-class Axis_buf
-{
-private:
-  unsigned char s;
-  l4_int32_t v[0];
-
-public:
-  Axis_buf(unsigned char _s) : s(_s-1) { assert ((_s & s) == 0); }
-  l4_int32_t get(unsigned char idx) const { return v[idx & s]; }
-  void set(unsigned char idx, l4_int32_t val) { v[idx & s] = val; }
-
-  static char const *const _class;
-  static luaL_Reg const _ops[];
-};
-
-static int ab_get(lua_State *l)
-{
-  Axis_buf *s = lua_check_class<Axis_buf>(l, 1);
-  int idx = lua_tointeger(l, 2);
-  lua_pushinteger(l, s->get(idx));
-  return 1;
-}
-
-static int ab_set(lua_State *l)
-{
-  Axis_buf *s = lua_check_class<Axis_buf>(l, 1);
-  int idx = lua_tointeger(l, 2);
-  s->set(idx, lua_tointeger(l, 3));
-  return 0;
-}
-
-static int ab_copy(lua_State *l)
-{
-  Axis_buf *s = lua_check_class<Axis_buf>(l, 1);
-  int idx1 = lua_tointeger(l, 2);
-  int idx2 = lua_tointeger(l, 3);
-  s->set(idx1, s->get(idx2));
-  return 0;
-}
-
-static int ab_create(lua_State *l)
-{
-  unsigned long sz = lua_tointeger(l, 1);
-  unsigned long z;
-  for (z = 0; z < 8 && (1UL << z) < sz; ++z)
-    ;
-  sz = (1UL << z);
-  unsigned long msz = sizeof(Axis_buf) + sizeof(l4_int32_t) * sz;
-  new (lua_newuserdata(l, msz)) Axis_buf(sz);
-
-  if (luaL_newmetatable(l, Axis_buf::_class))
-    {
-      lua_pushcfunction(l, &ab_set);
-      lua_setfield(l, -2, "__newindex");
-      lua_newtable(l);
-      Lua_register_ops<Axis_buf>::init(l);
-      lua_setfield(l, -2, "__index");
-    }
-  lua_setmetatable(l, -2);
-  return 1;
-}
-
-char const *const Axis_buf::_class = "Mag_server.Lua.Axis_buf";
-luaL_Reg const Axis_buf::_ops[] = {
-      { "get", &ab_get },
-      { "set", &ab_set },
-      { "copy", &ab_copy },
-      { 0, 0 }
-};
-
-
-}
-
-
-struct Lua_user_state
-{
-  User_state *u;
-  static char const *const _class;
-  static luaL_Reg const _ops[];
-  explicit Lua_user_state(User_state *u) : u(u) {}
-};
-
-struct Lua_view_proxy : public User_state::View_proxy
-{
-  explicit Lua_view_proxy(User_state *u) : View_proxy(u) {}
-  static char const *const _class;
-  static luaL_Reg const _ops[];
-};
-
-static int user_state_post_event(lua_State *l)
-{
-  int top = lua_gettop(l);
-  User_state *ust = lua_check_class<Lua_user_state>(l, 1)->u;
-  View *v = ust->kbd_focus();
-  if (top >= 2 && !lua_isnil(l, 2))
-    v = lua_check_class<Lua_view_proxy>(l, 2)->view();
-
-  User_state::Event e;
-  e.time = lua_tonumber(l, 4);
-  e.payload.stream_id = (l4_umword_t)lua_touserdata(l, 3);
-  e.payload.type = lua_tointeger(l, 5);
-  e.payload.code = lua_tointeger(l, 6);
-  e.payload.value = lua_tointeger(l, 7);
-
-  if (top >= 8 && lua_toboolean(l, 8))
-    ust->vstack()->update_all_views();
-
-  if (v && (!ust->vstack()->mode().kill() || v->super_view()))
-    v->handle_event(e, ust->mouse_pos());
-
-  return 0;
-}
-
-static int user_state_post_pointer_event(lua_State *l)
-{
-  User_state *ust = lua_check_class<Lua_user_state>(l, 1)->u;
- 
-
-  View *v = ust->kbd_focus();
-  if (!lua_isnil(l, 2))
-    v = lua_check_class<Lua_view_proxy>(l, 2)->view();
-
-  if (!v)
-    return 0;
-
-  if (ust->vstack()->mode().kill() && !v->super_view())
-    return 0;
-
-  Point m = ust->mouse_pos();
-  User_state::Event e;
-  e.time = lua_tonumber(l, 4);
-  e.payload.stream_id = (l4_umword_t)lua_touserdata(l, 3);
-  e.payload.type = L4RE_EV_ABS;
-  e.payload.code = L4RE_ABS_X;
-  e.payload.value = m.x();
-  v->handle_event(e, ust->mouse_pos());
-  e.payload.code = L4RE_ABS_Y;
-  e.payload.value = m.y();
-  v->handle_event(e, ust->mouse_pos());
-
-  return 0;
-}
-
-static int user_state_set_pointer(lua_State *l)
-{
-  User_state *ust = lua_check_class<Lua_user_state>(l, 1)->u;
-
-  int x, y;
-  x = lua_tointeger(l, 2);
-  y = lua_tointeger(l, 3);
-  ust->set_pointer(x, y);
-  return 0;
-}
-
-static int user_state_move_pointer(lua_State *l)
-{
-  User_state *ust = lua_check_class<Lua_user_state>(l, 1)->u;
-
-  int x, y;
-  x = lua_tointeger(l, 2);
-  y = lua_tointeger(l, 3);
-  ust->move_pointer(x, y);
-  return 0;
-}
-
-
-static int user_state_toggle_mode(lua_State *l)
-{
-  User_state *ust = lua_check_class<Lua_user_state>(l, 1)->u;
-
-  int x;
-  x = lua_tointeger(l, 2);
-  ust->vstack()->toggle_mode((Mag_server::Mode::Mode_flag)x);
-  return 0;
-}
-
-static int user_state_find_pointed_view(lua_State *l)
-{
-  User_state *ust = lua_check_class<Lua_user_state>(l, 1)->u;
-  Lua_view_proxy *vp = lua_check_class<Lua_view_proxy>(l, 2);
-  vp->view(ust->vstack()->find(ust->mouse_pos()));
-  return 0;
-}
-
-static int user_state_create_view_proxy(lua_State *l)
-{
-  User_state *ust = lua_check_class<Lua_user_state>(l, 1)->u;
-  if (lua_alloc_class<Lua_view_proxy>(l, ust))
-    return 1;
-
-  return 0;
-}
-
-
-static int lua_view_proxy_set(lua_State *l)
-{
-  int top = lua_gettop(l);
-  Lua_view_proxy *d = lua_check_class<Lua_view_proxy>(l, 1);
-  View *sv = 0;
-  if (top >= 2 || !lua_isnil(l, 2))
-    sv = lua_check_class<Lua_view_proxy>(l, 2)->view();
-  d->view(sv);
-  return 0;
-}
-
-static int user_state_set_kbd_focus(lua_State *l)
-{
-  int top = lua_gettop(l);
-  User_state *ust = lua_check_class<Lua_user_state>(l, 1)->u;
-  View *v = 0;
-  if (top >= 2 && !lua_isnil(l,2))
-    v = lua_check_class<Lua_view_proxy>(l, 2)->view();
-
-  lua_pushboolean(l, ust->set_focus(v));
-  return 1;
-}
-
-
-char const *const Lua_user_state::_class = "Mag_server.User_state_class";
-char const *const Lua_view_proxy::_class = "Mag_server.View_proxy_class";
-
-
-luaL_Reg const Lua_user_state::_ops[] =
-{ { "set_pointer", &user_state_set_pointer },
-  { "move_pointer", &user_state_move_pointer },
-  { "set_kbd_focus", &user_state_set_kbd_focus },
-  { "post_event", &user_state_post_event },
-  { "post_pointer_event", &user_state_post_pointer_event },
-  { "toggle_mode", &user_state_toggle_mode },
-  { "create_view_proxy", &user_state_create_view_proxy },
-  { "find_pointed_view", &user_state_find_pointed_view },
-  { 0, 0 }
-};
-
-luaL_Reg const Lua_view_proxy::_ops[] =
-{ { "set", &lua_view_proxy_set },
-  { 0, 0 }
-};
-
-
-
+  if (!hide && _mouse_cursor->p1() != _mouse_pos)
+    vstack()->viewport(_mouse_cursor, Rect(_mouse_pos, _mouse_cursor->size()), true);
 }
 
 #if 0
@@ -311,46 +359,24 @@ static void dump_stack(lua_State *l)
 }
 #endif
 
-template<>
-struct Lua_register_ops<Lua_user_state>
-{
-  static void init(lua_State *l)
-  {
-    luaL_register(l, NULL, Lua_user_state::_ops);
-    Lua_user_state *u = (Lua_user_state*)lua_touserdata(l, -3);
-    Area sz = u->u->vstack()->canvas()->size();
-    lua_pushinteger(l, sz.w());
-    lua_setfield(l, -2, "width");
-    lua_pushinteger(l, sz.h());
-    lua_setfield(l, -2, "height");
-  }
-};
-
-
 User_state::User_state(lua_State *lua, View_stack *_vstack, View *cursor)
 : _vstack(_vstack), _mouse_pos(0,0), _keyboard_focus(0),
   _mouse_cursor(cursor), _l(lua)
 {
-  lua_getglobal(_l, "Mag");
-  lua_alloc_class<Lua_user_state>(_l, this);
-  lua_setfield(_l, -2, "user_state");
-
-  lua_pushcfunction(_l, &Lua::ab_create);
-  lua_setfield(_l, -2, "Axis_buf");
-
-  lua_pop(_l, 1);
-
+  user_state = this;
   if (_mouse_cursor)
-    vstack()->push_top(_mouse_cursor, true);
+    {
+      vstack()->push_top(_mouse_cursor, true);
+      Point pos(vstack()->canvas()->size());
+      vstack()->viewport(_mouse_cursor, Rect(pos, _mouse_cursor->size()), true);
+    }
   vstack()->update_all_views();
+  luaopen_Mag(lua);
 }
 
 User_state::~User_state()
 {
-  lua_getglobal(_l, "Mag");
-  lua_pushnil(_l);
-  lua_setfield(_l, -2, "user_state");
-  lua_pop(_l, 1);
+  user_state = 0;
 }
 
 void
@@ -384,16 +410,123 @@ User_state::set_focus(View *v)
   return true;
 }
 
-void
-User_state::handle_event(Event const &e)
+int
+User_state::get_input_stream_info_for_id(l4_umword_t id, Input_info *info) const
 {
-  lua_getfield(_l, LUA_GLOBALSINDEX, "handle_event");
-  lua_pushlightuserdata(_l, const_cast<Event *>(&e));
-  if (lua_pcall(_l, 1, 0, 0))
+  lua_State *l = _l;
+  int top = lua_gettop(l);
+  lua_getfield(l, LUA_GLOBALSINDEX, "input_source_info");
+  lua_pushinteger(l, id);
+  if (lua_pcall(l, 1, 2, 0))
     {
-      fprintf(stderr, "ERROR: lua event handling returned: %s.\n", lua_tostring(_l, -1));
-      lua_pop(_l, 1);
+      fprintf(stderr, "ERROR: lua event handling returned: %s.\n", lua_tostring(l, -1));
+      lua_pop(l, 1);
+      return -L4_ENOSYS;
     }
+
+  int r = lua_tointeger(l, -2);
+  if (r < 0)
+    {
+      lua_settop(l, top);
+      return r;
+    }
+
+
+  L4Re::Event_stream_info *i = 0;
+  swig_type_info *type = SWIG_TypeQuery(l, "L4Re::Event_stream_info *");
+  if (!type)
+    {
+      fprintf(stderr, "Ooops: did not find type 'L4Re::Event_stream_info'\n");
+      lua_settop(l, top);
+      return -L4_EINVAL;
+    }
+    if (!SWIG_IsOK(SWIG_ConvertPtr(l, -1, (void**)&i, type, 0)))
+    {
+      fprintf(stderr, "Ooops: expected 'L4Re::Event_stream_info' as arg 2\n");
+      lua_settop(l, top);
+      return -L4_EINVAL;
+    }
+
+  if (!i)
+    {
+      lua_settop(l, top);
+      return -L4_EINVAL;
+    }
+
+  *info = *i;
+  lua_settop(l, top);
+  return r;
+}
+
+int
+User_state::get_input_axis_info(l4_umword_t id, unsigned naxes, unsigned *axis,
+                                Input_absinfo *info, unsigned char *ax_mode) const
+{
+  lua_State *l = _l;
+  int top = lua_gettop(l);
+  lua_getfield(l, LUA_GLOBALSINDEX, "input_source_abs_info");
+  lua_pushinteger(l, id);
+  for (unsigned i = 0; i < naxes; ++i)
+    lua_pushinteger(l, axis[i]);
+
+  if (lua_pcall(l, 1 + naxes, 1 + naxes, 0))
+    {
+      fprintf(stderr, "ERROR: lua event handling returned: %s.\n", lua_tostring(l, -1));
+      lua_settop(l, top);
+      return -L4_ENOSYS;
+    }
+
+  int r = lua_tointeger(l, top + 1);
+  if (r < 0)
+    {
+      lua_settop(l, top);
+      return r;
+    }
+
+  for (unsigned i = 0; i < naxes; ++i)
+    {
+      int ndx = top + i + 2;
+      if (!lua_istable(l, ndx) && !lua_isuserdata(l, ndx))
+	{
+	  fprintf(stderr, "ERROR: lua event handling returned: %s.\n", lua_tostring(l, top + 1));
+	  lua_settop(l, top);
+	  return -L4_EINVAL;
+	}
+
+      lua_getfield(l, ndx, "value");
+      info[i].value = lua_tointeger(l, -1);
+      lua_pop(l, 1);
+
+      lua_getfield(l, ndx, "min");
+      info[i].min = lua_tointeger(l, -1);
+      lua_pop(l, 1);
+
+      lua_getfield(l, ndx, "max");
+      info[i].max = lua_tointeger(l, -1);
+      lua_pop(l, 1);
+
+      lua_getfield(l, ndx, "fuzz");
+      info[i].fuzz = lua_tointeger(l, -1);
+      lua_pop(l, 1);
+
+      lua_getfield(l, ndx, "flat");
+      info[i].flat = lua_tointeger(l, -1);
+      lua_pop(l, 1);
+
+      lua_getfield(l, ndx, "resolution");
+      info[i].resolution = lua_tointeger(l, -1);
+      lua_pop(l, 1);
+
+      if (ax_mode)
+	{
+	  lua_getfield(l, ndx, "mode");
+	  ax_mode[i] = lua_tointeger(l, -1);
+	  lua_pop(l, 1);
+	}
+    }
+
+  lua_settop(l, top);
+  return r;
 }
 
 }

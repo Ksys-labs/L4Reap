@@ -3,7 +3,6 @@ OUTPUT_FORMAT("elf64-x86-64", "elf64-x86-64",
 	      "elf64-x86-64")
 OUTPUT_ARCH(i386:x86-64)
 ENTRY(_start)
-
 SECTIONS
 {
   /* Read-only sections, merged into text segment: */
@@ -89,8 +88,8 @@ SECTIONS
   }
   .init_array     :
   {
-     KEEP (*(SORT(.init_array.*)))
-     KEEP (*(.init_array))
+    KEEP (*(SORT(.init_array.*)))
+    KEEP (*(.init_array))
   }
   .fini_array     :
   {

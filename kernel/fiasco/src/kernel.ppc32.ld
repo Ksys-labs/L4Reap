@@ -84,6 +84,36 @@ SECTIONS {
        are traversed from end to start, therefore the *_END__ symbols
        precede the *_LIST__ symbols. */
     . = ALIGN(8);
+    __PER_CPU_INIT_ARRAY_START__ = .;
+    KEEP (*(.init_array.65534))
+    KEEP (*(.init_array.65533))
+    KEEP (*(.init_array.65532))
+    KEEP (*(.init_array.65531))
+    KEEP (*(.init_array.65530))
+    KEEP (*(.init_array.65529))
+    KEEP (*(.init_array.65528))
+    KEEP (*(.init_array.65527))
+    KEEP (*(.init_array.65526))
+    KEEP (*(.init_array.65525))
+    __PER_CPU_INIT_ARRAY_END__ = .;
+
+    __PER_CPU_LATE_INIT_ARRAY_START__ = .;
+    KEEP (*(.init_array.65524))
+    KEEP (*(.init_array.65523))
+    KEEP (*(.init_array.65522))
+    KEEP (*(.init_array.65521))
+    KEEP (*(.init_array.65520))
+    KEEP (*(.init_array.65519))
+    KEEP (*(.init_array.65518))
+    KEEP (*(.init_array.65517))
+    KEEP (*(.init_array.65516))
+    KEEP (*(.init_array.65515))
+    __PER_CPU_LATE_INIT_ARRAY_END__ = .;
+
+    __INIT_ARRAY_START__ = .;
+    KEEP (*(SORT (.init_array.*)))
+    KEEP (*(.init_array))
+    __INIT_ARRAY_END__ = .;
 
     __PER_CPU_CTORS_END__ = .;
     KEEP (*(.ctors.00010))
@@ -136,6 +166,11 @@ SECTIONS {
   . = ALIGN(0x10);
   .bss : AT (ADDR(.bss)) {
     PROVIDE (_bss_start = .);
+    . = ALIGN(4);
+    _per_cpu_ctor_data_start = .;
+    KEEP (*(.bss.per_cpu_ctor_data))
+    _per_cpu_ctor_data_end = .;
+
     *(.bss .bss.* .gnu.linkonce.b.* COMMON)
     PROVIDE (_bss_end = .);
   } : kdata

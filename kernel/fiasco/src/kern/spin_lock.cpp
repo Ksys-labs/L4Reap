@@ -11,6 +11,8 @@ INTERFACE:
 template<typename Lock_t = char>
 class Spin_lock : private Cpu_lock
 {
+public:
+  enum Lock_init { Unlocked = 0 };
 };
 
 //--------------------------------------------------------------------------
@@ -19,6 +21,8 @@ INTERFACE [!mp]:
 EXTENSION class Spin_lock
 {
 public:
+  Spin_lock() {}
+  explicit Spin_lock(Lock_init) {}
   void init() {}
 
   using Cpu_lock::Status;
@@ -49,6 +53,8 @@ EXTENSION class Spin_lock
 {
 public:
   typedef Mword Status;
+  Spin_lock() {}
+  explicit Spin_lock(Lock_init i) : _lock((i == Unlocked) ? 0 : Arch_lock) {}
 
 protected:
   Lock_t _lock;

@@ -1,48 +1,93 @@
+INTERFACE [mp]:
+
+struct Per_cpu_ctor_data
+{
+  void (*func)(void *, unsigned);
+  void *base;
+};
+
+#define DEFINE_PER_CPU_CTOR_UID(b) __per_cpu_ctor_ ## b
+#define DEFINE_PER_CPU_CTOR_DATA(id) \
+  __attribute__((section(".bss.per_cpu_ctor_data"),used)) \
+    static Per_cpu_ctor_data DEFINE_PER_CPU_CTOR_UID(id);
+
+INTERFACE [!mp]:
+
+#define DEFINE_PER_CPU_CTOR_DATA(id)
+
 INTERFACE:
 
 #include "static_init.h"
+#include "context_base.h"
+#include <type_traits>
 
-#define DEFINE_PER_CPU_P(p) __attribute__((section(".per_cpu.data"),init_priority(0xfffe - p)))
+#define DEFINE_PER_CPU_P(p) \
+  DEFINE_PER_CPU_CTOR_DATA(__COUNTER__) \
+  __attribute__((section(".per_cpu.data"),init_priority(0xfffe - p)))
+
 #define DEFINE_PER_CPU      DEFINE_PER_CPU_P(9)
 #define DEFINE_PER_CPU_LATE DEFINE_PER_CPU_P(19)
-
-class Mapped_allocator;
 
 class Per_cpu_data
 {
 public:
-  static void init_ctors(Mapped_allocator *a);
+  static void init_ctors();
   static void run_ctors(unsigned cpu);
   static void run_late_ctors(unsigned cpu);
   static bool valid(unsigned cpu);
 };
 
+template< typename T > class Per_cpu_ptr;
+
 template< typename T >
 class Per_cpu : private Per_cpu_data
 {
+  friend class Per_cpu_ptr<T>;
 public:
+  typedef T Type;
+
   T const &cpu(unsigned) const;
   T &cpu(unsigned);
+
+  T const &current() const { return cpu(current_cpu()); }
+  T &current() { return cpu(current_cpu()); }
 
   Per_cpu();
   explicit Per_cpu(bool);
 
-};
-
-
-//---------------------------------------------------------------------------
-INTERFACE [!mp]:
-
-EXTENSION
-class Per_cpu
-{
 private:
   T _d;
+};
+
+template< typename T >
+class Per_cpu_ptr : private Per_cpu_data
+{
+public:
+  typedef typename cxx::conditional<
+    cxx::is_const<T>::value,
+    Per_cpu<typename cxx::remove_cv<T>::type> const,
+    Per_cpu<typename cxx::remove_cv<T>::type> >::type Per_cpu_type;
+
+  Per_cpu_ptr() {}
+  Per_cpu_ptr(Per_cpu_type *o) : _p(&o->_d) {}
+  Per_cpu_ptr &operator = (Per_cpu_type *o)
+  {
+    _p = &o->_d;
+    return *this;
+  }
+
+  T &cpu(unsigned cpu);
+  T &current() { return cpu(current_cpu()); }
+
+private:
+  T *_p;
 };
 
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [!mp]:
+
+#include <construction.h>
 
 IMPLEMENT inline
 bool
@@ -74,9 +119,14 @@ template< typename T >
 Per_cpu<T>::Per_cpu(bool) : _d(0)
 {}
 
+IMPLEMENT inline
+template< typename T >
+T &Per_cpu_ptr<T>::cpu(unsigned) { return *_p; }
+
+
 IMPLEMENT
 void
-Per_cpu_data::init_ctors(Mapped_allocator *)
+Per_cpu_data::init_ctors()
 {
 }
 
@@ -84,28 +134,27 @@ IMPLEMENT inline
 void
 Per_cpu_data::run_ctors(unsigned)
 {
-  typedef void (*ctor)(void);
-  extern ctor __PER_CPU_CTORS_LIST__[];
-  extern ctor __PER_CPU_CTORS_END__[];
-  for (unsigned i = __PER_CPU_CTORS_LIST__ - __PER_CPU_CTORS_END__; i > 0; --i)
-    {
-      //printf("Per_cpu: init ctor %u (%p)\n", i-1, &__PER_CPU_CTORS_END__[i-1]);
-      __PER_CPU_CTORS_END__[i-1]();
-    }
+  extern ctor_function_t __PER_CPU_INIT_ARRAY_START__[];
+  extern ctor_function_t __PER_CPU_INIT_ARRAY_END__[];
+  run_ctor_functions(__PER_CPU_INIT_ARRAY_START__, __PER_CPU_INIT_ARRAY_END__);
+
+  extern ctor_function_t __PER_CPU_CTORS_LIST__[];
+  extern ctor_function_t __PER_CPU_CTORS_END__[];
+  run_ctor_functions(__PER_CPU_CTORS_LIST__, __PER_CPU_CTORS_END__);
 }
 
 IMPLEMENT inline
 void
 Per_cpu_data::run_late_ctors(unsigned)
 {
-  typedef void (*ctor)(void);
-  extern ctor __PER_CPU_LATE_CTORS_LIST__[];
-  extern ctor __PER_CPU_LATE_CTORS_END__[];
-  for (unsigned i = __PER_CPU_LATE_CTORS_LIST__ - __PER_CPU_LATE_CTORS_END__; i > 0; --i)
-    {
-      //printf("Per_cpu: init ctor %u (%p)\n", i-1, &__PER_CPU_LATE_CTORS_END__[i-1]);
-      __PER_CPU_LATE_CTORS_END__[i-1]();
-    }
+  extern ctor_function_t __PER_CPU_LATE_INIT_ARRAY_START__[];
+  extern ctor_function_t __PER_CPU_LATE_INIT_ARRAY_END__[];
+  run_ctor_functions(__PER_CPU_LATE_INIT_ARRAY_START__,
+                     __PER_CPU_LATE_INIT_ARRAY_END__);
+
+  extern ctor_function_t __PER_CPU_LATE_CTORS_LIST__[];
+  extern ctor_function_t __PER_CPU_LATE_CTORS_END__[];
+  run_ctor_functions(__PER_CPU_LATE_CTORS_LIST__, __PER_CPU_LATE_CTORS_END__);
 }
 
 
@@ -113,84 +162,63 @@ Per_cpu_data::run_late_ctors(unsigned)
 INTERFACE [mp]:
 
 #include <cstddef>
-#include "config.h"
+#include <new>
 
-EXTENSION
-class Per_cpu
-{
-private:
-  T _d; // __attribute__((aligned(__alignof__(T))));
-};
+#include "config.h"
 
 EXTENSION
 class Per_cpu_data
 {
 private:
-  struct Ctor
-  {
-    void (*func)(void *, unsigned);
-    void *base;
-  };
+  typedef Per_cpu_ctor_data Ctor;
 
-  class Ctor_vector
+  struct Ctor_vector
   {
   public:
-    Ctor_vector() : _len(0), _capacity(10), _v(0) {}
-    void push_back(void (*func)(void*,unsigned), void *base, Mapped_allocator *a);
+    void push_back(void (*func)(void*,unsigned), void *base);
     unsigned len() const { return _len; }
-    Ctor const &operator [] (unsigned idx) const { return _v[idx]; }
+    Ctor const &operator [] (unsigned idx) const
+    {
+      extern Ctor _per_cpu_ctor_data_start[];
+      return _per_cpu_ctor_data_start[idx];
+    }
 
   private:
     unsigned _len;
-    unsigned _capacity;
-    Ctor *_v;
   };
 protected:
   static long _offsets[Config::Max_num_cpus] asm ("PER_CPU_OFFSETS");
   static unsigned late_ctor_start;
   static Ctor_vector ctors;
-  static Mapped_allocator *alloc;
 };
 
-//#include <cstdio>
+
 //---------------------------------------------------------------------------
 IMPLEMENTATION [mp]:
 
-#include "mapped_alloc.h"
+#include "panic.h"
+#include <construction.h>
 #include <cstring>
 
 long Per_cpu_data::_offsets[Config::Max_num_cpus];
 unsigned Per_cpu_data::late_ctor_start;
-Per_cpu_data::Ctor_vector Per_cpu_data::ctors INIT_PRIORITY(EARLY_INIT_PRIO);
-Mapped_allocator *Per_cpu_data::alloc;
+Per_cpu_data::Ctor_vector Per_cpu_data::ctors;
 
 IMPLEMENT
 void
-Per_cpu_data::Ctor_vector::push_back(void (*func)(void*,unsigned),
-                                     void *base, Mapped_allocator *a)
+Per_cpu_data::Ctor_vector::push_back(void (*func)(void*,unsigned), void *base)
 {
-  if (!_v)
-    _v = (Ctor*)a->unaligned_alloc(1 << _capacity);
+  extern Ctor _per_cpu_ctor_data_start[];
+  extern Ctor _per_cpu_ctor_data_end[];
 
-  if (_len >= ((1 << _capacity) / sizeof(Ctor)))
-    {
-      void *b = a->unaligned_alloc(1 << (_capacity+1));
-      memcpy(b, _v, 1 << _capacity);
-      a->unaligned_free(1 << _capacity, _v);
-      _v = (Ctor*)b;
-      ++_capacity;
-    }
+  if (_per_cpu_ctor_data_start + _len >= _per_cpu_ctor_data_end)
+    panic("out of per_cpu_ctor_space");
 
-  Ctor &c = _v[_len++];
+  Ctor &c = _per_cpu_ctor_data_start[_len++];
   c.func = func;
   c.base = base;
 }
 
-// the third argument is just there to not have the same type as the normal
-// new operator used in standard environments which would clash with these
-// (this file is implicitly in unit tests)
-inline void *operator new (size_t, void *p, bool) { return p; }
-inline void *operator new [] (size_t, void *p, bool) { return p; }
 
 IMPLEMENT inline
 bool
@@ -210,7 +238,7 @@ template< typename T >
 Per_cpu<T>::Per_cpu()
 {
   //printf("  Per_cpu<T>() [this=%p])\n", this);
-  ctors.push_back(&ctor_wo_arg, this, alloc);
+  ctors.push_back(&ctor_wo_arg, this);
 }
 
 IMPLEMENT
@@ -218,7 +246,7 @@ template< typename T >
 Per_cpu<T>::Per_cpu(bool) : _d(0)
 {
   //printf("  Per_cpu<T>(bool) [this=%p])\n", this);
-  ctors.push_back(&ctor_w_arg, this, alloc);
+  ctors.push_back(&ctor_w_arg, this);
 }
 
 PRIVATE static
@@ -226,7 +254,7 @@ template< typename T >
 void Per_cpu<T>::ctor_wo_arg(void *obj, unsigned cpu)
 {
   //printf("Per_cpu<T>::ctor_wo_arg(obj=%p, cpu=%u -> %p)\n", obj, cpu, &(reinterpret_cast<Per_cpu<T>*>(obj)->cpu(cpu)));
-  new (&reinterpret_cast<Per_cpu<T>*>(obj)->cpu(cpu), true) T();
+  new (&reinterpret_cast<Per_cpu<T>*>(obj)->cpu(cpu)) T();
 }
 
 PRIVATE static
@@ -234,15 +262,18 @@ template< typename T >
 void Per_cpu<T>::ctor_w_arg(void *obj, unsigned cpu)
 {
   //printf("Per_cpu<T>::ctor_w_arg(obj=%p, cpu=%u -> %p)\n", obj, cpu, &reinterpret_cast<Per_cpu<T>*>(obj)->cpu(cpu));
-  new (&reinterpret_cast<Per_cpu<T>*>(obj)->cpu(cpu), true) T(cpu);
+  new (&reinterpret_cast<Per_cpu<T>*>(obj)->cpu(cpu)) T(cpu);
 }
+
+IMPLEMENT inline
+template< typename T >
+T &Per_cpu_ptr<T>::cpu(unsigned cpu)
+{ return *reinterpret_cast<T *>(reinterpret_cast<Address>(_p) + _offsets[cpu]); }
 
 IMPLEMENT
 void
-Per_cpu_data::init_ctors(Mapped_allocator *a)
+Per_cpu_data::init_ctors()
 {
-  alloc = a;
-
   for (unsigned i = 0; i < Config::Max_num_cpus; ++i)
     _offsets[i] = -1;
 }
@@ -251,17 +282,14 @@ IMPLEMENT inline
 void
 Per_cpu_data::run_ctors(unsigned cpu)
 {
+  extern ctor_function_t __PER_CPU_INIT_ARRAY_START__[];
+  extern ctor_function_t __PER_CPU_INIT_ARRAY_END__[];
+  extern ctor_function_t __PER_CPU_CTORS_LIST__[];
+  extern ctor_function_t __PER_CPU_CTORS_END__[];
   if (cpu == 0)
     {
-      typedef void (*ctor)(void);
-      extern ctor __PER_CPU_CTORS_LIST__[];
-      extern ctor __PER_CPU_CTORS_END__[];
-      for (unsigned i = __PER_CPU_CTORS_LIST__ - __PER_CPU_CTORS_END__; i > 0; --i)
-	{
-	  //printf("Per_cpu: init ctor %u (%p)\n", i-1, &__PER_CPU_CTORS_END__[i-1]);
-	  __PER_CPU_CTORS_END__[i-1]();
-	}
-
+      run_ctor_functions(__PER_CPU_INIT_ARRAY_START__, __PER_CPU_INIT_ARRAY_END__);
+      run_ctor_functions(__PER_CPU_CTORS_LIST__, __PER_CPU_CTORS_END__);
       late_ctor_start = ctors.len();
       return;
     }
@@ -274,16 +302,14 @@ IMPLEMENT inline
 void
 Per_cpu_data::run_late_ctors(unsigned cpu)
 {
+  extern ctor_function_t __PER_CPU_LATE_INIT_ARRAY_START__[];
+  extern ctor_function_t __PER_CPU_LATE_INIT_ARRAY_END__[];
+  extern ctor_function_t __PER_CPU_LATE_CTORS_LIST__[];
+  extern ctor_function_t __PER_CPU_LATE_CTORS_END__[];
   if (cpu == 0)
     {
-      typedef void (*ctor)(void);
-      extern ctor __PER_CPU_LATE_CTORS_LIST__[];
-      extern ctor __PER_CPU_LATE_CTORS_END__[];
-      for (unsigned i = __PER_CPU_LATE_CTORS_LIST__ - __PER_CPU_LATE_CTORS_END__; i > 0; --i)
-	{
-	  //printf("Per_cpu: init ctor %u (%p)\n", i-1, &__PER_CPU_LATE_CTORS_END__[i-1]);
-	  __PER_CPU_LATE_CTORS_END__[i-1]();
-	}
+      run_ctor_functions(__PER_CPU_LATE_INIT_ARRAY_START__, __PER_CPU_LATE_INIT_ARRAY_END__);
+      run_ctor_functions(__PER_CPU_LATE_CTORS_LIST__, __PER_CPU_LATE_CTORS_END__);
       return;
     }
 

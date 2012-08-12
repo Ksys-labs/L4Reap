@@ -20,7 +20,9 @@ MYLIBS=
 
 # == END OF USER SETTINGS. NO NEED TO CHANGE ANYTHING BELOW THIS LINE =========
 
-PLATS= aix ansi bsd freebsd generic linux linux_sse macosx mingw posix solaris
+PLATS= aix ansi bsd freebsd generic linux linux_sse macosx mingw posix solaris l4re
+
+LIB_O-l4re = ll4lib.o
 
 LUA_A=	liblua.a
 CORE_O=	lapi.o lcode.o ldebug.o ldo.o ldump.o lfunc.o lgc.o llex.o lmem.o \
@@ -28,7 +30,7 @@ CORE_O=	lapi.o lcode.o ldebug.o ldo.o ldump.o lfunc.o lgc.o llex.o lmem.o \
 	lundump.o lvm.o lzio.o lnum.o
 LIB_O=	lauxlib.o lbaselib.o ldblib.o liolib.o lmathlib.o loslib.o ltablib.o \
 	lstrlib.o loadlib.o linit.o \
-	ll4lib.o
+	$(LIB_O-$(PLAT))
 
 LUA_T=	lua
 LUA_O=	lua.o
@@ -49,7 +51,7 @@ o:	$(ALL_O)
 a:	$(ALL_A)
 
 $(LUA_A): $(CORE_O) $(LIB_O)
-	$(AR) $@ $?
+	$(AR) $@ $(CORE_O) $(LIB_O)	# DLL needs all object files
 	$(RANLIB) $@
 
 $(LUA_T): $(LUA_O) $(LUA_A)

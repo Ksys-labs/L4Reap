@@ -8,56 +8,14 @@
  */
 #include "sched_proxy.h"
 #include "global.h"
+#include "debug.h"
+#include "obj_reg.h"
 
 #include <algorithm>
 #include <l4/re/env>
 #include <l4/sys/scheduler>
 
 //#include <cstdio>
-
-Sched_proxy::Sched_proxy() : L4kproxy::Scheduler_svr(this),
-  _cpus(l4_sched_cpu_set(0,0,0)), _max_cpus(0),
-  _prio_offset(0), _prio_limit(0)
-{
-  l4_sched_cpu_set_t c;
-  l4_umword_t max = 0;
-  c.map = 0;
-  c.offset = 0;
-  c.granularity = 0;
-
-  int e = l4_error(L4Re::Env::env()->scheduler()->info(&max, &c));
-
-  if (e < 0)
-    return;
-
-  _max_cpus = std::min<unsigned>(sizeof(l4_umword_t) * 8, max);
-  _cpus = c;
-}
-
-int
-Sched_proxy::info(l4_umword_t *cpu_max, l4_sched_cpu_set_t *cpus)
-{
-  *cpu_max = _max_cpus;
-  unsigned char g = cpus->granularity & (sizeof(l4_umword_t) * 8 - 1);
-  l4_umword_t offs = cpus->offset & (~0UL << g);
-  if (offs >= _max_cpus)
-    return -L4_ERANGE;
-
-  cpus->map = 0;
-  unsigned b = 0;
-  for (unsigned i = offs; i < _max_cpus && b < sizeof(l4_umword_t) * 8;)
-    {
-      if (_cpus.map & (1UL << i))
-	cpus->map |= 1UL << b;
-
-      ++i;
-
-      if (!(i & ~(~0UL << g)))
-	++b;
-    }
-
-  return L4_EOK;
-}
 
 static
 l4_sched_cpu_set_t
@@ -120,6 +78,68 @@ l4_sched_cpu_set_t operator & (l4_sched_cpu_set_t const &a, l4_sched_cpu_set_t c
     }
 }
 
+Sched_proxy::List Sched_proxy::_list;
+
+Sched_proxy::Sched_proxy() : L4kproxy::Scheduler_svr(this),
+  _real_cpus(l4_sched_cpu_set(0,0,0)), _cpu_mask(_real_cpus),
+  _max_cpus(0),
+  _prio_offset(0), _prio_limit(0)
+{
+  rescan_cpus();
+  _list.push_front(this);
+}
+
+void
+Sched_proxy::rescan_cpus()
+{
+  l4_sched_cpu_set_t c;
+  l4_umword_t max = 0;
+  c.map = 0;
+  c.offset = 0;
+  c.granularity = 0;
+
+  int e = l4_error(L4Re::Env::env()->scheduler()->info(&max, &c));
+
+  if (e < 0)
+    return;
+
+  _max_cpus = std::min<unsigned>(sizeof(l4_umword_t) * 8, max);
+  _real_cpus = c;
+
+  _cpus = _real_cpus & _cpu_mask;
+}
+
+Sched_proxy::~Sched_proxy()
+{
+  _list.remove(this);
+}
+
+int
+Sched_proxy::info(l4_umword_t *cpu_max, l4_sched_cpu_set_t *cpus)
+{
+  *cpu_max = _max_cpus;
+  unsigned char g = cpus->granularity & (sizeof(l4_umword_t) * 8 - 1);
+  l4_umword_t offs = cpus->offset & (~0UL << g);
+  if (offs >= _max_cpus)
+    return -L4_ERANGE;
+
+  cpus->map = 0;
+  unsigned b = 0;
+  for (unsigned i = offs; i < _max_cpus && b < sizeof(l4_umword_t) * 8;)
+    {
+      if (_cpus.map & (1UL << i))
+	cpus->map |= 1UL << b;
+
+      ++i;
+
+      if (!(i & ~(~0UL << g)))
+	++b;
+    }
+
+  return L4_EOK;
+}
+
+
 int
 Sched_proxy::run_thread(L4::Cap<L4::Thread> thread, l4_sched_param_t const &sp)
 {
@@ -152,5 +172,45 @@ Sched_proxy::received_thread(L4::Ipc::Snd_fpage const &fp)
 void
 Sched_proxy::restrict_cpus(l4_umword_t cpus)
 {
-  _cpus = _cpus & l4_sched_cpu_set(0, 0, cpus);
+  _cpu_mask = l4_sched_cpu_set(0, 0, cpus);
+  _cpus = _real_cpus & _cpu_mask;
 }
+
+
+class Cpu_hotplug_server : public L4::Server_object
+{
+public:
+  int dispatch(l4_umword_t, L4::Ipc::Iostream &)
+  {
+    typedef Sched_proxy::List List;
+    for (List::Const_iterator i = Sched_proxy::_list.begin();
+         i != Sched_proxy::_list.end();
+         ++i)
+      {
+        i->rescan_cpus();
+        i->hotplug_event();
+      }
+    return 0;
+  }
+
+  Cpu_hotplug_server()
+  {
+    L4::Cap<L4::Irq> irq = Gate_alloc::registry.register_irq_obj(this);
+    if (!irq)
+      {
+        Err(Err::Fatal).printf("Could not allocate IRQ for CPU hotplug\n");
+        return;
+      }
+
+    if (l4_error(L4Re::Env::env()->scheduler()->bind(0, irq)) < 0)
+      {
+        Err(Err::Fatal).printf("Could not bind CPU hotplug IRQ to scheduler\n");
+        return;
+      }
+  }
+};
+
+static Cpu_hotplug_server _cpu_hotplug_server;
+
+
+

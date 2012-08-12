@@ -113,7 +113,10 @@ struct Path_avl_tree_compare
   bool operator () (const char *l, const char *r) const
   { return strcmp(l, r) < 0; }
   bool operator () (const cxx::String l, const cxx::String r) const
-  { return strncmp(l.start(), r.start(), cxx::min(l.len(), r.len())) < 0; }
+  {
+    int v = strncmp(l.start(), r.start(), cxx::min(l.len(), r.len()));
+    return v < 0 || (v == 0 && l.len() < r.len());
+  }
 };
 
 class Pers_file : public Node

@@ -102,8 +102,6 @@ Loadbar::set_geometry(Rect const &r)
   using Mag_gfx::Area;
   using Mag_gfx::Rect;
 
-  Rect nr = Rect(r.p1(), r.area().max(min_size()));
-
   Parent_widget::set_geometry(r);
   _cover->set_geometry(Rect(r.area()));
   _update_bar_geometry(r.w());

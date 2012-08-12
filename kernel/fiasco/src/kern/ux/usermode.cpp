@@ -263,7 +263,6 @@ Usermode::kip_syscall (Address eip)
     return 0;
 
   Mword trap = 0x30 + (eip - Mem_layout::Syscalls >> 8);
-  if (trap == 0x38) trap = 0x39;
 
   return Emulation::idt_vector (trap, true) ? trap : 0;
 }
@@ -456,7 +455,7 @@ Usermode::iret_to_user_mode (unsigned _cpu,
                              struct ucontext *context, Mword *kesp)
 {
   struct user_regs_struct regs;
-  int stop, irq_pend;
+  int irq_pend;
   Context *t = context_of (kesp);
   pid_t pid = t->vcpu_aware_space()->pid();
 
@@ -526,7 +525,7 @@ Usermode::iret_to_user_mode (unsigned _cpu,
     {
       ptrace (t->is_native() ? PTRACE_CONT :  PTRACE_SYSCALL, pid, NULL, NULL);
 
-      stop = wait_for_stop (pid);
+      int stop = wait_for_stop (pid);
 
       if (EXPECT_FALSE (stop == SIGWINCH || stop == SIGTERM || stop == SIGINT))
         continue;
@@ -740,7 +739,7 @@ Usermode::init(unsigned cpu)
     stack.ss_sp  = (void *) Mem_layout::phys_to_pmem
                                 (Mem_layout::Sigstack_cpu0_start_frame);
   else
-    stack.ss_sp = Mapped_allocator::allocator()->alloc(Mem_layout::Sigstack_log2_size);
+    stack.ss_sp = Kmem_alloc::allocator()->alloc(Mem_layout::Sigstack_log2_size);
   stack.ss_size  =  Mem_layout::Sigstack_size;
   stack.ss_flags = 0;
 

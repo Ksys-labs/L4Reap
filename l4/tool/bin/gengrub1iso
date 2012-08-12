@@ -18,7 +18,7 @@ use L4::Grub;
 use File::Temp qw/tempdir/;
 
 my $module_path  = $ENV{SEARCHPATH} || ".";
-my %opts = L4::Grub::parse_gengrub_args();
+my %opts         = L4::Grub::parse_gengrub_args();
 my $modulesfile  = shift;
 my $isofilename  = shift;
 
@@ -36,11 +36,10 @@ L4::Grub::prepare_grub1_dir($tmpdir);
 open(A, ">$tmpdir/boot/grub/menu.lst")
   || die "Cannot create '$tmpdir/boot/grub/menu.lst': $!!";
 
-print A "color 23 52\n";
-print A "serial\nterminal serial\n" if $opts{serial};
-print A "timeout $opts{timeout}\n" if defined $opts{timeout};
+delete $opts{timeout}
+  if @ARGV > 1 and defined $opts{timeout} and $opts{timeout} == 0;
 
-print A "\n";
+print A L4::Grub::grub1_config_prolog(%opts);
 
 my %files;
 

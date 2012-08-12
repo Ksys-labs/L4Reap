@@ -3,7 +3,6 @@ OUTPUT_FORMAT("elf32-sparc", "elf32-sparc",
 	      "elf32-sparc")
 OUTPUT_ARCH(sparc)
 ENTRY(_start)
-SEARCH_DIR("=/usr/local/lib"); SEARCH_DIR("=/lib"); SEARCH_DIR("=/usr/lib");
 
 PHDRS
 {

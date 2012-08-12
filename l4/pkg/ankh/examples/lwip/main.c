@@ -15,13 +15,12 @@
  */
 #include "arch/cc.h"
 
+#include <unistd.h>
+#include <netdb.h>
+
 #include "netif/etharp.h"
-#include "lwip/tcpip.h"
-#include "lwip/inet.h"
+#include <lwip-util.h>
 #include "lwip/dhcp.h"
-#include "lwip/sockets.h"
-#include "lwip/dns.h"
-#include "lwip/netdb.h"
 
 #define GETOPT_LIST_END { 0, 0, 0, 0 }
 
@@ -56,7 +55,7 @@ static void do_lookup(char *hostname)
 	if (h) {
 		i.addr = *(u32_t*)h->h_addr_list[0];
 		printf("   h_name: '%s'\n", h->h_name);
-		printf("   --> "); print_ip(&i); printf("\n");
+		printf("   --> "); lwip_util_print_ip(&i); printf("\n");
 	}
 }
 
@@ -79,7 +78,6 @@ static void server(void)
 {
 	int err, fd;
 	struct sockaddr_in in, clnt;
-	in.sin_len = 0;
 	in.sin_family = AF_INET;
 	in.sin_port = htons(3000);
 	in.sin_addr.s_addr = my_netif.ip_addr.addr;
@@ -99,7 +97,7 @@ static void server(void)
 		fd = accept(sock, (struct sockaddr*)&clnt, &clnt_size);
 
 		printf("Got connection from  ");
-		print_ip((ip_addr_t*)&clnt.sin_addr); printf("\n");
+		lwip_util_print_ip((ip_addr_t*)&clnt.sin_addr); printf("\n");
 
 		err = read(fd, buf, sizeof(buf));
 		printf("Read from fd %d (err %d)\n", fd, err);
@@ -162,8 +160,8 @@ int main(int argc, char **argv)
 		l4_sleep(1000);
 	printf("Network interface is up.\n");
 
-	printf("IP: "); print_ip(&my_netif.ip_addr); printf("\n");
-	printf("GW: "); print_ip(&my_netif.gw); printf("\n");
+	printf("IP: "); lwip_util_print_ip(&my_netif.ip_addr); printf("\n");
+	printf("GW: "); lwip_util_print_ip(&my_netif.gw); printf("\n");
 
 	dns_test();
 	server();

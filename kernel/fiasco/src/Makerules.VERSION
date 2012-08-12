@@ -9,8 +9,14 @@ $(VERSION): FORCE
 		$(VERBOSE)if [ -d $(srcdir)/.svn ]; then               \
 		   v=`svnversion -nc $(srcdir)`; v=$${v%[A-Z]};        \
 		   echo "#define CODE_VERSION \"r$${v#*:}\"" > $@;     \
+		elif [ -d $(srcdir)/.git ]; then                       \
+		   v=`git rev-parse --verify --short HEAD 2>/dev/null` \
+		   echo "#define CODE_VERSION \"$$v\"" > $@;           \
+		elif [ -d $(srcdir)/.hg ]; then                        \
+		   v=`hg id 2>/dev/null`                               \
+		   echo "#define CODE_VERSION \"$${v% *}\"" > $@;      \
 		else                                                   \
-		   echo "#define CODE_VERSION \"rUNKNOWN\"" > $@;      \
+		   echo "#define CODE_VERSION \"UNKNOWN\"" > $@;       \
 		fi
 		$(VERBOSE)echo "#define BUILD_DATE \"$$(date)\"" >> $@
 		$(VERBOSE)if [ -e .build_nr ]; then                    \

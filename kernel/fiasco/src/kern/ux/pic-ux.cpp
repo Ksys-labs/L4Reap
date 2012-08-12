@@ -11,30 +11,30 @@ INTERFACE:
 EXTENSION class Pic
 {
 public:
-  static int		irq_pending();
-  static void		eat(unsigned);
-  static void		set_owner(int);
-  static unsigned int	map_irq_to_gate(unsigned);
-  static bool		setup_irq_prov (unsigned irq,
-                                        const char * const path,
-					void (*bootstrap_func)());
-  static void		irq_prov_shutdown();
-  static unsigned int	get_pid_for_irq_prov(unsigned);
-  static bool           get_ipi_gate(unsigned irq, unsigned long &gate);
+  static int irq_pending();
+  static void eat(unsigned);
+  static void set_owner(int);
+  static unsigned int map_irq_to_gate(unsigned);
+  static bool setup_irq_prov(unsigned irq, const char * const path,
+                             void (*bootstrap_func)());
+  static void irq_prov_shutdown();
+  static unsigned int get_pid_for_irq_prov(unsigned);
+  static bool get_ipi_gate(unsigned irq, unsigned long &gate);
 
-  enum {
-    IRQ_TIMER    = Config::Scheduling_irq,
-    IRQ_CON      = 1,
-    IRQ_NET      = 2,
+  enum
+  {
+    Irq_timer    = 0,
+    Irq_con      = 1,
+    Irq_net      = 2,
     Num_dev_irqs = 4,
-    IRQ_IPI_base = 4,
+    Irq_ipi_base = 4,
     Num_irqs     = 4 + Config::Max_num_cpus,
   };
 
 private:
-  static unsigned int	highest_irq;
-  static unsigned int	pids[Pic::Num_irqs];
-  static struct pollfd	pfd[Pic::Num_irqs];
+  static unsigned int highest_irq;
+  static unsigned int pids[Pic::Num_irqs];
+  static struct pollfd pfd[Pic::Num_irqs];
 };
 
 // ------------------------------------------------------------------------
@@ -43,8 +43,8 @@ INTERFACE[ux && mp]:
 EXTENSION class Pic
 {
 public:
-  static void          send_ipi(unsigned _cpu, unsigned char data);
-  static bool          setup_ipi(unsigned _cpu, int _tid);
+  static void send_ipi(unsigned _cpu, unsigned char data);
+  static bool setup_ipi(unsigned _cpu, int _tid);
 
 private:
   static unsigned int ipi_fds[Config::Max_num_cpus];
@@ -66,9 +66,9 @@ IMPLEMENTATION[ux]:
 #include "emulation.h"
 #include "initcalls.h"
 
-unsigned int	Pic::highest_irq;
-unsigned int	Pic::pids[Num_irqs];
-struct pollfd	Pic::pfd[Num_irqs];
+unsigned int Pic::highest_irq;
+unsigned int Pic::pids[Num_irqs];
+struct pollfd Pic::pfd[Num_irqs];
 
 PUBLIC static inline
 unsigned
@@ -88,41 +88,41 @@ Pic::prepare_irq(int sockets[2])
 {
   struct termios tt;
 
-  if (openpty (&sockets[0], &sockets[1], NULL, NULL, NULL))
+  if (openpty(&sockets[0], &sockets[1], NULL, NULL, NULL))
     {
-      perror ("openpty");
+      perror("openpty");
       return false;
     }
 
-  if (tcgetattr (sockets[0], &tt) < 0)
+  if (tcgetattr(sockets[0], &tt) < 0)
     {
-      perror ("tcgetattr");
+      perror("tcgetattr");
       return false;
     }
 
-  cfmakeraw (&tt);
+  cfmakeraw(&tt);
 
-  if (tcsetattr (sockets[0], TCSADRAIN, &tt) < 0)
+  if (tcsetattr(sockets[0], TCSADRAIN, &tt) < 0)
     {
-      perror ("tcsetattr");
+      perror("tcsetattr");
       return false;
     }
 
-  fflush (NULL);
+  fflush(NULL);
 
   return true;
 }
 
 IMPLEMENT
 bool
-Pic::setup_irq_prov (unsigned irq, const char * const path,
-                     void (*bootstrap_func)())
+Pic::setup_irq_prov(unsigned irq, const char * const path,
+                    void (*bootstrap_func)())
 {
   int sockets[2];
 
-  if (access (path, X_OK | F_OK))
+  if (access(path, X_OK | F_OK))
     {
-      perror (path);
+      perror(path);
       return false;
     }
 
@@ -138,8 +138,8 @@ Pic::setup_irq_prov (unsigned irq, const char * const path,
         break;
 
       default:
-        close (sockets[1]);
-        fcntl (sockets[0], F_SETFD, FD_CLOEXEC);
+        close(sockets[1]);
+        fcntl(sockets[0], F_SETFD, FD_CLOEXEC);
         pfd[irq].fd = sockets[0];
         return true;
     }
@@ -147,20 +147,20 @@ Pic::setup_irq_prov (unsigned irq, const char * const path,
   // Unblock all signals except SIGINT, we enter jdb with it and don't want
   // the irq providers to die
   sigset_t mask;
-  sigemptyset (&mask);
-  sigaddset   (&mask, SIGINT);
-  sigprocmask (SIG_SETMASK, &mask, NULL);
+  sigemptyset(&mask);
+  sigaddset(&mask, SIGINT);
+  sigprocmask(SIG_SETMASK, &mask, NULL);
 
-  fclose (stdin);
-  fclose (stdout);
-  fclose (stderr);
+  fclose(stdin);
+  fclose(stdout);
+  fclose(stderr);
 
-  dup2  (sockets[1], 0);
-  close (sockets[0]);
-  close (sockets[1]);
+  dup2(sockets[1], 0);
+  close(sockets[0]);
+  close(sockets[1]);
   bootstrap_func();
 
-  _exit (EXIT_FAILURE);
+  _exit(EXIT_FAILURE);
 }
 
 IMPLEMENT
@@ -174,17 +174,17 @@ Pic::irq_prov_shutdown()
 
 IMPLEMENT inline NEEDS [<cassert>, <csignal>, <fcntl.h>, "boot_info.h"]
 void
-Pic::enable_locked (unsigned irq, unsigned /*prio*/)
+Pic::enable_locked(unsigned irq, unsigned /*prio*/)
 {
   int flags;
 
   // If fd is zero, someone tried to activate an IRQ without provider
   assert (pfd[irq].fd);
 
-  if ((flags = fcntl (pfd[irq].fd, F_GETFL)) < 0			||
-       fcntl (pfd[irq].fd, F_SETFL, flags | O_NONBLOCK | O_ASYNC) < 0	||
-       fcntl (pfd[irq].fd, F_SETSIG, SIGIO) < 0				||
-       fcntl (pfd[irq].fd, F_SETOWN, Boot_info::pid()) < 0)
+  if ((flags = fcntl(pfd[irq].fd, F_GETFL)) < 0				||
+       fcntl(pfd[irq].fd, F_SETFL, flags | O_NONBLOCK | O_ASYNC) < 0	||
+       fcntl(pfd[irq].fd, F_SETSIG, SIGIO) < 0				||
+       fcntl(pfd[irq].fd, F_SETOWN, Boot_info::pid()) < 0)
     return;
 
   pfd[irq].events = POLLIN;
@@ -195,17 +195,17 @@ Pic::enable_locked (unsigned irq, unsigned /*prio*/)
 
 IMPLEMENT inline
 void
-Pic::disable_locked (unsigned)
+Pic::disable_locked(unsigned)
 {}
 
 IMPLEMENT inline
 void
-Pic::acknowledge_locked (unsigned)
+Pic::acknowledge_locked(unsigned)
 {}
 
 IMPLEMENT inline
 void
-Pic::block_locked (unsigned)
+Pic::block_locked(unsigned)
 {}
 
 IMPLEMENT
@@ -217,7 +217,7 @@ Pic::irq_pending()
   for (i = 0; i < highest_irq; i++)
     pfd[i].revents = 0;
 
-  if (poll (pfd, highest_irq, 0) > 0)
+  if (poll(pfd, highest_irq, 0) > 0)
     for (i = 0; i < highest_irq; i++)
       if (pfd[i].revents & POLLIN)
         {
@@ -232,13 +232,13 @@ Pic::irq_pending()
 
 IMPLEMENT inline NEEDS [<cassert>, <unistd.h>]
 void
-Pic::eat (unsigned irq)
+Pic::eat(unsigned irq)
 {
   char buffer[8];
 
   assert (pfd[irq].events & POLLIN);
 
-  while (read (pfd[irq].fd, buffer, sizeof (buffer)) > 0)
+  while (read(pfd[irq].fd, buffer, sizeof (buffer)) > 0)
     ;
 }
 
@@ -248,16 +248,16 @@ Pic::eat (unsigned irq)
  */
 IMPLEMENT inline
 void
-Pic::set_owner (int pid)
+Pic::set_owner(int pid)
 {
   for (unsigned int i = 0; i < highest_irq; i++)
     if (pfd[i].events & POLLIN)
-      fcntl (pfd[i].fd, F_SETOWN, pid);
+      fcntl(pfd[i].fd, F_SETOWN, pid);
 }
 
 IMPLEMENT inline
 unsigned int
-Pic::map_irq_to_gate (unsigned irq)
+Pic::map_irq_to_gate(unsigned irq)
 {
   return 0x20 + irq;
 }
@@ -301,15 +301,15 @@ Pic::setup_ipi(unsigned _cpu, int _tid)
   if (prepare_irq(sockets) == false)
     return false;
 
-  unsigned i = IRQ_IPI_base + _cpu;
+  unsigned i = Irq_ipi_base + _cpu;
 
   pfd[i].fd = sockets[0];
   ipi_fds[_cpu] = sockets[1];
 
-  if ((flags = fcntl (pfd[i].fd, F_GETFL)) < 0			   ||
-      fcntl (pfd[i].fd, F_SETFL, flags | O_NONBLOCK | O_ASYNC) < 0 ||
-      fcntl (pfd[i].fd, F_SETSIG, SIGIO) < 0                       ||
-      fcntl (pfd[i].fd, F_SETOWN, _tid) < 0)
+  if ((flags = fcntl(pfd[i].fd, F_GETFL)) < 0			  ||
+      fcntl(pfd[i].fd, F_SETFL, flags | O_NONBLOCK | O_ASYNC) < 0 ||
+      fcntl(pfd[i].fd, F_SETSIG, SIGIO) < 0                       ||
+      fcntl(pfd[i].fd, F_SETOWN, _tid) < 0)
     return false;
 
   pfd[i].events = POLLIN;
@@ -333,12 +333,12 @@ IMPLEMENT static
 bool
 Pic::get_ipi_gate(unsigned irq, unsigned long &gate)
 {
-  if (irq < IRQ_IPI_base)
+  if (irq < Irq_ipi_base)
     return false;
 
   // XXX check if irq is the irq for our current context/cpu
   unsigned char b;
-  if (read (pfd[irq].fd, &b, sizeof(b)) < 1)
+  if (read(pfd[irq].fd, &b, sizeof(b)) < 1)
     {
       printf("read failure\n");
       return false;

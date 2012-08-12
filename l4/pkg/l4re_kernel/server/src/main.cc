@@ -60,7 +60,8 @@ public:
   }
 };
 
-extern "C"
+extern "C" void *__libc_alloc_initial_tls(unsigned long size);
+
 void *__libc_alloc_initial_tls(unsigned long size)
 {
   using namespace L4;

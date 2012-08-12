@@ -105,8 +105,8 @@ static CU_ErrorCode run_single_test(CU_pTest pTest, CU_pRunSummary pRunSummary);
 static void         add_failure(CU_pFailureRecord* ppFailure,
                                 CU_pRunSummary pRunSummary,
                                 unsigned int uiLineNumber,
-                                char szCondition[],
-                                char szFileName[],
+                                char const szCondition[],
+                                char const szFileName[],
                                 CU_pSuite pSuite,
                                 CU_pTest pTest);
 
@@ -610,8 +610,8 @@ CU_BOOL CU_is_test_running(void)
 void add_failure(CU_pFailureRecord* ppFailure,
                  CU_pRunSummary pRunSummary,
                  unsigned int uiLineNumber,
-                 char szCondition[],
-                 char szFileName[],
+                 char const szCondition[],
+                 char const szFileName[],
                  CU_pSuite pSuite,
                  CU_pTest pTest)
 {

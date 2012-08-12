@@ -34,8 +34,8 @@
 #endif /* ! ENTRY */
 #endif /* __ASSEMBLY__ */
 
-#define L4_FASTCALL(x)	x __attribute__((regparm(3)))
-#define l4_fastcall	__attribute__((regparm(3)))
+#define L4_FASTCALL(x)
+#define l4_fastcall
 
 /**
  * Define calling convention.

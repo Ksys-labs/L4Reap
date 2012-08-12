@@ -309,12 +309,11 @@ static void l4evdev_event_cb(struct input_handle *handle, unsigned int type,
 #endif
 	static struct l4input ev;
 
-#if 0
 	/* handle touchpads */
+        if (0)
 	if (tpad_event(handle->dev, (struct l4evdev *)handle->private,
 	               &type, &code, &value))
 		return;
-#endif
 
 	/* event filter */
 	if (filter_event(handle, type, code, value)) return;
@@ -344,12 +343,11 @@ static void l4evdev_event(struct input_handle *handle, unsigned int type,
 	struct l4evdev *evdev = handle->private;
 	l4_kernel_clock_t clk = l4re_kip()->clock;
 
-#if 0
 	/* handle touchpads */
+        if (0)
 	if (tpad_event(handle->dev, (struct l4evdev *)handle->private,
 	               &type, &code, &value))
 		return;
-#endif
 
 	/* event filter */
 	if (filter_event(handle, type, code, value)) return;
@@ -380,22 +378,34 @@ static void l4evdev_event(struct input_handle *handle, unsigned int type,
 #endif
 }
 
+struct l4evdev *get_next_evdev(int *devnp)
+{
+        int devn;
+
+	for (devn = 0; (devn < L4EVDEV_DEVICES) && (DEVS[devn].exists); devn++)
+          ;
+
+	if (devn == L4EVDEV_DEVICES) {
+		printf("l4evdev.c: no more free l4evdev devices\n");
+		return NULL;
+	}
+
+        *devnp = devn;
+
+        return &DEVS[devn];
+}
+
 /* XXX had connect/disconnect to be locked? */
 
 static struct input_handle * l4evdev_connect(struct input_handler *handler,
                                              struct input_dev *dev,
                                              struct input_device_id *id)
 {
-	struct l4evdev *evdev;
 	int devn;
+	struct l4evdev *evdev = get_next_evdev(&devn);
 
-	for (devn = 0; (devn < L4EVDEV_DEVICES) && (DEVS[devn].exists); devn++);
-	if (devn == L4EVDEV_DEVICES) {
-		printf("l4evdev.c: no more free l4evdev devices\n");
-		return NULL;
-	}
-
-	evdev = &DEVS[devn];
+        if (!evdev)
+                return NULL;
 
 	memset(evdev, 0, sizeof (struct l4evdev));
 
@@ -581,6 +591,27 @@ struct l4input_ops * l4input_internal_l4evdev_init(L4_CV void (*cb)(struct l4inp
 	input_register_handler(&l4evdev_handler);
 
 	return &ops;
+}
+
+void l4input_internal_register_ux(struct input_dev *dev)
+{
+        int devn;
+	struct l4evdev *evdev = get_next_evdev(&devn);
+
+        if (!evdev)
+                return;
+
+        printf("EVDEV-NR: %d\n", devn);
+
+        evdev->exists = 1;
+        evdev->devn = devn;
+
+        sprintf(evdev->name, "event%d", devn);
+
+        evdev->handle.dev = dev;
+        evdev->handle.name = evdev->name;
+        evdev->handle.handler = 0;
+        evdev->handle.private = evdev;
 }
 
 void l4input_internal_l4evdev_exit(void)

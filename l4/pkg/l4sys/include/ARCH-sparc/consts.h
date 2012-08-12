@@ -1,8 +1,8 @@
 /*****************************************************************************/
 /*!
- * \file    l4sys/include/ARCH-ppc32/consts.h
- * \brief   Common L4 constants, ppc32 version
- * \ingroup api_types_ppc32
+ * \file    l4sys/include/ARCH-sparc/consts.h
+ * \brief   Common L4 constants, sparc version
+ * \ingroup api_types_sparc
  */
 /*
  * (c) 2009 Adam Lackorzynski <adam@os.inf.tu-dresden.de>

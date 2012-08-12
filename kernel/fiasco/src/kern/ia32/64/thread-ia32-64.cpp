@@ -23,10 +23,21 @@ Thread::fast_return_to_user(Mword ip, Mword sp, T arg)
 }
 
 PROTECTED inline
-bool
-Thread::invoke_arch(L4_msg_tag & /*tag*/, Utcb * /*utcb*/)
+L4_msg_tag
+Thread::invoke_arch(L4_msg_tag tag, Utcb *utcb)
 {
-  return false;
+  switch (utcb->values[0] & Opcode_mask)
+    {
+    case Op_set_fs_amd64:
+      if (tag.words() < 2)
+	return commit_result(-L4_err::EInval);
+      _fs_base = utcb->values[1];
+      if (current() == this)
+        load_segments();
+      return Kobject_iface::commit_result(0);
+    default:
+      return commit_result(-L4_err::ENosys);
+    };
 }
 
 IMPLEMENT inline
@@ -72,8 +83,7 @@ Thread::trap_state_to_rf(Trap_state *ts)
   return reinterpret_cast<Return_frame*>(im)-1;
 }
 
-PRIVATE static inline NEEDS[Thread::trap_is_privileged,
-                            Thread::trap_state_to_rf]
+PRIVATE static inline NEEDS[Thread::trap_state_to_rf]
 bool FIASCO_WARN_RESULT
 Thread::copy_utcb_to_ts(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
                         unsigned char rights)
@@ -102,9 +112,7 @@ Thread::copy_utcb_to_ts(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
     snd->transfer_fpu(rcv);
 
   // sanitize eflags
-  // XXX: ia32 in here!
-  if (!rcv->trap_is_privileged(0))
-    ts->flags((ts->flags() & ~(EFLAGS_IOPL | EFLAGS_NT)) | EFLAGS_IF);
+  ts->flags((ts->flags() & ~(EFLAGS_IOPL | EFLAGS_NT)) | EFLAGS_IF);
 
   // don't allow to overwrite the code selector!
   ts->cs(cs);
@@ -244,7 +252,7 @@ Thread::call_nested_trap_handler(Trap_state *ts)
      : [ret] "=a"(ret), [d2] "=&r"(dummy2), [d1] "=&r"(dummy1), "=D"(dummy3),
        [recover] "+m" (ntr)
      : [ts] "D" (ts),
-       [pdbr] "r" (Kernel_task::kernel_task()->mem_space()->virt_to_phys((Address)Kmem::dir())),
+       [pdbr] "r" (Kernel_task::kernel_task()->virt_to_phys((Address)Kmem::dir())),
        [cpu] "S" (log_cpu),
        [stack] "r" (stack),
        [handler] "m" (nested_trap_handler)

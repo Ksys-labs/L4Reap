@@ -2,11 +2,13 @@
 INTERFACE [arm && mptimer]:
 
 #include "irq_chip.h"
-#include "irq_pin.h"
 #include "kmem.h"
 
 EXTENSION class Timer
 {
+public:
+  static unsigned irq() { return 29; }
+
 private:
   enum
   {
@@ -24,8 +26,6 @@ private:
 
     Timer_int_stat_event   = 1,
   };
-
-  static Irq_base *irq;
 };
 
 // --------------------------------------------------------------
@@ -39,24 +39,39 @@ IMPLEMENTATION [arm && mptimer]:
 
 #include "globals.h"
 
-Irq_base *Timer::irq;
+PRIVATE static
+Mword
+Timer::start_as_counter()
+{
+  Io::write<Mword>(Timer_control_prescaler | Timer_control_reload
+                   | Timer_control_enable,
+                   Timer_control_reg);
+
+  Mword v = ~0UL;
+  Io::write<Mword>(v, Timer_counter_reg);
+  return v;
+}
+
+PRIVATE static
+Mword
+Timer::stop_counter()
+{
+  Mword v = Io::read<Mword>(Timer_counter_reg);
+  Io::write<Mword>(0, Timer_control_reg);
+  return v;
+}
 
 IMPLEMENT
-void Timer::init()
+void
+Timer::init(unsigned)
 {
+  Mword i = interval();
+
+  Io::write<Mword>(i, Timer_load_reg);
+  Io::write<Mword>(i, Timer_counter_reg);
   Io::write<Mword>(Timer_control_prescaler | Timer_control_reload
                    | Timer_control_enable | Timer_control_itenable,
                    Timer_control_reg);
-
-  Io::write<Mword>(Interval, Timer_load_reg);
-  Io::write<Mword>(Interval, Timer_counter_reg);
-
-  // reserve timer IRQ
-  Irq_chip::hw_chip->reserve(Config::Scheduling_irq);
-
-  static Irq_base ib;
-  Irq_chip::hw_chip->setup(&ib, Config::Scheduling_irq);
-  irq = &ib;
 }
 
 static inline
@@ -69,23 +84,11 @@ Unsigned64
 Timer::us_to_timer(Unsigned64 us)
 { (void)us; return 0; }
 
-IMPLEMENT inline NEEDS["io.h"]
-void Timer::acknowledge()
+PUBLIC static inline NEEDS["io.h"]
+void
+Timer::acknowledge()
 {
   Io::write<Mword>(Timer_int_stat_event, Timer_int_stat_reg);
-  irq->pin()->ack();
-}
-
-IMPLEMENT inline
-void Timer::enable()
-{
-  irq->pin()->unmask();
-}
-
-IMPLEMENT inline
-void Timer::disable()
-{
-  irq->pin()->mask();
 }
 
 IMPLEMENT inline
@@ -99,7 +102,7 @@ IMPLEMENT inline NEEDS["config.h", "kip.h"]
 Unsigned64
 Timer::system_clock()
 {
-  if (Config::scheduler_one_shot)
+  if (Config::Scheduler_one_shot)
     return 0;
   return Kip::k()->clock;
 }

@@ -1,5 +1,6 @@
 INTERFACE:
 
+#include "assert_opt.h"
 #include "l4_types.h"
 #include "space.h"
 
@@ -15,12 +16,14 @@ struct Virt_addr<Obj_space> { typedef Obj_space::Addr Type; };
 
 template< typename SPACE, typename M >
 inline
-Mword v_delete(M &m, Mword flush_rights)
+Mword v_delete(M &m, Mword flush_rights, bool full_flush)
 {
-  SPACE* child_space = 0;
-  check (m->space()->lookup_space(&child_space));
-
-  return child_space->v_delete(m.page(), m.size(), flush_rights);
+  SPACE* child_space = m->space();
+  assert_opt (child_space);
+  Mword res = child_space->v_delete(m.page(), m.size(), flush_rights);
+  (void) full_flush;
+  assert_kdb (full_flush != child_space->v_lookup(m.page()));
+  return res;
 }
 
 
@@ -57,7 +60,7 @@ public:
 namespace Mu {
 template<>
 inline
-Mword v_delete<Obj_space>(Kobject_mapdb::Iterator &m, Mword flush_rights)
+Mword v_delete<Obj_space>(Kobject_mapdb::Iterator &m, Mword flush_rights, bool /*full_flush*/)
 {
   Obj_space::Entry *c = static_cast<Obj_space::Entry*>(*m);
 
@@ -329,7 +332,7 @@ fpage_unmap(Space *space, L4_fpage fp, L4_map_mask mask, Kobject ***rl)
 {
   unsigned ret = 0;
 
-  if (Config::enable_io_protection && (fp.is_iopage() || fp.is_all_spaces()))
+  if (fp.is_iopage() || fp.is_all_spaces())
     ret |= io_fpage_unmap(space, fp, mask);
 
   if (fp.is_objpage() || fp.is_all_spaces())
@@ -404,7 +407,9 @@ map(MAPDB* mapdb,
 
   L4_error condition = L4_error::None;
 
+  // FIXME: make this debugging code optional
   bool no_page_mapped = true;
+
   Vaddr rcv_addr(_rcv_addr);
   Vaddr snd_addr(_snd_addr);
   const Vaddr rcv_start = rcv_addr;
@@ -464,9 +469,13 @@ map(MAPDB* mapdb,
 	continue;
 
       // We have a mapping in the sender's address space.
+      // FIXME: make this debugging code optional
       no_page_mapped = false;
 
       // Receiver lookup.
+
+      // The may be used uninitialized warning for this variable is bogus
+      // the v_lookup function must initialize the value if it returns true.
       typename SPACE::Phys_addr r_phys;
       Size r_size;
       unsigned r_attribs;
@@ -499,8 +508,8 @@ map(MAPDB* mapdb,
 
 	      if (grant)
 		{
-		  WARN("XXX Can't GRANT page from superpage (%p: "L4_PTR_FMT
-		       " -> %p: "L4_PTR_FMT"), demoting to MAP\n",
+		  WARN("XXX Can't GRANT page from superpage (%p: " L4_PTR_FMT
+		       " -> %p: " L4_PTR_FMT "), demoting to MAP\n",
 		       from_id, snd_addr.value(), to_id, rcv_addr.value());
 		  grant = 0;
 		}
@@ -512,6 +521,8 @@ map(MAPDB* mapdb,
       // (and compute the sender mapping from it) or look up the
       // sender mapping directly.
       Mapping* sender_mapping = 0;
+      // mapdb_frame will be initialized by the mapdb lookup function when
+      // it returns true, so don't care about "may be use uninitialized..."
       Frame mapdb_frame;
       bool doing_upgrade = false;
 
@@ -542,6 +553,9 @@ map(MAPDB* mapdb,
 	    continue;		// someone deleted this mapping in the meantime
 	}
 
+      // from here mapdb_frame is always initialized, so ignore the warning
+      // in grant / insert
+
       // At this point, we have a lookup for the sender frame (s_phys,
       // s_size, s_attribs), the max. size of the receiver frame
       // (r_phys), the sender_mapping, and whether a receiver mapping
@@ -563,7 +577,7 @@ map(MAPDB* mapdb,
 	case SPACE::Insert_warn_attrib_upgrade:
 	case SPACE::Insert_ok:
 
-	  assert (mapdb->valid_address(s_phys) || status == SPACE::Insert_ok);
+	  assert_kdb (mapdb->valid_address(s_phys) || status == SPACE::Insert_ok);
           // Never doing upgrades for mapdb-unmanaged memory
 
 	  if (grant)
@@ -574,6 +588,7 @@ map(MAPDB* mapdb,
 		  {
 		    // Error -- remove mapping again.
 		    to->v_delete(rcv_addr, i_size);
+
 		    // may fail due to quota limits
 		    condition = L4_error::Map_failed;
 		    break;
@@ -584,7 +599,7 @@ map(MAPDB* mapdb,
 	    }
 	  else if (status == SPACE::Insert_ok)
 	    {
-	      assert (!doing_upgrade);
+	      assert_kdb (!doing_upgrade);
 
 	      if (mapdb->valid_address(s_phys)
 		  && !mapdb->insert(mapdb_frame, sender_mapping,
@@ -611,8 +626,8 @@ map(MAPDB* mapdb,
 	  break;
 
 	case SPACE::Insert_err_exists:
-	  WARN("map (%s) skipping area (%p/%lx): "L4_PTR_FMT
-	       " -> %p/%lx: "L4_PTR_FMT"(%lx)", SPACE::name,
+	  WARN("map (%s) skipping area (%p/%lx): " L4_PTR_FMT
+	       " -> %p/%lx: " L4_PTR_FMT "(%lx)", SPACE::name,
 	       from_id, Kobject_dbg::pointer_to_id(from_id), snd_addr.value(),
 	       to_id, Kobject_dbg::pointer_to_id(to_id), rcv_addr.value(), i_size.value());
 	  // Do not flag an error here -- because according to L4
@@ -633,10 +648,11 @@ map(MAPDB* mapdb,
   if (SPACE::Need_xcpu_tlb_flush && need_xcpu_tlb_flush)
     Context::xcpu_tlb_flush(false, to, from);
 
+  // FIXME: make this debugging code optional
   if (EXPECT_FALSE(no_page_mapped))
     {
-      WARN("nothing mapped: (%s) from [%p/%lx]: "L4_PTR_FMT
-           " size: "L4_PTR_FMT" to [%p/%lx]\n", SPACE::name,
+      WARN("nothing mapped: (%s) from [%p/%lx]: " L4_PTR_FMT
+           " size: " L4_PTR_FMT " to [%p/%lx]\n", SPACE::name,
            from_id, Kobject_dbg::pointer_to_id(from_id), snd_addr.value(), rcv_size.value(),
            to_id, Kobject_dbg::pointer_to_id(to_id));
     }
@@ -703,7 +719,7 @@ unmap(MAPDB* mapdb, SPACE* space, Space *space_id,
 
       if (me_too)
 	{
-	  assert (address == page_address
+	  assert_kdb (address == page_address
 		  || phys_size == Size(SPACE::Map_superpage_size));
 
 	  // Rewind flush address to page address.  We always flush
@@ -715,7 +731,7 @@ unmap(MAPDB* mapdb, SPACE* space, Space *space_id,
 	}
 
       // all pages shall be handled by our mapping data base
-      assert (mapdb->valid_address(phys));
+      assert_kdb (mapdb->valid_address(phys));
 
       Mapping *mapping;
       Frame mapdb_frame;
@@ -733,6 +749,7 @@ unmap(MAPDB* mapdb, SPACE* space, Space *space_id,
 	  page_rights |=
 	    space->v_delete(address, phys_size, flush_rights);
 
+          // assert_kdb (full_flush != space->v_lookup(address));
 	  need_tlb_flush = true;
 	  need_xcpu_tlb_flush = true;
 	}
@@ -742,7 +759,7 @@ unmap(MAPDB* mapdb, SPACE* space, Space *space_id,
 	   m;
 	   ++m)
 	{
-	  page_rights |= Mu::v_delete<SPACE>(m, flush_rights);
+	  page_rights |= Mu::v_delete<SPACE>(m, flush_rights, full_flush);
 	  need_xcpu_tlb_flush = true;
 	}
 
@@ -775,6 +792,9 @@ unmap(MAPDB* mapdb, SPACE* space, Space *space_id,
 IMPLEMENTATION[!io || ux]:
 
 // Empty dummy functions when I/O protection is disabled
+inline
+void init_mapdb_io(Space *)
+{}
 
 inline
 L4_error

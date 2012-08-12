@@ -7,6 +7,7 @@ IMPLEMENTATION:
 #include "jdb.h"
 #include "jdb_kobject.h"
 #include "jdb_module.h"
+#include "ipc_gate.h"
 
 
 class Jdb_sender_list : public Jdb_module, public Jdb_kobject_handler
@@ -16,24 +17,23 @@ public:
 
   virtual bool show_kobject(Kobject_common *, int) { return true; }
 private:
-  static Kobject *thread;
+  static Kobject *object;
 };
 
 static Jdb_sender_list jdb_sender_list INIT_PRIORITY(JDB_MODULE_INIT_PRIO);
 
-Kobject *Jdb_sender_list::thread;
+Kobject *Jdb_sender_list::object;
 
 
 PRIVATE
 void
-Jdb_sender_list::show_sender_list(Thread *t, int printlines)
+Jdb_sender_list::show_sender_list(Prio_list *t, int printlines)
 {
   puts(printlines ? Jdb_screen::Line : "");
   Jdb::clear_to_eol();
-  printf("Thread: %lx\n", t->dbg_info()->dbg_id());
 
-  Prio_list_elem *p = t->sender_list()->head();
-  if (!p)
+  Prio_list::P_list::Iterator p = t->begin();
+  if (p == t->end())
     {
       Jdb::clear_to_eol();
       printf("Nothing in sender list\n");
@@ -42,19 +42,18 @@ Jdb_sender_list::show_sender_list(Thread *t, int printlines)
       return;
     }
 
-  while (p)
+  for (; p != t->end(); ++p)
     {
       Jdb::clear_to_eol();
       printf("%02x: ", p->prio());
-      Prio_list_elem *s = p;
+      Prio_list::S_list::Iterator s = Prio_list::S_list::iter(*p);
       do
         {
-          Thread *ts = static_cast<Thread *>(Sender::cast(s));
-          printf("%s %lx", s == p ? "" : ",", ts->dbg_info()->dbg_id());
-          s = s->_s_next;
-        } while (s != p);
+          Thread *ts = static_cast<Thread *>(Sender::cast(*s));
+          printf("%s %lx", *s == *p ? "" : ",", ts->dbg_info()->dbg_id());
+          ++s;
+        } while (*s != *p);
       puts("");
-      p = p->_p_next;
     }
 
   if (printlines)
@@ -68,15 +67,20 @@ Jdb_sender_list::action(int cmd, void *&, char const *&, int &)
   if (cmd)
     return NOTHING;
 
-  Thread *t = Kobject::dcast<Thread_object *>(thread);
-  if (!t)
+  if (Thread *t = Kobject::dcast<Thread_object *>(object))
     {
-      printf(" Invalid thread\n");
+      printf("Thread: %lx\n", t->dbg_id());
+      show_sender_list(t->sender_list(), 0);
+      return NOTHING;
+    }
+  else if (Ipc_gate *g = Kobject::dcast<Ipc_gate_obj *>(object))
+    {
+      printf("Ipc_gate: %lx\n", g->dbg_id());
+      show_sender_list(&g->_wait_q, 0);
       return NOTHING;
     }
 
-  show_sender_list(t, 0);
-
+  printf(" Invalid object\n");
   return NOTHING;
 }
 
@@ -87,11 +91,13 @@ Jdb_sender_list::handle_key(Kobject_common *o, int keycode)
   if (keycode != 'S')
     return false;
 
-  Thread *t = Kobject::dcast<Thread_object *>(o);
-  if (!t)
+  if (Thread *t = Kobject::dcast<Thread_object *>(o))
+    show_sender_list(t->sender_list(), 1);
+  else if (Ipc_gate *g = Kobject::dcast<Ipc_gate_obj *>(o))
+    show_sender_list(&g->_wait_q, 1);
+  else
     return false;
 
-  show_sender_list(t, 1);
   Jdb::getchar();
   return true;
 }
@@ -106,7 +112,7 @@ Jdb_module::Cmd const * Jdb_sender_list::cmds() const
   static Cmd cs[] =
     {
 	{ 0, "ls", "senderlist", "%q",
-          "senderlist\tshow sender-list of thread", &thread }
+          "senderlist\tshow sender-list of thread", &object }
     };
 
   return cs;

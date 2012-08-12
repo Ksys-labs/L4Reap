@@ -2,7 +2,6 @@
 INTERFACE [arm && imx_epit]:
 
 #include "kmem.h"
-#include "irq_chip.h"
 
 EXTENSION class Timer
 {
@@ -28,25 +27,35 @@ private:
 
     EPITSR_OCIF = 1,
   };
-private:
-  static Irq_base *irq;
 };
 
-// ----------------------------------------------------------------------
+
+INTERFACE [arm && imx35]: // ----------------------------------------------
+
+EXTENSION class Timer
+{
+public:
+  static unsigned irq() { return 28; }
+};
+
+
+INTERFACE [arm && imx51]: // ----------------------------------------------
+
+EXTENSION class Timer
+{
+public:
+  static unsigned irq() { return 40; }
+};
+
+
+// ------------------------------------------------------------------------
 IMPLEMENTATION [arm && imx_epit]:
 
-#include "config.h"
-#include "kip.h"
-#include "irq_chip.h"
-#include "irq_pin.h"
 #include "io.h"
-
-#include <cstdio>
-
-Irq_base *Timer::irq;
+#include "kip.h"
 
 IMPLEMENT
-void Timer::init()
+void Timer::init(unsigned)
 {
   Io::write<Mword>(0, EPITCR); // Disable
   Io::write<Mword>(EPITCR_SWR, EPITCR);
@@ -67,13 +76,6 @@ void Timer::init()
 
   Io::write<Mword>(32, EPITLR);
 
-
-  Irq_chip::hw_chip->reserve(Config::Scheduling_irq);
-
-  static Irq_base ib;
-  Irq_chip::hw_chip->setup(&ib, Config::Scheduling_irq);
-  irq = &ib;
-
   Io::set<Mword>(EPITCR_ENABLE, EPITCR);
 }
 
@@ -87,37 +89,24 @@ Unsigned64
 Timer::us_to_timer(Unsigned64 us)
 { (void)us; return 0; }
 
-IMPLEMENT inline NEEDS["io.h"]
-void Timer::acknowledge()
+PUBLIC static inline NEEDS["io.h"]
+void
+Timer::acknowledge()
 {
   Io::write<Mword>(EPITSR_OCIF, EPITSR);
 }
 
-IMPLEMENT inline NEEDS["irq_pin.h"]
-void Timer::enable()
-{
-  irq->pin()->unmask();
-}
-
-IMPLEMENT inline NEEDS["irq_pin.h"]
-void Timer::disable()
-{
-  irq->pin()->mask();
-}
-
-IMPLEMENT inline NEEDS["kip.h", "io.h", Timer::timer_to_us, Timer::us_to_timer]
+IMPLEMENT inline
 void
 Timer::update_one_shot(Unsigned64 /*wakeup*/)
-{
-}
+{}
 
-IMPLEMENT inline NEEDS["config.h", "kip.h", "io.h", Timer::timer_to_us]
+IMPLEMENT inline NEEDS["config.h", "kip.h"]
 Unsigned64
 Timer::system_clock()
 {
-  if (Config::scheduler_one_shot)
+  if (Config::Scheduler_one_shot)
     return 0;
   else
     return Kip::k()->clock;
 }
-

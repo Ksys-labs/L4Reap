@@ -172,7 +172,7 @@ formatter_ipc(Tb_entry *tb, const char *tidstr, unsigned tidlen,
 
       tag_interpreter_snprintf(buf, maxlen, e->tag());
 
-      my_snprintf(buf, maxlen, "] ("L4_PTR_FMT","L4_PTR_FMT")",
+      my_snprintf(buf, maxlen, "] (" L4_PTR_FMT "," L4_PTR_FMT ")",
 	                       e->dword(0), e->dword(1));
     }
 
@@ -262,7 +262,7 @@ formatter_pf(Tb_entry *tb, const char *tidstr, unsigned tidlen,
   char ip_buf[32];
 
   snprintf(ip_buf, sizeof(ip_buf), L4_PTR_FMT, e->ip());
-  my_snprintf(buf, maxlen, "pf:  %-*s pfa="L4_PTR_FMT" ip=%s (%c%c) spc=%p",
+  my_snprintf(buf, maxlen, "pf:  %-*s pfa=" L4_PTR_FMT " ip=%s (%c%c) spc=%p",
       tidlen, tidstr, e->pfa(), e->ip() ? ip_buf : "unknown",
       !PF::is_read_error(e->error()) ? (e->error() & 4 ? 'w' : 'W')
                                      : (e->error() & 4 ? 'r' : 'R'),
@@ -282,7 +282,7 @@ formatter_pf_res(Tb_entry *tb, const char *tidstr, unsigned tidlen,
 
   // e->ret contains only an error code
   // e->err contains only up to 3 dwords
-  my_snprintf(buf, maxlen, "     %-*s pfa="L4_PTR_FMT" dope=%02lx (%s%s) "
+  my_snprintf(buf, maxlen, "     %-*s pfa=" L4_PTR_FMT " dope=%02lx (%s%s) "
 		"err=%04lx (%s%s)",
 	      tidlen, tidstr, e->pfa(),
 	      e->ret().raw(), e->ret().error() ? "L4_IPC_" : "",
@@ -302,7 +302,7 @@ formatter_ke(Tb_entry *tb, const char *tidstr, unsigned tidlen,
   Tb_entry_ke *e = static_cast<Tb_entry_ke*>(tb);
   char ip_buf[32];
 
-  snprintf(ip_buf, sizeof(ip_buf), " @ "L4_PTR_FMT, e->ip());
+  snprintf(ip_buf, sizeof(ip_buf), " @ " L4_PTR_FMT, e->ip());
   my_snprintf(buf, maxlen, "ke:  %-*s \"%s\"%s",
       tidlen, tidstr, e->msg(), e->ip() ? ip_buf : "");
 
@@ -318,9 +318,9 @@ formatter_ke_reg(Tb_entry *tb, const char *tidstr, unsigned tidlen,
   Tb_entry_ke_reg *e = static_cast<Tb_entry_ke_reg*>(tb);
 
   char ip_buf[32];
-  snprintf(ip_buf, sizeof(ip_buf), " @ "L4_PTR_FMT, e->ip());
+  snprintf(ip_buf, sizeof(ip_buf), " @ " L4_PTR_FMT, e->ip());
   my_snprintf(buf, maxlen, "ke:  %-*s \"%s\" "
-      L4_PTR_FMT" "L4_PTR_FMT" "L4_PTR_FMT"%s",
+      L4_PTR_FMT " " L4_PTR_FMT " " L4_PTR_FMT "%s",
       tidlen, tidstr, e->msg(), e->val1(), e->val2(), e->val3(), 
       e->ip() ? ip_buf : "");
 
@@ -336,7 +336,7 @@ formatter_bp(Tb_entry *tb, const char *tidstr, unsigned tidlen,
 {
   Tb_entry_bp *e = static_cast<Tb_entry_bp*>(tb);
 
-  my_snprintf(buf, maxlen, "b%c:  %-*s @ "L4_PTR_FMT" ",
+  my_snprintf(buf, maxlen, "b%c:  %-*s @ " L4_PTR_FMT " ",
       "iwpa"[e->mode() & 3], tidlen, tidstr, e->ip());
   switch (e->mode() & 3)
     {
@@ -345,21 +345,21 @@ formatter_bp(Tb_entry *tb, const char *tidstr, unsigned tidlen,
       switch (e->len())
 	{
      	case 1:
-	  my_snprintf(buf, maxlen, "["L4_PTR_FMT"]=%02lx", 
+	  my_snprintf(buf, maxlen, "[" L4_PTR_FMT "]=%02lx", 
 	              e->addr(), e->value());
 	  break;
 	case 2:
-	  my_snprintf(buf, maxlen, "["L4_PTR_FMT"]=%04lx", 
+	  my_snprintf(buf, maxlen, "[" L4_PTR_FMT "]=%04lx", 
 	      	      e->addr(), e->value());
 	  break;
 	case 4:
-	  my_snprintf(buf, maxlen, "["L4_PTR_FMT"]="L4_PTR_FMT, 
+	  my_snprintf(buf, maxlen, "[" L4_PTR_FMT "]=" L4_PTR_FMT,
 	      	      e->addr(), e->value());
 	  break;
 	}
       break;
     case 2:
-      my_snprintf(buf, maxlen, "["L4_PTR_FMT"]", e->addr());
+      my_snprintf(buf, maxlen, "[" L4_PTR_FMT "]", e->addr());
       break;
     }
 
@@ -430,15 +430,15 @@ formatter_trap(Tb_entry *tb, const char *tidstr, unsigned tidlen,
   Tb_entry_trap *e = static_cast<Tb_entry_trap*>(tb);
 
   if (!e->cs())
-    my_snprintf(buf, maxlen, "#%02x: %-*s err=%08x @ "L4_PTR_FMT,
+    my_snprintf(buf, maxlen, "#%02x: %-*s err=%08x @ " L4_PTR_FMT,
 		e->trapno(), tidlen, tidstr, e->error(), e->ip());
   else
     my_snprintf(buf, maxlen,
 	        e->trapno() == 14
-		  ? "#%02x: %-*s err=%04x @ "L4_PTR_FMT
-		    " cs=%04x sp="L4_PTR_FMT" cr2="L4_PTR_FMT
-		  : "#%02x: %-*s err=%04x @ "L4_PTR_FMT
-		    " cs=%04x sp="L4_PTR_FMT" eax="L4_PTR_FMT,
+		  ? "#%02x: %-*s err=%04x @ " L4_PTR_FMT
+		    " cs=%04x sp=" L4_PTR_FMT " cr2=" L4_PTR_FMT
+		  : "#%02x: %-*s err=%04x @ " L4_PTR_FMT
+		    " cs=%04x sp=" L4_PTR_FMT " eax=" L4_PTR_FMT,
 	        e->trapno(),
 		tidlen, tidstr, e->error(), e->ip(), e->cs(), e->sp(),
 		e->trapno() == 14 ? e->cr2() : e->eax());
@@ -496,7 +496,7 @@ formatter_ke_bin(Tb_entry *tb, const char *tidstr, unsigned tidlen,
   Tb_entry_ke_bin *e = static_cast<Tb_entry_ke_bin*>(tb);
   char ip_buf[32];
 
-  snprintf(ip_buf, sizeof(ip_buf), " @ "L4_PTR_FMT, e->ip());
+  snprintf(ip_buf, sizeof(ip_buf), " @ " L4_PTR_FMT, e->ip());
   my_snprintf(buf, maxlen, "ke:  %-*s BINDATA %s",
               tidlen, tidstr, e->ip() ? ip_buf : "");
 

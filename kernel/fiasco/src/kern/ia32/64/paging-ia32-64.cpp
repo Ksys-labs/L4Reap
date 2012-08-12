@@ -4,9 +4,7 @@ INTERFACE[amd64]:
 #include "types.h"
 #include "config.h"
 #include "mem_layout.h"
-#include "mapped_alloc.h"
 #include "ptab_base.h"
-#include "pages.h"
 
 class PF {};
 

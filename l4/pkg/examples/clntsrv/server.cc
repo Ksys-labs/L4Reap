@@ -63,7 +63,7 @@ main()
   // Register calculation server
   if (!server.registry()->register_obj(&calc, "calc_server").is_valid())
     {
-      printf("Could not register my service, readonly namespace?\n");
+      printf("Could not register my service, is there a 'calc_server' in the caps table?\n");
       return 1;
     }
 

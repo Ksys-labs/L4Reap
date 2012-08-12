@@ -644,7 +644,7 @@ static void base_open (lua_State *L) {
   lua_setglobal(L, "_VERSION");  /* set global _VERSION */
   lua_pushliteral(L, LUA_LNUM);
   lua_setglobal(L, "_LNUM");  /* "[complex] double|float|ldouble [int16|int32|int64]" */
-  /* `ipairs' and `pairs' need auxliliary functions as upvalues */
+  /* `ipairs' and `pairs' need auxiliary functions as upvalues */
   auxopen(L, "ipairs", luaB_ipairs, ipairsaux);
   auxopen(L, "pairs", luaB_pairs, luaB_next);
   /* `newproxy' needs a weaktable as upvalue */

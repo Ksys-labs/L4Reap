@@ -5,19 +5,24 @@
 
 INTERFACE [sched_fixed_prio]:
 
+#include <dlist>
 #include "member_offs.h"
 #include "types.h"
 #include "globals.h"
 #include "ready_queue_fp.h"
 
 
-class Sched_context
+class Sched_context : public cxx::D_list_item
 {
   MEMBER_OFFSET();
   friend class Jdb_list_timeouts;
   friend class Jdb_thread_list;
 
+  template<typename T>
+  friend struct Jdb_thread_list_policy;
+
 public:
+  typedef cxx::Sd_list<Sched_context> Fp_list;
 
   class Ready_queue : public Ready_queue_fp<Sched_context>
   {
@@ -34,10 +39,6 @@ public:
   Context *context() const { return context_of(this); }
 
 private:
-  static Sched_context *fp_elem(Sched_context *x) { return x; }
-
-  Sched_context *_ready_next;
-  Sched_context *_ready_prev;
   unsigned short _prio;
   Unsigned64 _quantum;
   Unsigned64 _left;
@@ -60,10 +61,9 @@ IMPLEMENTATION [sched_fixed_prio]:
  */
 PUBLIC
 Sched_context::Sched_context()
-: _ready_next(0),
-  _prio(Config::default_prio),
-  _quantum(Config::default_time_slice),
-  _left(Config::default_time_slice)
+: _prio(Config::Default_prio),
+  _quantum(Config::Default_time_slice),
+  _left(Config::Default_time_slice)
 {}
 
 
@@ -141,7 +141,7 @@ PUBLIC inline
 Mword
 Sched_context::in_ready_list() const
 {
-  return _ready_next != 0;
+  return Fp_list::in_list(this);
 }
 
 /**

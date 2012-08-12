@@ -37,7 +37,7 @@ Jdb_kern_info_idt::show()
 
   Idt::get (&idt_pseudo);
 
-  printf("idt base="L4_PTR_FMT"  limit=%04x (%04x bytes)\n",
+  printf("idt base=" L4_PTR_FMT "  limit=%04x (%04x bytes)\n",
          idt_pseudo.base(),
          (unsigned)((idt_pseudo.limit() + 1) / sizeof(Idt_entry)),
          idt_pseudo.limit() + 1);
@@ -168,8 +168,8 @@ Jdb_kern_info_misc::show()
   Pseudo_descriptor gdt_pseudo, idt_pseudo;
   Gdt::get (&gdt_pseudo);
   Idt::get (&idt_pseudo);
-  printf ("idt : base="L4_PTR_FMT"  limit=%04x\n"
-	  "gdt : base="L4_PTR_FMT"  limit=%04x\n",
+  printf ("idt : base=" L4_PTR_FMT "  limit=%04x\n"
+	  "gdt : base=" L4_PTR_FMT "  limit=%04x\n",
 	  idt_pseudo.base(), (idt_pseudo.limit()+1)/8,
 	  gdt_pseudo.base(), (gdt_pseudo.limit()+1)/8);
 
@@ -178,7 +178,7 @@ Jdb_kern_info_misc::show()
   if (Cpu::get_ldt() != 0)
     {
       Gdt_entry *e = Cpu::boot_cpu()->get_gdt()->entries() + (Cpu::boot_cpu()->get_ldt() >> 3);
-      printf(": "L4_PTR_FMT"-"L4_PTR_FMT,
+      printf(": " L4_PTR_FMT "-" L4_PTR_FMT,
 	  e->base(), e->base()+ e->size());
     }
 
@@ -188,13 +188,13 @@ Jdb_kern_info_misc::show()
   if(Cpu::get_tr() != 0)
     {
       Gdt_entry *e = Cpu::boot_cpu()->get_gdt()->entries() + (Cpu::boot_cpu()->get_tr() >> 3);
-      printf(": "L4_PTR_FMT"-"L4_PTR_FMT", iobitmap at "L4_PTR_FMT,
+      printf(": " L4_PTR_FMT "-" L4_PTR_FMT ", iobitmap at " L4_PTR_FMT,
 	     e->base(), e->base()+ e->size(),
 	     e->base() + (reinterpret_cast<Tss *>(e->base())->_io_bit_map_offset));
     }
   printf("\n"
-	 "cr0 : "L4_PTR_FMT"\n"
-	 "cr4 : "L4_PTR_FMT"\n",
+	 "cr0 : " L4_PTR_FMT "\n"
+	 "cr4 : " L4_PTR_FMT "\n",
 	 Cpu::get_cr0(), Cpu::get_cr4());
 }
 
@@ -257,7 +257,7 @@ Jdb_kern_info_cpu::show()
 	 "\nDebug store to memory: %s"
 	 "\nTime stamp counter: %s"
 	 "\n",
-	 scheduler_mode[Config::scheduler_mode],
+	 scheduler_mode[Config::Scheduler_mode],
 	 Config::scheduler_irq_vector,
 	 perf_type ? perf_type : "no",
 	 Cpu::boot_cpu()->lbr_type() != Cpu::Lbr_unsupported
@@ -295,10 +295,10 @@ Jdb_kern_info_gdt::show_gdt(unsigned cpu)
   unsigned entries = Gdt::gdt_max / 8;
 
   if (Config::Max_num_cpus > 1)
-    printf("CPU%d: GDT base="L4_PTR_FMT"  limit=%04x (%04x bytes)\n",
+    printf("CPU%d: GDT base=" L4_PTR_FMT "  limit=%04x (%04x bytes)\n",
            cpu, (Mword)gdt, entries, Gdt::gdt_max);
   else
-    printf("GDT base="L4_PTR_FMT"  limit=%04x (%04x bytes)\n",
+    printf("GDT base=" L4_PTR_FMT "  limit=%04x (%04x bytes)\n",
            (Mword)gdt, entries, Gdt::gdt_max);
 
   if (!Jdb_core::new_line(line))

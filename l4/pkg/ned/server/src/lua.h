@@ -13,6 +13,8 @@
 #include <lauxlib.h>
 #include <lualib.h>
 
+int lua(int argc, char const* const* argv);
+
 namespace Lua {
 
 static char const *const package = "L4";

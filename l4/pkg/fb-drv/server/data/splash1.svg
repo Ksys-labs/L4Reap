@@ -13,11 +13,11 @@
    height="65.771431"
    id="svg2"
    version="1.1"
-   inkscape:version="0.47 r22583"
+   inkscape:version="0.48.1 r9760"
    sodipodi:docname="splash1.svg"
    inkscape:export-filename="splash1.png"
-   inkscape:export-xdpi="90"
-   inkscape:export-ydpi="90">
+   inkscape:export-xdpi="88.80014"
+   inkscape:export-ydpi="88.80014">
   <defs
      id="defs4">
     <inkscape:perspective
@@ -43,8 +43,8 @@
      showgrid="false"
      inkscape:window-width="1461"
      inkscape:window-height="777"
-     inkscape:window-x="119"
-     inkscape:window-y="117"
+     inkscape:window-x="163"
+     inkscape:window-y="78"
      inkscape:window-maximized="0" />
   <metadata
      id="metadata7">
@@ -54,7 +54,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title />
+        <dc:title></dc:title>
       </cc:Work>
     </rdf:RDF>
   </metadata>

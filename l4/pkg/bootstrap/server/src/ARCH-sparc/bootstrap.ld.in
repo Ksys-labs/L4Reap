@@ -46,13 +46,14 @@ SECTIONS
   _edata  =  .;
   PROVIDE (edata = .);
   . = ALIGN(4096);
-  __bss_start = .;
+  _bss_start = .;
   .bss :
   {
    *(.bss)
    *(COMMON)
    *(.bss_memmap)
   } : common
+  _bss_end = .;
   _end = . ;
   PROVIDE (end = .);
 

@@ -2,17 +2,9 @@ INTERFACE [arm && s3c2410]:
 
 #include "kmem.h"
 
-class Irq_base;
-
 EXTENSION class Pic
 {
 public:
-  enum
-  {
-    Multi_irq_pending = 0,
-    No_irq_pending = 0,
-  };
-
   enum
   {
     SRCPND    = Kmem::Pic_map_base + 0x00,
@@ -82,29 +74,27 @@ public:
 // ---------------------------------------------------------------------
 IMPLEMENTATION [arm && s3c2410]:
 
-#include "boot_info.h"
 #include "config.h"
-#include "initcalls.h"
 #include "io.h"
-#include "irq.h"
-#include "irq_pin.h"
 #include "irq_chip_generic.h"
-#include "vkey.h"
+#include "irq_mgr.h"
 
 #include <cstdio>
 
-class S3c_pin : public Irq_pin
+class S3c_chip : public Irq_chip_gen
 {
 public:
-  explicit S3c_pin(unsigned irq) { payload()[0] = irq; }
-  unsigned irq() const { return payload()[0]; }
+  S3c_chip() : Irq_chip_gen(32) {}
+  unsigned set_mode(Mword, unsigned) { return Irq_base::Trigger_level; }
+  void set_cpu(Mword, unsigned) {}
 };
 
-PRIVATE static
+
+PUBLIC
 void
-S3c_pin::disable_pin(unsigned irq)
+S3c_chip::mask(Mword irq)
 {
-  int mainirq;
+  Mword mainirq;
 
   switch (irq)
     {
@@ -128,9 +118,9 @@ S3c_pin::disable_pin(unsigned irq)
   Io::set<Mword>(1 << mainirq, Pic::INTMSK);
 }
 
-PRIVATE static
+PUBLIC
 void
-S3c_pin::enable_pin(unsigned irq)
+S3c_chip::unmask(Mword irq)
 {
   int mainirq;
 
@@ -156,9 +146,9 @@ S3c_pin::enable_pin(unsigned irq)
   Io::clear<Mword>(1 << mainirq, Pic::INTMSK);
 }
 
-PRIVATE static
+PUBLIC
 void
-S3c_pin::ack_pin(unsigned irq)
+S3c_chip::ack(Mword irq)
 {
   int mainirq;
 
@@ -187,78 +177,21 @@ S3c_pin::ack_pin(unsigned irq)
 
 PUBLIC
 void
-S3c_pin::unbind_irq()
+S3c_chip::mask_and_ack(Mword irq)
 {
-  mask();
-  disable();
-  Irq_chip::hw_chip->free(Irq::self(this), irq());
-  replace<Sw_irq_pin>();
-}
-
-PUBLIC
-void
-S3c_pin::do_mask()
-{
-  assert (cpu_lock.test());
-  disable_pin(irq());
-}
-
-PUBLIC
-void
-S3c_pin::do_mask_and_ack()
-{
-  assert (cpu_lock.test());
-  __mask();
-  disable_pin(irq());
-  ack_pin(irq());
-}
-
-PUBLIC
-void
-S3c_pin::ack()
-{
-  ack_pin(irq());
-}
-
-PUBLIC
-void
-S3c_pin::do_unmask()
-{
-  assert (cpu_lock.test());
-  enable_pin(irq());
+  assert(cpu_lock.test());
+  mask(irq);
+  ack(irq);
 }
 
 
-PUBLIC
-bool
-S3c_pin::check_debug_irq()
-{
-  return !Vkey::check_(irq());
-}
+static Static_object<Irq_mgr_single_chip<S3c_chip> > mgr;
 
-PUBLIC
-void
-S3c_pin::set_cpu(unsigned)
-{
-}
-
-class Irq_chip_arm_x : public Irq_chip_gen
-{
-};
-
-PUBLIC
-void
-Irq_chip_arm_x::setup(Irq_base *irq, unsigned irqnum)
-{
-  if (irqnum < Config::Max_num_dirqs)
-    irq->pin()->replace<S3c_pin>(irqnum);
-}
 
 IMPLEMENT FIASCO_INIT
 void Pic::init()
 {
-  static Irq_chip_arm_x _ia;
-  Irq_chip::hw_chip = &_ia;
+  Irq_mgr::mgr = mgr.construct();
 
   Io::write<Mword>(0xffffffff, INTMSK); // all masked
   Io::write<Mword>(0x7fe, INTSUBMSK);   // all masked
@@ -266,8 +199,6 @@ void Pic::init()
   Io::write<Mword>(Io::read<Mword>(SRCPND), SRCPND); // clear source pending
   Io::write<Mword>(Io::read<Mword>(SUBSRCPND), SUBSRCPND); // clear sub src pnd
   Io::write<Mword>(Io::read<Mword>(INTPND), INTPND); // clear pending interrupt
-
-  printf("IRQ init done\n");
 }
 
 
@@ -279,8 +210,8 @@ Pic::Status Pic::disable_all_save()
 }
 
 IMPLEMENT inline
-void Pic::restore_all( Status /*s*/ )
-{ }
+void Pic::restore_all(Status)
+{}
 
 PUBLIC static inline NEEDS["io.h"]
 Unsigned32 Pic::pending()
@@ -302,18 +233,22 @@ Unsigned32 Pic::pending()
     default:
       return mainirq;
     }
-  return No_irq_pending;
+  return 32;
 }
 
-PUBLIC static inline
-Mword Pic::is_pending(Mword &irqs, Mword irq)
-{ return irqs == irq; }
+extern "C"
+void irq_handler()
+{
+  Unsigned32 i = Pic::pending();
+  if (i != 32)
+    mgr->c.handle_irq<S3c_chip>(i, 0);
+}
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [debug && s3c2410]:
 
 PUBLIC
 char const *
-S3c_pin::pin_type() const
+S3c_chip::chip_type() const
 { return "HW S3C2410 IRQ"; }
 

@@ -267,7 +267,7 @@ Breakpoint::show()
 	    {
 	      if (j++)
 		printf("%32s", "and ");
-	      printf("register %s in ["L4_PTR_FMT", "L4_PTR_FMT"]\n",
+	      printf("register %s in [" L4_PTR_FMT ", " L4_PTR_FMT "]\n",
 		  (restrict.reg.reg > 0) && (restrict.reg.reg < 10) 
 		      ? Jdb_screen::Reg_names[restrict.reg.reg-1] 
 		      : "???",
@@ -277,8 +277,8 @@ Breakpoint::show()
 	    {
 	      if (j++)
 		printf("%32s", "and ");
-	      printf("%d-byte var at "L4_PTR_FMT" in ["L4_PTR_FMT", "
-		     L4_PTR_FMT"]\n", 
+	      printf("%d-byte var at " L4_PTR_FMT " in [" L4_PTR_FMT ", "
+		     L4_PTR_FMT "]\n", 
 		  restrict.mem.len, restrict.mem.addr, 
 		  restrict.mem.y,   restrict.mem.z);
 	    }
@@ -353,7 +353,7 @@ Breakpoint::test_break(Thread *t, char *errbuf, size_t bufsize)
 
   Space *task = t->space();
 
-  snprintf(errbuf, bufsize, "break on %s at " L4_PTR_FMT, 
+  snprintf(errbuf, bufsize, "break on %s at " L4_PTR_FMT,
            mode_names[mode], addr);
   if (mode==WRITE || mode==ACCESS)
     {
@@ -438,6 +438,10 @@ static inline
 void
 Jdb_bp::set_dr7(int num, Mword len, Breakpoint::Mode mode, Mword &dr7)
 {
+  // the encoding of length 8 is special
+  if (len == 8)
+    len = 3;
+
   dr7 |= ((((mode & 3) + ((len-1)<<2)) << (16 + 4*num)) + (2 << (2*num)));
   dr7 |= 0x200; /* exact breakpoint enable (not available on P6 and below) */
 }
@@ -701,7 +705,7 @@ got_address:
 	  // address/task read
 	  if (breakpoint_cmd != 'i')
 	    {
-	      fmt   = " len (1, 2 or 4)=%1x";
+	      fmt   = " len (1, 2, 4...)=%1x";
 	      args  = &breakpoint_length;
 	      state = 4;
 	      return EXTRA_INPUT;
@@ -710,10 +714,11 @@ got_address:
 	  // fall through
 	case 4:
 	  // length read
-	  if (breakpoint_length != 1 && breakpoint_length != 2 && 
-	      breakpoint_length != 4)
+	  if (breakpoint_length & (breakpoint_length - 1))
 	    break;
-      	  switch (breakpoint_cmd)
+	  if (breakpoint_length > sizeof(Mword))
+	    break;
+          switch (breakpoint_cmd)
 	    {
 	    default : return ERROR;
 	    case 'i': mode = Breakpoint::INSTRUCTION; break;
@@ -736,8 +741,8 @@ got_address:
 	    case 'a':
 	    case 'A':
 	      fmt   = (breakpoint_restrict_cmd=='A')
-			? "task!="L4_ADDR_INPUT_FMT"\n"
-                        : "task=="L4_ADDR_INPUT_FMT"\n";
+			? "task!=" L4_ADDR_INPUT_FMT "\n"
+                        : "task==" L4_ADDR_INPUT_FMT "\n";
 	      args  = &breakpoint_restrict_task;
 	      state = 6;
 	      return EXTRA_INPUT;
@@ -751,7 +756,7 @@ got_address:
 	    case 'e':
 	      if (!Jdb::get_register(&breakpoint_restrict_reg.reg))
 		return NOTHING;
-	      fmt  = " in ["L4_ADDR_INPUT_FMT"-"L4_ADDR_INPUT_FMT"]\n";
+	      fmt  = " in [" L4_ADDR_INPUT_FMT "-" L4_ADDR_INPUT_FMT "]\n";
     	      args = &breakpoint_restrict_reg.low;
 	      state = 8;
 	      return EXTRA_INPUT;
@@ -759,8 +764,8 @@ got_address:
 	    case '2':
 	    case '4':
 	      putchar(breakpoint_restrict_cmd);
-	      fmt   = "-byte addr="L4_ADDR_INPUT_FMT
-		      " between["L4_ADDR_INPUT_FMT"-"L4_ADDR_INPUT_FMT"]\n";
+	      fmt   = "-byte addr=" L4_ADDR_INPUT_FMT
+		      " between[" L4_ADDR_INPUT_FMT "-" L4_ADDR_INPUT_FMT "]\n";
 	      args  = &breakpoint_restrict_addr;
 	      state = 9;
 	      return EXTRA_INPUT;

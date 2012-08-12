@@ -23,7 +23,7 @@ IMPLEMENTATION[amd64]:
 
 FIASCO_INIT
 void
-kernel_main (void)
+kernel_main(void)
 {
   unsigned dummy;
 
@@ -31,18 +31,12 @@ kernel_main (void)
 
   // caution: no stack variables in this function because we're going
   // to change the stack pointer!
-
-  printf ("CPU[%u]: %s (%X:%X:%X:%X) Model: %s at %llu MHz\n\n",
-           cpu.id(),
-           cpu.vendor_str(), cpu.family(), cpu.model(),
-           cpu.stepping(), cpu.brand(), cpu.model_str(),
-           div32(cpu.frequency(), 1000000));
-
+  cpu.print();
   cpu.show_cache_tlb_info("");
 
   printf ("\nFreeing init code/data: %lu bytes (%lu pages)\n\n",
           (Address)(&Mem_layout::initcall_end - &Mem_layout::initcall_start),
-          (Address)(&Mem_layout::initcall_end - &Mem_layout::initcall_start 
+          (Address)(&Mem_layout::initcall_end - &Mem_layout::initcall_start
 	     >> Config::PAGE_SHIFT));
 
   // Perform architecture specific initialization
@@ -50,24 +44,22 @@ kernel_main (void)
 
   // create kernel thread
   static Kernel_thread *kernel = new (Ram_quota::root) Kernel_thread;
-  nil_thread = kernel;
   Task *const ktask = Kernel_task::kernel_task();
   check(kernel->bind(ktask, User<Utcb>::Ptr(0)));
 
   // switch to stack of kernel thread and bootstrap the kernel
   asm volatile
     ("  movq %%rax, %%cr3       \n\t"   // restore proper cr3 after running on the mp boot dir
-     "	movq %%rsp, %0		\n\t"	// save stack pointer in safe variable
-     "	movq %4, %%rsp		\n\t"	// switch stack
+     "	movq %3, %%rsp		\n\t"	// switch stack
      "	call call_bootstrap	\n\t"	// bootstrap kernel thread
-     :	"=m" (boot_stack), "=a" (dummy), "=c" (dummy), "=d" (dummy)
-     :	"S" (kernel->init_stack()), "D" (kernel),
-        "a" (Mem_layout::pmem_to_phys(Kmem::dir())));
+     : "=a" (dummy), "=c" (dummy), "=d" (dummy)
+     : "S" (kernel->init_stack()), "D" (kernel),
+       "a" (Mem_layout::pmem_to_phys(Kmem::dir())));
 }
 
 
 //------------------------------------------------------------------------
-IMPLEMENTATION[(amd64) && mp]:
+IMPLEMENTATION[amd64 && mp]:
 
 #include "kernel_thread.h"
 

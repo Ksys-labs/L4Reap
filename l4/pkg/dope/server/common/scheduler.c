@@ -130,24 +130,22 @@ static void rt_set_sync_mutex(WIDGET *w,MUTEX *m) {
  * * Call the userstate manager periodically.
  */
 static void process_mainloop(void) {
-	static WINDOW *w1, *slotwin;
-	static GRID *g;
-	static LOADDISPLAY *ld[4];
-	static WIDGET *cw;
-	static s32 i,j;
-	static u32 start_time, rt_end_time, end_time, usr_end_time;
-	static s32 left_time;
-	static u32 curr_length;
+	GRID *g;
+	LOADDISPLAY *ld[4];
+	WIDGET *cw;
+	s32 i,j;
+	u32 start_time, rt_end_time, end_time, usr_end_time;
+	u32 curr_length;
 	s32 period_clock  = 10000;
 	s32 period_length = 8000;
 
-	static s32 slot_usr_time[4];
-	static s32 slot_rt_time[4];
-	static s32 slot_nrt_time[4];
-	static s32 curr_slot = 0;
+	s32 slot_usr_time[4];
+	s32 slot_rt_time[4];
+	s32 slot_nrt_time[4];
+	s32 curr_slot = 0;
 
 	/*** create slot display window ***/
-	slotwin = w1 = win->create();
+	WINDOW *w1 = win->create();
 	g = grid->create();
 	for (i=0; i<4; i++) {
 		ld[i] = loaddisplay->create();
@@ -199,7 +197,7 @@ static void process_mainloop(void) {
 
 		/*** process non-real-time widgets ***/
 
-		left_time = (s32)period_length - (s32)timer->get_diff(start_time,timer->get_time());
+		// s32 left_time = (s32)period_length - (s32)timer->get_diff(start_time,timer->get_time());
 		redraw->exec_redraw_all();
 //		redraw->exec_redraw(left_time);
 		end_time = timer->get_time();

@@ -20,8 +20,8 @@ Boot_mp::start_ap_cpus(Address phys_tramp_mp_addr)
   Platform::write(Platform::Sys::Flags_clr, 0xffffffff);
   Platform::write(Platform::Sys::Flags, phys_tramp_mp_addr);
 
-  // wake up AP CPUs
-  Ipi::bcast(Ipi::Global_request);
+  // wake up AP CPUs, always from CPU 0
+  Ipi::bcast(Ipi::Global_request, 0);
 }
 
 PUBLIC

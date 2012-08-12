@@ -76,7 +76,6 @@
 #define __ARCH_HAS_MMU__ 1
 #define __ARCH_USE_MMU__ 1
 #define __UCLIBC_HAS_FLOATS__ 1
-/* FM3: For arm. Does not influence x86. */
 #define __UCLIBC_HAS_SOFT_FLOAT__ 1
 #define __HAS_FPU__ 1
 #define __DO_C99_MATH__ 1
@@ -100,8 +99,8 @@
 #ifndef L4_MINIMAL_LIBC
 #define __UCLIBC_HAS_THREADS__ 1
 #define __LINUXTHREADS_OLD__ 1
-#undef __UCLIBC_HAS_TLS__
-#undef __UCLIBC_HAS_THREADS_NATIVE__
+#define __UCLIBC_HAS_TLS__ 1
+#define __UCLIBC_HAS_THREADS_NATIVE__ 1
 
 #define __UCLIBC_HAS_LFS__ 1
 #define __UCLIBC_STATIC_LDCONFIG__ 1
@@ -257,7 +256,7 @@
 /*
  * Networking Support
  */
-#undef __UCLIBC_HAS_IPV6__
+#define __UCLIBC_HAS_IPV6__ 1
 #undef __UCLIBC_HAS_RPC__
 #undef __UCLIBC_USE_NETLINK__
 

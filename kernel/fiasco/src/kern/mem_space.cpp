@@ -1,11 +1,12 @@
 INTERFACE:
 
+#include "auto_quota.h"
 #include "paging.h"		// for page attributes
 #include "mem_layout.h"
 #include "member_offs.h"
-#include "pages.h"
 #include "per_cpu_data.h"
 #include "ram_quota.h"
+#include "types.h"
 
 class Space;
 
@@ -18,16 +19,13 @@ class Mem_space
 {
   MEMBER_OFFSET();
 
+  // Space reverse lookup
+  friend inline Mem_space* current_mem_space();
+
 public:
   typedef int Status;
 
-  void *operator new (size_t, void *p)
-  { return p; }
-
-  void operator delete (void *)
-  {}
-
-  static char const * const name;
+  static char const *const name;
 
   typedef Pdir::Va Vaddr;
   typedef Pdir::Va Vsize;
@@ -99,23 +97,16 @@ public:
   /** Set this memory space as the current on on this CPU. */
   void make_current();
 
-  /**
-   * Update this address space with an entry from the kernel's shared
-   * address space.  The kernel maintains a 'master' page directory in
-   * class Kmem.  Use this function when an entry from the master directory
-   * needs to be copied into this address space.
-   * @param addr virtual address for which an entry should be copied from the
-   *             shared page directory.
-   */
-  void kmem_update (void *addr);
+  static Mem_space *kernel_space()
+  { return _kernel_space; }
 
-  static Mem_space *kernel_space() { return _kernel_space; }
   static inline Mem_space *current_mem_space(unsigned cpu);
 
   virtual Page_number map_max_address() const
   { return Addr::create(Map_max_address); }
 
-  static Address superpage_size()  { return Map_superpage_size; }
+  static Address superpage_size()
+  { return Map_superpage_size; }
 
   static Phys_addr page_address(Phys_addr o, Size s)
   { return o.trunc(s); }
@@ -123,35 +114,14 @@ public:
   static Phys_addr subpage_address(Phys_addr addr, Size offset)
   { return addr | offset; }
 
-  static Mword phys_to_word(Phys_addr a)
-  { return a.value(); }
-
 private:
+  Mem_space(const Mem_space &) = delete;
+
   Ram_quota *_quota;
 
-  // Each architecture must provide these members
-
-  // Page-table ops
-  // We'd like to declare current_pdir here, but Dir_type isn't defined yet.
-  // static inline Dir_type *current_pdir();
-
-  // Space reverse lookup
-  friend inline Mem_space* current_mem_space();	// Mem_space::current_space
-
-  // Mem_space();
-  Mem_space(const Mem_space &);	// undefined copy constructor
-
-  static Per_cpu<Mem_space *> _current asm ("CURRENT_MEM_SPACE");
+  static Per_cpu<Mem_space *> _current;
   static Mem_space *_kernel_space;
 };
-
-class Mem_space_q_alloc
-{
-private:
-  Mapped_allocator *_a;
-  Ram_quota *_q;
-};
-
 
 
 //---------------------------------------------------------------------------
@@ -162,7 +132,7 @@ INTERFACE [mp]:
 EXTENSION class Mem_space
 {
 public:
-  enum { Need_xcpu_tlb_flush = 1 };
+  enum { Need_xcpu_tlb_flush = true };
 };
 
 
@@ -173,7 +143,7 @@ INTERFACE [!mp]:
 EXTENSION class Mem_space
 {
 public:
-  enum { Need_xcpu_tlb_flush = 0 };
+  enum { Need_xcpu_tlb_flush = false };
 };
 
 
@@ -187,58 +157,17 @@ IMPLEMENTATION:
 #include "config.h"
 #include "globals.h"
 #include "l4_types.h"
-#include "mapped_alloc.h"
+#include "kmem_alloc.h"
 #include "mem_unit.h"
 #include "paging.h"
 #include "panic.h"
 
-PUBLIC inline
-Mem_space_q_alloc::Mem_space_q_alloc(Ram_quota *q = 0, Mapped_allocator *a = 0)
-  : _a(a), _q(q)
-{}
-
-
-PUBLIC inline
-bool
-Mem_space_q_alloc::valid() const
-{ return _a && _q; }
-
-PUBLIC inline
-void *
-Mem_space_q_alloc::alloc(unsigned long size) const
-{
-  if (EXPECT_FALSE(!_q->alloc(size)))
-    return 0;
-
-  void *b;
-  if (EXPECT_FALSE(!(b=_a->unaligned_alloc(size))))
-    {
-      _q->free(size);
-      return 0;
-    }
-
-  return b;
-}
-
-
-PUBLIC inline
-void
-Mem_space_q_alloc::free(void *block, unsigned long size) const
-{
-  _a->unaligned_free(size, block);
-  _q->free(size);
-}
+DEFINE_PER_CPU Per_cpu<Mem_space *> Mem_space::_current;
 
 
 char const * const Mem_space::name = "Mem_space";
 Mem_space *Mem_space::_kernel_space;
 
-
-
-PUBLIC inline
-bool
-Mem_space::valid() const
-{ return _dir; }
 
 PUBLIC inline
 Ram_quota *
@@ -250,44 +179,17 @@ Mem_space::ram_quota() const
 PUBLIC
 void
 Mem_space::reset_dirty ()
-{
-  _dir = 0;
-}
+{ _dir = 0; }
 
 PUBLIC inline
 Mem_space::Dir_type*
 Mem_space::dir ()
-{
-  return _dir;
-}
+{ return _dir; }
 
 PUBLIC inline
 const Mem_space::Dir_type*
 Mem_space::dir() const
-{
-  return _dir;
-}
-
-inline NEEDS[Mem_space::current_mem_space]
-Mem_space *
-current_mem_space()
-{
-  return Mem_space::current_mem_space(0);
-}
-
-// routines
-
-/**
- * Tests if a task is the sigma0 task.
- * @return true if the task is sigma0, false otherwise.
- */
-PUBLIC inline NEEDS ["globals.h","config.h"]
-bool Mem_space::is_sigma0 () const
-{
-  return this == sigma0_space;
-}
-
-// Mapping utilities
+{ return _dir; }
 
 PUBLIC
 virtual bool
@@ -297,6 +199,11 @@ Mem_space::v_fabricate(Vaddr address,
   return Mem_space::v_lookup(address.trunc(Size(Map_page_size)),
       phys, size, attribs);
 }
+
+PUBLIC virtual
+bool
+Mem_space::is_sigma0() const
+{ return false; }
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [!io]:

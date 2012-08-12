@@ -1,5 +1,7 @@
 INTERFACE:
 
+#include "assert_opt.h"
+
 EXTENSION class Generic_obj_space
 {
 private:
@@ -11,6 +13,12 @@ private:
   struct Cap_table { Entry e[Caps_per_page]; };
   struct Cap_dir   { Cap_table *d[Slots_per_dir]; };
   Cap_dir *_dir;
+
+  Ram_quota *ram_quota() const
+  {
+    assert_opt (this);
+    return static_cast<SPACE const *>(this)->ram_quota();
+  }
 };
 
 
@@ -24,20 +32,19 @@ IMPLEMENTATION:
 #include "config.h"
 #include "cpu.h"
 #include "kdb_ke.h"
-#include "mapped_alloc.h"
+#include "kmem_alloc.h"
 #include "mem.h"
 #include "mem_layout.h"
-#include "mem_space.h"
 #include "ram_quota.h"
 #include "static_assert.h"
 
 
 PUBLIC template< typename SPACE >
-inline NEEDS["mem_space.h", "static_assert.h"]
+inline NEEDS["static_assert.h"]
 Generic_obj_space<SPACE>::Generic_obj_space()
 {
   static_assert(sizeof(Cap_dir) == Config::PAGE_SIZE, "cap_dir size mismatch");
-  _dir = (Cap_dir*)Mapped_allocator::allocator()->q_unaligned_alloc(ram_quota(), Config::PAGE_SIZE);
+  _dir = (Cap_dir*)Kmem_alloc::allocator()->q_unaligned_alloc(ram_quota(), Config::PAGE_SIZE);
   if (_dir)
     Mem::memset_mwords(_dir, 0, Config::PAGE_SIZE / sizeof(Mword));
 }
@@ -62,13 +69,6 @@ Generic_obj_space<SPACE>::get_cap(Address index)
   return &tab->e[offs];
 }
 
-PUBLIC template< typename SPACE >
-inline
-Ram_quota *
-Generic_obj_space<SPACE>::ram_quota() const
-{ return SPACE::space(this)->ram_quota(); }
-
-
 PRIVATE template< typename SPACE >
 typename Generic_obj_space<SPACE>::Entry *
 Generic_obj_space<SPACE>::caps_alloc(Address virt)
@@ -78,7 +78,7 @@ Generic_obj_space<SPACE>::caps_alloc(Address virt)
   if (EXPECT_FALSE(d_idx >= Slots_per_dir))
     return 0;
 
-  void *mem = Mapped_allocator::allocator()->q_unaligned_alloc(ram_quota(), Config::PAGE_SIZE);
+  void *mem = Kmem_alloc::allocator()->q_unaligned_alloc(ram_quota(), Config::PAGE_SIZE);
 
   if (!mem)
     return 0;
@@ -104,7 +104,7 @@ Generic_obj_space<SPACE>::caps_free()
   Cap_dir *d = _dir;
   _dir = 0;
 
-  Mapped_allocator *a = Mapped_allocator::allocator();
+  Kmem_alloc *a = Kmem_alloc::allocator();
   for (unsigned i = 0; i < Slots_per_dir; ++i)
     {
       if (!d->d[i])

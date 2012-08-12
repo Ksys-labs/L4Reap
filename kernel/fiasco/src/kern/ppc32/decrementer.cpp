@@ -6,8 +6,8 @@ class Decrementer
 {
 public:
   void init(unsigned long interval);
-  inline void set() ;
-  inline void enable() ;
+  inline void set();
+  inline void enable();
   inline void disable();
   Decrementer() : _interval(0), _enabled(false) {}
 
@@ -20,7 +20,6 @@ private:
 //------------------------------------------------------------------------------
 IMPLEMENTATION[ppc32]:
 
-
 PUBLIC static inline
 Decrementer *
 Decrementer::d()
@@ -29,31 +28,28 @@ Decrementer::d()
   return &_kernel_decr;
 }
 
-
-//------------------------------------------------------------------------------
 PRIVATE inline
 void
-Decrementer::set(unsigned long interval)
+Decrementer::set2(unsigned long interval)
 {
-  if(!_enabled && interval != 0)
+  if (!_enabled && interval)
     return;
 
   asm volatile("mtdec %0" : : "r"(interval) : "memory");
 }
 
-//------------------------------------------------------------------------------
-IMPLEMENT 
+IMPLEMENT
 void
 Decrementer::init(unsigned long interval)
 {
   _interval = interval;
 }
 
-IMPLEMENT inline NEEDS[Decrementer::set]
+IMPLEMENT inline NEEDS[Decrementer::set2]
 void
 Decrementer::set()
 {
-  set(_interval);
+  set2(_interval);
 }
 
 IMPLEMENT inline
@@ -61,7 +57,7 @@ void
 Decrementer::enable()
 {
   _enabled = true;
-  set(); 
+  set();
 }
 
 IMPLEMENT inline
@@ -69,6 +65,5 @@ void
 Decrementer::disable()
 {
   _enabled = false;
-  set(0);
+  set2(0);
 }
-

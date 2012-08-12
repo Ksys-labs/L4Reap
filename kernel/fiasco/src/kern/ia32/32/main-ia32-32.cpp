@@ -14,6 +14,8 @@ class Kernel_thread;
 IMPLEMENTATION[ia32,ux]:
 
 #include <cstdio>
+
+#include "assert_opt.h"
 #include "config.h"
 #include "cpu.h"
 #include "div32.h"
@@ -24,7 +26,7 @@ IMPLEMENTATION[ia32,ux]:
 
 FIASCO_INIT
 void
-kernel_main (void)
+kernel_main(void)
 {
   unsigned dummy;
 
@@ -37,7 +39,7 @@ kernel_main (void)
 
   printf ("\nFreeing init code/data: %lu bytes (%lu pages)\n\n",
           (Address)(&Mem_layout::initcall_end - &Mem_layout::initcall_start),
-          (Address)(&Mem_layout::initcall_end - &Mem_layout::initcall_start 
+          (Address)(&Mem_layout::initcall_end - &Mem_layout::initcall_start
 	     >> Config::PAGE_SHIFT));
 
   // Perform architecture specific initialization
@@ -45,23 +47,20 @@ kernel_main (void)
 
   // create kernel thread
   static Kernel_thread *kernel = new (Ram_quota::root) Kernel_thread;
-  nil_thread = kernel;
+  assert_opt (kernel);
   Task *const ktask = Kernel_task::kernel_task();
   check(kernel->bind(ktask, User<Utcb>::Ptr(0)));
 
   // switch to stack of kernel thread and bootstrap the kernel
   asm volatile
-    ("	movl %%esp, %0		\n\t"	// save stack pointer in safe variable
-     "	movl %%esi, %%esp	\n\t"	// switch stack
+    ("	movl %%esi, %%esp	\n\t"	// switch stack
      "	call call_bootstrap	\n\t"	// bootstrap kernel thread
-     :	"=m" (boot_stack),
-        "=a" (dummy), "=c" (dummy), "=d" (dummy)
-     :	"a"(kernel), "S" (kernel->init_stack()));
+     : "=a" (dummy), "=c" (dummy), "=d" (dummy)
+     : "a"(kernel), "S" (kernel->init_stack()));
 }
 
-
 //------------------------------------------------------------------------
-IMPLEMENTATION[(ia32,ux) && mp]:
+IMPLEMENTATION[(ia32 || ux) && mp]:
 
 #include "kernel_thread.h"
 

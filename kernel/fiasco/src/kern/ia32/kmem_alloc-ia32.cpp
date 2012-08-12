@@ -7,12 +7,10 @@ IMPLEMENTATION [ia32,ux,amd64]:
 #include <cstdio>
 
 #include "kip.h"
-#include "kmem.h"
 #include "koptions.h"
 #include "mem_region.h"
 #include "panic.h"
 #include "types.h"
-#include "helping_lock.h"
 
 PUBLIC static FIASCO_INIT
 bool

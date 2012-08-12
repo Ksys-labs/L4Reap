@@ -13,6 +13,8 @@ protected:
 // ---------------------------------------------------------------------
 IMPLEMENTATION[ux]:
 
+#include "utcb_init.h"
+
 IMPLEMENT inline
 void
 Context::switch_fpu (Context *)
@@ -22,6 +24,13 @@ PUBLIC inline
 bool
 Context::is_native()
 { return _is_native; }
+
+PROTECTED inline NEEDS["utcb_init.h"]
+void
+Context::arch_setup_utcb_ptr()
+{
+  _gs = _fs = Utcb_init::utcb_segment();
+}
 
 PROTECTED inline
 void
@@ -43,4 +52,8 @@ Context::switch_gdt_user_entries(Context *to)
         Trampoline::syscall(tos->pid(), 243,
                             Mem_layout::Trampoline_page + sizeof(Mword));
       }
+
+  // update the global UTCB pointer to make the thread find its UTCB
+  // using fs:[0]
+  Mem_layout::user_utcb_ptr(current_cpu()) = to->utcb().usr();
 }

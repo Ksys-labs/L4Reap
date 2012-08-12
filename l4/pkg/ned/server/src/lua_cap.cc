@@ -80,7 +80,7 @@ tostring(lua_State *l)
   if (n->cap<void>().is_valid())
     lua_pushfstring(l, "L4::Cap<%s>[%p] r=%p f=%p", type,
                     (void*)(n->cap<void>().cap()),
-                    (void*)n->all_rights(), (void*)n->flags());
+                    (void*)(l4_addr_t)n->all_rights(), (void*)(l4_addr_t)n->flags());
   else
     lua_pushfstring(l, "L4::Cap<%s>::Invalid", type);
   return 1;
@@ -165,7 +165,7 @@ Cap::find_dynamic_type(lua_State *l) const
 
   if (int err = l4_error(res.tag()))
     {
-      dbg.printf("Hm, cpapbility %lx does not support the meta protocol: %d\n",
+      dbg.printf("Hm, capability %lx does not support the meta protocol: %d\n",
                  _c.cap(), err);
       return false;
     }

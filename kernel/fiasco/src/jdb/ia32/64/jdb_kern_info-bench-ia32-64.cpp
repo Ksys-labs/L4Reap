@@ -199,7 +199,7 @@ Jdb_kern_info_bench::show_arch()
     }
   if (Config::apic)
     {
-      BENCH("APIC timer read", inst_apic_timer_read, 200000);
+      BENCH("APIC timer read", (void)inst_apic_timer_read, 200000);
     }
     {
       time = Cpu::rdtsc();

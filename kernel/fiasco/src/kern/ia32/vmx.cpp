@@ -144,6 +144,9 @@ public:
     F_entry_insn_len     = 0x401a,
     F_proc_based_ctls_2  = 0x401e,
 
+    F_vm_instruction_error = 0x4400,
+    F_exit_reason        = 0x4402,
+
     F_preempt_timer      = 0x482e,
 
     F_host_sysenter_cs   = 0x4c00,
@@ -241,8 +244,9 @@ IMPLEMENTATION[vmx]:
 #include "l4_types.h"
 #include <cstring>
 #include "idt.h"
+#include "warn.h"
 
-Per_cpu<Vmx> DEFINE_PER_CPU_LATE Vmx::cpus(true);
+DEFINE_PER_CPU_LATE Per_cpu<Vmx> Vmx::cpus(true);
 
 PUBLIC
 void
@@ -360,15 +364,19 @@ Vmx::vmread(Mword field)
   return vmread_insn(field) | ((Unsigned64)vmread_insn(field + 1) << 32);
 }
 
-PUBLIC static inline
+PUBLIC static inline NEEDS["warn.h"]
 template< typename T >
 void
 Vmx::vmwrite(Mword field, T value)
 {
   Mword err;
   asm volatile("vmwrite %1, %2; pushf; pop %0" : "=r" (err) : "r" ((Mword)value), "r" (field));
-  if (EXPECT_FALSE(err & 0x41))
-    printf("FAILED vmwrite(%lx): field=%04lx with value %llx\n", err, field, (Unsigned64)value);
+  if (EXPECT_FALSE(err & 0x1))
+    WARNX(Info, "VMX: VMfailInvalid vmwrite(0x%04lx, %llx) => %lx\n",
+          field, (Unsigned64)value, err);
+  else if (EXPECT_FALSE(err & 0x40))
+    WARNX(Info, "VMX: VMfailValid vmwrite(0x%04lx, %llx) => %lx, insn error: 0x%x\n",
+          field, (Unsigned64)value, err, vmread<Unsigned32>(F_vm_instruction_error));
   if (sizeof(T) > sizeof(Mword))
     asm volatile("vmwrite %0, %1" : : "r" ((Unsigned64)value >> 32), "r" (field + 1));
 }
@@ -380,38 +388,48 @@ Vmx::Vmx(unsigned cpu)
   Cpu &c = Cpu::cpus.cpu(cpu);
   if (!c.vmx())
     {
-      printf("VMX: Not supported\n");
+      if (!cpu)
+        WARNX(Info, "VMX: Not supported\n");
       return;
     }
-
-  printf("VMX: Enabling\n");
 
   // check whether vmx is enabled by BIOS
   Unsigned64 feature = 0;
-  feature = Cpu::rdmsr(0x3a);
+  feature = Cpu::rdmsr(MSR_IA32_FEATURE_CONTROL);
 
-  // vmxon outside SMX allowed?
-  if (!(feature & 0x4))
-    {
-      printf("VMX: CPU has VMX support but it is disabled\n");
-      return;
-    }
+  enum
+  {
+    Msr_ia32_feature_control_lock            = 1 << 0,
+    Msr_ia32_feature_control_vmx_inside_SMX  = 1 << 1,
+    Msr_ia32_feature_control_vmx_outside_SMX = 1 << 2,
+  };
 
-  // check whether lock bit is set otherwise vmxon
-  // will cause a general-protection exception
-  if (!(feature & 0x1))
+  if (feature & Msr_ia32_feature_control_lock)
     {
-      printf("VMX: Cannot enable VMX, lock bit not set\n");
-      return;
+      if (!(feature & Msr_ia32_feature_control_vmx_outside_SMX))
+	{
+	  if (!cpu)
+            WARNX(Info, "VMX: CPU has VMX support but it is disabled\n");
+	  return;
+	}
     }
+  else
+    c.wrmsr(feature | Msr_ia32_feature_control_vmx_outside_SMX | Msr_ia32_feature_control_lock,
+            MSR_IA32_FEATURE_CONTROL);
+
+  if (!cpu)
+    WARNX(Info, "VMX: Enabled\n");
 
   info.init();
 
   // check for EPT support
-  if (info.procbased_ctls2.allowed(1))
-    printf("VMX:  EPT supported\n");
-  else
-    printf("VMX:  No EPT available\n");
+  if (!cpu)
+    {
+      if (info.procbased_ctls2.allowed(1))
+        WARNX(Info, "VMX:  EPT supported\n");
+      else
+        WARNX(Info, "VMX:  No EPT available\n");
+    }
 
   // check for vpid support
   if (info.procbased_ctls2.allowed(5))
@@ -431,12 +449,12 @@ Vmx::Vmx(unsigned cpu)
 
   if (vmcs_size > Vmcs_size)
     {
-      printf("VMX: VMCS size of %d bytes not supported\n", vmcs_size);
+      WARN("VMX: VMCS size of %d bytes not supported\n", vmcs_size);
       return;
     }
 
   // allocate a 4kb region for kernel vmcs
-  check(_kernel_vmcs = Mapped_allocator::allocator()->alloc(12));
+  check(_kernel_vmcs = Kmem_alloc::allocator()->alloc(12));
   _kernel_vmcs_pa = Kmem::virt_to_phys(_kernel_vmcs);
   // clean vmcs
   memset(_kernel_vmcs, 0, vmcs_size);
@@ -444,7 +462,7 @@ Vmx::Vmx(unsigned cpu)
   *(int *)_kernel_vmcs = (info.basic & 0xFFFFFFFF);
 
   // allocate a 4kb aligned region for VMXON
-  check(_vmxon = Mapped_allocator::allocator()->alloc(12));
+  check(_vmxon = Kmem_alloc::allocator()->alloc(12));
 
   _vmxon_base_pa = Kmem::virt_to_phys(_vmxon);
 
@@ -456,7 +474,8 @@ Vmx::Vmx(unsigned cpu)
   asm volatile("vmxon %0" : :"m"(_vmxon_base_pa):);
   _vmx_enabled = true;
 
-  printf("VMX: initialized\n");
+  if (cpu == 0)
+    WARNX(Info, "VMX: initialized\n");
 
   Mword eflags;
   asm volatile("vmclear %1 \n\t"
@@ -531,7 +550,7 @@ Vmx::Vmx(unsigned cpu)
   vmwrite(0x2800, ~0ULL); // link pointer
   vmwrite(F_cr3_target_cnt, 0);
 
-  // MSR load / store disbaled
+  // MSR load / store disabled
   vmwrite(F_exit_msr_load_cnt, 0);
   vmwrite(F_exit_msr_store_cnt, 0);
   vmwrite(F_entry_msr_load_cnt, 0);

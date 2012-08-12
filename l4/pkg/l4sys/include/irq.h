@@ -53,7 +53,6 @@
  *
  * \param irq    IRQ to attach to.
  * \param label  Identifier of the IRQ.
- * \param flow_type Interrupt type, see L4_irq_flow_type
  * \param thread Thread to attach the interrupt to.
  *
  * \return Syscall return tag
@@ -84,7 +83,6 @@ l4_irq_attach_u(l4_cap_idx_t irq, l4_umword_t label,
  *
  * \param irq    The master IRQ object.
  * \param label  Identifier of the IRQ.
- * \param flow_type Interrupt type, see L4_irq_flow_type
  * \param slave  The slave that shall be attached to the master.
  *
  * \return Syscall return tag

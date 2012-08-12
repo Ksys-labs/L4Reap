@@ -35,4 +35,6 @@
 #define L4B_REDIRECT_2(ret, func, a1, a2) L4B_REDIRECT(ret, func, (a1 _a1, a2 _a2), (_a1, _a2))
 #define L4B_REDIRECT_3(ret, func, a1, a2, a3) L4B_REDIRECT(ret, func, (a1 _a1, a2 _a2, a3 _a3), (_a1, _a2, _a3))
 #define L4B_REDIRECT_4(ret, func, a1, a2, a3, a4) L4B_REDIRECT(ret, func, (a1 _a1, a2 _a2, a3 _a3, a4 _a4), (_a1, _a2, _a3, _a4))
+#define L4B_REDIRECT_5(ret, func, a1, a2, a3, a4, a5) L4B_REDIRECT(ret, func, (a1 _a1, a2 _a2, a3 _a3, a4 _a4, a5 _a5), (_a1, _a2, _a3, _a4, _a5))
+#define L4B_REDIRECT_6(ret, func, a1, a2, a3, a4, a5, a6) L4B_REDIRECT(ret, func, (a1 _a1, a2 _a2, a3 _a3, a4 _a4, a5 _a5, a6 _a6), (_a1, _a2, _a3, _a4, _a5, _a6))
 

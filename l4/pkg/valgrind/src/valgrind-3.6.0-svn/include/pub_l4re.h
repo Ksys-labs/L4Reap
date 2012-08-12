@@ -94,6 +94,8 @@ void vrm_get_lists(struct vrm_region_lists *rlist, unsigned num_regions, unsigne
 void l4re_vcap_start_thread(void);
 EXTERN_C void vcap_init(void);
 
+struct ume_auxv;
+
 /*
  * Instrument L4Re env with vcap modifications
  *

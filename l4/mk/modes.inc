@@ -11,13 +11,8 @@ ifneq ($(MODE_USE_C),)
   $(error MODE_USE_C is obsolete, add l4re_c and/or l4re_c-util to REQUIRES_LIBS as needed)
 endif
 
-ifeq ($(ARCH),sparc)
-CRTBEGIN_so       = $(GCCLIB_FILE_crtbegin.o)
-CRTBEGIN_stat_bin = $(GCCLIB_FILE_crtbegin.o)
-else
-CRTBEGIN_so       = $(GCCLIB_FILE_crtbeginS.o)
-CRTBEGIN_stat_bin = $(GCCLIB_FILE_crtbeginT.o)
-endif
+CRTBEGIN_so       = $(if $(GCCIS_sparc_leon),$(GCCLIB_FILE_crtbegin.o),$(GCCLIB_FILE_crtbeginS.o))
+CRTBEGIN_stat_bin = $(if $(GCCIS_sparc_leon),$(GCCLIB_FILE_crtbegin.o),$(GCCLIB_FILE_crtbeginT.o))
 
 CRTBEGIN_dyn_bin  = $(GCCLIB_FILE_crtbegin.o)
 
@@ -34,11 +29,7 @@ CRTI_so           = $(call findfile,crti.s.o,$(L4LIBDIR))
 CRTI_dyn_bin      = $(call findfile,crti.o,$(L4LIBDIR))
 CRTI_stat_bin     = $(call findfile,crti.o,$(L4LIBDIR))
 
-ifeq ($(ARCH),sparc)
-CRTN_so           = $(call findfile,crtn.s.o,$(L4LIBDIR))
-else
-CRTN_so           = $(CRTEND_so)       $(call findfile,crtn.s.o,$(L4LIBDIR))
-endif
+CRTN_so           = $(if $(GCCIS_sparc_leon),,$(CRTEND_so)) $(call findfile,crtn.s.o,$(L4LIBDIR))
 CRTN_dyn_bin      = $(CRTEND_dyn_bin)  $(call findfile,crtn.o,$(L4LIBDIR))
 CRTN_stat_bin     = $(CRTEND_stat_bin) $(call findfile,crtn.o,$(L4LIBDIR))
 
@@ -99,7 +90,7 @@ CRTN_all_shared                 = $(CRTN_dyn_bin)
 LDSCRIPT_all_shared             = $(LDS_dyn_bin)
 REQUIRES_LIBS_all_shared        = stdlibs-sh
 L4_LIBS_all_shared             += -nostdlib -luc_c_nonshared.p \
-				  $(GCCLIB) $(GCCLIB_EH)    \
+				  $(GCCLIB_SO) $(GCCLIB_EH)    \
 				  $(EXTRA_LIBS)
 LDFLAGS_all_shared              = --eh-frame-hdr
 

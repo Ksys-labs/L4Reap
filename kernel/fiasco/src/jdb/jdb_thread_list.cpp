@@ -207,81 +207,150 @@ Jdb_thread_list::get_space_dbgid(Thread *t)
 
 
 // --------------------------------------------------------------------------
-IMPLEMENTATION [sched_wfq]:
+IMPLEMENTATION [sched_wfq || sched_fp_wfq]:
 
+template<typename T> struct Jdb_thread_list_policy;
+
+template<typename RQP>
 static inline NOEXPORT
 Sched_context *
-Jdb_thread_list::sc_iter_prev(Sched_context *t)
+Jdb_thread_list::sc_wfq_iter_prev(Sched_context *t)
 {
   Sched_context::Ready_queue &rq = Sched_context::rq(cpu);
-  Sched_context **rl = t->_ready_link;
-  if (!rl || rl == &rq.idle)
-    return rq._cnt ? rq._heap[rq._cnt - 1] : rq.idle;
+  Sched_context **rl = RQP::link(t);
+  if (!rl || rl == RQP::idle(rq))
+    return RQP::cnt(rq) ? RQP::heap(rq)[RQP::cnt(rq) - 1] : *RQP::idle(rq);
 
-  if (rl == rq._heap)
-    return rq.idle;
+  if (rl == RQP::heap(rq))
+    return *RQP::idle(rq);
 
   return *(rl - 1);
 }
 
+template<typename RQP>
 static inline NOEXPORT
 Sched_context *
-Jdb_thread_list::sc_iter_next(Sched_context *t)
+Jdb_thread_list::sc_wfq_iter_next(Sched_context *t)
 {
   Sched_context::Ready_queue &rq = Sched_context::rq(cpu);
-  Sched_context **rl = t->_ready_link;
-  if (!rl || rl == &rq.idle)
-    return rq._cnt ? rq._heap[0] : rq.idle;
+  Sched_context **rl = RQP::link(t);
+  if (!rl || rl == RQP::idle(rq))
+    return RQP::cnt(rq) ? RQP::heap(rq)[0] : *RQP::idle(rq);
 
-  if ((unsigned)(rl - rq._heap) >= rq._cnt)
-    return rq.idle;
+  if ((unsigned)(rl - RQP::heap(rq)) >= RQP::cnt(rq))
+    return *RQP::idle(rq);
 
   return *(rl + 1);
 }
 
 
 // --------------------------------------------------------------------------
+IMPLEMENTATION [sched_fixed_prio || sched_fp_wfq]:
+
+template<typename T> struct Jdb_thread_list_policy;
+
+template<typename RQP>
+static inline NOEXPORT
+Sched_context *
+Jdb_thread_list::sc_fp_iter_prev(Sched_context *t)
+{
+  unsigned prio = RQP::prio(t);
+  Sched_context::Ready_queue &rq = Sched_context::_ready_q.cpu(cpu);
+
+  if (t != RQP::prio_next(rq, prio))
+    return RQP::prev(t);
+
+  for (;;)
+    {
+      if (++prio > RQP::prio_highest(rq))
+	prio = 0;
+      if (RQP::prio_next(rq, prio))
+	return RQP::prev(RQP::prio_next(rq, prio));
+    }
+}
+
+template<typename RQP>
+static inline NOEXPORT
+Sched_context *
+Jdb_thread_list::sc_fp_iter_next(Sched_context *t)
+{
+  unsigned prio = RQP::prio(t);
+  Sched_context::Ready_queue &rq = Sched_context::_ready_q.cpu(cpu);
+
+  if (RQP::next(t) != RQP::prio_next(rq, prio))
+    return RQP::next(t);
+
+  for (;;)
+    {
+      if (--prio > RQP::prio_highest(rq)) // prio is unsigned
+	prio = RQP::prio_highest(rq);
+      if (RQP::prio_next(rq, prio))
+	return RQP::prio_next(rq, prio);
+    }
+}
+
+// --------------------------------------------------------------------------
 IMPLEMENTATION [sched_fixed_prio]:
 
+template<>
+struct Jdb_thread_list_policy<Ready_queue_fp<Sched_context> >
+{
+  typedef Ready_queue_fp<Sched_context> Rq;
+
+  static unsigned prio(Sched_context *t)
+  { return t->prio(); }
+
+  static Sched_context *prio_next(Sched_context::Ready_queue &rq, unsigned prio)
+  { return rq.prio_next[prio].front(); }
+
+  static unsigned prio_highest(Sched_context::Ready_queue &rq)
+  { return rq.prio_highest; }
+
+  static Sched_context *prev(Sched_context *t)
+  { return *--Rq::List::iter(t); }
+
+  static Sched_context *next(Sched_context *t)
+  { return *++Rq::List::iter(t); }
+};
 
 static inline NOEXPORT
 Sched_context *
 Jdb_thread_list::sc_iter_prev(Sched_context *t)
-{
-  unsigned prio = t->prio();
-  Sched_context::Ready_queue &rq = Sched_context::_ready_q.cpu(cpu);
-
-  if (t != rq.prio_next[prio])
-    return t->_ready_prev;
-
-  for (;;)
-    {
-      if (++prio > rq.prio_highest)
-	prio = 0;
-      if (rq.prio_next[prio])
-	return rq.prio_next[prio]->_ready_prev;
-    }
-}
+{ return sc_fp_iter_prev<Jdb_thread_list_policy<Ready_queue_fp<Sched_context> > >(t); }
 
 static inline NOEXPORT
 Sched_context *
 Jdb_thread_list::sc_iter_next(Sched_context *t)
+{ return sc_fp_iter_next<Jdb_thread_list_policy<Ready_queue_fp<Sched_context> > >(t); }
+
+// --------------------------------------------------------------------------
+IMPLEMENTATION [sched_wfq]:
+
+template<>
+struct Jdb_thread_list_policy<Ready_queue_wfq<Sched_context> >
 {
-  unsigned prio = t->prio();
-  Sched_context::Ready_queue &rq = Sched_context::_ready_q.cpu(cpu);
+  static Sched_context **link(Sched_context *t)
+  { return t->_ready_link; }
 
-  if (t->_ready_next != rq.prio_next[prio])
-    return t->_ready_next;
+  static Sched_context **heap(Sched_context::Ready_queue &rq)
+  { return rq._heap; }
 
-  for (;;)
-    {
-      if (--prio > rq.prio_highest) // prio is unsigned
-	prio = rq.prio_highest;
-      if (rq.prio_next[prio])
-	return rq.prio_next[prio];
-    }
+  static Sched_context **idle(Sched_context::Ready_queue &rq)
+  { return &rq.idle; }
 
-}
+  static unsigned cnt(Sched_context::Ready_queue &rq)
+  { return rq._cnt; }
+};
+
+static inline NOEXPORT
+Sched_context *
+Jdb_thread_list::sc_iter_prev(Sched_context *t)
+{ return sc_wfq_iter_prev<Jdb_thread_list_policy<Ready_queue_wfq<Sched_context> > >(t); }
+
+static inline NOEXPORT
+Sched_context *
+Jdb_thread_list::sc_iter_next(Sched_context *t)
+{ return sc_wfq_iter_next<Jdb_thread_list_policy<Ready_queue_wfq<Sched_context> > >(t); }
 
 
 // --------------------------------------------------------------------------
@@ -312,15 +381,15 @@ Jdb_thread_list::iter_prev(Thread *t)
 {
   if (_pr == 'p')
     {
-      Kobject *o = t;
+      Kobject_dbg::Iterator o = Kobject_dbg::Kobject_list::iter(t->dbg_info());
       do
 	{
-	  o = Kobject::from_dbg(o->dbg_info()->_pref);
-	  if (!o)
-	    o = Kobject::from_dbg(Kobject_dbg::_jdb_tail);
+	  --o;
+	  if (o == Kobject_dbg::end())
+	    --o;
 	}
-      while (!Kobject::dcast<Thread*>(o));
-      return Kobject::dcast<Thread*>(o);
+      while (!Kobject::dcast<Thread*>(Kobject::from_dbg(*o)));
+      return Kobject::dcast<Thread*>(Kobject::from_dbg(*o));
     }
   else
     return static_cast<Thread*>(sc_iter_prev(t->sched())->context());
@@ -333,15 +402,15 @@ Jdb_thread_list::iter_next(Thread *t)
 {
   if (_pr == 'p')
     {
-      Kobject *o = t;
+      Kobject_dbg::Iterator o = Kobject_dbg::Kobject_list::iter(t->dbg_info());
       do
 	{
-	  o = Kobject::from_dbg(o->dbg_info()->_next);
-	  if (!o)
-	    o = Kobject::from_dbg(Kobject_dbg::_jdb_head.get_unused());
+	  ++o;
+	  if (o == Kobject_dbg::end())
+	    ++o;
 	}
-      while (!Kobject::dcast<Thread*>(o));
-      return Kobject::dcast<Thread*>(o);
+      while (!Kobject::dcast<Thread*>(Kobject::from_dbg(*o)));
+      return Kobject::dcast<Thread*>(Kobject::from_dbg(*o));
     }
   else
     return static_cast<Thread*>(sc_iter_next(t->sched())->context());
@@ -414,7 +483,6 @@ Jdb_thread_list::iter(int count, Thread **t_start,
 
 	  long key_current = get_key(*t_start);
 	  long key_next = (forw) ? LONG_MIN : LONG_MAX;
-
           t = t_head;
 	  if (iter)
 	    iter(*t_start);
@@ -424,7 +492,6 @@ Jdb_thread_list::iter(int count, Thread **t_start,
 		start_skipped = 1;
 
 	      key = get_key(t);
-
 	      // while walking through the current list, look for next key
 	      if (   ( forw && (key > key_next) && (key < key_current))
 		  || (!forw && (key < key_next) && (key > key_current)))
@@ -584,10 +651,15 @@ Jdb_thread_list::list_threads_show_thread(Thread *t)
   else
     printf(" %5lx ", get_space_dbgid(t));
 
-
-  if ((t->state(false) & Thread_ipc_mask) == Thread_receive_wait)
+  if (Jdb_thread::has_partner(t))
     {
       Jdb_thread::print_partner(t, 5);
+      waiting_for = 1;
+    }
+  else if (Jdb_thread::has_snd_partner(t))
+    {
+      Jdb_thread::print_snd_partner(t, 5);
+      putchar(' ');
       waiting_for = 1;
     }
   else
@@ -626,12 +698,12 @@ Jdb_thread_list::list_threads_show_thread(Thread *t)
     }
   else
     {
-      if (Config::stack_depth)
+      if (Config::Stack_depth)
 	{
 	  Mword i, stack_depth;
 	  char *c  = (char*)t + sizeof (Thread);
-	  for (i = sizeof (Thread), stack_depth = Config::thread_block_size;
-	      i < Config::thread_block_size;
+	  for (i = sizeof (Thread), stack_depth = Context::Size;
+	      i < Context::Size;
 	      i++, stack_depth--, c++)
 	    if (*c != '5')
 	      break;
@@ -650,7 +722,7 @@ Jdb_thread_list::show_header()
 {
   Jdb::cursor();
   printf("%s   id cpu name             pr     sp  wait    to%s state\033[m\033[K",
-         Jdb::esc_emph, Config::stack_depth ? "  stack" : "");
+         Jdb::esc_emph, Config::Stack_depth ? "  stack" : "");
 }
 
 static void

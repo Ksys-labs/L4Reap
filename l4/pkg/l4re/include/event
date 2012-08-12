@@ -34,8 +34,67 @@ namespace L4Re {
  */
 
 typedef l4re_event_stream_id_t Event_stream_id;
-typedef l4re_event_stream_info_t Event_stream_info;
 typedef l4re_event_absinfo_t Event_absinfo;
+
+class L4_EXPORT Event_stream_info : public l4re_event_stream_info_t
+{
+private:
+  static unsigned __get_idx(unsigned idx)
+  { return idx / (sizeof(unsigned long)*8); }
+
+  static unsigned long __get_mask(unsigned idx)
+  { return 1ul << (idx % (sizeof(unsigned long)*8)); }
+
+  static bool __get_bit(unsigned long const *bm, unsigned max, unsigned idx)
+  {
+    if (idx <= max)
+      return bm[__get_idx(idx)] & __get_mask(idx);
+    return false;
+  }
+
+  static void __set_bit(unsigned long *bm, unsigned max, unsigned idx, bool v)
+  {
+    if (idx > max)
+      return;
+
+    if (v)
+      bm[__get_idx(idx)] |= __get_mask(idx);
+    else
+      bm[__get_idx(idx)] &= ~__get_mask(idx);
+  }
+
+
+public:
+  bool get_propbit(unsigned idx) const
+  { return __get_bit(propbits, L4RE_EVENT_PROP_MAX, idx); }
+
+  void set_propbit(unsigned idx, bool v)
+  { __set_bit(propbits, L4RE_EVENT_PROP_MAX, idx, v); }
+
+  bool get_evbit(unsigned idx) const
+  { return __get_bit(evbits, L4RE_EVENT_EV_MAX, idx); }
+
+  void set_evbit(unsigned idx, bool v)
+  { __set_bit(evbits, L4RE_EVENT_EV_MAX, idx, v); }
+
+  bool get_keybit(unsigned idx) const
+  { return __get_bit(keybits, L4RE_EVENT_KEY_MAX, idx); }
+
+  void set_keybit(unsigned idx, bool v)
+  { __set_bit(keybits, L4RE_EVENT_KEY_MAX, idx, v); }
+
+  bool get_relbit(unsigned idx) const
+  { return __get_bit(relbits, L4RE_EVENT_REL_MAX, idx); }
+
+  void set_relbit(unsigned idx, bool v)
+  { __set_bit(relbits, L4RE_EVENT_REL_MAX, idx, v); }
+
+  bool get_absbit(unsigned idx) const
+  { return __get_bit(absbits, L4RE_EVENT_ABS_MAX, idx); }
+
+  void set_absbit(unsigned idx, bool v)
+  { __set_bit(absbits, L4RE_EVENT_ABS_MAX, idx, v); }
+};
 
 /**
  * \brief Event class.
@@ -47,7 +106,7 @@ class L4_EXPORT Event :
   L4_KOBJECT(Event)
 public:
   /**
-   * \brief Get event signal and buffer.
+   * \brief Get event signal buffer.
    *
    * \retval ds Event buffer.
    *

@@ -1,23 +1,59 @@
+-------------------------------------------------
+-- exported functions used by the mag logic
+-------------------------------------------------
+
+Mag.user_state = Mag.get_user_state();
+
+-- handle an incoming event
 function handle_event(ev)
-  local device = ev[6];
+  -- 1: type, 2: code, 3: value, 4: time, 5: device_id, 6: source
+  local source = ev[6];
   local stream = ev[5];
-  local ddh = Mag.devices[device];
+  local ddh = Mag.sources[source];
   if not ddh then
-    Mag.devices[device] = {};
-    ddh =  Mag.devices[device];
+    Mag.sources[source] = {};
+    ddh =  Mag.sources[source];
   end
 
   local dh = ddh[stream];
   if not dh then
-    dh = Mag.create_input_device(device, stream);
+    dh = Mag.create_input_device(source, stream);
   end
 
   -- print ("EV: ", ev[1], ev[2], ev[3], ev[4], ev[5], ev[6]);
-  return dh:process(ev);
+  -- print(string.format("src=[%s:%s]: type=%x code=%x val=%x (time=%d)", tostring(ev[6]), tostring(ev[5]), ev[1], ev[2], ev[3], ev[4]));
+  return dh:process_event(ev);
+end
+
+-- mag requests infos about a specific input event stream
+function input_source_info(global_id)
+  local device = Mag.streams[global_id];
+  if not device then
+    return -22;
+  end
+
+  return device.handler.get_stream_info(device);
+end
+
+-- mag requests infos about a specific input event stream
+function input_source_abs_info(global_id, ...)
+  local device = Mag.streams[global_id];
+  if not device then
+    return -22;
+  end
+
+  return device.handler.get_abs_info(device, ...);
 end
 
 
-module("Mag", package.seeall);
+
+-------------------------------------------------
+-- The internals of our event handling module
+-------------------------------------------------
+module("Mag", package.seeall)
+
+-- mag will initialize the variable 'user_state' to refer to
+-- mag's user state object.
 
 Event = {
   Type   = 1,
@@ -404,6 +440,7 @@ Event = {
     TOOL_WIDTH = 0x1c,
     VOLUME     = 0x20,
     MISC       = 0x28,
+    MT_SLOT        = 0x2f,
     MT_TOUCH_MAJOR = 0x30,
     MT_TOUCH_MINOR = 0x31,
     MT_WIDTH_MAJOR = 0x32,
@@ -414,6 +451,8 @@ Event = {
     MT_TOOL_TYPE   = 0x37,
     MT_BLOB_ID     = 0x38,
     MT_TRACKING_ID = 0x39,
+    MT_PRESSURE    = 0x3a,
+    MT_DISTANCE    = 0x3b,
     MAX        = 0x3f,
   };
 
@@ -489,8 +528,8 @@ Event = {
 };
 
 -- stores all kown input devices
-
-devices = {};
+streams = {};
+sources = {};
 Input_device = {
   Devs = {};
   quirks = {};
@@ -521,7 +560,7 @@ Input_device = {
     HIL		= 0x04,
     BLUETOOTH	= 0x05,
     VIRTUAL	= 0x06,
-    
+
     ISA		= 0x10,
     I8042	= 0x11,
     XTKBD	= 0x12,
@@ -541,6 +580,42 @@ function Input_device:drop_event(e)
   return true;
 end
 
+function Input_device:get_stream_info()
+  return self.source:get_stream_info(self.stream);
+end
+
+function Input_device:get_abs_info(...)
+  return self.source:get_abs_info(self.stream, ...);
+end
+
+
+function Input_device:init()
+  self.current_report = Hid_report(self.global_id, 0x10, 0x29, 0x8, 0x10, 0x10 );
+end
+
+function Input_device:process_event(ev)
+  local r = self.current_report;
+  local t = ev[1];
+  local c = ev[2];
+  if t == 3 then
+    if c < 0x2f then
+      r:set(3, c, ev[3]);
+    else
+      r:mt_set(c, ev[3]);
+    end
+  elseif t == 1 then
+    r:add_key(c, ev[3]);
+  elseif t > 1 and t <=5 then
+    r:set(t, c, ev[3]);
+  elseif t == 0 and c == 2 then -- mt sync
+    r:submit_mt();
+  elseif t == 0 and c == 0 then -- full sync
+    r:sync(ev[4]);
+    self:process(r);
+    r:clear();
+  end
+end
+
 -- ----------------------------------------------------------------------
 --  Generic pointer device handling.
 --
@@ -549,75 +624,143 @@ end
 -- ----------------------------------------------------------------------
 Input_device.Devs.pointer = {};
 
-function Input_device.Devs.pointer:init()
-  -- raw position of an absolute device
-  self.raw_pos       = { 0, 0 };
-  self.motion        = { 0, 0 };
-  -- transformation of raw coordinates to screen coordinates
-  self.transform_pos = self:get_pointer_transform_func();
-  self.drag_focus    = user_state:create_view_proxy();
-  self.pointed_view  = user_state:create_view_proxy();
+Input_device.Devs.pointer.drag_focus    = View_proxy(user_state);
 
-  if (self.info:get_absbit(0) and self.info:get_absbit(1)) then
-    local res, x, y = self.device:get_abs_info(self.stream, 0, 1);
-    if res == 0 then
-      x.delta = x.max - x.min;
-      y.delta = y.max - y.min;
-      self.abs_info = { x, y };
+function Input_device.new_virt_ctrl(_axes, _core)
+  local ctrl = { axes = _axes, core = _core };
+  for _, a in pairs(_axes) do
+    a.ctrl = ctrl;
+  end
+  return ctrl;
+end
+
+local screen_width, screen_height = user_state:screen_size()
+
+Input_device.core_ctrl = Input_device.new_virt_ctrl(
+  { x = { idx = Event.Abs.X, min = 0, max = screen_width,
+          fuzz = 0, flat = 0, mode = 1, v = 0 },
+    y = { idx = Event.Abs.Y, min = 0, max = screen_height,
+          fuzz = 0, flat = 0, mode = 2, v = 0 } }, true);
+
+function Input_device.Devs.pointer:init()
+  Input_device.init(self);
+  self.pointed_view  = View_proxy(user_state);
+
+  -- get core pointer control descriptions for x and y axis
+  local core_ctrl = Input_device.core_ctrl;
+
+  self.xfrm_abs_axes = {};
+  
+  local d_info = self.info;
+
+  if d_info:get_absbit(0) and d_info:get_absbit(1) then
+    -- we transfrom the absolute x and y axes of this device to core control
+    -- coordinates
+    self.xfrm_abs_axes[#self.xfrm_abs_axes] =
+      { x = Event.Abs.X, y = Event.Abs.Y,
+        -- we have our abs x and abs y axis controling our core pointer
+        core_x = core_ctrl.axes.x, core_y = core_ctrl.axes.y,
+        xfrm = self:get_pointer_transform_func(Event.Abs.X, Event.Abs.Y) };
+  end
+
+  self.virt_ctrls = { core_ctrl };
+
+  self.vaxes = { [Event.Abs.X] = core_ctrl.axes.x,
+                 [Event.Abs.Y] = core_ctrl.axes.y };
+
+  self.rel_to_abs_axes = { [Event.Rel.X] = { va = core_ctrl.axes.x, ctrl = core_ctrl },
+                           [Event.Rel.Y] = { va = core_ctrl.axes.y, ctrl = core_ctrl } };
+
+  local abs_info = Axis_info_vector(0x40);
+  self.current_report:set_abs_info(abs_info);
+  self.abs_info = abs_info;
+  for a = 0, 0x3f do
+    if d_info:get_absbit(a) then
+      local r, i = self:get_abs_info(a);
+      if r == 0 then
+	abs_info:set(a, i);
+      end
     end
   end
+
+  if abs_info[0] then
+    abs_info[0].mode = 1;
+  end
+  if abs_info[1] then
+    abs_info[1].mode = 2;
+  end
+
+  if d_info:get_absbit(0x35) and d_info:get_absbit(0x36) then
+    local mt_ctrl = Input_device.new_virt_ctrl(
+      { x = { idx = 0x35, min = 0, max = screen_width,
+              fuzz = 0, flat = 0, mode = 1, v = 0 },
+        y = { idx = 0x36, min = 0, max = screen_height,
+              fuzz = 0, flat = 0, mode = 2, v = 0 } })
+    self.xfrm_abs_axes[#self.xfrm_abs_axes + 1] =
+      { x = 0x35, y = 0x36, xfrm = self:get_pointer_transform_func(0x35, 0x36) };
+    self.vaxes[0x35] = mt_ctrl.axes.x;
+    self.vaxes[0x36] = mt_ctrl.axes.y;
+    abs_info[0x35].mode = 1;
+    abs_info[0x36].mode = 2;
+  end
+end
+
+function Input_device.Devs.pointer:get_stream_info()
+  local r, info = self:get_stream_info();
+
+  if r < 0 then
+    return r;
+  end
+
+  -- This device is translated to a core pointer
+  -- this means it sends always absolute X,Y axis pairs
+  if self.vaxes then
+    info:set_evbit(Event.ABS, true);
+    for a, _ in pairs(self.vaxes) do
+      info:set_absbit(a, true);
+    end
+  end
+
+  if self.rel_to_abs_axes then
+    for a, _ in pairs(self.rel_to_abs_axes) do
+      info:set_relbit(a, false);
+    end
+  end
+
+  return r, info;
+end
+
+function Input_device.Devs.pointer:get_abs_info(...)
+  local axes = {...};
+  local pass = true;
+  local vaxes = self.vaxes;
+  local r = {};
+
+  for _, s in ipairs(axes) do
+    if vaxes[s] then
+      r[_] = vaxes[s];
+    else
+      r[_] = self.abs_info[s];
+      if not r[_] then
+	return -22;
+      end
+    end
+  end
+  return (vaxes ~= nil), unpack(r);
 end
 
 -- generic transformationof absolute pointer events to screen coordinates
-function Input_device:get_pointer_transform_func()
+function Input_device:get_pointer_transform_func(ax, ay)
   -- transformation of raw coordinates to screen coordinates
-  return function(self, x, y)
+  local w, h = user_state:screen_size();
+  return function(self, p)
     if self.abs_info then
-      return x * user_state.width / self.abs_info[1].delta,
-             y * user_state.height / self.abs_info[2].delta;
+      return p[1] * w / self.abs_info[ax].delta,
+             p[2] * h / self.abs_info[ay].delta;
     else
-      return x, y;
+      return p[1], p[2];
     end
   end;
-end
-
-
-function Input_device.Devs.pointer:motion(e)
-  local t = e[1];
-  local c = e[2];
-  if t == Event.REL and (c == 0 or c == 1) then
-    self.motion[c + 1] = e[3];
-    self.core_motion = 1;
-    return true; -- cosnumed event
-  elseif t == Event.ABS and (c == 0 or c == 1) then
-    self.raw_pos[c + 1] = e[3];
-    self.core_motion = 2;
-    return true; -- consumed event
-  end
-  return false; -- did not consume event (pass on)
-end
-
-function Input_device.Devs.pointer:button(e)
-  local c = e[2];
-  local v = e[3];
-  if v == 1 then
-    if self.pressed_keys == 0 then
-      self.set_focus = true;
-      self.start_drag = true;
-    end
-    self.pressed_keys = self.pressed_keys + 1;
-
-    if c == 70 then
-      self.toggle_mode = 1;
-    elseif c == 210 or c == 99 then
-      self.toggle_mode = 2;
-    end
-  elseif v == 0 then
-    self.pressed_keys = self.pressed_keys - 1;
-    if self.pressed_keys == 0 then
-      self.stop_drag = true;
-    end
-  end
 end
 
 -- ----------------------------------------------------------------
@@ -626,78 +769,192 @@ end
 -- - converts motion events to the core mouse pointer of mag
 -- - manages dragging and keyboard focus
 
-function Input_device.Devs.pointer:sync(ev)
+
+Input_device.Default = {};
+
+function Input_device.Default:axis_xfrm(report)
+  local function do_xfrm_axes(xfrm_axes, axes)
+    if not axes then return end
+    for i, cax in pairs(xfrm_axes) do
+      local x = axes[cax.x];
+      local y = axes[cax.y];
+      if x and y then
+        x, y = cax.xfrm(self, {x, y});
+        axes[cax.x] = x;
+        axes[cax.y] = y;
+        local ca = cax.core_x;
+        if ca then
+          ca.v = x;
+          ca.ctrl.update = true;
+        end
+        local ca = cax.core_y;
+        if ca then
+          ca.v = y;
+          ca.ctrl.update = true;
+        end
+      end
+    end
+  end
+
+  -- scale and rotate absolute axes
+  local abs = report[3];
+  do_xfrm_axes(self.xfrm_abs_axes, abs);
+  for id = 0, 10 do
+    do_xfrm_axes(self.xfrm_abs_axes, report:get_mt_vals(id));
+  end
+
+  -- transform relative to absolute axes if needed
+  local rel = report[2];
+  if rel then
+    for a, inf in pairs(self.rel_to_abs_axes) do
+      local v = rel[a];
+      if v then
+	rel:inv(a);
+	local vctrl = inf.ctrl;
+	local va = inf.va;
+	v = va.v + v;
+	if v < va.min then
+	  v = va.min;
+	end
+	if v > va.max then
+	  v = va.max;
+	end
+	va.v = v;
+	vctrl.dirty = true;
+      end
+    end
+  end
+
+  -- write back virtual controls if they are dirty
+  if abs then
+    for c, vc in pairs(self.virt_ctrls) do
+	for i, va in pairs(vc.axes) do
+	  abs:set(va.idx, va.v);
+	end
+      if vc.dirty then
+	vc.update = true; -- if its a core control we need an update
+	vc.dirty = false;
+      end
+    end
+  end
+end
+
+function Input_device.Default:foreach_key(report, func)
+  local i = 0;
+  while true do
+    local c, v = report:get_key_event(i);
+    if not c then
+      break;
+    end
+    if func(self, c, v) then
+      return true;
+    end
+    i = i + 1;
+  end
+end
+
+function Input_device.Default:do_core_ctrl()
+  local cctrl = Input_device.core_ctrl;
+  if cctrl.update then
+    cctrl.update = false;
+    local x, y = cctrl.axes.x.v, cctrl.axes.y.v;
+    user_state:set_pointer(x, y, self.hide_cursor or false);
+    user_state:find_pointed_view(self.pointed_view); -- should need x and y here
+  end
+end
+
+function Input_device.Default:core_keys(report)
+  local toggle_mode = 0;
+  local function xray_key(s, c, v)
+    if v ~= 1 then
+      return false;
+    end
+    return (c == 70) or (c == Event.Key.NEXTSONG);
+  end
+
+  local function kill_key(s, c, v)
+    if v ~= 1 then
+      return false;
+    end
+    return (c == 210) or (c == 99);
+  end
+
+  local fek = Input_device.Default.foreach_key;
+
+  if fek(self, report, xray_key) then
+    toggle_mode = 1;
+  elseif fek(self, report, kill_key) then
+    toggle_mode = 2;
+  end
+  if toggle_mode ~= 0 then
+    user_state:toggle_mode(toggle_mode);
+    return true;
+  end
+  return false;
+end
+
+function Input_device.Default:dnd_handling()
+  local ptr = Input_device.Devs.pointer;
+  if ptr.dragging then
+    if ptr.dragging == self and self.stop_drag then
+      ptr.dragging = false;
+    end
+    self.stop_drag = false;
+    return ptr.drag_focus;
+  else
+    return self.pointed_view;
+  end
+end
+
+function Input_device.Devs.pointer:hook(report)
+  local n_press = 0;
+  local n_release = 0;
+  local function k(s, c, v)
+    if v == 1 then
+      n_press = n_press + 1;
+    elseif v == 0 then
+      n_release = n_release + 1;
+    end
+  end
+  Input_device.Default.foreach_key(self, report, k);
+
+  local n = self.pressed_keys + n_press - n_release;
+  if n < 0 then
+    n = 0;
+  end
+
+  self.pressed_keys = n;
+
+  local ptr = Input_device.Devs.pointer;
+
+  if (not ptr.dragging) and n_press > 0 and n == n_press then
+    ptr.dragging = self;
+    ptr.drag_focus:set(self.pointed_view);
+    self.set_focus = true;
+  elseif n_release > 0 and n == 0 then
+    self.stop_drag = true;
+  end
+end
+
+function Input_device.Devs.pointer:process(report)
   local update = false;
   local sink;
+  local dfl = Input_device.Default;
 
-  if self.stop_drag or self.pressed_keys > 0 then
-    sink = self.drag_focus;
-  else
-    sink = self.pointed_view;
+  dfl.axis_xfrm(self, report);
+  dfl.do_core_ctrl(self);
+
+  if self.handler.hook then
+    self.handler.hook(self, report);
   end
 
-  if self.toggle_mode ~= 0 then
-    user_state:toggle_mode(self.toggle_mode);
-    update = true;
-  end
-  if self.core_motion == 2 then
-    local x, y = self:transform_pos(self.raw_pos[1], self.raw_pos[2]);
-    user_state:set_pointer(x, y);
-  elseif self.core_motion == 1 then
-    user_state:move_pointer(self.motion[1], self.motion[2]);
-    self.motion = { 0, 0 };
-  end
-
-  user_state:find_pointed_view(self.pointed_view);
-
-  if self.start_drag then
-    self.drag_focus:set(self.pointed_view);
-    self.start_drag = false;
-  end
-
-  -- print ("core_motion", self.core_motion);
-  if self.core_motion and self.core_motion ~= 0 then
-    if self.set_focus then
-      update = user_state:set_kbd_focus(self.pointed_view) or update;
-      self.set_focus = false;
-    end
-    user_state:post_pointer_event(sink, self.stream, ev[4]);
-    self.core_motion = 0;
-  elseif self.set_focus then
+  sink = dfl.dnd_handling(self);
+  -- for keyboards: update = dfl.core_keys(self, report);
+  if self.set_focus then
     update = user_state:set_kbd_focus(self.pointed_view) or update;
     self.set_focus = false;
   end
-
-  for index = 1, #self.events do
-    local e = self.events[index];
-    user_state:post_event(sink, self.stream, ev[4], e[1], e[2], e[3]);
-  end
-
-  -- post syn event
-  user_state:post_event(sink, self.stream, ev[4], ev[1], ev[2], ev[3], update);
-
-  self.stop_drag = false;
-  self.toggle_mode = 0;
-  self.events = {}; -- clear old events
-end
-
-function Input_device.Devs.pointer:process(ev)
---  print ("got event:", time, device.stream, "f", device.can_set_focus, "f", t, c, v);
-
-  if ev[1] == 0 and ev[2] == 0 then
-    self.handler.sync(self, ev);
-    return;
-  end
-
-  if ev[1] == 1 then
-    if self.handler.button(self, ev) then
-      return;
-    end
-  elseif self.handler.motion(self, ev) then
-    return;
-  end
-
-  self.events[#self.events + 1] = ev;
+  user_state:post_event(sink, report, update, true);
 end
 
 
@@ -706,6 +963,20 @@ setmetatable(Input_device.Devs.touchscreen, { __index = Input_device.Devs.pointe
 
 function Input_device.Devs.touchscreen:init()
   Input_device.Devs.pointer.init(self);
+  self.hide_cursor = true;
+end
+
+function Input_device.Devs.touchscreen:get_stream_info()
+  local r, info = Input_device.Devs.pointer.get_stream_info(self);
+
+  if r < 0 then
+    return r;
+  end
+
+  -- additionally we have a left button, but no longer the touch button
+  --info:set_keybit(Event.Btn.TOUCH, false);
+  --info:set_keybit(Event.Btn.LEFT, true);
+  return r, info;
 end
 
 function Input_device.Devs.touchscreen:button(e)
@@ -734,105 +1005,144 @@ function Input_device.Devs.touchpad:init()
     release    = false;
     touch_drag = false;
     tap_time   = 150 * 1000; -- 150 ms
+    btn_report = Hid_report(self.global_id,0,0,0,0,0);
   };
   local tdev = self.touchdev;
-  tdev.p    = { Mag.Axis_buf(4), Mag.Axis_buf(4) };
+  tdev.p    = { Axis_buf(4), Axis_buf(4) };
   tdev.pkts = 0;
 end
 
-function Input_device.Devs.touchpad:button(e)
-  local c = e[2];
-  local v = e[3];
-  Input_device.Devs.pointer.button(self, e);
-  if c == Event.Btn.TOUCH and v ~= 2 then
-    local time = e[4];
-    local p = self.touchdev;
-    if v == 1 then
-      if p.release and p.release + p.tap_time > time then
-        p.touch_drag = true;
-        self:process({ Event.KEY, Event.Btn.LEFT, 1, p.touch, e[5], e[6] });
-      end
-      p.touch = time;
-      p.release = false;
-    else
-      if p.touch_drag then
-        p.touch_drag = false;
-        self:process({ Event.KEY, Event.Btn.LEFT, 0, time, e[5], e[6] });
-      elseif p.touch and p.touch + p.tap_time > time then
-        p.release = time;
-        self:process({ Event.KEY, Event.Btn.LEFT, 1, p.touch, e[5], e[6] });
-        self:process({ Event.KEY, Event.Btn.LEFT, 0, time, e[5], e[6] });
-      end
-      p.pkts = 0;
-      p.touch = false;
+function Input_device.Devs.touchpad:get_stream_info()
+  local r, info = Input_device.Devs.pointer.get_stream_info(self);
+
+  if r < 0 then
+    return r;
+  end
+
+  -- additionally we have a left button, but no longer the touch button
+  info:set_keybit(Event.Btn.LEFT, true);
+  info:set_keybit(Event.Btn.TOOL_FINGER, false);
+  info:set_keybit(Event.Btn.TOOL_PEN, true);
+
+  -- hm, X does not like to have MT values if we do not send them
+  info:set_absbit(0x2f, false);
+  info:set_absbit(0x30, false);
+  info:set_absbit(0x31, false);
+  info:set_absbit(0x32, false);
+  info:set_absbit(0x33, false);
+  info:set_absbit(0x34, false);
+  info:set_absbit(0x35, false);
+  info:set_absbit(0x36, false);
+  info:set_absbit(0x37, false);
+  info:set_absbit(0x38, false);
+  info:set_absbit(0x39, false);
+  info:set_absbit(0x3a, false);
+  info:set_absbit(0x3b, false);
+
+  return r, info;
+end
+
+function Input_device.Devs.touchpad:button(r)
+  local c, v = r:find_key_event(Event.Btn.TOUCH);
+  if not v or v == 2 then
+    return
+  end
+
+  local time = r:time();
+  local p = self.touchdev;
+
+  -- drop the touch event, we convert it to left mouse button
+  --r[1][Event.Btn.TOUCH] = nil;
+  r:remove_key_event(Event.Btn.TOOL_FINGER);
+
+  if v == 1 then
+    if p.release and p.release + p.tap_time > time then
+      p.touch_drag = true;
+      r:add_key(Event.Btn.LEFT, 1);
     end
+    p.touch = time;
+    p.release = false;
+  else
+    if p.touch_drag then
+      p.touch_drag = false;
+      r:add_key(Event.Btn.LEFT, 0);
+    elseif p.touch and p.touch + p.tap_time > time then
+      p.release = time;
+
+      local dr = p.btn_report;
+
+      dr:clear();
+      dr:sync(time);
+      dr:add_key(Event.Btn.LEFT, 1);
+      self:process(dr);
+
+      r:add_key(Event.Btn.LEFT, 0);
+    end
+    p.pkts = 0;
+    p.touch = false;
   end
 end
 
-function Input_device.Devs.touchpad:motion(e)
-  local t = e[1];
-  local c = e[2];
+function Input_device.Devs.touchpad:motion(r)
   local p = self.touchdev;
   if not p.touch then
-    return true; -- drop event, if not touched
+    -- drop event, if not touched
+    r[2]:clear();
+    r[3]:clear();
+    return
   end
 
-  if t == Event.REL and (c == 0 or c == 1) then
-    self.motion[c + 1] = e[3];
-    self.core_motion = 1;
-    return true; -- cosnumed event
-  elseif t == Event.ABS and (c == 0 or c == 1) then
-    c = c + 1;
-    local v = e[3];
-    local cnt = p.pkts;
-    p.p[c][cnt] = v;
-    if cnt >= 2 then
-      local size = self.abs_info[c].delta;
-      self.motion[c] = (v - p.p[c]:get(cnt - 2)) * 256 / size;
-      self.core_motion = 1;
+  local abs = r[3];
+  for c = 1, 2 do
+    local v = abs[c-1];
+    if v then
+      local cnt = p.pkts;
+      p.p[c][cnt] = v;
+      if cnt >= 2 then
+        local size = self.abs_info[c-1].delta;
+        r[2]:set(c-1, (v - p.p[c]:get(cnt - 2)) * 256 / size);
+      end
+      abs:inv(c-1);
     end
-    return true; -- cosnumed event
   end
-  return false; -- did not consume event (pass on)
+
+  local nc = p.pkts + 1;
+  p.pkts = nc;
+  p.p[1]:copy(nc, nc - 1);
+  p.p[2]:copy(nc, nc - 1);
 end
 
-function Input_device.Devs.touchpad:sync(ev)
-  local p = self.touchdev;
-  if p.touch then
-    local nc = p.pkts + 1;
-    p.pkts = nc;
-    p.p[1]:copy(nc, nc - 1);
-    p.p[2]:copy(nc, nc - 1);
-  end
-  Input_device.Devs.pointer.sync(self, ev);
+function Input_device.Devs.touchpad:process(r)
+  Input_device.Devs.touchpad.button(self, r);
+  Input_device.Devs.touchpad.motion(self, r);
+  Input_device.Devs.pointer.process(self, r)
 end
 
 -- ----------------------------------------------------------------------
 --  Keyboard device handling
 -- ----------------------------------------------------------------------
 Input_device.Devs.keyboard = {};
+setmetatable(Input_device.Devs.keyboard, { __index = Input_device });
 
-function Input_device.Devs.keyboard:process(ev)
-  local c = ev[2];
-  local v = ev[3];
-  local toggle_mode = 0;
-  if v == 1 then
-    self.pressed_keys = self.pressed_keys + 1;
-    if c == 70 then
-      toggle_mode = 1;
-    elseif c == 210 or c == 99 then
-      toggle_mode = 2;
-    end
-  elseif v == 0 then
-    self.pressed_keys = self.pressed_keys - 1;
-  end
-  local update = false;
-  if toggle_mode ~= 0 then
-    user_state:toggle_mode(toggle_mode);
-    update = true;
-  end
-  user_state:post_event(nil, self.stream, ev[4], ev[1], ev[2], ev[3], update);
+function Input_device.Devs.keyboard:get_stream_info()
+  return self:get_stream_info();
 end
+
+function Input_device.Devs.keyboard:get_abs_info(...)
+  return self:get_abs_info(...);
+end
+
+function Input_device.Devs.keyboard:process(report)
+  local dfl = Input_device.Default;
+
+  if self.handler.hook then
+    self.handler.hook(self, report);
+  end
+  local update = dfl.core_keys(self, report);
+  user_state:post_event(nil, report, update, true);
+end
+
+Input_device.Devs.unknown = Input_device;
 
 function Input_device:find_device_type()
   local bus, vend, prod, ver = self.info:get_device_id();
@@ -861,7 +1171,7 @@ function Input_device:find_device_type()
     end
   end
   if (have_keys and self.info:get_evbit(3)) then
-    -- we have absolute axes, can ba a mouse
+    -- we have absolute axes, can be a mouse
     if self.info:get_absbit(0) and self.info:get_absbit(1) then
       if self.info:get_keybit(0x110) then
         -- x and y axis and at least the left mouse button found
@@ -869,7 +1179,7 @@ function Input_device:find_device_type()
       end
       if self.info:get_keybit(Event.Btn.TOUCH)
          and not self.info:get_keybit(0x110) then
-        -- x and y axis and at least the left mouse button found
+        -- x and y axis and at least touch button found
         self.dev_type = "touchscreen";
       end
     end
@@ -898,11 +1208,14 @@ end
 --  A single input stream is managed by a device specific set of
 --  methods and data structures.
 -- -----------------------------------------------------------------------
-function create_input_device(device, stream)
+local input_device_mt = { __index = Input_device };
+
+function create_input_device(source, stream)
   local dh = {
     -- the device handle itself
-    device        = device,
+    source        = source,
     stream        = stream,
+    global_id     = #streams + 1;
 
     -- number of keys currently pressed on this device
     pressed_keys  = 0,
@@ -912,20 +1225,19 @@ function create_input_device(device, stream)
     set_focus     = false,
     -- the current events stop dragging mode
     stop_drag     = false,
-    -- the current events toggle kill and x-ray mode
-    toggle_mode   = 0,
     -- the events to pass to the applications
     events        = {},
     -- event handler for the device
     process       = Input_device.drop_event
   };
 
-  local r;
-  r, dh.info = device:get_stream_info(stream);
+  setmetatable(dh, input_device_mt);
 
-  local meta_table = meta_table or { __index = Input_device };
-  setmetatable(dh, meta_table);
-  devices[device][stream] = dh;
+  local r;
+  r, dh.info = dh:get_stream_info();
+
+  sources[source][stream] = dh;
+  streams[dh.global_id] = dh;
 
   dh:find_device_type();
   dh.handler = Input_device.Devs[dh.dev_type] or {};
@@ -943,7 +1255,7 @@ function create_input_device(device, stream)
 
   print (string.format([==[Input: new %s device (src='%s' stream='%s')
                            bus='%s' vendor=0x%x product=0x%x version=%d]==],
-                       dh.dev_type, tostring(dh.device), tostring(dh.stream),
+                       dh.dev_type, tostring(dh.source), tostring(dh.stream),
                        pdev(dh)));
   return dh;
 end

@@ -100,9 +100,7 @@ slowtraps:
 	mov     0x90(%rsp),%rax		/* create artificial stack frame */
 	push    %rax			/* push rip */
 	push	%rbp
-# ifndef CONFIG_PROFILE
 	lea	(%rsp),%rbp
-# endif
 #endif
 
         /* Call the C handler function if one has been installed.  */

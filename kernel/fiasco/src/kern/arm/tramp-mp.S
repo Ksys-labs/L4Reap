@@ -154,7 +154,7 @@ _tramp_mp_virt:
 	.long BOOT_AP_CPU
 
 _cpu_counter_address:
-	.long (my_kernel_info_page + OFS__KIP__PROCESSOR_INFO)
+	.long config_num_ap_cpus
 
 .global _tramp_mp_startup_cp15_c1
 _tramp_mp_startup_cp15_c1:

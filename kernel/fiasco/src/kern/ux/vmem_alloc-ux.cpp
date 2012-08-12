@@ -11,7 +11,7 @@ IMPLEMENTATION[ux]:
 IMPLEMENT inline NEEDS [<cerrno>, <cstring>, <unistd.h>, <sys/mman.h>,
                         "boot_info.h", "config.h", "panic.h"]
 void
-Vmem_alloc::page_map (void *address, int order, Zero_fill zf, Address phys)
+Vmem_alloc::page_map(void *address, int order, Zero_fill zf, Address phys)
 {
   if (mmap (address, (1 << order) * Config::PAGE_SIZE,
             PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED,
@@ -22,11 +22,3 @@ Vmem_alloc::page_map (void *address, int order, Zero_fill zf, Address phys)
     memset(address, 0, (1 << order) * Config::PAGE_SIZE);
 }
 
-IMPLEMENT inline NEEDS [<cerrno>, <cstring>, <unistd.h>, <sys/mman.h>,
-                        "boot_info.h", "config.h", "panic.h"]
-void
-Vmem_alloc::page_unmap (void *address, int order)
-{
-  if (munmap (address, (1 << order) * Config::PAGE_SIZE) != 0)
-    panic ("munmap error: %s", strerror (errno));
-}

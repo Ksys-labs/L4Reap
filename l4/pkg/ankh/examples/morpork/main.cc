@@ -32,7 +32,7 @@ char sendbuf[256];
 /*
  * Print a MAC formatted
  */
-void print_mac(unsigned char *macptr)
+static void print_mac(unsigned char *macptr)
 {
 	char macbuf_size = 32;
 	char mac_buf[macbuf_size];
@@ -46,7 +46,7 @@ void print_mac(unsigned char *macptr)
 /*
  * Print my device's stats
  */
-void print_stats()
+static void print_stats()
 {
 	struct AnkhSessionDescriptor *sd
 	  = reinterpret_cast<struct AnkhSessionDescriptor*>(info->addr());
@@ -77,7 +77,7 @@ static void ankh_activate()
 	printf("activated Ankh connection.\n");
 }
 
-void get_shm_area(L4::Cap<void> /*session*/)
+static void get_shm_area(L4::Cap<void> /*session*/)
 {
 	int err = l4shmc_attach(shm_name, &ankh_shmarea);
 	ASSERT_OK(err);
@@ -118,7 +118,7 @@ void get_shm_area(L4::Cap<void> /*session*/)
 
 
 extern "C" int handle_icmp_packet(char *packet, unsigned size, char *buffer);
-void answer()
+static void answer()
 {
 	unsigned bufsize = sizeof(recvbuf);
 	memset(recvbuf, 0, sizeof(recvbuf));
@@ -136,7 +136,7 @@ void answer()
 }
 
 
-void receive()
+static void receive()
 {
 	static int cnt = 0;
 	while (true)
@@ -152,7 +152,7 @@ void receive()
 	}
 }
 
-void rxtx()
+static void rxtx()
 {
 	unsigned short cnt = 0;
 	unsigned bufsize = 200;
@@ -253,11 +253,10 @@ int main(int argc, char **argv)
 
 	get_shm_area(ankh_session);
 
-#if 1
-	receive();
-#else
-	rxtx();
-#endif
+	if (1)
+		receive();
+	else
+		rxtx();
 
 	l4_sleep_forever();
 	return 0;

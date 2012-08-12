@@ -69,7 +69,7 @@ static Tsc_disp disp_virt = {{ 0, 0 }, { 480, 640 }};
 
 static int tsc_init(void)
 {
-  vbus = l4re_get_env_cap("vbus");
+  vbus = l4re_env_get_cap("vbus");
 
   if (l4_is_invalid_cap(vbus))
     {

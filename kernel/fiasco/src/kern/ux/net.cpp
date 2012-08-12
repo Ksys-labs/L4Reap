@@ -26,7 +26,6 @@ IMPLEMENTATION:
 #include "boot_info.h"
 #include "initcalls.h"
 #include "irq_chip.h"
-#include "irq_pin.h"
 #include "kmem.h"
 #include "pic.h"
 #include "warn.h"
@@ -60,20 +59,17 @@ Net::init()
     }
 
   // Setup virtual interrupt
-  if (!Pic::setup_irq_prov (Pic::IRQ_NET,
+  if (!Pic::setup_irq_prov (Pic::Irq_net,
                             Boot_info::net_program(), bootstrap))
     {
       puts("Problems setting up network interrupt!");
       exit(1);
     }
 
-  static Irq_base ib;
-  Irq_chip::hw_chip->setup(&ib, Pic::IRQ_NET);
-
   Kip::k()->vhw()->set_desc(Vhw_entry::TYPE_NET,
                             0, 0,
-                            Pic::IRQ_NET,
-                            Pic::get_pid_for_irq_prov(Pic::IRQ_NET), tunfd);
+                            Pic::Irq_net,
+                            Pic::get_pid_for_irq_prov(Pic::Irq_net), tunfd);
 
   printf("Starting Network.\n\n");
 }

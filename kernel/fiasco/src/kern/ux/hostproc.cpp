@@ -83,10 +83,11 @@ PUBLIC static
 unsigned
 Hostproc::create()
 {
-  Lock_guard <Cpu_lock> guard (&cpu_lock);
+  Lock_guard <Cpu_lock> guard(&cpu_lock);
 
-  static pid_t pid;
-  static unsigned esp;
+  static unsigned long esp;
+  static Mword _stack[256];
+  register pid_t pid;
 
   /*
    * Careful with local variables here because we are changing the
@@ -94,29 +95,42 @@ Hostproc::create()
    * child gets its own COW stack rather than running on the parent
    * stack.
    */
-  asm volatile ("movl %%esp, %0; movl %1, %%esp" :
-                "=m" (esp), "=m" (boot_stack));
+  asm volatile("movl %%esp, %0 \n\t"
+               "movl %2, %%esp \n\t"
+	       "call _ZN8Hostproc7do_forkEv\n\t"
+	       "movl %0, %%esp \n\t"
+               : "=m" (esp), "=a" (pid)
+               : "r" (&_stack[sizeof(_stack) / sizeof(_stack[0])]));
 
-  // Make sure the child doesn't inherit any of our unflushed output
-  fflush (NULL);
-
-  switch (pid = fork())
-    {
+  switch (pid)
+  {
       case -1:                            // Failed
         return 0;
 
-      case 0:                             // Child
-        setup();
-        _exit(1);                        // unreached
-
       default:                            // Parent
-        asm volatile ("movl %0, %%esp" : : "m" (esp));
-
         int status;
         check (waitpid (pid, &status, 0) == pid);
         assert (WIFSTOPPED (status) && WSTOPSIG (status) == SIGUSR1);
 
         Trampoline::syscall (pid, __NR_munmap, 0, Mem_layout::Trampoline_page);
         return pid;
+  }
+}
+
+PRIVATE static
+int
+Hostproc::do_fork()
+{
+  // Make sure the child doesn't inherit any of our unflushed output
+  fflush (NULL);
+
+  switch (pid_t pid = fork())
+    {
+      case 0:                             // Child
+        setup();
+        _exit(1);                         // unreached
+
+      default:
+	return pid;
     }
 }

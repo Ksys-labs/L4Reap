@@ -40,6 +40,32 @@ Kernel_thread::free_initcall_section()
   free_initcall_section_done = 1;
 }
 
+static void ux_termination_handler()
+{
+  puts ("\nExiting, wait...");
+
+  Helping_lock::threading_system_active = false;
+  signal (SIGIO, SIG_IGN);		// Ignore hardware interrupts
+  // This is a great hack to delete the processes on fiasco UX
+  extern char _boot_sys_end[];
+  ::Kobject_dbg::Iterator c = ::Kobject_dbg::_kobjects.begin();
+  while (c != ::Kobject_dbg::_kobjects.end())
+    {
+      ::Kobject_dbg::Iterator n = c;
+      ++n;
+      Kobject *o = Kobject::from_dbg(c);
+      if ((void*)o > (void*)_boot_sys_end)
+	{
+	  // printf("Zapp: %p (%s)\n", o, o->kobj_type());
+	  delete o;
+	}
+      c = n;
+    }
+
+  fflush(0);  // Flush output stream
+}
+
+
 IMPLEMENT FIASCO_INIT
 void
 Kernel_thread::bootstrap_arch()
@@ -51,16 +77,8 @@ Kernel_thread::bootstrap_arch()
   if (Koptions::o()->opt(Koptions::F_jdb_cmd))
     kdb_ke_sequence(Koptions::o()->jdb_cmd);
 
+  atexit(ux_termination_handler);
   boot_app_cpus();
-}
-
-IMPLEMENT
-void
-Kernel_thread::arch_exit()
-{
-  fflush(0);  // Flush output stream
-  Pic::irq_prov_shutdown(); // atexit calls are not run with _exit
-  _exit(0);   // Don't call destructors
 }
 
 //--------------------------------------------------------------------------

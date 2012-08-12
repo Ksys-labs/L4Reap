@@ -16,44 +16,22 @@
  */
 
 #include "support.h"
-
-namespace L4
-{
-  class Uart_x86 : public Uart
-  {
-  private:
-    unsigned long _base;
-
-    inline unsigned long rd(unsigned long reg) const;
-    inline void wr(unsigned long reg, unsigned long val) const;
-
-  public:
-    Uart_x86(int rx_irq, int tx_irq)
-      : Uart(rx_irq, tx_irq), _base(~0UL) {}
-    bool startup(unsigned long base);
-    void shutdown();
-    bool enable_rx_irq(bool enable = true);
-    bool enable_tx_irq(bool enable = true);
-    bool change_mode(Transfer_mode m, Baud_rate r);
-    int get_char(bool blocking = true) const;
-    int char_avail() const;
-    inline void out_char(char c) const;
-    int write(char const *s, unsigned long count) const;
-  };
-};
-
+#include <l4/drivers/uart_pxa.h>
+#include <l4/drivers/io_regblock_port.h>
 
 #include <string.h>
 #include "base_critical.h"
-#include "ARCH-x86/serial.h"
+#include "startup.h"
 #include <l4/util/cpu.h>
 #include <l4/util/port_io.h>
 #include <assert.h>
+#include <stdlib.h>
+#include <stdio.h>
+
 
 /** VGA console output */
 
-static void
-vga_init()
+static void vga_init()
 {
   /* Reset any scrolling */
   l4util_out32(0xc, 0x3d4);
@@ -62,8 +40,7 @@ vga_init()
   l4util_out32(0, 0x3d5);
 }
 
-static void
-vga_putchar(unsigned char c)
+static void vga_putchar(unsigned char c)
 {
   static int ofs = -1, esc, esc_val, attr = 0x07;
   unsigned char *vidbase = (unsigned char*)0xb8000;
@@ -143,8 +120,7 @@ done:
 
 /** Poor man's getchar, only returns raw scan code. We don't need to know
  * _which_ key was pressed, we only want to know _if_ a key was pressed. */
-static int
-raw_keyboard_getscancode(void)
+static int raw_keyboard_getscancode(void)
 {
   unsigned status, scan_code;
 
@@ -171,55 +147,6 @@ raw_keyboard_getscancode(void)
   base_critical_leave();
   return scan_code;
 }
-
-namespace L4
-{
-  bool Uart_x86::startup(unsigned long /*base*/)
-  // real uart init will be made by startup.cc if told by cmdline
-  { vga_init(); return true; }
-
-  void Uart_x86::shutdown() {}
-  bool Uart_x86::enable_rx_irq(bool) { return true; }
-  bool Uart_x86::enable_tx_irq(bool) { return false; }
-  bool Uart_x86::change_mode(Transfer_mode, Baud_rate) { return false; }
-
-  int Uart_x86::get_char(bool blocking) const
-  {
-    int c;
-    do {
-      c = com_cons_try_getchar();
-      if (c == -1)
-        c = raw_keyboard_getscancode();
-      l4util_cpu_pause();
-    } while (c == -1 && blocking);
-
-    return c;
-  }
-
-  int Uart_x86::char_avail() const
-  {
-    return com_cons_char_avail();
-  }
-
-  void Uart_x86::out_char(char c) const
-  {
-    vga_putchar(c);      // vga out
-    com_cons_putchar(c); // serial out
-  }
-
-  int Uart_x86::write(char const *s, unsigned long count) const
-  {
-    unsigned long c = count;
-    while (c)
-      {
-        if (*s == 10)
-          out_char(13);
-        out_char(*s++);
-        --c;
-      }
-    return count;
-  }
-};
 
 
 static inline l4_uint32_t
@@ -262,8 +189,6 @@ static void pci_enable_io(unsigned char bus, l4_uint32_t dev,
   pci_write(bus, dev, fn, 4, cmd | 1, 16);
 }
 
-#include <stdio.h>
-
 namespace {
 
 struct Resource
@@ -301,13 +226,12 @@ struct Serial_board
 
 static
 int pci_handle_serial_dev(unsigned char bus, l4_uint32_t dev,
-                          l4_uint32_t subdev, bool scan_only,
+                          l4_uint32_t subdev, bool print,
                           Serial_board *board)
 {
 #if 0
   bool dev_enabled = false;
 #endif
-
 
   // read bars
   int num_iobars = 0;
@@ -334,7 +258,7 @@ int pci_handle_serial_dev(unsigned char bus, l4_uint32_t dev,
       board->bars[bar].len = 1 << s;
       board->bars[bar].type = (v & 1) ? Resource::IO_BAR : Resource::MEM_BAR;
 
-      if (scan_only)
+      if (print)
 	printf("BAR%d: %04x (sz=%d)\n", bar, v & ~3, 1 << s);
 
       switch (board->bars[bar].type)
@@ -411,7 +335,9 @@ int pci_handle_serial_dev(unsigned char bus, l4_uint32_t dev,
 #endif
 }
 
-static unsigned long _search_pci_serial_devs(Serial_board *board, bool scan_only)
+static unsigned long
+_search_pci_serial_devs(Serial_board *board, unsigned look_for_subclass,
+                        bool print)
 {
   l4_umword_t bus, buses, dev;
 
@@ -439,13 +365,13 @@ static unsigned long _search_pci_serial_devs(Serial_board *board, bool scan_only
 
               unsigned prog = pci_read(bus, dev, subdev, 9, 8);
 
-              if (scan_only)
+              if (print)
                 printf("%02lx:%02lx.%1lx Class %02x.%02x Prog %02x: %04x:%04x\n",
                        bus, dev, subdev, classcode, subclass, prog, vendor, device);
 
-              if (classcode == 7 && subclass == 0)
+              if (classcode == 7 && subclass == look_for_subclass)
                 if (unsigned long port = pci_handle_serial_dev(bus, dev,
-                                                               subdev, scan_only, board))
+                                                               subdev, print, board))
                   return port;
             }
         }
@@ -453,14 +379,142 @@ static unsigned long _search_pci_serial_devs(Serial_board *board, bool scan_only
   return 0;
 }
 
-unsigned long search_pci_serial_devs(int port_idx, bool scan_only)
+static unsigned long
+search_pci_serial_devs(int port_idx)
 {
   Serial_board board;
-  if (!_search_pci_serial_devs(&board, scan_only))
-    return 0;
+  if (!_search_pci_serial_devs(&board, 0, true)) // classes should be 7:0
+    if (!_search_pci_serial_devs(&board, 0x80, false)) // but sometimes it's 7:80
+      return 0;
 
   return board.get_port(port_idx);
 }
+
+class Uart_vga : public L4::Uart
+{
+public:
+  Uart_vga()
+  { }
+
+  bool startup(L4::Io_register_block const *)
+  {
+    vga_init();
+    return true;
+  }
+
+  ~Uart_vga() {}
+  void shutdown() {}
+  bool enable_rx_irq(bool) { return false; }
+  bool enable_tx_irq(bool) { return false; }
+  bool change_mode(Transfer_mode, Baud_rate) { return true; }
+  int get_char(bool blocking) const
+  {
+    int c;
+    do
+      c = raw_keyboard_getscancode();
+    while (blocking && c == -1);
+    return c;
+  }
+
+  int char_avail() const
+  {
+    return raw_keyboard_getscancode() != -1;
+  }
+
+  int write(char const *s, unsigned long count) const
+  {
+    unsigned long c = count;
+    while (c)
+      {
+        if (*s == 10)
+          vga_putchar(13);
+        vga_putchar(*s++);
+        --c;
+      }
+    return count;
+  }
+};
+
+class Dual_uart : public L4::Uart
+{
+private:
+  L4::Uart *_u1, *_u2;
+
+public:
+  Dual_uart(L4::Uart *u1)
+  : _u1(u1), _u2(0)
+  {}
+
+  void set_uart2(L4::Uart *u2)
+  {
+    _u2 = u2;
+  }
+
+  bool startup(L4::Io_register_block const *)
+  {
+    return true;
+  }
+
+  void shutdown()
+  {
+    _u1->shutdown();
+    if (_u2)
+      _u2->shutdown();
+  }
+
+  ~Dual_uart() {}
+#if 0
+  bool enable_rx_irq(bool e)
+  {
+    bool r1 = _u1->enable_rx_irq(e);
+    bool r2 = _u2 ? _u2->enable_rx_irq(e) : false;
+    return r1 && r2;
+  }
+
+  bool enable_tx_irq(bool e)
+  {
+    bool r1 = _u1->enable_tx_irq(e);
+    bool r2 = _u2 ? _u2->enable_tx_irq(e) : false;
+    return r1 && r2;
+  }
+#endif
+
+  bool change_mode(Transfer_mode m, Baud_rate r)
+  {
+    bool r1 = _u1->change_mode(m, r);
+    bool r2 = _u2 ? _u2->change_mode(m, r) : false;
+    return r1 && r2;
+  }
+
+  int char_avail() const
+  {
+    return _u1->char_avail() || (_u2 && _u2->char_avail());
+  }
+
+  int get_char(bool blocking) const
+  {
+    int c;
+    do
+      {
+        c = _u1->get_char(false);
+        if (c == -1 && _u2)
+          c = _u2->get_char(false);
+      }
+    while (blocking && c == -1);
+    return c;
+  }
+
+  int write(char const *s, unsigned long count) const
+  {
+    int r = _u1->write(s, count);
+    if (_u2)
+      _u2->write(s, count);
+    return r;
+  }
+
+};
+
+l4util_mb_info_t *x86_bootloader_mbi;
 
 namespace {
 
@@ -468,13 +522,95 @@ class Platform_x86 : public Platform_base
 {
 public:
   bool probe() { return true; }
+
+  int init_uart(int com_port_or_base, int com_irq, Dual_uart *du)
+  {
+    base_critical_enter();
+
+    switch (com_port_or_base)
+      {
+      case 1: com_port_or_base = 0x3f8;
+              if (com_irq == -1)
+                com_irq = 4;
+              break;
+      case 2: com_port_or_base = 0x2f8;
+              if (com_irq == -1)
+                com_irq = 3;
+              break;
+      case 3: com_port_or_base = 0x3e8; break;
+      case 4: com_port_or_base = 0x2e8; break;
+      }
+
+    unsigned baudrate = 115200;
+    static L4::Io_register_block_port uart_regs(com_port_or_base);
+    static L4::Uart_16550 _uart(L4::Uart_16550::Base_rate_x86);
+    if (   !_uart.startup(&uart_regs)
+        || !_uart.change_mode(L4::Uart_16550::MODE_8N1, baudrate))
+      {
+        printf("Could not find or enable UART\n");
+        base_critical_leave();
+        return 1;
+      }
+
+    du->set_uart2(&_uart);
+
+    kuart.access_type  = L4_kernel_options::Uart_type_ioport;
+    kuart.irqno        = com_irq;
+    kuart.base_address = com_port_or_base;
+    kuart.baud         = baudrate;
+    kuart_flags       |=   L4_kernel_options::F_uart_base
+                         | L4_kernel_options::F_uart_baud;
+    if (com_irq != -1)
+      kuart_flags |= L4_kernel_options::F_uart_irq;
+
+    base_critical_leave();
+    return 0;
+  }
+
   void init()
   {
-    // this is just a wrapper around serial.c
-    // if you think this could be done better you're right...
-    static L4::Uart_x86 _uart(1,1);
-    _uart.startup(0);
-    set_stdio_uart(&_uart);
+    const char *s;
+    int comport = -1;
+    int comirq = -1;
+    int pci = 0;
+
+    static Uart_vga _vga;
+    static Dual_uart du(&_vga);
+    set_stdio_uart(&du);
+
+    if ((s = check_arg(x86_bootloader_mbi, "-comirq")))
+      {
+        s += 8;
+        comirq = strtoul(s, 0, 0);
+      }
+
+    if ((s = check_arg(x86_bootloader_mbi, "-comport")))
+      {
+        s += 9;
+        if ((pci = !strncmp(s, "pci:", 4)))
+          s += 4;
+
+        comport = strtoul(s, 0, 0);
+      }
+
+    if (!check_arg(x86_bootloader_mbi, "-noserial"))
+      {
+        if (pci)
+          {
+            if (unsigned long port = search_pci_serial_devs(comport))
+              comport = port;
+            else
+              comport = -1;
+
+            printf("PCI IO port = %x\n", comport);
+          }
+
+        if (comport == -1)
+          comport = 1;
+
+        if (init_uart(comport, comirq, &du))
+          printf("UART init failed\n");
+      }
   }
 
   void setup_memory_map(l4util_mb_info_t *mbi,
@@ -484,7 +620,7 @@ public:
       {
         assert(mbi->flags & L4UTIL_MB_MEMORY);
         ram->add(Region::n(0, (mbi->mem_upper + 1024) << 10, ".ram",
-                  Region::Ram));
+                 Region::Ram));
       }
     else
       {
@@ -514,6 +650,24 @@ public:
       }
 
     regions->add(Region::n(0, 0x1000, ".BIOS", Region::Arch, 0));
+
+
+    // Quirks
+
+    // Fix EBDA in conventional memory
+    unsigned long p = *(l4_uint16_t *)0x40e << 4;
+
+    if (p > 0x400)
+      {
+        unsigned long e = p + 1024;
+        Region *r = ram->find(Region(p, e - 1));
+        if (r)
+          {
+            if (e - 1 < r->end())
+              ram->add(Region::n(e, r->end(), ".ram", Region::Ram));
+            r->end(p);
+          }
+      }
   }
 };
 }

@@ -10,7 +10,7 @@ IMPLEMENTATION [ppc32]:
 
 STATIC_INITIALIZE_P(Jdb, JDB_INIT_PRIO);
 
-static Per_cpu<Proc::Status> DEFINE_PER_CPU jdb_irq_state;
+DEFINE_PER_CPU static Per_cpu<Proc::Status> jdb_irq_state;
 
 // disable interrupts before entering the kernel debugger
 IMPLEMENT
@@ -128,10 +128,10 @@ Jdb::access_mem_task(Address virt, Space * task)
     }
   else
     {
-      phys = Address(task->mem_space()->virt_to_phys(virt));
+      phys = Address(task->virt_to_phys(virt));
 
       if(phys = (Address)-1)
-	phys = task->mem_space()->virt_to_phys_s0((void *)virt);
+	phys = task->virt_to_phys_s0((void *)virt);
 
       if (phys == (Address)-1)
 	return 0;
@@ -144,6 +144,7 @@ PUBLIC static
 Space *
 Jdb::translate_task(Address addr, Space * task)
 {
+  (void)addr; (void)task;
 //  return (Kmem::is_kmem_page_fault(addr, 0)) ? 0 : task;
 
   return task;
@@ -190,6 +191,7 @@ PUBLIC static
 int
 Jdb::poke_task(Address virt, Space * task, void const *val, int width)
 {
+  (void)virt; (void)task; (void)val; (void)width;
   /*
   void *mem = access_mem_task(virt, task);
   if (!mem)

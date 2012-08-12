@@ -28,6 +28,7 @@ public:
   unsigned long size() const { return sizeof(_b); }
   void flush();
   void printf(char const *fmt, ...);
+    __attribute__((format(printf, 2, 3)));
   void outnstring(char const *str, unsigned long len);
 
 private:

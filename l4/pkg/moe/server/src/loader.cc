@@ -218,13 +218,6 @@ Moe_app_model::alloc_app_stack()
 void
 Moe_app_model::init_prog()
 {
-  enum
-  {
-    Utcb_area_start        = 0xb3000000,
-    Default_max_threads    = 16,
-    Total_max_threads      = 256,
-  };
-
   argv.al = argv.a0 = _stack.push_str(_prog.start(), _prog.len());
 
   for (cxx::Pair<cxx::String, cxx::String> a = next_arg(_args);

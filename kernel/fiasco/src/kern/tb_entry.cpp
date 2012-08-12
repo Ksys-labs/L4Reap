@@ -115,7 +115,7 @@ public:
   T const *payload() const { return addr_of_payload<T>(); }
 
 
-};
+} __attribute__((__aligned__(8))) ;
 
 /** logged ipc. */
 class Tb_entry_ipc : public Tb_entry
@@ -306,12 +306,12 @@ Tb_entry::set_rdcnt(int num, Mword (*f)())
 
 PUBLIC inline
 void
-Tb_entry_base::clear()
+Tb_entry::clear()
 { _type = Tbuf_unused; }
 
 PUBLIC inline NEEDS["kip.h", "globals.h"]
 void
-Tb_entry_base::set_global(char type, Context const *ctx, Address ip)
+Tb_entry::set_global(char type, Context const *ctx, Address ip)
 {
   _type   = type;
   _ctx    = ctx;
@@ -322,77 +322,77 @@ Tb_entry_base::set_global(char type, Context const *ctx, Address ip)
 
 PUBLIC inline
 void
-Tb_entry_base::hide()
+Tb_entry::hide()
 { _type |= Tbuf_hidden; }
 
 PUBLIC inline
 void
-Tb_entry_base::unhide()
+Tb_entry::unhide()
 { _type &= ~Tbuf_hidden; }
 
 PUBLIC inline
 Address
-Tb_entry_base::ip() const
+Tb_entry::ip() const
 { return _ip; }
 
 PUBLIC inline
 Context const *
-Tb_entry_base::ctx() const
+Tb_entry::ctx() const
 { return _ctx; }
 
 PUBLIC inline
 Unsigned8
-Tb_entry_base::type() const
+Tb_entry::type() const
 { return _type & (Tbuf_max-1); }
 
 PUBLIC inline
 int
-Tb_entry_base::hidden() const
+Tb_entry::hidden() const
 { return _type & Tbuf_hidden; }
 
 PUBLIC inline
 Mword
-Tb_entry_base::number() const
+Tb_entry::number() const
 { return _number; }
 
 PUBLIC inline
 void
-Tb_entry_base::number(Mword number)
+Tb_entry::number(Mword number)
 { _number = number; }
 
 PUBLIC inline
 void
-Tb_entry_base::rdpmc1()
+Tb_entry::rdpmc1()
 { _pmc1 = rdcnt1(); }
 
 PUBLIC inline
 void
-Tb_entry_base::rdpmc2()
+Tb_entry::rdpmc2()
 { _pmc2 = rdcnt2(); }
 
 PUBLIC inline
 Unsigned32
-Tb_entry_base::kclock() const
+Tb_entry::kclock() const
 { return _kclock; }
 
 PUBLIC inline
 Unsigned8
-Tb_entry_base::cpu() const
+Tb_entry::cpu() const
 { return _cpu; }
 
 PUBLIC inline
 Unsigned64
-Tb_entry_base::tsc() const
+Tb_entry::tsc() const
 { return _tsc; }
 
 PUBLIC inline
 Unsigned32
-Tb_entry_base::pmc1() const
+Tb_entry::pmc1() const
 { return _pmc1; }
 
 PUBLIC inline
 Unsigned32
-Tb_entry_base::pmc2() const
+Tb_entry::pmc2() const
 { return _pmc2; }
 
 

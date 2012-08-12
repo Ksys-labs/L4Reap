@@ -66,17 +66,6 @@ static struct messenger_services *msg;
 
 extern "C" int init_server(struct dope_services *d);
 
-
-static int get_val(const char *configstr, const char *var, unsigned long *val)
-{
-  char *a;
-  a = strstr(configstr, var);
-  if (!a)
-    return 0;
-  *val = strtoul(a + strlen(var), NULL, 0);
-  return 1;
-}
-
 static int get_string(const char *configstr, const char *var,
                       char **val, unsigned long *vallen)
 {
@@ -151,7 +140,9 @@ Dope_base *Dope_base::get_obj(s32 ai)
 }
 
 extern "C" void dope_event_inject(s32 appid, l4re_event_t *e,
-                                  unsigned nr_events)
+                                  unsigned nr_events);
+
+void dope_event_inject(s32 appid, l4re_event_t *e, unsigned nr_events)
 {
   Dope_base::get_obj(appid)->event_cb(e, nr_events);
 }
@@ -635,134 +626,6 @@ static void *server_thread(void *)
   dope_server.loop(dope_registry);
 
   return NULL;
-}
-
-
-/******************************************************
- *** FUNCTIONS THAT ARE CALLED BY THE SERVER THREAD ***
- ******************************************************/
-
-long dope_manager_init_app_component(void *,
-    const char* ,//appname,
-    const char* ,//listener,
-    void *)
-{
-  printf("%s %d\n", __func__, __LINE__); 
-#if 0
-	s32 app_id = appman->reg_app((char *)appname);
-	SCOPE *rootscope = scope->create();
-	THREAD *listener_thread = thread->alloc_thread();
-	appman->set_rootscope(app_id, rootscope);
-
-	INFO(printf("Server(init_app): application init request. appname=%s, listener=%s (new app_id=%x)\n", appname, listener, (int)app_id));
-
-	thread->ident2thread(listener, listener_thread);
-	appman->reg_list_thread(app_id, listener_thread);
-	appman->reg_listener(app_id, (void *)&listener_thread->tid);
-	return app_id;
-#endif
-        return 0;
-}
-
-
-void dope_manager_deinit_app_component(void *,
-                                       long ,//app_id,
-                                       void *)
-{
-  printf("%s %d\n", __func__, __LINE__); 
-#if 0
-	struct thread client_thread = { *_dice_corba_obj };
-
-	/* check if the app_id belongs to the client */
-	if (!thread->thread_equal(&client_thread, appman->get_listener(app_id))) {
-		printf("Server(deinit_app): Error: permission denied\n");
-		return;
-	}
-
-	INFO(printf("Server(deinit_app): application (id=%u) deinit requested\n", (u32)app_id);)
-	scheduler->release_app(app_id);
-	userstate->release_app(app_id);
-	screen->forget_children(app_id);
-	appman->unreg_app(app_id);
-#endif
-}
-
-
-long dope_manager_exec_cmd_component(void *,
-                                     long ,//app_id,
-                                     const char* ,//cmd,
-                                     void *)
-{
-#if 0
-	struct thread client_thread = { *_dice_corba_obj };
-	int ret;
-
-	/* check if the app_id belongs to the client */
-	if (!thread->thread_equal(&client_thread, appman->get_listener(app_id))) {
-		printf("Server(exec_cmd): Error: permission denied\n");
-		return DOPE_ERR_PERM;
-	}
-
-	appman->reg_app_thread(app_id, (THREAD *)&client_thread);
-	INFO(printf("Server(exec_cmd): cmd %s execution requested by app_id=%u\n", cmd, (u32)app_id);)
-//	printf("Server(exec_cmd): cmd %s execution requested by app_id=%u\n", cmd, (u32)app_id);
-	appman->lock(app_id);
-	ret = script->exec_command(app_id, (char *)cmd, NULL, 0);
-	appman->unlock(app_id);
-	if (ret < 0) printf("DOpE(exec_cmd): Error - command \"%s\" returned %d\n", cmd, ret);
-	return ret;
-#endif
-        return 0;
-}
-
-
-long dope_manager_exec_req_component(void *,
-                                     long ,//app_id,
-                                     const char* ,//cmd,
-                                     char /*result*/[256],
-                                     int * , //res_len,
-                                     void *)
-{
-#if 0
-	struct thread client_thread = { *_dice_corba_obj };
-	int ret;
-
-	/* check if the app_id belongs to the client */
-	if (!thread->thread_equal(&client_thread, appman->get_listener(app_id))) {
-		printf("Server(exec_req): Error: permission denied\n");
-		return DOPE_ERR_PERM;
-	}
-
-	appman->reg_app_thread(app_id, (THREAD *)&client_thread);
-
-	INFO(printf("Server(exec_req): cmd %s execution requested by app_id=%u\n", cmd, (u32)app_id);)
-	appman->lock(app_id);
-	result[0] = 0;
-	ret = script->exec_command(app_id, (char *)cmd, &result[0], *res_len);
-	appman->unlock(app_id);
-	INFO(printf("Server(exec_req): send result msg: %s\n", result));
-
-	if (ret < 0) printf("DOpE(exec_req): Error - command \"%s\" returned %d\n", cmd, ret);
-	result[255] = 0;
-	return ret;
-#endif
-        return 0;
-}
-
-
-long dope_manager_get_keystate_component(void *,
-                                         long keycode,
-                                         void *)
-{
-	return userstate->get_keystate(keycode);
-}
-
-
-char dope_manager_get_ascii_component(void  *,
-                                      long keycode,
-                                      void *)
-{
-	return userstate->get_ascii(keycode);
 }
 
 

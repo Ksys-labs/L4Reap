@@ -44,12 +44,16 @@
 
 modaddr 0x01100000
 
+default-kernel fiasco -serial_esc
+default-bootstrap bootstrap
+
 entry hello
 roottask moe --init=rom/hello
 module l4re
 module hello
 
 entry hello-cfg
+kernel fiasco -serial_esc
 roottask moe rom/hello.cfg
 module l4re
 module ned
@@ -57,7 +61,6 @@ module hello.cfg
 module hello
 
 entry hello-shared
-kernel fiasco -serial_esc
 roottask moe --init=rom/ex_hello_shared
 module l4re
 module ex_hello_shared

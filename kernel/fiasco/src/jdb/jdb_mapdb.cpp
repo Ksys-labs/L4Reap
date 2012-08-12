@@ -64,8 +64,8 @@ Jdb_mapdb::show_tree(Treemap* pages, Page_number address,
       return true;
     }
 
-  printf(" mapping tree for %s-page "L4_PTR_FMT" of task %p - header at "
-	 L4_PTR_FMT"\033[K\n",
+  printf(" mapping tree for %s-page " L4_PTR_FMT " of task %p - header at "
+	 L4_PTR_FMT "\033[K\n",
 	 size_str (1UL << pages->_page_shift),
 	 pages->vaddr(t->mappings()).value(), t->mappings()[0].space(), (Address)t);
 #ifdef NDEBUG
@@ -112,13 +112,13 @@ Jdb_mapdb::show_tree(Treemap* pages, Page_number address,
       Kconsole::console()->getchar_chance();
 
       if (m->depth() == Mapping::Depth_submap)
-	printf("%*u: %lx  subtree@"L4_PTR_FMT,
+	printf("%*u: %lx  subtree@" L4_PTR_FMT,
 	       indent + m->parent()->depth() > 10
 	         ? 0 : indent + m->parent()->depth(),
 	       i+1, (Address) m->data(), (Mword) m->submap());
       else
 	{
-	  printf("%*u: %lx  va="L4_PTR_FMT"  task=%lx  depth=",
+	  printf("%*u: %lx  va=" L4_PTR_FMT "  task=%lx  depth=",
 		 indent + m->depth() > 10 ? 0 : indent + m->depth(),
 		 i+1, (Address) m->data(),
 		 pages->vaddr(m).value(),
@@ -190,14 +190,14 @@ Jdb_mapdb::show (Page_number page, char which_mapdb)
 	{
 	case 'm':
 	  type = "Phys frame";
-	  mapdb = mapdb_instance();
+	  mapdb = mapdb_mem.get();
 	  page_shift = 0; //Config::PAGE_SHIFT;
 	  super_inc = Page_count::create(Config::SUPERPAGE_SIZE / Config::PAGE_SIZE);
 	  break;
 #ifdef CONFIG_IO_PROT
 	case 'i':
 	  type = "I/O port";
-	  mapdb = io_mapdb_instance();
+	  mapdb = mapdb_io.get();
 	  page_shift = 0;
 	  super_inc = Page_count::create(0x100);
 	  break;
@@ -210,7 +210,7 @@ Jdb_mapdb::show (Page_number page, char which_mapdb)
 	page = Page_number::create(0);
 
       Jdb::cursor();
-      printf ("%s "L4_PTR_FMT"\033[K\n\033[K\n",
+      printf ("%s " L4_PTR_FMT "\033[K\n\033[K\n",
 	      type, page.value() << page_shift);
 
       j = 3;
@@ -311,18 +311,18 @@ Jdb_mapdb::action(int cmd, void *&args, char const *&fmt, int &next_char)
 	case 'a' ... 'f':
 	case 'A' ... 'F':
 	  which_mapdb = 'm';
-	  fmt = " frame: "L4_FRAME_INPUT_FMT;
+	  fmt = " frame: " L4_FRAME_INPUT_FMT;
 	  args = &pagenum;
 	  next_char = subcmd;
 	  return EXTRA_INPUT_WITH_NEXTCHAR;
 
 	case 'm':
-	  fmt = " frame: "L4_FRAME_INPUT_FMT;
+	  fmt = " frame: " L4_FRAME_INPUT_FMT;
 	  break;
 
 #ifdef CONFIG_IO_PROT
 	case 'i':
-	  fmt = " port: "L4_FRAME_INPUT_FMT;
+	  fmt = " port: " L4_FRAME_INPUT_FMT;
 	  break;
 #endif
 
@@ -475,7 +475,7 @@ Jdb_mapdb::show_simple_tree(Kobject_common *f, unsigned indent = 1)
   int           c;
 
   puts(Jdb_screen::Line);
-  if (!f || !f->map_root()->_root)
+  if (!f || f->map_root()->_root.empty())
     {
       printf(" no mapping tree registered for frame number 0x%lx\033[K\n",
 	     (unsigned long) f);
@@ -489,11 +489,12 @@ Jdb_mapdb::show_simple_tree(Kobject_common *f, unsigned indent = 1)
 
   screenline += 2;
 
-  for (Obj::Mapping* m = f->map_root()->_root; m; m = m->_n)
+  for (Obj::Mapping::List::Iterator m = f->map_root()->_root.begin();
+       m != f->map_root()->_root.end(); ++m)
     {
       Kconsole::console()->getchar_chance();
 
-      Obj::Entry *e = static_cast<Obj::Entry*>(m);
+      Obj::Entry *e = static_cast<Obj::Entry*>(*m);
       Dbg_page_info *pi = Dbg_page_info::table()[Virt_addr(e)];
 
       Mword space_id = ~0UL;
@@ -501,12 +502,12 @@ Jdb_mapdb::show_simple_tree(Kobject_common *f, unsigned indent = 1)
 
       if (pi)
 	{
-	  space_id = static_cast<Task*>(Space::space(pi->info<Obj_space::Dbg_info>()->s))->dbg_info()->dbg_id();
+	  space_id = static_cast<Task*>(pi->info<Obj_space::Dbg_info>()->s)->dbg_info()->dbg_id();
 	  cap_idx += pi->info<Obj_space::Dbg_info>()->offset;
 	}
 
-      printf("  "L4_PTR_FMT"[C:%lx]: space=D:%lx rights=%x flags=%lx obj=%p",
-	     (Address)m, cap_idx, space_id, (unsigned)e->rights(), e->_flags,
+      printf("  " L4_PTR_FMT "[C:%lx]: space=D:%lx rights=%x flags=%lx obj=%p",
+	     (Address)*m, cap_idx, space_id, (unsigned)e->rights(), e->_flags,
 	     e->obj());
 
       puts("\033[K");

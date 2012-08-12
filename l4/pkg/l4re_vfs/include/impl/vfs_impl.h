@@ -759,17 +759,21 @@ Vfs::madvise(void *, size_t, int) L4_NOTHROW
 { return 0; }
 
 namespace {
-// use this container construct here to prevent a destructor for
-// our VFS main object is ever called!
-static char vfs_cnt[sizeof(Vfs)] __attribute__((aligned(sizeof(long))));
-static void init_vfs() { new (vfs_cnt) Vfs(); }
-L4_DECLARE_CONSTRUCTOR(init_vfs, INIT_PRIO_VFS_INIT);
-}
+struct Vfs_cnt
+{
 
+  // use this container construct here to prevent a destructor for
+  // our VFS main object is ever called!
+  char vfs_cnt[sizeof(Vfs)] __attribute__((aligned(sizeof(long))));
+  Vfs_cnt() { new (vfs_cnt) Vfs(); }
+};
+
+static Vfs_cnt vfs_cnt __attribute__((init_priority(INIT_PRIO_VFS_INIT)));
+}
 }
 
 //L4Re::Vfs::Ops *__ldso_posix_vfs_ops = &vfs;
-void *__rtld_l4re_env_posix_vfs_ops = &vfs_cnt;
+void *__rtld_l4re_env_posix_vfs_ops = &vfs_cnt.vfs_cnt;
 extern void *l4re_env_posix_vfs_ops __attribute__((alias("__rtld_l4re_env_posix_vfs_ops"), visibility("default")));
 
 

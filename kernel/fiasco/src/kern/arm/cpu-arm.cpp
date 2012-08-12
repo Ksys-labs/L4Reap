@@ -169,10 +169,21 @@ public:
   };
 };
 
-//---------------------------------------------------------------------------
-IMPLEMENTATION [arm && armv6]:
+//-------------------------------------------------------------------------
+IMPLEMENTATION [arm]:
 
-PRIVATE static inline void
+PRIVATE static inline
+Mword
+Cpu::midr()
+{
+  Mword m;
+  asm volatile ("mrc p15, 0, %0, c0, c0, 0" : "=r" (m));
+  return m;
+}
+
+IMPLEMENTATION [arm && armv6]: // -----------------------------------------
+
+PUBLIC static inline void
 Cpu::enable_smp()
 {
   asm volatile ("mrc p15, 0, %0, c1, c0, 1   \n"
@@ -181,23 +192,49 @@ Cpu::enable_smp()
                 : : "r" (0), "i" (0x20));
 }
 
-//---------------------------------------------------------------------------
-IMPLEMENTATION [arm && armv7]:
+PUBLIC static inline void
+Cpu::disable_smp()
+{
+  asm volatile ("mrc p15, 0, %0, c1, c0, 1   \n"
+                "bic %0, %1                  \n"
+                "mcr p15, 0, %0, c1, c0, 1   \n"
+                : : "r" (0), "i" (0x20));
+}
 
-PRIVATE static inline void
+IMPLEMENTATION [arm && armv7]: //------------------------------------------
+
+PUBLIC static inline NEEDS[Cpu::midr]
+bool
+Cpu::is_smp_capable()
+{
+  // ACTRL is implementation defined
+  return (midr() & 0xff0ffff0) == 0x410fc090;
+}
+
+PUBLIC static inline
+void
 Cpu::enable_smp()
 {
-  Mword midr;
-  asm volatile ("mrc p15, 0, %0, c0, c0, 0" : "=r" (midr));
-
-  // ACTRL is implementation defined
-  if ((midr & 0xff0ffff0) != 0x410fc090)
+  if (!is_smp_capable())
     return;
 
   Mword actrl;
   asm volatile ("mrc p15, 0, %0, c1, c0, 1" : "=r" (actrl));
   if (!(actrl & 0x40))
     asm volatile ("mcr p15, 0, %0, c1, c0, 1" : : "r" (actrl | 0x41));
+}
+
+PUBLIC static inline
+void
+Cpu::disable_smp()
+{
+  if (!is_smp_capable())
+    return;
+
+  asm volatile ("mrc p15, 0, %0, c1, c0, 1   \n"
+                "bic %0, %1                  \n"
+                "mcr p15, 0, %0, c1, c0, 1   \n"
+                : : "r" (0), "i" (0x40));
 }
 
 //---------------------------------------------------------------------------
@@ -242,11 +279,12 @@ IMPLEMENTATION [arm]:
 #include "io.h"
 #include "pagetable.h"
 #include "kmem_space.h"
+#include "kmem_alloc.h"
 #include "mem_unit.h"
 #include "processor.h"
 #include "ram_quota.h"
 
-Per_cpu<Cpu> DEFINE_PER_CPU_P(0) Cpu::cpus(true);
+DEFINE_PER_CPU_P(0) Per_cpu<Cpu> Cpu::cpus(true);
 Cpu *Cpu::_boot_cpu;
 
 PUBLIC static inline
@@ -267,7 +305,7 @@ void Cpu::early_init()
 
                  " mcr  p15, 0, %0, c1, c0  \n"
                  :
-                 : "r" (Config::cache_enabled
+                 : "r" (Config::Cache_enabled
                         ? Cp15_c1_cache_enabled : Cp15_c1_cache_disabled),
                    "I" (0x0d3)
                  : "r2", "r3");
@@ -324,9 +362,9 @@ void Cpu::init_mmu()
   extern char ivt_start;
   // map the interrupt vector table to 0xffff0000
   Pte pte = Kmem_space::kdir()->walk((void*)Kmem_space::Ivt_base, 4096,
-      true, Ram_quota::root);
+      true, Kmem_alloc::q_allocator(Ram_quota::root), Kmem_space::kdir());
 
-  pte.set((unsigned long)&ivt_start, 4096, 
+  pte.set((unsigned long)&ivt_start, 4096,
       Mem_page_attr(Page::KERN_RW | Page::CACHEABLE),
       true);
 
@@ -351,10 +389,30 @@ Cpu::init(bool is_boot_cpu)
   _phys_id = Proc::cpu_id();
 
   init_tz();
-
   id_init();
+  init_errata_workarounds();
 
   print_infos();
+}
+
+PUBLIC static inline
+void
+Cpu::enable_dcache()
+{
+  asm volatile("mrc     p15, 0, %0, c1, c0, 0 \n"
+               "orr     %0, %1                \n"
+               "mcr     p15, 0, %0, c1, c0, 0 \n"
+               : : "r" (0), "i" (1 << 2));
+}
+
+PUBLIC static inline
+void
+Cpu::disable_dcache()
+{
+  asm volatile("mrc     p15, 0, %0, c1, c0, 0 \n"
+               "bic     %0, %1                \n"
+               "mcr     p15, 0, %0, c1, c0, 0 \n"
+               : : "r" (0), "i" (1 << 2));
 }
 
 //---------------------------------------------------------------------------
@@ -366,8 +424,86 @@ Cpu::id_init()
 {
 }
 
+PRIVATE static inline
+void Cpu::init_errata_workarounds() {}
+
 //---------------------------------------------------------------------------
 IMPLEMENTATION [arm && armv6plus]:
+
+PRIVATE static inline
+void
+Cpu::set_actrl(Mword bit_mask)
+{
+  Mword t;
+  asm volatile("mrc p15, 0, %0, c1, c0, 1 \n\t"
+               "orr %0, %0, %1            \n\t"
+               "mcr p15, 0, %0, c1, c0, 1 \n\t"
+               : "=r"(t) : "r" (bit_mask));
+}
+
+PRIVATE static inline
+void
+Cpu::set_c15_c0_1(Mword bits_mask)
+{
+  Mword t;
+  asm volatile("mrc p15, 0, %0, c15, c0, 1 \n\t"
+               "orr %0, %0, %1             \n\t"
+               "mcr p15, 0, %0, c15, c0, 1 \n\t"
+               : "=r"(t) : "r" (bits_mask));
+}
+
+PRIVATE static inline NEEDS[Cpu::midr]
+void
+Cpu::init_errata_workarounds()
+{
+  Mword mid = midr();
+
+  if ((mid & 0xff000000) == 0x41000000) // ARM CPU
+    {
+      Mword rev = ((mid & 0x00f00000) >> 16) | (mid & 0x0f);
+      Mword part = (mid & 0x0000fff0) >> 4;
+
+      if (part == 0xc08) // Cortex A8
+        {
+          // errata: 430973
+          if ((rev & 0xf0) == 0x10)
+            set_actrl(1 << 6); // IBE to 1
+
+          // errata: 458693
+          if (rev == 0x20)
+            set_actrl((1 << 5) | (1 << 9)); // L1NEON & PLDNOP
+
+          // errata: 460075
+          if (rev == 0x20)
+            {
+              Mword t;
+              asm volatile ("mrc p15, 1, %0, c9, c0, 2 \n\t"
+                            "orr %0, %0, #1 << 22      \n\t" // Write alloc disable
+                            "mcr p15, 1, %0, c9, c0, 2 \n\t" : "=r"(t));
+            }
+        }
+
+      if (part == 0xc09) // Cortex A9
+        {
+          // errata: 742230 (DMB errata)
+          // make DMB a DSB to fix behavior
+          if (rev <= 0x22) // <= r2p2
+            set_c15_c0_1(1 << 4);
+
+          // errata: 742231
+          if (rev == 0x20 || rev == 0x21 || rev == 0x22)
+            set_c15_c0_1((1 << 12) | (1 << 22));
+
+          // errata: 743622
+          if ((rev & 0xf0) == 0x20)
+            set_c15_c0_1(1 << 6);
+
+          // errata: 751472
+          if (rev < 0x30)
+            set_c15_c0_1(1 << 11);
+        }
+    }
+}
 
 IMPLEMENT
 void
@@ -404,7 +540,9 @@ public:
 //---------------------------------------------------------------------------
 IMPLEMENTATION [arm && tz]:
 
-PRIVATE inline
+#include <cassert>
+
+PRIVATE inline NEEDS[<cassert>]
 void
 Cpu::init_tz()
 {
@@ -514,14 +652,10 @@ PRIVATE
 void
 Cpu::id_print_infos()
 {
-  printf("ID_PFR0:  %08lx\n", _cpu_id._pfr[0]);
-  printf("ID_PFR1:  %08lx\n", _cpu_id._pfr[1]);
-  printf("ID_DFR0:  %08lx\n", _cpu_id._dfr0);
-  printf("ID_AFR0:  %08lx\n", _cpu_id._afr0);
-  printf("ID_MMFR0: %08lx\n", _cpu_id._mmfr[0]);
-  printf("ID_MMFR1: %08lx\n", _cpu_id._mmfr[1]);
-  printf("ID_MMFR2: %08lx\n", _cpu_id._mmfr[2]);
-  printf("ID_MMFR3: %08lx\n", _cpu_id._mmfr[3]);
+  printf("ID_PFR[01]:  %08lx %08lx", _cpu_id._pfr[0], _cpu_id._pfr[1]);
+  printf(" ID_[DA]FR0: %08lx %08lx\n", _cpu_id._dfr0, _cpu_id._afr0);
+  printf("ID_MMFR[04]: %08lx %08lx %08lx %08lx\n",
+         _cpu_id._mmfr[0], _cpu_id._mmfr[1], _cpu_id._mmfr[2], _cpu_id._mmfr[3]);
 }
 
 // ------------------------------------------------------------------------
@@ -540,6 +674,6 @@ PRIVATE
 void
 Cpu::print_infos()
 {
-  printf("Cache config: %s\n", Config::cache_enabled ? "ON" : "OFF");
+  printf("Cache config: %s\n", Config::Cache_enabled ? "ON" : "OFF");
   id_print_infos();
 }

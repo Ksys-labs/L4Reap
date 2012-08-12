@@ -54,6 +54,20 @@ public:
     return v & (1UL << b);
   }
 
+  void atomic_set_bit(unsigned long bit)
+  {
+    unsigned long idx = bit / Bpl;
+    unsigned long b   = bit % Bpl;
+    atomic_mp_or(&_bits()[idx], 1UL << b);
+  }
+
+  void atomic_clear_bit(unsigned long bit)
+  {
+    unsigned long idx = bit / Bpl;
+    unsigned long b   = bit % Bpl;
+    atomic_mp_and(&_bits()[idx], ~(1UL << b));
+  }
+
 protected:
   enum
   {
@@ -105,6 +119,16 @@ public:
     while (!mp_cas(&_bits[0], v, v & ~(1UL << bit)));
 
     return v & (1UL << bit);
+  }
+
+  void atomic_set_bit(unsigned long bit)
+  {
+    atomic_mp_or(&_bits[0], 1UL << bit);
+  }
+
+  void atomic_clear_bit(unsigned long bit)
+  {
+    atomic_mp_and(&_bits[0], ~(1UL << bit));
   }
 
 protected:

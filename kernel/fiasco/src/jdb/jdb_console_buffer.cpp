@@ -16,7 +16,7 @@ IMPLEMENTATION:
 /**
  * A output console that stores the output in a buffer.
  *
- * This buffer can be usefull for accessing older the debugging 
+ * This buffer can be useful for accessing older the debugging
  * output without a serial console.
  */
 class Console_buffer : public Console
@@ -72,14 +72,14 @@ Console_buffer::Console_buffer()
  */
 PUBLIC static
 void
-Console_buffer::alloc( size_t size)
+Console_buffer::alloc(size_t size)
 {
-  if(!out_buf)
+  if (!out_buf)
     {
       out_buf_size = (size + Config::PAGE_SIZE - 1) & Config::PAGE_MASK;
-      if(out_buf_size)
-	out_buf = (char*)Kmem_alloc::allocator()->
-	  unaligned_alloc(out_buf_size);
+      if (out_buf_size)
+	out_buf = (char *)Kmem_alloc::allocator()->
+                            unaligned_alloc(out_buf_size);
 
       out_buf_w = out_buf;
 
@@ -105,7 +105,7 @@ Console_buffer::write( char const *str, size_t len )
       while(len)
 	{
 	  size_t s;
-	  s = out_buf_size - (out_buf_w - out_buf); 
+	  s = out_buf_size - (out_buf_w - out_buf);
 	  if (s>len)
 	    s = len;
 	  memcpy( out_buf_w, str, s );
@@ -211,7 +211,7 @@ Console_buffer::print_buffer(unsigned lines)
       while (len > 0)
 	{
 	  putchar(*c);
-	  if (*c == '\n') 
+	  if (*c == '\n')
 	    {
 	      if (page && !Jdb_core::new_line(lines))
 		return 1;
@@ -219,7 +219,7 @@ Console_buffer::print_buffer(unsigned lines)
 	  inc_ptr(&c);
 	  len--;
 	}
-      
+
       putchar('\n');
       return 1;
     }
@@ -247,7 +247,7 @@ Console_buffer::strncmp(char *start, const char *search, size_t len)
  * Prints the buffer to the standard I/O.
  * @param str the string the output should be filtered for
  * This method prints the buffer contents to the normal I/O.
- * Before doing this the buffer is disabled, that no recursion 
+ * Before doing this the buffer is disabled, that no recursion
  * appers even if the buffer is part of the muxed I/O.
  */
 PUBLIC static
@@ -295,8 +295,8 @@ next_line:
 		    }
 	    found_again:
 		  putstr(Jdb::esc_emph);
-	     	  for (s=str; *s && len; len--, s++)
-    		    {
+		  for (s=str; *s && len; len--, s++)
+		    {
 		      putchar(*bol);
 		      inc_ptr(&bol);
 		    }
@@ -429,4 +429,3 @@ Jdb_cb::Jdb_cb()
 }
 
 static Jdb_cb jdb_cb INIT_PRIORITY(JDB_MODULE_INIT_PRIO);
-

@@ -14,7 +14,7 @@
 /*
  * This file is part of DDEKit.
  *
- * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ * (c) 2006-2012 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
  *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
  *               Thomas Friebel <tf13@os.inf.tu-dresden.de>
  *     economic rights: Technische Universitaet Dresden (Germany)

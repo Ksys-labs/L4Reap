@@ -18,5 +18,5 @@ for i in mk/defconfig/config.*; do
   make O=$TMPDIR oldconfig
   diff -u $i $TMPDIR/.kconfig
   grep -v '^CONFIG_DROPS_' $TMPDIR/.kconfig > $i
-  rm $TMPDIR/{.kconfig,.config.all,.config}
+  rm $TMPDIR/.kconfig $TMPDIR/.config.all $TMPDIR/.config
 done

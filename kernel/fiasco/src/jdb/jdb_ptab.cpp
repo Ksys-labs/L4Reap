@@ -130,7 +130,7 @@ Jdb_ptab_m::handle_key(Kobject_common *o, int code)
       t = th->space();
     }
 
-  Jdb_ptab pt_view(t->mem_space()->dir(), t, 0, 0, 0, 1);
+  Jdb_ptab pt_view(static_cast<Mem_space*>(t)->dir(), t, 0, 0, 0, 1);
   pt_view.show(0,0);
 
   return true;
@@ -232,7 +232,7 @@ Jdb_ptab_m::action(int cmd, void *&args, char const *&fmt, int &next_char)
         s = Kernel_task::kernel_task();
 
       void *ptab_base;
-      if (!(ptab_base = ((void*)s->mem_space()->dir())))
+      if (!(ptab_base = ((void*)static_cast<Mem_space*>(s)->dir())))
 	return Jdb_module::NOTHING;
 
       Jdb::clear_screen();

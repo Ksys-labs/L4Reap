@@ -69,8 +69,9 @@ public:
 
     some_delay(5000);
 
-    static L4::Uart_pxa _uart(1, 1);
-    _uart.startup(0x70006300);
+    static L4::Uart_16550 _uart(L4::Uart_16550::Base_rate_pxa);
+    static L4::Io_register_block_mmio r(0x70006300, 2);
+    _uart.startup(&r);
     _uart.change_mode(3, 7876);
     set_stdio_uart(&_uart);
   }

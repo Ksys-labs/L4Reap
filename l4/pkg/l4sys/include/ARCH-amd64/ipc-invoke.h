@@ -46,7 +46,7 @@
 #  define IPC_SYSENTER_ASM    int  $0x30;
 
 # else
-
+# error No pushs allowed because of red-zone
 #  ifdef __PIC__
 # error no PIC support for AMD64
 #  else
@@ -73,5 +73,5 @@
 # endif
 
 /** Kenrel entry code for inline assembly. \internal */
-#define L4_ENTER_KERNEL "push %%rbp; " IPC_SYSENTER " pop %%rbp \n"
+#define L4_ENTER_KERNEL IPC_SYSENTER
 

@@ -27,7 +27,7 @@ Jdb_thread::print_state_long(Thread *t, unsigned cut_on_len = 0)
       "timeout",       "dead",          "suspended",   "<unk>",
       "<unk>",         "<unk>",         "<unk>",       "fpu",
       "alien",         "dealien",       "exc_progr",   "<unk>",
-      "drq",           "lock_wait",     "vcpu",        "<unk>",
+      "drq",           "lock_wait",     "vcpu",        "vcpu_user",
       "vcpu_fpu_disabled", "vcpu_ext"
     };
 
@@ -54,21 +54,35 @@ Jdb_thread::print_state_long(Thread *t, unsigned cut_on_len = 0)
           chars += add;
         }
 
-      printf("%s%s", "," + !comma, state_names[i]);
+      printf("%s%s", &","[!comma], state_names[i]);
 
       comma = 1;
     }
 }
 
 PUBLIC static
+bool
+Jdb_thread::has_partner(Thread *t)
+{
+  return (t->state(false) & Thread_ipc_mask) == Thread_receive_wait;
+}
+
+PUBLIC static
+bool
+Jdb_thread::has_snd_partner(Thread *t)
+{
+  return t->state(false) & Thread_send_wait;
+}
+
+PUBLIC static
 void
 Jdb_thread::print_snd_partner(Thread *t, int task_format = 0)
 {
-  if (t->state(false) & Thread_send_wait)
-    Jdb_kobject::print_uid(static_cast<Thread*>(t->receiver()), task_format);
+  if (has_snd_partner(t))
+    Jdb_kobject::print_uid(Kobject::from_dbg(Kobject_dbg::pointer_to_obj(t->wait_queue())), task_format);
   else
     // receiver() not valid
-    putstr("       ");
+    putstr("   ");
 }
 
 PUBLIC static
@@ -77,7 +91,7 @@ Jdb_thread::print_partner(Thread *t, int task_format = 0)
 {
   Sender *p = t->partner();
 
-  if ((t->state(false) & Thread_ipc_mask) != Thread_receive_wait)
+  if (!has_partner(t))
     {
       printf("%*s ", task_format, " ");
       return;
@@ -89,7 +103,7 @@ Jdb_thread::print_partner(Thread *t, int task_format = 0)
       return;
     }
 
-  if (Kobject *o = Kobject::pointer_to_obj(p))
+  if (Kobject *o = Kobject::from_dbg(Kobject_dbg::pointer_to_obj(p)))
     {
       char flag = '?';
       const char *n = o->kobj_type();

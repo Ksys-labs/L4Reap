@@ -257,7 +257,7 @@
 /*
  * Networking Support
  */
-#undef __UCLIBC_HAS_IPV6__
+#define __UCLIBC_HAS_IPV6__ 1
 #undef __UCLIBC_HAS_RPC__
 #undef __UCLIBC_USE_NETLINK__
 

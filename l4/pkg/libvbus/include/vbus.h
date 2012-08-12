@@ -28,8 +28,8 @@ __BEGIN_DECLS
  * \param  parent       Handle to the parent to start the search
  * \retval child        Handle to the found device
  * \param  hid          HID name of the device
+ * \param  depth        Depth to look for
  * \retval devinfo      Device information structure (might be NULL)
- * \retval reshandle    Resource handle (might be NULL)
  *
  * \return 0 on succes, else failure
  */
@@ -45,7 +45,7 @@ l4vbus_get_device_by_hid(l4_cap_idx_t vbus, l4vbus_device_handle_t parent,
  * \param  parent       Handle to the parent device (use 0 for the system bus)
  * \param  child        Handle to the child device (use 0 to get the first
  *                      child)
- * \retval next         Handle to the successor of child
+ * \param  depth        Depth to look for
  * \retval devinfo      device information (might be NULL)
  *
  * \return 0 on succes, else failure
@@ -68,8 +68,7 @@ l4vbus_get_next_device(l4_cap_idx_t vbus, l4vbus_device_handle_t parent,
  */
 int L4_CV
 l4vbus_get_resource(l4_cap_idx_t vbus, l4vbus_device_handle_t dev,
-                    int res_idx,
-                    l4vbus_resource_t *res);
+                    int res_idx, l4vbus_resource_t *res);
 
 /**
  * \brief Request a resource of a specific type

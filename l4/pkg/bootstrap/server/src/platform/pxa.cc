@@ -15,8 +15,8 @@
  * Please see the COPYING-GPL-2 file for details.
  */
 
-#include "support.h"
 #include <l4/drivers/uart_pxa.h>
+#include "support.h"
 
 namespace {
 class Platform_arm_pxa : public Platform_single_region_ram
@@ -25,8 +25,9 @@ class Platform_arm_pxa : public Platform_single_region_ram
 
   void init()
   {
-    static L4::Uart_pxa _uart(1,1);
-    _uart.startup(0x40100000);
+    static L4::Uart_16550 _uart(L4::Uart_16550::Base_rate_pxa);
+    static L4::Io_register_block_mmio regs(0x40100000, 2);
+    _uart.startup(&regs);
     set_stdio_uart(&_uart);
   }
 };

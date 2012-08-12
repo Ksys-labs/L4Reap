@@ -52,34 +52,15 @@ namespace L4
   };
 
 
-  unsigned long Uart_leon3::rd(unsigned long reg) const
+  bool Uart_leon3::startup(Io_register_block const *regs)
   {
-    volatile unsigned long *r = (unsigned long*)(_base + reg);
-    return *r;
-  }
-
-  void Uart_leon3::wr(unsigned long reg, unsigned long val) const
-  {
-    volatile unsigned long *r = (unsigned long*)(_base + reg);
-    *r = val;
-  }
-
-  bool Uart_leon3::startup(unsigned long base)
-  {
-    _base = base;
+    _regs = regs;
 
     return true;
   }
 
   void Uart_leon3::shutdown()
   { }
-
-  bool Uart_leon3::enable_rx_irq(bool /*enable*/)
-  {
-    return false;
-  }
-
-  bool Uart_leon3::enable_tx_irq(bool /*enable*/) { return false; }
 
   bool Uart_leon3::change_mode(Transfer_mode, Baud_rate r)
   {
@@ -95,7 +76,7 @@ namespace L4
       if (!blocking)
         return -1;
 
-    return rd(DATA_REG) & DATA_MASK;
+    return _regs->read<unsigned int>(DATA_REG) & DATA_MASK;
   }
 
   int Uart_leon3::char_avail() const
@@ -105,21 +86,16 @@ namespace L4
 
   void Uart_leon3::out_char(char c) const
   {
-    while (!(rd(STATUS_REG) & STATUS_TE))
+    while (_regs->read<unsigned int>(STATUS_REG) & STATUS_TF)
       ;
-    wr(DATA_REG, c);
+    _regs->write<unsigned int>(DATA_REG, c);
   }
 
   int Uart_leon3::write(char const *s, unsigned long count) const
   {
     unsigned long c = count;
-    while (c)
-      {
-        if (*s == 10)
-          out_char(13);
-        out_char(*s++);
-        --c;
-      }
+    while (c--)
+      out_char(*s++);
 
     return count;
   }

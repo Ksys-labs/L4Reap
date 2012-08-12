@@ -146,7 +146,7 @@ extern "C" void bootstrap_main()
   map_hw(page_dir);
 
   unsigned domains      = 0x55555555; // client for all domains
-  unsigned control      = Config::cache_enabled
+  unsigned control      = Config::Cache_enabled
                           ? Cpu::Cp15_c1_cache_enabled : Cpu::Cp15_c1_cache_disabled;
 
   Mmu<Cache_flush_area, true>::flush_cache();

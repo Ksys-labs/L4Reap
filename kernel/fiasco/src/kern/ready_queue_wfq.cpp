@@ -8,6 +8,8 @@ template< typename E >
 class Ready_queue_wfq
 {
   friend class Jdb_thread_list;
+  template<typename T>
+  friend class Jdb_thread_list_policy;
 
 public:
   E *current_sched() const { return _current_sched; }

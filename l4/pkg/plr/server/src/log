@@ -1,0 +1,166 @@
+// vim: ft=cpp
+#pragma once
+
+/*
+ * log --
+ *
+ *     Logging. Main ideas from http://www.drdobbs.com/cpp/201804215
+ *
+ * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ *     economic rights: Technische Universität Dresden (Germany)
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+
+#include <iostream>
+#include <iomanip>
+#include <sstream>
+#include <sys/time.h>
+#include <cstdio>
+#include <cstdarg>
+#include <cstring>
+
+namespace Romain {
+
+
+template <typename T>
+void dump_mem(T const * ptr, unsigned count, unsigned brk = 10)
+{
+	for (unsigned i = 0; i < count; ++i) {
+		unsigned char const *base = reinterpret_cast<unsigned char const*>(ptr) + i;
+		printf("%02x", *base);
+		if (i % brk == brk-1 || count-1 == i) {
+			printf("\n");
+		} else {
+			printf(" ");
+		}
+	}
+}
+
+
+/*
+ * Log class.
+ */
+class Log
+{
+	public:
+
+		enum LogLevel { ERROR, WARN, INFO, DEBUG };
+
+		enum LogFlags {
+			None       = 0x0,
+			Anything   = 0x1,
+			Emulator   = 0x2,
+			Memory     = 0x4,
+			Manager    = 0x8,
+			Faults     = 0x10,
+			Redundancy = 0x20,
+			Loader     = 0x40,
+			Swifi      = 0x80,
+			Gdb        = 0x100,
+			All        = 0xFFFFFFFF,
+		};
+
+		static LogLevel    maxLog;
+		static bool        withtime;
+		static l4_umword_t logFlags;
+
+		Log() { }
+		
+		std::ostringstream& get(LogLevel lvl = INFO)
+		{
+			if (Log::withtime) {
+				struct timeval tv;
+				gettimeofday(&tv, 0);
+				_oss << tv.tv_sec << ":" << std::setw(3) << tv.tv_usec / 1000;
+			}
+			_oss << " " << std::setw(5) << Log::LogLevelToString(lvl) << " ";
+			return _oss;
+		}
+
+		static char const* LogLevelToString(LogLevel l)
+		{
+			switch (l) {
+				case ERROR: return "ERR";
+				case WARN:  return "WARN";
+				case DEBUG: return "DBG";
+				case INFO:  return "INFO";
+				default: return "unknown?";
+			}
+		}
+		
+		virtual ~Log()
+		{
+			std::cout << _oss.str() << "\n";
+			fflush(stdout);
+		}
+
+	protected:
+		std::ostringstream _oss;
+
+	private:
+		Log(const Log&) { }
+		Log& operator=(const Log&) { return *this; }
+};
+
+
+/*
+ * Wrapper to map L4Re dbg interface to the log facility.
+ */
+class Dbg
+{
+	enum { bufsize = 60 };
+
+	public:
+		int cprintf(char const *fmt, ...) const
+		{
+			static char buf[bufsize];
+			va_list arg;
+			va_start(arg, fmt);
+			int ret = vsnprintf(buf, bufsize, fmt, arg);
+			va_end(arg);
+
+			if (buf[strlen(buf)-1] == '\n')
+				buf[strlen(buf)-1] = 0;
+			Romain::Log().get(Romain::Log::DEBUG) << buf;
+
+			return ret;
+		}
+
+
+		int printf(char const *fmt, ...) const
+		{
+			static char buf[bufsize];
+			va_list arg;
+			va_start(arg, fmt);
+			int ret = vsnprintf(buf, bufsize, fmt, arg);
+			va_end(arg);
+
+			if (buf[strlen(buf)-1] == '\n')
+				buf[strlen(buf)-1] = 0;
+			Romain::Log().get(Romain::Log::DEBUG) << buf;
+
+			return ret;
+		}
+};
+
+}
+
+/*
+ * Dirty trick from http://www.drdobbs.com/cpp/201804215
+ *
+ * Must keep this ordering and *not* have a ; at the and of the
+ * last line
+ */
+#define LOG(lvl, flags) \
+	if (!((lvl <= Romain::Log::maxLog) || (Romain::Log::logFlags & flags))) \
+		; \
+	else \
+		Romain::Log().get(lvl) << std::setw(15) << __func__ << "\033[0m "
+
+#define INFO()       LOG(Romain::Log::INFO, Romain::Log::All)
+#define DEBUG()      LOG(Romain::Log::DEBUG, Romain::Log::All)
+#define DEBUGf(flag) LOG(Romain::Log::DEBUG, flag)
+#define WARN()       LOG(Romain::Log::WARN, Romain::Log::All)
+#define ERROR()      LOG(Romain::Log::ERROR, Romain::Log::All)

@@ -51,7 +51,7 @@ Kernel_thread::boot_app_cpus()
 
   printf("Number of CPUs: %d\n", num_ap_cpus + 1);
 
-  _tramp_mp_startup_cp15_c1 = Config::cache_enabled
+  _tramp_mp_startup_cp15_c1 = Config::Cache_enabled
                               ? Cpu::Cp15_c1_cache_enabled : Cpu::Cp15_c1_cache_disabled;
   _tramp_mp_startup_pdbr
     = Mem_space::kernel_space()->virt_to_phys((Address)Mem_space::kernel_space()->dir())
@@ -71,7 +71,7 @@ Kernel_thread::boot_app_cpus()
   while (1)
     {
       Mem::dmb();
-      if (num_ap_cpus == Kip::k()->system_cpus() - 1)
+      if (num_ap_cpus == Config::num_ap_cpus)
         break;
       for (unsigned i = 0; i < 1000; ++i)
         asm volatile("nop");
@@ -81,3 +81,23 @@ Kernel_thread::boot_app_cpus()
 
   printf("Done waiting CPUs\n");
 }
+
+//--------------------------------------------------------------------------
+IMPLEMENTATION [arm && generic_tickless_idle]:
+
+#include "mem_unit.h"
+#include "processor.h"
+
+PROTECTED inline NEEDS["processor.h", "mem_unit.h"]
+void
+Kernel_thread::arch_tickless_idle(unsigned)
+{
+  Mem_unit::tlb_flush();
+  Proc::halt();
+}
+
+PROTECTED inline NEEDS["processor.h"]
+void
+Kernel_thread::arch_idle(unsigned)
+{ Proc::halt(); }
+

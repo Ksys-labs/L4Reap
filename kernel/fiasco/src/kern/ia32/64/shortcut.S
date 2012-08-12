@@ -429,6 +429,9 @@ se_addr_space_switched:
 	// since there is the return address pushed on the stack.
 	
 	mov	OFS__THREAD__EIP (DEST_rsi), %rcx
+        /* make RIP canonical, workaround for intel IA32e flaw */
+        shl     $16, %rcx
+        sar     $16, %rcx
 	mov	OFS__THREAD__ESP (DEST_rsi), %r15
 	mov	OFS__THREAD__EFL (DEST_rsi), %r11	
 	mov	OFS__THREAD__ID  (THIS_rbx), %rsi

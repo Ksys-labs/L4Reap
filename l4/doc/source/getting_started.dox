@@ -69,7 +69,7 @@ make grub2iso E=hello MODULES_LIST=/tmp/modules.list MODULE_SEARCH_PATH=/tmp:<pa
 Now you should be able to boot the image in QEMU by running:
 
 \code
-qemu -cdrom images/hello.iso -serial stdio
+qemu-system-i386 -cdrom images/hello.iso -serial stdio
 \endcode
 
 If you press <ESC> in the terminal that shows you the serial output you

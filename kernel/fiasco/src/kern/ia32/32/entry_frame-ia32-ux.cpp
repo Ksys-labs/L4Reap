@@ -23,10 +23,10 @@ EXTENSION class Return_frame
 {
 private:
   Mword             _eip;
-  Unsigned16  _cs, __csu;
+  Unsigned16  _cs, __attribute__((unused)) __csu;
   Mword          _eflags;
   Mword             _esp;
-  Unsigned16  _ss, __ssu;
+  Unsigned16  _ss, __attribute__((unused)) __ssu;
 
 public:
   enum { Pf_ax_offset = 0 };

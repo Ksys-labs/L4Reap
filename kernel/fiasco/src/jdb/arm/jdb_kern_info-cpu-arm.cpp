@@ -33,8 +33,9 @@ PRIVATE
 Mword
 Jdb_kern_info_cpu::mrc(Mword insn)
 {
-  *(Mword *)jdb_mrc_insn = insn;
-  Mem_unit::flush_cache((void *)jdb_mrc_insn, (void *)jdb_mrc_insn);
+  char *m = reinterpret_cast<char *>(jdb_mrc_insn);
+  *reinterpret_cast<Mword *>(m) = insn;
+  Mem_unit::flush_cache(m, m);
   return jdb_mrc_insn(0);
 }
 

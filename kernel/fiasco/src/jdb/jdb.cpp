@@ -99,19 +99,19 @@ KIP_KERNEL_FEATURE("jdb");
 Jdb_handler_queue Jdb::jdb_enter;
 Jdb_handler_queue Jdb::jdb_leave;
 
-Per_cpu<char[81]> DEFINE_PER_CPU Jdb::error_buffer;
+DEFINE_PER_CPU Per_cpu<char[81]> Jdb::error_buffer;
 char Jdb::next_cmd;			// next global command to execute
 char Jdb::last_cmd;
 
 char Jdb::hide_statline;		// show status line on enter_kdebugger
-Per_cpu<Jdb_entry_frame*> DEFINE_PER_CPU Jdb::entry_frame;
+DEFINE_PER_CPU Per_cpu<Jdb_entry_frame*> Jdb::entry_frame;
 unsigned Jdb::current_cpu;              // current CPU JDB is running on
 Thread *Jdb::current_active;		// current running thread
 bool Jdb::was_input_error;		// error in command sequence
 
-Per_cpu<void (*)(unsigned, void *)> DEFINE_PER_CPU Jdb::remote_func;
-Per_cpu<void *> DEFINE_PER_CPU Jdb::remote_func_data;
-Per_cpu<bool> DEFINE_PER_CPU Jdb::remote_func_running;
+DEFINE_PER_CPU Per_cpu<void (*)(unsigned, void *)> Jdb::remote_func;
+DEFINE_PER_CPU Per_cpu<void *> Jdb::remote_func_data;
+DEFINE_PER_CPU Per_cpu<bool> Jdb::remote_func_running;
 
 // holds all commands executable in top level (regardless of current mode)
 const char *Jdb::toplevel_cmds = "j_";
@@ -120,7 +120,7 @@ const char *Jdb::toplevel_cmds = "j_";
 // interactive execution
 const char *Jdb::non_interactive_cmds = "bEIJLMNOPSU^Z";
 
-Per_cpu<bool> DEFINE_PER_CPU Jdb::running;	// JDB is already running
+DEFINE_PER_CPU Per_cpu<bool> Jdb::running;	// JDB is already running
 bool Jdb::never_break;		// never enter JDB
 bool Jdb::jdb_active;
 bool Jdb::in_service;
@@ -1103,7 +1103,7 @@ Jdb::enter_jdb(Jdb_entry_frame *e, unsigned cpu)
 		if (Cpu::online(i))
 		  {
 		    if (running.cpu(i))
-		      printf("    CPU%2u ["L4_PTR_FMT"]: %s\n", i,
+		      printf("    CPU%2u [" L4_PTR_FMT "]: %s\n", i,
 		             entry_frame.cpu(i)->ip(), error_buffer.cpu(i));
 		    else
 		      printf("    CPU%2u: is not in JDB (not responding)\n", i);
@@ -1190,7 +1190,7 @@ Jdb::check_for_cpus(bool try_nmi)
   for (unsigned c = 1; c < Config::Max_num_cpus; ++c)
     {
       if (Cpu::online(c) && !running.cpu(c))
-	Ipi::cpu(c).send(Ipi::Debug);
+	Ipi::send(Ipi::Debug, 0, c);
     }
   Mem::barrier();
 retry:
@@ -1271,7 +1271,7 @@ Jdb::stop_all_cpus(unsigned current_cpu)
       // Huh, not CPU 0, so notify CPU 0 to enter JDB too
       // The notification is ignored if CPU 0 is already within JDB
       jdb_active = true;
-      Ipi::cpu(0).send(Ipi::Debug);
+      Ipi::send(Ipi::Debug, current_cpu, 0);
 
       unsigned long wait_count = Max_wait_cnt;
       while (!running.cpu(0) && wait_count)
@@ -1401,7 +1401,7 @@ Jdb::remote_work_ipi(unsigned this_cpu, unsigned to_cpu,
   _remote_work_ipi_func_data = data;
   _remote_work_ipi_done      = 0;
 
-  Ipi::cpu(to_cpu).send(Ipi::Debug);
+  Ipi::send(Ipi::Debug, this_cpu, to_cpu);
 
   if (wait)
     while (!*(volatile unsigned long *)&_remote_work_ipi_done)

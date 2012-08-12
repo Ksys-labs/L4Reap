@@ -89,7 +89,7 @@ Jdb_dump::print_statline(unsigned long row, unsigned long col)
       (dump_type==D_MODE)
       ? "e=edit u=disasm D=dump <Space>=mode <CR>=goto addr"
       : "<Space>=mode",
-      task ? "%c<"L4_PTR_FMT"> task %p" : "%c<"L4_PTR_FMT"> physical",
+      task ? "%c<" L4_PTR_FMT "> task %p" : "%c<" L4_PTR_FMT "> physical",
       dump_type, virt(row,col), task);
 }
 
@@ -201,7 +201,7 @@ Jdb_dump::edit_entry(unsigned long row, unsigned long col, unsigned cx, unsigned
 
   putstr(Jdb_screen::Mword_blank);
   Jdb::printf_statline("dump", "<CR>=commit change",
-		       "edit <"L4_PTR_FMT"> = "L4_PTR_FMT"", entry, mword);
+		       "edit <" L4_PTR_FMT "> = " L4_PTR_FMT, entry, mword);
 
   Jdb::cursor(cy, cx);
   Mword new_mword;
@@ -323,7 +323,7 @@ Jdb_dump::key_pressed(int c, unsigned long &row, unsigned long &col)
 	  if (Jdb::peek((Address*)virt(row,col), task, virt1))
 	    {
 	      Jdb::printf_statline("dump", "<CR>=disassemble here",
-				   "u[address="L4_PTR_FMT" task=%p] ",
+				   "u[address=" L4_PTR_FMT " task=%p] ",
 				   virt1, task);
 	      int c1 = Jdb_core::getchar();
 	      if (c1 != KEY_RETURN && c1 != ' ')

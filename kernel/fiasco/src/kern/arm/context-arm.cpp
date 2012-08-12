@@ -35,7 +35,7 @@ IMPLEMENTATION [arm]:
 #include "utcb_support.h"
 
 
-IMPLEMENT inline
+IMPLEMENT inline NEEDS[Context::load_tpidrurw]
 void
 Context::fill_user_state()
 {
@@ -46,7 +46,7 @@ Context::fill_user_state()
       : : "m"(ef->usp), "m"(ef->ulr), [rf] "r" (&ef->usp));
 }
 
-IMPLEMENT inline
+IMPLEMENT inline NEEDS[Context::store_tpidrurw]
 void
 Context::spill_user_state()
 {
@@ -56,15 +56,19 @@ Context::spill_user_state()
       : "=m"(ef->usp), "=m"(ef->ulr) : [rf] "r" (&ef->usp));
 }
 
-IMPLEMENT inline NEEDS[Context::store_tpidrurw]
+
+PROTECTED inline void Context::arch_setup_utcb_ptr() {}
+
+IMPLEMENT inline NEEDS[Context::spill_user_state]
 void
 Context::switch_cpu(Context *t)
 {
   update_consumed_time();
 
-  store_tpidrurw();
   spill_user_state();
+  store_tpidrurw();
   t->fill_user_state();
+  t->load_tpidrurw();
 
   {
     register Mword _old_this asm("r1") = (Mword)this;
@@ -120,8 +124,6 @@ void Context::switchin_context(Context *from)
 
   // switch to our page directory if nessecary
   vcpu_aware_space()->switchin_context(from->vcpu_aware_space());
-
-  load_tpidrurw();
 
   Utcb_support::current(utcb().usr());
 }

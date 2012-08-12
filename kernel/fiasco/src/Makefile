@@ -171,7 +171,7 @@ endif # ! config xconfig menuconfig oldconfig
 auto:
 	test -e auto || mkdir auto
 
-BSP_DIR            := $(srcdir)/kern/arm/bsp $(srcdir)/kern/ppc32/bsp
+BSP_DIR            := $(srcdir)/kern/arm/bsp $(srcdir)/kern/ppc32/bsp $(srcdir)/kern/sparc/bsp
 KCONFIG_FILE       := Kconfig
 KCONFIG_SRC_FILE   := $(srcdir)/Kconfig
 KCONFIG_BSP_FILES  := $(shell find $(BSP_DIR) -name Kconfig -follow -print)
@@ -184,25 +184,26 @@ kconfig_call = $(MAKE) -C $(tooldir)/kconfig O=$(objbase) \
 	       KCONFIG_AUTOCONFIG=config/auto.conf \
 	       KERNELVERSION=SVN MENUCONFIG_COLOR=blackbg \
 	       INCLUDE_PPC32=$(INCLUDE_PPC32) \
+	       INCLUDE_SPARC=$(INCLUDE_SPARC) \
 	       fiasco_srcdir=$(srcdir)/..
 
 $(KCONFIG_FILE): $(KCONFIG_SRC_FILE) $(KCONFIG_BSP_FILES) $(srcdir)/Makefile
 	@$(tooldir)/gen_kconfig $(KCONFIG_SRC_FILE) $(KCONFIG_FILE) $(KCONFIG_BSP_FILES)
 
 globalconfig.out: $(KCONFIG_FILE)
-	$(kconfig_call) oldconfig
+	+$(kconfig_call) oldconfig
 
 globalconfig.h: globalconfig.out
-	$(kconfig_call) silentoldconfig
+	+$(kconfig_call) silentoldconfig
 
 config: $(KCONFIG_FILE)
-	$(kconfig_call) menuconfig silentoldconfig
+	+$(kconfig_call) menuconfig silentoldconfig
 
 textconfig: $(KCONFIG_FILE)
-	$(kconfig_call) config silentoldconfig
+	+$(kconfig_call) config silentoldconfig
 
 menuconfig oldconfig xconfig gconfig nconfig randconfig allyesconfig allnoconfig: $(KCONFIG_FILE)
-	$(kconfig_call) $@ silentoldconfig
+	+$(kconfig_call) $@ silentoldconfig
 
 ifneq ($(filter clean cleanall mrproper,$(MAKECMDGOALS)),)
 

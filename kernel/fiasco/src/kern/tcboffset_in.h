@@ -11,9 +11,7 @@
   DUMP_MEMBER1 (THREAD, Thread, _caller,		REPLY_CAP)
   DUMP_MEMBER1 (THREAD, Receiver, _partner,		PARTNER)
   DUMP_MEMBER1 (THREAD, Receiver, _rcv_regs,		RCV_REGS)
-  DUMP_MEMBER1 (THREAD, Receiver, _sender_list._head,	SENDER_FIRST)
   DUMP_MEMBER1 (THREAD, Thread, _timeout,		TIMEOUT)
-  DUMP_MEMBER1 (THREAD, Thread, _receiver,		RECEIVER)
   DUMP_MEMBER1 (THREAD, Thread, _space,		SPACE)
   DUMP_MEMBER1 (THREAD, Thread, _thread_lock,	THREAD_LOCK)
   DUMP_MEMBER1 (THREAD, Thread,	_thread_lock._lock_owner,
@@ -29,10 +27,6 @@
   DUMP_MEMBER1 (THREAD, Thread, _magic,			MAGIC)
   DUMP_OFFSET  (THREAD, MAX, sizeof (Thread))
 
-  DUMP_MEMBER1 (THREAD, Thread, _p_next,		PRIO_P_NEXT)
-  DUMP_MEMBER1 (THREAD, Thread, _p_prev_next,		PRIO_P_PREV_NEXT)
-  DUMP_MEMBER1 (THREAD, Thread, _s_next,		PRIO_S_NEXT)
-  DUMP_MEMBER1 (THREAD, Thread, _s_prev,		PRIO_S_PREV)
   DUMP_MEMBER1 (THREAD, Context, _vcpu_state._u,        USER_VCPU)
 #if defined(CONFIG_ARM)
   DUMP_OFFSET  (THREAD, UTCB_SIZE, sizeof(Utcb))
@@ -51,7 +45,6 @@
 #endif
   DUMP_OFFSET  (SCHED_CONTEXT, MAX, sizeof (Sched_context))
 
-  DUMP_MEMBER1 (SPACE,         Space, _mem_space,               MEM_SPACE)
   DUMP_MEMBER1 (MEM_SPACE, Mem_space, _dir,                     PGTABLE)
 
 
@@ -59,8 +52,6 @@
 
   DUMP_CAST_OFFSET (Thread, Receiver)
   DUMP_CAST_OFFSET (Thread, Sender)
-
-  DUMP_MEMBER1 (KIP, Kip, processor_info,  PROCESSOR_INFO)
 
   DUMP_CONSTANT (SIZEOF_TRAP_STATE, sizeof(Trap_state))
   DUMP_MEMBER1 (VCPU_STATE, Vcpu_state, _entry_ip, ENTRY_IP)

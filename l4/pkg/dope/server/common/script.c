@@ -518,9 +518,8 @@ static void register_widget_attrib(struct widtype *widtype, char *desc,
 	struct attrib  *attrib;
 	u32 tok_off[MAX_TOKENS];
 	u32 tok_len[MAX_TOKENS];
-	u32 num_tok;
 
-	num_tok = tokenizer->parse(desc, MAX_TOKENS, tok_off, tok_len);
+	tokenizer->parse(desc, MAX_TOKENS, tok_off, tok_len);
 
 	attrib = (struct attrib *)zalloc(sizeof(struct attrib));
 	if (!attrib) return;

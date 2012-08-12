@@ -717,7 +717,6 @@ int __pthread_compare_and_swap(long * ptr, long oldval, long newval,
 static void __pthread_acquire(int * spinlock)
 {
   int cnt = 0;
-  struct timespec tm;
 
   READ_MEMORY_BARRIER();
 
@@ -726,9 +725,7 @@ static void __pthread_acquire(int * spinlock)
       l4_thread_yield();
       cnt++;
     } else {
-      tm.tv_sec = 0;
-      tm.tv_nsec = SPIN_SLEEP_DURATION;
-      l4_usleep(SPIN_SLEEP_DURATION / 1000); //nanosleep(&tm, NULL);
+      l4_usleep(SPIN_SLEEP_DURATION / 1000);
       cnt = 0;
     }
   }

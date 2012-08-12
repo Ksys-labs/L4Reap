@@ -84,3 +84,34 @@ sub grub2_mkisofs($$@)
   system("$cmd");
   die "Failed to create ISO" if $?;
 }
+
+
+sub grub1_config_prolog(%)
+{
+  my %opts = @_;
+  my $s = '';
+
+  $s .= "color 23 52\n";
+  $s .= "serial\nterminal serial\n" if $opts{serial};
+  $s .= "timeout $opts{timeout}\n" if defined $opts{timeout};
+  $s .= "\n";
+
+  $s;
+}
+
+sub grub2_config_prolog(%)
+{
+  my %opts = @_;
+  my $s = '';
+
+  if ($opts{serial})
+    {
+      $s .= "serial\n";
+      $s .= "terminal_output serial\n";
+      $s .= "terminal_input serial\n";
+    }
+  $s .= "set timeout=$opts{timeout}\n" if defined $opts{timeout};
+
+  $s;
+}
+

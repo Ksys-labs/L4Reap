@@ -104,17 +104,17 @@ public:
   void dec_ref_count() { --_ref_cnt; }
 
   Device(l4_umword_t uid, l4_uint32_t adr)
-  : _uid(uid), _adr(adr), _sta(Disabled),
+  : _ref_cnt(0), _uid(uid), _adr(adr), _sta(Disabled),
     _discover_bus_if(0)
   {}
 
   Device(l4_uint32_t adr)
-  : _uid((l4_umword_t)this), _adr(adr), _sta(Disabled),
+  : _ref_cnt(0), _uid((l4_umword_t)this), _adr(adr), _sta(Disabled),
     _discover_bus_if(0)
   {}
 
   Device()
-  : _uid((l4_umword_t)this), _adr(~0), _sta(Disabled),
+  : _ref_cnt(0), _uid((l4_umword_t)this), _adr(~0), _sta(Disabled),
     _discover_bus_if(0)
   {}
 

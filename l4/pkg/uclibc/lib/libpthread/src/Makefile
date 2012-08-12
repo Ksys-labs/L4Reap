@@ -41,7 +41,11 @@ DEFINES   := -DL4_THREAD_SAFE -D__USE_XOPEN2K -D_POSIX_C_SOURCE=200112L \
              -D_GNU_SOURCE=1 -D__NO_WEAK_PTHREAD_ALIASES=1 \
 	     -D_LIBC=1 -DIS_IN_libpthread=1 -DNOT_IN_libc=1
 
-DEFINES_x86-l4f := -DUSE___THREAD=1 
+DEFINES_x86-l4f   := -DUSE___THREAD=1 
+DEFINES_amd64-l4f := -DUSE___THREAD=1 
+DEFINES_arm-l4f   := -DUSE___THREAD=1 
+DEFINES_ppc32-l4f := -DUSE___THREAD=1 
+DEFINES_sparc-l4f := -DUSE___THREAD=1 
 
 CFLAGS    += -include $(CONTRIBDIR)/include/libc-symbols.h
 CXXFLAGS  += -include $(CONTRIBDIR)/include/libc-symbols.h

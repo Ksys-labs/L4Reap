@@ -4,6 +4,7 @@ IMPLEMENTATION:
 
 #include "irq_chip.h"
 #include "irq.h"
+#include "irq_mgr.h"
 #include "jdb_module.h"
 #include "kernel_console.h"
 #include "static_init.h"
@@ -50,11 +51,12 @@ Jdb_attach_irq::action( int cmd, void *&args, char const *&, int & )
         {
         case 'l': // list
             {
-              Irq *r;
+              Irq_base *r;
               putchar('\n');
-              for (unsigned i = 0; i < Config::Max_num_dirqs; ++i)
+	      unsigned n = Irq_mgr::mgr->nr_irqs();
+              for (unsigned i = 0; i < n; ++i)
                 {
-                  r = static_cast<Irq*>(Irq_chip::hw_chip->irq(i));
+                  r = static_cast<Irq*>(Irq_mgr::mgr->irq(i));
                   if (!r)
                     continue;
                   printf("IRQ %02x/%02d\n", i, i);
@@ -169,7 +171,7 @@ Kobject_common *
 Jdb_kobject_irq::follow_link(Kobject_common *o)
 {
   Irq_sender *t = Jdb_kobject_irq::dcast<Irq_sender*>(o);
-  Kobject_common *k = t ? Kobject::pointer_to_obj(t->owner()) : 0;
+  Kobject_common *k = t ? Kobject::from_dbg(Kobject_dbg::pointer_to_obj(t->owner())) : 0;
   return k ? k : o;
 }
 
@@ -187,9 +189,9 @@ Jdb_kobject_irq::show_kobject_short(char *buf, int max, Kobject_common *o)
   Irq_sender *t = Jdb_kobject_irq::dcast<Irq_sender*>(o);
 
   return snprintf(buf, max, " I=%3lx %s L=%lx T=%lx F=%x Q=%d",
-                  i->irq(), i->pin()->pin_type(), i->obj_id(),
+                  i->pin(), i->chip()->chip_type(), i->obj_id(),
                   w != o ?  w->dbg_info()->dbg_id() : 0,
-		  (unsigned)i->pin()->flags(),
+		  (unsigned)i->flags(),
                   t ? t->queued() : -1);
 }
 

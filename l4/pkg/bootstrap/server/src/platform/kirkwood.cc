@@ -25,9 +25,10 @@ class Platform_arm_kirkwood : public Platform_single_region_ram
 
   void init()
   {
-    static L4::Uart_pxa _uart(1, 1);
-    _uart.startup(0xf1012000); // uart0
-    //_uart.startup(0xf1012100); // uart1
+    static L4::Uart_16550 _uart(L4::Uart_16550::Base_rate_pxa);
+    static L4::Io_register_block_mmio r(0xf1012000, 2); // uart0
+    //static L4::Io_register_block_mmio r(0xf1012100); // uart1
+    _uart.startup(&r); // uart1
     _uart.change_mode(0x3, 8500); // TCLK=200000000, Divisor: 108=TCLK/115200/16
     set_stdio_uart(&_uart);
 

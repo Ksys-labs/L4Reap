@@ -76,7 +76,7 @@ static int __internal_png_get_size(enum mode_t mode,
   if (mode == M_MEMORY)
     {
       if (check_if_png(png_data))
-        return ENOPNG;
+        return LIBPNG_ENOPNG;
     }
 
   /* create png read struct */
@@ -108,7 +108,7 @@ static int __internal_png_get_size(enum mode_t mode,
       png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 
       /* If we get here, we had a problem reading the file */
-      return EDAMAGEDPNG;
+      return LIBPNG_EDAMAGEDPNG;
     }
 
   if (mode == M_MEMORY)
@@ -128,14 +128,14 @@ static int __internal_png_get_size(enum mode_t mode,
   return 0;
 }
 
-int png_get_size_mem(void *png_data, int png_data_size,
-                     int *width, int *height)
+int libpng_get_size_mem(void *png_data, int png_data_size,
+                        int *width, int *height)
 {
   return __internal_png_get_size(M_MEMORY, png_data, png_data_size, NULL,
                                  width, height);
 }
 
-int png_get_size_file(const char *filename, int *width, int *height)
+int libpng_get_size_file(const char *filename, int *width, int *height)
 {
   FILE *fp;
   int r;
@@ -148,146 +148,6 @@ int png_get_size_file(const char *filename, int *width, int *height)
   fclose(fp);
   return r;
 }
-
-static int __internal_png_convert_ARGB
-   (enum mode_t mode, void *png_data, void *argb_buf,
-    int png_data_size, unsigned argb_max_size, FILE *fp)
-{
-  png_structp png_ptr;
-  png_infop info_ptr;
-  png_uint_32 width, height;
-  char *row_ptr, *row_ptr_backup, *dst;
-  unsigned row, j;
-  int bit_depth, color_type, interlace_type, a, r, g, b, offset;
-  struct l4png_wrap_read_func_struct memio;
-
-  if (mode == M_MEMORY)
-    /* check if png_data really contains a png image */
-    if(check_if_png((char *)png_data)) return ENOPNG;
-
-  offset=4;
-
-  /* create png read struct */
-  png_ptr = png_create_read_struct_2(PNG_LIBPNG_VER_STRING,NULL,NULL,NULL,
-                                     NULL,NULL,NULL);
-
-  if (png_ptr==NULL)
-    return -1;
-
-  if (mode == M_MEMORY)
-    {
-      memio.mem = png_data;
-      memio.size = png_data_size;
-      memio.offset = 0;
-      png_set_read_fn(png_ptr, &memio, l4png_wrap_read_func_from_memory);
-    }
-
-  /* create png info struct */
-  info_ptr = png_create_info_struct(png_ptr);
-
-  if (info_ptr==NULL) {
-      png_destroy_read_struct(&png_ptr, NULL, NULL);
-      return -1;
-  }
-
-  if (setjmp(png_jmpbuf(png_ptr)))
-    {
-      /* Free all of the memory associated with the png_ptr and info_ptr */
-      png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-
-      /* If we get here, we had a problem reading the file */
-      return EDAMAGEDPNG;
-    }
-
-  dst = (char *) argb_buf;
-
-  if (mode == M_MEMORY)
-    png_init_io(png_ptr,(png_FILE_p) &memio);
-  else
-    png_init_io(png_ptr,(png_FILE_p) fp);
-
-  /* read info struct */
-  png_read_info(png_ptr, info_ptr);
-
-  /* get image data chunk */
-  png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type,
-      &interlace_type, NULL, NULL);
-
-  if (argb_max_size < height*width*offset) {
-      png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-      return ARGB_BUF_TO_SMALL;
-  }
-
-  if (color_type == PNG_COLOR_TYPE_PALETTE) png_set_palette_to_rgb(png_ptr);
-
-  /* set down to 8bit value */
-  if (bit_depth == 16) png_set_strip_16(png_ptr);
-
-  /* normally png files have rgba format now swap it into argb */
-  if (color_type == PNG_COLOR_TYPE_RGB_ALPHA) png_set_swap_alpha(png_ptr);
-  else png_set_filler(png_ptr, 0xff, PNG_FILLER_BEFORE);
-
-  row_ptr = malloc(png_get_rowbytes(png_ptr,info_ptr)*PNG_ROW_MEM_SIZE);
-
-  if (row_ptr == NULL) {
-      printf("not enough memory for a png row");
-      return -1;
-  }
-
-  row_ptr_backup = row_ptr;
-
-  for (row = 0;row<height-1;row++) {
-
-      /* backup row pointer to start address */
-      row_ptr = row_ptr_backup;
-
-      /* read a single row */
-      png_read_row(png_ptr, (png_bytep)row_ptr, NULL);
-
-      /* calculate ARGB value and copy it to destination buffer */
-      for (j=0;j<width;j++) {
-          a=*(row_ptr++);
-          r=*(row_ptr++);
-          g=*(row_ptr++);
-          b=*(row_ptr++);
-          *(dst+j*offset) = a;
-          *(dst+j*offset+1) = r;
-          *(dst+j*offset+2) = g;
-          *(dst+j*offset+3) = b;
-      }
-      dst+=width*offset;                
-  }
-
-  /* free mem of png structs */
-  png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
-
-
-  return 0;
-}
-
-int png_convert_ARGB_mem(void *png_data, void *argb_buf,
-                         int png_data_size, unsigned argb_max_size)
-{
-  return __internal_png_convert_ARGB(M_MEMORY, png_data, argb_buf,
-                                     png_data_size, argb_max_size, NULL);
-}
-
-int png_convert_ARGB_file(const char *filename, void *argb_buf,
-                          unsigned argb_max_size)
-{
-  FILE *fp;
-  int r;
-
-  if (!(fp = fopen(filename, "rb")))
-    return -1;
-
-  r = __internal_png_convert_ARGB(M_FILE, 0, argb_buf,
-                                  0, argb_max_size, fp);
-
-  fclose(fp);
-  return r;
-}
-
 
 #define DITHER_SIZE 16
 
@@ -311,50 +171,92 @@ static const int dither_matrix[DITHER_SIZE][DITHER_SIZE] = {
 };
 
 
-static inline void convert_24to16(unsigned char *src, short *dst, int width, int line)
+static inline void
+convert_line_24to16(unsigned char *src, short *dst, int width, int line)
 {
-  int j,r,g,b,v;
+  int j, r, g, b, v;
   int const *dm = dither_matrix[line & 0xf];
 
   /* calculate 16bit RGB value and copy it to destination buffer */
-  for (j=0;j<width;j++) {
+  for (j = 0; j < width; j++)
+    {
       v = dm[j & 0xf];
-      r = (int)(*(src++)) + (v>>5);
-      g = (int)(*(src++)) + (v>>6);
-      b = (int)(*(src++)) + (v>>5);
-      if (r>255) r=255;
-      if (g>255) g=255;
-      if (b>255) b=255;
-      *(dst+j) = ((r&0xf8)<<8) + ((g&0xfc)<<3) + ((b&0xf8)>>3);
-  }
+      r = (int)(*(src++)) + (v >> 5);
+      g = (int)(*(src++)) + (v >> 6);
+      b = (int)(*(src++)) + (v >> 5);
+      if (r > 255)
+        r = 255;
+      if (g > 255)
+        g = 255;
+      if (b > 255)
+        b = 255;
+      *(dst + j) = ((r & 0xf8) << 8) + ((g & 0xfc) << 3) + ((b & 0xf8) >> 3);
+    }
 }
 
 
-static int __internal_png_convert_RGB16bit
-    (enum mode_t mode, void *png_data, void *argb_buf, int png_data_size,
-     unsigned argb_max_size, int line_offset, FILE *fp)
+
+
+
+static void
+convert_pixel_from_rgb888(unsigned srcval, void *dst, l4re_video_view_info_t *fbi)
+{
+  unsigned v;
+
+  v  = ((srcval >> (8  - fbi->pixel_info.r.size)) & ((1 << fbi->pixel_info.r.size) - 1)) << fbi->pixel_info.r.shift;
+  v |= ((srcval >> (16 - fbi->pixel_info.g.size)) & ((1 << fbi->pixel_info.g.size) - 1)) << fbi->pixel_info.g.shift;
+  v |= ((srcval >> (24 - fbi->pixel_info.b.size)) & ((1 << fbi->pixel_info.b.size) - 1)) << fbi->pixel_info.b.shift;
+
+  //printf("srcval=%08x v=%08x dst=%p bpl=%d\n", srcval, v, dst, fbi->bytes_per_line);
+  switch (fbi->pixel_info.bytes_per_pixel)
+    {
+    case 1:
+      *(unsigned char  *)dst = v;
+      break;
+    case 2:
+      *(unsigned short *)dst = v;
+      break;
+#if defined(ARCH_x86) || defined(ARCH_amd64)
+    case 3:
+      *(unsigned short *)(dst + 0) = v & 0xffff;
+      *(unsigned char  *)(dst + 2) = v >> 16;
+      break;
+#endif
+    case 4:
+      *(unsigned int   *)dst = v;
+      break;
+    default:
+      printf("unhandled bitsperpixel %d\n",
+             l4re_video_bits_per_pixel(&fbi->pixel_info));
+    };
+}
+
+
+static int
+internal_render(enum mode_t mode, void *png_data, char * const dst,
+                int png_data_size, unsigned dst_buf_size,
+                l4re_video_view_info_t *dst_descr, FILE *fp)
 {
   png_structp png_ptr;
   png_infop info_ptr;
   png_uint_32 width, height;
-  unsigned char *row_ptr, *row_ptr_backup;
+  unsigned char *row_ptr;
   unsigned row;
   int bit_depth, color_type, interlace_type;
-  unsigned short *dst;
   struct l4png_wrap_read_func_struct memio;
 
   /* check if png_data really contains a png image */
-  if (mode == M_MEMORY)
-    if(check_if_png((char *)png_data)) return ENOPNG;
+  if (mode == M_MEMORY && check_if_png((char *)png_data))
+    return LIBPNG_ENOPNG;
 
   /* create png read struct */
-  png_ptr = png_create_read_struct_2(PNG_LIBPNG_VER_STRING,NULL,NULL,NULL,
-                                     NULL,NULL,NULL);
-
-  if (png_ptr==NULL) {
+  png_ptr = png_create_read_struct_2(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL,
+                                     NULL, NULL, NULL);
+  if (!png_ptr)
+    {
       printf("error during creation of png read struct");
       return -1;
-  }
+    }
 
   if (mode == M_MEMORY)
     {
@@ -364,15 +266,15 @@ static int __internal_png_convert_RGB16bit
       png_set_read_fn(png_ptr, &memio, l4png_wrap_read_func_from_memory);
     }
 
-
   /* create png info struct */
   info_ptr = png_create_info_struct(png_ptr);
 
-  if (info_ptr==NULL) {
+  if (!info_ptr)
+    {
       png_destroy_read_struct(&png_ptr, NULL, NULL);
       printf("error during creation of png info struct");
       return -1;
-  }
+    }
 
   if (setjmp(png_jmpbuf(png_ptr)))
     {
@@ -380,10 +282,8 @@ static int __internal_png_convert_RGB16bit
       png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 
       /* If we are here, we had a problem reading the image */
-      return EDAMAGEDPNG;
+      return LIBPNG_EDAMAGEDPNG;
     }
-
-  dst = (unsigned short *) argb_buf;
 
   if (mode == M_MEMORY)
     png_init_io(png_ptr,(png_FILE_p)&memio);
@@ -395,21 +295,20 @@ static int __internal_png_convert_RGB16bit
 
   /* get image data chunk */
   png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type,
-      &interlace_type, NULL, NULL);
+               &interlace_type, NULL, NULL);
 
   if (_DEBUG)
     printf("bit_depth: %d, color_type: %d, width: %d, height: %d",
            bit_depth, color_type, width, height);
 
-  if (argb_max_size < height*width*sizeof(u16)) {
-
-      /* Free all of the memory associated with the png_ptr and info_ptr */
+  if (dst_buf_size < height * dst_descr->bytes_per_line)
+    {
       png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+      return LIBPNG_ARGB_BUF_TO_SMALL;
+    }
 
-      return ARGB_BUF_TO_SMALL;
-  }
-
-  if (color_type == PNG_COLOR_TYPE_PALETTE) png_set_palette_to_rgb(png_ptr);
+  if (color_type == PNG_COLOR_TYPE_PALETTE)
+    png_set_palette_to_rgb(png_ptr);
 
   if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
     png_set_expand_gray_1_2_4_to_8(png_ptr);
@@ -417,65 +316,72 @@ static int __internal_png_convert_RGB16bit
   if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
     png_set_gray_to_rgb(png_ptr);
 
-  if (bit_depth < 8) png_set_packing(png_ptr);
+  if (bit_depth < 8)
+    png_set_packing(png_ptr);
 
   /* set down to 8bit value */
-  if (bit_depth == 16) png_set_strip_16(png_ptr);
+  if (bit_depth == 16)
+    png_set_strip_16(png_ptr);
 
-  if (color_type == PNG_COLOR_TYPE_RGB_ALPHA) png_set_strip_alpha(png_ptr);
+  if (color_type == PNG_COLOR_TYPE_RGB_ALPHA)
+    png_set_strip_alpha(png_ptr);
 
-  row_ptr = malloc(png_get_rowbytes(png_ptr,info_ptr)*PNG_ROW_MEM_SIZE);
+  row_ptr = malloc(png_get_rowbytes(png_ptr, info_ptr) * PNG_ROW_MEM_SIZE);
 
-  if (row_ptr == NULL) {
+  if (!row_ptr)
+    {
       printf("not enough memory for a png row");
       return -1;
-  }
+    }
 
-  row_ptr_backup = row_ptr;
-
-  if (interlace_type == PNG_INTERLACE_NONE) {
-
-      for (row = 0;row<height-1;row++) {
-
-          /* backup row pointer to start address */
-          row_ptr = row_ptr_backup;
-
-          /* read a single row */
+  if (dst_descr->pixel_info.bytes_per_pixel == 2)
+    {
+      char *_dst = dst;
+      // special case for 16bit, with dithering
+      if (interlace_type == PNG_INTERLACE_NONE)
+        for (row = 0; row < height; row++)
+          {
+            png_read_row(png_ptr, (png_bytep)row_ptr, NULL);
+            convert_line_24to16(row_ptr, (short *)_dst, width, row);
+            _dst += dst_descr->bytes_per_line;
+          }
+    }
+  else
+    {
+      png_set_filler(png_ptr, 0xff, PNG_FILLER_BEFORE);
+      char *_dst = dst;
+      for (row = 0; row < height; row++)
+        {
           png_read_row(png_ptr, (png_bytep)row_ptr, NULL);
+          unsigned *r = (unsigned *)row_ptr;
+          unsigned o = 0;
+          for (unsigned j = 0; j < width;
+               ++j, ++r, o += dst_descr->pixel_info.bytes_per_pixel)
+            convert_pixel_from_rgb888(*r >> 8, _dst + o, dst_descr);
 
-          convert_24to16(row_ptr, (short *)dst, width, row);
-          //                        /* calculate 16bit RGB value and copy it to destination buffer */
-          //                        for (j=0;j<width;j++) {
-          //                                r=*(row_ptr++);
-          //                                g=*(row_ptr++);
-          //                                b=*(row_ptr++);
-          //                                *(dst+j) = ((r&0xf8)<<8) + ((g&0xfc)<<3) + ((b&0xf8)>>3);
-          //                        }
-          dst+=line_offset;
+          _dst += dst_descr->bytes_per_line;
+        }
+    }
 
-      }
+  free(row_ptr);
 
-      /* free old row pointer */
-      free(row_ptr_backup);
-
-  }
-
-  /* free mem of png structs */
   png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
 
   return 0;
 }
 
-int png_convert_RGB16bit_mem(void *png_data, void *argb_buf, int png_data_size,
-                             unsigned argb_max_size, int line_offset)
+int libpng_render_mem(void *png_data, void *dst_buf,
+                      unsigned png_data_size, unsigned dst_size,
+                      l4re_video_view_info_t *dst_descr)
 {
-  return __internal_png_convert_RGB16bit(M_MEMORY, png_data, argb_buf,
-                                         png_data_size, argb_max_size,
-                                         line_offset, NULL);
+  return internal_render(M_MEMORY, png_data, dst_buf,
+                         png_data_size, dst_size,
+                         dst_descr, NULL);
 }
 
-int png_convert_RGB16bit_file(const char *filename, void *argb_buf,
-                              unsigned argb_max_size, int line_offset)
+int libpng_render_file(const char *filename, void *dst_buf,
+                       unsigned dst_size,
+                       l4re_video_view_info_t *dst_descr)
 {
   FILE *fp;
   int r;
@@ -483,8 +389,7 @@ int png_convert_RGB16bit_file(const char *filename, void *argb_buf,
   if (!(fp = fopen(filename, "rb")))
     return -1;
 
-  r = __internal_png_convert_RGB16bit(M_FILE, 0, argb_buf,
-                                      0, argb_max_size, line_offset, fp);
+  r = internal_render(M_MEMORY, 0, dst_buf, 0, dst_size, dst_descr, fp);
 
   fclose(fp);
   return r;

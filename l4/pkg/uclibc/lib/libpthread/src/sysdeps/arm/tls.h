@@ -19,7 +19,6 @@
 
 #ifndef _TLS_H
 #define _TLS_H	1
-#if defined USE_TLS && USE_TLS //l4
 #ifndef __ASSEMBLER__
 
 # include <stdbool.h>
@@ -53,7 +52,7 @@ typedef union dtv
 #ifndef __ASSEMBLER__
 
 /* Get system call information.  */
-# include <sysdep.h>
+//# include <sysdep.h>
 
 /* The TP points to the start of the thread blocks.  */
 # define TLS_DTV_AT_TP	1
@@ -64,7 +63,7 @@ typedef union dtv
 typedef struct
 {
   dtv_t *dtv;
-  void *private;
+  void *private_data;
 } tcbhead_t;
 
 /* This is the size of the initial TCB.  */
@@ -77,7 +76,7 @@ typedef struct
 # define TLS_TCB_SIZE		sizeof (tcbhead_t)
 
 /* This is the size we need before TCB.  */
-# define TLS_PRE_TCB_SIZE	sizeof (struct pthread)
+# define TLS_PRE_TCB_SIZE	sizeof (struct _pthread_descr_struct)
 
 /* Alignment requirements for the TCB.  */
 # define TLS_TCB_ALIGN		16
@@ -98,20 +97,41 @@ typedef struct
 /* Code to initially initialize the thread pointer.  This might need
    special attention since 'errno' is not yet available and if the
    operation can cause a failure 'errno' must not be touched.  */
-# define TLS_INIT_TP(tcbp, secondcall) \
+# define TLS_INIT_TP_ORIG(tcbp, secondcall) \
   ({ INTERNAL_SYSCALL_DECL (err);					\
      long result_var;							\
      result_var = INTERNAL_SYSCALL_ARM (set_tls, err, 1, (tcbp));	\
      INTERNAL_SYSCALL_ERROR_P (result_var, err)				\
        ? "unknown error" : NULL; })
 
+# define TLS_INIT_TP_v6p(tcbp, secondcall) \
+  ({ asm volatile ("mcr p15, 0, %0, c13, c0, 2" : : "r" (tcbp)); NULL; })
+
+# define TLS_INIT_TP_generic(tcbp, secondcall) \
+  ({ l4_utcb_tcr()->user[0] = (l4_addr_t)tcbp - TLS_PRE_TCB_SIZE; NULL; })
+
+# define TLS_INIT_TP(tcbp, secondcall) TLS_INIT_TP_generic(tcbp, secondcall)
+
+
+# define TLS_get_thread_pointer_v6p() \
+  ({ tcbhead_t *x; asm volatile ("mrc p15, 0, %0, c13, c0, 2" : "=r" (x)); x; })
+
+# define TLS_get_thread_pointer_generic() \
+  ({ (tcbhead_t *)(l4_utcb_tcr()->user[0] + TLS_PRE_TCB_SIZE); })
+
+# define TLS_get_thread_pointer() TLS_get_thread_pointer_generic()
+
 /* Return the address of the dtv for the current thread.  */
-# define THREAD_DTV() \
+# define THREAD_DTV_ORIG() \
   (((tcbhead_t *) __builtin_thread_pointer ())->dtv)
+# define THREAD_DTV() \
+  (((tcbhead_t *) TLS_get_thread_pointer())->dtv)
 
 /* Return the thread descriptor for the current thread.  */
+# define THREAD_SELF_ORIG \
+ ((struct _pthread_descr_struct *)__builtin_thread_pointer () - 1)
 # define THREAD_SELF \
- ((struct pthread *)__builtin_thread_pointer () - 1)
+ ((struct _pthread_descr_struct *)TLS_get_thread_pointer() - 1)
 
 /* Magic for libthread_db to know how to do THREAD_SELF.  */
 # define DB_THREAD_SELF \
@@ -155,5 +175,4 @@ typedef struct
   GL(dl_wait_lookup_done) ()
 
 #endif /* __ASSEMBLER__ */
-#endif
 #endif	/* tls.h */

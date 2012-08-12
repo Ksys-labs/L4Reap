@@ -141,12 +141,6 @@ L4_CV long L4_EXPORT
 l4io_release_ioport(unsigned portnum, unsigned len);
 
 
-/**
- * \brief Check if a resource is available.
- *
- */
-
-
 /* -------------- Device handling --------------------- */
 
 /**

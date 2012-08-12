@@ -1,9 +1,9 @@
 INTERFACE:
 
 #include "paging.h"
-#include "mapped_alloc.h"
 
 class Pte;
+class Mem_page_attr;
 
 class Page_table //: public Page_table_defs
 {
@@ -17,48 +17,21 @@ public:
     E_INVALID,
   };
 
-
-  void * operator new( size_t );
-  void operator delete( void * );
-
-  static void init(Page_table *current);
+#if 0
+  void * operator new(size_t) throw();
+  void operator delete(void *);
+#endif
+  static void init();
 
   Page_table();
-  
-  void copy_in(void *my_base, Page_table *o, 
+
+  void copy_in(void *my_base, Page_table *o,
 	       void *base, size_t size = 0, unsigned long asid = ~0UL);
 
   void *dir() const;
 
-  static Page_table *current();
-
   static size_t num_page_sizes();
-  static size_t const * page_sizes();
-  static size_t const * page_shifts();
-
-  static void set_allocator( Mapped_allocator * );
-  static Mapped_allocator *alloc();
-
-private:
-  static Mapped_allocator *allocator;
-
+  static size_t const *page_sizes();
+  static size_t const *page_shifts();
 };
-
-IMPLEMENTATION:
-
-Mapped_allocator *Page_table::allocator = 0;
-
-
-IMPLEMENT 
-void Page_table::set_allocator( Mapped_allocator *a )
-{
-  allocator = a;
-}
-
-
-IMPLEMENT 
-Mapped_allocator *Page_table::alloc()
-{
-  return allocator;
-}
 

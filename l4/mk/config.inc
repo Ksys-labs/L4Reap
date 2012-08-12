@@ -38,10 +38,10 @@
 # DROPSCONF_TOOL_OLD	- helper for recreating the config header file
 
 
-KCONFIG_FILE    = $(L4DIR_ABS)/mk/Kconfig
-KCONFIG_OBJ_DIR = $(OBJ_BASE)/tool/kconfig
+KCONFIG_OBJ_DIR  = $(OBJ_BASE)/tool/kconfig
 
-kconfig_call = $(MAKE) -C $(L4DIR)/tool/kconfig O=$(OBJ_BASE) \
+kconfig_call = [ -d $@ ] || install -d $(OBJ_BASE)/include/l4; \
+	       $(MAKE) -C $(L4DIR)/tool/kconfig O=$(OBJ_BASE) \
                Kconfig=$(KCONFIG_FILE) \
 	       KCONFIG_AUTOHEADER=include/l4/bid_config.h \
 	       KCONFIG_CONFIG=.kconfig \
@@ -80,24 +80,23 @@ DROPSCONF_DONTINC_MK	?=
 ifneq ($(DROPSCONF),)
 .o:	$(DROPSCONF_CONFIG_H)
 
-DIRS_FOR_CONFIG = $(KCONFIG_OBJ_DIR) $(OBJ_BASE)/config $(OBJ_BASE)/include/l4
+DIRS_FOR_CONFIG = $(KCONFIG_OBJ_DIR) $(OBJ_BASE)/config
 
-$(DIRS_FOR_CONFIG):
-	$(VERBOSE)install -d $@
-	
+$(DIRS_FOR_CONFIG): $(KCONFIG_FILE)
+	$(VERBOSE)[ -d $@ ] || install -d $@
 
-menuconfig config: $(KCONFIG_FILE) $(DIRS_FOR_CONFIG)
-	$(VERBOSE)$(kconfig_call) menuconfig silentoldconfig
+menuconfig config: $(DIRS_FOR_CONFIG)
+	$(VERBOSE)+$(kconfig_call) menuconfig silentoldconfig
 	$(VERBOSE)test ! -r $(DROPSCONF_CONFIG) -o \
 		! $(DROPSCONF_CONFIG) -nt $(DROPSCONF_CONFIG_MK) || \
 		$(MAKE) $(DROPSCONF_CONFIG_MK)
 
 oldconfig xconfig gconfig nconfig randconfig allyesconfig allnoconfig: $(DIRS_FOR_CONFIG)
-	$(VERBOSE)$(kconfig_call) $@ silentoldconfig
+	$(VERBOSE)+$(kconfig_call) $@ silentoldconfig
 	@$(MAKE) $(DROPSCONF_CONFIG_MK)
 
 $(DROPSCONF_CONFIG): $(DIRS_FOR_CONFIG)
-	$(VERBOSE)$(kconfig_call) silentoldconfig
+	$(VERBOSE)+$(kconfig_call) silentoldconfig
 	
 
 #$(DROPSCONF_CONFIG_H): $(DROPSCONF_CONFIG)

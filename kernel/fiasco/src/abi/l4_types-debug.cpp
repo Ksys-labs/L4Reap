@@ -25,7 +25,7 @@ Utcb::print() const
     printf("%2d:%16lx%c", i, values[i], !((i+1) % 4) ? '\n' : ' ');
   if (Max_words % 4)
     puts("");
-  printf("Reserved:   %16lx\n", reserved);
+  printf("Reserved:   %16lx\n", utcb_addr);
 
   printf("Buffers:  desc=%16lx\n", buf_desc.raw());
   for (unsigned i = 0; i < sizeof(buffers) / sizeof(buffers[0]); ++i)

@@ -33,8 +33,8 @@ sub get_module_entry($$)
   my %groups;
 
   if ($entry_to_pick eq 'auto-build-entry') {
-    print "Automatic build entry is being built.\n";
-    print "This image is useless but it always builds.\n";
+    # Automatic build entry is being built.
+    # This image is useless but it always builds.
 
     $mods[0] = { command => 'Makefile', cmdline => 'Makefile', type => 'bin'};
     $mods[1] = { command => 'Makefile', cmdline => 'Makefile', type => 'bin'};
@@ -159,6 +159,7 @@ sub get_module_entry($$)
       $type = 'bin';
       @m = ($remaining);
     }
+    next if not defined $m[0] or $m[0] eq '';
 
     if ($process_mode eq 'entry') {
       foreach my $m (@m) {
@@ -205,7 +206,7 @@ sub get_module_entry($$)
   if (defined $is_mode_linux)
     {
       die "No Linux kernel image defined" unless defined $mods[0]{cmdline};
-      print "Entry '$entry_to_pick' is a Linux type entry\n";
+      print STDERR "Entry '$entry_to_pick' is a Linux type entry\n";
       my @files;
       # @files is actually redundant but eases file selection for entry
       # generators
@@ -305,11 +306,12 @@ sub search_file_or_die($$)
   $f;
 }
 
-sub get_file_uncompressed_or_die($$$)
+sub get_or_copy_file_uncompressed_or_die($$$$)
 {
-  my $command = shift;
-  my $paths   = shift;
-  my $tmpdir  = shift;
+  my $command   = shift;
+  my $paths     = shift;
+  my $targetdir = shift;
+  my $copy      = shift;
 
   my $fp = L4::ModList::search_file_or_die($command, $paths);
 
@@ -318,18 +320,31 @@ sub get_file_uncompressed_or_die($$$)
   read F, $buf, 2;
   close F;
 
+  (my $tf = $fp) =~ s|.*/||;
+  $tf = $targetdir.'/'.$tf;
+
   if (length($buf) >= 2 && unpack("n", $buf) == 0x1f8b) {
-    (my $tf = $fp) =~ s|.*/||;
-    $tf = $tmpdir.'/'.$tf;
-    print "'$fp' is a zipped file, uncompressing to '$tf'\n";
+    print STDERR "'$fp' is a zipped file, uncompressing to '$tf'\n";
     system("zcat $fp >$tf");
+    $fp = $tf;
+  } elsif ($copy) {
+    print("cp $fp $tf\n");
+    system("cp $fp $tf");
     $fp = $tf;
   }
 
   $fp;
 }
 
+sub get_file_uncompressed_or_die($$$)
+{
+  return get_or_copy_file_uncompressed_or_die(shift, shift, shift, 0);
+}
 
+sub copy_file_uncompressed_or_die($$$)
+{
+  return get_or_copy_file_uncompressed_or_die(shift, shift, shift, 1);
+}
 
 
 sub generate_grub1_entry($$%)
@@ -402,6 +417,5 @@ sub generate_grub2_entry($$%)
   $s .= "  echo Done, booting...\n";
   $s .= "}\n";
 }
-
 
 return 1;

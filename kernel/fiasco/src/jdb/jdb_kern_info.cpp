@@ -1,6 +1,7 @@
 INTERFACE:
 
 #include "jdb_module.h"
+#include <slist>
 
 class Jdb_kern_info_module;
 
@@ -15,12 +16,14 @@ class Jdb_kern_info : public Jdb_module
 public:
   Jdb_kern_info() FIASCO_INIT;
 private:
+  typedef cxx::S_list_bss<Jdb_kern_info_module> Module_list;
+  typedef Module_list::Iterator Module_iter;
   static char                 _subcmd;
-  static Jdb_kern_info_module *_first;
+  static Module_list modules;
 };
 
 
-class Jdb_kern_info_module
+class Jdb_kern_info_module : public cxx::S_list_item
 {
   friend class Jdb_kern_info;
 public:
@@ -29,7 +32,6 @@ private:
   virtual void show(void) = 0;
   char                 _subcmd;
   char const           *_descr;
-  Jdb_kern_info_module *_next;
 };
 
 
@@ -59,28 +61,22 @@ Jdb_kern_info_module::Jdb_kern_info_module(char subcmd, char const *descr)
 
 
 char Jdb_kern_info::_subcmd;
-Jdb_kern_info_module *Jdb_kern_info::_first;
+Jdb_kern_info::Module_list Jdb_kern_info::modules;
 
 PUBLIC static
 void
 Jdb_kern_info::register_subcmd(Jdb_kern_info_module *m)
 {
-  Jdb_kern_info_module *kim = _first;
-  Jdb_kern_info_module *kim_last = 0;
+  Module_iter p;
+  for (p = modules.begin();
+       p != modules.end()
+       && (tolower(p->_subcmd) < tolower(m->_subcmd)
+           || (tolower(p->_subcmd) == tolower(m->_subcmd)
+               && p->_subcmd > m->_subcmd));
+      ++p)
+    ;
 
-  while (kim &&
-         (tolower(kim->_subcmd)  < tolower(m->_subcmd) ||
-	  (tolower(kim->_subcmd) == tolower(m->_subcmd) &&
-	   kim->_subcmd > m->_subcmd)))
-    {
-      kim_last = kim;
-      kim = kim->_next;
-    }
-  if (kim_last)
-    kim_last->_next = m;
-  else
-    _first = m;
-  m->_next = kim;
+  modules.insert_before(m, p);
 }
 
 PUBLIC
@@ -91,9 +87,9 @@ Jdb_kern_info::action(int cmd, void *&args, char const *&, int &)
     return NOTHING;
 
   char c = *(char*)(args);
-  Jdb_kern_info_module *kim;
+  Module_iter kim;
 
-  for (kim=_first; kim; kim=kim->_next)
+  for (kim = modules.begin(); kim != modules.end(); ++kim)
     {
       if (kim->_subcmd == c)
 	{
@@ -105,7 +101,7 @@ Jdb_kern_info::action(int cmd, void *&args, char const *&, int &)
     }
 
   putchar('\n');
-  for (kim=_first; kim; kim=kim->_next)
+  for (kim = modules.begin(); kim != modules.end(); ++kim)
     printf("  k%c   %s\n", kim->_subcmd, kim->_descr);
 
   putchar('\n');

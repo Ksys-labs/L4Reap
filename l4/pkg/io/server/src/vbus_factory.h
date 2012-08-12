@@ -13,46 +13,64 @@
 #include "debug.h"
 
 #include <l4/cxx/avl_map>
+#include <l4/cxx/hlist>
 #include <string>
 #include <typeinfo>
 
 #include "hw_device.h"
 #include "vdevice.h"
 
+#include "tagged_parameter.h"
+
 namespace Vi {
 
 template< typename VI, typename HW >
 class Generic_type_factory
+: public cxx::H_list_item
 {
+private:
+  typedef Generic_type_factory<VI, HW> Self;
+  typedef cxx::H_list<Self> List;
+  typedef typename List::Iterator Iterator;
+
+  static List _for_type;
+
 public:
   virtual VI *vcreate(HW *f) = 0;
   virtual ~Generic_type_factory() {}
 
-  typedef cxx::Avl_map<std::type_info const *, Generic_type_factory *> Type_map;
+  static VI *create(HW *f, bool warn = true);
 
 protected:
-  static Type_map &type_map()
-  {
-    static Type_map _tm;
-    return _tm;
-  }
+  explicit Generic_type_factory(std::type_info const *type);
 
-public:
-  static VI *create(HW *f, bool warn = true);
+private:
+  std::type_info const *_type;
 };
+
+template< typename VI, typename HW >
+cxx::H_list<Generic_type_factory<VI,HW> > Generic_type_factory<VI,HW>::_for_type(true);
 
 typedef Generic_type_factory<Dev_feature, Hw::Dev_feature> Feature_factory;
 typedef Generic_type_factory<Resource, Resource> Resource_factory;
 
-class Dev_factory
-: public Generic_type_factory<Device, Hw::Device>
+class Dev_factory : public cxx::H_list_item
 {
 public:
   virtual Device *vcreate() = 0;
+  virtual Device *vcreate(Hw::Device *f, Tagged_parameter *filter) = 0;
 
+//  typedef cxx::Avl_map<std::type_info const *, Dev_factory *> Type_map;
   typedef cxx::Avl_map<std::string, Dev_factory *> Name_map;
+  typedef cxx::H_list<Dev_factory> List;
+  typedef List::Iterator Iterator;
+
+  static List _for_type;
+  std::type_info const *_type;
 
 protected:
+  explicit Dev_factory(std::type_info const *type);
+
   static Name_map &name_map()
   {
     static Name_map _name_map;
@@ -60,18 +78,22 @@ protected:
   }
 
 public:
-  using Generic_type_factory<Device, Hw::Device>::create;
   static Device *create(std::string const &_class);
+  static Device *create(Hw::Device *f, Tagged_parameter *filter, bool warn = true);
+
+private:
+  Dev_factory(Dev_factory const &);
+  void operator = (Dev_factory const &);
 };
 
 
 template< typename VI,  typename HW_BASE, typename HW, typename BASE >
 class Generic_factory_t : public BASE
+
 {
 public:
-  Generic_factory_t()
-  { BASE::type_map()[&typeid(HW)] = this; }
 
+  Generic_factory_t() : BASE(&typeid(HW)) {}
 
   VI *vcreate(HW_BASE *dev)
   {
@@ -110,19 +132,20 @@ public:
   typedef HW_DEV Hw_dev;
   typedef V_DEV  V_dev;
 
-  Dev_factory_t()
-  {
-    type_map()[&typeid(Hw_dev)] = this;
-  }
+  Dev_factory_t() : Dev_factory(&typeid(Hw_dev))
+  { }
 
 
-  virtual Device *vcreate(Hw::Device *dev)
+  virtual Device *vcreate(Hw::Device *dev, Tagged_parameter *filter)
   {
     if (dev->ref_count())
       printf("WARNING: device '%s' already assigned to an other virtual bus.\n",
              dev->name());
 
-    Device *d = new V_dev(static_cast<Hw_dev*>(dev));
+    if (!dynamic_cast<HW_DEV const*>(dev))
+      return 0;
+
+    Device *d = new V_dev(static_cast<Hw_dev*>(dev), filter);
     dev->inc_ref_count();
     return d;
   }
@@ -139,13 +162,13 @@ public:
   typedef void  Hw_dev;
   typedef V_DEV V_dev;
 
-  explicit Dev_factory_t(std::string const &_class)
+  explicit Dev_factory_t(std::string const &_class) : Dev_factory(0)
   {
     name_map()[_class] = this;
   }
 
 
-  virtual Device *vcreate(Hw::Device *)
+  virtual Device *vcreate(Hw::Device *, Tagged_parameter *)
   { return 0; }
 
   virtual Device *vcreate()
@@ -156,6 +179,28 @@ public:
 
 };
 
+template< typename VI, typename HW >
+Generic_type_factory<VI, HW>::Generic_type_factory(std::type_info const *type)
+: _type(type)
+{
+  if (!type)
+    return;
+
+  printf("GTF: register factory for %s\n", type->name());
+
+  Iterator i = _for_type.end();
+  for (Iterator c = _for_type.begin(); c != _for_type.end(); ++c)
+    {
+      void *x = 0;
+      // use the compiler catch logic to figure out if TYPE
+      // is a base class of c->_type, if it is we must put
+      // this behind c in the list.
+      if (type->__do_catch(c->_type, &x, 0))
+	i = c;
+    }
+
+  _for_type.insert(this, i);
+}
 
 template< typename VI, typename HW >
 VI *
@@ -164,17 +209,18 @@ Generic_type_factory<VI, HW>::create(HW *f, bool warn)
   if (!f)
     return 0;
 
-  Type_map &tm = type_map();
-  typename Type_map::const_iterator i = tm.find(&typeid(*f));
-  if (i == tm.end())
+  for (Iterator c = _for_type.begin(); c != _for_type.end(); ++c)
+
     {
-      if (warn)
-        d_printf(DBG_WARN, "WARNING: cannot fabricate buddy object for '%s'\n",
-                typeid(*f).name());
-      return 0;
+      VI *v = c->vcreate(f);
+      if (v)
+	return v;
     }
 
-    return i->second->vcreate(f);
+  if (warn)
+    d_printf(DBG_WARN, "WARNING: cannot fabricate buddy object for '%s'\n",
+             typeid(*f).name());
+  return 0;
 }
 
 }

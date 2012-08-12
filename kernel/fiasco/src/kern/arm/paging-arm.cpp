@@ -1,6 +1,5 @@
 INTERFACE [arm]:
 
-#include "pages.h"
 
 class PF {};
 
@@ -63,7 +62,7 @@ namespace Page
 
     // The next are ARM specific
     WRITETHROUGH = 0x08, ///< Write through cached
-    BUFFERED     = 0x04, ///< Write buffer enabled
+    BUFFERED     = 0x40, ///< Write buffer enabled -- Normal, non-cached
 
     MAX_ATTRIBS  = 0x0ffc,
     Local_page   = 0x800,
@@ -74,7 +73,6 @@ namespace Page
 //-----------------------------------------------------------------------------
 INTERFACE [arm]:
 
-#include "mapped_alloc.h"
 #include "ptab_base.h"
 
 

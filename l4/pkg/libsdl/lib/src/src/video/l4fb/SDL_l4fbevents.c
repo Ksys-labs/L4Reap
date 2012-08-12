@@ -285,11 +285,11 @@ void L4FB_InstallEventHandler(_THIS)
       printf("ERROR: Creating irq: %d \n", ret);
       return;
     }
-  if ((ret = l4re_event_get(l4re_util_video_goos_fb_goos(&this->hidden->goosfb),
+  if ((ret = l4re_event_get_buffer(l4re_util_video_goos_fb_goos(&this->hidden->goosfb),
           this->hidden->ev_ds)))
     {
       /* TODO: handle ERROR */
-      printf("ERROR: l4re_event_get: %d \n", ret);
+      printf("ERROR: l4re_event_get_buffer: %d \n", ret);
       return;
     }
 

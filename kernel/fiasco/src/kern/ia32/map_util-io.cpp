@@ -2,6 +2,12 @@
  * Fiasco-ia32
  * Specific code for I/O port protection
  */
+INTERFACE[(ia32|amd64) & io & debug]:
+
+#include "mapdb.h"
+#include "types.h"
+
+extern Static_object<Mapdb> mapdb_io;
 
 IMPLEMENTATION[(ia32|amd64) & io]:
 
@@ -10,15 +16,14 @@ IMPLEMENTATION[(ia32|amd64) & io]:
 #include "space.h"
 #include "io_space.h"
 
-Mapdb*
-io_mapdb_instance()
-{
-  static const size_t io_page_sizes[] = 
-    {Io_space::Map_superpage_shift, 9, Io_space::Page_shift};
-  static Mapdb mapdb (sigma0_task,
-      Page_number::create(0x10000 >> io_page_sizes[0]), io_page_sizes, 3);
+Static_object<Mapdb> mapdb_io;
 
-  return &mapdb;
+void init_mapdb_io(Space *sigma0)
+{
+  static size_t const io_page_sizes[] =
+    {Io_space::Map_superpage_shift, 9, Io_space::Page_shift};
+
+  mapdb_io.construct(sigma0, Page_number::create(0x10000 >> io_page_sizes[0]), io_page_sizes, 3);
 }
 
 /** Map the IO port region described by "fp_from" of address space "from" 
@@ -33,7 +38,7 @@ io_mapdb_instance()
 	in destination IO space
     @return IPC error code that describes the status of the operation
  */
-L4_error
+L4_error __attribute__((nonnull(1, 3)))
 io_map(Space *from, L4_fpage const &fp_from,
        Space *to, L4_fpage const &fp_to, L4_msg_item control)
 {
@@ -66,12 +71,11 @@ io_map(Space *from, L4_fpage const &fp_from,
   unsigned long del_attribs, add_attribs;
   Mt::attribs(control, fp_from, &del_attribs, &add_attribs);
 
-  return map (io_mapdb_instance(),
-	      from->io_space(), from, snd_pos,
-	      snd_size,
-	      to->io_space(), to, snd_pos,
-	      control.is_grant(), add_attribs, del_attribs,
-	      (Io_space::Reap_list**)0);
+  return map<Io_space>(mapdb_io.get(), from, from, snd_pos,
+             snd_size,
+             to, to, snd_pos,
+             control.is_grant(), add_attribs, del_attribs,
+             (Io_space::Reap_list**)0);
 }
 
 /** Unmap IO mappings.
@@ -86,7 +90,7 @@ io_map(Space *from, L4_fpage const &fp_from,
                  additionally flush the region in the given address space.
     @return true if successful
 */
-unsigned
+unsigned __attribute__((nonnull(1)))
 io_fpage_unmap(Space *space, L4_fpage fp, L4_map_mask mask)
 {
   typedef Map_traits<Io_space> Mt;
@@ -101,17 +105,17 @@ io_fpage_unmap(Space *space, L4_fpage fp, L4_map_mask mask)
   //
   // current()->regs()->eflags &= ~EFLAGS_IOPL;
 
-  return unmap(io_mapdb_instance(), space->io_space(), space,
+  return unmap<Io_space>(mapdb_io.get(), space, space,
                port, size,
                fp.rights(), mask, (Io_space::Reap_list**)0);
 }
 
 static inline
 void
-save_access_attribs (Mapdb* /*mapdb*/, const Mapdb::Frame& /*mapdb_frame*/,
-		     Mapping* /*mapping*/, Io_space* /*space*/, 
-		     unsigned /*page_rights*/, 
-		     Io_space::Addr /*virt*/, Io_space::Phys_addr /*phys*/,
-		     Io_space::Size /*size*/,
-		     bool /*me_too*/)
+save_access_attribs(Mapdb* /*mapdb*/, const Mapdb::Frame& /*mapdb_frame*/,
+		    Mapping* /*mapping*/, Io_space* /*space*/, 
+		    unsigned /*page_rights*/, 
+		    Io_space::Addr /*virt*/, Io_space::Phys_addr /*phys*/,
+		    Io_space::Size /*size*/,
+		    bool /*me_too*/)
 {}

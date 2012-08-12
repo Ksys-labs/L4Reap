@@ -20,8 +20,6 @@
 #include <l4/re/env.h>
 #include <l4/sys/l4int.h>
 
-extern l4_uint32_t l4rtc_offset;
-
 #if defined(ARCH_x86) || defined(ARCH_amd64)
 #include <l4/util/rdtsc.h>
 

@@ -51,54 +51,32 @@ public:
   static void init_arch();
 
   // global kernel configuration
-  static const unsigned kernel_version_id
-     = 0x87004444 | (FIASCO_KERNEL_SUBVERSION << 16); // "DD....."
+  enum
+  {
+    Kernel_version_id = 0x87004444 | (FIASCO_KERNEL_SUBVERSION << 16), // "DD....."
+    // kernel (idle) thread prio
+    Kernel_prio = 0,
+    // default prio
+    Default_prio = 1,
 
-  static const Mword thread_block_size = THREAD_BLOCK_SIZE;
+    Warn_level = CONFIG_WARN_LEVEL,
 
-  static const bool conservative = false;
-
-#ifdef CONFIG_FINE_GRAINED_CPUTIME
-  static const bool fine_grained_cputime = true;
-#else
-  static const bool fine_grained_cputime = false;
-#endif
-
-  static bool esc_hack;
-
-  static unsigned tbuf_entries;
-
-#ifdef CONFIG_PROFILE
-  static bool profiling;
-#else
-  static const bool profiling = false;
-#endif
-#ifdef CONFIG_STACK_DEPTH
-  static const bool stack_depth = true;
-#else
-  static const bool stack_depth = false;
-#endif
-  static const int profiling_rate = 100;
-  static const int profile_irq = 0;
-
-  // kernel (idle) thread prio
-  static const unsigned kernel_prio = 0;
-
-  // default prio
-  static const unsigned default_prio = 1;
-
-  static const int warn_level = CONFIG_WARN_LEVEL;
-
-  enum {
     Kip_syscalls = 1,
 
     One_shot_min_interval_us =   200,
     One_shot_max_interval_us = 10000,
 
-#ifdef CONFIG_ASSEMBLER_IPC_SHORTCUT
-    Assembler_ipc_shortcut = 1,
+
+#ifdef CONFIG_FINE_GRAINED_CPUTIME
+    Fine_grained_cputime = true,
 #else
-    Assembler_ipc_shortcut = 0,
+    Fine_grained_cputime = false,
+#endif
+
+#ifdef CONFIG_STACK_DEPTH
+    Stack_depth = true,
+#else
+    Stack_depth = false,
 #endif
 #ifdef CONFIG_NO_FRAME_PTR
     Have_frame_ptr = 0,
@@ -111,7 +89,6 @@ public:
 #else
     Log_kernel_page_faults = 0,
 #endif
-
 #ifdef CONFIG_JDB
     Jdb = 1,
 #else
@@ -133,6 +110,11 @@ public:
     Max_num_cpus = 1,
 #endif
   };
+
+  static bool getchar_does_hlt_works_ok;
+  static bool esc_hack;
+  static unsigned tbuf_entries;
+  static unsigned num_ap_cpus asm("config_num_ap_cpus");
 };
 
 #define GREETING_COLOR_ANSI_TITLE  "\033[1;32m"
@@ -152,11 +134,15 @@ INTERFACE[amd64]:
 INTERFACE[ppc32]:
 #define ARCH_NAME "ppc32"
 
+INTERFACE[sparc]:
+#define ARCH_NAME "sparc"
+#define TARGET_NAME ""
+
 INTERFACE:
 #define CONFIG_KERNEL_VERSION_STRING \
-  GREETING_COLOR_ANSI_TITLE "Welcome to Fiasco.OC ("CONFIG_XARCH")!\\n"            \
+  GREETING_COLOR_ANSI_TITLE "Welcome to Fiasco.OC (" CONFIG_XARCH ")!\\n"            \
   GREETING_COLOR_ANSI_INFO "L4/Fiasco.OC " ARCH_NAME " "                \
-                           "microkernel (C) 1998-2011 TU Dresden\\n"           \
+                           "microkernel (C) 1998-2012 TU Dresden\\n"           \
                            "Rev: " CODE_VERSION " compiled with gcc " COMPILER \
                             " for " TARGET_NAME "    [" CONFIG_LABEL "]\\n"    \
                            "Build: #" BUILD_NR " " BUILD_DATE "\\n"            \
@@ -227,11 +213,9 @@ bool Config::esc_hack = false;
 int  Config::serial_esc = Config::SERIAL_NO_ESC;
 #endif
 
-#ifdef CONFIG_PROFILE
-bool Config::profiling = false;
-#endif
-
 unsigned Config::tbuf_entries = 0x20000 / sizeof(Mword); //1024;
+bool Config::getchar_does_hlt_works_ok = false;
+unsigned Config::num_ap_cpus;
 
 //-----------------------------------------------------------------------------
 IMPLEMENTATION:
@@ -243,11 +227,6 @@ void Config::init()
 
   if (Koptions::o()->opt(Koptions::F_esc))
     esc_hack = true;
-
-#ifdef CONFIG_PROFILE
-  if (Koptions::o()->opt(Koptions::F_profile))
-    profiling = true;
-#endif
 
 #ifdef CONFIG_SERIAL
   if (    Koptions::o()->opt(Koptions::F_serial_esc)
@@ -261,21 +240,4 @@ void Config::init()
     }
 #endif
 }
-
-
-//----------------------------------------------------------------------------
-IMPLEMENTATION[rotext]:
-
-PUBLIC static
-bool
-Config::rotext()
-{ return Koptions::o()->opt(Koptions::F_rotext); }
-
-//----------------------------------------------------------------------------
-IMPLEMENTATION[!rotext]:
-
-PUBLIC static inline
-bool
-Config::rotext()
-{ return false; }
 

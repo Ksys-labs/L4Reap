@@ -81,7 +81,8 @@ SECTIONS
   PROVIDE (_etext = .);
   PROVIDE (etext = .);
   .rol4re_elf_aux : {
-    KEEP (*(.rol4re_elf_aux)) } : ro : l4re_aux
+    KEEP (*(.rol4re_elf_aux))
+  } : ro : l4re_aux
   .rodata         : { *(.rodata .rodata.* .gnu.linkonce.r.*) } : ro
   .rodata1        : { *(.rodata1) }
   .eh_frame_hdr : { *(.eh_frame_hdr) } :ehf :ro
@@ -93,7 +94,7 @@ SECTIONS
     KEEP (*(.eh_frame_terminator))
   } :ro
 
-  .gcc_except_table   : ONLY_IF_RO { *(.gcc_except_table .gcc_except_table.*) }
+  .gcc_except_table   : ONLY_IF_RO { *(.gcc_except_table .gcc_except_table.*) } :ro
 
   . = ALIGN(CONSTANT(MAXPAGESIZE));
   /* Adjust the address for the data segment.  We want to adjust up to

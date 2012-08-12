@@ -213,7 +213,7 @@ Jdb_pcm::Jdb_pcm()
 {}
 
 
-IMPLEMENTATION[ia32,ux,amd64,ppc32]:
+IMPLEMENTATION[ia32 || ux || amd64]:
 
 #include "cpu.h"
 
@@ -238,7 +238,7 @@ Jdb_pcm::wait_for_escape(Console *cons)
 }
 
 
-IMPLEMENTATION[arm]:
+IMPLEMENTATION[arm || ppc32 || sparc]:
 
 #include "processor.h"
 

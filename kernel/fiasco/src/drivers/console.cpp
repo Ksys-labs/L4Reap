@@ -93,9 +93,6 @@ public:
 
 protected:
   Mword  _state;
-
-public:
-  void *operator new (size_t, void *p) throw() { return p; }
 };
 
 

@@ -5,22 +5,21 @@ INTERFACE:
 #include "clock.h"
 #include "config.h"
 #include "continuation.h"
-#include "dlist.h"
 #include "fpu_state.h"
 #include "globals.h"
 #include "l4_types.h"
-#include "mem_space.h"
 #include "member_offs.h"
 #include "per_cpu_data.h"
 #include "queue.h"
 #include "queue_item.h"
 #include "rcupdate.h"
 #include "sched_context.h"
+#include "space.h"
 #include "spin_lock.h"
 #include "timeout.h"
+#include <fiasco_defs.h>
 
 class Entry_frame;
-class Space;
 class Thread_lock;
 class Context;
 class Kobject_iface;
@@ -102,7 +101,7 @@ public:
     and stack-element forward/next pointers.
  */
 class Context :
-  public Global_context_data,
+  public Context_base,
   protected Rcu_item
 {
   MEMBER_OFFSET();
@@ -209,7 +208,7 @@ public:
       unsigned const cpu = current_cpu();
       if ((int)Config::Access_user_mem == Config::Must_access_user_mem_direct
           && cpu == context()->cpu()
-          && Mem_space::current_mem_space(cpu) == context()->mem_space())
+          && Mem_space::current_mem_space(cpu) == context()->space())
         return _u.get();
       return _k;
     }
@@ -239,11 +238,6 @@ public:
   };
 
   /**
-   * Size of a Context (TCB + kernel stack)
-   */
-  static const size_t size = Config::thread_block_size;
-
-  /**
    * Return consumed CPU time.
    * @return Consumed CPU time in usecs
    */
@@ -253,6 +247,9 @@ public:
 
   void spill_user_state();
   void fill_user_state();
+
+  Space * FIASCO_PURE space() const { return _space.space(); }
+  Mem_space * FIASCO_PURE mem_space() const { return static_cast<Mem_space*>(space()); }
 
 protected:
   /**
@@ -273,10 +270,10 @@ private:
   void switchin_context(Context *) asm ("switchin_context_label") FIASCO_FASTCALL;
 
   /// low level fpu switching stuff
-  void switch_fpu (Context *t);
+  void switch_fpu(Context *t);
 
   /// low level cpu switching stuff
-  void switch_cpu (Context *t);
+  void switch_cpu(Context *t);
 
 protected:
   Context_space_ref _space;
@@ -395,16 +392,16 @@ IMPLEMENTATION:
 #include "timer.h"
 #include "timeout.h"
 
-Per_cpu<Clock> DEFINE_PER_CPU Context::_clock(true);
-Per_cpu<Context *> DEFINE_PER_CPU Context::_kernel_ctxt;
+DEFINE_PER_CPU Per_cpu<Clock> Context::_clock(true);
+DEFINE_PER_CPU Per_cpu<Context *> Context::_kernel_ctxt;
 
 IMPLEMENT inline NEEDS["kdb_ke.h"]
-Kobject_iface *
+Kobject_iface * __attribute__((nonnull(1, 2)))
 Context_ptr::ptr(Space *s, unsigned char *rights) const
 {
   assert_kdb (cpu_lock.test());
 
-  return s->obj_space()->lookup_local(_t, rights);
+  return static_cast<Obj_space*>(s)->lookup_local(_t, rights);
 }
 
 
@@ -618,14 +615,6 @@ Context::state_change_dirty(Mword mask, Mword bits, bool check = true)
 //@}
 //-
 
-/** Return the space context.
-    @return space context used for this execution context.
-            Set with set_space_context().
- */
-PUBLIC inline
-Space *
-Context::space() const
-{ return _space.space(); }
 
 PUBLIC inline
 Context_space_ref *
@@ -636,7 +625,7 @@ PUBLIC inline
 Space *
 Context::vcpu_aware_space() const
 { return _space.vcpu_aware(); }
-
+#if 0
 /** Convenience function: Return memory space. */
 PUBLIC inline NEEDS["space.h"]
 Mem_space*
@@ -644,7 +633,7 @@ Context::mem_space() const
 {
   return space()->mem_space();
 }
-
+#endif
 
 /** Registers used when iret'ing to user mode.
     @return return registers
@@ -654,7 +643,7 @@ Entry_frame *
 Context::regs() const
 {
   return reinterpret_cast<Entry_frame *>
-    (Cpu::stack_align(reinterpret_cast<Mword>(this) + size)) - 1;
+    (Cpu::stack_align(reinterpret_cast<Mword>(this) + Size)) - 1;
 }
 
 /** @name Lock counting
@@ -1133,7 +1122,7 @@ IMPLEMENT inline NEEDS ["cpu.h"]
 void
 Context::update_consumed_time()
 {
-  if (Config::fine_grained_cputime)
+  if (Config::Fine_grained_cputime)
     consume_time (_clock.cpu(cpu()).delta());
 }
 
@@ -1141,7 +1130,7 @@ IMPLEMENT inline NEEDS ["config.h", "cpu.h"]
 Cpu_time
 Context::consumed_time()
 {
-  if (Config::fine_grained_cputime)
+  if (Config::Fine_grained_cputime)
     return _clock.cpu(cpu()).us(_consumed_time);
 
   return _consumed_time;
@@ -1219,6 +1208,7 @@ PRIVATE inline
 Context *
 Context::handle_helping(Context *t)
 {
+  // XXX: maybe we do not need this on MP, because we have no helping there
   assert_kdb (current() == this);
   // Time-slice lending: if t is locked, switch to its locker
   // instead, this is transitive
@@ -1716,6 +1706,16 @@ unsigned
 Context::cpu(bool = false) const
 { return 0; }
 
+PUBLIC static inline
+void
+Context::enable_tlb(unsigned)
+{}
+
+PUBLIC static inline
+void
+Context::disable_tlb(unsigned)
+{}
+
 
 PROTECTED
 void
@@ -1784,6 +1784,7 @@ protected:
 protected:
   static Per_cpu<Pending_rqq> _pending_rqq;
   static Per_cpu<Drq_q> _glbl_drq_q;
+  static Cpu_mask _tlb_active;
 
 };
 
@@ -1798,9 +1799,19 @@ IMPLEMENTATION [mp]:
 #include "lock_guard.h"
 #include "mem.h"
 
-Per_cpu<Context::Pending_rqq> DEFINE_PER_CPU Context::_pending_rqq;
-Per_cpu<Context::Drq_q> DEFINE_PER_CPU Context::_glbl_drq_q;
+DEFINE_PER_CPU Per_cpu<Context::Pending_rqq> Context::_pending_rqq;
+DEFINE_PER_CPU Per_cpu<Context::Drq_q> Context::_glbl_drq_q;
+Cpu_mask Context::_tlb_active;
 
+PUBLIC static inline
+void
+Context::enable_tlb(unsigned cpu)
+{ _tlb_active.atomic_set(cpu); }
+
+PUBLIC static inline
+void
+Context::disable_tlb(unsigned cpu)
+{ _tlb_active.atomic_clear(cpu); }
 
 /**
  * \brief Enqueue the given \a c into its CPUs queue.
@@ -1894,7 +1905,7 @@ Context::global_drq(unsigned cpu, Drq::Request_func *func, void *arg,
 
   _glbl_drq_q.cpu(cpu).enq(&_drq);
 
-  Ipi::cpu(cpu).send(Ipi::Global_request);
+  Ipi::send(Ipi::Global_request, this->cpu(), cpu);
 
   //LOG_MSG_3VAL(src, "<drq", src->state(), Mword(this), 0);
   while (wait && (state() & Thread_drq_wait))
@@ -1947,7 +1958,7 @@ Context::enqueue_drq(Drq *rq, Drq::Exec_mode /*exec*/)
       if (ipi)
 	{
 	  //LOG_MSG_3VAL(this, "sipi", current_cpu(), cpu(), (Mword)current());
-	  Ipi::cpu(cpu).send(Ipi::Request);
+	  Ipi::send(Ipi::Request, current_cpu(), cpu);
 	}
     }
   else
@@ -2044,7 +2055,7 @@ Context::xcpu_tlb_flush(bool flush_all_spaces, Mem_space *s1, Mem_space *s2)
   Mem_space *s[3] = { (Mem_space *)flush_all_spaces, s1, s2 };
   unsigned ccpu = current_cpu();
   for (unsigned i = 0; i < Config::Max_num_cpus; ++i)
-    if (ccpu != i && Cpu::online(i))
+    if (ccpu != i && _tlb_active.get(i))
       current()->global_drq(i, Context::handle_remote_tlb_flush, s);
 }
 
@@ -2077,20 +2088,6 @@ IMPLEMENT inline
 void
 Context::switch_fpu(Context *)
 {}
-
-//----------------------------------------------------------------------------
-IMPLEMENTATION [ux]:
-
-PUBLIC static
-void
-Context::boost_idle_prio(unsigned _cpu)
-{
-  // Boost the prio of the idle thread so that it can actually get some
-  // CPU and take down the system.
-  kernel_context(_cpu)->ready_dequeue();
-  kernel_context(_cpu)->sched()->set_prio(255);
-  kernel_context(_cpu)->ready_enqueue();
-}
 
 // --------------------------------------------------------------------------
 IMPLEMENTATION [debug]:

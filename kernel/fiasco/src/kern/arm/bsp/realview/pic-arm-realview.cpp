@@ -1,23 +1,9 @@
 INTERFACE [arm && realview]:
 
+#include "types.h"
 #include "gic.h"
-#include "kmem.h"
 
 class Irq_base;
-
-EXTENSION class Pic
-{
-public:
-  enum
-  {
-    Multi_irq_pending = 0,
-
-    No_irq_pending = 1023,
-  };
-
-private:
-  static Gic gic[2];
-};
 
 //-------------------------------------------------------------------
 INTERFACE [arm && realview && (mpcore || armca9)]:
@@ -38,133 +24,84 @@ PRIVATE static inline
 void Pic::configure_core()
 {}
 
-PUBLIC static inline
-bool Pic::is_ipi(unsigned)
-{ return 0; }
-
-//-------------------------------------------------------------------
-IMPLEMENTATION [arm && pic_gic]:
-
-#include <cstring>
-#include <cstdio>
-
-#include "config.h"
-#include "initcalls.h"
-#include "irq_chip.h"
-
-Gic Gic_pin::_gic[2];
-
 //-------------------------------------------------------------------
 IMPLEMENTATION [arm && pic_gic && realview && (realview_pb11mp || (realview_eb && (mpcore || (armca9 && mp))))]:
 
-#include "irq_chip_generic.h"
+#include "irq_mgr_multi_chip.h"
+#include "cascade_irq.h"
 
-class Irq_chip_arm_rv : public Irq_chip_gen
+PUBLIC static
+void Pic::init_ap()
 {
-};
-
-PUBLIC
-void
-Irq_chip_arm_rv::setup(Irq_base *irq, unsigned irqnum)
-{
-  if (irqnum < 64)
-    irq->pin()->replace<Gic_pin>(0, irqnum);
-  else if (irqnum < 96)
-    irq->pin()->replace<Gic_pin>(1, irqnum - 32);
+  gic->init_ap();
+  static_cast<Gic*>(Irq_mgr::mgr->chip(256).chip)->init_ap();
 }
 
-PRIVATE static inline
-void
-Pic::init_other_gics()
+
+IMPLEMENT FIASCO_INIT
+void Pic::init()
 {
-  Gic_pin::_gic[1].init(Kmem::Gic1_cpu_map_base,
-                        Kmem::Gic1_dist_map_base);
+  configure_core();
+  typedef Irq_mgr_multi_chip<8> Mgr;
 
-  static Gic_cascade_irq casc_irq(&Gic_pin::_gic[1], 32);
+  Gic *g = gic.construct(Kmem::Gic_cpu_map_base, Kmem::Gic_dist_map_base);
+  Mgr *m = new Boot_object<Mgr>(2);
+  Irq_mgr::mgr = m;
 
-  Irq_chip::hw_chip->alloc(&casc_irq, 42);
+  m->add_chip(0, g, g->nr_irqs());
 
-  casc_irq.pin()->replace<Gic_cascade_pin>(0, 42);
-  casc_irq.pin()->unmask();
-}
+  g = new Boot_object<Gic>(Kmem::Gic1_cpu_map_base, Kmem::Gic1_dist_map_base);
+  m->add_chip(256, g, g->nr_irqs());
 
-PRIVATE static inline
-void
-Pic::init_ap_other_gics()
-{
-  Gic_pin::_gic[1].init_ap();
+  // FIXME: Replace static local variable, use placement new
+  Cascade_irq *casc_irq = new Boot_object<Cascade_irq>(g, &Gic::cascade_hit);
+
+  gic->alloc(casc_irq, 42);
+  casc_irq->unmask();
 }
 
 //-------------------------------------------------------------------
 IMPLEMENTATION [arm && pic_gic && !(realview && (realview_pb11mp || (realview_eb && (mpcore || (armca9 && mp)))))]:
 
-#include "irq_chip_generic.h"
-
-class Irq_chip_arm_rv : public Irq_chip_gen
-{
-};
-
-PUBLIC
-void
-Irq_chip_arm_rv::setup(Irq_base *irq, unsigned irqnum)
-{
-  if (irqnum < 64)
-    irq->pin()->replace<Gic_pin>(0, irqnum);
-}
-
-PRIVATE static inline
-void
-Pic::init_other_gics()
-{}
-
-PRIVATE static inline
-void
-Pic::init_ap_other_gics()
-{}
-
-//-------------------------------------------------------------------
-IMPLEMENTATION [arm && pic_gic]:
+#include "irq_mgr_multi_chip.h"
 
 IMPLEMENT FIASCO_INIT
 void Pic::init()
 {
   configure_core();
 
-  static Irq_chip_arm_rv _ia;
-  Irq_chip::hw_chip = &_ia;
+  typedef Irq_mgr_multi_chip<8> Mgr;
+  Gic *g = gic.construct(Kmem::Gic_cpu_map_base, Kmem::Gic_dist_map_base);
 
-  Gic_pin::_gic[0].init(Kmem::Gic_cpu_map_base, Kmem::Gic_dist_map_base);
-
-  init_other_gics();
+  Mgr *m = new Boot_object<Mgr>(1);
+  m->add_chip(0, g, g->nr_irqs());
+  Irq_mgr::mgr = m;
 }
+
+PUBLIC static
+void Pic::init_ap()
+{
+  gic->init_ap();
+}
+
+PRIVATE static inline
+void
+Pic::init_ap_other_gics()
+{}
+
+//-------------------------------------------------------------------
+IMPLEMENTATION [arm && pic_gic]:
+
+#include "gic.h"
+#include "initcalls.h"
 
 IMPLEMENT inline
 Pic::Status Pic::disable_all_save()
 { return 0; }
 
 IMPLEMENT inline
-void Pic::restore_all( Status /*s*/ )
+void Pic::restore_all(Status)
 {}
-
-PUBLIC static inline
-Unsigned32 Pic::pending()
-{
-  return Gic_pin::_gic[0].pending();
-}
-
-PUBLIC static inline
-Mword Pic::is_pending(Mword &irqs, Mword irq)
-{ return irqs == irq; }
-
-//-------------------------------------------------------------------
-IMPLEMENTATION [arm && mp && pic_gic]:
-
-PUBLIC static
-void Pic::init_ap()
-{
-  Gic_pin::_gic[0].init_ap();
-  init_ap_other_gics();
-}
 
 //-------------------------------------------------------------------
 IMPLEMENTATION [arm && pic_gic && (mpcore || armca9)]:

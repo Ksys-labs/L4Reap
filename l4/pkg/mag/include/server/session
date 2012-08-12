@@ -19,7 +19,7 @@ namespace Mag_server {
 
 class View;
 
-class Session : public cxx::D_list_item<Session>
+class Session : public cxx::D_list_item
 {
 private:
   unsigned _flags;

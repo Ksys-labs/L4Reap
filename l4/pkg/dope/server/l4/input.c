@@ -138,7 +138,7 @@ int init_input(struct dope_services *d)
     Panic("IRQ create failed");
 
   if (l4_error(l4_icu_bind(l4re_util_video_goos_fb_goos(&goosfb), 0, ev_irq))
-      || l4re_event_get(l4re_util_video_goos_fb_goos(&goosfb), ev_ds)
+      || l4re_event_get_buffer(l4re_util_video_goos_fb_goos(&goosfb), ev_ds)
       || l4re_event_buffer_attach(&ev_buf, ev_ds, l4re_env()->rm))
     {
       // failed, try to get 'ev'
@@ -146,11 +146,11 @@ int init_input(struct dope_services *d)
       if (l4_is_invalid_cap(evcap = l4re_util_cap_alloc()))
         Panic("Cap alloc failed");
 
-      evcap = l4re_get_env_cap("ev");
+      evcap = l4re_env_get_cap("ev");
 
       if (l4_is_invalid_cap(evcap)
           || l4_error(l4_icu_bind(evcap, 0, ev_irq))
-          || l4re_event_get(evcap, ev_ds)
+          || l4re_event_get_buffer(evcap, ev_ds)
           || l4re_event_buffer_attach(&ev_buf, ev_ds, l4re_env()->rm))
         {
           // failed, try to start the hw driver

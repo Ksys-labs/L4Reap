@@ -62,6 +62,8 @@ public:
    */
   int irq() const;
 
+  Address base() const;
+
   /**
    * (abstract) Enable rcv IRQ in UART.
    */
@@ -71,7 +73,7 @@ public:
    * (abstract) Disable rcv IRQ in UART.
    */
   void disable_rcv_irq();
-  
+
   /**
    * (abstract) Change transfer mode or speed.
    * @param m the new mode for the transfer, or MODE_NC for no mode change.
@@ -119,7 +121,7 @@ INTERFACE [libuart]:
 EXTENSION class Uart
 {
 public:
-  enum 
+  enum
   {
     MODE_8N1 = 1,
   };
@@ -131,25 +133,14 @@ protected:
 //---------------------------------------------------------------------------
 IMPLEMENTATION [libuart]:
 
-IMPLEMENT Uart::Uart()
-{
-}
 
-IMPLEMENT Uart::~Uart()
-{
-}
-
-
-PUBLIC bool Uart::startup( Address _address, unsigned /*irq*/ ) 
-{
-  return uart()->startup(_address);
-}
+IMPLEMENT inline Uart::~Uart()
+{ }
 
 IMPLEMENT inline void Uart::shutdown()
 {
   uart()->shutdown();
 }
-
 
 IMPLEMENT inline bool Uart::change_mode(TransferMode m, BaudRate baud)
 {
@@ -157,13 +148,13 @@ IMPLEMENT inline bool Uart::change_mode(TransferMode m, BaudRate baud)
 }
 
 IMPLEMENT inline
-int Uart::write( const char *s, __SIZE_TYPE__ count )
+int Uart::write(const char *s, __SIZE_TYPE__ count)
 {
   return uart()->write(s, count);
 }
 
 IMPLEMENT inline
-int Uart::getchar( bool blocking )
+int Uart::getchar(bool blocking)
 {
   return uart()->get_char(blocking);
 }
@@ -175,14 +166,7 @@ int Uart::char_avail() const
   return uart()->char_avail();
 }
 
-
-IMPLEMENT inline
-int Uart::irq() const
-{
-  return uart()->rx_irq();
-}
-
-IMPLEMENT 
+IMPLEMENT
 void Uart::enable_rcv_irq()
 {
   uart()->enable_rx_irq(true);
@@ -193,5 +177,4 @@ void Uart::disable_rcv_irq()
 {
   uart()->enable_rx_irq(false);
 }
-
 

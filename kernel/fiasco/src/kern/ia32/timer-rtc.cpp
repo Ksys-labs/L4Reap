@@ -1,21 +1,25 @@
 IMPLEMENTATION[{ia32,amd64}-rtc_timer]:
 
 #include "irq_chip.h"
-#include "irq_pin.h"
 #include "rtc.h"
 #include "pit.h"
 
 #include <cstdio>
 
-IMPLEMENT inline int Timer::irq_line() { return 8; }
+//IMPLEMENT inline int Timer::irq() { return 8; }
+
+PUBLIC static inline
+unsigned Timer::irq() { return 8; }
+
+PUBLIC static inline NEEDS["irq_chip.h"]
+unsigned Timer::irq_mode()
+{ return Irq_base::Trigger_edge | Irq_base::Polarity_high; }
 
 IMPLEMENT
 void
-Timer::init()
+Timer::init(unsigned)
 {
-  Irq_chip *c = Irq_chip::hw_chip;
-  unsigned in = c->legacy_override(8);
-  printf("Using the RTC on IRQ %d (%sHz) for scheduling\n", in,
+  printf("Using the RTC on IRQ %d (%sHz) for scheduling\n", 8,
 #ifdef CONFIG_SLOW_RTC
          "64"
 #else
@@ -24,37 +28,22 @@ Timer::init()
       );
 
   // set up timer interrupt (~ 1ms)
-  Rtc::init(in);
+  Rtc::init();
 
   // make sure that PIT does pull its interrupt line
   Pit::done();
-
-  // from now we can save energy in getchar()
-  Config::getchar_does_hlt_works_ok = Config::hlt_works_ok;
 }
 
-IMPLEMENT inline NEEDS["rtc.h","irq_pin.h"]
+PUBLIC static inline NEEDS["rtc.h"]
 void
 Timer::acknowledge()
 {
   // periodic scheduling is triggered by irq 8 connected with RTC
-  Rtc::irq->pin()->mask();
-  Rtc::ack_reset();
-  Rtc::irq->pin()->unmask();
-}
-
-IMPLEMENT inline NEEDS["irq_pin.h"]
-void
-Timer::enable()
-{
-  Rtc::irq->pin()->unmask();
-}
-
-IMPLEMENT inline NEEDS["irq_pin.h"]
-void
-Timer::disable()
-{
-  Rtc::irq->pin()->mask();
+  //  irq.mask();
+  Rtc::reset();
+  //  irq.ack();
+  //  Rtc::reset();
+  //  irq.unmask();
 }
 
 IMPLEMENT inline

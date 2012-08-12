@@ -36,6 +36,7 @@ public:
     canvas->draw_texture(_t, Rgb32::Black, p1(), Canvas::Masked);
   }
 
+  void handle_event(Hid_report *, Point const &, bool) {}
 };
 
 }

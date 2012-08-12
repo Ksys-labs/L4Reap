@@ -15,8 +15,8 @@ IMPLEMENTATION:
 #include "std_macros.h"
 
 /* Initialize global valiable timeslice_timeout */
-Per_cpu<Timeout *> timeslice_timeout DEFINE_PER_CPU;
-static Per_cpu<Timeslice_timeout> DEFINE_PER_CPU the_timeslice_timeout(true);
+DEFINE_PER_CPU Per_cpu<Timeout *> timeslice_timeout;
+DEFINE_PER_CPU static Per_cpu<Timeslice_timeout> the_timeslice_timeout(true);
 
 PUBLIC
 Timeslice_timeout::Timeslice_timeout(unsigned cpu)

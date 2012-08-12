@@ -3,7 +3,7 @@ IMPLEMENTATION:
 #include "static_init.h"
 #include "jdb_kern_info.h"
 #include "kmem_alloc.h"
-#include "kmem_slab_simple.h"
+#include "kmem_slab.h"
 
 class Jdb_kern_info_memory : public Jdb_kern_info_module
 {};
@@ -22,14 +22,12 @@ void
 Jdb_kern_info_memory::show()
 {
   ((Kmem_alloc*)Kmem_alloc::allocator())->debug_dump();
+  typedef Kmem_slab::Reap_list::Const_iterator Iter;
 
   // Slab allocators
-  for (Kmem_slab_simple* alloc = Kmem_slab_simple::reap_list;
-       alloc;
-       alloc = alloc->_reap_next)
-    {
-      alloc->debug_dump();
-    }  
+  for (Iter alloc = Kmem_slab::reap_list.begin();
+       alloc != Kmem_slab::reap_list.end(); ++alloc)
+    alloc->debug_dump();
 }
 
 

@@ -65,11 +65,13 @@ enum L4_irq_flow_type
   L4_IRQ_F_EDGE       = 0x0,   /**< Edge triggered */
   L4_IRQ_F_POS        = 0x0,   /**< Positive trigger */
   L4_IRQ_F_NEG        = 0x4,   /**< Negative trigger */
+  L4_IRQ_F_BOTH       = 0x8,   /**< Both edges trigger */
   L4_IRQ_F_LEVEL_HIGH = 0x3,   /**< Level high trigger */
   L4_IRQ_F_LEVEL_LOW  = 0x7,   /**< Level low trigger */
   L4_IRQ_F_POS_EDGE   = 0x1,   /**< Positive edge trigger */
   L4_IRQ_F_NEG_EDGE   = 0x5,   /**< Negative edge trigger */
-  L4_IRQ_F_MASK       = 0x7,   /**< Mask */
+  L4_IRQ_F_BOTH_EDGE  = 0x9,   /**< Both edges trigger */
+  L4_IRQ_F_MASK       = 0xf,   /**< Mask */
 };
 
 
@@ -106,9 +108,27 @@ enum L4_icu_opcode
    * \see l4_icu_msi_info()
    */
   L4_ICU_OP_MSI_INFO = 3,
+
+  /**
+   * \brief Unmask opcode.
+   * \hideinitializer
+   * \see l4_icu_unmask()
+   */
   L4_ICU_OP_UNMASK   = 4,
+
+  /**
+   * \brief Mask opcode.
+   * \hideinitializer
+   * \see l4_icu_mask()
+   */
   L4_ICU_OP_MASK     = 5,
-  L4_ICU_OP_SET_MODE = 6
+
+  /**
+   * \brief Set-mode opcode.
+   * \hideinitializer
+   * \see l4_icu_set_mode()
+   */
+  L4_ICU_OP_SET_MODE = 6,
 };
 
 enum L4_icu_ctl_op

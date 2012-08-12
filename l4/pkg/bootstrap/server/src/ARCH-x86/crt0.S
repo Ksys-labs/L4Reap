@@ -24,8 +24,9 @@ _start:
 	mov	%eax, %ss
 	lss	_stack_seg, %esp
 #else
-	leal	_stack,%esp
+	leal	_stack, %esp
 #endif
+	pushl   $0
 	pushl   %esi	/* Pointer to real mode or Xen start_info pointer */
 	pushl	%eax
 	pushl	%ebx
@@ -51,6 +52,27 @@ trap6_entry:
 	pusha
 	cld
 
+	jmp 8f
+
+	/* printhex
+	 * edx: value to print
+	 * eax: location on screen
+	 */
+99:	mov	%eax, %edi
+	add	$(2*8), %edi
+98:	mov	$numbers,%ebx
+	mov	%edx,%ecx
+	shr	$28,%ecx
+	shl	$4,%edx
+	movzbl	(%ebx,%ecx,1),%ecx
+	mov	$0x4, %ch
+	mov	%cx,(%eax)
+	add	$0x2,%eax
+	cmp	%edi,%eax
+	jne	98b
+	ret
+
+8:
 	/* print out warning */
 	movl	$trap6_warning, %esi
 	movl	$(0xb8000 + (24*80*2)), %edi
@@ -62,8 +84,19 @@ trap6_entry:
 	/* check for end-of-string */
 	cmpb	$0, %al
 	je	3f
+
+	/* Check for hex number */
+	cmpb	$'	', %al
+	jne	4f
+	pusha
+	mov	(32 + 32)(%esp),%edx
+	mov	%edi, %eax
+	call	99b
+	popa
+	add	$(8*2), %edi
+	jmp	1b
 	
-	/* check for newline */
+4:	/* check for newline */
 	cmpb	$'\n', %al
 	jne	2f
 	
@@ -112,13 +145,15 @@ trap6_entry:
 	/* the warning text */
 trap6_warning:
 	.ascii	"\n"
-	.ascii	"Bootstrap: Invalid opcode detected! Be sure "
-	.ascii	"that you don't use any CPU\n"
-	.ascii	"           optimization flags like -march=i686 "
-	.ascii	"when compiling Bootstrap and\n"
-	.ascii	"           the depending libraries.\n"
+	.ascii	"Bootstrap: Invalid opcode at 	 detected!\n"
+	.ascii  "Be sure that you don't use any CPU optimization flags like\n"
+	.ascii	"           -march=i686\n"
+	.ascii	"when compiling Bootstrap and the depending libraries.\n"
 	.ascii	"\n"
 	.asciz	"           Press any key to reboot..."
+
+numbers:
+	.ascii  "0123456789abcdef"
 
         /* MultiBoot header - see multiboot.h.  */
 	.p2align(2)

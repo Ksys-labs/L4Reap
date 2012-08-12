@@ -53,38 +53,48 @@ DIST_COMMON = $(noinst_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/link_tool_exe_darwin.in \
 	$(srcdir)/link_tool_exe_l4re.in \
 	$(srcdir)/link_tool_exe_linux.in $(top_srcdir)/Makefile.all.am
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@@VGCONF_OS_IS_L4RE_TRUE@am__append_1 = \
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@@VGCONF_OS_IS_L4RE_TRUE@	-I$(top_srcdir)/coregrind \
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@@VGCONF_OS_IS_L4RE_TRUE@	-DVG_LIBDIR="\"rom"\" \
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@@VGCONF_OS_IS_L4RE_TRUE@	-DVG_PLATFORM="\"@VGCONF_ARCH_SEC@-@VGCONF_OS@\""
+
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@@VGCONF_OS_IS_L4RE_FALSE@am__append_2 = \
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@@VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir)/coregrind \
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@@VGCONF_OS_IS_L4RE_FALSE@	-DVG_LIBDIR="\"$(pkglibdir)"\" \
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@@VGCONF_OS_IS_L4RE_FALSE@	-DVG_PLATFORM="\"@VGCONF_ARCH_SEC@-@VGCONF_OS@\""
+
 @VGCONF_OS_IS_L4RE_FALSE@bin_PROGRAMS = valgrind$(EXEEXT) \
 @VGCONF_OS_IS_L4RE_FALSE@	vgdb$(EXEEXT) \
 @VGCONF_OS_IS_L4RE_FALSE@	no_op_client_for_valgrind$(EXEEXT)
-@VGCONF_PLATFORMS_INCLUDE_X86_DARWIN_TRUE@am__append_1 = -Wl,-read_only_relocs -Wl,suppress
-@VGCONF_PLATFORMS_INCLUDE_X86_DARWIN_TRUE@am__append_2 = -Wl,-read_only_relocs -Wl,suppress
 @VGCONF_PLATFORMS_INCLUDE_X86_DARWIN_TRUE@am__append_3 = -Wl,-read_only_relocs -Wl,suppress
-@VGCONF_OS_IS_DARWIN_TRUE@am__append_4 = \
+@VGCONF_PLATFORMS_INCLUDE_X86_DARWIN_TRUE@am__append_4 = -Wl,-read_only_relocs -Wl,suppress
+@VGCONF_PLATFORMS_INCLUDE_X86_DARWIN_TRUE@am__append_5 = -Wl,-read_only_relocs -Wl,suppress
+@VGCONF_OS_IS_DARWIN_TRUE@am__append_6 = \
 @VGCONF_OS_IS_DARWIN_TRUE@	m_mach/mach_vmUser.c \
 @VGCONF_OS_IS_DARWIN_TRUE@        m_mach/taskUser.c \
 @VGCONF_OS_IS_DARWIN_TRUE@        m_mach/thread_actUser.c \
 @VGCONF_OS_IS_DARWIN_TRUE@        m_mach/vm_mapUser.c
 
-@VGCONF_OS_IS_DARWIN_TRUE@am__append_5 = \
+@VGCONF_OS_IS_DARWIN_TRUE@am__append_7 = \
 @VGCONF_OS_IS_DARWIN_TRUE@	m_mach/mach_vmServer.c \
 @VGCONF_OS_IS_DARWIN_TRUE@        m_mach/taskServer.c \
 @VGCONF_OS_IS_DARWIN_TRUE@        m_mach/thread_actServer.c \
 @VGCONF_OS_IS_DARWIN_TRUE@        m_mach/vm_mapServer.c
 
-@VGCONF_OS_IS_DARWIN_TRUE@am__append_6 = \
+@VGCONF_OS_IS_DARWIN_TRUE@am__append_8 = \
 @VGCONF_OS_IS_DARWIN_TRUE@	m_mach/mach_vm.h \
 @VGCONF_OS_IS_DARWIN_TRUE@        m_mach/task.h \
 @VGCONF_OS_IS_DARWIN_TRUE@        m_mach/thread_act.h \
 @VGCONF_OS_IS_DARWIN_TRUE@        m_mach/vm_map.h
 
-@VGCONF_OS_IS_DARWIN_TRUE@am__append_7 = \
+@VGCONF_OS_IS_DARWIN_TRUE@am__append_9 = \
 @VGCONF_OS_IS_DARWIN_TRUE@	/usr/include/mach/mach_vm.defs \
 @VGCONF_OS_IS_DARWIN_TRUE@        /usr/include/mach/task.defs \
 @VGCONF_OS_IS_DARWIN_TRUE@        /usr/include/mach/thread_act.defs \
 @VGCONF_OS_IS_DARWIN_TRUE@        /usr/include/mach/vm_map.defs
 
-@VGCONF_HAVE_PLATFORM_SEC_TRUE@am__append_8 = libcoregrind-@VGCONF_ARCH_SEC@-@VGCONF_OS@.a
-@VGCONF_OS_IS_L4RE_TRUE@am__append_9 = \
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@am__append_10 = libcoregrind-@VGCONF_ARCH_SEC@-@VGCONF_OS@.a
+@VGCONF_OS_IS_L4RE_TRUE@am__append_11 = \
 @VGCONF_OS_IS_L4RE_TRUE@	l4re_helper.c \
 @VGCONF_OS_IS_L4RE_TRUE@	l4re_trampoline.c \
 @VGCONF_OS_IS_L4RE_TRUE@	l4re/vcap.cpp \
@@ -99,12 +109,12 @@ DIST_COMMON = $(noinst_HEADERS) $(srcdir)/Makefile.am \
 @VGCONF_OS_IS_L4RE_TRUE@	m_initimg/initimg-l4re.c \
 @VGCONF_OS_IS_L4RE_TRUE@	m_dispatch/dispatch-x86-l4re.S
 
-@VGCONF_HAVE_PLATFORM_SEC_TRUE@am__append_10 = libreplacemalloc_toolpreload-@VGCONF_ARCH_SEC@-@VGCONF_OS@.a
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@am__append_12 = libreplacemalloc_toolpreload-@VGCONF_ARCH_SEC@-@VGCONF_OS@.a
 noinst_PROGRAMS =  \
 	vgpreload_core-@VGCONF_ARCH_PRI@-@VGCONF_OS@.so$(EXEEXT) \
 	$(am__EXEEXT_1)
-@VGCONF_HAVE_PLATFORM_SEC_TRUE@am__append_11 = vgpreload_core-@VGCONF_ARCH_SEC@-@VGCONF_OS@.so
-@VGCONF_ARCHS_INCLUDE_ARM_TRUE@am__append_12 = m_gdbserver/arm-core-valgrind-s1.xml \
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@am__append_13 = vgpreload_core-@VGCONF_ARCH_SEC@-@VGCONF_OS@.so
+@VGCONF_ARCHS_INCLUDE_ARM_TRUE@am__append_14 = m_gdbserver/arm-core-valgrind-s1.xml \
 @VGCONF_ARCHS_INCLUDE_ARM_TRUE@		m_gdbserver/arm-core-valgrind-s2.xml \
 @VGCONF_ARCHS_INCLUDE_ARM_TRUE@		m_gdbserver/arm-core.xml \
 @VGCONF_ARCHS_INCLUDE_ARM_TRUE@		m_gdbserver/arm-vfpv3-valgrind-s1.xml \
@@ -113,33 +123,33 @@ noinst_PROGRAMS =  \
 @VGCONF_ARCHS_INCLUDE_ARM_TRUE@		m_gdbserver/arm-with-vfpv3-valgrind.xml \
 @VGCONF_ARCHS_INCLUDE_ARM_TRUE@		m_gdbserver/arm-with-vfpv3.xml
 
-@VGCONF_ARCHS_INCLUDE_X86_TRUE@am__append_13 = m_gdbserver/32bit-core-valgrind-s1.xml \
+@VGCONF_ARCHS_INCLUDE_X86_TRUE@am__append_15 = m_gdbserver/32bit-core-valgrind-s1.xml \
 @VGCONF_ARCHS_INCLUDE_X86_TRUE@		m_gdbserver/32bit-core-valgrind-s2.xml \
 @VGCONF_ARCHS_INCLUDE_X86_TRUE@		m_gdbserver/32bit-core.xml \
 @VGCONF_ARCHS_INCLUDE_X86_TRUE@		m_gdbserver/32bit-sse-valgrind-s1.xml \
 @VGCONF_ARCHS_INCLUDE_X86_TRUE@		m_gdbserver/32bit-sse-valgrind-s2.xml \
 @VGCONF_ARCHS_INCLUDE_X86_TRUE@		m_gdbserver/32bit-sse.xml
 
-@VGCONF_ARCHS_INCLUDE_X86_TRUE@@VGCONF_OS_IS_LINUX_TRUE@am__append_14 = m_gdbserver/32bit-linux-valgrind-s1.xml \
+@VGCONF_ARCHS_INCLUDE_X86_TRUE@@VGCONF_OS_IS_LINUX_TRUE@am__append_16 = m_gdbserver/32bit-linux-valgrind-s1.xml \
 @VGCONF_ARCHS_INCLUDE_X86_TRUE@@VGCONF_OS_IS_LINUX_TRUE@		m_gdbserver/32bit-linux-valgrind-s2.xml \
 @VGCONF_ARCHS_INCLUDE_X86_TRUE@@VGCONF_OS_IS_LINUX_TRUE@		m_gdbserver/32bit-linux.xml \
 @VGCONF_ARCHS_INCLUDE_X86_TRUE@@VGCONF_OS_IS_LINUX_TRUE@		m_gdbserver/i386-linux-valgrind.xml
 
-@VGCONF_ARCHS_INCLUDE_X86_TRUE@@VGCONF_OS_IS_DARWIN_TRUE@am__append_15 = m_gdbserver/i386-coresse-valgrind.xml
-@VGCONF_ARCHS_INCLUDE_AMD64_TRUE@am__append_16 = m_gdbserver/64bit-core-valgrind-s1.xml \
+@VGCONF_ARCHS_INCLUDE_X86_TRUE@@VGCONF_OS_IS_DARWIN_TRUE@am__append_17 = m_gdbserver/i386-coresse-valgrind.xml
+@VGCONF_ARCHS_INCLUDE_AMD64_TRUE@am__append_18 = m_gdbserver/64bit-core-valgrind-s1.xml \
 @VGCONF_ARCHS_INCLUDE_AMD64_TRUE@		m_gdbserver/64bit-core-valgrind-s2.xml \
 @VGCONF_ARCHS_INCLUDE_AMD64_TRUE@		m_gdbserver/64bit-core.xml \
 @VGCONF_ARCHS_INCLUDE_AMD64_TRUE@		m_gdbserver/64bit-sse-valgrind-s1.xml \
 @VGCONF_ARCHS_INCLUDE_AMD64_TRUE@		m_gdbserver/64bit-sse-valgrind-s2.xml \
 @VGCONF_ARCHS_INCLUDE_AMD64_TRUE@		m_gdbserver/64bit-sse.xml
 
-@VGCONF_ARCHS_INCLUDE_AMD64_TRUE@@VGCONF_OS_IS_LINUX_TRUE@am__append_17 = m_gdbserver/64bit-linux-valgrind-s1.xml \
+@VGCONF_ARCHS_INCLUDE_AMD64_TRUE@@VGCONF_OS_IS_LINUX_TRUE@am__append_19 = m_gdbserver/64bit-linux-valgrind-s1.xml \
 @VGCONF_ARCHS_INCLUDE_AMD64_TRUE@@VGCONF_OS_IS_LINUX_TRUE@		m_gdbserver/64bit-linux-valgrind-s2.xml \
 @VGCONF_ARCHS_INCLUDE_AMD64_TRUE@@VGCONF_OS_IS_LINUX_TRUE@		m_gdbserver/64bit-linux.xml \
 @VGCONF_ARCHS_INCLUDE_AMD64_TRUE@@VGCONF_OS_IS_LINUX_TRUE@		m_gdbserver/amd64-linux-valgrind.xml
 
-@VGCONF_ARCHS_INCLUDE_AMD64_TRUE@@VGCONF_OS_IS_DARWIN_TRUE@am__append_18 = m_gdbserver/amd64-coresse-valgrind.xml
-@VGCONF_ARCHS_INCLUDE_PPC32_TRUE@am__append_19 = m_gdbserver/power-altivec-valgrind-s1.xml \
+@VGCONF_ARCHS_INCLUDE_AMD64_TRUE@@VGCONF_OS_IS_DARWIN_TRUE@am__append_20 = m_gdbserver/amd64-coresse-valgrind.xml
+@VGCONF_ARCHS_INCLUDE_PPC32_TRUE@am__append_21 = m_gdbserver/power-altivec-valgrind-s1.xml \
 @VGCONF_ARCHS_INCLUDE_PPC32_TRUE@		m_gdbserver/power-altivec-valgrind-s2.xml \
 @VGCONF_ARCHS_INCLUDE_PPC32_TRUE@		m_gdbserver/power-altivec.xml \
 @VGCONF_ARCHS_INCLUDE_PPC32_TRUE@		m_gdbserver/power-core.xml \
@@ -152,7 +162,7 @@ noinst_PROGRAMS =  \
 @VGCONF_ARCHS_INCLUDE_PPC32_TRUE@		m_gdbserver/powerpc-altivec32l-valgrind.xml \
 @VGCONF_ARCHS_INCLUDE_PPC32_TRUE@		m_gdbserver/powerpc-altivec32l.xml
 
-@VGCONF_ARCHS_INCLUDE_PPC64_TRUE@am__append_20 = m_gdbserver/power64-core-valgrind-s1.xml \
+@VGCONF_ARCHS_INCLUDE_PPC64_TRUE@am__append_22 = m_gdbserver/power64-core-valgrind-s1.xml \
 @VGCONF_ARCHS_INCLUDE_PPC64_TRUE@		m_gdbserver/power64-core-valgrind-s2.xml \
 @VGCONF_ARCHS_INCLUDE_PPC64_TRUE@		m_gdbserver/power64-core.xml \
 @VGCONF_ARCHS_INCLUDE_PPC64_TRUE@		m_gdbserver/power64-linux-valgrind-s1.xml \
@@ -161,7 +171,7 @@ noinst_PROGRAMS =  \
 @VGCONF_ARCHS_INCLUDE_PPC64_TRUE@		m_gdbserver/powerpc-altivec64l-valgrind.xml \
 @VGCONF_ARCHS_INCLUDE_PPC64_TRUE@		m_gdbserver/powerpc-altivec64l.xml
 
-@VGCONF_ARCHS_INCLUDE_PPC32_FALSE@@VGCONF_ARCHS_INCLUDE_PPC64_TRUE@am__append_21 = m_gdbserver/power-altivec-valgrind-s1.xml \
+@VGCONF_ARCHS_INCLUDE_PPC32_FALSE@@VGCONF_ARCHS_INCLUDE_PPC64_TRUE@am__append_23 = m_gdbserver/power-altivec-valgrind-s1.xml \
 @VGCONF_ARCHS_INCLUDE_PPC32_FALSE@@VGCONF_ARCHS_INCLUDE_PPC64_TRUE@		m_gdbserver/power-altivec-valgrind-s2.xml \
 @VGCONF_ARCHS_INCLUDE_PPC32_FALSE@@VGCONF_ARCHS_INCLUDE_PPC64_TRUE@		m_gdbserver/power-altivec.xml \
 @VGCONF_ARCHS_INCLUDE_PPC32_FALSE@@VGCONF_ARCHS_INCLUDE_PPC64_TRUE@		m_gdbserver/power-fpu-valgrind-s1.xml \
@@ -172,8 +182,8 @@ noinst_PROGRAMS =  \
 #----------------------------------------------------------------------------
 # Darwin linker kludges
 #----------------------------------------------------------------------------
-@VGCONF_OS_IS_DARWIN_TRUE@am__append_22 = fixup_macho_loadcmds
-@VGCONF_OS_IS_DARWIN_TRUE@am__append_23 = fixup_macho_loadcmds
+@VGCONF_OS_IS_DARWIN_TRUE@am__append_24 = fixup_macho_loadcmds
+@VGCONF_OS_IS_DARWIN_TRUE@am__append_25 = fixup_macho_loadcmds
 subdir = coregrind
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.in
@@ -961,10 +971,6 @@ AM_CFLAGS_BASE = \
 @VGCONF_OS_IS_DARWIN_TRUE@AM_CFLAGS_PIC = -dynamic -O -g -fno-omit-frame-pointer -fno-strict-aliasing \
 @VGCONF_OS_IS_DARWIN_TRUE@		-mno-dynamic-no-pic -fpic -fPIC
 
-
-#----------------------------------------------------------------------------
-# Basics, flags
-#----------------------------------------------------------------------------
 @VGCONF_OS_IS_L4RE_FALSE@AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@ =  \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir) \
 @VGCONF_OS_IS_L4RE_FALSE@	-I$(top_srcdir)/include \
@@ -1002,7 +1008,7 @@ AM_CFLAGS_BASE = \
 @VGCONF_OS_IS_L4RE_TRUE@	-DVGO_@VGCONF_OS@=1 \
 @VGCONF_OS_IS_L4RE_TRUE@	-DVGP_@VGCONF_ARCH_PRI@_@VGCONF_OS@=1 \
 @VGCONF_OS_IS_L4RE_TRUE@	-I$(top_srcdir)/coregrind \
-@VGCONF_OS_IS_L4RE_TRUE@	-DVG_LIBDIR="\"$(pkglibdir)"\" \
+@VGCONF_OS_IS_L4RE_TRUE@	-DVG_LIBDIR="\"rom"\" \
 @VGCONF_OS_IS_L4RE_TRUE@	-DVG_PLATFORM="\"@VGCONF_ARCH_PRI@-@VGCONF_OS@\""
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@AM_CPPFLAGS_@VGCONF_PLATFORM_SEC_CAPS@ =  \
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@	-I$(top_srcdir) \
@@ -1012,9 +1018,7 @@ AM_CFLAGS_BASE = \
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@	-DVGA_@VGCONF_ARCH_SEC@=1 \
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@	-DVGO_@VGCONF_OS@=1 \
 @VGCONF_HAVE_PLATFORM_SEC_TRUE@	-DVGP_@VGCONF_ARCH_SEC@_@VGCONF_OS@=1 \
-@VGCONF_HAVE_PLATFORM_SEC_TRUE@	-I$(top_srcdir)/coregrind \
-@VGCONF_HAVE_PLATFORM_SEC_TRUE@	-DVG_LIBDIR="\"$(pkglibdir)"\" \
-@VGCONF_HAVE_PLATFORM_SEC_TRUE@	-DVG_PLATFORM="\"@VGCONF_ARCH_SEC@-@VGCONF_OS@\""
+@VGCONF_HAVE_PLATFORM_SEC_TRUE@	$(am__append_1) $(am__append_2)
 AM_FLAG_M3264_X86_LINUX = @FLAG_M32@
 AM_CFLAGS_X86_LINUX = @FLAG_M32@ @PREFERRED_STACK_BOUNDARY@ \
 			 	$(AM_CFLAGS_BASE)
@@ -1118,17 +1122,17 @@ valgrind_CPPFLAGS = $(AM_CPPFLAGS_PRI)
 valgrind_CFLAGS = $(AM_CFLAGS_PRI)
 valgrind_CXXFLAGS = $(AM_CXXFLAGS_PRI)
 valgrind_CCASFLAGS = $(AM_CCASFLAGS_PRI)
-valgrind_LDFLAGS = $(AM_CFLAGS_PRI) $(am__append_1)
+valgrind_LDFLAGS = $(AM_CFLAGS_PRI) $(am__append_3)
 vgdb_SOURCES = vgdb.c
 vgdb_CPPFLAGS = $(AM_CPPFLAGS_PRI)
 vgdb_CFLAGS = $(AM_CFLAGS_PRI)
 vgdb_CCASFLAGS = $(AM_CCASFLAGS_PRI)
-vgdb_LDFLAGS = $(AM_CFLAGS_PRI) -lpthread $(am__append_2)
+vgdb_LDFLAGS = $(AM_CFLAGS_PRI) -lpthread $(am__append_4)
 no_op_client_for_valgrind_SOURCES = no_op_client_for_valgrind.c
 no_op_client_for_valgrind_CPPFLAGS = $(AM_CPPFLAGS_PRI)
 no_op_client_for_valgrind_CFLAGS = $(AM_CFLAGS_PRI)
 no_op_client_for_valgrind_CCASFLAGS = $(AM_CCASFLAGS_PRI)
-no_op_client_for_valgrind_LDFLAGS = $(AM_CFLAGS_PRI) $(am__append_3)
+no_op_client_for_valgrind_LDFLAGS = $(AM_CFLAGS_PRI) $(am__append_5)
 
 #----------------------------------------------------------------------------
 # Darwin Mach stuff
@@ -1151,10 +1155,10 @@ no_op_client_for_valgrind_LDFLAGS = $(AM_CFLAGS_PRI) $(am__append_3)
 #	processor.defs \
 #	processor_set.defs \
 #
-mach_user_srcs = $(am__append_4)
-mach_server_srcs = $(am__append_5)
-mach_hdrs = $(am__append_6)
-mach_defs = $(am__append_7)
+mach_user_srcs = $(am__append_6)
+mach_server_srcs = $(am__append_7)
+mach_hdrs = $(am__append_8)
+mach_defs = $(am__append_9)
 
 #----------------------------------------------------------------------------
 # Headers
@@ -1256,17 +1260,17 @@ noinst_HEADERS = \
 #----------------------------------------------------------------------------
 # libcoregrind-<platform>.a
 #----------------------------------------------------------------------------
-BUILT_SOURCES = $(mach_user_srcs) $(am__append_22)
+BUILT_SOURCES = $(mach_user_srcs) $(am__append_24)
 CLEANFILES = $(mach_user_srcs) $(mach_server_srcs) $(mach_hdrs) \
-	$(am__append_23)
+	$(am__append_25)
 
 #----------------------------------------------------------------------------
 # libreplacemalloc_toolpreload-<platform>.a
 #----------------------------------------------------------------------------
 pkglib_LIBRARIES = libcoregrind-@VGCONF_ARCH_PRI@-@VGCONF_OS@.a \
-	$(am__append_8) \
+	$(am__append_10) \
 	libreplacemalloc_toolpreload-@VGCONF_ARCH_PRI@-@VGCONF_OS@.a \
-	$(am__append_10)
+	$(am__append_12)
 COREGRIND_SOURCES_COMMON = m_commandline.c m_clientstate.c m_cpuid.S \
 	m_debugger.c m_debuglog.c m_errormgr.c m_execontext.c \
 	m_hashtable.c m_libcbase.c m_libcassert.c m_libcfile.c \
@@ -1338,7 +1342,7 @@ COREGRIND_SOURCES_COMMON = m_commandline.c m_clientstate.c m_cpuid.S \
 	m_syswrap/syswrap-s390x-linux.c m_syswrap/syswrap-ppc32-aix5.c \
 	m_syswrap/syswrap-ppc64-aix5.c m_syswrap/syswrap-x86-darwin.c \
 	m_syswrap/syswrap-amd64-darwin.c m_ume/elf.c m_ume/macho.c \
-	m_ume/main.c m_ume/script.c $(am__append_9)
+	m_ume/main.c m_ume/script.c $(am__append_11)
 libcoregrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_a_DEPENDENCIES = blub.o
 libcoregrind_@VGCONF_ARCH_PRI@_@VGCONF_OS@_a_SOURCES = \
     $(COREGRIND_SOURCES_COMMON)
@@ -1422,10 +1426,10 @@ vgpreload_core_@VGCONF_ARCH_PRI@_@VGCONF_OS@_so_LDFLAGS = \
 #----------------------------------------------------------------------------
 # gdbserver xml target descriptions
 #----------------------------------------------------------------------------
-pkglib_DATA = $(am__append_12) $(am__append_13) $(am__append_14) \
-	$(am__append_15) $(am__append_16) $(am__append_17) \
-	$(am__append_18) $(am__append_19) $(am__append_20) \
-	$(am__append_21)
+pkglib_DATA = $(am__append_14) $(am__append_15) $(am__append_16) \
+	$(am__append_17) $(am__append_18) $(am__append_19) \
+	$(am__append_20) $(am__append_21) $(am__append_22) \
+	$(am__append_23)
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 

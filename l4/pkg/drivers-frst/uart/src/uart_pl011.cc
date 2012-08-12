@@ -1,5 +1,5 @@
 /*
- * (c) 2009 Adam Lackorzynski <adam@os.inf.tu-dresden.de>
+ * (c) 2009-2012 Adam Lackorzynski <adam@os.inf.tu-dresden.de>
  *     economic rights: Technische Universität Dresden (Germany)
  *
  * This file is part of TUD:OS and distributed under the terms of the
@@ -51,107 +51,90 @@ namespace L4
   };
 
 
-  unsigned long Uart_pl011::rd(unsigned long reg) const
+  bool Uart_pl011::startup(Io_register_block const *regs)
   {
-    volatile unsigned long *r = (unsigned long*)(_base + reg);
-    return *r;
-  }
-
-  void Uart_pl011::wr(unsigned long reg, unsigned long val) const
-  {
-    volatile unsigned long *r = (unsigned long*)(_base + reg);
-    *r = val;
-  }
-
-  bool Uart_pl011::startup(unsigned long base)
-  {
-    _base = base;
-    wr(UART011_CR, UART01x_CR_UARTEN | UART011_CR_TXE | UART011_CR_RXE);
-    wr(UART011_FBRD, 2);
-    wr(UART011_IBRD, 13);
-    wr(UART011_LCRH, 0x60);
-    wr(UART011_IMSC, 0);
-    while (rd(UART01x_FR) & UART01x_FR_BUSY)
+    _regs = regs;
+    _regs->write<unsigned int>(UART011_CR, UART01x_CR_UARTEN | UART011_CR_TXE | UART011_CR_RXE);
+    _regs->write<unsigned int>(UART011_FBRD, 2);
+    _regs->write<unsigned int>(UART011_IBRD, 13);
+    _regs->write<unsigned int>(UART011_LCRH, 0x60);
+    _regs->write<unsigned int>(UART011_IMSC, 0);
+    while (_regs->read<unsigned int>(UART01x_FR) & UART01x_FR_BUSY)
       ;
     return true;
   }
-  
+
   void Uart_pl011::shutdown()
   {
-    wr(UART011_IMSC,0);
-    wr(UART011_ICR, 0xffff);
-    wr(UART011_CR, 0);
+    _regs->write<unsigned int>(UART011_IMSC, 0);
+    _regs->write<unsigned int>(UART011_ICR, 0xffff);
+    _regs->write<unsigned int>(UART011_CR, 0);
   }
 
-  bool Uart_pl011::enable_rx_irq(bool enable) 
+  bool Uart_pl011::enable_rx_irq(bool enable)
   {
     unsigned long mask = UART011_RXIM | UART011_RTIM;
 
-    wr(UART011_ICR, 0xffff);
-    wr(UART011_ECR, 0xff);
+    _regs->write<unsigned int>(UART011_ICR, 0xffff & ~mask);
+    _regs->write<unsigned int>(UART011_ECR, 0xff);
     if (enable)
-      wr(UART011_IMSC, rd(UART011_IMSC) | mask);
+      _regs->write<unsigned int>(UART011_IMSC, _regs->read<unsigned int>(UART011_IMSC) | mask);
     else
-      wr(UART011_IMSC, rd(UART011_IMSC) & ~mask);
-    return true; 
+      _regs->write<unsigned int>(UART011_IMSC, _regs->read<unsigned int>(UART011_IMSC) & ~mask);
+    return true;
   }
-  bool Uart_pl011::enable_tx_irq(bool /*enable*/) { return false; }
+
   bool Uart_pl011::change_mode(Transfer_mode, Baud_rate r)
   {
     if (r != 115200)
       return false;
 
-    unsigned long old_cr = rd(UART011_CR);
-    wr(UART011_CR, 0);
+    unsigned long old_cr = _regs->read<unsigned int>(UART011_CR);
+    _regs->write<unsigned int>(UART011_CR, 0);
 
-    wr(UART011_FBRD, 2);
-    wr(UART011_IBRD, 13);
-    wr(UART011_LCRH, UART01x_LCRH_WLEN_8 | UART01x_LCRH_FEN);
+    _regs->write<unsigned int>(UART011_FBRD, 2);
+    _regs->write<unsigned int>(UART011_IBRD, 13);
+    _regs->write<unsigned int>(UART011_LCRH, UART01x_LCRH_WLEN_8 | UART01x_LCRH_FEN);
 
-    wr(UART011_CR, old_cr);
+    _regs->write<unsigned int>(UART011_CR, old_cr);
 
     return true;
   }
 
   int Uart_pl011::get_char(bool blocking) const
-  { 
-    while (!char_avail()) 
-      if (!blocking) return -1;
+  {
+    while (!char_avail())
+      if (!blocking)
+        return -1;
 
-    //wr(UART011_ICR, UART011_RXIC | UART011_RTIC);
+    //_regs->write(UART011_ICR, UART011_RXIC | UART011_RTIC);
 
-    int c = rd(UART01x_DR);
-    wr(UART011_ECR, 0xff);
+    int c = _regs->read<unsigned int>(UART01x_DR);
+    _regs->write<unsigned int>(UART011_ECR, 0xff);
     return c;
   }
 
-  int Uart_pl011::char_avail() const 
-  { 
-    return !(rd(UART01x_FR) & UART01x_FR_RXFE); 
+  int Uart_pl011::char_avail() const
+  {
+    return !(_regs->read<unsigned int>(UART01x_FR) & UART01x_FR_RXFE);
   }
 
   void Uart_pl011::out_char(char c) const
   {
-    while (rd(UART01x_FR) & UART01x_FR_TXFF)
+    while (_regs->read<unsigned int>(UART01x_FR) & UART01x_FR_TXFF)
       ;
-    wr(UART01x_DR,c);
+    _regs->write<unsigned int>(UART01x_DR,c);
   }
 
   int Uart_pl011::write(char const *s, unsigned long count) const
   {
     unsigned long c = count;
-    while (c)
-      {
-	if (*s == 10)
-	  out_char(13);
-	out_char(*s++);
-	--c;
-      }
-    while (rd(UART01x_FR) & UART01x_FR_BUSY)
+    while (c--)
+      out_char(*s++);
+
+    while (_regs->read<unsigned int>(UART01x_FR) & UART01x_FR_BUSY)
       ;
 
     return count;
   }
-
 };
-

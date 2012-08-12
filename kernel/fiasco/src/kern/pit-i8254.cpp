@@ -42,7 +42,7 @@ Pit::setup_channel2_to_20hz()
 
 
 //----------------------------------------------------------------------------
-IMPLEMENTATION[i8254-{pit_timer,profile}]:
+IMPLEMENTATION[i8254 & pit_timer]:
 
 // set up timer interrupt (~ 1ms)
 PUBLIC static inline NEEDS ["io.h", Pit::set_freq_normal]

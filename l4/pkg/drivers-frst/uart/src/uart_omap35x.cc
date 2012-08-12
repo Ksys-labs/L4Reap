@@ -1,5 +1,5 @@
 /*
- * (c) 2009 Adam Lackorzynski <adam@os.inf.tu-dresden.de>
+ * (c) 2009-2012 Adam Lackorzynski <adam@os.inf.tu-dresden.de>
  *     economic rights: Technische Universität Dresden (Germany)
  *
  * This file is part of TUD:OS and distributed under the terms of the
@@ -41,25 +41,13 @@ namespace L4
   };
 
 
-  unsigned long Uart_omap35x::rd(unsigned long reg) const
+  bool Uart_omap35x::startup(Io_register_block const *regs)
   {
-    volatile unsigned long *r = (unsigned long*)(_base + reg);
-    return *r;
-  }
-
-  void Uart_omap35x::wr(unsigned long reg, unsigned long val) const
-  {
-    volatile unsigned long *r = (unsigned long*)(_base + reg);
-    *r = val;
-  }
-
-  bool Uart_omap35x::startup(unsigned long base)
-  {
-    _base = base;
+    _regs = regs;
 
     // Reset UART
-    //wr(SYSC_REG, rd(SYSC_REG) | SYSC_REG_SOFTRESET);
-    //while (!(rd(SYSS_REG) & SYSC_REG_RESETDONE))
+    //_regs->write<unsigned int>(SYSC_REG, _regs->read<unsigned int>(SYSC_REG) | SYSC_REG_SOFTRESET);
+    //while (!(_regs->read<unsigned int>(SYSS_REG) & SYSC_REG_RESETDONE))
     //  ;
 
     return true;
@@ -71,10 +59,9 @@ namespace L4
 
   bool Uart_omap35x::enable_rx_irq(bool enable)
   {
-    wr(IER_REG, enable ? 1 : 0);
+    _regs->write<unsigned int>(IER_REG, enable ? 1 : 0);
     return true;
   }
-  bool Uart_omap35x::enable_tx_irq(bool /*enable*/) { return false; }
   bool Uart_omap35x::change_mode(Transfer_mode, Baud_rate r)
   {
     if (r != 115200)
@@ -89,33 +76,30 @@ namespace L4
       if (!blocking)
 	return -1;
 
-    return rd(RHR_REG);
+    return _regs->read<unsigned int>(RHR_REG);
   }
 
   int Uart_omap35x::char_avail() const
   {
-    return rd(LSR_REG) & LSR_REG_RX_FIFO_E_AVAIL;
+    return _regs->read<unsigned int>(LSR_REG) & LSR_REG_RX_FIFO_E_AVAIL;
   }
 
   void Uart_omap35x::out_char(char c) const
   {
-    wr(THR_REG, c);
-    while (!(rd(LSR_REG) & LSR_REG_TX_FIFO_E_EMPTY))
+    _regs->write<unsigned int>(THR_REG, c);
+    while (!(_regs->read<unsigned int>(LSR_REG) & LSR_REG_TX_FIFO_E_EMPTY))
       ;
   }
 
   int Uart_omap35x::write(char const *s, unsigned long count) const
   {
     unsigned long c = count;
-    while (c)
-      {
-	if (*s == 10)
-	  out_char(13);
-	out_char(*s++);
-	--c;
-      }
-  //  while (rd(UART01x_FR) & UART01x_FR_BUSY)
-   //   ;
+    while (c--)
+      out_char(*s++);
+#if 0
+    while (_regs->read<unsigned int>(UART01x_FR) & UART01x_FR_BUSY)
+     ;
+#endif
 
     return count;
   }

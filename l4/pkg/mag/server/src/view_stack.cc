@@ -83,12 +83,12 @@ private:
 static Redraw_queue rdq;
 
 View const *
-View_stack::next_view(View const *v, View const *bg) const
+View_stack::next_view(View const *_v, View const *bg) const
 {
-  while (v)
+  for (Const_view_iter v = _top.iter(_v); v != _top.end();)
     {
-      v = _top.next(v);
-      if (!v)
+      ++v;
+      if (v == _top.end())
 	return 0;
 
       unsigned sf = 0;
@@ -99,13 +99,13 @@ View_stack::next_view(View const *v, View const *bg) const
 	continue;
 
       if (!v->background())
-	return v;
+	return *v;
 
-      if (v == _background || v == bg)
-	return v;
+      if (v == _top.iter(_background) || v == _top.iter(bg))
+	return *v;
 
       if (!bg && (sf & Session::F_default_background))
-        return v;
+        return *v;
     }
 
   return 0;
@@ -195,15 +195,15 @@ View_stack::set_focused(View *v)
   if (!s)
     return;
 
-  View *top = _no_stay_top;
-  for (View *t = _top.first(); t; t = _top.next(t))
+  View_iter top = _top.iter(_no_stay_top);
+  for (View_iter t = _top.begin(); t != _top.end(); ++t)
     {
       if (!t->above())
 	continue;
 
       if (t->session() == s)
 	{
-	  stack(t, top, true);
+	  stack(*t, *top, true);
 	  top = t;
 	}
     }
@@ -214,12 +214,13 @@ View_stack::set_focused(View *v)
   if (v->background())
     return;
 
-  for (top = _top.prev(v); top != _no_stay_top && top && top->session() != s;
-       top = _top.prev(top))
+  for (top = --_top.iter(v);
+       top != _top.iter(_no_stay_top) && top != _top.end() && top->session() != s;
+       --top)
     ;
 
-  if (top != _top.prev(v))
-    stack(v, top, true);
+  if (top != --_top.iter(v))
+    stack(v, *top, true);
 }
 
 void
@@ -299,7 +300,9 @@ View_stack::flush()
 void
 View_stack::stack(View *v, View *pivot, bool behind)
 {
-  remove(v);
+  if (_top.in_list(v))
+    remove(v);
+
   if (behind)
     insert_after(v, pivot);
   else
@@ -382,7 +385,7 @@ void
 View_stack::do_place_labels(Rect const &rect) const
 {
   View *bg = current_background();
-  View *start = next_view(_top.first(), bg);
+  View *start = next_view(*_top.begin(), bg);
   /* ignore mouse cursor */
   for (View *view = start; view && next_view(view); view = next_view(view, bg))
     if ((*view & rect).valid())

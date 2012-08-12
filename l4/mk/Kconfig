@@ -158,6 +158,7 @@ config CPU
 	default "K8"         if CPU_X86_K8
 	default "amdfam10"   if CPU_X86_K10
 	default "opteron"    if CPU_X86_OPTERON
+
 endif
 
 
@@ -229,257 +230,114 @@ config CPU_ARMV6PLUS
 	bool
 	default y if CPU_ARM_ARMV6 || CPU_ARM_ARMV6T2 || CPU_ARMV6KPLUS
 
-menu "Platform"
+endif
+
+if BUILD_ARCH_sparc
 
 choice
-	prompt "ARM Platform"
+	prompt "CPU"
+   
+	config CPU_SPARC_V7
+	bool "Generic Sparc V7"
+	depends on BUILD_ARCH_sparc
 
-config PLATFORM_ARM_integrator
-	bool "ARM Integrator"
-	
-config PLATFORM_ARM_rv
-	bool "ARM Realview"
+	config CPU_SPARC_LEON
+	bool "LEON"
+	depends on BUILD_ARCH_sparc
 
-config PLATFORM_ARM_imx21
-	bool "Freescale i.MX21"
+	config CPU_SPARC_LEON3
+	bool "LEON3"
+	depends on BUILD_ARCH_sparc
 
-config PLATFORM_ARM_imx51
-	bool "Freescale i.MX51"
+	config CPU_SPARC_V8
+	bool "Generic Sparc V8"
+	depends on BUILD_ARCH_sparc
 
-config PLATFORM_ARM_omap3evm
-	bool "TI OMAP3EVM"
+	config CPU_SPARC_V9
+	bool "Generic Sparc V9"
+	depends on BUILD_ARCH_sparc
 
-config PLATFORM_ARM_beagleboard
-	bool "Beagleboard"
+	config CPU_SPARC_ULTRASPARC
+	bool "Ultrasparc"
+	depends on BUILD_ARCH_sparc
 
-config PLATFORM_ARM_pandaboard
-	bool "Pandaboard"
+	config CPU_SPARC_ULTRASPARC3
+	bool "Ultrasparc3"
+	depends on BUILD_ARCH_sparc
 
-config PLATFORM_ARM_tegra2
-	bool "NVIDIA Tegra 2"
+	config CPU_SPARC_NIAGARA
+	bool "Niagara"
+	depends on BUILD_ARCH_sparc
 
-config PLATFORM_ARM_custom
+	config CPU_SPARC_NIAGARA2
+	bool "Niagara2"
+	depends on BUILD_ARCH_sparc
+
+	config CPU_SPARC_NIAGARA3
+	bool "Niagara3"
+	depends on BUILD_ARCH_sparc
+
+	config CPU_SPARC_NIAGARA4
+	bool "Niagara4"
+	depends on BUILD_ARCH_sparc
+endchoice
+
+config CPU
+	string
+	default "leon"        if CPU_SPARC_LEON
+	default "leon3"       if CPU_SPARC_LEON3
+	default "v7"          if CPU_SPARC_V7
+	default "v8"          if CPU_SPARC_V8
+	default "v9"          if CPU_SPARC_V9
+	default "ultrasparc"  if CPU_SPARC_ULTRASPARC
+	default "ultrasparc3" if CPU_SPARC_ULTRASPARC3
+	default "niagara"     if CPU_SPARC_NIAGARA
+	default "niagara2"    if CPU_SPARC_NIAGARA2
+	default "niagara3"    if CPU_SPARC_NIAGARA3
+	default "niagara4"    if CPU_SPARC_NIAGARA4
+endif
+
+choice
+	prompt "Platform Selection"
+
+INSERT_PLATFORMS
+
+config PLATFORM_TYPE_custom
 	bool "Custom platform"
+	help
+	  Define your own platform, alternatively define the following
+	  in conf/Platform/yourname.conf:
+	    PLATFORM_RAM_BASE    = 0
+	    PLATFORM_RAM_SIZE_MB = 64
+
 
 endchoice
 
-if PLATFORM_ARM_integrator
+if PLATFORM_TYPE_custom
 
-config ARM_PLATFORM_TYPE
-	string
-	default "integrator"
+menu "Custom Platform Definition"
 
-config RAM_BASE
-	hex
-	default 0x0
-
-config RAM_SIZE_MB
-	int
-	default 256
-
-endif
-
-if PLATFORM_ARM_rv
-
-config ARM_PLATFORM_TYPE
-	string
-	default "rv"
-
-config RAM_BASE
-	hex
-	default 0x0
-
-config RAM_SIZE_MB
-	int
-	default 256
-
-endif
-
-if PLATFORM_ARM_imx21
-
-config ARM_PLATFORM_TYPE
-	string
-	default "imx21"
-
-config RAM_BASE
-	hex
-	default 0xc0000000
-
-config RAM_SIZE_MB
-	int
-	default 64
-endif
-
-if PLATFORM_ARM_imx51
-
-config ARM_PLATFORM_TYPE
-	string
-	default "imx51"
-
-config RAM_BASE
-	hex
-	default 0x90000000
-
-config RAM_SIZE_MB
-	int
-	default 512
-endif
-
-if PLATFORM_ARM_omap3evm
-
-config ARM_PLATFORM_TYPE
-	string
-	default "omap3evm"
-
-config RAM_BASE
-	hex
-	default 0x80000000
-
-config RAM_SIZE_MB
-	int
-	default 128
-endif
-
-if PLATFORM_ARM_beagleboard
-
-config ARM_PLATFORM_TYPE
-	string
-	default "beagleboard"
-
-config RAM_BASE
-	hex
-	default 0x80000000
-
-config RAM_SIZE_MB
-	int
-	default 128
-endif
-
-if PLATFORM_ARM_pandaboard
-
-config ARM_PLATFORM_TYPE
-	string
-	default "pandaboard"
-
-config RAM_BASE
-	hex
-	default 0x80000000
-
-config RAM_SIZE_MB
-	int
-	default 512
-endif
-
-if PLATFORM_ARM_tegra2
-
-config ARM_PLATFORM_TYPE
-	string
-	default "tegra2"
-
-config RAM_BASE
-	hex
-	default 0x0
-
-config RAM_SIZE_MB
-	int
-	default 64
-endif
-
-if PLATFORM_ARM_custom
-
-
-config ARM_PLATFORM_TYPE
+config PLATFORM_TYPE
 	string "Name of your platform"
-	depends on BUILD_ARCH_arm
+	depends on PLATFORM_TYPE_custom
 
-config RAM_BASE
+config PLATFORM_RAM_BASE
 	hex "Start of RAM"
-	depends on BUILD_ARCH_arm
 	default 0x0
+	depends on PLATFORM_TYPE_custom
 	help
 	  Hexadecimal physical address where RAM memory starts on the
 	  platform.
 
-config RAM_SIZE_MB
+config PLATFORM_RAM_SIZE_MB
 	int "RAM-Memory available on the platform in MB"
-	depends on BUILD_ARCH_arm
 	default 128
+	depends on PLATFORM_TYPE_custom
 
+endmenu # Custom platform
 endif
 
-endmenu
-
-endif
-
-
-
-if BUILD_ARCH_ppc32
-
-config CPU
-	string "CPU variant"
-	default "603e"
-
-menu "Platform"
-
-choice
-	prompt "Platform"
-
-config PLATFORM_PPC_mpc5200
-	bool "MPC52xx"
-
-endchoice
-
-if PLATFORM_PPC_mpc5200
-
-config PPC_PLATFORM_TYPE
-	string
-	default "mpc5200"
-
-config RAM_BASE
-	hex
-	default 0x0
-
-config RAM_SIZE_MB
-	int "RAM-Memory available on the platform in MB"
-	default 64
-
-endif
-
-endmenu
-
-endif
-
-
-
-
-if BUILD_ARCH_sparc
-
-config CPU
-	string "Sparc CPU variant"
-	default "v8"
-
-config PLATFORM_SPARC_leon3
-	def_bool y
-
-if PLATFORM_SPARC_leon3
-
-config SPARC_PLATFORM_TYPE
-	string
-	default "leon3"
-
-config RAM_BASE
-	hex
-	default 0x0
-
-config RAM_SIZE_MB
-	int "RAM-Memory available on the platform in MB"
-	default 64
-
-
-endif
-
-endif
-
+INSERT_PLATFORM_TYPES
 
 config USE_DROPS_STDDIR
 	def_bool n
@@ -500,13 +358,6 @@ config BID_COLORED_PHASES
 	default y
 
 menu "Building"
-
-#menu "Compilers and Tools"
-#config BIDc_USE_SPECIAL_CC
-#	bool "Use special C-Compilers"
-#if BIDc_USE_SPECIAL_CC
-#endif
-#endmenu
 
 config YACC
 	string
@@ -593,12 +444,11 @@ config RELEASE_MODE
 
 	  Say N.
 
-
-config LABEL
-	string "Configuration label"
+config MAKECONFS_ADD
+	string "Additional Makeconf files"
 	help
-	  Name for the configuration. The build system will also try to
-	  include a file Makeconf.<label> from the build directory root and
-	  the l4 directory root.
+	  List of white space separated suffixes of Makeconf files
+	  which will be included in every source directory as
+	  Makeconf.<suffix>.
 
 endmenu

@@ -41,8 +41,12 @@ private:
   Vi::Sw_icu *_icu;
 
 public:
-  Root_irq_rs(Vi::System_bus *bus) : Resource_space(), _bus(bus), _icu(0)
-  {}
+  Root_irq_rs(Vi::System_bus *bus)
+    : Resource_space(), _bus(bus), _icu(new Vi::Sw_icu())
+  {
+    _bus->add_child(_icu);
+    _bus->sw_icu(_icu);
+}
 
   bool request(Resource *parent, Device *, Resource *child, Device *)
   {
@@ -55,6 +59,7 @@ public:
       {
 	_icu = new Vi::Sw_icu();
 	_bus->add_child(_icu);
+	_bus->sw_icu(_icu);
       }
 
     d_printf(DBG_DEBUG2, "Add IRQ resources to vbus: ");
@@ -159,7 +164,7 @@ System_bus::resource_allocated(Resource const *_r) const
 }
 
 
-System_bus::System_bus()
+System_bus::System_bus() : _sw_icu(0)
 {
   add_feature(this);
   add_resource(new Root_resource(Resource::Irq_res, new Root_irq_rs(this)));

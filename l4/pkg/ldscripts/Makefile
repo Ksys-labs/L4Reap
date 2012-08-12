@@ -43,7 +43,8 @@ include $(L4DIR)/mk/lib.mk
 $(eval $(call BID_MAKE_RULE_template, crti_s.o, crti.S,AS))
 
 crti.o: crti_s.o kip_addr.o
-	$(LD) -m $(LD_EMULATION) -r -o $@ $^
+	@$(GEN_MESSAGE)
+	$(VERBOSE)$(LD) -r -o $@ $^
 
 %.ld: $(PKGDIR)/ARCH-$(ARCH)/%.ld $(SRC_DIR)/Makefile $(SRC_DIR)/generic.h
 	@$(GEN_MESSAGE)

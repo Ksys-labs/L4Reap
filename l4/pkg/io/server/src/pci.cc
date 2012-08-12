@@ -57,40 +57,32 @@ pci_register_root_bridge(int segment, Pci_root_bridge *b)
   return 0;
 }
 
-inline
-l4_uint32_t
-pci_conf_addr(l4_uint32_t bus, l4_uint32_t dev, l4_uint32_t fn, l4_uint32_t reg)
-{ return 0x80000000 | (bus << 16) | (dev << 11) | (fn << 8) | (reg & ~3); }
 
 int
-Pci_port_root_bridge::cfg_read(unsigned bus, l4_uint32_t devfn,
-                              l4_uint32_t reg,
-                              l4_uint32_t *value, Cfg_width order)
+Pci_port_root_bridge::cfg_read(Cfg_addr addr, l4_uint32_t *value, Cfg_width w)
 {
-  l4util_out32(pci_conf_addr(bus, devfn >> 16, devfn & 0xffff, reg), 0xcf8);
+  l4util_out32((addr.to_compat_addr() | 0x80000000) & ~3UL, 0xcf8);
   using namespace Hw::Pci;
 
-  switch (order)
+  switch (w)
     {
-    case Cfg_byte:  *value = l4util_in8(0xcfc + (reg & 3)); break;
-    case Cfg_short: *value = l4util_in16((0xcfc + (reg & 3)) & ~1UL); break;
+    case Cfg_byte:  *value = l4util_in8(0xcfc + addr.reg_offs(w)); break;
+    case Cfg_short: *value = l4util_in16(0xcfc + addr.reg_offs(w)); break;
     case Cfg_long:  *value = l4util_in32(0xcfc); break;
     }
   return 0;
 }
 
 int
-Pci_port_root_bridge::cfg_write(unsigned bus, l4_uint32_t devfn,
-                               l4_uint32_t reg,
-                               l4_uint32_t value, Cfg_width order)
+Pci_port_root_bridge::cfg_write(Cfg_addr addr, l4_uint32_t value, Cfg_width w)
 {
-  l4util_out32(pci_conf_addr(bus, devfn >> 16, devfn & 0xffff, reg), 0xcf8);
+  l4util_out32((addr.to_compat_addr() | 0x80000000) & ~3UL, 0xcf8);
   using namespace Hw::Pci;
 
-  switch (order)
+  switch (w)
     {
-    case Cfg_byte:  l4util_out8(value, 0xcfc + (reg & 3)); break;
-    case Cfg_short: l4util_out16(value, (0xcfc + (reg & 3)) & ~1UL); break;
+    case Cfg_byte:  l4util_out8(value, 0xcfc + addr.reg_offs(w)); break;
+    case Cfg_short: l4util_out16(value, 0xcfc + addr.reg_offs(w)); break;
     case Cfg_long:  l4util_out32(value, 0xcfc); break;
     }
   return 0;
@@ -310,7 +302,6 @@ Pci_dev::discover_bar(int bar)
       if (x & 0x8)
 	res->add_flags(Resource::F_prefetchable);
 
-      int order;
       l4_uint64_t size = x & ~0x7f;
       l4_uint64_t a = v & ~0x7f;
       if (res->is_64bit())
@@ -330,7 +321,6 @@ Pci_dev::discover_bar(int bar)
       for (int s = 7; s < 64; ++s)
 	if ((size >> s) & 1)
 	  {
-	    order = s;
 	    size = 1 << s;
 	    break;
 	  }
@@ -479,6 +469,81 @@ Pci_dev::discover_expansion_rom()
     }
 }
 
+namespace {
+
+class Msi_res : public Hw::Msi_resource
+{
+public:
+  Msi_res(unsigned msi, Pci_bridge *bus, Hw::Pci::Cfg_addr cfg_addr)
+  : Msi_resource(msi), _bus(bus), _cfg_addr(cfg_addr)
+  {}
+
+  int bind(L4::Cap<L4::Irq> irq, unsigned mode);
+  int unbind();
+
+  void dump(int indent) const
+  { Adr_resource::dump("MSI   ", indent);  }
+
+private:
+  Pci_bridge *_bus;
+  Hw::Pci::Cfg_addr _cfg_addr;
+};
+
+int
+Msi_res::bind(L4::Cap<L4::Irq> irq, unsigned mode)
+{
+  using namespace Hw::Pci;
+
+  int err = Msi_resource::bind(irq, mode);
+  if (err < 0)
+    return err;
+
+  l4_umword_t msg = 0;
+  int e2 = l4_error(system_icu()->icu->msi_info(pin(), &msg));
+  if (e2 < 0)
+    {
+      d_printf(DBG_ERR, "ERROR: could not get MSI message (pin=%x)\n", pin());
+      return e2;
+    }
+
+  // MSI capability
+  l4_uint32_t ctl;
+  int msg_offs = 8;
+
+  _bus->cfg_read(_cfg_addr + 2, &ctl, Cfg_short);
+  if (ctl & (1 << 7))
+    msg_offs = 12;
+
+  _bus->cfg_write(_cfg_addr + 4, Msi::Base_lo | Msi::Dest_mode_phys | Msi::Dest_redir_cpu, Cfg_long);
+
+  if (ctl & (1 << 7))
+    _bus->cfg_write(_cfg_addr + 8, Msi::Base_hi, Cfg_long);
+
+  _bus->cfg_write(_cfg_addr + msg_offs, Msi::Data_level_assert | Msi::Data_trigger_edge | Msi::Data_del_fixed | Msi::data(msg), Cfg_short);
+
+  _bus->cfg_write(_cfg_addr + 2, ctl | 1, Cfg_short);
+
+  d_printf(DBG_DEBUG2, "MSI: enable kernel PIN=%x hwpci=%02x:%02x.%x: reg=%03x msg=%lx\n",
+           pin(), _cfg_addr.bus(), _cfg_addr.dev(), _cfg_addr.fn(),
+           _cfg_addr.reg(), msg);
+
+  return err;
+}
+
+int
+Msi_res::unbind()
+{
+  using namespace Hw::Pci;
+  // disable MSI
+  l4_uint32_t ctl;
+  _bus->cfg_read(_cfg_addr + 2, &ctl, Cfg_short);
+  _bus->cfg_write(_cfg_addr + 2, ctl & ~1, Cfg_short);
+
+  return Msi_resource::unbind();
+}
+
+}
+
 void
 Pci_dev::discover_pci_caps()
 {
@@ -503,26 +568,6 @@ Pci_dev::discover_pci_caps()
 	  && system_icu()->info.supports_msi())
 	{
 	  // MSI capability
-	  l4_uint32_t t, ctl, data;
-	  l4_uint64_t addr = 0;
-
-	  int msg_offs = 8;
-	  cfg_read(cap_ptr + 2, &ctl, Cfg_short);
-	  cfg_read(cap_ptr + 4, &t, Cfg_long);
-	  addr |= t;
-	  if (ctl & (1 << 7))
-	    {
-	      cfg_read(cap_ptr + 8, &t, Cfg_long);
-	      addr |= ((l4_uint64_t)t) << 32;
-	      msg_offs = 12;
-	    }
-
-	  cfg_read(cap_ptr + msg_offs, &data, Cfg_short);
-
-	  cfg_write(cap_ptr + 4, Msi::Base_lo | Msi::Dest_mode_phys | Msi::Dest_redir_cpu, Cfg_long);
-
-	  if (ctl & (1 << 7))
-	    cfg_write(cap_ptr + 8, Msi::Base_hi, Cfg_long);
 
 	  unsigned msi = _last_msi++;
 	  if (msi >= system_icu()->info.nr_msis)
@@ -531,18 +576,6 @@ Pci_dev::discover_pci_caps()
 	      continue;
 	    }
 
-	  l4_umword_t msg = 0;
-	  if (l4_error(system_icu()->icu->msi_info(msi, &msg)) < 0)
-	    {
-	      d_printf(DBG_WARN, "WARNING: could not get MSI message, use normal IRQ\n");
-	      continue;
-	    }
-
-	  cfg_write(cap_ptr + msg_offs, Msi::Data_level_assert | Msi::Data_trigger_edge | Msi::Data_del_fixed | Msi::data(msg), Cfg_short);
-
-	  cfg_write(cap_ptr + 2, ctl | 1, Cfg_short);
-
-	  d_printf(DBG_DEBUG2, "  MSI cap: %x %llx %x\n", ctl, addr, data);
 	  for (Resource_list::iterator i = host()->resources()->begin();
 	       i != host()->resources()->end(); ++i)
 	    {
@@ -553,7 +586,10 @@ Pci_dev::discover_pci_caps()
 		}
 	    }
 
-	  Adr_resource *res = new Hw::Msi_resource(msi);
+	  d_printf(DBG_DEBUG, "Use MSI PCI device %02x:%02x:%x: pin=%x\n",
+	           bus()->num, host()->adr() >> 16, host()->adr() & 0xff, msi);
+
+	  Adr_resource *res = new Msi_res(msi, bus(), cfg_addr(cap_ptr));
 	  flags |= F_msi;
 	  _host->add_resource(res);
 	}
@@ -678,7 +714,7 @@ Pci_dev::match_cid(cxx::String const &_cid) const
 	  if (tok.len() != 4 || tok.from_hex(&v) != 4)
 	    return false;
 
-	  if (((vendor_device >> 16) & 0xffff) != v)
+	  if ((vendor_device & 0xffff) != v)
 	    return false;
 	}
       else if (tok.starts_with("DEV_"))
@@ -688,7 +724,7 @@ Pci_dev::match_cid(cxx::String const &_cid) const
 	  if (tok.len() != 4 || tok.from_hex(&d) != 4)
 	    return false;
 
-	  if ((vendor_device & 0xffff) != d)
+	  if (((vendor_device >> 16) & 0xffff) != d)
 	    return false;
 	}
       else if (tok.starts_with("SUBSYS_"))
@@ -825,6 +861,7 @@ static char const * const pci_bridges[] =
   "PCI Bridge", "PCMCIA Bridge", "NuBus Bridge", "CardBus Bridge" };
 
 
+#if 0
 static void
 dump_res_rec(Resource_list const *r, int indent)
 {
@@ -835,6 +872,7 @@ dump_res_rec(Resource_list const *r, int indent)
         //dump_res_rec(i->child(), indent + 2);
       }
 }
+#endif
 
 void
 Pci_dev::dump(int indent) const

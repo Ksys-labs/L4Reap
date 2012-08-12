@@ -169,7 +169,7 @@ L4_INLINE l4_msgtag_t
 l4_task_cap_has_child_u(l4_cap_idx_t task, l4_cap_idx_t cap, l4_utcb_t *utcb) L4_NOTHROW;
 
 /**
- * \brief Test if two capabilities point to the same object.
+ * \brief Test whether two capabilities point to the same object with the same rights.
  * \ingroup l4_task_api
  *
  * \param task         Capability selector of the destination task to do the
@@ -222,7 +222,6 @@ enum L4_task_ops
   L4_TASK_CAP_INFO_OP    = 2UL,    /**< Cap info */
   L4_TASK_ADD_KU_MEM_OP  = 3UL,    /**< Add kernel-user memory */
   L4_TASK_LDT_SET_X86_OP = 0x11UL, /**< x86: LDT set */
-  L4_TASK_VM_OPS         = 0x20UL, /**< VM op */
 };
 
 

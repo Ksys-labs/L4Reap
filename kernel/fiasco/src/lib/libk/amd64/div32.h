@@ -9,7 +9,7 @@ unsigned long long
 div32(unsigned long long divident, unsigned long divisor)
 {
   unsigned long long ret;
-  asm ("div	%3		\n\t"
+  asm ("divq	%3		\n\t"
      : "=a"(ret)
      : "a"((unsigned long)(divident)), "d"(0), "rm"(divisor));
   return ret;

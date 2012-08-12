@@ -10,7 +10,8 @@ runconfig = cp globalconfig.out.$(2) globalconfig.out ;    \
             make $(1) && sed -e '3,4d'                     \
 		globalconfig.out > globalconfig.out.$(2)
 
-cleanup = make mrproper && $(RM) -r globalconfig.out.old Kconfig include
+cleanup = make mrproper && \
+	  $(RM) -r globalconfig.out.old globalconfig.h Kconfig include
 
 testconfigs:
 	$(foreach cfg,$(SAMPLE_CONFIGS), $(call runconfig,menuconfig,$(cfg)))

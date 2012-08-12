@@ -23,9 +23,8 @@ Mem_space::v_insert_cache(Pte_base *e, Address virt, size_t size,
 {
   if(!dir) dir = _dir;
 
-  Pdir::Iter i = dir->alloc_cast<Mem_space_q_alloc>()
-    ->walk(Addr(virt), Pdir::Depth,
-           Mem_space_q_alloc(_quota, Mapped_allocator::allocator()));
+  Pdir::Iter i =
+    dir->walk(Addr(virt), Pdir::Depth, Kmem_alloc::q_allocator(_quota));
 
   if (EXPECT_FALSE(!i.e->valid() && i.shift() != Config::PAGE_SHIFT))
     return Insert_err_nomem;

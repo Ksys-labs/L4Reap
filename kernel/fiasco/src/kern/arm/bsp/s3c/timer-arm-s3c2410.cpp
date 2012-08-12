@@ -1,11 +1,12 @@
 INTERFACE [arm && s3c2410]:
 
 #include "kmem.h"
-#include "irq_chip.h"
-#include "irq_pin.h"
 
 EXTENSION class Timer
 {
+public:
+  static unsigned irq() { return 14; }
+
 private:
   enum {
     TCFG0  = Kmem::Timer_map_base + 0x00,
@@ -27,8 +28,6 @@ private:
     TCNTO4 = Kmem::Timer_map_base + 0x40,
 
   };
-
-  static Irq_base *irq;
 };
 
 // -----------------------------------------------------------------------
@@ -36,28 +35,24 @@ IMPLEMENTATION [arm && s3c2410]:
 
 #include "config.h"
 #include "kip.h"
-#include "irq_chip.h"
 #include "io.h"
 
 #include <cstdio>
 
-Irq_base *Timer::irq;
-
 IMPLEMENT
-void Timer::init()
+void Timer::init(unsigned)
 {
   Io::write(0, TCFG0); // prescaler config
   Io::write(0, TCFG1); // mux select
   Io::write(33333, TCNTB4); // reload value
 
   Io::write(5 << 20, TCON); // start + autoreload
-
-  Irq_chip::hw_chip->reserve(Config::Scheduling_irq);
-
-  static Irq_base ib;
-  Irq_chip::hw_chip->setup(&ib, Config::Scheduling_irq);
-  irq = &ib;
 }
+
+PUBLIC static inline
+void
+Timer::acknowledge()
+{}
 
 static inline
 Unsigned64
@@ -70,55 +65,19 @@ Timer::us_to_timer(Unsigned64 us)
 { (void)us; return 0; }
 
 IMPLEMENT inline
-void Timer::acknowledge()
-{
-  irq->pin()->ack();
-  //irq->pin()->unmask();
-}
-
-IMPLEMENT inline
-void Timer::enable()
-{
-  irq->pin()->unmask();
-}
-
-IMPLEMENT inline
-void Timer::disable()
-{
-  irq->pin()->mask();
-}
-
-IMPLEMENT inline NEEDS["kip.h", "io.h", Timer::timer_to_us, Timer::us_to_timer]
 void
 Timer::update_one_shot(Unsigned64 wakeup)
 {
-  Unsigned32 apic;
-  //Kip::k()->clock += timer_to_us(Io::read<Unsigned32>(OSCR));
-  Unsigned64 now = Kip::k()->clock;
-
-  if (EXPECT_FALSE (wakeup <= now) )
-    // already expired
-    apic = 1;
-  else
-    {
-      apic = us_to_timer(wakeup - now);
-      if (EXPECT_FALSE(apic > 0x0ffffffff))
-	apic = 0x0ffffffff;
-      if (EXPECT_FALSE (apic < 1) )
-	// timeout too small
-	apic = 1;
-    }
+  (void)wakeup;
 }
 
 IMPLEMENT inline NEEDS["config.h", "kip.h", "io.h", Timer::timer_to_us]
 Unsigned64
 Timer::system_clock()
 {
-  if (Config::scheduler_one_shot)
+  if (Config::Scheduler_one_shot)
     //return Kip::k()->clock + timer_to_us(Io::read<Unsigned32>(OSCR));
     return 0;
   else
     return Kip::k()->clock;
 }
-
-

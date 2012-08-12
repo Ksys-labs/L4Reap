@@ -11,7 +11,7 @@ COMPFLAGS      = -g $(if $(VERBOSE),,-verbose) -warn-error A \
 	$(VERBOSE)$(RM) $(notdir $<)
 	$(VERBOSE)$(LN) -sf $(SRC_DIR)/$(notdir $<)
 	$(VERBOSE)$(CAMLOPT) $(COMPFLAGS) -I $(OCAML_INCDIR) -o $@.tmp.o $(notdir $<)
-	$(VERBOSE)$(LD) -r -N -nostdlib -o $@ $@.tmp.o -L $(OCAML_LIBDIR) -locaml_asmrun
+	$(VERBOSE)$(LD) -m $(LD_EMULATION) -r -N -nostdlib -o $@ $@.tmp.o -L $(OCAML_LIBDIR) -locaml_asmrun
 
 # some versions of ocamlopt (e.g. 3.10.2) want to have a libasmrun.a
 # although we specify -nostdlib...

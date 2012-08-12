@@ -1,23 +1,21 @@
 // --------------------------------------------------------------------------
-INTERFACE [arm && sp804]:
+INTERFACE [arm]:
 
-#include "irq_chip.h"
-#include "irq_pin.h"
 #include "kmem.h"
 
-EXTENSION class Timer
+class Timer_sp804
 {
-private:
+public:
   enum {
     System_control = Kmem::System_ctrl_map_base,
 
     Refclk = 0,
     Timclk = 1,
 
-    Timer1_enable = 15,
-    Timer2_enable = 17,
-    Timer3_enable = 19,
-    Timer4_enable = 21,
+    Timer0_enable = 15,
+    Timer1_enable = 17,
+    Timer2_enable = 19,
+    Timer3_enable = 21,
 
     Timer_load   = 0x00,
     Timer_value  = 0x04,
@@ -50,8 +48,20 @@ private:
     Ctrl_periodic  = 1 << 6,
     Ctrl_enable    = 1 << 7,
   };
+};
 
-  static Irq_base *irq;
+// --------------------------------------------------------------------------
+INTERFACE [arm && sp804]:
+
+EXTENSION class Timer
+{
+public:
+  static unsigned irq() { return 36; }
+
+private:
+  enum {
+    Interval = 1000,
+  };
 };
 
 // -----------------------------------------------------------------------
@@ -63,35 +73,25 @@ IMPLEMENTATION [arm && sp804]:
 
 #include <cstdio>
 
-Irq_base *Timer::irq;
-
 IMPLEMENT
-void Timer::init()
+void Timer::init(unsigned)
 {
-  Mword v;
-
-  v = Io::read<Mword>(System_control);
-  v |= Timclk << Timer1_enable;
-  Io::write<Mword>(v, System_control);
+  Mword v = Io::read<Mword>(Timer_sp804::System_control);
+  v |= Timer_sp804::Timclk << Timer_sp804::Timer0_enable;
+  Io::write<Mword>(v, Timer_sp804::System_control);
 
   // all timers off
-  Io::write<Mword>(0, Ctrl_0);
-  Io::write<Mword>(0, Ctrl_1);
-  Io::write<Mword>(0, Ctrl_2);
-  Io::write<Mword>(0, Ctrl_3);
+  Io::write<Mword>(0, Timer_sp804::Ctrl_0);
+  Io::write<Mword>(0, Timer_sp804::Ctrl_1);
+  Io::write<Mword>(0, Timer_sp804::Ctrl_2);
+  Io::write<Mword>(0, Timer_sp804::Ctrl_3);
 
-  Io::write<Mword>(Interval, Load_0);
-  Io::write<Mword>(Interval, Value_0);
-  Io::write<Mword>(Ctrl_enable | Ctrl_periodic | Ctrl_ie, Ctrl_0);
-
-  if (!current_cpu())
-    {
-      Irq_chip::hw_chip->reserve(Config::Scheduling_irq);
-
-      static Irq_base ib;
-      Irq_chip::hw_chip->setup(&ib, Config::Scheduling_irq);
-      irq = &ib;
-    }
+  Io::write<Mword>(Interval, Timer_sp804::Load_0);
+  Io::write<Mword>(Interval, Timer_sp804::Value_0);
+  Io::write<Mword>  (Timer_sp804::Ctrl_enable
+                   | Timer_sp804::Ctrl_periodic
+                   | Timer_sp804::Ctrl_ie,
+                   Timer_sp804::Ctrl_0);
 }
 
 static inline
@@ -104,52 +104,25 @@ Unsigned64
 Timer::us_to_timer(Unsigned64 us)
 { (void)us; return 0; }
 
-IMPLEMENT inline NEEDS["io.h"]
-void Timer::acknowledge()
+PUBLIC static inline NEEDS["io.h"]
+void
+Timer::acknowledge()
 {
-  Io::write<Mword>(0, Intclr_0);
-  irq->pin()->ack();
+  Io::write<Mword>(0, Timer_sp804::Intclr_0);
 }
 
 IMPLEMENT inline
-void Timer::enable()
-{
-  irq->pin()->unmask();
-}
-
-IMPLEMENT inline
-void Timer::disable()
-{
-  irq->pin()->mask();
-}
-
-IMPLEMENT inline NEEDS["kip.h", "io.h", Timer::timer_to_us, Timer::us_to_timer]
 void
 Timer::update_one_shot(Unsigned64 wakeup)
 {
-  Unsigned32 apic;
-  //Kip::k()->clock += timer_to_us(Io::read<Unsigned32>(Oscr));
-  Unsigned64 now = Kip::k()->clock;
-
-  if (EXPECT_FALSE (wakeup <= now) )
-    // already expired
-    apic = 1;
-  else
-    {
-      apic = us_to_timer(wakeup - now);
-      if (EXPECT_FALSE(apic > 0x0ffffffff))
-	apic = 0x0ffffffff;
-      if (EXPECT_FALSE (apic < 1) )
-	// timeout too small
-	apic = 1;
-    }
+  (void)wakeup;
 }
 
 IMPLEMENT inline NEEDS["config.h", "kip.h"]
 Unsigned64
 Timer::system_clock()
 {
-  if (Config::scheduler_one_shot)
+  if (Config::Scheduler_one_shot)
     return 0;
   else
     return Kip::k()->clock;

@@ -247,6 +247,11 @@ AcpiOsDerivePciId(
  *              the addresses accessed by AML operation regions.
  *
  *****************************************************************************/
+ACPI_STATUS
+AcpiOsValidateAddress (
+    UINT8                   /* SpaceId */,
+    ACPI_PHYSICAL_ADDRESS   /* Address */,
+    ACPI_SIZE               /* Length */);
 
 ACPI_STATUS
 AcpiOsValidateAddress (

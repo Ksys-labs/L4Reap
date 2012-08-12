@@ -11,7 +11,7 @@
 /*
  * This file is part of DDEKit.
  *
- * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ * (c) 2006-2012 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
  *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
  *               Thomas Friebel <tf13@os.inf.tu-dresden.de>
  *     economic rights: Technische Universitaet Dresden (Germany)
@@ -25,8 +25,8 @@
 #include <l4/dde/ddekit/memory.h>
 #include <l4/dde/ddekit/panic.h>
 #include <l4/dde/ddekit/printf.h>
-#include <l4/dde/ddekit/__usem_wrap.h>
 #include <l4/util/macros.h>
+#include <pthread-l4.h>
 
 #include "config.h"
 
@@ -73,13 +73,16 @@ static void  __attribute__((used)) dump_pgtab_list(void)
 	enter_kdebug("dump");
 }
 
-static l4_u_semaphore_t pa_list_lock;
-static l4_cap_idx_t pa_list_cap;
+static pthread_mutex_t pa_list_lock;
 
 void ddekit_pgtab_init(void);
 void ddekit_pgtab_init(void)
 {
-	__init_lock_unlocked(&pa_list_lock, &pa_list_cap);
+	int r = pthread_mutex_init(&pa_list_lock, NULL);
+	if (r) {
+		ddekit_printf("Error initializing pgtab mutex: %d\n", r);
+		enter_kdebug();
+	}
 }
 
 
@@ -87,13 +90,13 @@ static struct pgtab_object *__find(l4_addr_t virt)
 {
 	struct pgtab_object *p = NULL;
 
-	__lock(&pa_list_lock, pa_list_cap);
+	pthread_mutex_lock(&pa_list_lock);
 	for (p = pa_list_head.next; p != &pa_list_head; p = p->next)
 	{
 		if (virt >= p->va && virt < p->va + p->size)
 			break;
 	}
-	__unlock(&pa_list_lock, pa_list_cap);
+	pthread_mutex_unlock(&pa_list_lock);
 
 	return p == &pa_list_head ? NULL : p;
 }
@@ -137,7 +140,7 @@ ddekit_addr_t ddekit_pgtab_get_virtaddr(const ddekit_addr_t physical)
 	ddekit_addr_t retval = 0;
 	
 	/* find phys->virt mapping */
-	__lock(&pa_list_lock, pa_list_cap);
+	pthread_mutex_lock(&pa_list_lock);
 	for (p = pa_list_head.next ; p != &pa_list_head ; p = p->next) {
 		if (p->pa <= (l4_addr_t)physical && 
 		    (l4_addr_t)physical < p->pa + p->size) {
@@ -146,7 +149,7 @@ ddekit_addr_t ddekit_pgtab_get_virtaddr(const ddekit_addr_t physical)
 			break;
 		}
 	}
-	__unlock(&pa_list_lock, pa_list_cap);
+	pthread_mutex_unlock(&pa_list_lock);
 
 	if (!retval)
 		ddekit_debug("%s: no phys->virt mapping for physical address %p", __func__, (void*)physical);
@@ -205,11 +208,11 @@ void ddekit_pgtab_clear_region(void *virt, int type __attribute__((unused)))
 	}
 
 
-	__lock(&pa_list_lock, pa_list_cap);
+	pthread_mutex_lock(&pa_list_lock);
 	/* remove pgtab object from list */
 	p->next->prev= p->prev;
 	p->prev->next= p->next;
-	__unlock(&pa_list_lock, pa_list_cap);
+	pthread_mutex_unlock(&pa_list_lock);
 	
 	/* free pgtab object */
 	ddekit_simple_free(p);
@@ -243,14 +246,14 @@ void ddekit_pgtab_set_region(void *virt, ddekit_addr_t phys, int pages, int type
 	p->size = pages * L4_PAGESIZE;
 	p->type = type;
 
-	__lock(&pa_list_lock, pa_list_cap);
+	pthread_mutex_lock(&pa_list_lock);
 
 	p->next = pa_list_head.next;
 	p->prev = &pa_list_head;
 	p->next->prev = p;
 	pa_list_head.next = p;
 
-	__unlock(&pa_list_lock, pa_list_cap);
+	pthread_mutex_unlock(&pa_list_lock);
 
 #if 0
 	ddekit_printf("after %s\n", __func__);

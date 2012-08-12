@@ -8,9 +8,14 @@ INTERFACE:
 #include <sys/types.h>                  // for pid_t
 #include <getopt.h>                     // for struct option
 #include "l4_types.h"                   // for Global_id
+#include "multiboot.h"
 
 EXTENSION class Boot_info
 {
+public:
+  static Address mbi_phys();
+  static Multiboot_info *mbi_virt();
+
 private:
   static int                            _fd;            // Physmem FD
   static pid_t                          _pid;           // Process ID
@@ -57,6 +62,7 @@ IMPLEMENTATION[ux]:
 #include <sys/stat.h>                   // for open
 #include <sys/statvfs.h>
 #include <sys/utsname.h>                // for uname
+#include <sys/resource.h>
 
 #include "config.h"
 #include "emulation.h"
@@ -88,6 +94,7 @@ unsigned long           Boot_info::_sigma0_end;
 unsigned long           Boot_info::_root_start;
 unsigned long           Boot_info::_root_end;
 unsigned long           Boot_info::_min_mappable_address;
+
 
 // If you add options here, add them to getopt_long and help below
 struct option Boot_info::_long_options[] FIASCO_INITDATA =
@@ -152,6 +159,34 @@ char const *Boot_info::_modules[64] FIASCO_INITDATA =
    NULL,        // Lines
    NULL         // Roottask configuration
 };
+
+
+PUBLIC static
+Address
+Boot_info::kmem_start(Address mem_max)
+{
+  Address end_addr = (mbi_virt()->mem_upper + 1024) << 10;
+  Address size, base;
+
+  if (end_addr > mem_max)
+    end_addr = mem_max;
+
+  size = Koptions::o()->kmemsize << 10;
+  if (!size)
+    {
+      size = end_addr / 100 * Config::kernel_mem_per_cent;
+      if (size > Config::kernel_mem_max)
+	size = Config::kernel_mem_max;
+    }
+
+  base = end_addr - size & Config::PAGE_MASK;
+  if (Mem_layout::phys_to_pmem(base) < Mem_layout::Physmem)
+    base = Mem_layout::pmem_to_phys(Mem_layout::Physmem);
+
+  return base;
+}
+
+
 
 IMPLEMENT FIASCO_INIT
 void
@@ -336,6 +371,16 @@ Boot_info::init()
   if (! quiet)
     printf ("\n\nFiasco-UX on %s %s (%s)\n",
             uts.sysname, uts.release, uts.machine);
+
+  struct rlimit rl;
+  if (getrlimit(RLIMIT_STACK, &rl))
+    perror("getrlimit");
+  else
+    {
+      rl.rlim_max = rl.rlim_cur = 1 << 17;
+      if (setrlimit(RLIMIT_STACK, &rl))
+	perror("setrlimit");
+    }
 
   get_minimum_map_address();
   find_x86_tls_base();

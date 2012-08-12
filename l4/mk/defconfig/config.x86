@@ -1,5 +1,5 @@
 #
-# Automatically generated make config: don't edit
+# Automatically generated file; DO NOT EDIT.
 # L4Re Configuration
 #
 CONFIG_BUILD_ARCH_x86=y
@@ -29,6 +29,9 @@ CONFIG_CPU_X86_586=y
 # CONFIG_CPU_X86_K10 is not set
 # CONFIG_CPU_X86_OPTERON is not set
 CONFIG_CPU="586"
+CONFIG_PLATFORM_TYPE_pc=y
+# CONFIG_PLATFORM_TYPE_custom is not set
+CONFIG_PLATFORM_TYPE="pc"
 # CONFIG_USE_DROPS_STDDIR is not set
 # CONFIG_USE_DICE is not set
 CONFIG_BID_COLORED_PHASES=y
@@ -48,4 +51,4 @@ CONFIG_INT_LD_NAME_SWITCH=y
 # CONFIG_BID_GENERATE_MAPFILE is not set
 # CONFIG_BID_BUILD_DOC is not set
 # CONFIG_RELEASE_MODE is not set
-CONFIG_LABEL=""
+CONFIG_MAKECONFS_ADD=""

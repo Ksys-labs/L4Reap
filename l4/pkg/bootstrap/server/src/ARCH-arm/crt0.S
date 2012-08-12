@@ -41,6 +41,12 @@ _start:
 	cmp	r4, r5		/* If equal ... */
 	beq	run		/* ... go to run */
 
+	/* Disable caches as we're moving code around */
+	mrc p15, 0, r0, c1, c0
+	bic r0, #0x0004
+	bic r0, #0x1000
+	mcr p15, 0, r0, c1, c0
+
 	/* Figure how to move */
         ldr     r7, .LCend_bin
 	subs	r8, r5, r4	/* r8 is the distance between the blocks */
@@ -49,7 +55,7 @@ _start:
 	/* Copy before, copy forwards */
 	/* First, copy our copy loop to the very beginning to avoid code
 	 * overwrites */
-	mov	r2, r5			/* r2: run address */
+	mov	r9, r5			/* r9: run address */
 	ldr	r0, .LCstart_bin
 	ldr	r1, 3f
 	str	r1, [r0], #4
@@ -67,7 +73,7 @@ _start:
 32:     str     r6, [r5], #4
 33:     cmp     r5, r7
 34:     blt     3b
-35:     mov	pc, r2
+35:     mov	pc, r9
 
 	/* Copy behind, copy backwards */
 move_behind:
@@ -76,7 +82,7 @@ move_behind:
 	str	r6, [r7, #-4]!	/* Put bytes */
 	cmp	r5, r7
 	blt	3b
-        ldr     pc, .LCrun
+	ldr     pc, .LCrun
 
 
 .LCrun:       .word run
@@ -91,14 +97,14 @@ run:
 	and	r0, r0, r1
 
 	/* Check for processors that understand CPU ID */
-	mov	r2, #0xb00
-	orr 	r2, #0x002
-	cmp	r0, r2
+	mov	r9, #0xb00
+	orr 	r9, #0x002
+	cmp	r0, r9
 	beq	do_cpuid
 
-	mov	r2, #0xc00
-	orr 	r2, #0x009
-	cmp	r0, r2
+	mov	r9, #0xc00
+	orr 	r9, #0x009
+	cmp	r0, r9
 	bne	do_bootstrap               /* None matched, normal startup */
 
 do_cpuid:
@@ -119,7 +125,7 @@ do_cpuid:
 	orr r0, #0xd3
 	msr cpsr_c, r0
 
-#ifdef PLATFORM_TYPE_rv
+#if defined(PLATFORM_TYPE_rv) || defined(PLATFORM_TYPE_rv_pbx) || defined(PLATFORM_TYPE_rv_vexpress)
 	// enable GIC CPU interface + prio mask for IRQs
 
 	// get board ID and retrieve MPCore-base from table
@@ -173,6 +179,7 @@ do_bootstrap:
      	str 	sp, [r3]                   /* Store SP in variable          */
 	ldr 	sp, .LCstack
 
+	mov     r0, r2                     /* ATAG pointer */
 	bl	__main
 1:	b	1b
 

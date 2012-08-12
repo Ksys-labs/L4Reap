@@ -24,7 +24,6 @@ l4shmc_attach(const char *shmc_name, l4shmc_area_t *shmarea)
   return l4shmc_attach_to(shmc_name, 0, shmarea);
 }
 
-
 L4_CV L4_INLINE long
 l4shmc_wait_any(l4shmc_signal_t **p)
 {
@@ -91,7 +90,7 @@ L4_CV L4_INLINE long
 l4shmc_chunk_ready(l4shmc_chunk_t *chunk, l4_umword_t size)
 {
   chunk->_chunk->_size = size;
-  asm volatile("" : : : "memory");
+  __sync_synchronize();
   chunk->_chunk->_status = L4SHMC_CHUNK_READY;
   return L4_EOK;
 }
@@ -128,16 +127,19 @@ l4shmc_signal_cap(l4shmc_signal_t *signal)
   return signal->_sigcap;
 }
 
-L4_CV L4_INLINE l4_umword_t
+L4_CV L4_INLINE long
 l4shmc_chunk_size(l4shmc_chunk_t *p)
 {
-  return p->_chunk->_size;
+  l4_umword_t s = p->_chunk->_size;
+  if (s > p->_capacity)
+    return -L4_EIO;
+  return s;
 }
 
-L4_CV L4_INLINE l4_umword_t
+L4_CV L4_INLINE long
 l4shmc_chunk_capacity(l4shmc_chunk_t *p)
 {
-  return p->_chunk->_capacity;
+  return p->_capacity;
 }
 
 L4_CV L4_INLINE long
@@ -152,7 +154,6 @@ l4shmc_chunk_try_to_take(l4shmc_chunk_t *chunk)
 L4_CV L4_INLINE long
 l4shmc_chunk_consumed(l4shmc_chunk_t *chunk)
 {
-  asm volatile("" : : : "memory");
   chunk->_chunk->_status = L4SHMC_CHUNK_CLEAR;
   return L4_EOK;
 }

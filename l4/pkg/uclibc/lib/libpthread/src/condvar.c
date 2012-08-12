@@ -24,7 +24,9 @@
 #include "queue.h"
 #include "restart.h"
 
-int __pthread_cond_init(pthread_cond_t *cond,
+int
+attribute_hidden
+__pthread_cond_init(pthread_cond_t *cond,
                         const pthread_condattr_t *cond_attr)
 {
   __pthread_init_lock(&cond->__c_lock);
@@ -33,7 +35,9 @@ int __pthread_cond_init(pthread_cond_t *cond,
 }
 strong_alias (__pthread_cond_init, pthread_cond_init)
 
-int __pthread_cond_destroy(pthread_cond_t *cond)
+int
+attribute_hidden
+__pthread_cond_destroy(pthread_cond_t *cond)
 {
   if (cond->__c_waiting != NULL) return EBUSY;
   return 0;
@@ -56,7 +60,9 @@ static int cond_extricate_func(void *obj, pthread_descr th)
   return did_remove;
 }
 
-int __pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
+int
+attribute_hidden
+__pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
 {
   __volatile__ pthread_descr self = thread_self();
   pthread_extricate_if extr;
@@ -229,7 +235,9 @@ pthread_cond_timedwait_relative(pthread_cond_t *cond,
   return 0;
 }
 
-int __pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+int
+attribute_hidden
+__pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
 			     const struct timespec * abstime)
 {
   /* Indirect call through pointer! */
@@ -253,7 +261,9 @@ int __pthread_cond_signal(pthread_cond_t *cond)
 }
 strong_alias (__pthread_cond_signal, pthread_cond_signal)
 
-int __pthread_cond_broadcast(pthread_cond_t *cond)
+int
+attribute_hidden
+__pthread_cond_broadcast(pthread_cond_t *cond)
 {
   pthread_descr tosignal, th;
 
@@ -272,13 +282,17 @@ int __pthread_cond_broadcast(pthread_cond_t *cond)
 }
 strong_alias (__pthread_cond_broadcast, pthread_cond_broadcast)
 
-int __pthread_condattr_init(pthread_condattr_t *attr)
+int
+attribute_hidden
+__pthread_condattr_init(pthread_condattr_t *attr)
 {
   return 0;
 }
 strong_alias (__pthread_condattr_init, pthread_condattr_init)
 
-int __pthread_condattr_destroy(pthread_condattr_t *attr)
+int
+attribute_hidden
+__pthread_condattr_destroy(pthread_condattr_t *attr)
 {
   return 0;
 }

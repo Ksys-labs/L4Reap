@@ -1,27 +1,16 @@
 INTERFACE[ia32,amd64]:
 
-class Irq_base;
-
 class Rtc
 {
 private:
   Rtc();
   Rtc(const Rtc&);
-
-public:
-  static Irq_base *irq;
 };
 
 IMPLEMENTATION[ia32,amd64]:
 
 #include "io.h"
-#include "io_apic.h"
-#include "irq_pin.h"
-#include "irq_chip.h"
-#include "panic.h"
 #include "globalconfig.h"
-
-Irq_base *Rtc::irq;
 
 #define RTC_STATUSA	 0x0a	/* status register A */
 #define  RTCSA_TUP	 0x80	/* time update, don't look now */
@@ -72,20 +61,8 @@ Rtc::reg_write(unsigned char reg, unsigned char val)
 // set up timer interrupt (~ 1ms)
 PUBLIC static
 void
-Rtc::init(unsigned in)
+Rtc::init()
 {
-  irq = Irq_chip::hw_chip->irq(in);
-  if (irq)
-    panic("could not find pin for IRQ\n");
-
-  Irq_chip::hw_chip->reserve(in);
-
-  static Irq_base ib;
-  Irq_chip::hw_chip->setup(&ib, in);
-  irq = &ib;
-
-  irq->pin()->mask();
-
   while (reg_read(RTC_STATUSA) & RTCSA_TUP) 
     ; // wait till RTC ready
 
@@ -102,13 +79,11 @@ Rtc::init(unsigned in)
 
   // reset
   reg_read(RTC_INTR);
-
-  irq->pin()->unmask();
 }
 
 PUBLIC static
 void
-Rtc::done(void)
+Rtc::done()
 {
   // disable all potential interrupt sources
   reg_write(RTC_STATUSB,
@@ -120,7 +95,7 @@ Rtc::done(void)
 
 PUBLIC static
 void
-Rtc::set_freq_slow(void)
+Rtc::set_freq_slow()
 {
   // set divider to 32 Hz
   reg_write(RTC_STATUSA, RTCSA_DIVIDER | RTCSA_32);
@@ -128,27 +103,17 @@ Rtc::set_freq_slow(void)
 
 PUBLIC static
 void
-Rtc::set_freq_normal(void)
+Rtc::set_freq_normal()
 {
   // set divider to 1024 Hz
   reg_write(RTC_STATUSA, RTCSA_DIVIDER | RTCSA_1024);
 }
 
 // acknowledge RTC interrupt
-PUBLIC static inline NEEDS ["irq_pin.h"]
+PUBLIC static inline
 void
-Rtc::ack_reset(void)
+Rtc::reset()
 {
-  // reset irq by reading the cmos port
-  // do it fast because we are cli'd
-  asm volatile ("movb $0xc, %%al\n\t"
-                "outb %%al,$0x70\n\t"
-                "outb %%al,$0x80\n\t"
-		"inb  $0x71,%%al\n\t" : : : "eax");
-  
-  // acknowledge interrupt
-  irq->pin()->ack();
-  
   // reset irq by reading the cmos port
   // do it fast because we are cli'd
   asm volatile ("movb $0xc, %%al\n\t"

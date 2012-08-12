@@ -634,7 +634,7 @@ restart:
       const char *perf_type = Perf_cnt::perf_type();
 
       Jdb::cursor();
-      printf("%3lu%% of %-6lu Perf:%-4s 1="L4_PTR_FMT
+      printf("%3lu%% of %-6lu Perf:%-4s 1=" L4_PTR_FMT
 	     "(%s%s\033[m%s%s%s\033[m)\033[K",
   	  Jdb_tbuf::unfiltered_entries()*100/Jdb_tbuf::max_entries(), 
 	  Jdb_tbuf::max_entries(),
@@ -645,7 +645,7 @@ restart:
 
       Jdb::cursor(1, 71);
       printf("%10s\n"
-             "%24s 2="L4_PTR_FMT"(%s%s\033[m%s%s%s\033[m)\033[K\n",
+             "%24s 2=" L4_PTR_FMT "(%s%s\033[m%s%s%s\033[m)\033[K\n",
 	  mode_str[(int)mode], "",
 	  perf_event[1], Jdb::esc_emph, perf_mode[1],
 	  perf_name[1] && *perf_name[1] ? ":" : "", 

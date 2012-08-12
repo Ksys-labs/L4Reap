@@ -34,10 +34,13 @@
 #include "pub_core_libcassert.h"
 #include "pub_core_libcfile.h"
 #include "pub_core_libcproc.h"      // For VG_(gettid)()
+#include "pub_core_mallocfree.h"
 #include "priv_sema.h"
 
 #if defined(VGO_l4re)
 #include <l4/sys/kdebug.h>
+#include <l4/re/env.h>
+#include <l4/re/c/util/cap_alloc.h>
 #define DEBUG_MYSELF 0
 #endif
 
@@ -55,25 +58,19 @@ static Char sema_char = '!'; /* will cause assertion failures if used
 
 #if defined(VGO_l4re)
 
+static void *lock_malloc(size_t sz)
+{
+  return VG_(malloc)("l4lock", sz);
+}
+
 void ML_(sema_init)(vg_sema_t *sema)
 {
-   l4_msgtag_t ret;
 #if DEBUG_MYSELF
   VG_(debugLog)(0, "scheduler", "ML_(sema_init) called\n");
 #endif
-   sema->cap = l4re_util_cap_alloc();
-   if (l4_is_invalid_cap(sema->cap)) {
-      VG_(debugLog)(0, "sema", "invalid cap!\n");
-      enter_kdebug("ML_(sema_init)");
-   }
-
-   ret = l4_factory_create_semaphore(l4re_env()->factory, sema->cap);
-   if (l4_error(ret)) {
-      VG_(debugLog)(0, "sema", "create semaphore failed!\n");
-      enter_kdebug("ML_(sema_init)");
-   }
-
-   l4_usem_init(1, &(sema->sem));
+   l4ullulock_init(&sema->lock, lock_malloc, VG_(free),
+                   l4re_util_cap_alloc, l4re_util_cap_free,
+                   l4re_env()->factory);
    sema->owner_lwpid = -1;
 }
 
@@ -83,8 +80,9 @@ void ML_(sema_deinit)(vg_sema_t *sema)
 #if DEBUG_MYSELF
   VG_(debugLog)(0, "scheduler", "ML_(sema_deinit) called\n");
 #endif
-  l4_usem_up(sema->cap, &(sema->sem));
+   l4ullulock_unlock(sema->lock, l4_utcb());
    sema->owner_lwpid = -1;
+   l4ullulock_deinit(sema->lock);
 }
 
 
@@ -97,7 +95,7 @@ void ML_(sema_down)( vg_sema_t *sema, Bool as_LL )
 #endif
    vg_assert(sema->owner_lwpid != lwpid); /* can't have it already */
 
-   l4_usem_down(sema->cap, &(sema->sem));
+   l4ullulock_lock(sema->lock, l4_utcb());
    sema->owner_lwpid = lwpid;
 }
 
@@ -111,7 +109,7 @@ void ML_(sema_up)( vg_sema_t *sema, Bool as_LL )
    vg_assert(sema->owner_lwpid != -1); /* must be initialised */
    vg_assert(sema->owner_lwpid == VG_(gettid)()); /* must have it */
    sema->owner_lwpid = 0;
-   l4_usem_up(sema->cap, &(sema->sem));
+   l4ullulock_unlock(sema->lock, l4_utcb());
 }
 
 #else

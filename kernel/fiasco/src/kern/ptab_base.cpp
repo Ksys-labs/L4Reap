@@ -5,6 +5,13 @@ INTERFACE:
 namespace Ptab
 {
 
+  struct Null_alloc
+  {
+    static void *alloc(unsigned long) { return 0; }
+    static void free(void *) {}
+    static bool valid() { return false; }
+  };
+
   template< typename _Head, typename _Tail >
   class List
   {
@@ -127,7 +134,7 @@ namespace Ptab
   };
 
 
-  template< typename _Last, typename Iter, typename _Alloc >
+  template< typename _Last, typename Iter >
   class Walk
   {
   public:
@@ -137,14 +144,15 @@ namespace Ptab
     typedef _Last Traits;
 
   private:
-    typedef Walk<_Last, Iter, _Alloc> This;
+    typedef Walk<_Last, Iter> This;
     typedef Entry_vec<Level> Vec;
     Vec _e;
 
   public:
     void clear() { _e.clear(); }
 
-    Iter walk(Address virt, unsigned = 0, _Alloc const & = _Alloc())
+    template< typename _Alloc >
+    Iter walk(Address virt, unsigned, _Alloc const &)
     { return Iter(&_e[Vec::idx(virt)], Level::Shift); }
 
     void unmap(Address &start, unsigned long &size, unsigned)
@@ -162,8 +170,9 @@ namespace Ptab
       size  -= (unsigned long)cnt << Traits::Shift;
     }
 
+    template< typename _Alloc >
     void map(Address &phys, Address &virt, unsigned long &size,
-	unsigned long attr, unsigned, _Alloc const & = _Alloc())
+	unsigned long attr, unsigned, _Alloc const &)
     {
       unsigned idx = Vec::idx(virt);
       unsigned cnt = size >> Traits::Shift;
@@ -177,11 +186,13 @@ namespace Ptab
       size -= (unsigned long)cnt << Traits::Shift;
     }
 
-    void destroy(Address, Address, unsigned, _Alloc const & = _Alloc())
+    template< typename _Alloc >
+    void destroy(Address, Address, unsigned, _Alloc const &)
     {}
 
+    template< typename _Alloc >
     bool sync(Address &l_addr, This const &_r, Address &r_addr,
-	Address &size, unsigned, _Alloc const & = _Alloc())
+	Address &size, unsigned, _Alloc const &)
     {
       unsigned count = size >> Traits::Shift;
       unsigned const l = Vec::idx(l_addr);
@@ -233,11 +244,11 @@ namespace Ptab
 
 
 
-  template< typename _Head, typename _Tail, typename Iter, typename _Alloc >
-  class Walk <List <_Head,_Tail>, Iter, _Alloc >
+  template< typename _Head, typename _Tail, typename Iter >
+  class Walk <List <_Head,_Tail>, Iter >
   {
   public:
-    typedef Walk<_Tail, Iter, _Alloc> Next;
+    typedef Walk<_Tail, Iter> Next;
     typedef typename Next::Level Level;
     typedef typename _Head::Entry Entry;
     typedef _Head Traits;
@@ -245,11 +256,12 @@ namespace Ptab
     enum { Depth = Next::Depth + 1 };
 
   private:
-    typedef Walk<_Head, Iter, _Alloc> This;
-    typedef Walk< List< _Head, _Tail >, Iter, _Alloc> This2;
+    typedef Walk<_Head, Iter> This;
+    typedef Walk< List< _Head, _Tail >, Iter> This2;
     typedef Entry_vec<_Head> Vec;
     Vec _e;
 
+    template< typename _Alloc >
     Next *alloc_next(Entry *e, _Alloc const &a)
     {
       Next *n = (Next*)a.alloc(sizeof(Next));
@@ -265,8 +277,8 @@ namespace Ptab
   public:
     void clear() { _e.clear(); }
 
-    Iter walk(Address virt, unsigned level = 100, 
-              _Alloc const &alloc = _Alloc())
+    template< typename _Alloc >
+    Iter walk(Address virt, unsigned level, _Alloc const &alloc)
     {
       Entry *e = &_e[Vec::idx(virt)];
       if (!level)
@@ -310,8 +322,9 @@ namespace Ptab
 	}
     }
 
+    template< typename _Alloc >
     void map(Address &phys, Address &virt, unsigned long &size,
-	unsigned long attr, unsigned level, _Alloc const &alloc = _Alloc())
+	unsigned long attr, unsigned level, _Alloc const &alloc)
     {
       if (!level)
 	{
@@ -339,8 +352,8 @@ namespace Ptab
 	}
     }
 
-    void destroy(Address start, Address end, unsigned level,
-                 _Alloc const &alloc = _Alloc())
+    template< typename _Alloc >
+    void destroy(Address start, Address end, unsigned level, _Alloc const &alloc)
     {
       if (!alloc.valid())
 	return;
@@ -365,8 +378,9 @@ namespace Ptab
 	}
     }
 
+    template< typename _Alloc >
     bool sync(Address &l_a, This2 const &_r, Address &r_a,
-	Address &size, unsigned level, _Alloc const &alloc = _Alloc())
+	Address &size, unsigned level, _Alloc const &alloc)
     {
       if (!level)
 	return reinterpret_cast<This*>(this)
@@ -502,7 +516,6 @@ namespace Ptab
   <
     typename _Base_entry,
     typename _Traits,
-    typename _Alloc,
     typename _Addr = Address_wrap
   >
   class Base
@@ -515,12 +528,13 @@ namespace Ptab
     typedef typename _Traits::Head L0;
 
   private:
-    typedef Base<_Base_entry, _Traits, _Alloc> This;
-    typedef Ptab::Walk<_Traits, Iter, _Alloc> Walk;
+    typedef Base<_Base_entry, _Traits> This;
+    typedef Ptab::Walk<_Traits, Iter> Walk;
 
   public:
     enum { Depth = Walk::Depth };
 
+    template< typename _Alloc >
     Iter walk(Va virt, unsigned level, _Alloc const &alloc)
     {
       return _base.walk(_Addr::val(virt), level, alloc);
@@ -528,19 +542,19 @@ namespace Ptab
 
     Iter walk(Va virt, unsigned level = 100) const
     {
-      return const_cast<Walk&>(_base).walk(_Addr::val(virt), level, _Alloc());
+      return const_cast<Walk&>(_base).walk(_Addr::val(virt), level, Null_alloc());
     }
 
 
-    template< typename _Oalloc >
-    bool sync(Va l_addr, Base< _Base_entry, _Traits, _Oalloc, _Addr> const *_r,
+    template< typename _Alloc >
+    bool sync(Va l_addr, Base< _Base_entry, _Traits, _Addr> const *_r,
               Va r_addr, Va size, unsigned level = 100,
               _Alloc const &alloc = _Alloc())
     {
       Address la = _Addr::val(l_addr);
       Address ra = _Addr::val(r_addr);
       Address sz = _Addr::val(size);
-      return _base.sync(la, _r->alloc_cast<_Alloc>()->_base,
+      return _base.sync(la, _r->_base,
                         ra, sz, level, alloc);
     }
 
@@ -553,6 +567,7 @@ namespace Ptab
       _base.unmap(va, sz, level);
     }
 
+    template< typename _Alloc >
     void map(Address phys, Va virt, Va size, unsigned long attr,
 	unsigned level, _Alloc const &alloc = _Alloc())
     {
@@ -561,9 +576,11 @@ namespace Ptab
       _base.map(phys, va, sz, attr, level, alloc);
     }
 
+    template< typename _Alloc >
     void destroy(Va start, Va end, unsigned level, _Alloc const &alloc = _Alloc())
     { _base.destroy(_Addr::val(start), _Addr::val(end), level, alloc); }
 
+#if 0
     template< typename _New_alloc >
     Base<_Base_entry, _Traits, _New_alloc, _Addr> *alloc_cast()
     { return reinterpret_cast<Base<_Base_entry, _Traits, _New_alloc, _Addr> *>(this); }
@@ -571,6 +588,7 @@ namespace Ptab
     template< typename _New_alloc >
     Base<_Base_entry, _Traits, _New_alloc, _Addr> const *alloc_cast() const
     { return reinterpret_cast<Base<_Base_entry, _Traits, _New_alloc, _Addr> const *>(this); }
+#endif
 
   private:
     Walk _base;

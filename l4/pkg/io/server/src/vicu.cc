@@ -25,6 +25,7 @@
 #include <l4/sys/kdebug.h>
 
 #include <cassert>
+#include <map>
 
 namespace Vi {
 
@@ -32,20 +33,24 @@ using L4Re::Util::Auto_cap;
 using L4Re::chksys;
 using L4Re::chkcap;
 
-enum { MAX_HW_IRQS = 256 };
+namespace {
 
-Kernel_irq_pin *Sw_icu::_real_irqs[MAX_HW_IRQS];
+typedef std::map<unsigned, Kernel_irq_pin *> Irq_map;
+static Irq_map _real_irqs;
+
+}
 
 Kernel_irq_pin *
 Sw_icu::real_irq(unsigned n)
 {
-  if (n >= sizeof(_real_irqs)/sizeof(_real_irqs[0]))
-    return 0;
+  Irq_map::const_iterator f = _real_irqs.find(n);
+  Kernel_irq_pin *r;
+  if (f == _real_irqs.end() || !(*f).second)
+    _real_irqs[n] = r = new Kernel_irq_pin(n);
+  else
+    r = (*f).second;
 
-  if (!_real_irqs[n])
-    _real_irqs[n] = new Kernel_irq_pin(n);
-
-  return _real_irqs[n];
+  return r;
 }
 
 
@@ -102,13 +107,7 @@ Sw_icu::set_mode(l4_msgtag_t /*tag*/, unsigned irqn, l4_umword_t mode)
   if (i == _irqs.end())
     return -L4_ENOENT;
 
-  if (i->l4_type() != (mode & 0x6))
-    {
-      d_printf(DBG_WARN, "WARNING: Changing type of IRQ %d from %x to %lx prohibited\n",
-             irqn, i->l4_type(), mode);
-      return 0;
-    }
-  return 0;
+  return i->set_mode(mode);
 }
 
 int
@@ -145,7 +144,13 @@ Sw_icu::add_irqs(Adr_resource const *r)
       if (_irqs.find(n) != _irqs.end())
 	continue;
 
-      Sw_irq_pin *irq = new Sw_irq_pin(real_irq(n), n, r->flags());
+      Kernel_irq_pin *ri = real_irq(n);
+      if (!ri)
+        {
+          d_printf(DBG_ERR, "ERROR: No IRQ%d available.\n", n);
+          continue;
+        }
+      Sw_irq_pin *irq = new Sw_irq_pin(ri, n, r->flags());
       _irqs.insert(irq);
     }
   return true;
@@ -240,6 +245,20 @@ Sw_icu::Sw_irq_pin::l4_type() const
   unsigned m = type();
   unsigned r = (m & S_irq_type_mask) / Adr_resource::Irq_info_factor;
   return r;
+}
+
+int
+Sw_icu::Sw_irq_pin::set_mode(l4_umword_t mode)
+{
+  if (!(_state & S_allow_set_mode)
+      && (l4_type() != (mode & (L4_IRQ_F_MASK & ~1))))
+    {
+      d_printf(DBG_WARN, "WARNING: Changing type of IRQ %d from %x to %lx prohibited\n",
+             _irqn, l4_type(), mode);
+      return 0;
+    }
+
+  return _master->set_mode(mode);
 }
 
 void

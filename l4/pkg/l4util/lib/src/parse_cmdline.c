@@ -56,7 +56,6 @@ L4_CV int parse_cmdline(int *argc, const char***argv, char arg0, ...){
 L4_CV int parse_cmdlinev(int *argc, const char***argv, char arg0, va_list va0){
     va_list va;
     int c, count, shortform, cur_longopt;
-    const char*longform, *comment;
     struct option *longopts, *longptr;
     char *optstring, *optptr;
     struct parse_cmdline_struct *pa;
@@ -70,8 +69,8 @@ L4_CV int parse_cmdlinev(int *argc, const char***argv, char arg0, va_list va0){
 	int standard_int, *int_p;
 	const char *standard_string, **string_p;
  
- 	longform = va_arg(va, const char*);
-	comment = va_arg(va, const char*);
+ 	va_arg(va, const char*); /* skip long form */
+	va_arg(va, const char*); /* skip comment */
   	type = va_arg(va, int);
   	switch(type){
 	case PARSE_CMD_INT:

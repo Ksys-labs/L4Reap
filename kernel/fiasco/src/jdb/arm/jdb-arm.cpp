@@ -8,11 +8,11 @@ IMPLEMENTATION [arm]:
 #include "mem_layout.h"
 #include "mem_unit.h"
 #include "static_init.h"
-
+#include "watchdog.h"
 
 STATIC_INITIALIZE_P(Jdb, JDB_INIT_PRIO);
 
-static Per_cpu<Proc::Status> DEFINE_PER_CPU jdb_irq_state;
+DEFINE_PER_CPU static Per_cpu<Proc::Status> jdb_irq_state;
 
 // disable interrupts before entering the kernel debugger
 IMPLEMENT
@@ -20,6 +20,8 @@ void
 Jdb::save_disable_irqs(unsigned cpu)
 {
   jdb_irq_state.cpu(cpu) = Proc::cli_save();
+  if (cpu == 0)
+    Watchdog::disable();
 }
 
 // restore interrupts after leaving the kernel debugger
@@ -27,6 +29,8 @@ IMPLEMENT
 void
 Jdb::restore_irqs(unsigned cpu)
 {
+  if (cpu == 0)
+    Watchdog::enable();
   Proc::sti_restore(jdb_irq_state.cpu(cpu));
 }
 
@@ -136,7 +140,7 @@ Jdb::access_mem_task(Address virt, Space * task)
     {
       if (Mem_layout::in_kernel(virt))
 	{
-	  Pte p = Kmem_space::kdir()->walk((void *)virt, 0, false,0);
+	  Pte p = Kmem_space::kdir()->walk((void *)virt, 0, false, Ptab::Null_alloc(), 0);
 	  if (!p.valid())
 	    return 0;
 
@@ -147,11 +151,11 @@ Jdb::access_mem_task(Address virt, Space * task)
     }
   else
     {
-      phys = Address(task->mem_space()->virt_to_phys(virt));
+      phys = Address(task->virt_to_phys(virt));
 
 
       if (phys == (Address)-1)
-	phys = task->mem_space()->virt_to_phys_s0((void *)virt);
+	phys = task->virt_to_phys_s0((void *)virt);
 
       if (phys == (Address)-1)
 	return 0;
@@ -161,8 +165,8 @@ Jdb::access_mem_task(Address virt, Space * task)
   if (addr == (Address)-1)
     {
       Mem_unit::flush_vdcache();
-      Pte pte = Kernel_task::kernel_task()->mem_space()->_dir->walk
-	((void*)Mem_layout::Jdb_tmp_map_area, 0, false, 0);
+      Pte pte = static_cast<Mem_space*>(Kernel_task::kernel_task())
+        ->_dir->walk((void*)Mem_layout::Jdb_tmp_map_area, 0, false, Ptab::Null_alloc(), 0);
 
       if (pte.phys() != (phys & ~(Config::SUPERPAGE_SIZE - 1)))
         pte.set(phys & ~(Config::SUPERPAGE_SIZE - 1), Config::SUPERPAGE_SIZE,

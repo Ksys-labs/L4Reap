@@ -23,12 +23,12 @@ PUBLIC
 void
 Jdb_kern_info_dr::show()
 {
-  printf("dr0: "L4_PTR_FMT"\n"
-         "dr1: "L4_PTR_FMT"\n"
-         "dr2: "L4_PTR_FMT"\n"
-         "dr3: "L4_PTR_FMT"\n"
-         "dr6: "L4_PTR_FMT"\n"
-         "dr7: "L4_PTR_FMT"\n",
+  printf("dr0: " L4_PTR_FMT "\n"
+         "dr1: " L4_PTR_FMT "\n"
+         "dr2: " L4_PTR_FMT "\n"
+         "dr3: " L4_PTR_FMT "\n"
+         "dr6: " L4_PTR_FMT "\n"
+         "dr7: " L4_PTR_FMT "\n",
 	 Jdb_bp::get_dr(0),
 	 Jdb_bp::get_dr(1),
 	 Jdb_bp::get_dr(2),

@@ -50,8 +50,6 @@ public:
                           L4::Cap<L4::Thread> const &thread_cap,
                           l4_umword_t label) = 0;
 
-  virtual int create_semaphore(L4::Cap<L4::K_semaphore> const &target_cap) = 0;
-
   virtual int create_irq(L4::Cap<L4::Irq>const &target_cap) = 0;
 
   virtual int create_vm(L4::Cap<L4::Vm>const &target_cap) = 0;

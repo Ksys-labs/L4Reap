@@ -98,14 +98,14 @@ l4_thread_ex_regs_u(l4_cap_idx_t thread, l4_addr_t ip, l4_addr_t sp,
  * \brief Exchange basic thread registers and return previous values.
  * \ingroup l4_thread_api
  *
- * \param  thread Thread to manipulate
- * \retval ip     New instruction pointer, use ~0UL to leave the
- *                instruction pointer unchanged, return previous instruction
- *                pointer
- * \retval sp     New stack pointer, use ~0UL to leave the stack
- *                pointer unchanged, returns previous stack pointer
- * \retval flags  Ex-regs flags, see #L4_thread_ex_regs_flags, return
- *                previous CPU flags of the thread.
+ * \param[in]     thread Thread to manipulate
+ * \param[in,out] ip     New instruction pointer, use ~0UL to leave the
+ *                       instruction pointer unchanged, return previous
+ *                       instruction pointer
+ * \param[in,out] sp     New stack pointer, use ~0UL to leave the stack
+ *                       pointer unchanged, returns previous stack pointer
+ * \param[in,out] flags  Ex-regs flags, see #L4_thread_ex_regs_flags, return
+ *                       previous CPU flags of the thread.
  *
  * \return System call return tag
  *
@@ -398,11 +398,13 @@ l4_thread_vcpu_resume_start_u(l4_utcb_t *utcb) L4_NOTHROW;
  * IPC message, whereas 0 indicates a VM exit.
  *
  * To resume into another address space the capability to the target task
- * must be set in the vCPU-state (\see l4_vcpu_state_t). The task needs
- * to be set only once, consecutive resumes to the same address space should
- * use an invalid capability. The kernel resets the field to
- * #L4_INVALID_CAP. To release a task use a different task or use an invalid
- * capability with the #L4_SYSF_REPLY flag set.
+ * must be set in the vCPU-state. The task needs to be set only once,
+ * consecutive resumes to the same address space should use an invalid
+ * capability. The kernel resets the field to #L4_INVALID_CAP. To release a
+ * task use a different task or use an invalid capability with
+ * the #L4_SYSF_REPLY flag set.
+ *
+ * \see l4_vcpu_state_t
  */
 L4_INLINE l4_msgtag_t
 l4_thread_vcpu_resume_commit(l4_cap_idx_t thread,
@@ -456,7 +458,7 @@ l4_thread_vcpu_control_u(l4_cap_idx_t thread, l4_addr_t vcpu_state,
  * \return Systemcall result message tag.
  *
  * The extended vCPU feature allows the use of hardware-virtualization
- * features such as Intel's VT os AMD's SVM.
+ * features such as Intel's VT or AMD's SVM.
  *
  * This function enables the extended vCPU feature of the \a thread
  * if \a vcpu_state is set to a valid kernel-user-memory address, or disables
@@ -584,17 +586,18 @@ l4_thread_modify_sender_commit_u(l4_cap_idx_t thread, l4_msgtag_t tag,
  */
 enum L4_thread_ops
 {
-  L4_THREAD_CONTROL_OP            = 0UL,    /**< Control operation */
-  L4_THREAD_EX_REGS_OP            = 1UL,    /**< Exchange registers operation */
-  L4_THREAD_SWITCH_OP             = 2UL,    /**< Do a thread switch */
-  L4_THREAD_STATS_OP              = 3UL,    /**< Thread statistics */
-  L4_THREAD_VCPU_RESUME_OP        = 4UL,    /**< VCPU resume */
-  L4_THREAD_REGISTER_DELETE_IRQ   = 5UL,    /**< Register an IPC-gate deletion IRQ */
-  L4_THREAD_MODIFY_SENDER         = 6UL,    /**< Modify all senders IDs that match the given pattern */
-  L4_THREAD_VCPU_CONTROL          = 7UL,    /**< Enable / disable VCPU feature */
-  L4_THREAD_VCPU_CONTROL_EXT      = L4_THREAD_VCPU_CONTROL | 0x10000,
-  L4_THREAD_GDT_X86_OP            = 0x10UL, /**< Gdt */
-  L4_THREAD_OPCODE_MASK           = 0xffff, /**< Mask for opcodes */
+  L4_THREAD_CONTROL_OP             = 0UL,    /**< Control operation */
+  L4_THREAD_EX_REGS_OP             = 1UL,    /**< Exchange registers operation */
+  L4_THREAD_SWITCH_OP              = 2UL,    /**< Do a thread switch */
+  L4_THREAD_STATS_OP               = 3UL,    /**< Thread statistics */
+  L4_THREAD_VCPU_RESUME_OP         = 4UL,    /**< VCPU resume */
+  L4_THREAD_REGISTER_DELETE_IRQ_OP = 5UL,    /**< Register an IPC-gate deletion IRQ */
+  L4_THREAD_MODIFY_SENDER_OP       = 6UL,    /**< Modify all senders IDs that match the given pattern */
+  L4_THREAD_VCPU_CONTROL_OP        = 7UL,    /**< Enable / disable VCPU feature */
+  L4_THREAD_VCPU_CONTROL_EXT_OP    = L4_THREAD_VCPU_CONTROL_OP | 0x10000,
+  L4_THREAD_GDT_X86_OP             = 0x10UL, /**< Gdt */
+  L4_THREAD_SET_FS_AMD64_OP        = 0x12UL, /**< Set FS/TLS */
+  L4_THREAD_OPCODE_MASK            = 0xffff, /**< Mask for opcodes */
 };
 
 /**
@@ -878,7 +881,7 @@ l4_thread_register_del_irq_u(l4_cap_idx_t thread, l4_cap_idx_t irq,
                              l4_utcb_t *u) L4_NOTHROW
 {
   l4_msg_regs_t *m = l4_utcb_mr_u(u);
-  m->mr[0] = L4_THREAD_REGISTER_DELETE_IRQ;
+  m->mr[0] = L4_THREAD_REGISTER_DELETE_IRQ_OP;
   m->mr[1] = l4_map_obj_control(0,0);
   m->mr[2] = l4_obj_fpage(irq, 0, L4_CAP_FPAGE_RWS).raw;
   return l4_ipc_call(thread, u, l4_msgtag(L4_PROTO_THREAD, 1, 1, 0), L4_IPC_NEVER);
@@ -897,7 +900,7 @@ l4_thread_vcpu_control_u(l4_cap_idx_t thread, l4_addr_t vcpu_state,
                          l4_utcb_t *utcb) L4_NOTHROW
 {
   l4_msg_regs_t *v = l4_utcb_mr_u(utcb);
-  v->mr[0] = L4_THREAD_VCPU_CONTROL;
+  v->mr[0] = L4_THREAD_VCPU_CONTROL_OP;
   v->mr[1] = vcpu_state;
   return l4_ipc_call(thread, utcb, l4_msgtag(L4_PROTO_THREAD, 2, 0, 0), L4_IPC_NEVER);
 }
@@ -912,7 +915,7 @@ l4_thread_vcpu_control_ext_u(l4_cap_idx_t thread, l4_addr_t ext_vcpu_state,
                              l4_utcb_t *utcb) L4_NOTHROW
 {
   l4_msg_regs_t *v = l4_utcb_mr_u(utcb);
-  v->mr[0] = L4_THREAD_VCPU_CONTROL_EXT;
+  v->mr[0] = L4_THREAD_VCPU_CONTROL_EXT_OP;
   v->mr[1] = ext_vcpu_state;
   return l4_ipc_call(thread, utcb, l4_msgtag(L4_PROTO_THREAD, 2, 0, 0), L4_IPC_NEVER);
 }
@@ -925,7 +928,7 @@ L4_INLINE l4_msgtag_t
 l4_thread_modify_sender_start_u(l4_utcb_t *u) L4_NOTHROW
 {
   l4_msg_regs_t *m = l4_utcb_mr_u(u);
-  m->mr[0] = L4_THREAD_MODIFY_SENDER;
+  m->mr[0] = L4_THREAD_MODIFY_SENDER_OP;
   return l4_msgtag(L4_PROTO_THREAD, 1, 0, 0);
 }
 

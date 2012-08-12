@@ -155,6 +155,13 @@ Fpu::disable()
 }
 
 PUBLIC static inline
+int
+Fpu::is_emu_insn(Mword opcode)
+{
+  return (opcode & 0x0ff00f90) == 0x0ef00a10;
+}
+
+PUBLIC static inline
 bool
 Fpu::emulate_insns(Mword opcode, Trap_state *ts, unsigned cpu)
 {

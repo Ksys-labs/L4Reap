@@ -32,11 +32,8 @@ public:
     set_discover_bus_if(this);
   }
 
-  int cfg_read(unsigned bus, l4_uint32_t devfn, l4_uint32_t reg,
-               l4_uint32_t *value, Cfg_width);
-
-  int cfg_write(unsigned bus, l4_uint32_t devfn, l4_uint32_t reg,
-                l4_uint32_t value, Cfg_width);
+  int cfg_read(Cfg_addr addr, l4_uint32_t *value, Cfg_width);
+  int cfg_write(Cfg_addr addr, l4_uint32_t value, Cfg_width);
 
   void scan_bus();
 
@@ -121,48 +118,44 @@ Pci_iomem_root_bridge::scan_bus()
 }
 
 int
-Pci_iomem_root_bridge::cfg_read(unsigned bus, l4_uint32_t devfn,
-                                l4_uint32_t reg,
-                                l4_uint32_t *value, Cfg_width order)
+Pci_iomem_root_bridge::cfg_read(Cfg_addr addr, l4_uint32_t *value, Cfg_width w)
 {
   using namespace Hw;
 
   if (!_iobase_virt)
     return -1;
 
-  l4_uint32_t a = _iobase_virt + pci_conf_addr0(bus, devfn >> 16, devfn & 0xffff, reg);
-  switch (order)
+  l4_uint32_t a = _iobase_virt + addr.to_compat_addr();
+  switch (w)
     {
-    case Pci::Cfg_byte: *value = *(volatile unsigned char *)(a + (reg & 3)); break;
-    case Pci::Cfg_short: *value = *(volatile unsigned short *)(a + (reg & 2)); break;
-    case Pci::Cfg_long: *value = *(volatile unsigned int *)a; break;
+    case Pci::Cfg_byte: *value = *(volatile l4_uint8_t *)a; break;
+    case Pci::Cfg_short: *value = *(volatile l4_uint16_t *)a; break;
+    case Pci::Cfg_long: *value = *(volatile l4_uint32_t *)a; break;
     }
 
-  d_printf(DBG_ALL, "Pci_iomem_root_bridge::cfg_read(%x, %x, %x, %x, %d)\n",
-           bus, devfn, reg, *value, order);
+  d_printf(DBG_ALL, "Pci_iomem_root_bridge::cfg_read(%x, %x, %x, %x, %x, %d)\n",
+           addr.bus(), addr.dev(), addr.fn(), addr.reg(), *value, w);
 
   return 0;
 }
 
 int
-Pci_iomem_root_bridge::cfg_write(unsigned bus, l4_uint32_t devfn,
-                                 l4_uint32_t reg,
-                                 l4_uint32_t value, Cfg_width order)
+Pci_iomem_root_bridge::cfg_write(Cfg_addr addr, l4_uint32_t value, Cfg_width w)
 {
   using namespace Hw;
 
   if (!_iobase_virt)
     return -1;
 
-  d_printf(DBG_ALL, "Pci_iomem_root_bridge::cfg_write(%x, %x, %x, %x, %d)\n",
-           bus, devfn, reg, value, order);
+  d_printf(DBG_ALL, "Pci_iomem_root_bridge::cfg_write(%x, %x, %x, %x, %x, %d)\n",
+           addr.bus(), addr.dev(), addr.fn(), addr.reg(), value, w);
 
-  l4_uint32_t a = _iobase_virt + pci_conf_addr0(bus, devfn >> 16, devfn & 0xffff, reg);
-  switch (order)
+  l4_uint32_t a = _iobase_virt + addr.to_compat_addr();
+  switch (w)
     {
-    case Pci::Cfg_byte: *(volatile unsigned char *)(a + (reg & 3)) = value; break;
-    case Pci::Cfg_short: *(volatile unsigned short *)(a + (reg & 2)) = value; break;
-    case Pci::Cfg_long: *(volatile unsigned int *)a = value; break;
+    case Pci::Cfg_byte: *(volatile l4_uint8_t *)a = value; break;
+    case Pci::Cfg_short: *(volatile l4_uint16_t *)a = value; break;
+    case Pci::Cfg_long: *(volatile l4_uint32_t *)a = value; break;
     }
   return 0;
 }

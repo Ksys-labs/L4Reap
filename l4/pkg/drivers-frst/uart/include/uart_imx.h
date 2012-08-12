@@ -17,12 +17,11 @@ namespace L4
   {
   public:
     enum platform_type { Type_imx21, Type_imx35, Type_imx51 };
-    Uart_imx(int rx_irq, int tx_irq, enum platform_type type)
-       : Uart(rx_irq, tx_irq), _base(~0UL), _type(type) {}
-    bool startup(unsigned long base);
+    explicit Uart_imx(enum platform_type type)
+       : _type(type) {}
+    bool startup(Io_register_block const *);
     void shutdown();
     bool enable_rx_irq(bool enable = true);
-    bool enable_tx_irq(bool enable = true);
     bool change_mode(Transfer_mode m, Baud_rate r);
     int get_char(bool blocking = true) const;
     int char_avail() const;
@@ -30,32 +29,25 @@ namespace L4
     int write(char const *s, unsigned long count) const;
 
   private:
-    unsigned long _base;
     enum platform_type _type;
-
-    inline unsigned long rd(unsigned long reg) const;
-    inline void wr(unsigned long reg, unsigned long val) const;
   };
 
   class Uart_imx21 : public Uart_imx
   {
   public:
-    Uart_imx21(int rx_irq, int tx_irq)
-       : Uart_imx(rx_irq, tx_irq, Type_imx21) {}
+    Uart_imx21() : Uart_imx(Type_imx21) {}
   };
 
   class Uart_imx35 : public Uart_imx
   {
   public:
-    Uart_imx35(int rx_irq, int tx_irq)
-       : Uart_imx(rx_irq, tx_irq, Type_imx35) {}
+    Uart_imx35() : Uart_imx(Type_imx35) {}
   };
 
   class Uart_imx51 : public Uart_imx
   {
   public:
-    Uart_imx51(int rx_irq, int tx_irq)
-       : Uart_imx(rx_irq, tx_irq, Type_imx51) {}
+    Uart_imx51() : Uart_imx(Type_imx51) {}
   };
 };
 

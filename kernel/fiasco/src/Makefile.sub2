@@ -54,20 +54,34 @@ do-all: compilertest $(ALL)
 
 endif # ! maintainer mode
 
-compilertest:
-ifeq ($(CCVER_MAJOR),2)
-	@$(ECHO_E) "\033[31m\n"\
-  "  ERROR: gcc version "$(CCVER_MAJOR).$(CCVER_MINOR)" is not supported for"\
-  "Fiasco -- \n"\
-  "         please update gcc to version 3.{3-4}.\033[m\n"; exit -1
+ifeq ($(CC_TYPE),gcc)
+ifneq ($(findstring $(CCVER_MAJOR),4 5 6 7),)
+  ifeq ($(CCVER_MAJOR),4)
+    ifeq ($(findstring $(CCVER_MINOR), 0 1 2 3),)
+      CC_OK := 1
+    endif
+  else
+    CC_OK := 1
+  endif
 endif
-ifeq ($(CCVER_MAJOR),3)
-ifeq ($(findstring $(CCVER_MINOR),2 3 4),)
-	@$(ECHO_E) "\033[31m\n"\
-  "  WARNING: gcc version $(CCVER_MAJOR).$(CCVER_MINOR) is not supported for"\
-  "Fiasco -- please use gcc\n"\
-  "           version 3.{3-4}. Be prepared to observe bugs in this kernel!\n"\
-  "           Don't use this kernel for performance analysis!\033[m\n"
+  CC_OK := 1
+endif
+
+compilertest:
+ifeq ($(CC_TYPE),gcc)
+ifeq ($(CC_OK),)
+	@$(ECHO_E) "\033[31m\n" \
+	"  ERROR: gcc version "$(CCVER_MAJOR).$(CCVER_MINOR)" is not supported for "\
+	"Fiasco -- \n"\
+	"          please update gcc to at least version 4.4.\033[m\n"; exit -1
+endif
+endif
+ifeq ($(CC_TYPE),gcc)
+ifeq ($(CC_OK),)
+	@$(ECHO_E) "\033[31m\n" \
+	"  ERROR: clang version "$(CCVER_MAJOR).$(CCVER_MINOR)" is not supported for "\
+	"Fiasco -- \n"\
+	"          please update clang to at least version ?.?.\033[m\n"; exit -1
 endif
 endif
 

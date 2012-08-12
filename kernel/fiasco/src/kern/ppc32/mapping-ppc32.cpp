@@ -14,7 +14,6 @@ public:
       unsigned long _space:32;	///< Address-space number
 //      unsigned long _pad:1;
       unsigned long address:20;	///< Virtual address in address space
-      unsigned long tag:11;	        ///< Unmap tag
     } __attribute__((packed)) data;
     Treemap *_submap;
   };

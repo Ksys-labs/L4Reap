@@ -2,107 +2,87 @@ INTERFACE:
 
 #include "irq_chip.h"
 
-class Irq_chip_gen : public Irq_chip
+
+class Irq_chip_gen : public Irq_chip_icu
 {
-  friend void irq_handler();
+public:
+  Irq_chip_gen() {}
+  explicit Irq_chip_gen(unsigned nirqs) { init(nirqs); }
 
 private:
-  static Irq_base *irqs[];
-
+  unsigned _nirqs;
+  Irq_base **_irqs;
 };
 
 
 // -------------------------------------------------------------------------
 IMPLEMENTATION:
 
-#include "config.h"
+#include <cstring>
 
-Irq_base *Irq_chip_gen::irqs[Config::Max_num_dirqs];
+#include "boot_alloc.h"
+#include "mem.h"
 
-PUBLIC
-unsigned
-Irq_chip_gen::nr_irqs() const
-{ return Config::Max_num_dirqs; }
-
-PUBLIC static inline
-Irq_base *
-Irq_chip_gen::lookup(unsigned irqn)
-{ return irqs[irqn]; }
-
-PUBLIC
-bool
-Irq_chip_gen::is_free(unsigned irqn)
-{
-  if (irqn >= Config::Max_num_dirqs)
-    return false;
-
-  return !irqs[irqn];
-}
-
-PUBLIC
-Irq_base *
-Irq_chip_gen::irq(unsigned irqn)
-{
-  if (irqn >= Config::Max_num_dirqs)
-    return 0;
-
-  return irqs[irqn];
-}
-
-
-PUBLIC
-bool
-Irq_chip_gen::alloc(Irq_base *irq, unsigned irqn)
-{
-  if (irqn >= Config::Max_num_dirqs)
-    return false;
-
-  if (irqs[irqn])
-    return false;
-
-  irqs[irqn] = irq;
-  setup(irq, irqn);
-  return true;
-}
-
-
-PUBLIC
-bool
-Irq_chip_gen::free(Irq_base *irq, unsigned irqn)
-{
-  if (irqn >= Config::Max_num_dirqs)
-    return false;
-
-  if (!irq || irq != irqs[irqn])
-    return false;
-
-  irqs[irqn] = 0;
-  return true;
-}
-
-#if 0
 PUBLIC
 void
-Irq_chip_gen::setup(Irq_base *irq, unsigned irqnum)
+Irq_chip_gen::init(unsigned nirqs)
 {
-  irq->pin()->replace<Dirq_pic_pin>(irqnum);
+  _nirqs = nirqs;
+  _irqs = (Irq_base **)Boot_alloced::alloc(sizeof(Irq_base*) * nirqs);
+  memset(_irqs, 0, sizeof(Irq_base*) * nirqs);
 }
-#endif
 
+PUBLIC inline
+unsigned
+Irq_chip_gen::nr_irqs() const
+{ return _nirqs; }
+
+PUBLIC
+Irq_base *
+Irq_chip_gen::irq(Mword pin) const
+{
+  if (pin >= _nirqs)
+    return 0;
+
+  return _irqs[pin];
+}
 
 PUBLIC
 bool
-Irq_chip_gen::reserve(unsigned irqn)
+Irq_chip_gen::alloc(Irq_base *irq, Mword pin)
 {
-  if (irqn >= Config::Max_num_dirqs)
+  if (pin >= _nirqs)
     return false;
 
-  if (irqs[irqn])
+  if (_irqs[pin])
     return false;
 
-  irqs[irqn] = (Irq_base*)1;
-
+  _irqs[pin] = irq;
+  bind(irq, pin);
   return true;
 }
 
+PUBLIC
+void
+Irq_chip_gen::unbind(Irq_base *irq)
+{
+  mask(irq->pin());
+  Mem::barrier();
+  _irqs[irq->pin()] = 0;
+  Irq_chip_icu::unbind(irq);
+}
 
+PUBLIC
+bool
+Irq_chip_gen::reserve(Mword pin)
+{
+  if (pin >= _nirqs)
+    return false;
+
+  if (_irqs[pin])
+    return false;
+
+  _irqs[pin] = (Irq_base*)1;
+
+  return true;
+}

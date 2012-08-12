@@ -118,6 +118,8 @@ public:
     while (lua_next(_lua, tab))
       {
 	char const *r = luaL_checkstring(_lua, -2);
+        if (!l4re_env_cap_entry_t::is_vaild_name(r))
+          luaL_error(_lua, "Capability name '%s' too long", r);
 	while (lua_isfunction(_lua, -1))
 	  {
 	    lua_pushvalue(_lua, tab);
@@ -450,9 +452,8 @@ static int exec(lua_State *l)
   lua_setmetatable(l, -2);
 
   return 1;
-  } catch (...) {
-    printf("LUA ============================== EXEC FAILED\n");
-    luaL_error(l, "could not create process");
+  } catch (L4::Runtime_error const &e) {
+    luaL_error(l, "could not create process: %s (%s: %d)", e.str(), e.extra_str(), e.err_no());
   }
 
   return 0;

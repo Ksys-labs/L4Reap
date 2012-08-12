@@ -323,7 +323,7 @@ Jdb_list::do_list()
 	  for (unsigned i = y_max; i < Jdb_screen::height()-3; ++i)
             putstr("\033[K\n");
 
-	  Jdb::printf_statline("xxxx",
+	  Jdb::printf_statline("Objs",
 			       "<Space>=mode <Tab>=link <CR>=select",
 			       "%-15s", get_mode_str());
 

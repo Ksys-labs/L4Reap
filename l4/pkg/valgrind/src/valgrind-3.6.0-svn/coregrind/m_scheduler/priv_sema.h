@@ -32,17 +32,13 @@
 #define __PRIV_SEMA_H
 
 #if defined(VGO_l4re)
-#include <l4/sys/semaphore.h>
-#include <l4/re/env.h>
-#include <l4/sys/factory.h>
-#include <l4/re/c/util/cap_alloc.h>
+#include <l4/util/llulc.h>
 #endif
 
 // XXX: split into os-specific and os-agnostic parts
 #if defined(VGO_l4re)
 typedef struct {
-   l4_u_semaphore_t sem;
-   l4_cap_idx_t     cap;
+   l4ullulock_t    *lock;
    Int              owner_lwpid;
 } vg_sema_t;
 

@@ -15,7 +15,13 @@ class Tb_entry_ke_reg : public Tb_entry
 private:
   struct Payload
   {
-    char		_msg[19];	///< debug message
+    union {
+      char _msg[19];	///< debug message
+      struct {
+	char _pad[3];
+	const char *_m;
+      } _const_msg __attribute__((packed));
+    };
     Mword		_rax, _rcx, _rdx; ///< registers
   } __attribute__((packed));
 };
@@ -64,15 +70,16 @@ Tb_entry_ke_reg::set_const(Context const *ctx, Mword rip,
                            Mword rax, Mword rcx, Mword rdx)
 {
   set(ctx, rip, rax, rcx, rdx);
-  payload<Payload>()->_msg[0] = 0; payload<Payload>()->_msg[1] = 1;
-  *(char const ** const)(payload<Payload>()->_msg + 3) = msg;
+  payload<Payload>()->_msg[0] = 0;
+  payload<Payload>()->_msg[1] = 1;
+  payload<Payload>()->_const_msg._m = msg;
 }
 
 PUBLIC inline
 void
 Tb_entry_ke_reg::set_buf(unsigned i, char c)
 {
-  if (i < sizeof(payload<Payload>()->_msg)-1)
+  if (i < sizeof(payload<Payload>()->_msg) - 1)
     payload<Payload>()->_msg[i] = c >= ' ' ? c : '.';
 }
 
@@ -84,9 +91,10 @@ Tb_entry_ke_reg::term_buf(unsigned i)
 PUBLIC inline
 const char *
 Tb_entry_ke_reg::msg() const
-{ 
-  return payload<Payload>()->_msg[0] == 0 && payload<Payload>()->_msg[1] == 1
-    ? *(char const ** const)(payload<Payload>()->_msg + 3) : payload<Payload>()->_msg;
+{
+  return payload<Payload>()->_msg[0] == 0 &&
+         payload<Payload>()->_msg[1] == 1 ? payload<Payload>()->_const_msg._m
+                                          : payload<Payload>()->_msg;
 }
 
 PUBLIC inline
@@ -113,7 +121,7 @@ Tb_entry_trap::set(Context const *ctx, Mword rip, Trap_state *ts)
   payload<Payload>()->_trapno = ts->_trapno;
   payload<Payload>()->_error  = ts->_err;
   payload<Payload>()->_cr2    = ts->_cr2;
-  payload<Payload>()->_rax    = ts->_ax; 
+  payload<Payload>()->_rax    = ts->_ax;
   payload<Payload>()->_cs     = (Unsigned16)ts->cs();
   payload<Payload>()->_rsp    = ts->sp();
   payload<Payload>()->_rflags = ts->flags();

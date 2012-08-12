@@ -88,10 +88,25 @@ private:
   int screen_dispatch(l4_umword_t, L4::Ipc::Iostream &ios);
   int event_dispatch(l4_umword_t, L4::Ipc::Iostream &ios);
 
+  int screen_info(L4::Ipc::Iostream &ios);
+  int screen_create_buffer(L4::Ipc::Iostream &ios);
+  int screen_create_view(L4::Ipc::Iostream &ios);
+  int screen_delete_view(L4::Ipc::Iostream &ios);
+  int screen_get_buffer(L4::Ipc::Iostream &ios);
+  int screen_view_info(L4::Ipc::Iostream &ios);
+  int screen_view_set_info(L4::Ipc::Iostream &ios);
+  int screen_view_stack(L4::Ipc::Iostream &ios);
+  int screen_view_refresh(L4::Ipc::Iostream &ios);
+  int screen_refresh(L4::Ipc::Iostream &ios);
+
+  int event_get(L4::Ipc::Iostream &ios);
+  int event_get_stream_info_for_id(L4::Ipc::Iostream &ios);
+  int event_get_axis_info(L4::Ipc::Iostream &ios);
+
 public:
   Mag_goos(Core_api const *core);
 
-  void put_event(L4Re::Event_buffer::Event const &ne, bool trigger);
+  void put_event(Hid_report *e, bool trigger);
   int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 
   L4::Cap<void> rcv_cap() const { return _core->rcv_cap(); }
@@ -145,7 +160,7 @@ public:
 
   int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
   void draw(Canvas *, View_stack const *, Mode) const;
-  void handle_event(L4Re::Event_buffer::Event const &e, Point const &mouse);
+  void handle_event(Hid_report *e, Point const &mouse, bool core_dev);
 
   void get_info(L4Re::Video::View::Info *inf) const;
   void set_info(L4Re::Video::View::Info const &inf,
@@ -394,6 +409,44 @@ Mag_goos::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
     }
 }
 
+inline int
+Mag_goos::event_get(L4::Ipc::Iostream &ios)
+{
+  ios << L4::Ipc::Snd_fpage(_ev_ds.get().fpage(L4_CAP_FPAGE_RW));
+  return L4_EOK;
+}
+
+inline int
+Mag_goos::event_get_stream_info_for_id(L4::Ipc::Iostream &ios)
+{
+  L4Re::Event_stream_info info;
+  l4_umword_t id;
+
+  ios >> id;
+  int i = _core->user_state()->get_input_stream_info_for_id(id, &info);
+  if (i < 0)
+    return i;
+
+  ios.put(info);
+  return i;
+}
+
+inline int
+Mag_goos::event_get_axis_info(L4::Ipc::Iostream &ios)
+{
+  l4_umword_t id;
+  long unsigned naxes = L4RE_ABS_MAX;
+  unsigned axes[L4RE_ABS_MAX];
+  ios >> id >> L4::Ipc::buf_cp_in(axes, naxes);
+  L4Re::Event_absinfo infos[naxes];
+  int i = _core->user_state()->get_input_axis_info(id, naxes, axes, infos, 0);
+  if (i < 0)
+    return i;
+
+  ios << L4::Ipc::buf_cp_out(infos, naxes);
+  return i;
+}
+
 
 int
 Mag_goos::event_dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
@@ -402,196 +455,215 @@ Mag_goos::event_dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
   ios >> op;
   switch (op)
     {
-    case L4Re::Event_::Get:
-      ios << L4::Ipc::Snd_fpage(_ev_ds.get().fpage(L4_CAP_FPAGE_RW));
-      return L4_EOK;
-    default:
-      return -L4_ENOSYS;
+    case L4Re::Event_::Get: return event_get(ios);
+    case L4Re::Event_::Get_stream_info_for_id: return event_get_stream_info_for_id(ios);
+    case L4Re::Event_::Get_axis_info: return event_get_axis_info(ios);
+    default: return -L4_ENOSYS;
     }
+}
+
+inline int
+Mag_goos::screen_info(L4::Ipc::Iostream &ios)
+{
+  using L4Re::Video::Color_component;
+  using L4Re::Video::Goos;
+
+  Goos::Info i;
+  Area a = _core->user_state()->vstack()->canvas()->size();
+  Pixel_info const *mag_pi = _core->user_state()->vstack()->canvas()->type();
+  i.width = a.w();
+  i.height = a.h();
+  i.flags = Goos::F_pointer
+    | Goos::F_dynamic_views
+    | Goos::F_dynamic_buffers;
+
+  i.num_static_views = 0;
+  i.num_static_buffers = 0;
+  i.pixel_info = *mag_pi;
+
+  ios.put(i);
+
+  return L4_EOK;
+}
+
+inline int
+Mag_goos::screen_create_buffer(L4::Ipc::Iostream &ios)
+{
+  unsigned long size;
+  ios >> size;
+
+  cxx::Ref_ptr<Client_buffer> b(new Client_buffer(_core, size));
+  _buffers.push_back(b);
+  b->index = _buffers.size() - 1;
+
+  ios << L4::Ipc::Snd_fpage(b->ds_cap(), L4_CAP_FPAGE_RW);
+
+  return b->index;
+}
+
+inline int
+Mag_goos::screen_create_view(L4::Ipc::Iostream &)
+{
+  cxx::Auto_ptr<Client_view> v(new Client_view(_core, this));
+  unsigned idx = 0;
+  for (View_vector::iterator i = _views.begin(); i != _views.end();
+      ++i, ++idx)
+    if (!*i)
+      {
+	*i = v;
+	return idx;
+      }
+
+  _views.push_back(v);
+  return _views.size() - 1;
+}
+
+inline int
+Mag_goos::screen_delete_view(L4::Ipc::Iostream &ios)
+{
+  unsigned idx;
+  ios >> idx;
+  if (idx >= _views.size())
+    return -L4_ERANGE;
+
+  _views[idx].reset(0);
+  return L4_EOK;
+}
+
+inline int
+Mag_goos::screen_get_buffer(L4::Ipc::Iostream &ios)
+{
+  unsigned idx;
+  ios >> idx;
+  if (idx >= _buffers.size())
+    return -L4_ERANGE;
+
+  ios << _buffers[idx]->ds_cap();
+  return L4_EOK;
+}
+
+inline int
+Mag_goos::screen_view_info(L4::Ipc::Iostream &ios)
+{
+  unsigned idx;
+  ios >> idx;
+  if (idx >= _views.size())
+    return -L4_ERANGE;
+
+  Client_view *cv = _views[idx].get();
+
+  L4Re::Video::View::Info vi;
+  vi.view_index = idx;
+  cv->get_info(&vi);
+  ios.put(vi);
+
+  return L4_EOK;
+}
+
+inline int
+Mag_goos::screen_view_set_info(L4::Ipc::Iostream &ios)
+{
+  unsigned idx;
+  ios >> idx;
+  if (idx >= _views.size())
+    return -L4_ERANGE;
+
+  Client_view *cv = _views[idx].get();
+
+  L4Re::Video::View::Info vi;
+  ios.get(vi);
+
+  cxx::Weak_ptr<Client_buffer> cb(0);
+  if (vi.has_set_buffer())
+    {
+      if (vi.buffer_index >= _buffers.size())
+	return -L4_ERANGE;
+
+      cb = _buffers[vi.buffer_index];
+    }
+
+  cv->set_info(vi, cb);
+  return L4_EOK;
+}
+
+inline int
+Mag_goos::screen_view_stack(L4::Ipc::Iostream &ios)
+{
+  Client_view *pivot = 0;
+  Client_view *cv;
+  bool behind;
+  unsigned cvi, pvi;
+
+  ios >> cvi >> pvi >> behind;
+
+  if (cvi >= _views.size())
+    return -L4_ERANGE;
+
+  cv = _views[cvi].get();
+
+  if (pvi < _views.size())
+    pivot = _views[pvi].get();
+
+  if (!pivot)
+    {
+      if (!behind)
+	_core->user_state()->vstack()->push_bottom(cv);
+      else
+	_core->user_state()->vstack()->push_top(cv);
+    }
+  else
+    _core->user_state()->vstack()->stack(cv, pivot, behind);
+
+  return L4_EOK;
+}
+
+inline int
+Mag_goos::screen_view_refresh(L4::Ipc::Iostream &ios)
+{
+  unsigned idx;
+  int x, y, w, h;
+  ios >> idx >> x >> y >> w >> h;
+
+  if (idx >= _views.size())
+    return -L4_ERANGE;
+
+  Client_view *cv = _views[idx].get();
+  _core->user_state()->vstack()->refresh_view(cv, 0, Rect(cv->p1() + Point(x,y), Area(w,h)));
+
+  return L4_EOK;
+}
+
+inline int
+Mag_goos::screen_refresh(L4::Ipc::Iostream &ios)
+{
+  int x, y, w, h;
+  ios >> x >> y >> w >> h;
+
+  _core->user_state()->vstack()->refresh_view(0, 0, Rect(Point(x,y), Area(w,h)));
+
+  return L4_EOK;
 }
 
 int
 Mag_goos::screen_dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 {
+  using namespace L4Re::Video;
   L4::Opcode op;
   ios >> op;
 
   switch (op)
     {
-    case ::L4Re::Video::Goos_::Info:
-        {
-	  using L4Re::Video::Color_component;
-	  using L4Re::Video::Goos;
-
-	  Goos::Info i;
-          Area a = _core->user_state()->vstack()->canvas()->size();
-          Pixel_info const *mag_pi = _core->user_state()->vstack()->canvas()->type();
-	  i.width = a.w();
-	  i.height = a.h();
-	  i.flags = Goos::F_pointer
-	    | Goos::F_dynamic_views
-	    | Goos::F_dynamic_buffers;
-
-	  i.num_static_views = 0;
-	  i.num_static_buffers = 0;
-	  i.pixel_info = *mag_pi;
-
-	  ios.put(i);
-
-          return L4_EOK;
-        }
-
-    case L4Re::Video::Goos_::Create_buffer:
-        {
-	  unsigned long size;
-          ios >> size;
-
-	  cxx::Ref_ptr<Client_buffer> b(new Client_buffer(_core, size));
-	  _buffers.push_back(b);
-	  b->index = _buffers.size() - 1;
-
-          ios << L4::Ipc::Snd_fpage(b->ds_cap(), L4_CAP_FPAGE_RW);
-
-          return b->index;
-        }
-
-    case L4Re::Video::Goos_::Create_view:
-        {
-	  cxx::Auto_ptr<Client_view> v(new Client_view(_core, this));
-	  unsigned idx = 0;
-	  for (View_vector::iterator i = _views.begin(); i != _views.end();
-	       ++i, ++idx)
-	    if (!*i)
-	      {
-		*i = v;
-		return idx;
-	      }
-
-	  _views.push_back(v);
-          return _views.size() - 1;
-        }
-
-    case L4Re::Video::Goos_::Delete_view:
-        {
-	  unsigned idx;
-	  ios >> idx;
-	  if (idx >= _views.size())
-	    return -L4_ERANGE;
-
-	  _views[idx].reset(0);
-	  return 0;
-        }
-
-    case L4Re::Video::Goos_::Get_buffer:
-	{
-	  unsigned idx;
-	  ios >> idx;
-	  if (idx >= _buffers.size())
-	    return -L4_ERANGE;
-
-	  ios << _buffers[idx]->ds_cap();
-	  return L4_EOK;
-	}
-
-    case L4Re::Video::Goos_::View_info:
-	{
-	  unsigned idx;
-	  ios >> idx;
-	  if (idx >= _views.size())
-	    return -L4_ERANGE;
-
-	  Client_view *cv = _views[idx].get();
-
-	  L4Re::Video::View::Info vi;
-	  vi.view_index = idx;
-	  cv->get_info(&vi);
-	  ios.put(vi);
-
-	  return L4_EOK;
-	}
-
-    case L4Re::Video::Goos_::View_set_info:
-	{
-	  unsigned idx;
-	  ios >> idx;
-	  if (idx >= _views.size())
-	    return -L4_ERANGE;
-
-	  Client_view *cv = _views[idx].get();
-
-	  L4Re::Video::View::Info vi;
-	  ios.get(vi);
-
-	  cxx::Weak_ptr<Client_buffer> cb(0);
-	  if (vi.has_set_buffer())
-	    {
-	      if (vi.buffer_index >= _buffers.size())
-		return -L4_ERANGE;
-
-	      cb = _buffers[vi.buffer_index];
-	    }
-
-	  cv->set_info(vi, cb);
-	  return L4_EOK;
-	}
-
-    case L4Re::Video::Goos_::View_stack:
-	{
-          Client_view *pivot = 0;
-          Client_view *cv;
-          bool behind;
-	  unsigned cvi, pvi;
-
-          ios >> cvi >> pvi >> behind;
-
-	  if (cvi >= _views.size())
-	    return -L4_ERANGE;
-
-	  cv = _views[cvi].get();
-
-	  if (pvi < _views.size())
-	    pivot = _views[pvi].get();
-
-          if (!pivot)
-            {
-              if (!behind)
-                _core->user_state()->vstack()->push_bottom(cv);
-              else
-                _core->user_state()->vstack()->push_top(cv);
-            }
-          else
-            _core->user_state()->vstack()->stack(cv, pivot, behind);
-
-        }
-      return L4_EOK;
-
-    case L4Re::Video::Goos_::View_refresh:
-        {
-	  unsigned idx;
-	  int x, y, w, h;
-	  ios >> idx >> x >> y >> w >> h;
-
-	  if (idx >= _views.size())
-	    return -L4_ERANGE;
-
-	  Client_view *cv = _views[idx].get();
-	  _core->user_state()->vstack()->refresh_view(cv, 0, Rect(cv->p1() + Point(x,y), Area(w,h)));
-
-	  return L4_EOK;
-	}
-
-    case L4Re::Video::Goos_::Screen_refresh:
-        {
-	  int x, y, w, h;
-	  ios >> x >> y >> w >> h;
-
-	  _core->user_state()->vstack()->refresh_view(0, 0, Rect(Point(x,y), Area(w,h)));
-
-	  return L4_EOK;
-	}
-
-    default:
-      return -L4_ENOSYS;
+    case Goos_::Info: return screen_info(ios);
+    case Goos_::Create_buffer:return screen_create_buffer(ios);
+    case Goos_::Create_view: return screen_create_view(ios);
+    case Goos_::Delete_view: return screen_delete_view(ios);
+    case Goos_::Get_buffer: return screen_get_buffer(ios);
+    case Goos_::View_info: return screen_view_info(ios);
+    case Goos_::View_set_info: return screen_view_set_info(ios);
+    case Goos_::View_stack: return screen_view_stack(ios);
+    case Goos_::View_refresh: return screen_view_refresh(ios);
+    case Goos_::Screen_refresh: return screen_refresh(ios);
+    default: return -L4_ENOSYS;
     }
 }
 
@@ -617,11 +689,10 @@ Client_buffer::Client_buffer(Core_api const *, unsigned long size)
 }
 
 
-
 void
-Mag_goos::put_event(L4Re::Event_buffer::Event const &ne, bool trigger)
+Mag_goos::put_event(Hid_report *e, bool _trigger)
 {
-  if (_events.put(ne) && trigger)
+  if (post_hid_report(e, _events, Axis_xfrm_noop()) && _trigger)
     _ev_irq.trigger();
 }
 
@@ -655,26 +726,9 @@ Client_view::draw(Canvas *c, View_stack const *, Mode mode) const
 }
 
 void
-Client_view::handle_event(L4Re::Event_buffer::Event const &e,
-                          Point const &mouse)
+Client_view::handle_event(Hid_report *e, Point const &, bool)
 {
-  if (e.payload.type == L4RE_EV_MAX)
-    {
-      L4Re::Event_buffer::Event ne;
-      ne.time = e.time;
-      ne.payload.type = L4RE_EV_ABS;
-      ne.payload.code = L4RE_ABS_X;
-      ne.payload.value = mouse.x();
-      ne.payload.stream_id = e.payload.stream_id;
-      _screen->put_event(ne, false);
-      ne.payload.code = L4RE_ABS_Y;
-      ne.payload.value = mouse.y();
-      _screen->put_event(ne, true);
-      return;
-    }
-
   _screen->put_event(e, true);
-
 }
 
 

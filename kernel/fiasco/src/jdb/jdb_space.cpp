@@ -84,11 +84,9 @@ void
 Jdb_space::show(Task *t)
 {
   printf("Space %p (Kobject*)%p\n", t, static_cast<Kobject*>(t));
-  printf("\n  page table: %p\n", t->mem_space());
-  obj_space_info(t);
-  io_space_info(t);
 
-  for (Space::Ku_mem const *m = t->_ku_mem; m; m = m->next)
+  for (Space::Ku_mem_list::Const_iterator m = t->_ku_mem.begin(); m != t->_ku_mem.end();
+       ++m)
     printf("  utcb area: user_va=%p kernel_va=%p size=%x\n",
            m->u_addr.get(), m->k_addr, m->size);
 
@@ -129,13 +127,6 @@ int
 Jdb_space::num_cmds() const
 { return 1; }
 
-PRIVATE
-void
-Jdb_space::obj_space_info(Space *s)
-{
-  printf("  obj_space:  %p\n", s->obj_space());
-}
-
 static
 bool
 filter_task_thread(Kobject_common const *o)
@@ -144,21 +135,4 @@ filter_task_thread(Kobject_common const *o)
 }
 static Jdb_space jdb_space INIT_PRIORITY(JDB_MODULE_INIT_PRIO);
 static Jdb_kobject_list::Mode INIT_PRIORITY(JDB_MODULE_INIT_PRIO) tnt("[Tasks + Threads]", filter_task_thread);
-
-IMPLEMENTATION[!io || ux]:
-
-PRIVATE
-void
-Jdb_space::io_space_info(Space *)
-{}
-
-
-IMPLEMENTATION[io && !ux]:
-
-PRIVATE
-void
-Jdb_space::io_space_info(Space *s)
-{
-  printf("  io_space:   %p\n", s->io_space());
-}
 

@@ -58,7 +58,9 @@ extern struct elf_resolve * _dl_load_shared_library(int, struct dyn_elf **,
 	struct elf_resolve *, char *, int);
 extern int _dl_fixup(struct dyn_elf *rpnt, int lazy);
 extern void _dl_protect_relro(struct elf_resolve * tpnt);
+#ifndef _dl_errno
 extern int _dl_errno;
+#endif
 extern struct dyn_elf *_dl_symbol_tables;
 extern struct dyn_elf *_dl_handles;
 extern struct elf_resolve *_dl_loaded_modules;

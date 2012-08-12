@@ -8,13 +8,14 @@ INTERFACE[ia32,amd64,ux]:
 class Space;
 class Thread;
 
-
-IMPLEMENTATION[ia32,amd64,ux]:
+// ------------------------------------------------------------------------
+IMPLEMENTATION[ia32 || amd64 || ux]:
 
 #include "config.h"
 #include "div32.h"
 #include "kernel_console.h"
 #include "paging.h"
+#include "jdb_screen.h"
 
 PUBLIC static
 void
@@ -87,3 +88,39 @@ Jdb::write_tsc(Signed64 tsc, char *buf, int maxlen, bool sign)
   write_ll_ns(ns, buf, maxlen, sign);
 }
 
+PUBLIC
+static int
+Jdb::get_register(char *reg)
+{
+  union
+  {
+    char c[4];
+    Unsigned32 v;
+  } reg_name;
+  int i;
+  reg_name.v = 0;
+
+  putchar(reg_name.c[0] = Jdb_screen::Reg_prefix);
+
+  for (i = 1; i < 3; i++)
+    {
+      int c = getchar();
+      if (c == KEY_ESC)
+	return false;
+      putchar(reg_name.c[i] = c & 0xdf);
+      if (c == '8' || c == '9')
+	break;
+    }
+
+  reg_name.c[3] = '\0';
+
+  for (i = 0; i < Jdb_screen::num_regs(); i++)
+    if (reg_name.v == *((Unsigned32 *)(Jdb_screen::Reg_names[i])))
+      break;
+
+  if (i == Jdb_screen::num_regs())
+    return false;
+
+  *reg = i + 1;
+  return true;
+}

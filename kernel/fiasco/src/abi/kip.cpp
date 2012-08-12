@@ -51,7 +51,11 @@ private:
 //============================================================================
 IMPLEMENTATION:
 
+#include "assert.h"
+#include "config.h"
 #include "panic.h"
+#include "static_assert.h"
+#include "version.h"
 
 PUBLIC inline
 Mem_desc::Mem_desc(Address start, Address end, Mem_type t, bool v = false,
@@ -135,35 +139,24 @@ Mem_desc *Kip::add_mem_region(Mem_desc const &md)
   return 0;
 }
 
-//----------------------------------------------------------------------------
-IMPLEMENTATION [mp]:
-
-PUBLIC static inline
-unsigned
-Kip::system_cpus()
-{ return (k()->processor_info & 0xffff) + 1; }
-
-//----------------------------------------------------------------------------
-IMPLEMENTATION [!mp]:
-
-PUBLIC static inline
-unsigned
-Kip::system_cpus()
-{ return 1; }
-
-//----------------------------------------------------------------------------
-IMPLEMENTATION:
-
-#include "config.h"
-#include "version.h"
-
 Kip *Kip::global_kip;
-PUBLIC static inline void Kip::init_global_kip (Kip *kip) { global_kip = kip; }
+
+PUBLIC static
+void Kip::init_global_kip(Kip *kip)
+{
+  global_kip = kip;
+
+  // check that the KIP has actually been set up
+  assert(kip->sigma0_ip && kip->root_ip && kip->user_ptr);
+}
+
 PUBLIC static inline Kip *Kip::k() { return global_kip; }
 
 IMPLEMENT
 char const *Kip::version_string() const
 {
+  static_assert((sizeof(Kip) & 0xf) == 0, "Invalid KIP structure size");
+
   return reinterpret_cast <char const *> (this) + (offset_version_strings << 4);
 }
 

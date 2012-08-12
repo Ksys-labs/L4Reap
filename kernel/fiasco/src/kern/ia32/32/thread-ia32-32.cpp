@@ -71,8 +71,7 @@ Thread::trap_state_to_rf(Trap_state *ts)
   return reinterpret_cast<Return_frame*>(im)-1;
 }
 
-PRIVATE static inline NEEDS[Thread::trap_is_privileged,
-			    Thread::trap_state_to_rf]
+PRIVATE static inline NEEDS[Thread::trap_state_to_rf]
 bool FIASCO_WARN_RESULT
 Thread::copy_utcb_to_ts(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
                         unsigned char rights)
@@ -106,8 +105,7 @@ Thread::copy_utcb_to_ts(L4_msg_tag const &tag, Thread *snd, Thread *rcv,
     snd->transfer_fpu(rcv);
 
   // sanitize eflags
-  if (!rcv->trap_is_privileged(0))
-    ts->flags((ts->flags() & ~(EFLAGS_IOPL | EFLAGS_NT)) | EFLAGS_IF);
+  ts->flags((ts->flags() & ~(EFLAGS_IOPL | EFLAGS_NT)) | EFLAGS_IF);
 
   // don't allow to overwrite the code selector!
   ts->cs(cs);
@@ -183,16 +181,6 @@ Thread::check_trap13_kernel(Trap_state *ts)
 	  Cpu::set_es(Gdt::data_segment());
 	  return 0;
 	}
-      if (EXPECT_FALSE(!(ts->_fs & 0xffff)))
-	{
-	  ts->_fs = Utcb_init::utcb_segment();
-	  return 0;
-	}
-      if (EXPECT_FALSE(!(ts->_gs & 0xffff)))
-	{
-	  ts->_gs = Utcb_init::utcb_segment();
-	  return 0;
-	}
       if (EXPECT_FALSE(ts->_ds & 0xfff8) == Gdt::gdt_code_user)
 	{
 	  WARN("%p eip=%08lx: code selector ds=%04lx",
@@ -211,14 +199,14 @@ Thread::check_trap13_kernel(Trap_state *ts)
 	{
 	  WARN("%p eip=%08lx: code selector fs=%04lx",
                this, ts->ip(), ts->_fs & 0xffff);
-	  ts->_fs = Utcb_init::utcb_segment();
+	  ts->_fs = 0;
 	  return 0;
 	}
       if (EXPECT_FALSE(ts->_gs & 0xfff8) == Gdt::gdt_code_user)
 	{
 	  WARN("%p eip=%08lx: code selector gs=%04lx",
                this, ts->ip(), ts->_gs & 0xffff);
-	  ts->_gs = Utcb_init::utcb_segment();
+	  ts->_gs = 0;
 	  return 0;
 	}
     }
@@ -260,8 +248,8 @@ IMPLEMENTATION [ia32]:
 KIP_KERNEL_FEATURE("segments");
 
 PROTECTED inline
-bool
-Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
+L4_msg_tag
+Thread::invoke_arch(L4_msg_tag tag, Utcb *utcb)
 {
   switch (utcb->values[0] & Opcode_mask)
     {
@@ -271,8 +259,7 @@ Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
       if (EXPECT_FALSE(tag.words() == 1))
         {
           utcb->values[0] = Gdt::gdt_user_entry1 >> 3;
-          tag = Kobject_iface::commit_result(0, 1);
-          return true;
+          return Kobject_iface::commit_result(0, 1);
         }
 
         {
@@ -291,12 +278,11 @@ Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
           if (this == current_thread())
             switch_gdt_user_entries(this);
 
-          tag = Kobject_iface::commit_result((utcb->values[1] << 3) + Gdt::gdt_user_entry1 + 3);
-          return true;
+          return Kobject_iface::commit_result((utcb->values[1] << 3) + Gdt::gdt_user_entry1 + 3);
         }
 
     default:
-      return false;
+      return commit_result(-L4_err::ENosys);
     };
 }
 
@@ -343,7 +329,7 @@ Thread::call_nested_trap_handler(Trap_state *ts)
   else
     p.stack = 0;
 
-  p.pdir = Kernel_task::kernel_task()->mem_space()->virt_to_phys((Address)Kmem::dir());
+  p.pdir = Kernel_task::kernel_task()->virt_to_phys((Address)Kmem::dir());
   p.handler = nested_trap_handler;
 
 

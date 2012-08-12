@@ -5,4 +5,4 @@ TARGET  = $(wildcard [a-z]*)
 
 include $(L4DIR)/mk/subdir.mk
 
-uart: of
+uart: of include

@@ -10,15 +10,15 @@ IMPLEMENTATION [apic_timer]:
 #include "std_macros.h"
 
 // no IRQ line for the LAPIC
-IMPLEMENT inline int Timer::irq_line() { return -1; }
+PUBLIC static inline int Timer::irq() { return -1; }
 
 IMPLEMENT
 void
-Timer::init()
+Timer::init(unsigned)
 {
   Apic::timer_assign_irq_vector(Config::Apic_timer_vector);
 
-  if (Config::scheduler_one_shot)
+  if (Config::Scheduler_one_shot)
     {
       Apic::timer_set_one_shot();
       Apic::timer_reg_write(0xffffffff);
@@ -26,42 +26,25 @@ Timer::init()
   else
     {
       Apic::timer_set_periodic();
-      Apic::timer_reg_write(Apic::us_to_apic(Config::scheduler_granularity));
+      Apic::timer_reg_write(Apic::us_to_apic(Config::Scheduler_granularity));
     }
 
   // make sure that PIT does pull its interrupt line
   Pit::done();
 
-  if (!Config::scheduler_one_shot)
+  if (!Config::Scheduler_one_shot)
     // from now we can save energy in getchar()
     Config::getchar_does_hlt_works_ok = Config::hlt_works_ok;
 
   printf ("Using the Local APIC timer on vector %x (%s Mode) for scheduling\n",
           Config::Apic_timer_vector,
-          Config::scheduler_one_shot ? "One-Shot" : "Periodic");
+          Config::Scheduler_one_shot ? "One-Shot" : "Periodic");
 }
 
-IMPLEMENT inline NEEDS["apic.h"]
+PUBLIC static inline
 void
 Timer::acknowledge()
-{
-  Apic::irq_ack();
-}
-
-IMPLEMENT inline NEEDS["apic.h"]
-void
-Timer::enable()
-{
-  Apic::timer_enable_irq();
-  Apic::irq_ack();
-}
-
-IMPLEMENT inline NEEDS["apic.h"]
-void
-Timer::disable()
-{
-  Apic::timer_disable_irq();
-}
+{}
 
 static
 void
@@ -95,6 +78,6 @@ IMPLEMENT inline
 void
 Timer::update_timer(Unsigned64 wakeup)
 {
-  if (Config::scheduler_one_shot)
+  if (Config::Scheduler_one_shot)
     update_one_shot(wakeup);
 }

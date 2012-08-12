@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------------
-IMPLEMENTATION [arm && armv5]:
+IMPLEMENTATION [arm && !armv6plus]:
 
 #include "mem_layout.h"
 
@@ -14,7 +14,7 @@ Utcb_support::current(User<Utcb>::Ptr const &utcb)
 { *reinterpret_cast<User<Utcb>::Ptr*>(Mem_layout::Utcb_ptr_page) = utcb; }
 
 // ------------------------------------------------------------------------
-IMPLEMENTATION [arm && (armv6 || armv7)]:
+IMPLEMENTATION [arm && armv6plus]:
 
 IMPLEMENT inline
 User<Utcb>::Ptr

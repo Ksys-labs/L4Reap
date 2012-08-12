@@ -18,9 +18,8 @@ public:
   virtual void ipc_receiver_aborted() = 0;
   virtual void modify_label(Mword const *todo, int cnt) = 0;
 
-
 protected:
-  Receiver *_receiver;
+  Iteratable_prio_list *_wq;
 
 private:
 
@@ -52,7 +51,7 @@ IMPLEMENTATION:
 PROTECTED inline
 explicit
 Sender::Sender (int /*ignored*/)
-: _receiver(0)
+: _wq(0)
 {}
 
 
@@ -60,20 +59,18 @@ Sender::Sender (int /*ignored*/)
     @return receiver this sender is currently trying to send a message to.
  */
 PUBLIC inline
-Receiver *
-Sender::receiver() const
-{
-  return _receiver;
-}
+Iteratable_prio_list *
+Sender::wait_queue() const
+{ return _wq; }
 
 /** Set current receiver.
     @param receiver the receiver we're going to send a message to
  */
-PROTECTED inline
+PUBLIC inline
 void
-Sender::set_receiver(Receiver* receiver)
+Sender::set_wait_queue(Iteratable_prio_list *wq)
 {
-  _receiver = receiver;
+  _wq = wq;
 }
 
 PUBLIC inline
@@ -96,7 +93,7 @@ Sender::in_sender_list() const
 PUBLIC inline
 bool
 Sender::is_head_of(Prio_list const *l) const
-{ return l->head() == this; }
+{ return l->first() == this; }
 
 
 PUBLIC static inline

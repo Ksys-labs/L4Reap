@@ -69,14 +69,15 @@ Allocator::disp_factory(l4_umword_t, L4::Ipc::Iostream &ios)
 
     case L4_PROTO_LOG:
 	{
+	  L4::Ipc::Istream_copy is(ios);
 	  L4::Ipc::Varg tag;
-	  ios.get(&tag);
+	  is.get(&tag);
 
 	  if (!tag.is_of<char const *>())
 	    return -L4_EINVAL;
 
 	  L4::Ipc::Varg col;
-	  ios.get(&col);
+	  is.get(&col);
 
 	  int color;
 	  if (col.is_of<char const *>())

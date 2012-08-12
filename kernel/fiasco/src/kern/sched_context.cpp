@@ -11,7 +11,7 @@ IMPLEMENTATION:
 
 #include "kdb_ke.h"
 
-Per_cpu<Sched_context::Ready_queue> DEFINE_PER_CPU Sched_context::_ready_q;
+DEFINE_PER_CPU Per_cpu<Sched_context::Ready_queue> Sched_context::_ready_q;
 
 PUBLIC static inline
 Sched_context::Ready_queue &

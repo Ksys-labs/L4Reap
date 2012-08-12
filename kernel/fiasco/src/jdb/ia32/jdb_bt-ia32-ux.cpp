@@ -49,7 +49,7 @@ Jdb_bt::get_user_eip_ebp(Address &eip, Address &ebp)
     }
 
   Thread *t        = tid;
-  Address tcb_next = (Address)context_of(t->get_kernel_sp()) + Context::size;
+  Address tcb_next = (Address)context_of(t->get_kernel_sp()) + Context::Size;
   Mword *ktop      = (Mword *)(Cpu::stack_align(tcb_next));
   Jdb::Guessed_thread_state state = Jdb::guess_thread_state(t);
 
@@ -192,7 +192,7 @@ Jdb_bt::get_kernel_eip_ebp(Mword &eip1, Mword &eip2, Mword &ebp)
 	  tcb  = Mword(tid); //Mem_layout::Tcbs + tid.gthread()*Context::size;
 	}
 
-      Mword tcb_next = tcb + Context::size;
+      Mword tcb_next = tcb + Context::Size;
 
       // search for valid ebp/eip
       for (int i=0; (Address)(ksp+i+1)<tcb_next-20; i++)
@@ -219,7 +219,7 @@ Jdb_bt::show_item(int nr, Address ksp, Address addr, Address_type user)
 {
   char buffer[74];
 
-  printf(" %s#%d "L4_PTR_FMT" "L4_PTR_FMT"", nr<10 ? " ": "", nr, ksp, addr);
+  printf(" %s#%d " L4_PTR_FMT " " L4_PTR_FMT "", nr<10 ? " ": "", nr, ksp, addr);
 
   Address sym_addr = addr;
   if (Jdb_symbol::match_addr_to_symbol_fuzzy(&sym_addr, 
@@ -255,7 +255,7 @@ static void
 Jdb_bt::show_without_ebp()
 {
   Mword *ksp      = (Mword*) tid->get_kernel_sp();
-  Mword tcb_next  = Mword(tid) + Context::size;
+  Mword tcb_next  = Mword(tid) + Context::Size;
 
   // search for valid eip
   for (int i=0, j=1; (Address)(ksp+i)<tcb_next-20; i++)
@@ -367,8 +367,8 @@ start_backtrace:
 	  get_user_eip_ebp(eip, ebp);
 
 start_backtrace_known_ebp:
-	  printf("\n\nbacktrace (thread %lx, fp="L4_PTR_FMT
-	         ", pc="L4_PTR_FMT"):\n",
+	  printf("\n\nbacktrace (thread %lx, fp=" L4_PTR_FMT
+	         ", pc=" L4_PTR_FMT "):\n",
 	      tid->dbg_info()->dbg_id(), ebp, eip);
 	  if (task != 0)
 	    show(ebp, eip, 0, ADDR_USER);

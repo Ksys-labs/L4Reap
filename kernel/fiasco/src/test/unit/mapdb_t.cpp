@@ -320,7 +320,7 @@ void multilevel ()
 
 class Timeout;
 
-Per_cpu<Timeout *> timeslice_timeout DEFINE_PER_CPU;
+DEFINE_PER_CPU Per_cpu<Timeout *> timeslice_timeout;
 STATIC_INITIALIZER_P(init, STARTUP_INIT_PRIO);
 STATIC_INITIALIZER_P(init2, POST_CPU_LOCAL_INIT_PRIO);
 
@@ -334,7 +334,7 @@ static void init()
   Kmem_alloc::init();
 
   // Initialize cpu-local data management and run constructors for CPU 0
-  Per_cpu_data::init_ctors(Kmem_alloc::allocator());
+  Per_cpu_data::init_ctors();
   Per_cpu_data_alloc::alloc(0);
   Per_cpu_data::run_ctors(0);
 

@@ -1,27 +1,16 @@
-#ifndef __DISASM_H
-#define __DISASM_H
+#pragma once
 
 #include "types.h"
 #include "globalconfig.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+class Space;
 
-struct Space;
-
-typedef int         (*Peek_task) (Address addr, struct Space *task,
-				  void *value, int width);
-typedef const char* (*Get_symbol) (Address addr, struct Space *task);
+typedef int (*Peek_task)(Address addr, Space *task, void *value, int width);
+typedef const char* (*Get_symbol)(Address addr, Space *task);
 
 extern unsigned int
 disasm_bytes(char *buffer, unsigned len, Address addr, 
-	     struct Space *task, int show_symbols, int show_intel_syntax,
-	     Peek_task peek_task, Get_symbol get_symbol);
+             Space *task, int show_symbols, int show_intel_syntax,
+             Peek_task peek_task, Get_symbol get_symbol);
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif
 

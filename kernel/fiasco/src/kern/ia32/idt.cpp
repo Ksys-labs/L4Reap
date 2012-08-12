@@ -97,6 +97,28 @@ Idt::load()
   set(&desc);
 }
 
+PUBLIC static
+void
+Idt::set_entry(unsigned vector, Idt_entry entry)
+{
+  assert (vector < _idt_max);
+
+  set_writable(true);
+
+  Idt_entry *entries = (Idt_entry*)_idt;
+  entries[vector] = entry;
+  set_writable(false);
+}
+
+PUBLIC static
+Idt_entry const &
+Idt::get(unsigned vector)
+{
+  assert (vector < _idt_max);
+
+  return ((Idt_entry*)_idt)[vector];
+}
+
 /**
  * IDT patching function.
  * Allows to change interrupt gate vectors at runtime.
@@ -146,7 +168,6 @@ Idt::idt()
 IMPLEMENTATION[ia32 | amd64]:
 
 #include "config.h"
-#include "timer.h"
 
 /**
  * IDT loading function.
@@ -169,7 +190,6 @@ Idt::get(Pseudo_descriptor *desc)
 
 extern "C" void entry_int_timer();
 extern "C" void entry_int_timer_slow();
-extern "C" void entry_int_timer_stop();
 extern "C" void entry_int7();
 extern "C" void entry_intf();
 extern "C" void entry_int_pic_ignore();
@@ -187,34 +207,13 @@ Idt::set_vectors_run()
 		    : (Address)entry_int_timer;     // non-debugging
 
   set_entry(Config::scheduler_irq_vector, func, false);
+#if 0
   if (!Irq_chip::hw_chip->is_free(0x7))
     Irq_chip::hw_chip->reset(0x07);
 
   if (!Irq_chip::hw_chip->is_free(0xf))
     Irq_chip::hw_chip->reset(0x0f);
-}
-
-/**
- * Set IDT vector to a dummy vector if Config::getchar_does_hlt is true.
- */
-PUBLIC static
-void
-Idt::set_vectors_stop()
-{
-  // acknowledge timer interrupt once to keep timer interrupt alive because
-  // we could be called from thread_timer_interrupt_slow() before ack
-  Timer::acknowledge();
-
-  // set timer interrupt to dummy doing nothing
-  set_entry(Config::scheduler_irq_vector, (Address)entry_int_timer_stop, false);
-
-  // From ``8259A PROGRAMMABLE INTERRUPT CONTROLLER (8259A 8259A-2)'': If no
-  // interrupt request is present at step 4 of either sequence (i. e. the
-  // request was too short in duration) the 8259A will issue an interrupt
-  // level 7. Both the vectoring bytes and the CAS lines will look like an
-  // interrupt level 7 was requested.
-  set_entry(0x27, (Address)entry_int_pic_ignore, false);
-  set_entry(0x2f, (Address)entry_int_pic_ignore, false);
+#endif
 }
 
 
@@ -235,12 +234,4 @@ void
 Idt::get(Pseudo_descriptor *desc)
 {
   Emulation::sidt(desc);
-}
-
-PUBLIC static
-void
-Idt::set_vectors_run()
-{
-  extern char entry_int_timer[];
-  set_entry(Config::scheduler_irq_vector, (Address)entry_int_timer, false);
 }

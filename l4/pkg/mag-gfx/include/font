@@ -73,8 +73,6 @@ struct Font
 
   Area str_sz(char const *s, int l) const
   { return Area(str_w(s, l), str_h(s, l)); }
-
-
 };
 
 }

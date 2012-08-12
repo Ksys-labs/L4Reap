@@ -308,7 +308,7 @@ IMPLEMENTATION[ia32,amd64,ux]:
 #include "panic.h"
 #include "processor.h"
 
-Per_cpu<Cpu> DEFINE_PER_CPU_P(0) Cpu::cpus(true);
+DEFINE_PER_CPU_P(0) Per_cpu<Cpu> Cpu::cpus(true);
 Cpu *Cpu::_boot_cpu;
 
 
@@ -699,7 +699,22 @@ Cpu::cpuid(Unsigned32 const mode,
                         : "a" (mode));
 }
 
+PUBLIC static inline FIASCO_INIT_CPU
+void
+Cpu::cpuid_0xd(Unsigned32 const ecx_val,
+               Unsigned32 *const eax, Unsigned32 *const ebx,
+               Unsigned32 *const ecx, Unsigned32 *const edx)
+{
+  asm volatile ("cpuid" : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
+                        : "a" (0xd), "c" (ecx_val));
+}
 
+PUBLIC
+void
+Cpu::update_features_info()
+{
+  cpuid(1, &_version, &_brand, &_ext_features, &_features);
+}
 
 PRIVATE FIASCO_INIT_CPU
 void
@@ -974,7 +989,7 @@ Cpu::identify()
         if (_vendor == Vendor_intel)
           cache_tlb_intel();
       case 1:
-        cpuid(1, &_version, &_brand, &_ext_features, &_features);
+        update_features_info();
       }
 
     if (max >= 5 && has_monitor_mwait())
@@ -1559,10 +1574,7 @@ Cpu::init_sysenter()
     {
       wrmsr (Gdt::gdt_code_kernel, 0, MSR_SYSENTER_CS);
       wrmsr ((unsigned long)&kernel_sp(), 0, MSR_SYSENTER_ESP);
-      if (Config::Assembler_ipc_shortcut)
-	set_sysenter(entry_sys_fast_ipc);
-      else
-	set_sysenter(entry_sys_fast_ipc_c);
+      set_sysenter(entry_sys_fast_ipc_c);
     }
 }
 
@@ -1631,7 +1643,7 @@ Cpu::calibrate_tsc ()
   return;
 
 bad_ctc:
-  if (Config::kinfo_timer_uses_rdtsc)
+  if (Config::Kip_timer_uses_rdtsc)
     panic("Can't calibrate tsc");
 }
 

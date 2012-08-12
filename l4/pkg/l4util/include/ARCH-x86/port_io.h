@@ -66,34 +66,31 @@ L4_INLINE l4_uint32_t
 l4util_in32(l4_uint16_t port);
 
 /**
- * \brief Read a block of 8-bit-value from I/O ports
+ * \brief Read a block of 8-bit-values from I/O ports
  *
  * \param  port	   I/O port address
  * \param  addr    address of buffer
  * \param  count   number of I/O operations
- * \return value
  */
 L4_INLINE void
 l4util_ins8(l4_uint16_t port, l4_umword_t addr, l4_umword_t count);
 
 /**
- * \brief Read a block of 16-bit-value from I/O ports
+ * \brief Read a block of 16-bit-values from I/O ports
  *
  * \param  port	   I/O port address
  * \param  addr    address of buffer
  * \param  count   number of I/O operations
- * \return value
  */
 L4_INLINE void
 l4util_ins16(l4_uint16_t port, l4_umword_t addr, l4_umword_t count);
 
 /**
- * \brief Read a block of 32-bit-value from I/O ports
+ * \brief Read a block of 32-bit-values from I/O ports
  *
  * \param  port	   I/O port address
  * \param  addr    address of buffer
  * \param  count   number of I/O operations
- * \return value
  */
 L4_INLINE void
 l4util_ins32(l4_uint16_t port, l4_umword_t addr, l4_umword_t count);
@@ -125,6 +122,37 @@ l4util_out16(l4_uint16_t value, l4_uint16_t port);
  */
 L4_INLINE void
 l4util_out32(l4_uint32_t value, l4_uint16_t port);
+
+/**
+ * \brief Write a block of bytes to I/O port
+ *
+ * \param  port	   I/O port address
+ * \param  addr    address of buffer
+ * \param  count   number of I/O operations
+ */
+L4_INLINE void
+l4util_outs8(l4_uint16_t port, l4_umword_t addr, l4_umword_t count);
+
+/**
+ * \brief Write a block of 16-bit-values to I/O port
+ * \ingroup port_io
+ *
+ * \param  port	   I/O port address
+ * \param  addr    address of buffer
+ * \param  count   number of I/O operations
+ */
+L4_INLINE void
+l4util_outs16(l4_uint16_t port, l4_umword_t addr, l4_umword_t count);
+
+/**
+ * \brief Write block of 32-bit-values to I/O port
+ *
+ * \param  port	   I/O port address
+ * \param  addr    address of buffer
+ * \param  count   number of I/O operations
+ */
+L4_INLINE void
+l4util_outs32(l4_uint16_t port, l4_umword_t addr, l4_umword_t count);
 
 /**
  * \brief delay I/O port access by writing to port 0x80
@@ -208,6 +236,33 @@ L4_INLINE void
 l4util_out32(l4_uint32_t value, l4_uint16_t port)
 {
   asm volatile ("outl %0, %w1" : : "a" (value), "Nd" (port));
+}
+
+L4_INLINE void
+l4util_outs8(l4_uint16_t port, l4_umword_t addr, l4_umword_t count)
+{
+  l4_umword_t dummy1, dummy2;
+  asm volatile ("rep outsb" : "=S"(dummy1), "=c"(dummy2)
+			    : "d" (port), "S" (addr), "c"(count)
+			    : "memory");
+}
+
+L4_INLINE void
+l4util_outs16(l4_uint16_t port, l4_umword_t addr, l4_umword_t count)
+{
+  l4_umword_t dummy1, dummy2;
+  asm volatile ("rep outsw" : "=S"(dummy1), "=c"(dummy2)
+			    : "d" (port), "S" (addr), "c"(count)
+			    : "memory");
+}
+
+L4_INLINE void
+l4util_outs32(l4_uint16_t port, l4_umword_t addr, l4_umword_t count)
+{
+  l4_umword_t dummy1, dummy2;
+  asm volatile ("rep outsl" : "=S"(dummy1), "=c"(dummy2)
+			    : "d" (port), "S" (addr), "c"(count)
+			    : "memory");
 }
 
 L4_INLINE void

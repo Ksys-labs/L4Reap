@@ -1,14 +1,13 @@
 INTERFACE [ppc32]:
 #include "types.h"
 #include "initcalls.h"
-#include "multiboot.h"
 
 IMPLEMENTATION [ppc32]:
 #include "uart.h"
 #include "boot_info.h"
 #include "terminate.h"
 
-#include <initfini.h>
+#include <construction.h>
 #include <cstdlib>
 #include <cstdio>
 
@@ -23,10 +22,9 @@ _exit(int)
 extern "C" int main(void);
 
 extern "C" FIASCO_INIT 
-int bootstrap_main(Multiboot_info *mbi /* r3 */, Address prom_ptr /* r4 */)
+int bootstrap_main(void * /* r3 */, Address prom_ptr /* r4 */)
 {
   Boot_info::set_prom(prom_ptr);
-  Boot_info::set_mbi_phys(mbi);
   atexit(&static_destruction);
   static_construction();
   printf("Bootstrapped\n");

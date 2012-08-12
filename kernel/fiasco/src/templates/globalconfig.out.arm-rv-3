@@ -1,6 +1,5 @@
 #
-# Automatically generated make config: don't edit
-#
+# Automatically generated file; DO NOT EDIT.
 
 #
 # Target configuration
@@ -43,6 +42,7 @@ CONFIG_ARM_CACHE_L2CXX0=y
 #
 # Kernel options
 #
+# CONFIG_MP is not set
 CONFIG_CONTEXT_4K=y
 # CONFIG_FINE_GRAINED_CPUTIME is not set
 CONFIG_SCHED_FIXED_PRIO=y
@@ -73,7 +73,6 @@ CONFIG_CC="gcc"
 CONFIG_CXX="g++"
 CONFIG_HOST_CC="gcc"
 CONFIG_HOST_CXX="g++"
-# CONFIG_VERBOSE is not set
 # CONFIG_MAINTAINER_MODE is not set
 CONFIG_LABEL=""
 # CONFIG_EXPERIMENTAL is not set

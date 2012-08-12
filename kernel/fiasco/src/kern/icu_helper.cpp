@@ -63,9 +63,8 @@ Icu_h_base::deref_irq(L4_msg_tag *tag, Utcb const *utcb)
 
   register Context *const c_thread = ::current();
   register Space *const c_space = c_thread->space();
-  register Obj_space *const o_space = c_space->obj_space();
   unsigned char irq_rights = 0;
-  irq = Kobject::dcast<Irq*>(o_space->lookup_local(bind_irq.obj_index(), &irq_rights));
+  irq = Kobject::dcast<Irq*>(c_space->lookup_local(bind_irq.obj_index(), &irq_rights));
 
   if (!irq)
     {
@@ -94,9 +93,9 @@ Icu_h<REAL_ICU>::icu_mask_irq(bool mask, unsigned irqnum)
     return;
 
   if (mask)
-    i->pin()->mask();
+    i->mask();
   else
-    i->pin()->unmask();
+    i->unmask();
 }
 
 PUBLIC inline
@@ -107,7 +106,7 @@ Icu_h<REAL_ICU>::icu_unbind_irq(unsigned irqnum)
   Irq_base *irq = this_icu()->icu_get_irq(irqnum);
 
   if (irq)
-    irq->pin()->unbind_irq();
+    irq->unbind();
 
   return Kobject_iface::commit_result(0);
 }
@@ -158,7 +157,7 @@ Icu_h<REAL_ICU>::icu_invoke(L4_obj_ref, Mword /*rights*/,
     case Op_msi_info:
       if (tag.words() < 2)
 	return Kobject_iface::commit_result(-L4_err::EInval);
-      return this_icu()->icu_get_msi_info(utcb->values[1] & ~Msi_bit, out);
+      return this_icu()->icu_get_msi_info(utcb->values[1], out);
 
     case Op_unmask:
     case Op_mask:
@@ -175,7 +174,7 @@ Icu_h<REAL_ICU>::icu_invoke(L4_obj_ref, Mword /*rights*/,
 
 	  if (irq)
 	    {
-	      irq->pin()->set_mode(utcb->values[2]);
+	      irq->set_mode(utcb->values[2]);
 	      return Kobject_iface::commit_result(0);
 	    }
 	}

@@ -19,14 +19,13 @@
 
 #ifndef _TLS_H
 #define _TLS_H	1
-#if defined USE_TLS && USE_TLS // l4
 #ifndef __ASSEMBLER__
-# include <asm/prctl.h>	/* For ARCH_SET_FS.  */
+//l4/# include <asm/prctl.h>	/* For ARCH_SET_FS.  */
 # include <stdbool.h>
 # include <stddef.h>
 # include <stdint.h>
 # include <stdlib.h>
-# include <sysdep.h>
+//l4/# include <sysdep.h>
 # include <bits/kernel-features.h>
 # include <bits/wordsize.h>
 # include <xmmintrin.h>
@@ -94,11 +93,13 @@ typedef struct
 
 #ifndef __ASSEMBLER__
 /* Get system call information.  */
-# include <sysdep.h>
+//l4/# include <sysdep.h>
 
 
 /* Get the thread descriptor definition.  */
 # include <descr.h>
+# include <l4/sys/utcb.h>
+# include <l4/sys/segment.h>
 
 #ifndef LOCK_PREFIX
 # ifdef UP
@@ -111,13 +112,13 @@ typedef struct
 /* This is the size of the initial TCB.  Can't be just sizeof (tcbhead_t),
    because NPTL getpid, __libc_alloca_cutoff etc. need (almost) the whole
    struct pthread even when not linked with -lpthread.  */
-# define TLS_INIT_TCB_SIZE sizeof (struct pthread)
+# define TLS_INIT_TCB_SIZE sizeof (struct _pthread_descr_struct)
 
 /* Alignment requirements for the initial TCB.  */
-# define TLS_INIT_TCB_ALIGN __alignof__ (struct pthread)
+# define TLS_INIT_TCB_ALIGN __alignof__ (struct _pthread_descr_struct)
 
 /* This is the size of the TCB.  */
-# define TLS_TCB_SIZE sizeof (struct pthread)
+# define TLS_TCB_SIZE sizeof (struct _pthread_descr_struct)
 
 /* Alignment requirements for the TCB.  */
 //# define TLS_TCB_ALIGN __alignof__ (struct pthread)
@@ -138,9 +139,12 @@ typedef struct
   ((tcbhead_t *) (descr))->dtv = (dtvp) + 1
 
 /* Install new dtv for current thread.  */
-# define INSTALL_NEW_DTV(dtvp) \
+# define INSTALL_NEW_DTV_ORIG(dtvp) \
   ({ struct pthread *__pd;						      \
      THREAD_SETMEM (__pd, header.dtv, (dtvp)); })
+# define INSTALL_NEW_DTV(dtvpx) \
+  ({ struct _pthread_descr_struct *__pd;						      \
+     THREAD_SETMEM (__pd, p_header.data.dtvp, (dtvpx)); })
 
 /* Return dtv of given thread descriptor.  */
 # define GET_DTV(descr) \
@@ -154,6 +158,18 @@ typedef struct
   __asm__ ("movl %0, %%fs" :: "q" (val))
 
 
+static inline char const *TLS_INIT_TP(void *thrdescr, int secondcall)
+{
+  (void)secondcall;
+  tcbhead_t *_head = (tcbhead_t *)thrdescr;
+  _head->tcb = thrdescr;
+  _head->self = thrdescr;
+  if (fiasco_amd64_set_fs(L4_INVALID_CAP, (l4_umword_t)thrdescr, l4_utcb()) < 0)
+    return "ERROR";
+
+  return NULL;
+}
+#if 0
 /* Code to initially initialize the thread pointer.  This might need
    special attention since 'errno' is not yet available and if the
    operation can cause a failure 'errno' must not be touched.
@@ -179,12 +195,17 @@ typedef struct
 									      \
     _result ? "cannot set %fs base address for thread-local storage" : 0;     \
   })
+#endif
 
 
 /* Return the address of the dtv for the current thread.  */
-# define THREAD_DTV() \
+# define THREAD_DTV_ORIG() \
   ({ struct pthread *__pd;						      \
      THREAD_GETMEM (__pd, header.dtv); })
+
+# define THREAD_DTV() \
+  ({ struct _pthread_descr_struct *__pd;						      \
+     THREAD_GETMEM (__pd, p_header.data.dtvp); })
 
 
 /* Return the thread descriptor for the current thread.
@@ -193,10 +214,15 @@ typedef struct
    assignments like
 	pthread_descr self = thread_self();
    do not get optimized away.  */
-# define THREAD_SELF \
+# define THREAD_SELF_ORIG \
   ({ struct pthread *__self;						      \
      __asm__ ("movq %%fs:%c1,%q0" : "=r" (__self)				      \
 	  : "i" (offsetof (struct pthread, header.self)));	 	      \
+     __self;})
+# define THREAD_SELF \
+  ({ struct _pthread_descr_struct *__self;						      \
+     __asm__ ("movq %%fs:%c1,%q0" : "=r" (__self)				      \
+	  : "i" (offsetof (struct _pthread_descr_struct, p_header.data.self)));	 	      \
      __self;})
 
 /* Magic for libthread_db to know how to do THREAD_SELF.  */
@@ -209,11 +235,11 @@ typedef struct
      if (sizeof (__value) == 1)						      \
        __asm__ __volatile__ ("movb %%fs:%P2,%b0"				      \
 		     : "=q" (__value)					      \
-		     : "0" (0), "i" (offsetof (struct pthread, member)));     \
+		     : "0" (0), "i" (offsetof (struct _pthread_descr_struct, member)));     \
      else if (sizeof (__value) == 4)					      \
        __asm__ __volatile__ ("movl %%fs:%P1,%0"					      \
 		     : "=r" (__value)					      \
-		     : "i" (offsetof (struct pthread, member)));	      \
+		     : "i" (offsetof (struct _pthread_descr_struct, member)));	      \
      else								      \
        {								      \
 	 if (sizeof (__value) != 8)					      \
@@ -223,7 +249,7 @@ typedef struct
 									      \
 	 __asm__ __volatile__ ("movq %%fs:%P1,%q0"				      \
 		       : "=r" (__value)					      \
-		       : "i" (offsetof (struct pthread, member)));	      \
+		       : "i" (offsetof (struct _pthread_descr_struct, member)));	      \
        }								      \
      __value; })
 
@@ -234,12 +260,12 @@ typedef struct
      if (sizeof (__value) == 1)						      \
        __asm__ __volatile__ ("movb %%fs:%P2(%q3),%b0"				      \
 		     : "=q" (__value)					      \
-		     : "0" (0), "i" (offsetof (struct pthread, member[0])),   \
+		     : "0" (0), "i" (offsetof (struct _pthread_descr_struct, member[0])),   \
 		       "r" (idx));					      \
      else if (sizeof (__value) == 4)					      \
        __asm__ __volatile__ ("movl %%fs:%P1(,%q2,4),%0"				      \
 		     : "=r" (__value)					      \
-		     : "i" (offsetof (struct pthread, member[0])), "r" (idx));\
+		     : "i" (offsetof (struct _pthread_descr_struct, member[0])), "r" (idx));\
      else								      \
        {								      \
 	 if (sizeof (__value) != 8)					      \
@@ -249,7 +275,7 @@ typedef struct
 									      \
 	 __asm__ __volatile__ ("movq %%fs:%P1(,%q2,8),%q0"			      \
 		       : "=r" (__value)					      \
-		       : "i" (offsetof (struct pthread, member[0])),	      \
+		       : "i" (offsetof (struct _pthread_descr_struct, member[0])),	      \
 			 "r" (idx));					      \
        }								      \
      __value; })
@@ -269,11 +295,11 @@ typedef struct
   ({ if (sizeof (descr->member) == 1)					      \
        __asm__ __volatile__ ("movb %b0,%%fs:%P1" :				      \
 		     : "iq" (value),					      \
-		       "i" (offsetof (struct pthread, member)));	      \
+		       "i" (offsetof (struct _pthread_descr_struct, member)));	      \
      else if (sizeof (descr->member) == 4)				      \
        __asm__ __volatile__ ("movl %0,%%fs:%P1" :				      \
 		     : IMM_MODE (value),				      \
-		       "i" (offsetof (struct pthread, member)));	      \
+		       "i" (offsetof (struct _pthread_descr_struct, member)));	      \
      else								      \
        {								      \
 	 if (sizeof (descr->member) != 8)				      \
@@ -283,7 +309,7 @@ typedef struct
 									      \
 	 __asm__ __volatile__ ("movq %q0,%%fs:%P1" :				      \
 		       : IMM_MODE ((unsigned long int) value),		      \
-			 "i" (offsetof (struct pthread, member)));	      \
+			 "i" (offsetof (struct _pthread_descr_struct, member)));	      \
        }})
 
 
@@ -292,12 +318,12 @@ typedef struct
   ({ if (sizeof (descr->member[0]) == 1)				      \
        __asm__ __volatile__ ("movb %b0,%%fs:%P1(%q2)" :				      \
 		     : "iq" (value),					      \
-		       "i" (offsetof (struct pthread, member[0])),	      \
+		       "i" (offsetof (struct _pthread_descr_struct, member[0])),	      \
 		       "r" (idx));					      \
      else if (sizeof (descr->member[0]) == 4)				      \
        __asm__ __volatile__ ("movl %0,%%fs:%P1(,%q2,4)" :			      \
 		     : IMM_MODE (value),				      \
-		       "i" (offsetof (struct pthread, member[0])),	      \
+		       "i" (offsetof (struct _pthread_descr_struct, member[0])),	      \
 		       "r" (idx));					      \
      else								      \
        {								      \
@@ -308,7 +334,7 @@ typedef struct
 									      \
 	 __asm__ __volatile__ ("movq %q0,%%fs:%P1(,%q2,8)" :			      \
 		       : IMM_MODE ((unsigned long int) value),		      \
-			 "i" (offsetof (struct pthread, member[0])),	      \
+			 "i" (offsetof (struct _pthread_descr_struct, member[0])),	      \
 			 "r" (idx));					      \
        }})
 
@@ -434,5 +460,4 @@ extern void _dl_x86_64_restore_sse (void);
 
 
 #endif /* __ASSEMBLER__ */
-#endif /* L4 tls disable */
 #endif	/* tls.h */

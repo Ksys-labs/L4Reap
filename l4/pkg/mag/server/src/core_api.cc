@@ -18,15 +18,13 @@ Core_api_impl::add_input_source(Input_source *i)
 {
   i->_next_active = _input;
   _input = i;
-  get_refs_table();
-  i->add_lua_input_source(lua_state(), -1);
-  lua_pop(lua_state(), 1);
+  i->add_lua_input_source(lua_state());
 }
 
 void
 Core_api_impl::register_session(Session *s) const
 {
-  _sessions.add_tail(s);
+  _sessions.push_back(s);
   s->set_notifier(&_session_ntfy);
   _session_ntfy.notify();
 }

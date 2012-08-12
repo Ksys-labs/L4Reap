@@ -54,6 +54,7 @@ bootstrap (l4util_mb_info_t *mbi, unsigned int flag, char *rm_pointer)
 #endif
 
   printf("Highest physical memory address found: %llx\n", mem_upper);
+
   // now do base_paging_init(): sets up paging with one-to-one mapping
   base_paging_init(round_superpage(mem_upper));
 
@@ -66,5 +67,5 @@ bootstrap (l4util_mb_info_t *mbi, unsigned int flag, char *rm_pointer)
   asm volatile("ljmp *(%4)"
                 :: "D"(mbi), "S"(flag), "d"(rm_pointer),
                    "c"(&ptab64_mem_info),
-		   "r"(&far_ptr), "m"(far_ptr));
+                   "r"(&far_ptr), "m"(far_ptr));
 }

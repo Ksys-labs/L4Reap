@@ -611,6 +611,13 @@ public:
   enum { Msg_size = 39 };
 };
 
+INTERFACE [sparc]:
+EXTENSION class L4_exception_ipc
+{
+public:
+  enum { Msg_size = 12 }; // XXX whatever?
+};
+
 //----------------------------------------------------------------------------
 INTERFACE:
 
@@ -674,7 +681,7 @@ public:
 
   /// The message registers (MRs).
   Mword           values[Max_words];
-  Mword           reserved;
+  Mword           utcb_addr;
 
   /// The buffer descriptor register (BDR).
   L4_buf_desc     buf_desc;

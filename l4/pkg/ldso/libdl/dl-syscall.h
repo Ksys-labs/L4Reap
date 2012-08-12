@@ -48,6 +48,7 @@ static inline int
 _dl_mmap_check_error(void *x)
 { return x == MAP_FAILED; }
 
+extern int open (const char *__file, int __oflag, ...) __nonnull ((1));
 
 static inline int
 _dl_open(char const *path, int flags, int mode)

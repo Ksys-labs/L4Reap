@@ -151,6 +151,13 @@ Vga_console::Vga_console( Address vbase, unsigned width, unsigned height,
   scroll(1);
 }
 
+PRIVATE inline
+void Vga_console::set(unsigned i, char c, char a)
+{
+  _video_base[i].c = c;
+  _video_base[i].a = a;
+}
+
 IMPLEMENT
 void Vga_console::scroll( unsigned lines )
 {
@@ -162,17 +169,17 @@ void Vga_console::scroll( unsigned lines )
 	     _width*(_height - lines)*2 );
 #endif
 
-    for( unsigned i= (_height-lines)*_width; i<_width*_height; ++i)
-      _video_base[i] = (VChar){ c: 0x20, a: _attribute };
+    for (unsigned i = (_height - lines) * _width; i < _width * _height; ++i)
+      set(i, 0x20, _attribute);
   }
 }
 
-IMPLEMENT inline
+IMPLEMENT inline NEEDS[Vga_console::set]
 void
 Vga_console::printchar(unsigned x, unsigned y,
                        unsigned char c, unsigned char a)
 {
-  _video_base[x+(y*_width)] = (VChar){ c: c, a: a };
+  set(x + y * _width, c, a);
 }
 
 IMPLEMENT
@@ -187,8 +194,8 @@ void Vga_console::blink_cursor( unsigned x, unsigned y)
 IMPLEMENT
 void Vga_console::clear()
 {
-  for( unsigned i = 0; i<_width*_height; ++i )
-    _video_base[i] = (VChar){ c: 0x20, a: _attribute };
+  for (unsigned i = 0; i<_width*_height; ++i)
+    set(i, 0x20, _attribute);
 }
 
 
@@ -211,11 +218,11 @@ int Vga_console::seq_1( char const *, size_t, unsigned & )
   _x = 0; _y = 0; return 1;
 }
 
-PRIVATE inline
+PRIVATE inline NEEDS[Vga_console::set]
 int Vga_console::seq_5( char const *, size_t , unsigned & )
 {
   for( unsigned i = 0; i<_width-_x; ++i)
-    _video_base[_x+(_y*_width)+i] = (VChar){ c: 0x20, a: _attribute };
+    set(_x+(_y*_width)+i, 0x20, _attribute);
 
   return 1;
 }
@@ -316,7 +323,7 @@ void Vga_console::ansi_esc_write( char const *str, size_t len, unsigned &i )
   case 'X': /* clear n characters */
     for (unsigned i = _x + (_y*_width); i< _x + (_y*_width) + ansi_esc_args[0];
 	 ++i)
-	_video_base[i] = (VChar){ c: 0x20, a: _attribute };
+	set(i, 0x20, _attribute);
 
       break;
 
@@ -325,17 +332,17 @@ void Vga_console::ansi_esc_write( char const *str, size_t len, unsigned &i )
     default:
     case 0:
       for (unsigned i = _x + (_y*_width); i< (_y*_width) + _width;++i)
-	_video_base[i] = (VChar){ c: 0x20, a: _attribute };
+	set(i, 0x20, _attribute);
 
       break;
     case 1:
       for (unsigned i = (_y*_width); i<(_y*_width)+_x;++i)
-	_video_base[i] = (VChar){ c: 0x20, a: _attribute };
+	set(i, 0x20, _attribute);
 
       break;
     case 2:
       for (unsigned i = (_y*_width); i<(_y*_width)+_width;++i)
-	_video_base[i] = (VChar){ c: 0x20, a: _attribute };
+	set(i, 0x20, _attribute);
 
       break;
     }
@@ -346,17 +353,17 @@ void Vga_console::ansi_esc_write( char const *str, size_t len, unsigned &i )
     default:
     case 0:
       for (unsigned i = (_y*_width); i<(_y*_width)+_width*(_height-_y);++i)
-	_video_base[i] = (VChar){ c: 0x20, a: _attribute };
+	set(i, 0x20, _attribute);
 
       break;
     case 1:
       for (unsigned i = 0; i<_width*_y;++i)
-	_video_base[i] = (VChar){ c: 0x20, a: _attribute };
+	set(i, 0x20, _attribute);
 
       break;
     case 2:
       for (unsigned i = 0; i<_width*_height;++i)
-	_video_base[i] = (VChar){ c: 0x20, a: _attribute };
+	set(i, 0x20, _attribute);
 
       break;
     }
@@ -370,8 +377,6 @@ void Vga_console::ansi_esc_write( char const *str, size_t len, unsigned &i )
 PRIVATE
 void Vga_console::normal_write( char const *str, size_t len, unsigned &i )
 {
-  VChar *const vid = _video_base; 
-
   for(; i<len; ++i )
     {
     switch(str[i]) {
@@ -435,8 +440,8 @@ void Vga_console::normal_write( char const *str, size_t len, unsigned &i )
 	  _y = _height -1;
 	}
 	if(_x<_width)
-	  vid[_y*_width + _x] = (VChar)
-	       { c: (str[i] == '\265' ? '\346' : str[i]), a: _attribute };
+	  set(_y * _width + _x,
+              str[i] == '\265' ? '\346' : str[i], _attribute);
 
 	++_x;
       }

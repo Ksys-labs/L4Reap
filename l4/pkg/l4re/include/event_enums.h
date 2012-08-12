@@ -525,3 +525,12 @@ enum L4Re_events_msc
   L4RE_MSC_SCAN     = 0x04,
   L4RE_MSC_MAX      = 0x07,
 };
+
+enum L4Re_events_properties
+{
+  L4RE_EVENT_PROP_POINTER    = 0x00,
+  L4RE_EVENT_PROP_DIRECT     = 0x01,
+  L4RE_EVENT_PROP_BUTTONPAD  = 0x02,
+  L4RE_EVENT_PROP_SEMI_MT    = 0x03,
+  //L4RE_EVENT_PROP_MAX        = 0x1f
+};

@@ -47,8 +47,8 @@ class Jdb_tcb_ptr
 {
 public:
   Jdb_tcb_ptr(Address addr = 0)
-    : _base(addr & ~(Config::thread_block_size-1)),
-      _offs(addr &  (Config::thread_block_size-1))
+    : _base(addr & ~(Context::Size-1)),
+      _offs(addr &  (Context::Size-1))
   {}
 
   Jdb_tcb_ptr(Jdb_tcb_ptr const &p)
@@ -56,12 +56,12 @@ public:
   {}
 
   inline bool valid() const
-  { return _offs <= Config::thread_block_size-sizeof(Mword); }
+  { return _offs <= Context::Size-sizeof(Mword); }
 
   bool operator > (int offs) const
   {
-    return offs < 0 ? _offs > Config::thread_block_size + offs*sizeof(Mword)
-		    : _offs > offs*sizeof(Mword);
+    return offs < 0 ? _offs > Context::Size + offs*sizeof(Mword)
+                    : _offs > offs*sizeof(Mword);
   }
 
   Jdb_tcb_ptr &operator += (int offs)
@@ -81,7 +81,7 @@ public:
   inline const char *user_value_desc() const;
 
   inline Mword top_value(int offs) const
-  { return *((Mword*)(Cpu::stack_align(_base + Config::thread_block_size)) + offs); }
+  { return *((Mword*)(Cpu::stack_align(_base + Context::Size)) + offs); }
 
   inline Address base() const
   { return _base; }
@@ -135,7 +135,7 @@ class Jdb_tcb : public Jdb_module, public Jdb_kobject_handler
 
 private:
   static void print_return_frame_regs(Jdb_tcb_ptr const &current, Mword ksp);
-  static void print_entry_frame_regs(Space *task);
+  static void print_entry_frame_regs(Thread *t);
   static void info_thread_state(Thread *t);
 
   static Jdb_disasm_view _disasm_view;
@@ -146,8 +146,8 @@ private:
 
 Kobject *Jdb_tcb::threadid;
 Address Jdb_tcb::address;
-char	Jdb_tcb::first_char;
-char	Jdb_tcb::auto_tcb;
+char    Jdb_tcb::first_char;
+char    Jdb_tcb::auto_tcb;
 Jdb_disasm_view Jdb_tcb::_disasm_view(Jdb_tcb::Disasm_x, Jdb_tcb::Disasm_y);
 Jdb_stack_view  Jdb_tcb::_stack_view (Jdb_tcb::Stack_y);
 
@@ -226,7 +226,7 @@ Jdb_stack_view::print_value(Jdb_tcb_ptr const &p, bool highl = false)
          } */
     }
 
-  printf(" %s"ADDR_FMT"%s", s1, p.value(), s2);
+  printf(" %s" ADDR_FMT "%s", s1, p.value(), s2);
 }
 
 
@@ -244,14 +244,14 @@ Jdb_stack_view::dump()//Jdb_tcb_ptr const &current)
       Kconsole::console()->getchar_chance();
 
       if (p.valid())
-	{
-	  printf("    %03lx ", p.addr() & 0xfff);
-	  for (unsigned x = 0; x < cols(); ++x, p+=1)
-	    print_value(p);
-	  putchar('\n');
-	}
+        {
+          printf("    %03lx ", p.addr() & 0xfff);
+          for (unsigned x = 0; x < cols(); ++x, p+=1)
+            print_value(p);
+          putchar('\n');
+        }
       else
-	puts("\033[K");
+        puts("\033[K");
     }
 }
 
@@ -286,6 +286,7 @@ Jdb_stack_view::highlight(bool highl)
 
   char kobj_desc[120];
   kobj_desc[0] = 0;
+  Kobject_dbg::Iterator o;
 
   if (current.is_kern_code())
     strcpy(kobj_desc, "Kernel code"); // todo: print kernel function name
@@ -293,9 +294,9 @@ Jdb_stack_view::highlight(bool highl)
     snprintf(kobj_desc, sizeof(kobj_desc), "Return frame: %s",
              current.user_value_desc());
   else
-    if (Kobject *o = Kobject::pointer_to_obj(reinterpret_cast<void *>(current.value())))
+    if ((o = Kobject_dbg::pointer_to_obj(reinterpret_cast<void *>(current.value()))) != Kobject_dbg::end())
       {
-        Jdb_kobject::obj_description(kobj_desc, sizeof(kobj_desc), true, o);
+        Jdb_kobject::obj_description(kobj_desc, sizeof(kobj_desc), true, *o);
         kobj_desc[sizeof(kobj_desc) - 1] = 0;
       }
 
@@ -308,7 +309,7 @@ bool
 Jdb_stack_view::handle_key(int key, bool *redraw)
 {
   Mword   lines    = Jdb_screen::height() - start_y;
-  Mword   max_lines = (Config::thread_block_size + bytes_per_line() - 1)/bytes_per_line();
+  Mword   max_lines = (Context::Size + bytes_per_line() - 1)/bytes_per_line();
   Address max_absy = max_lines - lines;
 
   if (lines > max_lines)
@@ -338,43 +339,43 @@ Jdb_stack_view::edit_stack(bool *redraw)
       Jdb::cursor(posy(), posx());
       printf(" %.*s", Jdb_screen::Mword_size_bmode, Jdb_screen::Mword_blank);
       Jdb::printf_statline("tcb",
-	  is_current ? "<Space>=edit registers" : 0,
-	  "edit <"ADDR_FMT"> = "ADDR_FMT,
-	  current.addr(), current.value());
+          is_current ? "<Space>=edit registers" : 0,
+          "edit <" ADDR_FMT "> = " ADDR_FMT,
+          current.addr(), current.value());
 
       Jdb::cursor(posy(), posx() + 1);
       c = Jdb_core::getchar();
 
       if (c==KEY_ESC)
-	{
-	  *redraw = true;
-	  return;
-	}
+        {
+          *redraw = true;
+          return;
+        }
 
       if (c != ' ' || !is_current)
-	{
-	  // edit memory
-	  putchar(c);
-	  Jdb::printf_statline("tcb", 0, "edit <"ADDR_FMT"> = "ADDR_FMT,
-	      current.addr(), current.value());
-	  Jdb::cursor(posy(), posx() + 1);
-	  if (!Jdb_input::get_mword(&value, c, 16))
-	    {
-	      Jdb::cursor(posy(), posx());
-	      print_value(current);
-	      return;
-	    }
-	  else
-	    current.value(value);
-	}
+        {
+          // edit memory
+          putchar(c);
+          Jdb::printf_statline("tcb", 0, "edit <" ADDR_FMT "> = " ADDR_FMT,
+              current.addr(), current.value());
+          Jdb::cursor(posy(), posx() + 1);
+          if (!Jdb_input::get_mword(&value, c, 16))
+            {
+              Jdb::cursor(posy(), posx());
+              print_value(current);
+              return;
+            }
+          else
+            current.value(value);
+        }
       else
-	{
-	  // edit registers
-	  Jdb::cursor(posy(), posx());
-	  print_value(current);
-	  edit_registers();
-	  return;
-	}
+        {
+          // edit registers
+          Jdb::cursor(posy(), posx());
+          print_value(current);
+          edit_registers();
+          return;
+        }
       *redraw = true;
     }
 }
@@ -466,8 +467,8 @@ Jdb_tcb::show(Thread *t, int level)
     {
 #if 0
       const Mword mask
-	= (Config::thread_block_size * Mem_layout::max_threads()) - 1;
-      const Mword tsksz = Config::thread_block_size*L4_uid::threads_per_task();
+        = (Context::Size * Mem_layout::max_threads()) - 1;
+      const Mword tsksz = Context::Size*L4_uid::threads_per_task();
       LThread_num task = ((Address)Jdb::get_thread() & mask) / tsksz;
 #endif
 #if 0
@@ -525,10 +526,10 @@ whole_screen:
   else
     Jdb_thread::print_partner(t, 4);
 
-  putstr(" polling: ");
+  putstr("\tpolling: ");
   Jdb_thread::print_snd_partner(t, 3);
 
-  putstr("rcv descr: ");
+  putstr("\trcv descr: ");
 
   if ((t->state(false) & Thread_ipc_mask) == Thread_receive_wait)
     printf("%08lx", t->rcv_regs()->from_spec());
@@ -545,11 +546,11 @@ whole_screen:
     {
       Signed64 diff = (t->_timeout->get_timeout(Kip::k()->clock)) * 1000;
       if (diff < 0)
-	strcpy(time_str, "over");
+        strcpy(time_str, "over");
       else
-	Jdb::write_ll_ns(diff, time_str,
-	                 11 < sizeof(time_str)-1 ? 11 : sizeof(time_str)-1,
-	                 false);
+        Jdb::write_ll_ns(diff, time_str,
+                         11 < sizeof(time_str)-1 ? 11 : sizeof(time_str)-1,
+                         false);
       printf("%-13s", time_str);
     }
 
@@ -560,7 +561,7 @@ whole_screen:
 
   printf("\t\ttimeslice: %llu/%llu %cs\n"
          "pager\t: ",
-	 t->sched()->left(), t->sched()->quantum(), Config::char_micro);
+         t->sched()->left(), t->sched()->quantum(), Config::char_micro);
   print_kobject(t, t->_pager.raw());
 
   putstr("\ttask     : ");
@@ -580,15 +581,15 @@ whole_screen:
   if (t->state(false) & Thread_ready)
     {
       if (t->_ready_next)
-	Jdb_kobject::print_uid(Thread::lookup(t->_ready_next), 3);
+        Jdb_kobject::print_uid(Thread::lookup(t->_ready_next), 3);
       else if (is_current_thread)
-	putstr(" ???.??");
+        putstr(" ???.??");
       else
-	putstr("\033[31;1m???.??\033[m");
+        putstr("\033[31;1m???.??\033[m");
       if (t->_ready_prev)
-	Jdb_kobject::print_uid(Thread::lookup(t->_ready_prev), 4);
+        Jdb_kobject::print_uid(Thread::lookup(t->_ready_prev), 4);
       else if (is_current_thread)
-	putstr(" ???.??");
+        putstr(" ???.??");
       else
         putstr(" \033[31;1m???.??\033[m");
       putchar('\n');
@@ -618,7 +619,7 @@ whole_screen:
     putstr("---\nvCPU    : ---\n");
 
   Address ksp  = is_current_thread ? ef->ksp()
-				   : (Address)t->get_kernel_sp();
+                                   : (Address)t->get_kernel_sp();
 
 #if 0
   Address tcb  = (Address)context_of((void*)ksp);
@@ -626,7 +627,7 @@ whole_screen:
   _stack_view.init(ksp, ef, is_current_thread);
 
   if (is_current_thread)
-    print_entry_frame_regs(t->space());
+    print_entry_frame_regs(t);
 
   else if (t->space() != Kernel_task::kernel_task())
     {
@@ -641,7 +642,7 @@ whole_screen:
     {
       // kernel thread
       Jdb::cursor(15, 1);
-      printf("kernel SP="ADDR_FMT, ksp);
+      printf("kernel SP=" ADDR_FMT, ksp);
     }
 
 dump_stack:
@@ -657,100 +658,100 @@ dump_stack:
       Jdb::cursor(Jdb_screen::height(), 6);
 
       if (c == KEY_CURSOR_HOME && level > 0)
-	return GO_BACK;
+        return GO_BACK;
 
       if (!_stack_view.handle_key(c, &redraw))
-	{
-	  switch (c)
-	    {
-	    case KEY_RETURN:
-	      if (jdb_dump_addr_task && _stack_view.current.valid())
-		{
-		  if (!jdb_dump_addr_task(_stack_view.current.value(),
+        {
+          switch (c)
+            {
+            case KEY_RETURN:
+              if (jdb_dump_addr_task && _stack_view.current.valid())
+                {
+                  if (!jdb_dump_addr_task(_stack_view.current.value(),
                         _stack_view.current.is_user_value() ? t->space() : 0, level+1))
-		    return NOTHING;
-		  redraw_screen = true;
-		}
-	      break;
-	    case KEY_TAB:
-	      //bt_start = search_bt_start(tcb, (Mword*)ksp, is_current_thread);
-	      redraw = true;
-	      break;
-	    case ' ':
-	      if (Jdb_disasm::avail() && _stack_view.current.valid())
-		{
+                    return NOTHING;
+                  redraw_screen = true;
+                }
+              break;
+            case KEY_TAB:
+              //bt_start = search_bt_start(tcb, (Mword*)ksp, is_current_thread);
+              redraw = true;
+              break;
+            case ' ':
+              if (Jdb_disasm::avail() && _stack_view.current.valid())
+                {
                   printf("V %lx\n", _stack_view.current.value());
-		  if (!Jdb_disasm::show(_stack_view.current.value(),
-			_stack_view.current.is_user_value() ? t->space() : 0, level+1, true))
-		    return NOTHING;
-		  redraw_screen = true;
-		}
-	      break;
-	    case 'u':
-	      if (Jdb_disasm::avail() && _stack_view.current.valid())
-		{
-		  Jdb::printf_statline("tcb", "<CR>=disassemble here",
-					"u[address=%08lx task=%lx] ",
-					_stack_view.current.value(),
-					Kobject_dbg::pointer_to_id(t->space()));
-		  int c1 = Jdb_core::getchar();
-		  if ((c1 != KEY_RETURN) && (c1 != ' '))
-		    {
-		      Jdb::printf_statline("tcb", 0, "u");
-		      Jdb::execute_command("u", c1);
-		      return NOTHING;
-		    }
+                  if (!Jdb_disasm::show(_stack_view.current.value(),
+                        _stack_view.current.is_user_value() ? t->space() : 0, level+1, true))
+                    return NOTHING;
+                  redraw_screen = true;
+                }
+              break;
+            case 'u':
+              if (Jdb_disasm::avail() && _stack_view.current.valid())
+                {
+                  Jdb::printf_statline("tcb", "<CR>=disassemble here",
+                                        "u[address=%08lx task=%lx] ",
+                                        _stack_view.current.value(),
+                                        Kobject_dbg::pointer_to_id(t->space()));
+                  int c1 = Jdb_core::getchar();
+                  if ((c1 != KEY_RETURN) && (c1 != ' '))
+                    {
+                      Jdb::printf_statline("tcb", 0, "u");
+                      Jdb::execute_command("u", c1);
+                      return NOTHING;
+                    }
 
-		  if (!Jdb_disasm::show(_stack_view.current.value(),
-			_stack_view.current.is_user_value() ? t->space() : 0, level+1, true))
-		    return NOTHING;
-		  redraw_screen = true;
-		}
-	      break;
+                  if (!Jdb_disasm::show(_stack_view.current.value(),
+                        _stack_view.current.is_user_value() ? t->space() : 0, level+1, true))
+                    return NOTHING;
+                  redraw_screen = true;
+                }
+              break;
 #if 0
-	    case 'r': // ready-list
-	      putstr("[n]ext/[p]revious in ready list?");
-	      switch (Jdb_core::getchar())
-		{
-		case 'n':
-		  if (t->_ready_next)
-		    {
-		      t = static_cast<Thread*>(t->_ready_next);
-		      goto new_tcb;
-		    }
-		  break;
-		case 'p':
-		  if (t->_ready_prev)
-		    {
-		      t = static_cast<Thread*>(t->_ready_prev);
-		      goto new_tcb;
-		    }
-		  break;
-		}
-	      break;
+            case 'r': // ready-list
+              putstr("[n]ext/[p]revious in ready list?");
+              switch (Jdb_core::getchar())
+                {
+                case 'n':
+                  if (t->_ready_next)
+                    {
+                      t = static_cast<Thread*>(t->_ready_next);
+                      goto new_tcb;
+                    }
+                  break;
+                case 'p':
+                  if (t->_ready_prev)
+                    {
+                      t = static_cast<Thread*>(t->_ready_prev);
+                      goto new_tcb;
+                    }
+                  break;
+                }
+              break;
 #endif
             case 'C':
               _stack_view.memdump_is_colored = !_stack_view.memdump_is_colored;
               redraw = true;
               break;
-	    case KEY_ESC:
-	      Jdb::abort_command();
-	      return NOTHING;
-	    default:
-	      if (Jdb::is_toplevel_cmd(c))
-		return NOTHING;
-	      break;
-	    }
-	}
+            case KEY_ESC:
+              Jdb::abort_command();
+              return NOTHING;
+            default:
+              if (Jdb::is_toplevel_cmd(c))
+                return NOTHING;
+              break;
+            }
+        }
       if (redraw_screen)
-	goto whole_screen;
+        goto whole_screen;
       if (redraw)
-	goto dump_stack;
+        goto dump_stack;
     }
 } 
 
 /* --- original L4 screen ------------------------------------------------------
-thread: 0081 (001.01) <00020401 00080000>	                        prio: 10
+thread: 0081 (001.01) <00020401 00080000>                               prio: 10
 state : 85, ready                            lists: 81                   mcp: ff
 
 wait for: --                             rcv descr: 00000000   partner: 00000000
@@ -785,19 +786,19 @@ Jdb_tcb::action(int cmd, void *&args, char const *&fmt, int &next_char)
   if (cmd == 0)
     {
       if (args == &first_char)
-	{
-	  switch (first_char)
-	    {
-	      case '+':
-	      case '-':
-		printf("%c\n", first_char);
-		auto_tcb = first_char == '+';
-		break;
-	      case '?':
-		args      = &address;
-		fmt       = " addr="ADDR_FMT" => ";
-		putchar(first_char);
-		return Jdb_module::EXTRA_INPUT;
+        {
+          switch (first_char)
+            {
+              case '+':
+              case '-':
+                printf("%c\n", first_char);
+                auto_tcb = first_char == '+';
+                break;
+              case '?':
+                args      = &address;
+                fmt       = " addr=" ADDR_FMT " => ";
+                putchar(first_char);
+                return Jdb_module::EXTRA_INPUT;
               case 'a':
                 args      = &tcb_addr;
                 fmt       = " tcb=%x => ";
@@ -806,21 +807,21 @@ Jdb_tcb::action(int cmd, void *&args, char const *&fmt, int &next_char)
               case KEY_RETURN:
                 show(0, 0);
                 return NOTHING;
-	      default:
-		args      = &threadid;
-		fmt       = "%q";
-		next_char = first_char;
-		return Jdb_module::EXTRA_INPUT_WITH_NEXTCHAR;
-	    }
-	}
+              default:
+                args      = &threadid;
+                fmt       = "%q";
+                next_char = first_char;
+                return Jdb_module::EXTRA_INPUT_WITH_NEXTCHAR;
+            }
+        }
       else if (args == &address)
-	{
-	  address &= ~(Config::thread_block_size-1);
-	  Jdb_kobject::print_uid(reinterpret_cast<Thread*>(address), 3);
-	  putchar('\n');
-	}
+        {
+          address &= ~(Context::Size-1);
+          Jdb_kobject::print_uid(reinterpret_cast<Thread*>(address), 3);
+          putchar('\n');
+        }
       else if (args == &tcb_addr)
-	show((Thread*)tcb_addr, 0);
+        show((Thread*)tcb_addr, 0);
       else
         {
           Thread *t = Kobject::dcast<Thread_object *>(threadid);
@@ -874,12 +875,12 @@ Jdb_tcb::show_kobject_short(char *buf, int max, Kobject_common *o)
     }
   if (t->space() == Kernel_task::kernel_task())
     return cnt + snprintf(buf, max, " R=%ld%s", t->ref_cnt(),
-                          is_current ? " "JDB_ANSI_COLOR(green)"current"JDB_ANSI_END : "");
+                          is_current ? " " JDB_ANSI_COLOR(green) "current" JDB_ANSI_END : "");
 
   return cnt + snprintf(buf, max, " C=%u S=D:%lx R=%ld %s", t->cpu(),
                         Kobject_dbg::pointer_to_id(t->space()),
                         t->ref_cnt(),
-                        is_current ? " "JDB_ANSI_COLOR(green)"current"JDB_ANSI_END : "");
+                        is_current ? " " JDB_ANSI_COLOR(green) "current" JDB_ANSI_END : "");
 }
 
 PUBLIC
@@ -895,10 +896,10 @@ Jdb_tcb::cmds() const
 {
   static Cmd cs[] =
     {
-	{ 0, "t", "tcb", "%C",
-	  "t[<threadid>]\tshow current/given thread control block (TCB)\n"
-	  "t{+|-}\tshow current thread control block at Jdb every entry\n",
-	  &first_char },
+        { 0, "t", "tcb", "%C",
+          "t[<threadid>]\tshow current/given thread control block (TCB)\n"
+          "t{+|-}\tshow current thread control block at Jdb every entry\n",
+          &first_char },
     };
   return cs;
 }
@@ -946,7 +947,7 @@ Jdb_tcb::print_kobject(Thread *t, Mword capidx)
       return;
     }
 
-  Obj_space::Capability *c = space->obj_space()->get_cap(capidx);
+  Obj_space::Capability *c = space->get_cap(capidx);
   if (!c || !c->valid())
     {
       print_kobject(capidx);

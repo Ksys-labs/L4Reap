@@ -1,0 +1,179 @@
+// vim: ft=cpp
+
+/*
+ * manager --
+ *
+ *     Definition of the instance manager that knows about all
+ *     redundant VCPUs as well as the fault observers.
+ *
+ * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ *     economic rights: Technische Universität Dresden (Germany)
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+
+/*
+ * Romain instance manager
+ */
+
+#pragma once
+
+#include "constants.h"
+#include "app"
+//#include "app_loading"
+#include "fault_observers"
+
+#include <vector>
+#include <cstdio>
+
+#include "redundancy.h"
+
+#if SPLIT_HANDLING
+EXTERN_C void *split_handler_fn(void*);
+#endif // SPLIT_HANDLING
+
+namespace Romain
+{
+	/*
+	 * Set up and keep track of the running instances
+	 */
+	class InstanceManager
+	{
+		private:
+			Romain::App_model *_am;
+			std::vector<Romain::App_instance *> _instances; // instance list
+
+			Romain::Observer *_observer_list[Romain::MAX_OBSERVERS];  // exception observer list
+			Romain::RedundancyCallback *_callback;                 // the callback for redundancy checking
+			unsigned _num_observers;
+			
+			char const *_name;        // app name
+			unsigned    _num_inst;    // number of instances to run
+			l4_umword_t _num_cpu;     // number of available CPUs
+
+			l4_addr_t _init_eip;      // initial EIP (from ELF)
+			l4_addr_t _init_esp;      // initial ESP (from ELF)
+			unsigned _gdt_min;        // start of GDT entries
+
+			unsigned     _argc;       // client argc
+			char const **_argv;       // argv of the client
+
+#if SPLIT_HANDLING
+			pthread_t _split_handler; // resilient core handler thread
+#endif // SPLIT_HANDLING
+
+
+			/*
+			 * Prepare handler stack by pushing 3 values:
+			 *
+			 * 1st parameter is an app_thread
+			 * 2nd parameter is an app_instance
+			 * 3rd parameter is a dummy for the location where usually the
+			 *                  return address would be located
+			 */
+			l4_addr_t prepare_stack(l4_addr_t sp, Romain::App_instance *inst,
+			                        Romain::App_thread *thread);
+
+
+			void configure_logflags(char *flags);
+			void configure_fault_observers();
+			void configure_redundancy();
+
+		public:
+			InstanceManager(unsigned argc, char const **argv, unsigned num_instances = 1);
+
+
+			/*
+			 * Prepare the instances (VCPUs)
+			 */
+			void create_instances();
+
+
+			/* 
+			 * Start the instances
+			 */
+			void run_instances();
+
+
+			void register_fault_observer(Romain::Observer* ob)
+			{
+				_check(_num_observers >= MAX_OBSERVERS, "no more observers");
+				_observer_list[_num_observers++] = ob;
+			}
+
+
+			Romain::RedundancyCallback *redundancy() const { return _callback; }
+
+
+			void set_redundancy_callback(Romain::RedundancyCallback* cb)
+			{
+				_check(_callback != 0, "there is already a callback registered?");
+				_callback = cb;
+			}
+
+
+			void startup_notify(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a) const
+			{
+				// XXX would need to be aware of observer list modifications
+				//     -> for now, we assume that observers are not added/removed
+				//        at runtime. otherwise we'd use sth. like an r/w lock with
+				//        reader prioritization??
+				for (unsigned idx = 0; idx < _num_observers; ++idx)
+					_observer_list[idx]->startup_notify(i,t,a);
+			}
+
+
+			/*
+			 * Entry point for CPU exception handling.
+			 *
+			 * Iterates over the list of registered observers and calls
+			 * every observer's notify() function. Observers may stop
+			 * this iteration process. See Romain::Observer::ObserverReturnVal
+			 */
+			Romain::Observer::ObserverReturnVal
+			fault_notify(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a)
+			{
+				Romain::Observer::ObserverReturnVal v = Romain::Observer::Ignored;
+				// XXX would need to be aware of observer list modifications
+				//     -> for now, we assume that observers are not added/removed
+				//        at runtime. otherwise we'd use sth. like an r/w lock with
+				//        reader prioritization??
+				for (unsigned idx = 0; idx < _num_observers; ++idx) {
+					//DEBUG() << "[" << i->id() << "] notifying: " << _observer_list[idx]->name();
+					v = _observer_list[idx]->notify(i,t,a);
+					switch(v) {
+						case Romain::Observer::Finished:
+						case Romain::Observer::Replicatable:
+							//DEBUG() << "Fault handling done: " << std::hex << v;
+							return v;
+						default: break;
+					}
+				}
+
+				return v;
+			}
+
+
+			void query_observer_status()
+			{
+				for (unsigned idx = 0; idx < _num_observers; ++idx) {
+					//INFO() << "querying: " << _observer_list[idx]->name();
+					_observer_list[idx]->status();
+				}
+			}
+
+
+			unsigned instance_count() const { return _num_inst; }
+
+			static void VCPU_handler(Romain::InstanceManager *m, Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a);
+			static void VCPU_startup(Romain::InstanceManager *m, Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a);
+
+
+		private:
+			/*
+			 * Read config from cfg file
+			 */
+			void configure();
+	};
+}

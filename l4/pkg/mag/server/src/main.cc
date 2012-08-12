@@ -69,6 +69,9 @@ namespace {
 class My_reg : public Registry, private Object_gc
 {
 private:
+  My_reg(My_reg const &);
+  void operator = (My_reg const &);
+
   class Del_handler : public L4::Server_object
   {
   private:
@@ -125,7 +128,7 @@ public:
 
   void setup_wait(L4::Ipc::Istream &istr, L4::Ipc_svr::Reply_mode reply_mode)
   {
-    if (to < l4re_kip()->clock
+    if (to <= l4re_kip()->clock
 	&& reply_mode == L4::Ipc_svr::Reply_separate)
     {
       poll_input(_core_api);
@@ -144,7 +147,7 @@ public:
 
   L4::Ipc_svr::Reply_mode before_reply(long, L4::Ipc::Iostream &)
   {
-    if (to < l4re_kip()->clock)
+    if (to <= l4re_kip()->clock)
       return L4::Ipc_svr::Reply_separate;
     return L4::Ipc_svr::Reply_compound;
   }
@@ -225,6 +228,7 @@ static const luaL_Reg libs[] =
   { LUA_STRLIBNAME, luaopen_string },
   {LUA_LOADLIBNAME, luaopen_package},
   {LUA_DBLIBNAME, luaopen_debug},
+  {LUA_DBLIBNAME, luaopen_table},
   { NULL, NULL }
 };
 
@@ -250,7 +254,7 @@ int run(int argc, char const *argv[])
   if (!f)
     {
       printf("ERROR: could not start screen driver for given video mode.\n"
-             "       Maybe unsupoported pixel format... exiting\n");
+             "       Maybe unsupported pixel format... exiting\n");
       exit(1);
     }
 
@@ -264,7 +268,7 @@ int run(int argc, char const *argv[])
   if (!screen)
     {
       printf("ERROR: could not start screen driver for given video mode.\n"
-             "       Maybe unsupoported pixel format... exiting\n");
+             "       Maybe unsupported pixel format... exiting\n");
       exit(1);
     }
 
@@ -295,12 +299,21 @@ int run(int argc, char const *argv[])
       exit(1);
     }
 
+  lua_newtable(lua);
+  lua_setglobal(lua, "Mag");
+
   for (int i = 0; libs[i].func; ++i)
     {
       lua_pushcfunction(lua, libs[i].func);
       lua_pushstring(lua,libs[i].name);
       lua_call(lua, 1, 0);
     }
+
+
+  static Font label_font(&_binary_default_tff_start[0]);
+  static View_stack vstack(screen, screen_view, &bg, &label_font);
+  static User_state user_state(lua, &vstack, cursor);
+  static Core_api_impl core_api(&registry, lua, &user_state, rcv_cap, fb, &label_font);
 
   int err;
   if ((err = luaL_loadbuffer(lua, _binary_mag_lua_start, _binary_mag_lua_end - _binary_mag_lua_start, "@mag.lua")))
@@ -324,10 +337,6 @@ int run(int argc, char const *argv[])
     }
 
   lua_pop(lua, lua_gettop(lua));
-  static Font label_font(&_binary_default_tff_start[0]);
-  static View_stack vstack(screen, screen_view, &bg, &label_font);
-  static User_state user_state(lua, &vstack, cursor);
-  static Core_api_impl core_api(&registry, lua, &user_state, rcv_cap, fb, &label_font);
 
   Plugin_manager::start_plugins(&core_api);
 
@@ -339,7 +348,7 @@ int run(int argc, char const *argv[])
 
   _core_api = &core_api;
 
-  server.loop(registry);
+  server.loop(&registry);
 
   return 0;
 }

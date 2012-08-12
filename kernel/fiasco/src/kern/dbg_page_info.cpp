@@ -3,32 +3,32 @@ INTERFACE [debug]:
 #include "types.h"
 #include "lock_guard.h"
 #include "spin_lock.h"
-#include "slab_cache_anon.h"
+#include "slab_cache.h"
+#include <slist>
 
 class Dbg_page_info_table;
 
-class Dbg_page_info
+class Dbg_page_info : public cxx::S_list_item
 {
   friend class Dbg_page_info_table;
 
 private:
   Page_number const _pfn;
-  Dbg_page_info *_n;
   typedef unsigned long Buf[5];
   Buf _buf;
 
   char *b() { return reinterpret_cast<char*>(_buf); }
   char const *b() const { return reinterpret_cast<char const*>(_buf); }
 
-  typedef slab_cache_anon Allocator;
+  typedef Slab_cache Allocator;
 
 public:
-  void *operator new (size_t) { return alloc()->alloc(); }
+  void *operator new (size_t) throw() { return alloc()->alloc(); }
   void operator delete (void *p, size_t) { alloc()->free(p); }
 
   enum { Buffer_size = sizeof(Buf) };
 
-  Dbg_page_info(Page_number pfn) : _pfn(pfn), _n(0) {}
+  Dbg_page_info(Page_number pfn) : _pfn(pfn) {}
 
   bool match(Page_number p) { return _pfn == p; }
 
@@ -43,8 +43,15 @@ public:
 
 class Dbg_page_info_table
 {
+private:
+  typedef cxx::S_list_bss<Dbg_page_info> List;
+
 public:
-  typedef Spin_lock_coloc<Dbg_page_info*> Entry;
+  struct Entry
+  {
+    List h;
+    Spin_lock<> l;
+  };
   enum { Hash_tab_size = 1024 };
 
 private:
@@ -56,7 +63,7 @@ private:
 
 IMPLEMENTATION [debug]:
 
-#include "kmem_slab_simple.h"
+#include "kmem_slab.h"
 
 
 static Dbg_page_info_table _t;
@@ -76,14 +83,14 @@ Dbg_page_info::alloc()
 { return &_dbg_page_info_allocator; }
 
 
-PUBLIC static
-Dbg_page_info *
-Dbg_page_info::find(Dbg_page_info *i, Page_number p)
+PUBLIC template<typename B, typename E> static inline
+B
+Dbg_page_info_table::find(B const &b, E const &e, Page_number p)
 {
-  for (; i; i = i->_n)
+  for (B i = b; i != e; ++i)
     if (i->match(p))
       return i;
-  return 0;
+  return e;
 }
 
 PUBLIC
@@ -91,8 +98,9 @@ Dbg_page_info *
 Dbg_page_info_table::operator [] (Page_number pfn) const
 {
   Entry &e = const_cast<Dbg_page_info_table*>(this)->_tab[hash(pfn)];
-  Lock_guard<Entry> g(&e);
-  return Dbg_page_info::find(e.get_unused(), pfn);
+  Lock_guard<decltype(e.l)> g(&e.l);
+  // we know that *end() is NULL
+  return *find(e.h.begin(), e.h.end(), pfn);
 }
 
 PUBLIC
@@ -100,9 +108,8 @@ void
 Dbg_page_info_table::insert(Dbg_page_info *i)
 {
   Entry *e = &_tab[hash(i->_pfn)];
-  Lock_guard<Entry> g(e);
-  i->_n = e->get_unused();
-  e->set_unused(i);
+  Lock_guard<decltype(e->l)> g(&e->l);
+  e->h.add(i);
 }
 
 PUBLIC
@@ -110,25 +117,13 @@ Dbg_page_info *
 Dbg_page_info_table::remove(Page_number pfn)
 {
   Entry *e = &_tab[hash(pfn)];
-  Lock_guard<Entry> g(e);
-  Dbg_page_info *i = e->get_unused();
+  Lock_guard<decltype(e->l)> g(&e->l);
 
-  if (!i)
+  List::Iterator i = find(e->h.begin(), e->h.end(), pfn);
+  if (i == e->h.end())
     return 0;
 
-  if (i->match(pfn))
-    {
-      e->set_unused(i->_n);
-      return i;
-    }
-
-  for (; i->_n; i = i->_n)
-    if (i->_n->match(pfn))
-      {
-	Dbg_page_info *r = i->_n;
-	i->_n = i->_n->_n;
-	return r;
-      }
-
-  return 0;
+  Dbg_page_info *r = *i;
+  e->h.erase(i);
+  return r;
 }

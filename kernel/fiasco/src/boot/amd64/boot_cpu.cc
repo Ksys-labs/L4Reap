@@ -330,18 +330,19 @@ base_gdt_init(void)
   printf("base_tss @%p\n", &base_tss);
   /* Initialize the base TSS descriptor.  */
   fill_descriptor(&base_gdt[BASE_TSS / 8],
-		  (Address)&base_tss, sizeof(base_tss) - 1,
-	  	  ACC_PL_K | ACC_TSS, 0);
-  char *gdt_base = reinterpret_cast<char*>(&base_gdt[(BASE_TSS / 8) + 1]);
-  *reinterpret_cast<unsigned long long*>(gdt_base) = 0;
+                  (Address)&base_tss, sizeof(base_tss) - 1,
+                  ACC_PL_K | ACC_TSS, 0);
+
+  memset(&base_gdt[(BASE_TSS / 8) + 1], 0, 8);
+
   /* Initialize the 64-bit kernel code and data segment descriptors
      to point to the base of the kernel linear space region.  */
   fill_descriptor(&base_gdt[KERNEL_CS_64 / 8], 0, 0xffffffff,
-      		  ACC_PL_K | ACC_CODE_R, SZ_CODE_64);
-  
+                  ACC_PL_K | ACC_CODE_R, SZ_CODE_64);
+
   fill_descriptor(&base_gdt[KERNEL_DS / 8], 0, 0xffffffff,
-	  	  ACC_PL_K | ACC_DATA_W, SZ_32);
-  
+                  ACC_PL_K | ACC_DATA_W, SZ_32);
+
 }
 
 static void
@@ -542,9 +543,6 @@ pdir_map_range(Address pml4_pa, Address la, Address pa,
 void
 base_paging_init(void)
 {
-  extern char _end;
-
-
   ptab_alloc(&base_pml4_pa);
 
   // Establish one-to-one mappings for the first 4MB of physical memory

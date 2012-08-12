@@ -68,10 +68,17 @@ private:
       S_irq_type_edge  = Adr_resource::Irq_edge,
       S_irq_type_high  = Adr_resource::Irq_high,
       S_irq_type_low   = Adr_resource::Irq_low,
-      S_irq_type_mode_mask = S_irq_type_level | S_irq_type_edge,
+      S_irq_type_both  = Adr_resource::Irq_both,
+      S_irq_type_mode_mask = S_irq_type_level | S_irq_type_edge
+                             | S_irq_type_both,
       S_irq_type_polarity_mask = S_irq_type_high | S_irq_type_low,
-      S_irq_type_mask  = S_irq_type_level | S_irq_type_edge
-                         | S_irq_type_high | S_irq_type_low,
+      S_irq_type_mask  = S_irq_type_mode_mask | S_irq_type_polarity_mask,
+    };
+
+    enum
+    {
+      S_allow_set_mode = 4,
+      S_user_mask = S_irq_type_mask | S_allow_set_mode
     };
 
     typedef unsigned Key_type;
@@ -79,7 +86,7 @@ private:
     static unsigned key_of(Sw_irq_pin const *o) { return o->_irqn; }
 
     Sw_irq_pin(Io_irq_pin *master, unsigned irqn, unsigned flags)
-    : _state(flags & S_irq_type_mask), _irqn(irqn), _master(master)
+    : _state(flags & S_user_mask), _irqn(irqn), _master(master)
     {
       master->add_sw_irq();
     }
@@ -94,6 +101,7 @@ private:
     int bind(L4::Cap<void> rc);
     int unmask() { return _master->unmask(); }
     int unbind();
+    int set_mode(l4_umword_t mode);
     int trigger() const;
 
   protected:
@@ -102,13 +110,17 @@ private:
     void allocate_master_irq();
   };
 
-  static Kernel_irq_pin *real_irq(unsigned n);
-  static Kernel_irq_pin *_real_irqs[];
-
   typedef cxx::Avl_tree<Sw_irq_pin, Sw_irq_pin> Irq_set;
   Irq_set _irqs;
 
 public:
+  static Kernel_irq_pin *real_irq(unsigned n);
+
+  enum
+  {
+    S_allow_set_mode = Sw_irq_pin::S_allow_set_mode,
+  };
+
   static void *irq_loop(void*);
   void set_host(Device *d) { _host = d; }
   Device *host() const { return _host; }

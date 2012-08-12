@@ -49,7 +49,7 @@ public:
   Observer *mode_observer() { return this; }
   Observer *session_observer() { return &_session_observer; }
 
-  void handle_event(L4Re::Event_buffer::Event const &e, Point const &mouse);
+  void handle_event(Hid_report *e, Point const &mouse, bool core_dev);
   void draw(Canvas *canvas, View_stack const *, Mode mode) const;
   void notify();
   void sessions_changed();
@@ -90,12 +90,11 @@ static Session_manager session_manager;
 
 
 void
-Session_manager_view::handle_event(L4Re::Event_buffer::Event const &e,
-                                   Point const &mouse)
+Session_manager_view::handle_event(Hid_report *e, Point const &mouse, bool)
 {
-  Session *s = _m.handle_event(e, mouse - p1());
+  Session_list::Const_iterator s = _m.handle_event(e, mouse - p1());
 
-  if (s)
+  if (s != _core->sessions()->end())
     {
       s->ignore(!s->ignore());
       _core->user_state()->vstack()->update_all_views();
@@ -140,7 +139,7 @@ Session_manager_view::notify()
   if (_visible && !m.kill())
     {
       _visible = false;
-      View::l_remove();
+      vs->remove(this);
       vs->refresh_view(0, 0, *this);
     }
   else if (!_visible && m.kill())

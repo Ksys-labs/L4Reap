@@ -147,9 +147,14 @@ namespace L4
     explicit Runtime_error(long err_no, char const *extra = 0) throw ()
       : _errno(err_no)
     {
-      for (unsigned i = 0; i < sizeof(_extra) && extra[i]; ++i)
-        _extra[i] = extra[i];
-      _extra[sizeof(_extra) - 1] = 0;
+      if (!extra)
+        _extra[0] = 0;
+      else
+        {
+          for (unsigned i = 0; i < sizeof(_extra) && extra[i]; ++i)
+            _extra[i] = extra[i];
+          _extra[sizeof(_extra) - 1] = 0;
+        }
     }
     char const *str() const throw ()
     { return l4sys_errtostr(_errno); }

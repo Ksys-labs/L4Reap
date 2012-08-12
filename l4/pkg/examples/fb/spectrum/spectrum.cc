@@ -14,14 +14,12 @@
  * Event handling in C mode has not been done.
  */
 
-#define DO_CPP 1
-
-#ifdef DO_CPP
+#ifdef DO_C
+#include <l4/re/c/util/video/goos_fb.h>
+#else
 #include <l4/re/util/video/goos_fb>
 #include <l4/re/util/event>
 #include <l4/event/event>
-#else
-#include <l4/re/c/util/video/goos_fb.h>
 #endif
 
 #include <l4/re/event_enums.h>
@@ -31,13 +29,13 @@
 #include <unistd.h>
 #include <string.h>
 
-#ifdef DO_CPP
+#ifdef DO_C
+static l4re_util_video_goos_fb_t gfb;
+static l4re_video_view_info_t fbi;
+#else
 static L4Re::Util::Video::Goos_fb gfb;
 static L4Re::Video::View::Info fbi;
 static L4Re::Util::Event event;
-#else
-static l4re_util_video_goos_fb_t gfb;
-static l4re_video_view_info_t fbi;
 #endif
 
 static void *fbmem_vaddr;
@@ -46,17 +44,17 @@ static unsigned bpp;
 static void put_pixel(int x, int y, int fullval)
 {
   unsigned v = 0;
-#ifdef DO_CPP
-  unsigned long offset = (unsigned long)fbmem_vaddr + y * fbi.bytes_per_line + x * fbi.pixel_info.bytes_per_pixel();
-  v  = ((fullval >> (8  - fbi.pixel_info.r().size())) & ((1 << fbi.pixel_info.r().size()) - 1)) << fbi.pixel_info.r().shift();
-  v |= ((fullval >> (16 - fbi.pixel_info.g().size())) & ((1 << fbi.pixel_info.g().size()) - 1)) << fbi.pixel_info.g().shift();
-  v |= ((fullval >> (24 - fbi.pixel_info.b().size())) & ((1 << fbi.pixel_info.b().size()) - 1)) << fbi.pixel_info.b().shift();
-#else
+#ifdef DO_C
   unsigned bpp = l4re_video_bits_per_pixel(&fbi.pixel_info);
   unsigned long offset = (unsigned long)fbmem_vaddr + y * fbi.bytes_per_line + x * fbi.pixel_info.bytes_per_pixel;
   v  = ((fullval >> (8  - fbi.pixel_info.r.size)) & ((1 << fbi.pixel_info.r.size) - 1)) << fbi.pixel_info.r.shift;
   v |= ((fullval >> (16 - fbi.pixel_info.g.size)) & ((1 << fbi.pixel_info.g.size) - 1)) << fbi.pixel_info.g.shift;
   v |= ((fullval >> (24 - fbi.pixel_info.b.size)) & ((1 << fbi.pixel_info.b.size) - 1)) << fbi.pixel_info.b.shift;
+#else
+  unsigned long offset = (unsigned long)fbmem_vaddr + y * fbi.bytes_per_line + x * fbi.pixel_info.bytes_per_pixel();
+  v  = ((fullval >> (8  - fbi.pixel_info.r().size())) & ((1 << fbi.pixel_info.r().size()) - 1)) << fbi.pixel_info.r().shift();
+  v |= ((fullval >> (16 - fbi.pixel_info.g().size())) & ((1 << fbi.pixel_info.g().size()) - 1)) << fbi.pixel_info.g().shift();
+  v |= ((fullval >> (24 - fbi.pixel_info.b().size())) & ((1 << fbi.pixel_info.b().size()) - 1)) << fbi.pixel_info.b().shift();
 #endif
 
   switch (bpp)
@@ -71,10 +69,10 @@ static void put_pixel(int x, int y, int fullval)
 
 static void update_rect(int x, int y, int w, int h)
 {
-#ifdef DO_CPP
-  gfb.refresh(x, y, w, h);
-#else
+#ifdef DO_C
   l4re_util_video_goos_fb_refresh(&gfb, x, y, w, h);
+#else
+  gfb.refresh(x, y, w, h);
 #endif
 }
 
@@ -91,7 +89,7 @@ static inline unsigned color_val(unsigned w, unsigned peak_point, unsigned val)
   return ((third - a) * 255) / third;
 }
 
-#ifdef DO_CPP
+#ifndef DO_C
 static void ev_hdl_func(void *data)
 {
   (void)data;
@@ -111,7 +109,7 @@ static void ev_hdl_func(void *data)
 
 int main(void)
 {
-#ifdef DO_CPP
+#ifndef DO_C
   try { gfb.setup("fb"); } catch (...) { return 1; }
   if (gfb.view_info(&fbi))
     return 2;

@@ -1,6 +1,6 @@
 INTERFACE:
 
-#include "pages.h"
+#include "types.h"
 
 class Space;
 /** Represents one mapping in a mapping tree.
@@ -75,26 +75,6 @@ void
 Mapping::set_space(Space *space)
 {
   data()->set_space(space);
-}
-
-/** Address space.
-    @return the address space into which the frame is mapped. 
- */
-PUBLIC inline NEEDS [Mapping::data]
-unsigned
-Mapping::tag() const
-{
-  return data()->data.tag;
-}
-
-/** Set address space.
-    @param space the address space into which the frame is mapped. 
- */
-PUBLIC inline NEEDS [Mapping::data]
-void
-Mapping::set_tag(unsigned tag)
-{
-  data()->data.tag = tag;
 }
 
 /** Virtual address.

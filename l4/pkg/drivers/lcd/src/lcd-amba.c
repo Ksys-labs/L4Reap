@@ -108,12 +108,15 @@ static void setup_type(void)
 
   amba_read_id(amba_pl110_lcd_control_virt_base + 0xfe0, &periphid, &cellid);
 
-  if (periphid == 0x00041111 && cellid == 0xb105f00d)
+  if ((periphid & 0xff0fffff) == 0x00041111 && cellid == 0xb105f00d)
     type = PL111;
   else if (periphid == 0x00041110 && cellid == 0xb105f00d)
     type = PL110;
   else
-    type = PL_UNKNOWN;
+    {
+      printf("Unknown LCD: periphid = %08x, cellid = %08x\n", periphid, cellid);
+      type = PL_UNKNOWN;
+    }
 }
 
 static const char *arm_lcd_get_info(void)
@@ -154,16 +157,23 @@ void write_clcd_reg(unsigned reg, l4_umword_t val)
 }
 
 static
+unsigned is_vexpress(void)
+{
+  return (read_sys_reg(Reg_sys_id) & 0xfff0000) == 0x1900000;
+}
+
+static
 int init(unsigned long fb_phys_addr)
 {
   l4_umword_t id;
 
   id = read_sys_reg(Reg_sys_clcd) & Sys_clcd_idmask;
+  if (is_vexpress())
+    id = Sys_clcd_id84;
   switch (id)
     {
     case Sys_clcd_id84:
     case Sys_clcd_idmask:
-    case 0x1000: // (strange?) qemu value, should be 0x100, or did they think BE?
       printf("Configure 8.4 CLCD\n");
       if (use_xga)
         {

@@ -21,7 +21,6 @@ void
 Context::fill_user_state()
 {}
 
-
 /** Thread context switchin.  Called on every re-activation of a thread
     (switch_exec()).  This method is public only because it is called from
     from assembly code in switch_cpu().
@@ -44,10 +43,6 @@ Context::switchin_context(Context *from)
 
   // load new segment selectors
   load_segments();
-
-  // update the global UTCB pointer to make the thread find its UTCB
-  // using fs:[0]
-  Mem_layout::user_utcb_ptr(current_cpu()) = utcb().usr();
 }
 
 //---------------------------------------------------------------------------
@@ -70,22 +65,3 @@ Context::store_segments()
   _fs = Cpu::get_fs();
   _gs = Cpu::get_gs();
 }
-
-
-//---------------------------------------------------------------------------
-IMPLEMENTATION [amd64]:
-
-PROTECTED inline
-void
-Context::load_segments()
-{}
-
-PROTECTED inline
-void
-Context::store_segments()
-{}
-
-PROTECTED inline
-void
-Context::switch_gdt_user_entries(Context *)
-{}

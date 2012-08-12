@@ -3,6 +3,7 @@ INTERFACE:
 #include "cpu_mask.h"
 #include "per_cpu_data.h"
 #include "spin_lock.h"
+#include <slist>
 
 class Rcu_glbl;
 class Rcu_data;
@@ -45,18 +46,14 @@ private:
  * An RCU item is basically a pointer to a callback which is called
  * after one grace period.
  */
-class Rcu_item
+class Rcu_item : public cxx::S_list_item
 {
-  friend class Rcu_list;
   friend class Rcu_data;
   friend class Rcu;
   friend class Jdb_rcupdate;
 
 private:
   bool (*_call_back)(Rcu_item *);
-  Rcu_item *_next;
-public:
-  Rcu_item *next_rcu_item() const { return _next; }
 };
 
 
@@ -68,17 +65,21 @@ public:
  *
  * \note Concurrent access to the list is not synchronized.
  */
-class Rcu_list
+class Rcu_list : public cxx::S_list_tail<Rcu_item>
 {
-  friend class Jdb_rcupdate;
+private:
+  typedef cxx::S_list_tail<Rcu_item> Base;
 public:
-  /// create an empty list.
-  Rcu_list() : _l(0), _t(&_l) {}
+  Rcu_list() {}
+  Rcu_list(Rcu_list &&o) : Base(static_cast<Base &&>(o)) {}
+  Rcu_list &operator = (Rcu_list &&o)
+  {
+    Base::operator = (static_cast<Base &&>(o));
+    return *this;
+  }
 
 private:
-  Rcu_list(Rcu_list const &);
-  Rcu_item *_l;
-  Rcu_item **_t;
+  friend class Jdb_rcupdate;
 };
 
 /**
@@ -92,6 +93,7 @@ public:
   Rcu_batch _q_batch;   ///< batch nr. for grace period
   bool _q_passed;       ///< quiescent state passed?
   bool _pending;        ///< wait for quiescent state
+  bool _idle;
 
   Rcu_batch _batch;
   Rcu_list _n;
@@ -117,6 +119,8 @@ private:
   bool _next_pending;      ///< next batch already pending?
   Spin_lock<> _lock;
   Cpu_mask _cpus;
+
+  Cpu_mask _active_cpus;
 
 };
 
@@ -212,8 +216,8 @@ Rcu_timeout::expired()
 
 
 Rcu_glbl Rcu::_rcu INIT_PRIORITY(EARLY_INIT_PRIO);
-Per_cpu<Rcu_data> DEFINE_PER_CPU Rcu::_rcu_data(true);
-static Per_cpu<Rcu_timeout> DEFINE_PER_CPU _rcu_timeout;
+DEFINE_PER_CPU Per_cpu<Rcu_data> Rcu::_rcu_data(true);
+DEFINE_PER_CPU static Per_cpu<Rcu_timeout> _rcu_timeout;
 
 PUBLIC
 Rcu_glbl::Rcu_glbl()
@@ -223,7 +227,7 @@ Rcu_glbl::Rcu_glbl()
 
 PUBLIC
 Rcu_data::Rcu_data(unsigned cpu)
-: _q_batch(Rcu::rcu()->_completed),
+: _idle(true),
   _cpu(cpu)
 {}
 
@@ -232,62 +236,7 @@ Rcu_data::Rcu_data(unsigned cpu)
  * \brief Enqueue Rcu_item into the list (at the tail).
  * \prarm i the RCU item to enqueue.
  */
-PUBLIC inline
-void
-Rcu_list::enqueue(Rcu_item *i)
-{
-  *_t = i;
-  i->_next = 0;
-  _t = &i->_next;
-}
-
-PUBLIC inline
-Rcu_item *
-Rcu_list::head() const { return _l; }
-
-PUBLIC inline
-void
-Rcu_list::head(Rcu_item *h)
-{
-  _l = h;
-  if (!h)
-    _t = &_l;
-}
-
-PUBLIC inline
-void
-Rcu_list::clear()
-{ _l = 0; _t = &_l; }
-
-
-PUBLIC inline NEEDS["kdb_ke.h"]
-void
-Rcu_list::operator = (Rcu_list const &o)
-{
-  assert_kdb(o._l); // assignment is allowed only from a non-empty list
-  assert_kdb(!_l);  // to an empty list
-  _l = o._l; _t = o._t;
-}
-
-PUBLIC inline
-void
-Rcu_list::append(Rcu_list &o)
-{
-  *_t = o._l;
-  if (o._l)
-    _t = o._t;
-
-  o._l = 0;
-  o._t = &o._l;
-}
-
-PUBLIC inline
-bool
-Rcu_list::empty() { return !_l; }
-
-PUBLIC inline
-bool
-Rcu_list::full() { return _l; }
+PUBLIC inline void Rcu_list::enqueue(Rcu_item *i){ push_back(i); }
 
 /**
  * \pre must run under cpu lock
@@ -304,18 +253,23 @@ PRIVATE inline NOEXPORT NEEDS["cpu_lock.h", "lock_guard.h"]
 bool
 Rcu_data::do_batch()
 {
-  Rcu_item *n, *l;
   int count = 0;
   bool need_resched = false;
-  l = _d.head();
-  while (l)
+  for (Rcu_list::Const_iterator l = _d.begin(); l != _d.end();)
     {
-      n = l->_next;
-      need_resched |= l->_call_back(l);
-      l = n;
+      Rcu_item *i = *l;
+      ++l;
+
+      need_resched |= i->_call_back(i);
       ++count;
     }
-  _d.head(l);
+
+  // XXX: I do not know why this and the former stuff is w/o cpu lock
+  //      but the couting needs it ?
+  _d.clear();
+
+  // XXX: we use clear, we seemingly worked through the whole list
+  //_d.head(l);
 
     {
       Lock_guard<Cpu_lock> guard(&cpu_lock);
@@ -341,9 +295,37 @@ Rcu_glbl::start_batch()
       Mem::mp_wmb();
       ++_current;
       Mem::mp_mb();
-      _cpus = Cpu::online_mask();
+      _cpus = _active_cpus;
     }
 }
+
+PUBLIC static inline
+void
+Rcu::enter_idle(unsigned cpu)
+{
+  Rcu_data *rdp = &_rcu_data.cpu(cpu);
+  if (EXPECT_TRUE(!rdp->_idle))
+    {
+      rdp->_idle = true;
+      Lock_guard<decltype(rcu()->_lock)> guard(&rcu()->_lock);
+      rcu()->_active_cpus.clear(cpu);
+    }
+}
+
+PUBLIC static inline
+void
+Rcu::leave_idle(unsigned cpu)
+{
+  Rcu_data *rdp = &_rcu_data.cpu(cpu);
+  if (EXPECT_FALSE(rdp->_idle))
+    {
+      rdp->_idle = false;
+      Lock_guard<decltype(rcu()->_lock)> guard(&rcu()->_lock);
+      rcu()->_active_cpus.set(cpu);
+      rdp->_q_batch = Rcu::rcu()->_current;
+    }
+}
+
 
 PRIVATE inline NOEXPORT
 void
@@ -381,7 +363,7 @@ Rcu_data::check_quiescent_state(Rcu_glbl *rgp)
 
   _pending = 0;
 
-  Lock_guard<typeof(rgp->_lock)> guard(&rgp->_lock);
+  Lock_guard<decltype(rgp->_lock)> guard(&rgp->_lock);
 
   if (EXPECT_TRUE(_q_batch == rgp->_current))
     rgp->cpu_quiet(_cpu);
@@ -393,7 +375,6 @@ void
 Rcu::call(Rcu_item *i, bool (*cb)(Rcu_item *))
 {
   i->_call_back = cb;
-  i->_next = 0;
   LOG_TRACE("Rcu call", "rcu", ::current(), __fmt_rcu,
       Log_rcu *p = tbe->payload<Log_rcu>();
       p->cpu   = current_cpu();
@@ -403,7 +384,7 @@ Rcu::call(Rcu_item *i, bool (*cb)(Rcu_item *))
 
   Lock_guard<Cpu_lock> guard(&cpu_lock);
 
-  Rcu_data *rdp = &_rcu_data.cpu(current_cpu());
+  Rcu_data *rdp = &_rcu_data.current();
   rdp->enqueue(i);
 }
 
@@ -422,11 +403,11 @@ Rcu_data::~Rcu_data()
   if (current_cpu() == _cpu)
     return;
 
-  Rcu_data *current_rdp = &Rcu::_rcu_data.cpu(current_cpu());
+  Rcu_data *current_rdp = &Rcu::_rcu_data.current();
   Rcu_glbl *rgp = Rcu::rcu();
 
     {
-      Lock_guard<typeof(rgp->_lock)> guard(&rgp->_lock);
+      Lock_guard<decltype(rgp->_lock)> guard(&rgp->_lock);
       if (rgp->_current != rgp->_completed)
 	rgp->cpu_quiet(_cpu);
     }
@@ -446,15 +427,14 @@ Rcu_data::process_callbacks(Rcu_glbl *rgp)
       p->item = 0;
       p->event = Rcu::Rcu_process);
 
-  if (_c.full() && !(rgp->_completed < _batch))
+  if (!_c.empty() && rgp->_completed >= _batch)
     _d.append(_c);
 
-  if (_n.full() && _c.empty())
+  if (!_n.empty() && _c.empty())
     {
 	{
 	  Lock_guard<Cpu_lock> guard(&cpu_lock);
-	  _c = _n;
-	  _n.clear();
+	  _c = cxx::move(_n);
 	}
 
       // start the next batch of callbacks
@@ -465,14 +445,14 @@ Rcu_data::process_callbacks(Rcu_glbl *rgp)
       if (!rgp->_next_pending)
 	{
 	  // start the batch and schedule start if it's a new batch
-	  Lock_guard<typeof(rgp->_lock)> guard(&rgp->_lock);
+	  Lock_guard<decltype(rgp->_lock)> guard(&rgp->_lock);
 	  rgp->_next_pending = 1;
 	  rgp->start_batch();
 	}
     }
 
   check_quiescent_state(rgp);
-  if (_d.full())
+  if (!_d.empty())
     return do_batch();
 
   return false;
@@ -480,19 +460,19 @@ Rcu_data::process_callbacks(Rcu_glbl *rgp)
 
 PUBLIC inline
 bool
-Rcu_data::pending(Rcu_glbl *rgp)
+Rcu_data::pending(Rcu_glbl *rgp) const
 {
   // The CPU has pending RCU callbacks and the grace period for them
   // has been completed.
-  if (_c.full() && rgp->_completed >= _batch)
+  if (!_c.empty() && rgp->_completed >= _batch)
     return 1;
 
   // The CPU has no pending RCU callbacks, however there are new callbacks
-  if (_c.empty() && _n.full())
+  if (_c.empty() && !_n.empty())
     return 1;
 
   // The CPU has callbacks to be invoked finally
-  if (_d.full())
+  if (!_d.empty())
     return 1;
 
   // RCU waits for a quiescent state from the CPU
@@ -507,7 +487,7 @@ Rcu_data::pending(Rcu_glbl *rgp)
 PUBLIC static inline NEEDS["globals.h"]
 bool FIASCO_WARN_RESULT
 Rcu::process_callbacks()
-{ return _rcu_data.cpu(current_cpu()).process_callbacks(&_rcu); }
+{ return _rcu_data.current().process_callbacks(&_rcu); }
 
 PUBLIC static inline NEEDS["globals.h"]
 bool FIASCO_WARN_RESULT
@@ -521,6 +501,13 @@ Rcu::pending(unsigned cpu)
   return _rcu_data.cpu(cpu).pending(&_rcu);
 }
 
+PUBLIC static inline
+bool
+Rcu::idle(unsigned cpu)
+{
+  Rcu_data const *d = &_rcu_data.cpu(cpu);
+  return d->_c.empty() && !d->pending(&_rcu);
+}
 
 PUBLIC static inline
 void

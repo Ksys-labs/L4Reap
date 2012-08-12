@@ -75,6 +75,9 @@ enum L4_mem_cache_ops
   L4_MEM_CACHE_OP_COHERENT          = 3,
   L4_MEM_CACHE_OP_DMA_COHERENT      = 4,
   L4_MEM_CACHE_OP_DMA_COHERENT_FULL = 5,
+  L4_MEM_CACHE_OP_L2_CLEAN          = 6,
+  L4_MEM_CACHE_OP_L2_FLUSH          = 7,
+  L4_MEM_CACHE_OP_L2_INV            = 8,
 };
 
 L4_INLINE void
@@ -116,6 +119,27 @@ L4_INLINE void
 l4_cache_dma_coherent_full(void) L4_NOTHROW
 {
   l4_cache_op_arm_call(L4_MEM_CACHE_OP_DMA_COHERENT_FULL, 0, 0);
+}
+
+L4_INLINE void
+l4_cache_l2_clean(unsigned long start,
+                  unsigned long end) L4_NOTHROW
+{
+  l4_cache_op_arm_call(L4_MEM_CACHE_OP_L2_CLEAN, start, end);
+}
+
+L4_INLINE void
+l4_cache_l2_flush(unsigned long start,
+                  unsigned long end) L4_NOTHROW
+{
+  l4_cache_op_arm_call(L4_MEM_CACHE_OP_L2_FLUSH, start, end);
+}
+
+L4_INLINE void
+l4_cache_l2_inv(unsigned long start,
+                unsigned long end) L4_NOTHROW
+{
+  l4_cache_op_arm_call(L4_MEM_CACHE_OP_L2_INV, start, end);
 }
 
 #endif /* ! __L4SYS__INCLUDE__ARCH_ARM__CACHE_H__ */

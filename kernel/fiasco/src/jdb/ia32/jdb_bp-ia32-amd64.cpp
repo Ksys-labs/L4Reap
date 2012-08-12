@@ -135,7 +135,7 @@ Jdb_bp::test_other(char *errbuf, size_t bufsize)
   if (!(dr6 & Val_test_other))
     return 0;
 
-  snprintf(errbuf, bufsize, "unknown trap 1 (dr6="L4_PTR_FMT")", dr6);
+  snprintf(errbuf, bufsize, "unknown trap 1 (dr6=" L4_PTR_FMT ")", dr6);
   write_debug_register(6, Val_leave);
   return 1;
 }

@@ -27,7 +27,8 @@ class Platform_ppc_mpc52000 : public Platform_base
   void init()
   {
     static L4::Uart_of _uart;
-    _uart.startup(0);
+    static L4::Io_register_block_mmio r(0);
+    _uart.startup(&r);
     set_stdio_uart(&_uart);
   }
   void setup_memory_map(l4util_mb_info_t *,

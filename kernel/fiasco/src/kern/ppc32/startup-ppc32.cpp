@@ -4,7 +4,6 @@ IMPLEMENTATION [ppc32]:
 #include "boot_info.h"
 #include "config.h"
 #include "cpu.h"
-#include "dirq.h"
 #include "kip_init.h"
 #include "kernel_task.h"
 #include "kmem_alloc.h"
@@ -24,7 +23,6 @@ Startup::stage1()
   Boot_info::init();
   Cpu::early_init();
   Config::init();
-  //Dirq::init();
 }
 
 IMPLEMENT FIASCO_INIT FIASCO_NOINLINE
@@ -43,7 +41,7 @@ Startup::stage2()
   Mem_layout::init();
 
   // Initialize cpu-local data management and run constructors for CPU 0
-  Per_cpu_data::init_ctors(Kmem_alloc::allocator());
+  Per_cpu_data::init_ctors();
 
   // not really necessary for uni processor
   Per_cpu_data_alloc::alloc(0);
@@ -53,7 +51,7 @@ Startup::stage2()
   //idle task
   Kernel_task::init();
   Pic::init();
-  Timer::init();
+  Timer::init(0);
   Utcb_init::init();
   puts("Startup::stage2 finished");
 }

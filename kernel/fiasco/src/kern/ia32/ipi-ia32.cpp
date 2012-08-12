@@ -29,11 +29,16 @@ PUBLIC inline
 Ipi::Ipi() : _apic_id(~0)
 {}
 
-IMPLEMENT inline NEEDS["apic.h"]
+
+/**
+ * \param cpu the logical CPU number of the current CPU.
+ * \pre cpu == current CPU.
+ */
+IMPLEMENT static inline NEEDS["apic.h"]
 void
-Ipi::init()
+Ipi::init(unsigned cpu)
 {
-  _apic_id = Apic::get_id();
+  _ipi.cpu(cpu)._apic_id = Apic::get_id();
 }
 
 
@@ -46,24 +51,25 @@ Ipi::ipi_call_debug_arch()
 
 PUBLIC static inline NEEDS["apic.h"]
 void
-Ipi::eoi(Message)
+Ipi::eoi(Message, unsigned cpu)
 {
   Apic::mp_ipi_ack();
-  stat_received();
-}
-
-PUBLIC inline NEEDS["apic.h"]
-void
-Ipi::send(Message m)
-{
-  Apic::mp_send_ipi(_apic_id, (Unsigned8)m);
-  stat_sent();
+  stat_received(cpu);
 }
 
 PUBLIC static inline NEEDS["apic.h"]
 void
-Ipi::bcast(Message m)
+Ipi::send(Message m, unsigned from_cpu, unsigned to_cpu)
 {
+  Apic::mp_send_ipi(_ipi.cpu(to_cpu)._apic_id, (Unsigned8)m);
+  stat_sent(from_cpu);
+}
+
+PUBLIC static inline NEEDS["apic.h"]
+void
+Ipi::bcast(Message m, unsigned from_cpu)
+{
+  (void)from_cpu;
   Apic::mp_send_ipi(Apic::APIC_IPI_OTHERS, (Unsigned8)m);
 }
 
@@ -80,9 +86,9 @@ void Ipi::ipi_call_spin()
       if (!Per_cpu_data::valid(cpu))
 	continue;
 
-      if (Ipi::cpu(cpu)._apic_id == Apic::get_id())
+      if (_ipi.cpu(cpu)._apic_id == Apic::get_id())
 	{
-	  ipi = &Ipi::cpu(cpu);
+	  ipi = &_ipi.cpu(cpu);
 	  break;
 	}
     }

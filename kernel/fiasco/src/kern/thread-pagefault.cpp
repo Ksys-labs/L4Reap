@@ -11,7 +11,6 @@ IMPLEMENTATION:
 #include "regdefs.h"
 #include "std_macros.h"
 #include "thread.h"
-#include "vmem_alloc.h"
 #include "warn.h"
 
 
@@ -29,7 +28,7 @@ IMPLEMENTATION:
  *                    but recovery location has been installed           
  */
 IMPLEMENT inline NEEDS[<cstdio>,"regdefs.h", "kdb_ke.h","processor.h",
-		       "config.h","std_macros.h","vmem_alloc.h","logdefs.h",
+		       "config.h","std_macros.h","logdefs.h",
 		       "warn.h",Thread::page_fault_log]
 int Thread::handle_page_fault (Address pfa, Mword error_code, Mword pc,
     Return_frame *regs)
@@ -113,21 +112,8 @@ int Thread::handle_page_fault (Address pfa, Mword error_code, Mword pc,
       kdb_ke("Fiasco BUG: Invalid access to Caps area");
       return 0;
     }
-  else if (PF::is_translation_error(error_code) &&
-#if defined CONFIG_ARM || defined CONFIG_PPC32
-      Mem_space::kernel_space()->virt_to_phys(pfa) != ~0UL
-#else
-      Kmem::virt_to_phys (reinterpret_cast<void*>(pfa)) != ~0UL
-#endif
-      )
-    {
-      if (pfa < Mem_layout::Slabs_start || pfa >= Mem_layout::Slabs_end)
-	kdb_ke("BAD PF");
-      Mem_space::current_mem_space(cpu())->kmem_update((void*)pfa);
-      return 1;
-    }
 
-  WARN("No page-fault handler for 0x%lx, error 0x%lx, pc "L4_PTR_FMT"\n",
+  WARN("No page-fault handler for 0x%lx, error 0x%lx, pc " L4_PTR_FMT "\n",
         pfa, error_code, pc);
 
   // An error occurred.  Our last chance to recover is an exception

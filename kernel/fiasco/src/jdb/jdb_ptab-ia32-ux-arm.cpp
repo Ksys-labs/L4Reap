@@ -120,8 +120,8 @@ Jdb_ptab::print_statline(unsigned long row, unsigned long col)
 
   if (cur_pt_level<max_pt_level)
     Jdb::printf_statline("pdir", "<Space>=mode <CR>=goto ptab/superpage",
-                         "<"L4_PTR_FMT"> task D:%lx", disp_virt(row,col), sid);
+                         "<" L4_PTR_FMT "> task D:%lx", disp_virt(row,col), sid);
   else // PT_MODE
     Jdb::printf_statline("ptab", "<Space>=mode <CR>=goto page",
-                         "<"L4_PTR_FMT"> task D:%lx", disp_virt(row,col), sid);
+                         "<" L4_PTR_FMT "> task D:%lx", disp_virt(row,col), sid);
 }

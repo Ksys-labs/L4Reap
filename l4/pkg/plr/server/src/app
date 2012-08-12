@@ -1,0 +1,460 @@
+// vi: ft=cpp
+
+/*
+ * app --
+ *
+ *    Definitions of applications, instances
+ *
+ * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ *     economic rights: Technische Universität Dresden (Germany)
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+
+#pragma once
+
+#include <cstdio>
+#include <stdlib.h>
+#include <malloc.h>
+#include <map>
+
+#include <l4/sys/types.h>
+#include <l4/sys/utcb.h>
+#include <l4/sys/factory>
+#include <l4/sys/thread>
+#include <l4/sys/task>
+#include <l4/sys/scheduler>
+#include <l4/sys/segment.h>
+#include <l4/sys/debugger.h>
+
+#include <l4/vcpu/vcpu>
+#include <l4/util/util.h>
+#include <l4/util/bitops.h>
+
+#include <l4/re/error_helper>
+#include <l4/re/util/cap_alloc>
+#include <l4/re/util/kumem_alloc>
+
+#include "log"
+#include "exceptions"
+#include "constants.h"
+#include "memory"
+
+using L4Re::chksys;
+using L4Re::chkcap;
+
+extern "C" void my_handler(void);
+
+namespace Romain {
+
+/*
+ * Instance of an application
+ *
+ * Every instance of the app is run within a dedicated vCPU address space.
+ * Instances are created depending on the amount of redundancy/checking
+ * needed.
+ */
+class App_instance
+{
+	// XXX: For multithreading, we might consider having a vCPU task for
+	//      every thread of the app -> see papers on deterministic multithreading
+	L4::Cap<L4::Task>    _vcpu_task;
+	/*
+	 * Instance ID
+	 */
+	unsigned             _id;
+
+	/*
+	 * Map of addr -> addr mappings.
+	 *
+	 * This is a dirty trick keeping track of all pages in the master AS
+	 * that are mapped to the replica AS. We need it, because the usual sequence
+	 * for using a dataspace is:
+	 *
+	 *   ds.alloc()
+	 *   ds.attach()
+	 *   <raise page faults>
+	 *   ds.detach()
+	 *   unmap()
+	 *
+	 * And in the last unmap(), we cannot consult the region map for
+	 * this mapping anymore.
+	 *
+	 * XXX: Real fix would be to slightly adapt the region map for our
+	 *      purposes, because otherwise we are storing *a lot* of
+	 *      page-to-page mappings here.
+	 */
+	std::map<l4_addr_t, l4_addr_t> _mappings;
+
+	enum { debug_name_size = 16 };
+
+	public:
+		explicit App_instance(char const *name = "", unsigned const instanceID = 0)
+			: _id(instanceID)
+		{
+			/*
+			 * Create instance vCPU
+			 */
+			_vcpu_task = chkcap(L4Re::Util::cap_alloc.alloc<L4::Task>(),
+			                    "vCPU task alloc");
+			chksys(L4Re::Env::env()->factory()->create_task(_vcpu_task,
+			                                                l4_fpage_invalid()),
+			       "create vCPU task");
+
+
+			/*
+			 * Every replica gets a name set as the debug ID
+			 */
+			char namebuf[debug_name_size];
+			snprintf(namebuf, debug_name_size, "V %s %d", name, _id);
+			l4_debugger_set_object_name(_vcpu_task.cap(), namebuf);
+		}
+
+		L4::Cap<L4::Task> vcpu_task()	const { return _vcpu_task; }
+		unsigned                 id()   const { return _id; }
+
+		/*
+		 * Map a flexpage in an aligned way.
+		 *
+		 * Current impl.: simply map the page as we indirectly assume that
+		 *                we are always called for a single page.
+		 *
+		 * Future: this should align the local and remote targets and use the
+		 *         largest possible mapping so that we can avoid a couple
+		 *         of page faults if possible. XXX
+		 */
+		void map_aligned(l4_addr_t local, l4_addr_t remote, unsigned shift, unsigned flags)
+		{
+			//DEBUG() << "map_aligned(" << std::hex << local << ", " << remote
+			//        << ", " << shift << ", " << flags << ")";
+			l4_fpage_t fp = l4_fpage(local, shift, flags);
+			//DEBUG() << "fp: " << fp.raw;
+			l4_msgtag_t tag = vcpu_task()->map(L4Re::This_task, fp, remote);
+			//DEBUG() << "mapped " << std::hex << fp.raw << " : " << std::hex << tag.raw;
+			for (unsigned offs = 0; offs < (L4_PAGESIZE << (shift - L4_PAGESHIFT));
+			          offs += L4_PAGESIZE) {
+				_mappings[remote + offs] = local + offs;
+			}
+		}
+
+
+		/*
+		 * Map a local region to a remote region using the least
+		 * possible amount of map operations (XXX).
+		 */
+		void map(l4_addr_t local_start, l4_addr_t remote_start,/* l4_size_t size,*/
+				 unsigned pageflags, l4_size_t size = L4_PAGESIZE)
+		{
+			//DEBUG() << "map " << std::hex << local_start << " -> " << remote_start
+			//        << " size " << size;
+
+			while (size > 0) {
+				unsigned frame_l = local_start  >> L4_PAGESHIFT;
+				unsigned frame_r = remote_start >> L4_PAGESHIFT;
+				unsigned shift   = 0;
+
+/* Macro checks whether the size fits a given number of pages */
+#define FOO(x) do { \
+	if ((!frame_l & (x-1)) && (!frame_r & (x-1)) && (size >= (x*L4_PAGESIZE))) { \
+		shift += 1; \
+	} \
+} while (0)
+				//FOO(2); FOO(4); FOO(8); FOO(16); FOO(32); FOO(64);
+				map_aligned(local_start, remote_start, L4_PAGESHIFT + shift, pageflags);
+				local_start  += (L4_PAGESIZE << shift);
+				remote_start += (L4_PAGESIZE << shift);
+				size -= (L4_PAGESIZE << shift);
+			}
+			//enter_kdebug("mapped");
+		}
+
+
+		/*
+		 * Unmap a flexpage from replica
+		 */
+		void unmap(l4_umword_t fpraw)
+		{
+			l4_fpage_t fp;
+			l4_addr_t remote;
+			fp.raw = fpraw;
+			remote = l4_fpage_page(fp) << L4_PAGESHIFT;
+
+			//DEBUG() << "unmap @ " << std::hex << "0x" << remote;
+			l4_addr_t a = _mappings[remote];
+			//DEBUG() << std::hex << remote << " -> " << "0x" << a;
+			vcpu_task()->unmap(l4_fpage(a, L4_PAGESIZE, L4_FPAGE_RO), L4_FP_ALL_SPACES);
+			_mappings[remote] = 0;
+			//enter_kdebug("unmapped");
+		}
+};
+
+
+/*
+ * Representation of an application-level thread
+ *
+ * In fact, a vCPU is used for every such thread. This class also includes
+ * the stacks needed for setting up the thread and later on running the
+ * VCPU exception handlers.
+ */
+class App_thread
+{
+	private:
+		l4_addr_t _handler_fn; // pointer to exception handler code
+		l4_addr_t _thread_fn;  // pointer to initial startup code
+
+		/* Handler stack layout:
+		 *
+		 * +-------------------------------+ _handler_stack + sizeof(_handler_stack)
+		 * | Instance Manager pointer      |
+		 * | App_instance pointer          |
+		 * | App_thread pointer            |
+		 * +-------------------------------+ _initial stack ptr
+		 * |   handler entry ebp           |
+		 * |   ...                         |
+		 * +-------------------------------+ _handler_stack
+		 */
+		char *_handler_stack;
+
+		l4_addr_t _handler_sp;
+		l4_addr_t _thread_sp;
+
+		l4_umword_t         _cpu;
+		L4::Cap<L4::Thread> _vcpu_cap;     // cap for vcpu object
+		L4vcpu::Vcpu       *_vcpu;         // vcpu state area
+		l4_utcb_t          *_vcpu_utcb;    // vcpu UTCB
+		pthread_t           _pthread;      // pthread backing this VCPU
+		l4_addr_t           _remote_utcb;  // address of remote UTCB
+
+		unsigned long       _stored_ds;    // stored register ES/DS
+		unsigned long       _stored_fs;    // stored register FS
+		unsigned long       _stored_gs;    // stored register GS
+
+		l4_umword_t         _pending_trap; // for injecting HW traps
+		l4_umword_t         _events;       // keeping track of handle events
+		enum eventpending {
+			Unhandled_Page_Fault = 1,
+		};
+
+		struct gdt_entry_struct
+		{
+			unsigned short limit_low;      // The lower 16 bits of the limit.
+			unsigned short base_low;       // The lower 16 bits of the base.
+			unsigned char base_middle;     // The next 8 bits of the base.
+			unsigned char access;          // Access flags, determine what ring this segment can be used in.
+			unsigned char granularity;
+			unsigned char base_high;       // The last 8 bits of the base.
+		} __attribute__((packed))
+		_client_gdt[2];
+
+		/*
+		 * Get topmost address of exception handler/thread stacks
+		 */
+		l4_addr_t top_of_handler_stack() { return (l4_addr_t)(_handler_stack + HANDLER_STACK_SIZE); }
+
+		/*
+		 * Initialize handler and init thread stacks.
+		 *
+		 * This ensures that the handler stack is paged in correctly before we
+		 * do anything. Otherwise the handler might raise a page fault upon
+		 * first entry.
+		 */
+		void touch_stacks();
+
+
+		/*
+		 * Create the vCPU kernel object
+		 */
+		void alloc_vcpu_cap();
+
+
+		/*
+		 * Alloc and setup vCPU UTCB
+		 *
+		 * The setup code stores a pointer to this App_thread object on
+		 * the handler's stack so that it can be found upon an exception.
+		 */
+		void alloc_vcpu_mem();
+
+		App_thread() { }
+		App_thread(const App_thread&) { }
+
+	public:
+
+		App_thread(l4_addr_t eip,
+		           l4_addr_t esp,
+		           l4_addr_t handler_fn,
+		           l4_addr_t thread_fn)
+			:
+			  _handler_fn(handler_fn),
+			  _thread_fn(thread_fn),
+			  _cpu(1),
+			  _vcpu(0),
+			  _vcpu_utcb(0),
+			  _pending_trap(0),
+			  _events(0)
+		{
+			asm volatile (
+			    "mov %%fs, %0\n\t"
+			    "mov %%gs, %1\n\t"
+			    "mov %%ds, %2\n\t"
+			    : "=r" (_stored_fs),
+				  "=r" (_stored_gs),
+			      "=r" (_stored_ds));
+
+			_handler_stack = (char*)memalign(L4_PAGESIZE, HANDLER_STACK_SIZE);
+			_handler_sp    = top_of_handler_stack();
+			DEBUG() << "HANDLER STACK: " << (void*)_handler_stack;
+			_check(!_handler_stack, "could not allocate handler stack");
+
+			touch_stacks();
+			alloc_vcpu_cap();
+			alloc_vcpu_mem();
+
+			DEBUG() << "STACK: " << std::hex << (void*)esp;
+			vcpu()->r()->ip = eip;
+			vcpu()->r()->sp = esp;
+		}
+
+
+		/*
+		 * Manage fast lookup for the replica's UTCB address
+		 */
+		void remote_utcb(l4_addr_t a) { _remote_utcb = a; }
+		l4_addr_t remote_utcb() const { return _remote_utcb; }
+
+		/*
+		 * Start the vCPU thread
+		 */
+		void start();
+
+
+		l4_addr_t            handler_sp()     const { return _handler_sp; }
+		void handler_sp(l4_addr_t sp) { _handler_sp = sp; }
+
+		l4_addr_t            thread_sp()      const { return _thread_sp; }
+		void thread_sp(l4_addr_t sp)  { _thread_sp = sp; }
+
+		l4_addr_t            thread_entry()   const { return _thread_fn; }
+
+		l4_umword_t           cpu()           const { return _cpu; }
+		void                  cpu(l4_umword_t c)    { _cpu = c; }
+		L4::Cap<L4::Thread>   vcpu_cap()      const { return _vcpu_cap; }
+		L4vcpu::Vcpu         *vcpu()          const { return _vcpu; }
+		l4_utcb_t            *vcpu_utcb()     const { return _vcpu_utcb; }
+
+		unsigned long         ds()            const { return _stored_ds; }
+		unsigned long         fs()            const { return _stored_fs; }
+		unsigned long         gs()            const { return _stored_gs; }
+//		void                  gs(l4_addr_t a)       { _stored_gs = a; }
+
+		void *                gdt()           const
+		{
+			return (void*)&_client_gdt[0];
+		}
+		unsigned              gdt_size()      const { return sizeof(_client_gdt); }
+
+		/*
+		 * This method is called during bootup and sets up the initial
+		 * FS segment for the thread. uClibC later sets the second entry,
+		 * which refers to the GS segment.
+		 */
+		void setup_gdt(l4_addr_t base, l4_addr_t limit)
+		{
+			memset(_client_gdt, 0, sizeof(_client_gdt));
+
+			_client_gdt[0].limit_low   = limit & 0xFFFF;
+			_client_gdt[0].base_low    = base & 0xFFFF;
+			_client_gdt[0].base_middle = (base >> 16) & 0xFF;
+			_client_gdt[0].base_high   = (base >> 24) & 0xFF;
+			_client_gdt[0].access      = 0xF2;
+			_client_gdt[0].granularity = 0x40;
+		}
+
+		void write_gdt(l4_umword_t *src, l4_umword_t bytes)
+		{
+			memcpy(&_client_gdt[1], src, bytes);
+			unsigned r = fiasco_gdt_set(_vcpu_cap.cap(), _client_gdt,
+			                            gdt_size(), 1, l4_utcb());
+			vcpu()->r()->fs = r;
+			vcpu()->r()->gs = r+8;
+		}
+
+
+		/*
+		 * Make sure the stored GDT is used for the client.
+		 *
+		 * XXX: This overwrites the user GDT entries 2 & 3 (1st is kept intact).
+		 *      Because of this we'd actually need to restore at least entry #2
+		 *      whenever the VCPU enters the master, so that the master task's
+		 *      GDT segment is used properly. 
+		 *      Another option would be to have 4 user GDT entries in the
+		 *      kernel.  In this case, on would only need to set GDT entries
+		 *      when a gdt_set() from the client is emulated. Otherwise, the
+		 *      fault handler prologue and epilogue would only need to set the
+		 *      proper values to FS and GS.
+		 *
+		 */
+		void commit_client_gdt()
+		{
+			unsigned size = gdt_size();
+			if (_client_gdt[1].access == 0x00) {
+				size /= 2;
+			}
+			unsigned r = fiasco_gdt_set(_vcpu_cap.cap(), gdt(), size, 1, l4_utcb());
+			vcpu()->r()->fs = r;
+			if (_client_gdt[1].access != 0x00) {
+				vcpu()->r()->gs = r + 8;
+			}
+		}
+
+		/*
+		 * Schedule a "virtual" trap
+		 *
+		 * The whole thing is used to mark pending events for future
+		 * invocations of some fault observers. These events currently
+		 * include
+		 *
+		 *   - unhandled page fault
+		 */
+		void set_pending_trap(unsigned no) { _pending_trap |= (1 << no); }
+
+		void set_unhandled_pf()   { _events |= Unhandled_Page_Fault; }
+		void unset_unhandled_pf() { _events &= ~Unhandled_Page_Fault; }
+		bool unhandled_pf()       { return _events & Unhandled_Page_Fault; }
+
+		l4_umword_t events_pending() { return _events; }
+
+		/*
+		 * Get the next pending trap (and remove it from pending list)
+		 */
+		unsigned get_pending_trap()
+		{
+			unsigned ret = l4util_find_first_set_bit(&_pending_trap, sizeof(_pending_trap));
+			if (ret > sizeof(_pending_trap)) {
+				return 0;
+			} else {
+				_pending_trap &= ~(1 << ret);
+			}
+		
+			return ret;
+		}
+
+		unsigned long csum_state();
+};
+}
+
+/*
+ * Common prolog to be executed upon entry to exception handler function. It
+ * restores this VCPU's ES, DS, FS, and GS registers before continuing
+ * execution in the handler address space.
+ */
+#define handler_prolog(app_thread) \
+	do { asm volatile ( \
+	              "mov %0, %%es \t\n" \
+	              "mov %0, %%ds \t\n" \
+	              "mov %1, %%fs \t\n" \
+	              "mov %2, %%gs \t\n" \
+	              : : "r"((app_thread)->ds()), "r"((app_thread)->fs()), \
+	                  "r"((app_thread)->gs())); \
+	} while (0)

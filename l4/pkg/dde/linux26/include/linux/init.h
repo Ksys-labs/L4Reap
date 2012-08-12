@@ -182,10 +182,9 @@ extern void (*late_time_init)(void);
 	static initcall_t __initcall_##fn##id __used \
 	__attribute__((__section__(".initcall" level ".init"))) = fn
 #else // DDE_LINUX
-// XXX: DDE CTORs are executed in reverse order as was done by
-//      Linux' initcalls in earlier versions
-#include <l4/dde/ddekit/initcall.h>
-#define __define_initcall(level,fn,id) DDEKIT_CTOR(fn,level)
+#define __define_initcall(level, fn, id) \
+void __attribute__((constructor(4000+level))) \
+__init__##fn() { fn(); }
 #endif
 
 /*
@@ -220,25 +219,25 @@ extern void (*late_time_init)(void);
 #define late_initcall(fn)		__define_initcall("7",fn,7)
 #define late_initcall_sync(fn)		__define_initcall("7s",fn,7s)
 #else /* DDE_LINUX */
-#define pure_initcall(fn)		__define_initcall(1000,fn,1000)
+#define pure_initcall(fn)		__define_initcall(2,fn,1000)
 
-#define dde_initcall(fn)                __define_initcall(1008,fn,10)
-#define dde_process_initcall(fn)        __define_initcall(1007,fn,10)
-#define core_initcall(fn)               __define_initcall(1006,fn,7)
-#define core_initcall_sync(fn)          __define_initcall(1006s,fn,7s)
-#define postcore_initcall(fn)           __define_initcall(1005,fn,6)
-#define postcore_initcall_sync(fn)      __define_initcall(1005s,fn,6s)
-#define arch_initcall(fn)               __define_initcall(1004,fn,5)
-#define arch_initcall_sync(fn)          __define_initcall(1004s,fn,5s)
-#define subsys_initcall(fn)             __define_initcall(1003,fn,4)
-#define subsys_initcall_sync(fn)        __define_initcall(1003s,fn,4s)
-#define fs_initcall(fn)                 __define_initcall(1002,fn,3)
-#define fs_initcall_sync(fn)            __define_initcall(1002s,fn,3s)
-//#define rootfs_initcall(fn)           __define_initcall(ootfs,fn,rootfs)
-#define device_initcall(fn)             __define_initcall(1001,fn,2)
-#define device_initcall_sync(fn)        __define_initcall(1001s,fn,2s)
-#define late_initcall(fn)               __define_initcall(1000,fn,1)
-#define late_initcall_sync(fn)          __define_initcall(1000s,fn,1s)
+#define dde_initcall(fn)                __define_initcall(0,fn,10)
+#define dde_process_initcall(fn)        __define_initcall(1,fn,10)
+#define core_initcall(fn)               __define_initcall(3,fn,7)
+#define core_initcall_sync(fn)          __define_initcall(3s,fn,7s)
+#define postcore_initcall(fn)           __define_initcall(4,fn,6)
+#define postcore_initcall_sync(fn)      __define_initcall(4s,fn,6s)
+#define arch_initcall(fn)               __define_initcall(5,fn,5)
+#define arch_initcall_sync(fn)          __define_initcall(5s,fn,5s)
+#define subsys_initcall(fn)             __define_initcall(6,fn,4)
+#define subsys_initcall_sync(fn)        __define_initcall(6s,fn,4s)
+#define fs_initcall(fn)                 __define_initcall(7,fn,3)
+#define fs_initcall_sync(fn)            __define_initcall(7s,fn,3s)
+//#define rootfs_initcall(fn)           __define_initcall("rootfs",fn,rootfs)
+#define device_initcall(fn)             __define_initcall(8,fn,2)
+#define device_initcall_sync(fn)        __define_initcall(8s,fn,2s)
+#define late_initcall(fn)               __define_initcall(9,fn,1)
+#define late_initcall_sync(fn)          __define_initcall(9s,fn,1s)
 #endif
 
 #define __initcall(fn) device_initcall(fn)

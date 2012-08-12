@@ -1,0 +1,92 @@
+// vi:ft=cpp
+/*
+ * (c) 2011 Adam Lackorzynski <adam@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
+ *
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+#pragma once
+
+#include <l4/vbus/vbus>
+#include <l4/vbus/vbus_gpio.h>
+
+namespace L4vbus {
+
+class Gpio_pin : public Device
+{
+public:
+  Gpio_pin(Device const &dev, unsigned pin)
+  : Device(dev), _pin(pin)
+  {}
+
+  int get() const
+  {
+    return l4vbus_gpio_get(_bus.cap(), _dev, _pin);
+  }
+
+  int set(int value) const
+  {
+    return l4vbus_gpio_set(_bus.cap(), _dev, _pin, value);
+  }
+
+  int setup(unsigned mode, unsigned value) const
+  {
+    return l4vbus_gpio_setup(_bus.cap(), _dev, _pin, mode, value);
+  }
+
+  int config_pad(unsigned func, unsigned value) const
+  {
+    return l4vbus_gpio_config_pad(_bus.cap(), _dev, _pin, func, value);
+  }
+
+  int to_irq() const
+  {
+    return l4vbus_gpio_to_irq(_bus.cap(), _dev, _pin);
+  }
+
+  unsigned pin() const { return _pin; }
+
+protected:
+  Gpio_pin() {}
+  unsigned _pin;
+};
+
+class Gpio_module : public Device
+{
+public:
+  Gpio_module(Device dev)
+  : Device(dev)
+  {}
+
+  int setup(unsigned mask, unsigned mode, unsigned value) const
+  {
+    return l4vbus_gpio_multi_setup(_bus.cap(), _dev, mask, mode, value);
+  }
+
+  int config_pad(unsigned mask, unsigned func, unsigned value) const
+  {
+    return l4vbus_gpio_multi_config_pad(_bus.cap(), _dev, mask, func, value);
+  }
+
+  int get(unsigned *data) const
+  {
+    return l4vbus_gpio_multi_get(_bus.cap(), _dev, data);
+  }
+
+  int set(unsigned mask, unsigned data)
+  {
+    return l4vbus_gpio_multi_set(_bus.cap(), _dev, mask, data);
+  }
+
+  Gpio_pin pin(unsigned pin) const
+  {
+    return Gpio_pin(*this, pin);
+  }
+
+protected:
+  Gpio_module() {}
+};
+
+}

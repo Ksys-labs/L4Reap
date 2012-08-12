@@ -19,11 +19,9 @@
 #include <cassert>
 
 void
-Adr_resource::dump(int indent) const
+Adr_resource::dump(char const *ty, int indent) const
 {
   //bool abs = true;
-  static char const *ty[] = { "INVALID", "IRQ   ", "IOMEM ", "IOPORT",
-                              "BUS   ", "unk" };
 
   //if (!valid())
   //  return;
@@ -52,10 +50,20 @@ Adr_resource::dump(int indent) const
 
   printf("%*.s%s%c [%014llx-%014llx %llx] %s (%dbit) (align=%llx flags=%lx)\n",
          indent, " ",
-         ty[type()], provided() ? '*' : ' ',
+         ty, provided() ? '*' : ' ',
          s, e, (l4_uint64_t)_d.size(),
          tp,
          is_64bit() ? 64 : 32, (unsigned long long)alignment(), flags());
+}
+
+
+void
+Adr_resource::dump(int indent) const
+{
+  static char const *ty[] = { "INVALID", "IRQ   ", "IOMEM ", "IOPORT",
+                              "BUS   ", "unk" };
+
+  dump(ty[type()], indent);
 }
 
 

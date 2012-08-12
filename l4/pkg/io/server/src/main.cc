@@ -95,7 +95,7 @@ char const *type_name(X const &x)
   return n;
 }
 
-void dump(Device *d)
+static void dump(Device *d)
 {
   Device::iterator i = Device::iterator(0, d, 100);
   for (; i != d->end(); ++i)

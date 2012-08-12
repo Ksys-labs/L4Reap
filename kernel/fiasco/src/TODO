@@ -1,20 +1,7 @@
 
-SMP
-###
-
- - locking
-   + IPC window
-   + jdb: tb, other parallel input
-   + system calls?
-   + mapdb (helping lock)
+ - make kobject_start_addr and co depend on debug feature
  - remote TLB handling
- - remote ex-regs is problematic
- - kill Mem_space::current_mem_space()
  - testing, testing, testing
-
- - long IPC
- - migration
-
 
 
 

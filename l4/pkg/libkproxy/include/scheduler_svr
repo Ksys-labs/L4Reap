@@ -23,6 +23,7 @@
  * the GNU General Public License.
  */
 #include <l4/sys/scheduler>
+#include <l4/re/util/icu_svr>
 #include <l4/cxx/ipc_stream>
 
 namespace L4kproxy {
@@ -38,20 +39,131 @@ public:
   virtual int idle_time(l4_sched_cpu_set_t const &cpus) = 0;
 
   virtual ~Scheduler_interface() {}
+};
+
+
+template< typename SVR >
+class Scheduler_svr_t
+{
+public:
+  int scheduler_dispatch(l4_umword_t, L4::Ipc::Iostream &ios);
+
+  void hotplug_event() const
+  { this_svr()->scheduler_irq()->trigger(); }
+
+  L4::Cap<void> rcv_cap() const { return this_svr()->rcv_cap(); }
+
+protected:
+  SVR const *this_svr() const { return static_cast<SVR const *>(this); }
+  SVR *this_svr() { return static_cast<SVR *>(this); }
 
 };
 
-class Scheduler_svr
+template< typename SVR >
+int
+Scheduler_svr_t<SVR>::scheduler_dispatch(l4_umword_t,
+                                         L4::Ipc::Iostream &ios)
 {
+  L4::Opcode op;
+  ios >> op;
+  switch (op)
+    {
+    case L4_SCHEDULER_INFO_OP:
+        {
+	  l4_sched_cpu_set_t cpus;
+	  l4_umword_t cpu_max;
+
+	    {
+	      l4_umword_t gran_off;
+	      ios >> gran_off;
+
+	      cpus.offset = gran_off & 0x00ffffff;
+	      cpus.granularity = (gran_off >> 24);
+	      cpus.map = 0;
+	    }
+
+          int ret = this_svr()->info(&cpu_max, &cpus);
+
+          if (ret == L4_EOK)
+            ios << cpus.map << cpu_max;
+
+          return ret;
+        }
+    case L4_SCHEDULER_RUN_THREAD_OP:
+        {
+	  l4_sched_param_t sp;
+          L4::Ipc::Snd_fpage thread;
+	    {
+	      l4_umword_t gran_off, prio, quantum;
+	      ios >> gran_off >> sp.affinity.map >> prio >> quantum >> thread;
+	      sp.prio = prio;
+	      sp.quantum = quantum;
+	      sp.affinity.offset = gran_off & 0x00ffffff;
+	      sp.affinity.granularity = gran_off >> 24;
+	    }
+
+          return this_svr()->run_thread(this_svr()->received_thread(thread), sp);
+        }
+    case L4_SCHEDULER_IDLE_TIME_OP:
+        {
+	  l4_sched_cpu_set_t cpus;
+	    {
+	      l4_umword_t gran_off;
+	      ios >> gran_off >> cpus.map;
+	      cpus.offset = gran_off & 0x00ffffff;
+	      cpus.granularity = gran_off >> 24;
+	    }
+          return this_svr()->idle_time(cpus);
+        }
+    default:
+      return -L4_ENOSYS;
+    }
+}
+
+class Scheduler_svr :
+  public Scheduler_svr_t<Scheduler_svr>,
+  public L4Re::Util::Icu_cap_array_svr<Scheduler_svr>
+{
+  typedef L4Re::Util::Icu_cap_array_svr<Scheduler_svr> Icu;
+  typedef Scheduler_svr_t<Scheduler_svr> Scheduler;
+
 public:
-  Scheduler_svr(Scheduler_interface *sched)
-    : _sched(sched) {}
-  int scheduler_dispatch(l4_umword_t, L4::Ipc::Iostream &ios);
+  int scheduler_dispatch(l4_umword_t label, L4::Ipc::Iostream &ios)
+  {
+    l4_msgtag_t tag;
+    ios >> tag;
+
+    if (tag.label() == L4_PROTO_IRQ)
+      return Icu::dispatch(label, ios);
+    if (tag.label() == L4_PROTO_SCHEDULER)
+      return Scheduler::scheduler_dispatch(label, ios);
+    else
+      return -L4_EBADPROTO;
+  }
+
+
+  Scheduler_svr(Scheduler_interface *s) : Icu(1, &_scheduler_irq), _sched(s) {}
   virtual L4::Cap<L4::Thread> received_thread(L4::Ipc::Snd_fpage const &fp) = 0;
-  virtual ~Scheduler_svr() {}
+  virtual ~Scheduler_svr() = 0;
+  virtual L4::Cap<void> rcv_cap() const = 0;
+
+  int info(l4_umword_t *cpu_max, l4_sched_cpu_set_t *cpus)
+  { return _sched->info(cpu_max, cpus); }
+
+  int run_thread(L4::Cap<L4::Thread> thread, l4_sched_param_t const &sp)
+  { return _sched->run_thread(thread, sp); }
+
+  int idle_time(l4_sched_cpu_set_t const &cpus)
+  { return _sched->idle_time(cpus); }
+
+  Icu::Irq *scheduler_irq() { return &_scheduler_irq; }
+  Icu::Irq const *scheduler_irq() const { return &_scheduler_irq; }
 
 private:
   Scheduler_interface *_sched;
+  Icu::Irq _scheduler_irq;
 };
+
+inline Scheduler_svr::~Scheduler_svr() {}
 
 }

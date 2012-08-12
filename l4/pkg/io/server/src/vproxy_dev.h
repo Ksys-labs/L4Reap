@@ -12,12 +12,14 @@
 #include "vdevice.h"
 #include "hw_device.h"
 
+class Tagged_parameter;
+
 namespace Vi {
 
 class Proxy_dev : public Device
 {
 public:
-  explicit Proxy_dev(Hw::Device *d);
+  explicit Proxy_dev(Hw::Device *d, Tagged_parameter *filter);
 
   char const *hid() const { return _hwd->hid(); }
 private:

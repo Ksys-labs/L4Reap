@@ -251,14 +251,6 @@ public:
   { return l4_factory_create_gate_u(cap(), target_cap.cap(), thread_cap.cap(), label, utcb); }
 
   /**
-   * \copydoc l4_factory_create_semaphore()
-   * \note \a factory is the implicit \a this pointer.
-   */
-  l4_msgtag_t create_semaphore(Cap<K_semaphore> const &target_cap,
-                               l4_utcb_t *utcb = l4_utcb()) throw()
-  { return l4_factory_create_semaphore_u(cap(), target_cap.cap(), utcb); }
-
-  /**
    * \copydoc l4_factory_create_irq()
    * \note \a factory is the implicit \a this pointer.
    */

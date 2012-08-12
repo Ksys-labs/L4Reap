@@ -92,7 +92,7 @@ Jdb_misc_debug::show_lbr_entry(const char *str, Address addr)
 {
   char symbol[60];
 
-  printf("%s "L4_PTR_FMT" ", str, addr);
+  printf("%s " L4_PTR_FMT " ", str, addr);
   if (Jdb_symbol::match_addr_to_symbol_fuzzy(&addr, 0, symbol, sizeof(symbol)))
     printf("(%s)", symbol);
 }
@@ -255,7 +255,7 @@ Jdb_misc_debug::show_ldt()
       return;
     }
 
-  printf("\nLDT of space %lx at "L4_PTR_FMT"-"L4_PTR_FMT"\n", task, addr, addr+size-1);
+  printf("\nLDT of space %lx at " L4_PTR_FMT "-" L4_PTR_FMT "\n", task, addr, addr+size-1);
 
   Gdt_entry *desc = reinterpret_cast<Gdt_entry *>(addr);
 

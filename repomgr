@@ -27,13 +27,13 @@ my %modules =
    toolbin => { paths => [ map { "l4/tool/bin/$_" }
                            qw(isocreator qemu-x86-launch ux-launch
                               gengrub1iso gengrub2iso entry-selector
-                              mkspafs
+                              mkspafs genexportpack
                              ) ]
               },
 
    l4re => { paths => [ map { "l4/pkg/$_" } qw(
-                         boehm_gc bootstrap crtn cxx cxx_libc_io cxx_thread
-                         drivers-frst hello
+                         boehm_gc bootstrap libgcc libgcc-pure
+			 crtn cxx cxx_libc_io cxx_thread drivers-frst hello
                          ldscripts
                          l4re l4re_c l4re_kernel l4re_vfs l4sys l4util
                          ldscripts ldso
@@ -41,7 +41,7 @@ my %modules =
                          libsigma0
                          libstdc++-headers libstdc++-v3 libstdc++-v3-minimal
                          libsupc++ libsupc++-minimal
-                         libvbus loader log lua moe ned sigma0
+                         libvbus libvcpu loader log lua moe ned sigma0
                          uclibc uclibc-minimal uclibc-headers
                         ) ],
              pub_module => 1,
@@ -51,36 +51,44 @@ my %modules =
    # ./mk/pkgdeps -A mk/aliases.d pkgdeps pkg ...
    l4linux_requirements
         => { paths => [ map { "l4/pkg/$_" } qw(
-			libio-io libvcpu lxfuxlibc rtc shmc
+			libio libio-io lxfuxlibc rtc shmc
+			acpica io drivers fb-drv x86emu input libirq
 		    ) ],
                     pub_module => 1,
                     modules => [ qw(l4re) ],
                   },
 
-
-   examples => {
+   examples_core => {
      paths => [ qw(l4/pkg/hello),
                 map { "l4/pkg/examples/$_" }
                 qw(Makefile
                    Control
                    sys
                    clntsrv
-                   fb/Makefile
-                   fb/spectrum
                    misc/Makefile
                    misc/cat
-                   misc/reboot
-                   misc/eb_leds
                    misc/shared-hello
                    libs/Makefile
+                   libs/l4re
+                 ) ],
+   },
+
+
+   examples_all => {
+     modules => [ qw(examples_core) ],
+     paths => [ qw(l4/pkg/hello),
+                map { "l4/pkg/examples/$_" }
+                qw(
+                   fb/Makefile
+                   fb/spectrum
+                   misc/eb_leds
+                   misc/reboot
                    libs/inputtst
                    libs/libc_thread_safe
-                   libs/l4re
                    libs/libgomp
                    libs/libio
                    libs/libirq
                    libs/libpng
-                   libs/rtc
                    libs/shmc
                  ) ],
    },
@@ -91,7 +99,6 @@ my %modules =
      paths => [ map { "l4/pkg/$_" }
                 qw(acpica
                    ankh
-                   arm_drivers
                    boost-lite
                    cunit
                    dash
@@ -115,9 +122,9 @@ my %modules =
                    libc_be_stdin
                    libcrypto
                    libevent
-                   libexec
                    libgfxbitmap
                    libgomp
+                   libiniparser
                    libio
                    libio-io
                    libirq
@@ -125,13 +132,14 @@ my %modules =
                    libpng
                    libsdl
                    libsdl-image
-                   libvcpu
                    linux-26-headers
+                   lwip
                    lxfuxlibc
                    mag
                    mag-gfx
                    ocaml
                    ocaml_toys
+                   plr
                    python
                    readline
                    rtc
@@ -149,14 +157,10 @@ my %modules =
                    x86emu
                    zlib
                    ) ],
-     modules => [ qw(l4re examples doc toolbin) ] },
+     modules => [ qw(l4re examples_all doc toolbin) ] },
 
    l4re_all => { paths   => [ qw(l4/pkg l4/tool) ],
                  modules => [ qw(l4re_snapshot) ] },
-
-   preprocess => {
-      paths => [ qw(tools/preprocess) ]
-   },
 
    fiasco => {
       pub_module => 1,
@@ -168,7 +172,6 @@ my %modules =
                       kernel/fiasco/src
                       kernel/fiasco/tool
                      ) ],
-      modules => [ qw(preprocess) ],
    },
 
    kernel => {
@@ -197,10 +200,11 @@ my %modules =
  );
 
 my %commands;
+my $svnrev = $ENV{REPOMGR_SVN_REV} || 'HEAD';
 
 sub get_root_url()
 {
-  my $o = `svn info --xml .`;
+  my $o = `svn info -r '$svnrev' --xml .`;
   die "Failed 'svn info'." if $?;
   $o =~ /<root>(.+)<\/root>/m;
   $1;
@@ -304,7 +308,7 @@ sub command_root
   my $url = shift;
   my $dirname = shift;
   die "Need to give URL" unless defined $url and defined $dirname;
-  system("svn co $url --depth empty $dirname");
+  system("svn co -r '$svnrev' $url --depth empty $dirname");
 }
 
 sub init_config($)
@@ -371,8 +375,6 @@ sub do_checkout(%)
 
   my $root_url = get_root_url();
 
-  my $rev = $ENV{REPOMGR_SVN_REV} || 'HEAD';
-
   my @paths = merge_modules(@{$args{mods}});
 
   foreach my $paths (@paths)
@@ -406,14 +408,14 @@ sub do_checkout(%)
 
               if (defined $changed_path)
                   {
-                    my $cmd = "cd $path && svn co -r $rev --depth empty $root_url/$changed_path $pe";
+                    my $cmd = "cd $path && svn co -r '$svnrev' --depth empty $root_url/$changed_path $pe";
                     #print "cmd: $cmd\n";
                     system($cmd);
                     die "svn co failed" if $?;
                   }
                 else
                   {
-                    my $cmd = "cd $path && svn update -r $rev --depth empty $pe";
+                    my $cmd = "cd $path && svn update -r '$svnrev' --depth empty $pe";
                     #print "cmd: $cmd\n";
                     system($cmd);
                     die "svn update failed" if $?;
@@ -424,7 +426,7 @@ sub do_checkout(%)
     }
 
   print "Getting sources\n";
-  my $c = "svn update -r $rev --set-depth infinity ".join(' ', map { s/^\/+//; $_; } @paths);
+  my $c = "svn update -r '$svnrev' --set-depth infinity ".join(' ', map { s/^\/+//; $_; } @paths);
   #print "cmd: $c\n";
   system($c);
   die "svn update failed" if $?;
@@ -437,7 +439,7 @@ sub read_file($)
   my $blob;
   if ($fn =~ /^(file|svn|ssh\+svn):\/\//)
     {
-      $blob = `svn cat $fn`;
+      $blob = `svn -r '$svnrev' cat $fn`;
       undef $blob if $?;
     }
   elsif (open(A, $fn))
@@ -498,7 +500,7 @@ sub command_init
         }
       else
         {
-          my $cmd = "svn cat $repo_root\/$repo_conf";
+          my $cmd = "svn cat -r '$svnrev' $repo_root\/$repo_conf";
           $confblob = `$cmd`;
           die "Command '$cmd' failed" if $?;
         }
@@ -509,7 +511,7 @@ sub command_init
   ($localdir = $conf{base}) =~ s/.*\/// unless defined $localdir;
   print "localdir: $localdir\n";
 
-  my $cmd = "svn co --depth empty $repo_root/$conf{base} $localdir";
+  my $cmd = "svn co -r '$svnrev' --depth empty $repo_root/$conf{base} $localdir";
   system($cmd);
   die "Command '$cmd' failed" if $?;
   chdir $localdir;

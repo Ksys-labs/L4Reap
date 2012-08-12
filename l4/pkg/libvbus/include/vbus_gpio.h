@@ -1,5 +1,5 @@
 /*
- * (c) 2009 Torsten Frenzel <frenzel@os.inf.tu-dresden.de>
+ * (c) 2011 Alexander Warg <warg@os.inf.tu-dresden.de>
  *     economic rights: Technische Universität Dresden (Germany)
  *
  * This file is part of TUD:OS and distributed under the terms of the
@@ -14,12 +14,47 @@
 
 __BEGIN_DECLS
 
-int L4_CV
-l4vbus_gpio_write(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
-                  int pin, int val);
+enum {
+  L4VBUS_GPIO_SETUP_INPUT  = 0x100,
+  L4VBUS_GPIO_SETUP_OUTPUT = 0x200,
+  L4VBUS_GPIO_SETUP_IRQ    = 0x300,
+};
+
 
 int L4_CV
-l4vbus_gpio_read(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
-                 int  pin, int *val);
+l4vbus_gpio_setup(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
+                  unsigned pin, unsigned mode, int outvalue);
+
+int L4_CV
+l4vbus_gpio_config_pad(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
+                       unsigned pin, unsigned func, unsigned value);
+
+int L4_CV
+l4vbus_gpio_get(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
+                unsigned pin);
+
+int L4_CV
+l4vbus_gpio_set(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
+                unsigned pin, int value);
+
+int L4_CV
+l4vbus_gpio_multi_setup(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
+                        unsigned mask, unsigned mode, unsigned value);
+
+int L4_CV
+l4vbus_gpio_multi_config_pad(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
+                              unsigned mask, unsigned func, unsigned value);
+
+int L4_CV
+l4vbus_gpio_multi_get(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
+                      unsigned *data);
+
+int L4_CV
+l4vbus_gpio_multi_set(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
+                      unsigned mask, unsigned data);
+
+int L4_CV
+l4vbus_gpio_to_irq(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
+                   unsigned pin);
 
 __END_DECLS

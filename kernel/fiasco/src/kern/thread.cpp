@@ -10,12 +10,13 @@ INTERFACE:
 #include "receiver.h"
 #include "ref_obj.h"
 #include "sender.h"
-#include "space.h"		// Space_index
 #include "spin_lock.h"
 #include "thread_lock.h"
 
 class Return_frame;
 class Syscall_frame;
+class Task;
+class Thread;
 class Vcpu_state;
 class Irq_base;
 
@@ -55,6 +56,7 @@ public:
     Op_modify_senders = 6,
     Op_vcpu_control= 7,
     Op_gdt_x86 = 0x10,
+    Op_set_fs_amd64 = 0x12,
   };
 
   enum Control_flags
@@ -171,7 +173,9 @@ IMPLEMENTATION:
 #include "entry_frame.h"
 #include "fpu_alloc.h"
 #include "globals.h"
+#include "irq_chip.h"
 #include "kdb_ke.h"
+#include "kernel_task.h"
 #include "kmem_alloc.h"
 #include "logdefs.h"
 #include "map_util.h"
@@ -185,7 +189,7 @@ IMPLEMENTATION:
 
 FIASCO_DEFINE_KOBJ(Thread);
 
-Per_cpu<unsigned long> DEFINE_PER_CPU Thread::nested_trap_recover;
+DEFINE_PER_CPU Per_cpu<unsigned long> Thread::nested_trap_recover;
 
 
 IMPLEMENT
@@ -208,7 +212,7 @@ PUBLIC inline
 void *
 Thread::operator new(size_t, Ram_quota *q) throw ()
 {
-  void *t = Mapped_allocator::allocator()->q_unaligned_alloc(q, Config::thread_block_size);
+  void *t = Kmem_alloc::allocator()->q_unaligned_alloc(q, Thread::Size);
   if (t)
     {
       memset(t, 0, sizeof(Thread));
@@ -216,23 +220,6 @@ Thread::operator new(size_t, Ram_quota *q) throw ()
     }
   return t;
 }
-
-/** Class-specific allocator.
-    This allocator ensures that threads are allocated at a fixed virtual
-    address computed from their thread ID.
-    @param id thread ID
-    @return address of new thread control block
- */
-PRIVATE inline
-void *
-Thread::operator new(size_t, Thread *t) throw ()
-{
-  // Allocate TCB in TCB space.  Actually, do not allocate anything,
-  // just return the address.  Allocation happens on the fly in
-  // Thread::handle_page_fault().
-  return t;
-}
-
 
 PUBLIC
 bool
@@ -245,43 +232,44 @@ Thread::bind(Task *t, User<Utcb>::Ptr utcb)
   if (EXPECT_FALSE(utcb && !u))
     return false;
 
-  Lock_guard<typeof(*_space.lock())> guard(_space.lock());
-  if (_space.space())
+  Lock_guard<decltype(*_space.lock())> guard(_space.lock());
+  if (_space.space() != Kernel_task::kernel_task())
     return false;
 
   _space.space(t);
   t->inc_ref();
 
   if (u)
-    _utcb.set(utcb, u->kern_addr(utcb));
+    {
+      _utcb.set(utcb, u->kern_addr(utcb));
+      arch_setup_utcb_ptr();
+    }
 
   return true;
 }
 
 
-PUBLIC inline NEEDS["kdb_ke.h", "cpu_lock.h", "space.h"]
+PUBLIC inline NEEDS["kdb_ke.h", "kernel_task.h", "cpu_lock.h", "space.h"]
 bool
 Thread::unbind()
 {
   Task *old;
 
     {
-      Lock_guard<typeof(*_space.lock())> guard(_space.lock());
+      Lock_guard<decltype(*_space.lock())> guard(_space.lock());
 
-      if (!_space.space())
+      if (_space.space() == Kernel_task::kernel_task())
 	return true;
 
       old = static_cast<Task*>(_space.space());
-      _space.space(0);
+      _space.space(Kernel_task::kernel_task());
 
-      Mem_space *oms = old->mem_space();
+      // switch to a safe page table
+      if (Mem_space::current_mem_space(current_cpu()) == old)
+        Kernel_task::kernel_task()->switchin_context(old);
 
       if (old->dec_ref())
 	old = 0;
-
-      // switch to a safe page table
-      if (Mem_space::current_mem_space(current_cpu()) == oms)
-	Mem_space::kernel_space()->switchin_context(oms);
     }
 
   if (old)
@@ -306,10 +294,11 @@ Thread::Thread(Context_mode_kernel)
   *reinterpret_cast<void(**)()>(--_kernel_sp) = user_invoke;
 
   inc_ref();
+  _space.space(Kernel_task::kernel_task());
 
-  if (Config::stack_depth)
+  if (Config::Stack_depth)
     std::memset((char*)this + sizeof(Thread), '5',
-		Config::thread_block_size-sizeof(Thread)-64);
+		Thread::Size-sizeof(Thread)-64);
 }
 
 
@@ -324,7 +313,7 @@ Thread::~Thread()		// To be called in locked state.
 {
 
   unsigned long *init_sp = reinterpret_cast<unsigned long*>
-    (reinterpret_cast<unsigned long>(this) + size - sizeof(Entry_frame));
+    (reinterpret_cast<unsigned long>(this) + Size - sizeof(Entry_frame));
 
 
   _kernel_sp = 0;
@@ -336,44 +325,49 @@ Thread::~Thread()		// To be called in locked state.
 
 // IPC-gate deletion stuff ------------------------------------
 
+/**
+ * Fake IRQ Chip class for IPC-gate-delete notifications.
+ * This chip uses the IRQ number as thread pointer and implements
+ * the bind and unbind functionality.
+ */
+class Del_irq_chip : public Irq_chip_soft
+{
+public:
+  static Del_irq_chip chip;
+};
+
+Del_irq_chip Del_irq_chip::chip;
+
+PUBLIC static inline
+Thread *Del_irq_chip::thread(Mword pin)
+{ return (Thread*)pin; }
+
+PUBLIC static inline
+Mword Del_irq_chip::pin(Thread *t)
+{ return (Mword)t; }
+
 PUBLIC inline
+void
+Del_irq_chip::unbind(Irq_base *irq)
+{ thread(irq->pin())->remove_delete_irq(); }
+
+
+PUBLIC inline NEEDS["irq_chip.h"]
 void
 Thread::ipc_gate_deleted(Mword id)
 {
   (void) id;
   Lock_guard<Cpu_lock> g(&cpu_lock);
   if (_del_observer)
-    _del_observer->hit();
+    _del_observer->hit(0);
 }
-
-class Del_irq_pin : public Irq_pin_dummy
-{
-};
-
-PUBLIC inline
-Del_irq_pin::Del_irq_pin(Thread *o)
-{ payload()[0] = (Address)o; }
-
-PUBLIC inline
-Thread *
-Del_irq_pin::thread() const
-{ return (Thread*)payload()[0]; }
-
-PUBLIC inline
-void
-Del_irq_pin::unbind_irq()
-{ thread()->remove_delete_irq(); }
-
-PUBLIC inline
-Del_irq_pin::~Del_irq_pin()
-{ unbind_irq(); }
 
 PUBLIC
 void
 Thread::register_delete_irq(Irq_base *irq)
 {
-  irq->pin()->unbind_irq();
-  irq->pin()->replace<Del_irq_pin>(this);
+  irq->unbind();
+  Del_irq_chip::chip.bind(irq, (Mword)this);
   _del_observer = irq;
 }
 
@@ -386,7 +380,7 @@ Thread::remove_delete_irq()
 
   Irq_base *tmp = _del_observer;
   _del_observer = 0;
-  tmp->pin()->unbind_irq();
+  tmp->unbind();
 }
 
 // end of: IPC-gate deletion stuff -------------------------------
@@ -437,8 +431,8 @@ Thread::handle_timer_interrupt()
 {
   unsigned _cpu = cpu(true);
   // XXX: This assumes periodic timers (i.e. bogus in one-shot mode)
-  if (!Config::fine_grained_cputime)
-    consume_time(Config::scheduler_granularity);
+  if (!Config::Fine_grained_cputime)
+    consume_time(Config::Scheduler_granularity);
 
   bool resched = Rcu::do_pending_work(_cpu);
 
@@ -468,7 +462,7 @@ Thread::halt()
 
 PUBLIC static
 void
-Thread::halt_current ()
+Thread::halt_current()
 {
   for (;;)
     {
@@ -546,15 +540,14 @@ Thread::do_kill()
       set_current_sched(current()->sched());
   }
 
-  // possibly dequeue from a wait queue
-  wait_queue_kill();
-
   // if other threads want to send me IPC messages, abort these
   // operations
   {
     Lock_guard <Cpu_lock> guard(&cpu_lock);
-    while (Sender *s = Sender::cast(sender_list()->head()))
+    while (Sender *s = Sender::cast(sender_list()->first()))
       {
+	s->sender_dequeue(sender_list());
+	vcpu_update_state();
 	s->ipc_receiver_aborted();
 	Proc::preemption_point();
       }
@@ -562,7 +555,18 @@ Thread::do_kill()
 
   // if engaged in IPC operation, stop it
   if (in_sender_list())
-    sender_dequeue(receiver()->sender_list());
+    {
+      while (Locked_prio_list *q = wait_queue())
+	{
+	  Lock_guard<decltype(q->lock())> g(q->lock());
+	  if (wait_queue() == q)
+	    {
+	      sender_dequeue(q);
+	      set_wait_queue(0);
+	      break;
+	    }
+	}
+    }
 
   Context::do_kill();
 
@@ -580,7 +584,7 @@ Thread::do_kill()
 
   if (_del_observer)
     {
-      _del_observer->pin()->unbind_irq();
+      _del_observer->unbind();
       _del_observer = 0;
     }
 
@@ -683,11 +687,12 @@ Thread::control(Thread_ptr const &pager, Thread_ptr const &exc_handler)
   return 0;
 }
 
+// used by UX only
 PUBLIC static inline
 bool
 Thread::is_tcb_address(Address a)
 {
-  a &= ~(Config::thread_block_size - 1);
+  a &= ~(Thread::Size - 1);
   return reinterpret_cast<Thread *>(a)->_magic == magic;
 }
 
@@ -747,7 +752,7 @@ Thread::do_migration()
   Migration_helper_info inf;
 
     {
-      Lock_guard<typeof(_migration_rq.affinity_lock)>
+      Lock_guard<decltype(_migration_rq.affinity_lock)>
 	g(&_migration_rq.affinity_lock);
       inf.inf = _migration_rq.inf;
       _migration_rq.pending = false;
@@ -824,7 +829,7 @@ Thread::migrate(Migration_info const &info)
   );
 
     {
-      Lock_guard<typeof(_migration_rq.affinity_lock)>
+      Lock_guard<decltype(_migration_rq.affinity_lock)>
 	g(&_migration_rq.affinity_lock);
       _migration_rq.inf = info;
       _migration_rq.pending = true;
@@ -1060,8 +1065,8 @@ Thread::handle_remote_requests_irq()
 {
   assert_kdb (cpu_lock.test());
   // printf("CPU[%2u]: > RQ IPI (current=%p)\n", current_cpu(), current());
-  Ipi::eoi(Ipi::Request);
   Context *const c = current();
+  Ipi::eoi(Ipi::Request, c->cpu());
   //LOG_MSG_3VAL(c, "ipi", c->cpu(), (Mword)c, c->drq_pending());
   Context *migration_q = 0;
   bool resched = _pending_rqq.cpu(c->cpu()).handle_requests(&migration_q);
@@ -1086,7 +1091,7 @@ Thread::handle_global_remote_requests_irq()
 {
   assert_kdb (cpu_lock.test());
   // printf("CPU[%2u]: > RQ IPI (current=%p)\n", current_cpu(), current());
-  Ipi::eoi(Ipi::Global_request);
+  Ipi::eoi(Ipi::Global_request, current_cpu());
   Context::handle_global_requests();
 }
 
@@ -1158,7 +1163,7 @@ Thread::migration_helper(Migration_info const *inf)
   if (ipi)
     {
       //LOG_MSG_3VAL(this, "sipi", current_cpu(), cpu(), (Mword)current());
-      Ipi::cpu(cpu).send(Ipi::Request);
+      Ipi::send(Ipi::Request, current_cpu(), cpu);
     }
 
   return  Drq::No_answer | Drq::Need_resched;
@@ -1188,7 +1193,7 @@ Thread::migrate_xcpu(unsigned cpu)
     }
 
   if (ipi)
-    Ipi::cpu(cpu).send(Ipi::Request);
+    Ipi::send(Ipi::Request, current_cpu(), cpu);
 }
 
 //----------------------------------------------------------------------------

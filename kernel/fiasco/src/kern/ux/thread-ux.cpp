@@ -23,8 +23,8 @@ IMPLEMENTATION [ux]:
 #include "per_cpu_data.h"
 #include "utcb_init.h"
 
-int      (*Thread::int3_handler)(Trap_state*);
-Per_cpu<Thread::Dbg_stack> DEFINE_PER_CPU Thread::dbg_stack;
+int (*Thread::int3_handler)(Trap_state*);
+DEFINE_PER_CPU Per_cpu<Thread::Dbg_stack> Thread::dbg_stack;
 
 
 IMPLEMENT static inline NEEDS ["emulation.h"]
@@ -48,7 +48,7 @@ Thread::arch_init()
     Fpu_alloc::alloc_state(space()->ram_quota(), fpu_state());
   else
     Fpu_alloc::alloc_state(Ram_quota::root, fpu_state());
-  
+
   // clear out user regs that can be returned from the thread_ex_regs
   // system call to prevent covert channel
   Entry_frame *r = regs();
@@ -56,11 +56,7 @@ Thread::arch_init()
   r->ip(0);
   r->cs(Emulation::kernel_cs() & ~1);			// force iret trap
   r->ss(Emulation::kernel_ss());
-
-  if(Config::enable_io_protection)
-    r->flags(EFLAGS_IOPL_K | EFLAGS_IF | 2);
-  else
-    r->flags(EFLAGS_IOPL_U | EFLAGS_IF | 2);		// XXX iopl=kernel
+  r->flags(EFLAGS_IOPL_K | EFLAGS_IF | 2);
 }
 
 PUBLIC static inline
@@ -70,10 +66,10 @@ Thread::set_int3_handler(int (*handler)(Trap_state *ts))
   int3_handler = handler;
 }
 
-PRIVATE inline bool Thread::check_trap13_kernel (Trap_state *)
+PRIVATE inline bool Thread::check_trap13_kernel(Trap_state *)
 { return 1; }
 
-PRIVATE inline void Thread::check_f00f_bug (Trap_state *)
+PRIVATE inline void Thread::check_f00f_bug(Trap_state *)
 {}
 
 PRIVATE inline 
@@ -81,36 +77,17 @@ unsigned
 Thread::check_io_bitmap_delimiter_fault(Trap_state *)
 { return 1; }
 
-PRIVATE inline bool Thread::handle_sysenter_trap (Trap_state *, Address, bool)
+PRIVATE inline bool Thread::handle_sysenter_trap(Trap_state *, Address, bool)
 { return true; }
-
-PRIVATE inline bool Thread::trap_is_privileged (Trap_state *)
-{ return true; }
-
-PRIVATE inline
-void
-Thread::do_wrmsr_in_kernel (Trap_state *)
-{
-  // do "wrmsr (msr[ecx], edx:eax)" in kernel
-  kdb_ke("wrmsr not supported");
-}
-
-PRIVATE inline
-void
-Thread::do_rdmsr_in_kernel (Trap_state *)
-{
-  // do "rdmsr (msr[ecx], edx:eax)" in kernel
-  kdb_ke("rdmsr not supported");
-}
 
 PRIVATE inline
 int
-Thread::handle_not_nested_trap (Trap_state *)
+Thread::handle_not_nested_trap(Trap_state *)
 { return -1; }
 
 PRIVATE
 int
-Thread::call_nested_trap_handler (Trap_state *ts)
+Thread::call_nested_trap_handler(Trap_state *ts)
 {
   // run the nested trap handler on a separate stack
   // equiv of: return nested_trap_handler(ts) == 0 ? true : false;
@@ -168,10 +145,6 @@ Thread::call_nested_trap_handler (Trap_state *ts)
 
   assert (_magic == magic);
 
-  // Do shutdown by switching to idle loop, unless we're already there
-  if (!running && current() != kernel_thread)
-    current()->switch_to_locked (kernel_thread);
-
   return ret == 0 ? 0 : -1;
 }
 
@@ -184,7 +157,6 @@ Thread::spill_fpu()
 // The "FPU not available" trap entry point
 extern "C" void thread_handle_fputrap (void) { panic ("fpu trap"); }
 
-extern "C" void thread_timer_interrupt_stop() {}
 extern "C" void thread_timer_interrupt_slow() {}
 
 IMPLEMENT
@@ -215,7 +187,7 @@ Thread::user_invoke()
      "  iret                    \n\t"
      : // no output
      : "a" (nonull_static_cast<Return_frame*>(current()->regs())),
-       "c" (current()->space() == sigma0_task // only Sigma0 gets the KIP
+       "c" (current()->space()->is_sigma0() // only Sigma0 gets the KIP
             ? Kmem::virt_to_phys(Kip::k()) : 0));
 }
 
@@ -237,8 +209,8 @@ IMPLEMENTATION [ux]:
 KIP_KERNEL_FEATURE("segments");
 
 PROTECTED inline
-bool
-Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
+L4_msg_tag
+Thread::invoke_arch(L4_msg_tag tag, Utcb *utcb)
 {
   switch (utcb->values[0] & Opcode_mask)
     {
@@ -248,8 +220,7 @@ Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
       if (tag.words() == 1)
         {
           utcb->values[0] = Emulation::host_tls_base();
-          tag = commit_result(0, 1);
-          return true;
+          return commit_result(0, 1);
         }
 
         {
@@ -299,11 +270,10 @@ Thread::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
           if (this == current_thread())
             switch_gdt_user_entries(this);
 
-          tag = commit_result(((utcb->values[1] + Emulation::host_tls_base()) << 3) + 3);
-          return true;
+          return commit_result(((utcb->values[1] + Emulation::host_tls_base()) << 3) + 3);
         }
 
     default:
-      return false;
+      return commit_result(-L4_err::ENosys);
     };
 }

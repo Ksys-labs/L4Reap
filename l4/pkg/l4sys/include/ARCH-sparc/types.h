@@ -20,8 +20,8 @@
  * invalidate any other reasons why the executable file might be covered by
  * the GNU General Public License.
  */
-#ifndef L4_TYPES_H
-#define L4_TYPES_H
+#ifndef __ARCH__L4_TYPES_H
+#define __ARCH__L4_TYPES_H
 
 #include_next <l4/sys/types.h>
 
@@ -33,4 +33,4 @@
 
 #include <l4/sys/__timeout.h>
 
-#endif /* L4_TYPES_H */
+#endif /* __ARCH__L4_TYPES_H */

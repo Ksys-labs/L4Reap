@@ -40,14 +40,14 @@ public:
 
   Rcv_state sender_ok(const Sender* sender) const;
 
-  virtual ~Receiver() {}
+  virtual ~Receiver() = 0;
 
 private:
   // DATA
-  Sender*           _partner;	// IPC partner I'm waiting for/involved with
-  Syscall_frame    *_rcv_regs; // registers used for receive
+  Sender *_partner;         // IPC partner I'm waiting for/involved with
+  Syscall_frame *_rcv_regs; // registers used for receive
   Mword _caller;
-  Iteratable_prio_list         _sender_list;
+  Iteratable_prio_list _sender_list;
 };
 
 typedef Context_ptr_base<Receiver> Receiver_ptr;
@@ -69,6 +69,7 @@ IMPLEMENTATION:
 
 // Interface for receivers
 
+IMPLEMENT inline Receiver::~Receiver() {}
 /** Constructor.
     @param thread_lock the lock used for synchronizing access to this receiver
     @param space_context the space context 
@@ -224,7 +225,7 @@ Receiver::sender_ok(const Sender *sender) const
 
   // Check open wait; test if this sender is really the first in queue
   if (EXPECT_TRUE(!partner()
-                  && (!_sender_list.head()
+                  && (_sender_list.empty()
 		    || sender->is_head_of(&_sender_list))))
     return Rs_ipc_receive;
 
@@ -283,7 +284,7 @@ Receiver::vcpu_update_state()
   if (EXPECT_TRUE(!(state() & Thread_vcpu_enabled)))
     return;
 
-  if (!sender_list()->head())
+  if (sender_list()->empty())
     vcpu_state().access()->sticky_flags &= ~Vcpu_state::Sf_irq_pending;
 }
 

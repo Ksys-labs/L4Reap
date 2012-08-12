@@ -292,6 +292,7 @@ static inline UWord sr_Res ( SysRes sr ) {
    return sr._isError ? 0 : sr._res;
 }
 static inline UWord sr_ResHI ( SysRes sr ) {
+   (void)sr;
    return 0;
 }
 static inline UWord sr_Err ( SysRes sr ) {

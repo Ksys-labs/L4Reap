@@ -6,7 +6,7 @@ Mem::memset_mwords (void *dst, unsigned long value, unsigned long n)
 {
   unsigned dummy1, dummy2;
   asm volatile ("cld					\n\t"
-		"repz stosl %%es:(%%edi)		\n\t"
+		"repz stosl               \n\t"
 		: "=c"(dummy1), "=D"(dummy2)
 		: "a"(value), "c"(n), "D"(dst)
 		: "memory");

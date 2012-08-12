@@ -55,7 +55,7 @@ int main(int argc, char **argv)
     return 10;
 
   int png_w, png_h;
-  png_get_size_mem(bildmem, l4re_ds_size(bild), &png_w, &png_h);
+  libpng_get_size_mem(bildmem, l4re_ds_size(bild), &png_w, &png_h);
 
   printf("PNG: %dx%d\n", png_w, png_h);
 
@@ -71,14 +71,10 @@ int main(int argc, char **argv)
       return 1;
     }
 
-  if (fbi.pixel_info.bytes_per_pixel == 2)
-    png_convert_RGB16bit_mem(bildmem, (void *)vidmem,
-	                     l4re_ds_size(bild),
-                             png_w*png_h*fbi.pixel_info.bytes_per_pixel,
-                             fbi.width);
-  else
-    png_convert_ARGB_mem(bildmem, (void *)vidmem, l4re_ds_size(bild),
-                         png_w*png_h*fbi.pixel_info.bytes_per_pixel);
+  libpng_render_mem(bildmem, (void *)vidmem,
+                    l4re_ds_size(bild),
+                    l4re_ds_size(l4re_util_video_goos_fb_buffer(&gfb)),
+                    &fbi);
 
   l4re_util_video_goos_fb_refresh(&gfb, 0, 0, png_w, png_h);
 

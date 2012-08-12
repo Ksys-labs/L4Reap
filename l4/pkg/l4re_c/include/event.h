@@ -30,6 +30,7 @@
 
 #include <l4/sys/types.h>
 #include <l4/re/c/dataspace.h>
+#include <l4/re/event.h>
 
 EXTERN_C_BEGIN
 
@@ -46,19 +47,82 @@ typedef struct
 } l4re_event_t;
 
 /**
- * \brief Get an event object.
+ * \brief Get an event signal buffer.
  * \ingroup api_l4re_c_event
  *
  * \param server   Server to talk to.
  * \param ds       Buffer to event data.
- * \param irq      Event signal.
  *
  * \return 0 for success, <0 on error
  *
- * \see L4Re::Event::get
+ * \see L4Re::Event::get_buffer
  */
 L4_CV long
-l4re_event_get(const l4_cap_idx_t server,
-               const l4re_ds_t ds) L4_NOTHROW;
+l4re_event_get_buffer(const l4_cap_idx_t server,
+                      const l4re_ds_t ds) L4_NOTHROW;
+
+/**
+ * \brief Get number of streams
+ * \ingroup api_l4re_c_event
+ *
+ * \param server   Server to talk to.
+ *
+ * \return 0 for success, <0 on error
+ *
+ * \see L4Re::Event::get_num_streams
+ */
+L4_CV long
+l4re_event_get_num_streams(const l4_cap_idx_t server) L4_NOTHROW;
+
+/**
+ * \brief Get information on a stream
+ * \ingroup api_l4re_c_event
+ *
+ * \param server   Server to talk to.
+ * \param idx      Index value.
+ * \retval info    Information buffer.
+ *
+ * \return 0 for success, <0 on error
+ *
+ * \see L4Re::Event::get_stream_info
+ */
+L4_CV long
+l4re_event_get_stream_info(const l4_cap_idx_t server,
+                           int idx, l4re_event_stream_info_t *info) L4_NOTHROW;
+
+/**
+ * \brief Get info for a stream given a stream id
+ * \ingroup api_l4re_c_event
+ *
+ * \param server    Server to talk to.
+ * \param stream_id Stream ID.
+ * \retval info     Information buffer.
+ *
+ * \return 0 for success, <0 on error
+ *
+ * \see L4Re::Event::get_stream_info_for_id
+ */
+L4_CV long
+l4re_event_get_stream_info_for_id(const l4_cap_idx_t server,
+                                  l4_umword_t stream_id,
+                                  l4re_event_stream_info_t *info) L4_NOTHROW;
+
+/**
+ * \brief Get Axis information for a stream.
+ * \ingroup api_l4re_c_event
+ *
+ * \param server   Server to talk to.
+ * \param naxes    Number of axes.
+ * \retval axis    Number of axes.
+ * \retval info    Information buffer.
+ *
+ * \return 0 for success, <0 on error
+ *
+ * \see L4Re::Event::get_axis_info
+ */
+L4_CV long
+l4re_event_get_axis_info(const l4_cap_idx_t server, l4_umword_t id,
+                         unsigned naxes, unsigned *axis,
+                         l4re_event_absinfo_t *info) L4_NOTHROW;
 
 EXTERN_C_END

@@ -116,7 +116,13 @@ __pthread_manager(void *arg)
   struct pthread_request request;
 
 #ifdef USE_TLS
+# if defined(TLS_TCB_AT_TP)
   TLS_INIT_TP(self, 0);
+#elif defined(TLS_DTV_AT_TP)
+  TLS_INIT_TP(self + 1, 0);
+#else
+#  error "Either TLS_TCB_AT_TP or TLS_DTV_AT_TP must be defined"
+#endif
 #endif
   /* If we have special thread_self processing, initialize it.  */
 #ifdef INIT_THREAD_SELF
@@ -251,7 +257,13 @@ pthread_start_thread(void *arg)
 {
   pthread_descr self = (pthread_descr) arg;
 #ifdef USE_TLS
+# if defined(TLS_TCB_AT_TP)
   TLS_INIT_TP(self, 0);
+#elif defined(TLS_DTV_AT_TP)
+  TLS_INIT_TP(self + 1, 0);
+#else
+#  error "Either TLS_TCB_AT_TP or TLS_DTV_AT_TP must be defined"
+#endif
 #endif
 
 #ifdef NOT_FOR_L4

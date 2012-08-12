@@ -26,6 +26,7 @@
 #include <l4/re/env.h>
 
 #include <linux/interrupt.h>
+#include <linux/input.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -42,6 +43,8 @@ enum {
 static int input_pos;
 static struct l4input *input_mem;
 static L4_CV void (*input_handler)(struct l4input *);
+static struct input_dev idev;
+
 
 static int dequeue_event(struct l4input *ev)
 {
@@ -50,6 +53,7 @@ static int dequeue_event(struct l4input *ev)
   if (i->time == 0)
     return 0;
 
+  i->stream_id = (unsigned long)&idev;
   *ev = *i;
 
   i->time = 0;
@@ -151,6 +155,7 @@ static int ux_flush(void *buffer, int count)
 
   while (count && i->time)
     {
+      i->stream_id = (unsigned long)&idev;
       *b = *i;
 
       i->time = 0;
@@ -177,6 +182,29 @@ struct l4input_ops * l4input_internal_ux_init(L4_CV void (*handler)(struct l4inp
 
   if (init_stuff())
     return 0;
+
+  void l4input_internal_register_ux(struct input_dev *dev);
+
+  idev.id.bustype = 6;
+  idev.id.vendor  = 1;
+  idev.id.product = 2;
+  idev.id.version = 3;
+
+  set_bit(EV_KEY, idev.evbit);
+#if 0
+  for (i = 0; i < KEY_MAX; ++i)
+    set_bit(i, idev.keybit);
+#else
+  set_bit(BTN_LEFT, idev.keybit);
+  set_bit(BTN_MIDDLE, idev.keybit);
+  set_bit(BTN_RIGHT, idev.keybit);
+#endif
+
+  set_bit(EV_REL, idev.evbit);
+  set_bit(REL_X, idev.relbit);
+  set_bit(REL_Y, idev.relbit);
+
+  l4input_internal_register_ux(&idev);
 
   return &ops;
 }

@@ -157,11 +157,7 @@ slowtraps:
 #ifndef CONFIG_NO_FRAME_PTR
 	pushl	56(%esp)		/* create artificial stack frame */
 	pushl	%ebp
-# ifndef CONFIG_PROFILE
 	leal	(%esp),%ebp
-# else
-	xorl	%ebp,%ebp
-# endif
 #endif
 
         /* Call the C handler function if one has been installed.  */
@@ -234,9 +230,6 @@ entry_vec0e_page_fault:
 	RESET_THREAD_CANCEL_AT %ecx
 1:	movl	%ebp,12(%esp)	/* save frame pointer */
 	leal    12(%esp),%ebp	/* load new frame pointer */
-#ifdef CONFIG_PROFILE
-	call	mcount
-#endif
 	pushl	%eax		/* save pf address */
 	pushl	%edx		/* save error code */
 	leal	24(%esp),%ecx	/* ARG5: ptr to Return_frame */
@@ -325,11 +318,7 @@ GATE_ENTRY(APIC_IRQ_BASE, entry_int_timer,ACC_PL_K | ACC_INTR_GATE)
 entry_int_timer:
 #ifndef CONFIG_NO_FRAME_PTR
 	pushl	%ebp
-#ifndef CONFIG_PROFILE
 	movl	%esp,%ebp
-#else
-	xorl	%ebp,%ebp
-#endif
 #endif
 	SAVE_SCRATCH
 do_timer_interrupt:
@@ -357,11 +346,7 @@ in_timer_interrupt:
 entry_int_timer_slow:
 #ifndef CONFIG_NO_FRAME_PTR
 	pushl	%ebp
-#ifndef CONFIG_PROFILE
 	movl	%esp,%ebp
-#else
-	xorl	%ebp,%ebp
-#endif
 #endif
 	SAVE_SCRATCH
 	cld
@@ -376,11 +361,7 @@ in_timer_interrupt_slow:
 entry_int_timer_stop:
 #ifndef CONFIG_NO_FRAME_PTR
 	pushl	%ebp
-#ifndef CONFIG_PROFILE
 	movl	%esp,%ebp
-#else
-	xorl	%ebp,%ebp
-#endif
 #endif
 	SAVE_SCRATCH
 	cld
@@ -396,41 +377,6 @@ entry_int_timer_stop:
 #endif
 	iret
 
-
-/* profiling timer interrupt entry point */
-#ifdef CONFIG_PROFILE
-
-	.p2align 4
-	.globl profile_interrupt_entry
-	.type	profile_interrupt_entry,@function
-profile_interrupt_entry:
-	cld
-#ifndef CONFIG_NO_FRAME_PTR
-	pushl	%ebp
-	movl	%esp,%ebp
-	pushl	%eax
-	movl    8(%esp),%eax			/* %eax = return address */
-#else
-	pushl	%eax
-	movl    4(%esp),%eax			/* %eax = return address */
-#endif
-	pushl	%edx
-	pushl	%ecx
-	call	profile_interrupt		/* enter with disabled irqs */
-#ifndef CONFIG_NO_FRAME_PTR
-	CHECK_SANITY 20(%esp)			/* scratches ecx */
-#else
-	CHECK_SANITY 16(%esp)			/* scratches ecx */
-#endif
-	popl	%ecx
-	popl	%edx
-	popl	%eax
-#ifndef CONFIG_NO_FRAME_PTR
-	popl	%ebp
-#endif
-	iret
-
-#endif /* CONFIG_PROFILE */
 
 /* other interrupts */
 
@@ -712,31 +658,6 @@ vcpu_resume:
 	popa
 	addl $(2*4), %esp
 	iret
-
-
-.section ".text.debug.stack_profiling"
-
-	.global __cyg_profile_func_enter
-	.global __cyg_profile_func_exit
-
-
-__ret_from_cyg:
-	ret
-__cyg_profile_func_enter:
-__cyg_profile_func_exit:
-	cmp $0xc0000000, %esp
-	jl __ret_from_cyg
-	cmp $0xd0000000,%esp
-	jg __ret_from_cyg
-	mov %esp, %ecx
-//	and $0x7ff, %ecx /* 2K TCBs */
-	and $0xfff, %ecx /* 4K TCBs */
-	cmp $0x200, %ecx
-	jg __ret_from_cyg
-	int3
-	jmp 1f
-	.ascii "STACK"
-1: 	ret
 
 	// fast return from Dirq::hit
 	.align	16

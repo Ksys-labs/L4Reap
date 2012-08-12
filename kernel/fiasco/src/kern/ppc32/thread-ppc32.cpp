@@ -10,10 +10,10 @@ IMPLEMENTATION [ppc32]:
 
 #include "globals.h"
 #include "kmem.h"
+#include "mem_space.h"
 #include "thread_state.h"
 #include "trap_state.h"
 #include "types.h"
-#include "vmem_alloc.h"
 
 enum {
   FSR_STATUS_MASK = 0x0d,
@@ -22,7 +22,7 @@ enum {
   FSR_PERMISSION  = 0x0d,
 };
 
-Per_cpu<Thread::Dbg_stack> DEFINE_PER_CPU Thread::dbg_stack;
+DEFINE_PER_CPU Per_cpu<Thread::Dbg_stack> Thread::dbg_stack;
 
 PRIVATE static
 void
@@ -42,7 +42,7 @@ Thread::print_page_fault_error(Mword e)
 //
 // Public services
 //
-PRIVATE static 
+PRIVATE static
 void
 Thread::dump_bats()
 {
@@ -63,7 +63,7 @@ Thread::dump_bats()
 		  " mfdbatu %1, %2 \n"
 		  : "=r"(batl), "=r"(batu) : "i"(3));
     printf("DBAT3 U:%08lx L:%08lx\n", batu, batl);
-  
+
     asm volatile (" mfibatl %0, %2 \n"
 		  " mfibatu %1, %2 \n"
 		  : "=r"(batl), "=r"(batu) : "i"(0));
@@ -195,7 +195,7 @@ extern "C" {
       }
 
     //lookup in page cache
-    if(current_mem_space()->try_htab_fault((Address)(pfa & Config::PAGE_MASK)))
+    if (Mem_space::current_mem_space(current_cpu())->try_htab_fault((Address)(pfa & Config::PAGE_MASK)))
       return 1;
 
     int ret = current_thread()->handle_page_fault(pfa, error_code, pc, ret_frame);
@@ -227,7 +227,7 @@ extern "C"
     if(EXPECT_FALSE(rf->user_mode()))
       rf->srr1 = Proc::wake(rf->srr1);
 
-    Timer::update_system_clock();
+    Timer::update_system_clock(current_cpu());
     current_thread()->handle_timer_interrupt();
   }
 }
@@ -251,10 +251,11 @@ Thread::Thread()
   assert(state() == Thread_invalid);
 
   inc_ref();
+  _space.space(Kernel_task::kernel_task());
 
-  if (Config::stack_depth)
+  if (Config::Stack_depth)
     std::memset((char*)this + sizeof(Thread), '5',
-                Config::thread_block_size-sizeof(Thread)-64);
+                Thread::Size - sizeof(Thread) - 64);
 
   // set a magic value -- we use it later to verify the stack hasn't
   // been overrun
@@ -354,10 +355,10 @@ Thread::copy_ts_to_utcb(L4_msg_tag const &, Thread * /*snd*/, Thread * /*rcv*/,
 }
 
 PROTECTED inline
-bool
-Thread::invoke_arch(L4_msg_tag & /*tag*/, Utcb * /*utcb*/)
+L4_msg_tag
+Thread::invoke_arch(L4_msg_tag /*tag*/, Utcb * /*utcb*/)
 {
-  return false;
+  return commit_result(-L4_err::ENosys);
 }
 
 PROTECTED inline

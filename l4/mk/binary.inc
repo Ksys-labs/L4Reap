@@ -42,16 +42,15 @@ ifeq ($(SYSTEM),) # if we have no system yet, build the subdirs
 # our default systems
 SYSTEMS	?= $(SYSTEMS_ABI)
 
-BID_MISSING_PKGS := \
+BID_MISSING_PCS := \
    $(strip $(if $(DEPENDS_PKGS), \
              $(strip $(foreach i,$(DEPENDS_PKGS),            \
-	               $(if $(strip $(wildcard $(L4DIR)/pkg/$(i))   \
-                         $(wildcard $(OBJ_BASE)/pc/$(i).pc)),,$(i))))))
+	               $(if $(strip $(wildcard $(OBJ_BASE)/pc/$(i).pc)),,$(i))))))
 
-ifneq ($(BID_MISSING_PKGS),)
+ifneq ($(BID_MISSING_PCS),)
   # clear SYSTEMS to prevent building anything
   SYSTEMS =
-  text := $(shell echo -e "\033[32mPackage dependencies missing: \033[1m$(BID_MISSING_PKGS)\033[22m; skipping directory '$(SRC_DIR)'.\033[0m")
+  text := $(shell echo -e "\033[32mPackage dependencies missing: \033[1m$(BID_MISSING_PCS)\033[22m; skipping directory '$(SRC_DIR)'.\033[0m")
   $(if $(BID_FAIL_ON_MISSING),$(error $(text)), $(info $(text)))
 endif
 
@@ -263,6 +262,7 @@ REQUIRES_LIBS += $(REQUIRES_LIBS_$(ARCH)) $(call BID_mode_var,REQUIRES_LIBS)
 LIBS	+= $(strip $(LIBS_$(OSYSTEM)) $(LIBS_$@) $(LIBS_$@_$(OSYSTEM)))
 
 LDFLAGS	+= $(strip $(LDFLAGS_$(OSYSTEM)) $(LDFLAGS_$@) $(LDFLAGS_$@_$(OSYSTEM)))
+CARCHFLAGS += $(CARCHFLAGS_$(ARCH)) $(CARCHFLAGS_$(ARCH)_$(CPU))
 
 # ---------------------------------
 
@@ -290,18 +290,18 @@ BID_PKG_CONFIG_MISSING =                                        \
 
 BID_PKG_CONFIG_FAILED = $(findstring __PKGCONFIG_FAILED__,$(1))
 
-ifeq ($(BID_MISSING_PKGS),)
+ifeq ($(BID_MISSING_PCS),)
  ifneq ($(SYSTEM),)
   ifneq ($(REQUIRES_LIBS),)
    REQUIRES_LIBS_LIST := $(strip $(call BID_PKG_CONFIG,$(OBJ_BASE),--libs,$(REQUIRES_LIBS)))
    # error handling
    ifneq ($(call BID_PKG_CONFIG_FAILED,$(REQUIRES_LIBS_LIST)),)
-    BID_MISSING_PKGS := $(strip $(foreach i,$(REQUIRES_LIBS), \
-                          $(if $(filter __PKGCONFIG_FAILED__,$(call BID_PKG_CONFIG,$(OBJ_BASE),--libs --print-errors,$(i))),$(i))))
-    text := $(shell echo -e "\033[31mLibrary dependencies missing: \033[1m$(BID_MISSING_PKGS)\033[22m in directory '$(SRC_DIR)'; aborting.\033[0m")
+    BID_MISSING_PCS := $(strip $(foreach i,$(REQUIRES_LIBS), \
+                         $(if $(filter __PKGCONFIG_FAILED__,$(call BID_PKG_CONFIG,$(OBJ_BASE),--libs --print-errors,$(i))),$(i))))
+    text := $(shell echo -e "\033[31mLibrary dependencies missing: \033[1m$(BID_MISSING_PCS)\033[22m in directory '$(SRC_DIR)'; aborting.\033[0m")
     text2 := $(strip $(foreach i,$(REQUIRES_LIBS), $(call BID_PKG_CONFIG_MISSING,$(OBJ_BASE),--libs,$(i))))
     $(if $(text2),$(info $(shell echo -e "\033[31m$(text2)\033[0m")))
-    $(if $(BID_MISSING_PKGS),$(info $(text)),$(error $(text)))
+    $(if $(BID_MISSING_PCS),$(info $(text)),$(error $(text)))
    endif
 
    # some sanity check
@@ -314,9 +314,9 @@ ifeq ($(BID_MISSING_PKGS),)
 
   # error handling
   ifneq ($(call BID_PKG_CONFIG_FAILED,$(BID_PKG_CONFIG_CFLAGS)),)
-   BID_MISSING_PKGS := $(strip $(foreach i,$(REQUIRES_CFLAGS) $(REQUIRES_LIBS), \
+   BID_MISSING_PCS := $(strip $(foreach i,$(REQUIRES_CFLAGS) $(REQUIRES_LIBS), \
                           $(if $(filter __PKGCONFIG_FAILED__,$(call BID_PKG_CONFIG,$(OBJ_BASE),--cflags --print-errors,$(i))),$(i))))
-   text := $(shell echo -e "\033[31mCflags dependencies missing: \033[1m$(BID_MISSING_PKGS)\033[22m in directory '$(SRC_DIR)'; aborting.\033[0m")
+   text := $(shell echo -e "\033[31mCflags dependencies missing: \033[1m$(BID_MISSING_PCS)\033[22m in directory '$(SRC_DIR)'; aborting.\033[0m")
    text2 := $(strip $(foreach i,$(REQUIRES_LIBS), $(call BID_PKG_CONFIG_MISSING,$(OBJ_BASE),--cflags,$(i))))
    $(if $(text2),$(info $(shell echo -e "\033[31m$(text2)\033[0m")))
    $(error $(text))
@@ -347,7 +347,6 @@ LIBS         += $(REQUIRES_LIBS_LIST)
 else
 # no architecture specific flags in host mode
 LDFLAGS      += $(LDFLAGS_$(ARCH))
-OPTS	     += $(CARCHFLAGS_$(ARCH)) $(CARCHFLAGS_$(ARCH)_$(CPU))
 L4_LIBS      += $(REQUIRES_LIBS_LIST)
 endif
 
@@ -372,17 +371,19 @@ default_reloc = $(if $(call default_reloc_base,$(1)),\
 # can be overwritten to get the old mode
 CFLAGS_C99 ?= -std=gnu99
 
+ifneq ($(MODE),host)
+CFLAGS_L4_GENERIC += $(CCXX_FLAGS) $(CARCHFLAGS) $(GCCNOSTACKPROTOPT)
+endif
+
 $(CLIENTIDL:.idl=-client.o): CFLAGS += -ffunction-sections
 CFLAGS  += $(if $(CONFIG_BID_GCC_OMIT_FP),-fomit-frame-pointer,)
-CFLAGS	+= $(CFLAGS_$(OSYSTEM)) $(CFLAGS_$(<F)) $(CFLAGS_$(<D)) $(CFLAGS_$(<F)_$(OSYSTEM))
+CFLAGS	+= $(CFLAGS_$(OSYSTEM)) $(CFLAGS_$<) $(CFLAGS_$(<F)) $(CFLAGS_$(<D)) $(CFLAGS_$(<F)_$(OSYSTEM))
 CFLAGS  += $(CFLAGS_$(L4API))
 CFLAGS	+= $(OPTS) $(WARNINGS)
 CFLAGS  += -fno-common
 CFLAGS  += $(CFLAGS_C99)
-ifneq ($(MODE),host)
-CFLAGS  += $(GCCNOSTACKPROTOPT)
-endif
-DEFINES += $(DEFINES_$(OSYSTEM)) $(DEFINES_$(<F)) $(DEFINES_$(<D)) $(DEFINES_$(<F)_$(OSYSTEM))
+CFLAGS  += $(CFLAGS_L4_GENERIC)
+DEFINES += $(DEFINES_$(OSYSTEM)) $(DEFINES_$<) $(DEFINES_$(<F)) $(DEFINES_$(<D)) $(DEFINES_$(<F)_$(OSYSTEM))
 DEFINES += -DSYSTEM_$(subst -,_,$(SYSTEM)) -DARCH_$(ARCH) -DCPUTYPE_$(CPU) -DL4API_$(L4API)
 DEFINES += $(DEFINES-y)
 DEFINES += -D_GNU_SOURCE
@@ -399,7 +400,7 @@ CPPFLAGS-DEBUG_MODE = \
     -include $(OBJ_BASE)/include/l4/util/kprintf.h \
     $(if $(L4API),-include $(OBJ_BASE)/include/l4/sys/debugger.h)
 
-CPPFLAGS+= $(CPPFLAGS_$(OSYSTEM)) $(CPPFLAGS_$(<F)) $(CPPFLAGS_$(<D)) $(CPPFLAGS_$(<F)_$(OSYSTEM))
+CPPFLAGS+= $(CPPFLAGS_$(OSYSTEM)) $(CPPFLAGS_$<) $(CPPFLAGS_$(<F)) $(CPPFLAGS_$(<D)) $(CPPFLAGS_$(<F)_$(OSYSTEM))
 CPPFLAGS+= $(DEFINES)
 CPPFLAGS+= $(addprefix -I, $(PRIVATE_INCDIR) $(PRIVATE_INCDIR_$(OSYSTEM)) $(PRIVATE_INCDIR_$@) $(PRIVATE_INCDIR_$@_$(OSYSTEM)))
 CPPFLAGS+= $(if $(CONTRIB_INCDIR),$(addprefix -I$(OBJ_BASE)/include/contrib/,$(CONTRIB_INCDIR)))
@@ -411,20 +412,28 @@ endif
 CPPFLAGS+= $(if $(DEBUG_MODE),$(CPPFLAGS-DEBUG_MODE))
 CPPFLAGS+= $(LIBCINCDIR)
 
+ifneq ($(MODE),host)
+CXXFLAGS_L4_GENERIC += $(CARCHFLAGS) $(CCXX_FLAGS)
+CXXFLAGS_L4_GENERIC += $(if $(GCC_HAS_ATOMICS),-DL4_GCC_HAS_ATOMICS)
+CXXFLAGS_L4_GENERIC += $(GCCNOSTACKPROTOPT)
+CXXFLAGS_L4_GENERIC += -fuse-cxa-atexit
+endif
+
 CXXFLAGS+= $(if $(CONFIG_BID_GCC_OMIT_FP),-fomit-frame-pointer,)
-CXXFLAGS+= $(CXXFLAGS_$(OSYSTEM))
-CXXFLAGS+= $(CXXFLAGS_$(@:.o=.cc))  $(CXXFLAGS_$(@:.o=.cc)_$(OSYSTEM))
-CXXFLAGS+= $(CXXFLAGS_$(@:.o=.cpp)) $(CXXFLAGS_$(@:.o=.cpp)_$(OSYSTEM))
-CXXFLAGS+= $(OPTS) $(filter-out -Wmissing-declarations -Wstrict-prototypes -Wmissing-prototypes -Wno-pointer-sign,$(WARNINGS))
+CXXFLAGS+= $(CXXFLAGS_$(OSYSTEM)) $(CXXFLAGS_$@) $(CXXFLAGS_$(@D)) $(CXXFLAGS_$<) $(CXXFLAGS_$(<F))  $(CXXFLAGS_$(<D)) $(CXXFLAGS_$(<F)_$(OSYSTEM))
+CXXFLAGS+= $(OPTS) $(filter-out -Wstrict-prototypes -Wmissing-prototypes -Wno-pointer-sign,$(WARNINGS))
 CXXFLAGS+= $(CXXFLAGS-y)
 CXXFLAGS+= -fno-common
-ifneq ($(MODE),host)
-CXXFLAGS+= $(GCCNOSTACKPROTOPT)
-endif
+CXXFLAGS+= $(CXXFLAGS_L4_GENERIC)
 
 PICFLAGS += -fPIC -U__PIC__ -D__PIC__=1
 
-ASFLAGS += $(OPTS) $(ASFLAGS_$(ARCH)) $(ASFLAGS_$(@:.o=.S)) $(ASFLAGS_$(@:.o=.S)_$(OSYSTEM))
+ifneq ($(MODE),host)
+ASFLAGS_L4_GENERIC += $(CARCHFLAGS) $(CCXX_FLAGS)
+endif
+
+ASFLAGS += $(OPTS) $(ASFLAGS_L4_GENERIC)
+ASFLAGS += $(ASFLAGS_$(ARCH)) $(ASFLAGS_$(@:.o=.S)) $(ASFLAGS_$(@:.o=.S)_$(OSYSTEM))
 OBJS	+= $(strip $(OBJS_$(OSYSTEM)) $(OBJS_$@) $(OBJS_$@_$(OSYSTEM)))
 ALLOBJS  = $(OBJS) $(foreach target,$(TARGET) $(TARGET_$(OSYSTEM)),\
                              $(OBJS_$(target)) $(OBJS_$(target)_$(OSYSTEM)))
@@ -473,16 +482,23 @@ vpath %-server.c $(IDL_PATH)
 vpath %-server.cc $(IDL_PATH)
 endif
 
+# convert list of c++ files names to .o files
+# arg: 1 - list of files
+#      2 - infix between the basename and the .o
+convert_cc_to_o_file = $(patsubst %.cc,%$(2).o, $(filter %.cc,$(1)))     \
+                       $(if $(BID_ALLOW_CPP_AS_CPLUSPLUS_FILE),          \
+		         $(patsubst %.cpp,%$(2).o,$(filter %.cpp,$(1))))
+
 # generic targetobjs
 # arg: 1 - target
 #      2 - infix between the basename and the .o
 #      3 - additional infix before .o in case of .cc files
 targetobjs_gen = $(SRC_C:.c=$(2).o) $(SRC_S:.S=$(2).o)                  \
-                 $(SRC_CC:.cc=$(2)$(3).o)                               \
+                 $(call convert_cc_to_o_file,$(SRC_CC),$(2)$(3))        \
                  $(foreach inter, $(OSYSTEM) $(1) $(1)_$(OSYSTEM),	\
                      $(SRC_C_$(inter):.c=$(2).o)			\
                      $(SRC_S_$(inter):.S=$(2).o)			\
-                     $(SRC_CC_$(inter):.cc=$(2)$(3).o))	                \
+                     $(call convert_cc_to_o_file,$(SRC_CC_$(inter)),$(2)$(3))) \
                  $(patsubst %.c,%$(2).o,$(call IDL_SRC_Cfn,$(1)))
 
 # a helper function to generate the object-files for a given target
@@ -600,29 +616,11 @@ endif
 		$(foreach target, $(TARGET),				 \
 			$(if $(call default_reloc,$(target)),$(target))) \
 		: $@)' >>$@_
-ifneq ($(wildcard $(STATICFILE)),)
-        # Makefile.inc depends on STATIC
-	@$(ECHO) -e '\n$@: $(firstword $(wildcard $(STATICFILE)))' >>$@_
-        # we find out the relocation address here.
-	@$(ECHO) -e '$(foreach target, $(TARGET),$(strip		\
-		\nLDFLAGS_$(target)+= -Ttext=__executable_start=$(firstword		\
-			$(shell $(AWKP) -v prog=$(target)		\
-				"/^[^\#]/{if(\$$2==prog){print $$1; exit}}" \
-				< $(firstword $(wildcard $(STATICFILE)))) \
-			$(call default_reloc,$(target)))))'	\
-		>>$@_
-        # and the dummy-rule to rebuild myself if STATIC disappears
-	@$(ECHO) -e '\n$(firstword $(wildcard $(STATICFILE))): ' >>$@_
-else
-        # STATIC does not exist. rebuild myself if STATIC appears
-	@$(ECHO) -e '\n$$(if $$(wildcard $(STATICFILE)), $@: FORCE)'	\
-		>>$@_
         # we find out the relocation address here.
 	@$(ECHO) -e '$(foreach target, $(TARGET),$(strip		\
 		\nLDFLAGS_$(target)+=  --defsym=__executable_start=$(firstword		\
 			$(call default_reloc,$(target)))))'	\
 		>>$@_
-endif # STATIC file
 endif
 endif # MODE != shared
 	@mv $@_ $@
@@ -702,7 +700,7 @@ include $(L4DIR)/mk/rules.inc
 # generate rules to compile %.cc files to %.o, %.s.o etc
 $(eval $(call BID_GENERATE_CXX_MAKE_RULES,cc))
 # generate rules to compile %.cpp files to %.o, %.s.o etc
-$(eval $(call BID_GENERATE_CXX_MAKE_RULES,cpp))
+$(if $(BID_ALLOW_CPP_AS_CPLUSPLUS_FILE),$(eval $(call BID_GENERATE_CXX_MAKE_RULES,cpp)))
 # generate rules to compile %.c files to %.o, %.s.o etc
 $(eval $(call BID_GENERATE_C_MAKE_RULES,c))
 # generate rules to compile %.S files to %.o, %.s.o etc
@@ -715,8 +713,23 @@ $(eval $(call BID_GENERATE_DEFAULT_MAKE_RULES,%,%.S,AS))
 %:	%.cc
 	
 
+%:	%.cpp
+	
+
 %:	%.S
 	
+
+$(eval $(call BID_GENERATE_I_MAKE_RULE,%.i,%.c,$(CC),$(CFLAGS)))
+$(eval $(call BID_GENERATE_I_MAKE_RULE,%.s.i,%.c,$(CC),$(CFLAGS) $(PICFLAGS)))
+$(eval $(call BID_GENERATE_I_MAKE_RULE,%.i,%.cc,$(CXX),$(CXXFLAGS)))
+$(eval $(call BID_GENERATE_I_MAKE_RULE,%.s.i,%.cc,$(CXX),$(CXXFLAGS) $(PICFLAGS)))
+$(if $(BID_ALLOW_CPP_AS_CPLUSPLUS_FILE),$(eval $(call BID_GENERATE_I_MAKE_RULE,%.i,%.cpp,$(CXX),$(CXXFLAGS))))
+$(if $(BID_ALLOW_CPP_AS_CPLUSPLUS_FILE),$(eval $(call BID_GENERATE_I_MAKE_RULE,%.s.i,%.cpp,$(CXX),$(CXXFLAGS) $(PICFLAGS))))
+$(eval $(call BID_GENERATE_I_MAKE_RULE,%.i,%.S,$(CC),$(ASFLAGS)))
+
+$(eval $(call BID_GENERATE_S_MAKE_RULE,%.c,$(CC),$(CFLAGS)))
+$(eval $(call BID_GENERATE_S_MAKE_RULE,%.cc,$(CC),$(CXXFLAGS)))
+$(if $(BID_ALLOW_CPP_AS_CPLUSPLUS_FILE),$(eval $(call BID_GENERATE_S_MAKE_RULE,%.cpp,$(CC),$(CXXFLAGS))))
 
 %.c:	%.y
 	@$(GEN_MESSAGE)
@@ -727,54 +740,6 @@ $(eval $(call BID_GENERATE_DEFAULT_MAKE_RULES,%,%.S,AS))
 %.c:	%.l
 	@$(COMP_MESSAGE)
 	$(VERBOSE)$(CONFIG_LEX) -o$@ $(call absfilename,$<)
-
-%.i:	%.c FORCE
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(CC) -E -H -dD $(CPPFLAGS) $(CFLAGS) $(call absfilename,$<) -o $@
-	$(VERBOSE)$(INDENT) -o $@ $@
-	$(VERBOSE)$(if $(DO_SHOW_RESULT_FILE),$(PAGER) $@)
-
-%.s.i:	%.c FORCE
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(CC) -E -H -dD $(CPPFLAGS) $(CFLAGS) $(PICFLAGS) $(call absfilename,$<) -o $@
-	$(VERBOSE)$(INDENT) -o $@ $@
-	$(VERBOSE)$(if $(DO_SHOW_RESULT_FILE),$(PAGER) $@)
-
-%.i:	%.cc FORCE
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(CXX) -E -H -dD $(CPPFLAGS) $(CXXFLAGS) $(call absfilename,$<) -o $@
-	$(VERBOSE)$(INDENT) -sob -o $@ $@
-	$(VERBOSE)$(if $(DO_SHOW_RESULT_FILE),$(PAGER) $@)
-
-%.s.i:	%.cc FORCE
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(CXX) -E -H -dD $(CPPFLAGS) $(CXXFLAGS) $(PICFLAGS) $(call absfilename,$<) -o $@
-	$(VERBOSE)$(INDENT) -sob -o $@ $@
-	$(VERBOSE)$(if $(DO_SHOW_RESULT_FILE),$(PAGER) $@)
-
-%.i:	%.cpp FORCE
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(CXX) -E -H -dD $(CPPFLAGS) $(CXXFLAGS) $(call absfilename,$<) -o $@
-	$(VERBOSE)$(INDENT) -sob -o $@ $@
-	$(VERBOSE)$(if $(DO_SHOW_RESULT_FILE),$(PAGER) $@)
-
-%.i:	%.S FORCE
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(CC) -E -H -dD $(CPPFLAGS) $(ASFLAGS) $(call absfilename,$<) -o $@
-	$(VERBOSE)$(INDENT) -sob -o $@ $@
-	$(VERBOSE)$(if $(DO_SHOW_RESULT_FILE),$(PAGER) $@)
-
-%.S:	%.c FORCE
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(CC) -S $(CFLAGS) $(CPPFLAGS) $(call absfilename,$<) -fverbose-asm -o $@
-
-%.S:	%.cc FORCE
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(CXX) -S $(CXXFLAGS) $(CPPFLAGS) $(call absfilename,$<) -fverbose-asm -o $@
-
-%.S:	%.cpp FORCE
-	@$(COMP_MESSAGE)
-	$(VERBOSE)$(CXX) -S $(CXXFLAGS) $(CPPFLAGS) $(call absfilename,$<) -fverbose-asm -o $@
 
 %.dpi:	%.dpe
 	@$(GEN_MESSAGE)

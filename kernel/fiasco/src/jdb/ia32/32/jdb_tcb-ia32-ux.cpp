@@ -18,7 +18,7 @@ EXTENSION class Jdb_tcb
 
 IMPLEMENT
 void
-Jdb_tcb::print_entry_frame_regs(Space *task)
+Jdb_tcb::print_entry_frame_regs(Thread *t)
 {
   Jdb_entry_frame *ef = Jdb::get_entry_frame(Jdb::current_cpu);
   int from_user       = ef->from_user();
@@ -32,7 +32,7 @@ Jdb_tcb::print_entry_frame_regs(Space *task)
   if (Jdb_disasm::avail())
     {
       putstr(Jdb::esc_emph);
-      Jdb_disasm::show_disasm_line(-40, disass_addr, 0, from_user ? task : 0);
+      Jdb_disasm::show_disasm_line(-40, disass_addr, 0, from_user ? t->space() : 0);
       putstr("\033[m");
     }
 
@@ -40,7 +40,7 @@ Jdb_tcb::print_entry_frame_regs(Space *task)
 	 ef->_cx, ef->_bp, ef->_gs & 0xffff);
 
   if (Jdb_disasm::avail())
-    Jdb_disasm::show_disasm_line(-40, disass_addr, 0, from_user ? task : 0);
+    Jdb_disasm::show_disasm_line(-40, disass_addr, 0, from_user ? t->space() : 0);
 
   printf("EDX=%08lx  ESP=%08lx  SS=%04lx\n"
 	 "trap %ld (%s), error %08lx, from %s mode\n"
@@ -51,7 +51,7 @@ Jdb_tcb::print_entry_frame_regs(Space *task)
 	 ef->cs() & 0xffff, Jdb::esc_emph, ef->ip(), ef->flags());
 
   if (ef->_trapno == 14)
-    printf("page fault linear address "L4_PTR_FMT"\n", ef->_cr2);
+    printf("page fault linear address " L4_PTR_FMT "\n", ef->_cr2);
 }
 
 IMPLEMENT
@@ -205,7 +205,7 @@ IMPLEMENT inline
 bool
 Jdb_tcb_ptr::is_user_value() const
 {
-  return _offs >= Config::thread_block_size - 5 * sizeof(Mword);
+  return _offs >= Context::Size - 5 * sizeof(Mword);
 }
 
 IMPLEMENT inline
@@ -213,5 +213,5 @@ const char *
 Jdb_tcb_ptr::user_value_desc() const
 {
   const char *desc[] = { "SS", "SP", "EFL", "CS", "IP" };
-  return desc[(Config::thread_block_size - _offs) / sizeof(Mword) - 1];
+  return desc[(Context::Size - _offs) / sizeof(Mword) - 1];
 }

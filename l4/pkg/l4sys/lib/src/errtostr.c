@@ -20,8 +20,6 @@
 #include <l4/sys/err.h>
 #include <l4/sys/ipc.h>
 
-char const *l4sys_errtostr(long err);
-
 static char const *const _l4sys_errortab[L4_ERRNOMAX] = {
     [L4_EOK]           = "OK",
     [L4_EPERM]         = "Operation not permitted",
@@ -60,7 +58,7 @@ static char const *const _l4sys_ipc_errortab[L4_EIPC_HI - L4_EIPC_LO] = {
     [L4_IPC_REMAPFAILED]   = "Map operation failed (receive phase)"
 };
 
-char const *l4sys_errtostr(long err)
+L4_CV char const *l4sys_errtostr(long err)
 {
   err = -err;
   if (err >= 0 && err < L4_ERRNOMAX)

@@ -149,7 +149,6 @@ static void handler(void) {
 }
 
 void vm_resume(void) {
-    unsigned long long old_rip;
     l4_msgtag_t tag;
 
 //    if ((vmcb_s->state_save_area.rip >= marker)) {
@@ -163,8 +162,6 @@ void vm_resume(void) {
 
     //vmcb_s->control_area.exitcode = 0x100 << i;
     vmcb_s->control_area.exitcode = 0;
-
-    old_rip = vmcb_s->state_save_area.rip;
 
     tag = l4_thread_vcpu_resume_commit(L4_INVALID_CAP,
             l4_thread_vcpu_resume_start());

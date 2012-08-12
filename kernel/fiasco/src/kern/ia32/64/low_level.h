@@ -90,6 +90,9 @@
 	//	CHECK_SANITY $3		/* scratches ecx */
 	//	RESTORE_IOPL
 	mov	(%rsp), %rcx
+        /* make RIP canonical, workaround for intel IA32e flaw */
+        shl     $16, %rcx
+        sar     $16, %rcx
 	mov	16(%rsp), %r11	/* load user rflags */
 	mov	24(%rsp), %rsp	/* user esp */
 	/* mmh, maybe weird things will

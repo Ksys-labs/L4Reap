@@ -26,10 +26,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    This exception does not however invalidate any other reasons why
    the executable file might be covered by the GNU General Public License.  */
 
-#ifndef _GLIBCXX_GCC_GTHR_H
-#define _GLIBCXX_GCC_GTHR_H
+#ifndef GCC_GTHR_H
+#define GCC_GTHR_H
 
-#ifndef _GLIBCXX_HIDE_EXPORTS
+#ifndef HIDE_EXPORTS
 #pragma GCC visibility push(default)
 #endif
 
@@ -73,6 +73,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
      void *__gthread_getspecific (__gthread_key_t key)
      int __gthread_setspecific (__gthread_key_t key, const void *ptr)
 
+     int __gthread_mutex_destroy (__gthread_mutex_t *mutex);
+
      int __gthread_mutex_lock (__gthread_mutex_t *mutex);
      int __gthread_mutex_trylock (__gthread_mutex_t *mutex);
      int __gthread_mutex_unlock (__gthread_mutex_t *mutex);
@@ -102,13 +104,49 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    All functions returning int should return zero on success or the error
    number.  If the operation is not supported, -1 is returned.
 
-   Currently supported threads packages are
-     TPF threads with -D__tpf__
-     POSIX/Unix98 threads with -D_PTHREADS
-     POSIX/Unix95 threads with -D_PTHREADS95
-     DCE threads with -D_DCE_THREADS
-     Solaris/UI threads with -D_SOLARIS_THREADS
+   If the following are also defined, you should
+     #define __GTHREADS_CXX0X 1
+   to enable the c++0x thread library.
+
+   Types:
+     __gthread_t
+     __gthread_time_t
+
+   Interface:
+     int __gthread_create (__gthread_t *thread, void *(*func) (void*),
+                           void *args);
+     int __gthread_join (__gthread_t thread, void **value_ptr);
+     int __gthread_detach (__gthread_t thread);
+     int __gthread_equal (__gthread_t t1, __gthread_t t2);
+     __gthread_t __gthread_self (void);
+     int __gthread_yield (void);
+
+     int __gthread_mutex_timedlock (__gthread_mutex_t *m,
+                                    const __gthread_time_t *abs_timeout);
+     int __gthread_recursive_mutex_timedlock (__gthread_recursive_mutex_t *m,
+                                          const __gthread_time_t *abs_time);
+
+     int __gthread_cond_signal (__gthread_cond_t *cond);
+     int __gthread_cond_timedwait (__gthread_cond_t *cond,
+                                   __gthread_mutex_t *mutex,
+                                   const __gthread_time_t *abs_timeout);
+     int __gthread_cond_timedwait_recursive (__gthread_cond_t *cond,
+                                             __gthread_recursive_mutex_t *mutex,
+                                             const __gthread_time_t *abs_time)
+
 */
+#if __GXX_WEAK__
+/* The pe-coff weak support isn't fully compatible to ELF's weak.
+   For static libraries it might would work, but as we need to deal
+   with shared versions too, we disable it for mingw-targets.  */
+#ifndef _GLIBCXX_GTHREAD_USE_WEAK
+#define _GLIBCXX_GTHREAD_USE_WEAK 1
+#endif
+
+#ifndef GTHREAD_USE_WEAK
+#define GTHREAD_USE_WEAK 1
+#endif
+#endif
 
 /* Check first for thread specific defines.  */
 #if defined (_GLIBCXX___tpf_GLIBCXX___)
@@ -124,11 +162,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* Include GTHREAD_FILE if one is defined.  */
 #elif defined(_GLIBCXX_HAVE_GTHR_DEFAULT)
-#if __GXX_WEAK__
-#ifndef _GLIBCXX_GTHREAD_USE_WEAK
-#define _GLIBCXX_GTHREAD_USE_WEAK 1
-#endif
-#endif
 #include <bits/gthr-default.h>
 
 /* Fallback to single thread definitions.  */
@@ -136,8 +169,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include <bits/gthr-single.h>
 #endif
 
-#ifndef _GLIBCXX_HIDE_EXPORTS
+#ifndef HIDE_EXPORTS
 #pragma GCC visibility pop
 #endif
 
-#endif /* ! _GLIBCXX_GCC_GTHR_H */
+#endif /* ! GCC_GTHR_H */

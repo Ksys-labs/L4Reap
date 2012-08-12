@@ -59,15 +59,6 @@ static void user_read_data(png_structp png_ptr, png_bytep data, png_size_t len)
 
 }
 
-/**
- * Dummy to make libl4png happy
- */
-extern "C" int l4libpng_fread(void *, int, int, void *)
-{
-  printf("l4libpng_fread called - function not implemented\n");
-  return 0;
-}
-
 
 /***********************
  ** Element interface **
@@ -158,7 +149,6 @@ void Png_image::flush_cache(Mag_gfx::Pixel_info const *)
 
 void Png_image::draw(Canvas *c, Point const &p)
 {
-  Rect cl = c->clip();
   /* if texture is not ready, try to initialize it */
   if (!_texture)
     {

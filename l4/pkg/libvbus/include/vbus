@@ -1,0 +1,93 @@
+// vi:ft=cpp
+/*
+ * (c) 2011 Adam Lackorzynski <adam@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
+ *
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+#pragma once
+
+#include <l4/vbus/vbus.h>
+
+namespace L4vbus {
+
+class Vbus;
+
+class Device
+{
+public:
+  Device() : _dev(L4VBUS_NULL) {}
+
+  Device(L4::Cap<Vbus> bus, l4vbus_device_handle_t dev)
+  : _bus(bus), _dev(dev) {}
+
+  int device_by_hid(Device *child, char const *hid,
+                    int depth = L4VBUS_MAX_DEPTH,
+                    l4vbus_device_t *devinfo = 0) const
+  {
+    child->_bus = _bus;
+    return l4vbus_get_device_by_hid(_bus.cap(), _dev, &child->_dev, hid, depth, devinfo);
+  }
+
+  int next_device(Device *child, int depth = L4VBUS_MAX_DEPTH,
+                  l4vbus_device_t *devinfo = 0) const
+  {
+    child->_bus = _bus;
+    return l4vbus_get_next_device(_bus.cap(), _dev, &child->_dev, depth, devinfo);
+  }
+
+  int get_resource(int res_idx, l4vbus_resource_t *res) const
+  {
+    return l4vbus_get_resource(_bus.cap(), _dev, res_idx, res);
+  }
+
+  bool operator == (Device const &o) const
+  {
+    return _bus == o._bus && _dev == o._dev;
+  }
+
+  bool operator != (Device const &o) const
+  {
+    return _bus != o._bus || _dev != o._dev;
+  }
+
+protected:
+  L4::Cap<Vbus> _bus;
+  l4vbus_device_handle_t _dev;
+};
+
+class Icu : public Device
+{
+public:
+  int vicu(L4::Cap<L4::Icu> icu) const
+  {
+    return l4vbus_vicu_get_cap(_bus.cap(), _dev, icu.cap());
+  }
+};
+
+class Vbus : public L4::Kobject_t<Vbus, L4::Kobject>
+{
+  L4_KOBJECT_DISABLE_COPY(Vbus)
+public:
+
+  int request_resource(l4vbus_resource_t *res, int flags = 0) const
+  {
+    return l4vbus_request_resource(cap(), res, flags);
+  }
+
+  int release_resource(l4vbus_resource_t *res) const
+  {
+    return l4vbus_release_resource(cap(), res);
+  }
+
+  Device root() const
+  {
+    return Device(L4::Cap<Vbus>(cap()), L4VBUS_ROOT_BUS); }
+
+};
+
+}
+
+

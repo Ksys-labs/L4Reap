@@ -19,14 +19,12 @@
 
 #ifndef _TLS_H
 #define _TLS_H
-#if defined USE_TLS && USE_TLS // l4
-
 #ifndef __ASSEMBLER__
 # include <stdbool.h>
 # include <stddef.h>
 # include <stdint.h>
 # include <stdlib.h>
-# include <list.h>
+//# include <list.h>
 # include <bits/kernel-features.h>
 
 /* Type for the dtv.  */
@@ -75,12 +73,15 @@ typedef struct
 
 #ifndef __ASSEMBLER__
 /* Get system call information.  */
-# include <sysdep.h>
+//al//# include <sysdep.h>
 
 /* Get the thread descriptor definition.  */
 # include <descr.h>
 
-register struct pthread *__thread_self __asm__("%g7");
+// al -- uhh...
+#define pthread _pthread_descr_struct
+
+//al//register struct pthread *__thread_self __asm__("%g7");
 
 /* This is the size of the initial TCB.  Can't be just sizeof (tcbhead_t),
    because NPTL getpid, __libc_alloca_cutoff etc. need (almost) the whole
@@ -115,7 +116,7 @@ register struct pthread *__thread_self __asm__("%g7");
 
 /* Code to initially initialize the thread pointer.  */
 # define TLS_INIT_TP(descr, secondcall) \
-  (__thread_self = (__typeof (__thread_self)) (descr), NULL)
+  ({ __thread_self = (__typeof (__thread_self)) (descr); (char *)0; })
 
 /* Return the address of the dtv for the current thread.  */
 # define THREAD_DTV() \
@@ -178,5 +179,4 @@ register struct pthread *__thread_self __asm__("%g7");
   GL(dl_wait_lookup_done) ()
 
 #endif /* !ASSEMBLER */
-#endif /* l4 tls disable */
 #endif	/* tls.h */

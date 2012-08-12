@@ -14,7 +14,7 @@
 # define SP esp
 #endif
 
-#define CPU_NR_COUNTER (my_kernel_info_page + OFS__KIP__PROCESSOR_INFO)
+#define CPU_NR_COUNTER (config_num_ap_cpus)
 
 	.section .mp_tramp , "awx", @progbits
 #ifndef CONFIG_PF_UX

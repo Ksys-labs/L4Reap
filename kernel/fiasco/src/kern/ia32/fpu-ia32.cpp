@@ -5,32 +5,47 @@
 
 IMPLEMENTATION [{ia32,amd64}-fpu]:
 
-#include <cassert>
 #include "cpu.h"
 #include "globalconfig.h"
 #include "globals.h"
 #include "regdefs.h"
 
-IMPLEMENT
+#include <cassert>
+#include <cstdio>
+
+PRIVATE static
 void
-Fpu::init(unsigned cpu) 
+Fpu::init_xsave(unsigned cpu)
 {
-  // Mark FPU busy, so that first FPU operation will yield an exception
-  disable();
+  Unsigned32 eax, ebx, ecx, edx;
 
-  // At first, noone owns the FPU
-  set_owner (cpu, 0);
+  Cpu::cpus.cpu(cpu).cpuid_0xd(0, &eax, &ebx, &ecx, &edx);
 
+  Unsigned64 valid_xcr0 = ((Unsigned64)edx << 32) | eax;
+
+  // enable AVX and friends
+  Cpu::cpus.cpu(cpu).set_cr4(Cpu::cpus.cpu(cpu).get_cr4() | CR4_OSXSAVE);
+  asm volatile("xsetbv"
+               :
+               : "a" ((Mword)valid_xcr0),
+                 "d" ((Mword)(valid_xcr0 >> 32)),
+                 "c" (0));
+}
+
+PRIVATE static
+void
+Fpu::init_disable()
+{
   // disable Coprocessor Emulation to allow exception #7/NM on TS
   // enable Numeric Error (exception #16/MF, native FPU mode)
   // enable Monitor Coprocessor
-  Cpu::set_cr0 ((Cpu::get_cr0() & ~CR0_EM) | CR0_NE | CR0_MP);
+  Cpu::set_cr0((Cpu::get_cr0() & ~CR0_EM) | CR0_NE | CR0_MP);
 }
-   
+
 /*
  * Save FPU or SSE state
  */
-IMPLEMENT inline NEEDS [<cassert>,"globals.h", "regdefs.h","cpu.h"]
+IMPLEMENT inline NEEDS [<cassert>,"globals.h", "regdefs.h", "cpu.h"]
 void
 Fpu::save_state(Fpu_state *s)
 {
@@ -39,11 +54,19 @@ Fpu::save_state(Fpu_state *s)
   // Both fxsave and fnsave are non-waiting instructions and thus
   // cannot cause exception #16 for pending FPU exceptions.
 
-  if ((Cpu::cpus.cpu(current_cpu()).features() & FEAT_FXSR))
-    asm volatile ("fxsave (%0)" : : "r" (s->state_buffer()) : "memory");
-  else
-    asm volatile ("fnsave (%0)" : : "r" (s->state_buffer()) : "memory");
-}  
+  switch (fpu(current_cpu())._variant)
+    {
+    case Variant_xsave:
+      asm volatile("xsave (%2)" : : "a" (~0UL), "d" (~0UL), "r" (s->state_buffer()) : "memory");
+      break;
+    case Variant_fxsr:
+      asm volatile ("fxsave (%0)" : : "r" (s->state_buffer()) : "memory");
+      break;
+    case Variant_fpu:
+      asm volatile ("fnsave (%0)" : : "r" (s->state_buffer()) : "memory");
+      break;
+    }
+}
 
 /*
  * Restore a saved FPU or SSE state
@@ -59,33 +82,37 @@ Fpu::restore_state(Fpu_state *s)
   // cannot cause exception #16 for pending FPU exceptions.
   unsigned cpu = current_cpu();
 
-  if ((Cpu::cpus.cpu(cpu).features() & FEAT_FXSR))
+  switch (fpu(cpu)._variant)
     {
+    case Variant_xsave:
+      asm volatile ("xrstor (%2)" : : "a" (~0UL), "d" (~0UL), "r" (s->state_buffer()));
+      break;
+    case Variant_fxsr:
+        {
 #if !defined (CONFIG_WORKAROUND_AMD_FPU_LEAK)
-      asm volatile ("fxrstor (%0)" : : "r" (s->state_buffer()));
+          asm volatile ("fxrstor (%0)" : : "r" (s->state_buffer()));
 #else
-      /* The code below fixes a security leak on AMD CPUs, where
-       * some registers of the FPU are not restored from the state_buffer
-       * if there are no FPU exceptions pending. The old values, from the
-       * last FPU owner, are therefore leaked to the new FPU owner.
-       */
-      static Mword int_dummy = 0;
-      
-      asm volatile (
-                "fnstsw	%%ax    \n\t"   // save fpu flags in ax
-                "ffree	%%st(7) \n\t"   // make enough space for the fildl
-                "bt	$7,%%ax \n\t"   // test if exception bit is set
-                "jnc    1f      \n\t"
-                "fnclex         \n\t"   // clear it
-                "1: fildl %1  \n\t"   // dummy load which sets the
-                                        // affected to def. values
-                "fxrstor (%0)   \n\t"   // finally restore the state
-                : : "r" (s->state_buffer()), "m" (int_dummy) : "ax");
-#endif
-    }
-  else 
-    {
+          /* The code below fixes a security leak on AMD CPUs, where
+           * some registers of the FPU are not restored from the state_buffer
+           * if there are no FPU exceptions pending. The old values, from the
+           * last FPU owner, are therefore leaked to the new FPU owner.
+           */
+          static Mword int_dummy = 0;
 
+          asm volatile(
+              "fnstsw	%%ax    \n\t"   // save fpu flags in ax
+              "ffree	%%st(7) \n\t"   // make enough space for the fildl
+              "bt       $7,%%ax \n\t"   // test if exception bit is set
+              "jnc      1f      \n\t"
+              "fnclex           \n\t"   // clear it
+              "1: fildl %1      \n\t"   // dummy load which sets the
+              // affected to def. values
+              "fxrstor (%0)     \n\t"   // finally restore the state
+              : : "r" (s->state_buffer()), "m" (int_dummy) : "ax");
+#endif
+        }
+      break;
+    case Variant_fpu:
       // frstor is a waiting instruction and we must make sure no
       // FPU exceptions are pending here. We distinguish two cases:
       // 1) If we had a previous FPU owner, we called save_state before and
@@ -96,7 +123,8 @@ Fpu::restore_state(Fpu_state *s)
         asm volatile ("fnclex");
 
       asm volatile ("frstor (%0)" : : "r" (s->state_buffer()));
-   }
+      break;
+    }
 }
 
 /*
@@ -106,7 +134,7 @@ IMPLEMENT inline NEEDS ["regdefs.h","cpu.h"]
 void
 Fpu::disable()
 {
-  Cpu::set_cr0 (Cpu::get_cr0() | CR0_TS);
+  Cpu::set_cr0(Cpu::get_cr0() | CR0_TS);
 }
 
 /*
@@ -115,6 +143,6 @@ Fpu::disable()
 IMPLEMENT inline
 void
 Fpu::enable()
-{ 
+{
   asm volatile ("clts");
 }

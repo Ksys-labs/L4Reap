@@ -30,11 +30,6 @@ bool
 Mem_layout::is_caps_area(Address a)
 { return (a >= Caps_start) && (a < Caps_end); }
 
-PUBLIC static inline
-User<Utcb>::Ptr &
-Mem_layout::user_utcb_ptr(unsigned cpu)
-{ return reinterpret_cast<User<Utcb>::Ptr*>(Utcb_ptr_page)[cpu]; }
-
 IMPLEMENT inline
 Mword
 Mem_layout::in_kernel (Address a)

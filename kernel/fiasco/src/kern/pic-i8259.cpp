@@ -235,9 +235,8 @@ Pic::pic_init(unsigned char master_base, unsigned char slave_base)
 
       // the timer interrupt should have the highest priority so that it
       // always gets through
-      if ( ! Config::profiling
-	  && Config::pic_prio_modify
-	  && Config::scheduler_mode == Config::SCHED_RTC)
+      if (Config::Pic_prio_modify
+	  && (int)Config::Scheduler_mode == Config::SCHED_RTC)
 	{
 	  // setting specific rotation (specific priority) 
 	  // -- see Intel 8259A reference manual

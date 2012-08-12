@@ -185,7 +185,7 @@ namespace L4Re
      *         or NULL if no such object was found.
      */
     Cap_entry const *get(char const *name, unsigned l) const throw()
-    { return l4re_get_env_cap_l(name, l, &_env); }
+    { return l4re_env_get_cap_l(name, l, &_env); }
 
     /**
      * \brief Get the capability selector for the object named \a name.

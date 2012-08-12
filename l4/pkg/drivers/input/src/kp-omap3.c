@@ -24,7 +24,7 @@
 #include "kp-omap.h"
 
 
-#define NUM_ROWS 4
+#define NUM_ROWS 5
 #define NUM_COLS 4
 
 static unsigned char kp_keycode[16] = {
@@ -86,7 +86,8 @@ static int twl4030_i2c_write_u8(unsigned mod_no, l4_uint8_t value, l4_uint8_t re
 {
   return l4vbus_i2c_write(vbus, i2c_handle, twl4030_map[mod_no].sid, twl4030_map[mod_no].base + reg, &value, 1);
 }
-
+#endif
+#if 0
 static int twl4030_i2c_read_u8(unsigned mod_no, l4_uint8_t *value, l4_uint8_t reg)
 {
   unsigned long size = 1;
@@ -192,6 +193,7 @@ static int init_keypad(void)
   return ret;
 }
 
+#if 0
 static void drive_vibr(void)
 {
   // VIBRATOR_CFG
@@ -217,6 +219,7 @@ static void drive_vibr(void)
   l4vbus_i2c_read(vbus, i2c_handle, 0x4b, 0x76, &v, &s);
   printf("VAUX1_DEV_GRP:%x\n", v);
 }
+#endif
 
 static void reset_keypad(void)
 {
@@ -307,7 +310,7 @@ static void* __irq_func(void *data)
 static
 int kp_init(void)
 {
-  vbus = l4re_get_env_cap("vbus");
+  vbus = l4re_env_get_cap("vbus");
 
   if (l4_is_invalid_cap(vbus))
     {

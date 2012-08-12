@@ -11,6 +11,7 @@
 
 #include <l4/cxx/ipc_server>
 #include <l4/cxx/ref_ptr>
+#include <l4/cxx/hlist>
 #include <l4/re/util/object_registry>
 
 #include <cassert>
@@ -19,7 +20,7 @@ namespace Mag_server {
 
 class Object_gc;
 
-class Object : public L4::Server_object
+class Object : public L4::Server_object, public cxx::H_list_item
 {
 private:
   friend class Object_gc;
@@ -28,35 +29,13 @@ private:
 
   mutable int _ref_cnt;
 
-  Object *_n;
-  Object **_pn;
-
-  void dequeue()
+  void enqueue(cxx::H_list<Object> *q)
   {
-    if (!_pn)
-      return;
-
-    if (_n)
-      _n->_pn = _pn;
-
-    *_pn = _n;
-    _n = 0;
-    _pn = 0;
-  }
-
-  void enqueue(Object **q)
-  {
-    _n = *q;
-    _pn = q;
-
-    if (_n)
-      _n->_pn = &_n;
-
-    *q = this;
+    q->add(this);
   }
 
 public:
-  Object() : _ref_cnt(0), _pn(0)
+  Object() : _ref_cnt(0)
   {}
 
   void add_ref() const throw() { ++_ref_cnt; }
@@ -66,11 +45,7 @@ public:
   virtual ~Object() = 0;
 };
 
-inline
-Object::~Object()
-{
-  assert (_pn == 0); // must not be queued
-}
+inline Object::~Object() {}
 
 
 

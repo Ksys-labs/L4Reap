@@ -169,7 +169,6 @@ struct Exc_dispatch : private Direct_dispatch<R>
 /**
  * \brief Basic server loop for handling client requests.
  * \ingroup client_server_ipc
- * \param OBJ the server inherits from OBJ and calls its dispatch() function.
  * \param LOOP_HOOKS the server inherits from LOOP_HOOKS and calls the
  *        hooks defined in LOOP_HOOKS in the server loop.
  *        See Ipc_svr::Default_loop_hooks, Ipc_svr::Ignore_errors,
@@ -180,20 +179,14 @@ struct Exc_dispatch : private Direct_dispatch<R>
  * for receiving requests and sending replies. The dispatcher determines
  * how incoming messages are handled.
  */
-/*template <
-  typename REGISTRY,
-  typename LOOP_HOOKS = Ipc_svr::Default_loop_hooks,
-  typename REGISTRY_WRAPPER
->*/
 template< typename LOOP_HOOKS = Ipc_svr::Default_loop_hooks >
 class Server :
   public LOOP_HOOKS
 {
 public:
   /**
-   * \brief Create a basic server loop.
-   * \param msg_buf The message buffer for send and receive operations.
-   * \param d The dispatcher to handle incoming messages.
+   * \brief Initializes the server loop and its underlying Ipc::Iostream.
+   * \param utcb The UTCB of the thread running the server loop.
    */
   explicit Server(l4_utcb_t *utcb) : _iostream(utcb) {}
 
@@ -204,14 +197,14 @@ public:
    * incoming messages calls the dispatcher, sends a reply and waits again.
    */
   template< typename DISPATCH >
-  inline void internal_loop(DISPATCH dispatch);
+  inline L4_NORETURN void internal_loop(DISPATCH dispatch);
 
   template< typename R >
-  inline void loop_noexc(R r)
+  inline L4_NORETURN void loop_noexc(R r)
   { internal_loop(Ipc_svr::Direct_dispatch<R>(r)); }
 
   template< typename R >
-  inline void loop(R r)
+  inline L4_NORETURN void loop(R r)
   { internal_loop(Ipc_svr::Exc_dispatch<R>(r)); }
 
 protected:
@@ -246,7 +239,7 @@ Server<L>::reply_n_wait(long reply, l4_umword_t *p)
 
 template< typename L >
 template< typename DISPATCH >
-inline void
+inline L4_NORETURN void
 Server<L>::internal_loop(DISPATCH dispatch)
 {
   l4_msgtag_t res;
@@ -272,7 +265,7 @@ Server<L>::internal_loop(DISPATCH dispatch)
 
 
 /**
- * \brief Abstract server object to be used with the L4::Registry_dispatcher.
+ * \brief Abstract server object to be used with L4::Server and L4::Basic_registry.
  * \ingroup client_server_ipc
  *
  * This server object provides an abstract interface that is used by the
@@ -285,7 +278,6 @@ public:
   /**
    * \brief The abstract handler for client requests to the object.
    * \param obj The object ID used for looking up the object.
-   * \param op The opcode for the request.
    * \param ios The Ipc::Iostream for reading the request and writing the reply.
    * \return #Reply, #No_reply, or #Invalid_opcode.
    *
@@ -293,9 +285,13 @@ public:
    * objects. The implementation must unmarshall data from the stream (\a ios)
    * and create a reply by marshalling to the stream (\a ios). For details
    * about the IPC stream see \link ipc_stream IPC stream operators \endlink.
+   *
+   * \note You need to extract the complete message from the \a ios stream before
+   *       inserting any reply data or before doing any function call that may use
+   *       the UTCB. Otherwise, the incoming message may get lost.
    */
   virtual int dispatch(unsigned long obj, Ipc::Iostream &ios) = 0;
-  virtual ~Server_object() {}
+  virtual ~Server_object() = 0;
 
 
   Cap<Kobject> obj_cap() const { return _cap; }
@@ -307,31 +303,45 @@ private:
   Cap<Kobject> _cap;
 };
 
+inline Server_object::~Server_object() {}
+
 /**
  * \brief This registry returns the corresponding server object
- *        based on the label.
+ *        based on the label of an Ipc_gate.
  * \ingroup client_server_ipc
  */
 class Basic_registry
 {
 public:
+  /**
+   * \brief Get the server object for a Ipc_gate label.
+   * \param label The label usually stored in an Ipc_gate.
+   * \return A pointer to the Server_object identified the given label.
+   */
   typedef Server_object Value;
-  static Value *find(l4_umword_t id)
-  { return reinterpret_cast<Value*>(id & ~3UL); }
+  static Value *find(l4_umword_t label)
+  { return reinterpret_cast<Value*>(label & ~3UL); }
 
   /**
    * \brief The dispatch function called by the server loop.
-   * \param p The sender L4 UID.
-   * \param ios The Ipc::Iostream for the request and reply.
+   *
+   * This function forwards the message to the server object identified by the
+   * given \a label.
+   *
+   * \param label The label used to find the object including the rights bits
+   *              of the invoked capability.
+   * \param ios The Ipc::Iostream for the request and the reply.
+   * \return The return code from the object's dispatch function or -L4_ENOENT
+   *         if the object does not exist.
    */
-  static int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
+  static int dispatch(l4_umword_t label, L4::Ipc::Iostream &ios)
   {
-    Value *o = find(obj);
+    Value *o = find(label);
 
     if (!o)
       return -L4_ENOENT;
 
-    return o->dispatch(obj, ios);
+    return o->dispatch(label, ios);
   }
 };
 

@@ -128,7 +128,7 @@ static int getchar_timeout()
       if ((c = Kconsole::console()->getchar (false)) != -1)
 	return c;
 
-      if (Config::getchar_does_hlt && Config::getchar_does_hlt_works_ok)
+      if (Config::getchar_does_hlt_works_ok)
 	Proc::halt();
       else
 	Cpu::cpus.cpu(0).busy_wait_ns(1000000ULL);

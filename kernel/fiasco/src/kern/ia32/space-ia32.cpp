@@ -32,18 +32,19 @@ IMPLEMENTATION [ia32 || amd64]:
 
 #include "cpu.h"
 #include "globals.h"
+#include "mem.h"
 
 IMPLEMENT inline
 void
 Space::Ldt::size(Mword size)
 { _size = size; }
 
-IMPLEMENT inline
+IMPLEMENT inline NEEDS["mem.h"]
 void
 Space::Ldt::alloc()
 {
   // LDT maximum size is one page
-  _addr = Mapped_allocator::allocator()->alloc(Config::PAGE_SHIFT);
+  _addr = Kmem_alloc::allocator()->alloc(Config::PAGE_SHIFT);
   Mem::memset_mwords(reinterpret_cast<void *>(addr()), 0,
                      Config::PAGE_SIZE / sizeof(Mword));
 }
@@ -52,9 +53,10 @@ IMPLEMENT inline
 Space::Ldt::~Ldt()
 {
   if (addr())
-    Mapped_allocator::allocator()->free(Config::PAGE_SHIFT,
-                                        reinterpret_cast<void*>(addr()));
+    Kmem_alloc::allocator()->free(Config::PAGE_SHIFT,
+                                  reinterpret_cast<void*>(addr()));
 }
+
 
 IMPLEMENT inline NEEDS["cpu.h", "globals.h"]
 void

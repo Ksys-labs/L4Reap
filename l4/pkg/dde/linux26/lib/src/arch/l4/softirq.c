@@ -1,7 +1,7 @@
 /*
  * This file is part of DDE/Linux2.6.
  *
- * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ * (c) 2006-2012 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
  *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
  *     economic rights: Technische Universitaet Dresden (Germany)
  *
@@ -235,7 +235,12 @@ asmlinkage void __do_softirq(void)
 	 * (e.g., an IRQ thread or another tasklet). */
 	} while (local_softirq_pending() && --retries);
 
-
+	/* retries are up. check if interrupts are still pending
+	 * and reschedule
+	 */
+	if(local_softirq_pending()) {
+		ddekit_sem_up(dde_softirq_sem);
+	}
 }
 
 

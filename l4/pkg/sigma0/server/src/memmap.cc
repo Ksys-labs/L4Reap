@@ -64,8 +64,6 @@ static
 void map_kip(Answer *a)
 {
   a->snd_fpage((l4_umword_t) l4_info, L4_LOG2_PAGESIZE, true);
-  a->snd_base((l4_umword_t) l4_info);
-  a->tag = l4_msgtag(0, 0, 1, 0);
 }
 
 static
@@ -74,16 +72,9 @@ void new_client(l4_umword_t, Answer *a)
   static l4_cap_idx_t _next_gate = 10 << L4_CAP_SHIFT;
   l4_factory_create_gate_u(L4_BASE_FACTORY_CAP, _next_gate,
                            L4_BASE_THREAD_CAP, (_next_gate >> L4_CAP_SHIFT) << 4, a->utcb);
-  a->snd_base(0);
   a->snd_fpage(l4_obj_fpage(_next_gate, 0, L4_FPAGE_RWX));
-  a->tag = l4_msgtag(0,0,1,0);
   _next_gate += L4_CAP_SIZE;
   return;
-#if 0
-  a->snd_fpage((l4_umword_t) l4_info, L4_LOG2_PAGESIZE, true);
-  a->snd_base((l4_umword_t) l4_info);
-  a->tag = l4_msgtag(0, 0, 1, 0);
-#endif
 }
 
 static
@@ -92,8 +83,6 @@ void map_tbuf(Answer *a)
   if (tbuf_status != 0x00000000 && tbuf_status != ~0UL)
     {
       a->snd_fpage(tbuf_status, L4_LOG2_PAGESIZE, false);
-      a->snd_base(tbuf_status);
-      a->tag = l4_msgtag(0, 0, 1, 0);
     }
 }
 
@@ -104,23 +93,19 @@ void map_free_page(unsigned size, l4_umword_t t, Answer *a)
   addr = Mem_man::ram()->alloc_first(1UL << size, t);
   if (addr != ~0UL)
     {
-      a->snd_base(addr);
       a->snd_fpage(addr, size);
-
-      a->tag = l4_msgtag(0, 0, 1, 0);
 
       if (t < root_taskno) /* sender == kernel? */
 	a->do_grant(); /* kernel wants page granted */
     }
   else
-    a->clear();
+    a->error(L4_ENOMEM);
 }
 
 
 static
 void map_mem(l4_fpage_t fp, Memory_type fn, l4_umword_t t, Answer *an)
 {
-  an->clear();
   Mem_man *m;
   switch (fn)
     {
@@ -132,6 +117,7 @@ void map_mem(l4_fpage_t fp, Memory_type fn, l4_umword_t t, Answer *an)
       m = &iomem;
       break;
     default:
+      an->error(L4_EINVAL);
       return;
     }
 
@@ -139,13 +125,14 @@ void map_mem(l4_fpage_t fp, Memory_type fn, l4_umword_t t, Answer *an)
 	1UL << l4_fpage_size(fp), t));
 
   if (addr == ~0UL)
-    return;
+    {
+      an->error(L4_ENOMEM);
+      return;
+    }
 
   /* the Fiasco kernel makes the page non-cachable if the frame
    * address is greater than mem_high */
-  an->snd_base(addr);
   an->snd_fpage(addr, l4_fpage_size(fp), false, fn != Io_mem);
-  an->tag = l4_msgtag(0, 0, 1, 0);
 
   return;
 }
@@ -158,20 +145,19 @@ handle_page_fault(l4_umword_t t, l4_utcb_t *utcb, Answer *answer)
   unsigned long pfa = l4_utcb_mr_u(utcb)->mr[0] & ~3UL;
 
 
-  answer->clear();
-
   unsigned long addr
     = Mem_man::ram()->alloc(Region::bs(l4_trunc_page(pfa), L4_PAGESIZE, t));
 
   if (addr != ~0UL)
     {
-      answer->snd_base(addr);
-      answer->snd_fpage(pfa, L4_LOG2_PAGESIZE);
-      answer->tag = l4_msgtag(0, 0, 1, 0);
+      answer->snd_fpage(addr, L4_LOG2_PAGESIZE);
+      return;
     }
   else if (debug_warnings)
     L4::cout << PROG_NAME": Page fault, did not find page at "
              << L4::hex << pfa << " for " << L4::dec << t << "\n";
+
+  answer->error(L4_ENOMEM);
 }
 
 static
@@ -179,8 +165,7 @@ void handle_service_request(l4_umword_t t, l4_utcb_t *utcb, Answer *answer)
 {
   if ((long)l4_utcb_mr_u(utcb)->mr[0] != L4_PROTO_SIGMA0)
     {
-      answer->clear();
-      answer->tag = l4_msgtag(-L4_ENODEV, 0, 0, 0);
+      answer->error(L4_ENODEV);
       return;
     }
   new_client(t, answer);
@@ -191,7 +176,7 @@ void handle_sigma0_request(l4_umword_t t, l4_utcb_t *utcb, Answer *answer)
 {
   if (!SIGMA0_IS_MAGIC_REQ(l4_utcb_mr_u(utcb)->mr[0]))
     {
-      answer->clear();
+      answer->error(L4_ENOSYS);
       return;
     }
 
@@ -212,7 +197,7 @@ void handle_sigma0_request(l4_umword_t t, l4_utcb_t *utcb, Answer *answer)
 	    << " of " << alloc.total_objects() * alloc.object_size
 	    << " byte\n";
           dump_all();
-	  answer->clear();
+	  answer->error(0);
 	}
       break;
     case SIGMA0_REQ_ID_TBUF:
@@ -237,7 +222,7 @@ void handle_sigma0_request(l4_umword_t t, l4_utcb_t *utcb, Answer *answer)
       new_client(t, answer);
       break;
     default:
-      answer->clear();
+      answer->error(L4_ENOSYS);
       break;
     }
 }
@@ -278,10 +263,13 @@ pager(void)
 	  /* handle the sigma0 protocol */
 
 	  if (debug_ipc)
-	    L4::cout << PROG_NAME": received " << tag << " d1=" << L4::hex << mr->mr[0]
-	      << " d2=" << mr->mr[1] << L4::dec << " from thread=" << t << '\n';
-
-	  answer.tag = l4_msgtag(0,0,0,0);
+            {
+              l4_umword_t d1 = mr->mr[0];
+              l4_umword_t d2 = mr->mr[1];
+              L4::cout << PROG_NAME": received " << tag << " d1=" << L4::hex
+                       << d1 << " d2=" << d2 << L4::dec << " from thread="
+                       << t << '\n';
+            }
 
 	  switch(tag.label())
 	    {
@@ -305,7 +293,7 @@ pager(void)
 	      handle_io_page_fault(t, utcb, &answer);
 	      break;
 	    default:
-	      answer.clear();
+	      answer.error(L4_EBADPROTO);
 	      break;
 	    }
 

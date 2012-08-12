@@ -8,13 +8,10 @@
  */
 
 #include <l4/sys/thread>
-#include <l4/sys/factory>
-#include <l4/sys/scheduler>
 #include <l4/sys/debugger.h>
 #include <l4/cxx/ipc_server>
 #include <l4/re/env>
 #include <l4/re/debug>
-#include <l4/re/util/cap_alloc>
 #include <l4/util/util.h>
 #include <l4/libc_backends/sig.h>
 
@@ -25,6 +22,10 @@
 #include <errno.h>
 #include <signal.h>
 #include <cstdio>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <pthread-l4.h>
 
 namespace {
 
@@ -33,8 +34,8 @@ struct Sig_handling
   // handlers registered with 'signal'
   struct sigaction sigactions[_NSIG];
 
-  l4_umword_t sigthread_stack[2048 / sizeof(l4_umword_t)]; // big stack is thanks to printf
   L4::Cap<L4::Thread> thcap;
+  pthread_t pthread;
 
   struct itimerval current_itimerval;
   l4_cpu_time_t alarm_timeout;
@@ -43,6 +44,8 @@ struct Sig_handling
 
   void ping_exc_handler();
   l4_addr_t get_handler(int signum);
+  int get_any_async_handler();
+  bool is_async_sig(int sig);
   sighandler_t signal(int signum, sighandler_t handler) throw();
   int sigaction(int signum, const struct sigaction *act,
                 struct sigaction *oldact) throw();
@@ -52,7 +55,7 @@ struct Sig_handling
 
 public:
   int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
-  int handle_exception(L4::Ipc::Iostream &ios);
+  int handle_exception(l4_umword_t obj, L4::Ipc::Iostream &ios);
 };
 
 }
@@ -73,6 +76,31 @@ Sig_handling::get_handler(int signum)
   return 0;
 }
 
+bool
+Sig_handling::is_async_sig(int sig)
+{
+  switch (sig)
+    {
+    case SIGALRM:
+    case SIGHUP:
+    case SIGUSR1:
+    case SIGUSR2:
+    case SIGWINCH:
+    case SIGPWR:
+    case SIGXCPU:
+    case SIGSYS: return true;
+    default: return false;
+    };
+}
+
+int
+Sig_handling::get_any_async_handler()
+{
+  for (int i = 0; i < _NSIG; ++i)
+    if (is_async_sig(i) && get_handler(i))
+      return i;
+  return 0;
+}
 
 asm(
 ".text                           \n\t"
@@ -147,7 +175,7 @@ static bool setup_sig_frame(l4_exc_regs_t *u, int signum)
   return true;
 }
 
-int Sig_handling::handle_exception(L4::Ipc::Iostream &ios)
+int Sig_handling::handle_exception(l4_umword_t, L4::Ipc::Iostream &ios)
 {
   l4_exc_regs_t _u;
   l4_exc_regs_t *u = &_u;
@@ -170,17 +198,21 @@ int Sig_handling::handle_exception(L4::Ipc::Iostream &ios)
     {
       //printf("SIGALRM\n");
 
-      if (!(handler = get_handler(SIGALRM)))
+      int sig = get_any_async_handler();
+
+      if (sig == 0)
         {
           printf("No signal handler found\n");
           return -L4_ENOREPLY;
         }
 
-      if (!setup_sig_frame(u, SIGALRM))
+      if (   !(handler = get_handler(sig))
+          || !setup_sig_frame(u, sig))
         {
           printf("Invalid user memory for sigframe...\n");
           return -L4_ENOREPLY;
         }
+
 
       l4_utcb_exc_pc_set(u, handler);
       ios.put(*u); // expensive? how to set amount of words in tag without copy?
@@ -238,7 +270,7 @@ int Sig_handling::handle_exception(L4::Ipc::Iostream &ios)
   return -L4_EOK;
 }
 
-int Sig_handling::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
+int Sig_handling::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
   l4_msgtag_t t;
   ios >> t;
@@ -246,7 +278,7 @@ int Sig_handling::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
   switch (t.label())
     {
     case L4_PROTO_EXCEPTION:
-      return handle_exception(ios);
+      return handle_exception(obj, ios);
     default:
       return -L4_ENOSYS;
     };
@@ -305,55 +337,25 @@ struct Loop_hooks :
 };
 
 
-static void __handler_main()
+static void *__handler_main(void *)
 {
   L4::Server<Loop_hooks> srv(l4_utcb());
   srv.loop_noexc(&_sig_handling);
+  return 0;
 }
 }
 
 Sig_handling::Sig_handling()
 {
-  l4_utcb_t *u = (l4_utcb_t *)L4Re::Env::env()->first_free_utcb();
-
-  //L4Re::Env::env()->first_free_utcb((l4_addr_t)u + L4_UTCB_OFFSET);
-  // error: passing ‘const L4Re::Env’ as ‘this’ argument of ‘void
-  // L4Re::Env::first_free_utcb(l4_addr_t)’ discards qualifiers
-  l4re_global_env->first_free_utcb = (l4_addr_t)u + L4_UTCB_OFFSET;
-
-
-  L4Re::Util::Auto_cap<L4::Thread>::Cap tc = L4Re::Util::cap_alloc.alloc<L4::Thread>();
-  if (!tc.is_valid())
+  if (pthread_create(&pthread, 0, __handler_main, 0))
     {
-      fprintf(stderr, "libsig: Failed to acquire cap\n");
+      fprintf(stderr, "libsig: Failed to create handler thread\n");
       return;
     }
 
-  int err = l4_error(L4Re::Env::env()->factory()->create_thread(tc.get()));
-  if (err < 0)
-    {
-      fprintf(stderr, "libsig: Failed create thread: %s(%d)\n",
-              l4sys_errtostr(err), err);
-      return;
-    }
+  thcap = L4::Cap<L4::Thread>(pthread_getl4cap(pthread));
 
-  L4::Thread::Attr a;
-
-  a.bind(u, L4Re::This_task);
-  a.pager(L4Re::Env::env()->rm());
-  a.exc_handler(L4Re::Env::env()->rm());
-  tc->control(a);
-
-  l4_addr_t sp = (l4_addr_t)sigthread_stack + sizeof(sigthread_stack);
-  //printf("stack top %lx\n", sp);
-
-  tc->ex_regs(l4_addr_t(__handler_main), sp, 0);
-
-  L4Re::Env::env()->scheduler()->run_thread(tc.get(), l4_sched_param(0xff));
-
-  l4_debugger_set_object_name(tc.cap(), "&-");
-
-  thcap = tc.release();
+  l4_debugger_set_object_name(thcap.cap(), "&-");
 
   libsig_be_add_thread(l4re_env()->main_thread);
 
@@ -472,7 +474,7 @@ int killpg(int pgrp, int sig) throw()
 }
 
 extern "C"
-unsigned int alarm(unsigned int seconds)
+unsigned int alarm(unsigned int seconds) L4_NOTHROW
 {
   //printf("unimplemented: alarm(%u)\n", seconds);
 
@@ -483,7 +485,7 @@ unsigned int alarm(unsigned int seconds)
 }
 
 extern "C"
-pid_t wait(int *status)
+pid_t wait(void *status)
 {
   printf("unimplemented: wait(%p)\n", status);
   return -1;

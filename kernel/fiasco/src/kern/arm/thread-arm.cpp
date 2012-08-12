@@ -21,7 +21,6 @@ IMPLEMENTATION [arm]:
 #include "static_assert.h"
 #include "thread_state.h"
 #include "types.h"
-#include "vmem_alloc.h"
 
 enum {
   FSR_STATUS_MASK = 0x0d,
@@ -30,7 +29,7 @@ enum {
   FSR_PERMISSION  = 0x0d,
 };
 
-Per_cpu<Thread::Dbg_stack> DEFINE_PER_CPU Thread::dbg_stack;
+DEFINE_PER_CPU Per_cpu<Thread::Dbg_stack> Thread::dbg_stack;
 
 PRIVATE static
 void
@@ -52,14 +51,15 @@ void FIASCO_NORETURN
 Thread::fast_return_to_user(Mword ip, Mword sp, Vcpu_state *arg)
 {
   extern char __iret[];
-  assert_kdb((regs()->psr & Proc::Status_mode_mask) == Proc::Status_mode_user);
+  Entry_frame *r = regs();
+  assert_kdb((r->psr & Proc::Status_mode_mask) == Proc::Status_mode_user);
 
-  regs()->ip(ip);
-  regs()->sp(sp); // user-sp is in lazy user state and thus handled by
-                  // fill_user_state()
+  r->ip(ip);
+  r->sp(sp); // user-sp is in lazy user state and thus handled by
+             // fill_user_state()
   fill_user_state();
 
-  regs()->psr &= ~Proc::Status_thumb;
+  r->psr &= ~Proc::Status_thumb;
 
     {
       register Vcpu_state *r0 asm("r0") = arg;
@@ -68,7 +68,7 @@ Thread::fast_return_to_user(Mword ip, Mword sp, Vcpu_state *arg)
 	("mov sp, %0  \t\n"
 	 "mov pc, %1  \t\n"
 	 :
-	 : "r" (nonull_static_cast<Return_frame*>(regs())), "r" (__iret), "r"(r0)
+	 : "r" (nonull_static_cast<Return_frame*>(r)), "r" (__iret), "r"(r0)
 	);
     }
   panic("__builtin_trap()");
@@ -91,8 +91,9 @@ Thread::user_invoke()
   static_assert(sizeof(ts->r[0]) == sizeof(Mword), "Size mismatch");
   Mem::memset_mwords(&ts->r[0], 0, sizeof(ts->r) / sizeof(ts->r[0]));
 
-  if (current()->space() == sigma0_task)
-    ts->r[0] = Kmem_space::kdir()->walk(Kip::k(), 0, false, 0).phys(Kip::k());
+  if (current()->space()->is_sigma0())
+    ts->r[0] = Kmem_space::kdir()->walk(Kip::k(), 0, false, Ptab::Null_alloc(),
+                                        0).phys(Kip::k());
 
   extern char __return_from_exception;
 
@@ -127,8 +128,32 @@ bool Thread::handle_sigma0_page_fault( Address pfa )
       != Mem_space::Insert_err_nomem);
 }
 
-typedef bool (*Undef_coprop_insn_handler)(Unsigned32 opcode, Trap_state *ts);
-static Undef_coprop_insn_handler handle_copro_fault[16];
+PUBLIC static
+bool
+Thread::no_copro_handler(Unsigned32, Trap_state *)
+{ return false; }
+
+typedef bool (*Coproc_insn_handler)(Unsigned32 opcode, Trap_state *ts);
+static Coproc_insn_handler handle_copro_fault[16] =
+  {
+    Thread::no_copro_handler,
+    Thread::no_copro_handler,
+    Thread::no_copro_handler,
+    Thread::no_copro_handler,
+    Thread::no_copro_handler,
+    Thread::no_copro_handler,
+    Thread::no_copro_handler,
+    Thread::no_copro_handler,
+    Thread::no_copro_handler,
+    Thread::no_copro_handler,
+    Thread::no_copro_handler,
+    Thread::no_copro_handler,
+    Thread::no_copro_handler,
+    Thread::no_copro_handler,
+    Thread::no_copro_handler,
+    Thread::no_copro_handler,
+  };
+
 
 extern "C" {
 
@@ -185,8 +210,7 @@ extern "C" {
 	    // just not in the currently active page directory)
 	    // Remain cli'd !!!
 	  }
-	else if (!Config::conservative &&
-	    !Kmem::is_kmem_page_fault (pfa, error_code))
+	else if (!Kmem::is_kmem_page_fault (pfa, error_code))
 	  {
 	    // No error -- just enable interrupts.
 	    Proc::sti();
@@ -232,6 +256,7 @@ extern "C" {
             if (ts->r[2] == 0)
               Mem_op::arm_mem_cache_maint(Mem_op::Op_cache_coherent,
                                           (void *)ts->r[0], (void *)ts->r[1]);
+            ts->r[0] = 0;
             return;
 	  }
       }
@@ -251,11 +276,31 @@ extern "C" {
 	else
 	  opcode = *(Unsigned32 *)(ts->pc - 4);
 
+        if (ts->psr & Proc::Status_thumb)
+          {
+            if (   (opcode & 0xef000000) == 0xef000000 // A6.3.18
+                || (opcode & 0xff100000) == 0xf9000000)
+              {
+                if (handle_copro_fault[10](opcode, ts))
+                  return;
+                goto undef_insn;
+              }
+          }
+        else
+          {
+            if (   (opcode & 0xfe000000) == 0xf2000000 // A5.7.1
+                || (opcode & 0xff100000) == 0xf4000000)
+              {
+                if (handle_copro_fault[10](opcode, ts))
+                  return;
+                goto undef_insn;
+              }
+          }
+
         if ((opcode & 0x0c000000) == 0x0c000000)
           {
             unsigned copro = (opcode >> 8) & 0xf;
-            if (   handle_copro_fault[copro]
-                && handle_copro_fault[copro](opcode, ts))
+            if (handle_copro_fault[copro](opcode, ts))
               return;
           }
       }
@@ -265,12 +310,7 @@ undef_insn:
     if (t->send_exception(ts))
       return;
 
-    // exception handling failed
-    if (Config::conservative)
-      kdb_ke ("thread killed");
-
     t->halt();
-
   }
 
 };
@@ -314,13 +354,14 @@ Thread::Thread()
     _exc_handler(Thread_ptr::Invalid),
     _del_observer(0)
 {
-  assert (state() == Thread_invalid);
+  assert (state(false) == Thread_invalid);
 
   inc_ref();
+  _space.space(Kernel_task::kernel_task());
 
-  if (Config::stack_depth)
+  if (Config::Stack_depth)
     std::memset((char*)this + sizeof(Thread), '5',
-                Config::thread_block_size-sizeof(Thread)-64);
+                Thread::Size-sizeof(Thread)-64);
 
   // set a magic value -- we use it later to verify the stack hasn't
   // been overrun
@@ -507,10 +548,10 @@ Thread::copy_ts_to_utcb(L4_msg_tag const &, Thread *snd, Thread *rcv,
 }
 
 PROTECTED inline
-bool
-Thread::invoke_arch(L4_msg_tag & /*tag*/, Utcb * /*utcb*/)
+L4_msg_tag
+Thread::invoke_arch(L4_msg_tag /*tag*/, Utcb * /*utcb*/)
 {
-  return false;
+  return commit_result(-L4_err::ENosys);
 }
 
 PROTECTED inline
@@ -574,45 +615,76 @@ Thread::vcpu_resume_user_arch()
 IMPLEMENTATION [mp]:
 
 #include "ipi.h"
+#include "irq_mgr.h"
 
 EXTENSION class Thread
 {
-private:
+public:
   static void kern_kdebug_ipi_entry() asm("kern_kdebug_ipi_entry");
 };
 
-PUBLIC static inline NEEDS["ipi.h"]
-bool
-Thread::check_for_ipi(unsigned irq)
+class Thread_remote_rq_irq : public Irq_base
 {
-  if (Ipi::is_ipi(irq))
-    {
-      switch (irq)
-	{
-	case Ipi::Request:
-	  Thread::handle_remote_requests_irq();
-	  break;
-	case Ipi::Debug:
-	  Ipi::eoi(Ipi::Debug);
-	  kern_kdebug_ipi_entry();
-	  break;
-	case Ipi::Global_request:
-	  handle_global_remote_requests_irq();
-	  break;
-	};
-      return true;
-    }
+public:
+  // we assume IPIs to be top level, no upstream IRQ chips
+  void handle(Upstream_irq const *)
+  { Thread::handle_remote_requests_irq(); }
 
-  return false;
-}
+  Thread_remote_rq_irq()
+  { set_hit(&handler_wrapper<Thread_remote_rq_irq>); }
+
+  void switch_mode(unsigned) {}
+};
+
+class Thread_glbl_remote_rq_irq : public Irq_base
+{
+public:
+  // we assume IPIs to be top level, no upstream IRQ chips
+  void handle(Upstream_irq const *)
+  { Thread::handle_global_remote_requests_irq(); }
+
+  Thread_glbl_remote_rq_irq()
+  { set_hit(&handler_wrapper<Thread_glbl_remote_rq_irq>); }
+
+  void switch_mode(unsigned) {}
+};
+
+class Thread_debug_ipi : public Irq_base
+{
+public:
+  // we assume IPIs to be top level, no upstream IRQ chips
+  void handle(Upstream_irq const *)
+  {
+    Ipi::eoi(Ipi::Debug, current_cpu());
+    Thread::kern_kdebug_ipi_entry();
+  }
+
+  Thread_debug_ipi()
+  { set_hit(&handler_wrapper<Thread_debug_ipi>); }
+
+  void switch_mode(unsigned) {}
+};
 
 //-----------------------------------------------------------------------------
-IMPLEMENTATION [!mp]:
+IMPLEMENTATION [mp && !irregular_gic]:
 
-PUBLIC static inline
-bool
-Thread::check_for_ipi(unsigned)
-{ return false; }
+class Arm_ipis
+{
+public:
+  Arm_ipis()
+  {
+    Irq_mgr::mgr->alloc(&remote_rq_ipi, Ipi::Request);
+    Irq_mgr::mgr->alloc(&glbl_remote_rq_ipi, Ipi::Global_request);
+    Irq_mgr::mgr->alloc(&debug_ipi, Ipi::Debug);
+  }
+
+  Thread_remote_rq_irq remote_rq_ipi;
+  Thread_glbl_remote_rq_irq glbl_remote_rq_ipi;
+  Thread_debug_ipi debug_ipi;
+};
+
+static Arm_ipis _arm_ipis;
+
 
 //-----------------------------------------------------------------------------
 IMPLEMENTATION [arm && fpu]:
@@ -629,23 +701,18 @@ Thread::handle_fpu_trap(Unsigned32 opcode, Trap_state *ts)
     }
 
   if (Fpu::is_enabled())
-    if ((opcode & 0x0ff00f90) == 0x0ef00a10)
-      return Fpu::emulate_insns(opcode, ts, current_cpu());
-
-#ifndef NDEBUG
-  Thread *t = current_thread();
-  if (!(t->state() & Thread_vcpu_enabled)
-      && Fpu::is_enabled() && Fpu::owner(t->cpu()) == t)
-    printf("KERNEL: FPU doesn't like us?\n");
-  else
-#endif
-    if (current_thread()->switchin_fpu())
-      {
-        if ((opcode & 0x0ff00f90) == 0x0ef00a10)
-          return Fpu::emulate_insns(opcode, ts, current_cpu());
-        ts->pc -= (ts->psr & Proc::Status_thumb) ? 2 : 4;
-        return true;
-      }
+    {
+      assert(Fpu::owner(current_cpu()) == current_thread());
+      if (Fpu::is_emu_insn(opcode))
+        return Fpu::emulate_insns(opcode, ts, current_cpu());
+    }
+  else if (current_thread()->switchin_fpu())
+    {
+      if (Fpu::is_emu_insn(opcode))
+        return Fpu::emulate_insns(opcode, ts, current_cpu());
+      ts->pc -= (ts->psr & Proc::Status_thumb) ? 2 : 4;
+      return true;
+    }
 
   ts->error_code |= 0x01000000; // tag fpu undef insn
   if (Fpu::exc_pending())

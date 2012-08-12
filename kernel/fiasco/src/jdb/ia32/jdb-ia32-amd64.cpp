@@ -131,30 +131,31 @@ IMPLEMENTATION[ia32,amd64]:
 #include "thread.h"
 #include "thread_state.h"
 #include "timer.h"
+#include "timer_tick.h"
 #include "trap_state.h"
 #include "vkey.h"
 #include "watchdog.h"
 
 char Jdb::_connected;			// Jdb::init() was done
 // explicit single_step command
-Per_cpu<char> DEFINE_PER_CPU Jdb::permanent_single_step;
+DEFINE_PER_CPU Per_cpu<char> Jdb::permanent_single_step;
 volatile char Jdb::msr_test;		// = 1: trying to access an msr
 volatile char Jdb::msr_fail;		// = 1: MSR access failed
-Per_cpu<char> DEFINE_PER_CPU Jdb::code_ret; // current instruction is ret/iret
-Per_cpu<char> DEFINE_PER_CPU Jdb::code_call;// current instruction is call
-Per_cpu<char> DEFINE_PER_CPU Jdb::code_bra; // current instruction is jmp/jxx
-Per_cpu<char> DEFINE_PER_CPU Jdb::code_int; // current instruction is int x
+DEFINE_PER_CPU Per_cpu<char> Jdb::code_ret; // current instruction is ret/iret
+DEFINE_PER_CPU Per_cpu<char> Jdb::code_call;// current instruction is call
+DEFINE_PER_CPU Per_cpu<char> Jdb::code_bra; // current instruction is jmp/jxx
+DEFINE_PER_CPU Per_cpu<char> Jdb::code_int; // current instruction is int x
 
 // special single step state
-Per_cpu<Jdb::Step_state> DEFINE_PER_CPU Jdb::ss_state;
-Per_cpu<int> DEFINE_PER_CPU Jdb::ss_level;  // current call level
+DEFINE_PER_CPU Per_cpu<Jdb::Step_state> Jdb::ss_state;
+DEFINE_PER_CPU Per_cpu<int> Jdb::ss_level;  // current call level
 
 const Unsigned8*Jdb::debug_ctrl_str;	// string+length for remote control of
 int             Jdb::debug_ctrl_len;	// Jdb via enter_kdebugger("*#");
 
 Pic::Status Jdb::pic_status;
-Per_cpu<unsigned> DEFINE_PER_CPU Jdb::apic_tpr;
-Per_cpu<int> DEFINE_PER_CPU Jdb::jdb_irqs_disabled;
+DEFINE_PER_CPU Per_cpu<unsigned> Jdb::apic_tpr;
+DEFINE_PER_CPU Per_cpu<int> Jdb::jdb_irqs_disabled;
 
 int  (*Jdb::bp_test_log_only)();
 int  (*Jdb::bp_test_sstep)();
@@ -251,7 +252,7 @@ Jdb::backspace()
 }
 
 
-static Per_cpu<Proc::Status> DEFINE_PER_CPU jdb_saved_flags;
+DEFINE_PER_CPU static Per_cpu<Proc::Status> jdb_saved_flags;
 
 // disable interrupts before entering the kernel debugger
 IMPLEMENT
@@ -267,8 +268,8 @@ Jdb::save_disable_irqs(unsigned cpu)
 	{
 	  Watchdog::disable();
 	  pic_status = Pic::disable_all_save();
-          if (Config::getchar_does_hlt && Config::getchar_does_hlt_works_ok)
-            Timer::disable();
+          if (Config::getchar_does_hlt_works_ok)
+            Timer_tick::disable(0);
 	}
       if (Io_apic::active() && Apic::is_present())
 	{
@@ -276,16 +277,16 @@ Jdb::save_disable_irqs(unsigned cpu)
 	  Apic::tpr(APIC_IRQ_BASE - 0x10);
 	}
 
-      if (cpu == 0 && Config::getchar_does_hlt && Config::getchar_does_hlt_works_ok)
+      if (cpu == 0 && Config::getchar_does_hlt_works_ok)
 	{
 	  // set timer interrupt does nothing than wakeup from hlt
-	  Idt::set_vectors_stop();
-	  Timer::enable();
+	  Timer_tick::set_vectors_stop();
+	  Timer_tick::enable(0);
 	}
 
     }
 
-  if (cpu == 0 && Config::getchar_does_hlt && Config::getchar_does_hlt_works_ok)
+  if (cpu == 0 && Config::getchar_does_hlt_works_ok)
     // explicit enable interrupts because the timer interrupt is
     // needed to wakeup from "hlt" state in getchar(). All other
     // interrupts are disabled at the pic.
@@ -311,7 +312,7 @@ Jdb::restore_irqs(unsigned cpu)
 	}
 
       // reset timer interrupt vector
-      if (cpu == 0 && Config::getchar_does_hlt && Config::getchar_does_hlt_works_ok)
+      if (cpu == 0 && Config::getchar_does_hlt_works_ok)
       	Idt::set_vectors_run();
 
       // reset interrupt flags
@@ -319,41 +320,6 @@ Jdb::restore_irqs(unsigned cpu)
     }
 }
 
-
-PUBLIC
-static int
-Jdb::get_register(char *reg)
-{
-  union
-  {
-    char c[4];
-    Unsigned32 v;
-  } reg_name;
-
-  int i;
-
-  putchar(reg_name.c[0] = Jdb_screen::Reg_prefix);
-
-  for (i=1; i<3; i++)
-    {
-      int c = getchar();
-      if (c == KEY_ESC)
-	return false;
-      putchar(reg_name.c[i] = c & 0xdf);
-    }
-
-  reg_name.c[3] = '\0';
-
-  for (i=0; i<9; i++)
-    if (reg_name.v == *((unsigned*)(Jdb_screen::Reg_names[i])))
-      break;
-
-  if (i==9)
-    return false;
-  
-  *reg = i+1;
-  return true;
-}
 
 struct On_dbg_stack
 {
@@ -384,7 +350,7 @@ Jdb::get_thread(unsigned cpu)
   if (foreach_cpu(On_dbg_stack(sp), false))
     return 0;
 
-  if (sp >= boot_stack - 8192 && sp <= boot_stack + 8192)
+  if (!Helping_lock::threading_system_active)
     return 0;
 
   return static_cast<Thread*>(context_of((const void*)sp));
@@ -445,10 +411,10 @@ Jdb::peek_task(Address addr, Space *task, void *value, int width)
   else
     {
       // user address, use temporary mapping
-      phys = Address(task->mem_space()->virt_to_phys (addr));
+      phys = Address(task->virt_to_phys (addr));
 
       if (phys == ~0UL)
-	phys = task->mem_space()->virt_to_phys_s0 ((void*)addr);
+	phys = task->virt_to_phys_s0((void*)addr);
 
       if (phys == ~0UL)
 	return -1;
@@ -482,10 +448,10 @@ Jdb::poke_task(Address addr, Space *task, void const *value, int width)
   else
     {
       // user address, use temporary mapping
-      phys = Address(task->mem_space()->virt_to_phys (addr));
+      phys = Address(task->virt_to_phys(addr));
 
       if (phys == ~0UL)
-	phys = task->mem_space()->virt_to_phys_s0 ((void*)addr);
+	phys = task->virt_to_phys_s0((void*)addr);
 
       if (phys == ~0UL)
 	return -1;
@@ -513,7 +479,7 @@ Jdb::is_adapter_memory(Address virt, Space *task)
     phys = Kmem::virt_to_phys((const void*)virt);
   else
     // user address
-    phys = task->mem_space()->virt_to_phys_s0((void*)virt);
+    phys = task->virt_to_phys_s0((void*)virt);
 
   if (phys == ~0UL)
     return false;
@@ -545,7 +511,7 @@ Jdb::guess_thread_state(Thread *t)
 {
   Guessed_thread_state state = s_unknown;
   Mword *ktop = (Mword*)((Mword)context_of(t->get_kernel_sp()) +
-			  Config::thread_block_size);
+			  Context::Size);
 
   for (int i=-1; i>-26; i--)
     {
@@ -863,7 +829,7 @@ Jdb::handle_trapX(unsigned cpu)
       && entry_frame.cpu(cpu)->_trapno >= 10
       && entry_frame.cpu(cpu)->_trapno <= 14)
     snprintf(error_buffer.cpu(cpu)+pos, sizeof(error_buffer.cpu(0))-pos,
-             "(ERR="L4_PTR_FMT")", entry_frame.cpu(cpu)->_err);
+             "(ERR=" L4_PTR_FMT ")", entry_frame.cpu(cpu)->_err);
 
   return 1;
 }
@@ -957,7 +923,7 @@ void
 Jdb::handle_nested_trap(Jdb_entry_frame *e)
 {
   // re-enable interrupts if we need them because they are disabled
-  if (Config::getchar_does_hlt && Config::getchar_does_hlt_works_ok)
+  if (Config::getchar_does_hlt_works_ok)
     Proc::sti();
 
   switch (e->_trapno)
@@ -968,7 +934,7 @@ Jdb::handle_nested_trap(Jdb_entry_frame *e)
       break;
     case 3:
       cursor(Jdb_screen::height(), 1);
-      printf("\nSoftware breakpoint inside jdb at "L4_PTR_FMT"\n",
+      printf("\nSoftware breakpoint inside jdb at " L4_PTR_FMT "\n",
              e->ip()-1);
       break;
     case 13:
@@ -985,16 +951,16 @@ Jdb::handle_nested_trap(Jdb_entry_frame *e)
 	  break;
 	default:
 	  cursor(Jdb_screen::height(), 1);
-	  printf("\nGeneral Protection (eip="L4_PTR_FMT","
-	      " err="L4_PTR_FMT") -- jdb bug?\n",
+	  printf("\nGeneral Protection (eip=" L4_PTR_FMT ","
+	      " err=" L4_PTR_FMT ") -- jdb bug?\n",
 	      e->ip(), e->_err);
 	  break;
 	}
       break;
     default:
       cursor(Jdb_screen::height(), 1);
-      printf("\nInvalid access (trap=%02lx err="L4_PTR_FMT
-	  " pfa="L4_PTR_FMT" eip="L4_PTR_FMT") "
+      printf("\nInvalid access (trap=%02lx err=" L4_PTR_FMT
+	  " pfa=" L4_PTR_FMT " eip=" L4_PTR_FMT ") "
 	  "-- jdb bug?\n",
 	  e->_trapno, e->_err, e->_cr2, e->ip());
       break;
@@ -1043,7 +1009,6 @@ PUBLIC static inline
 void
 Jdb::leave_getchar()
 {}
-
 
 //----------------------------------------------------------------------------
 IMPLEMENTATION [(ia32 || amd64) && mp]:

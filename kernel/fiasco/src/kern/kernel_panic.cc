@@ -18,14 +18,14 @@ __assert_fail (const char *__assertion, const char *__file,
 
   printf("\nAssertion failed: '%s'\n"
 	 "  in %s:%i\n"
-	 "  at "L4_PTR_FMT"\n",
+	 "  at " L4_PTR_FMT "\n",
 	 __assertion, __file, __line, (Address)__builtin_return_address(0));
 
   terminate(1);
 }
 
 void
-panic (const char *format, ...)
+panic(const char *format, ...)
 {
   // make sure that GZIP mode is off
   Kconsole::console()->end_exclusive(Console::GZIP);

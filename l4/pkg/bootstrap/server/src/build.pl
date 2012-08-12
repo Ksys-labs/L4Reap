@@ -34,8 +34,8 @@ $flags_cc = "-m64" if $arch eq 'amd64';
 
 my $make_inc_file = $ENV{MAKE_INC_FILE} || "mod.make.inc";
 
-my $modulesfile      = $ARGV[0];
-my $entryname        = $ARGV[1];
+my $modulesfile      = $ARGV[1];
+my $entryname        = $ARGV[2];
 
 sub usage()
 {
@@ -190,14 +190,40 @@ sub build_objects(@)
   write_to_file($make_inc_file, $make_inc_str);
 }
 
+
+sub list_files(@)
+{
+  my %entry = @_;
+  print join(' ', map { L4::ModList::search_file_or_die(first_word($_->{cmdline}),
+                                                                   $module_path) }
+                      @{$entry{mods}}), "\n";
+}
+
+sub dump_entry(@)
+{
+  my %entry = @_;
+  print join(' ', map { $_->{cmdline} } @{$entry{mods}}), "\n";
+}
+
 # ------------------------------------------------------------------------
 
-if (!$ARGV[1]) {
+if (!$ARGV[2]) {
   print STDERR "Error: Invalid usage!\n";
   usage();
   exit 1;
 }
 
 my %entry = L4::ModList::get_module_entry($modulesfile, $entryname);
-build_objects(%entry);
 
+if ($ARGV[0] eq 'build')
+  {
+    build_objects(%entry);
+  }
+elsif ($ARGV[0] eq 'list')
+  {
+    list_files(%entry);
+  }
+elsif ($ARGV[0] eq 'dump')
+  {
+    dump_entry(%entry);
+  }

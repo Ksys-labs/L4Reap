@@ -12,6 +12,12 @@ config INCLUDE_PPC32
 	help
 	  Use "INCLUDE_PPC32=y make config" to include ppc32 options.
 
+config INCLUDE_SPARC
+	bool
+	option env="INCLUDE_SPARC"
+	help
+	  Use "INCLUDE_SPARC=y make config" to include sparc options.
+
 menu "Target configuration"
 
 choice
@@ -37,6 +43,15 @@ config PPC32
 	select CONTEXT_4K
 	select BIG_ENDIAN
 
+config SPARC
+	bool "SPARC v8 processor family (Caution: EXPERIMENTAL)"
+	depends on EXPERIMENTAL && INCLUDE_SPARC
+	help
+	  SPARC v8 is supposed to run on the LEON3 platform.
+	  It is unsupported at the moment.
+	select CONTEXT_4K
+
+
 endchoice
 
 config BIG_ENDIAN
@@ -48,6 +63,7 @@ choice
 	default PF_PC         if IA32
 	default PF_PC         if AMD64
 	default PF_MP52CXX    if PPC32
+	default PF_LEON3      if SPARC
 
 config PF_PC
 	bool "PC platform"
@@ -107,6 +123,7 @@ choice
 	default ARM_926    if ARM
 	default AMD64_K8   if AMD64
 	default PPC32_603e if PPC32
+	default LEON3      if SPARC
 
 config ARM_PXA
 	bool "Intel XScale"
@@ -254,6 +271,11 @@ config PPC32_603e
 	help
 	  Choose this if you have an PowerPC 603e CPU.
 
+config LEON3
+	bool "Gaisler SPARC LEON3"
+	depends on SPARC
+	help
+	  Choose this if you have a LEON3 CPU.
 endchoice
 
 
@@ -295,7 +317,7 @@ config ARM_CACHE_L2CXX0
 choice
 	prompt "Timer tick source"
 	depends on PF_PC || PF_UX
-	default SCHED_PIT
+	default SCHED_APIC
 
 config SCHED_PIT
 	bool "Use PIT for scheduling"
@@ -384,7 +406,7 @@ menu "Kernel options"
 
 config MP
 	bool "Enable multi processor support"
-	depends on EXPERIMENTAL && (PF_PC || PF_UX || PF_ARM_MP_CAPABLE)
+	depends on (PF_PC || PF_ARM_MP_CAPABLE || (PF_UX && EXPERIMENTAL))
 	help
 	  Enable support for machines with multiple processors.
 
@@ -423,13 +445,6 @@ config IO_PROT
 	  and sti). Access rights to I/O ports can be mapped like memory. If
 	  a task has access to the whole I/O port space, its IOPL is raised
 	  to 3 allowing the task to use cli and sti.
-
-config IO_PROT_IOPL_3
-	bool "Enable CLI/STI (IOPL 3)"
-	depends on PF_PC && IO_PROT
-	help
-	  Enable IOPL 3 for tasks with access to all I/O ports, this is the
-	  old behavior.
 
 config SLOW_RTC
 	bool "Use RTC with 100 ticks per second"
@@ -526,18 +541,6 @@ config NDEBUG
 	  Don't insert assertions into the code. Should be enabled for
 	  kernels which are used for measurements.
 
-config PROFILE
-	bool #"Compile with profiling support"
-	depends on EXPERIMENTAL && PF_PC && IA32 && !ASSEMBLER_IPC_SHORTCUT && SCHED_RTC && !NO_FRAME_PTR
-	help
-	  This option enables support for kernel profiling. This implies
-	  that a special CPU lock is used, because profiling IRQ must be
-	  enabled even in cases where a CPU lock is locked. So the
-	  cpu_lock-pic module is used as implementation for the lock.
-	  Further this option does not work with PIT scheduling
-	  (CONFIG_SCHED_PIT) because the PIT is used for generating
-	  profiling IRQs.
-
 config NO_FRAME_PTR
 	bool "Compile without frame pointer"
 	default y
@@ -552,18 +555,6 @@ config STACK_DEPTH
 	  with magic numbers while creation. The function ``show thread
 	  lists'' scans the TCB for these magic numbers and shows the
 	  currently used depth of each thread.
-
-config ALLOW_RO_TEXT
-	bool "Read-Only Kernel Text and Data"
-	default false
-	depends on IA32 || AMD64
-	help
-	  Enable this option to enable read-only mappings for kernel code
-	  and ro data. To really map things read only '-rotext' needs to be
-	  given to the kernel command line.
-	  NOTE: This may significantly increase the memory footprint of the
-	        kernel. The use of '-rotext' with extendet logging results in
-		kernel crashes.
 
 config LIST_ALLOC_SANITY
 	bool "Sanity checks in low level allocator"
@@ -615,7 +606,7 @@ config WATCHDOG
 
 config SERIAL
 	bool "Support for debugging over serial line"
-	depends on PF_PC || ARM || PPC32
+	depends on PF_PC || ARM || PPC32 || SPARC
 	default y
 	help
 	  This option enables support for input/output over serial interface.
@@ -737,12 +728,6 @@ config HOST_CXX
 	help
 	  Use this option to override the default C++ host compiler (g++).
 
-config VERBOSE
-	bool "Verbose build process"
-	help
-	  When enabled, this config option allows you to see more details of
-	  the build process.
-
 config MAINTAINER_MODE
 	bool "Do additional checks at build time"
 	help
@@ -770,7 +755,7 @@ config PERF_CNT
 	def_bool y if JDB && (IA32 || AMD64 || ARM)
 
 config BIT32
-	def_bool y if ARM || IA32 || PPC32
+	def_bool y if ARM || IA32 || PPC32 || SPARC
 
 config BIT64
 	def_bool y if AMD64
@@ -797,6 +782,7 @@ config XARCH
 	default "amd64" if AMD64 && PF_PC
 	default "ia32" if IA32 && PF_PC
 	default "ppc32" if PPC32
+	default "sparc" if SPARC
 
 config IA32_TARGET
 	string

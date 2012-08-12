@@ -245,7 +245,7 @@ static void vcpu_thread(void)
     ;
 }
 
-int run(void)
+static int run(void)
 {
   l4_utcb_t *u = l4_utcb();
   L4::Cap<L4::Thread> vcpu_cap;
@@ -341,12 +341,12 @@ int main()
   try { return run(); }
   catch (L4::Runtime_error &e)
     {
-      L4::cerr << "FATAL uncought exception: " << e
+      L4::cerr << "FATAL uncaught exception: " << e
                << "\nterminating...\n";
     }
   catch (...)
     {
-      L4::cerr << "FATAL uncought exception of unknown type\n"
+      L4::cerr << "FATAL uncaught exception of unknown type\n"
                << "terminating...\n";
     }
   return 1;

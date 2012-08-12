@@ -54,6 +54,7 @@ public:
   virtual int bind(L4::Cap<L4::Irq> irq, unsigned mode) = 0;
   virtual int unmask() = 0;
   virtual int unbind() = 0;
+  virtual int set_mode(unsigned mode) = 0;
   virtual ~Io_irq_pin() {}
 
   bool shared() const { return _max_sw_irqs > 1; }
@@ -70,5 +71,8 @@ public:
   int bind(L4::Cap<L4::Irq> irq, unsigned mode);
   int unmask();
   int unbind();
+  int set_mode(unsigned mode);
+
+  unsigned pin() const { return _idx; }
 };
 

@@ -3,7 +3,6 @@
 
 OUTPUT_FORMAT("elf32-powerpc", "elf32-big",
               "elf32-little")
-OUTPUT_ARCH(powerpc)
 ENTRY(_start)
 
 PHDRS {

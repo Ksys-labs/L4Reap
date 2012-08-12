@@ -6,5 +6,5 @@ IMPLEMENTATION[ppc32]:
 
 PRIVATE inline NEEDS["globals.h"]
 Kernel_task::Kernel_task()
-: Task(Space::Default_factory(), Ram_quota::root, Kmem::kdir())
+: Task(Ram_quota::root, Kmem::kdir())
 {}

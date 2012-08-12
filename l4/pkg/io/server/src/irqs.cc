@@ -35,3 +35,10 @@ Kernel_irq_pin::unmask()
   return -L4_EINVAL;
 }
 
+
+int
+Kernel_irq_pin::set_mode(unsigned mode)
+{
+  return l4_error(system_icu()->icu->set_mode(_idx, mode));
+}
+

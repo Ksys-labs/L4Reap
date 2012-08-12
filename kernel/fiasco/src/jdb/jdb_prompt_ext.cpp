@@ -1,45 +1,35 @@
 INTERFACE:
 
-class Jdb_prompt_ext
+#include <hlist>
+
+class Jdb_prompt_ext : public cxx::H_list_item
 {
 public:
   Jdb_prompt_ext();
   virtual void ext() = 0;
   virtual void update();
-  virtual ~Jdb_prompt_ext();
+  virtual ~Jdb_prompt_ext() = 0;
 
   static void do_all();
   static void update_all();
-  
+
 private:
-  Jdb_prompt_ext *_next;
-  Jdb_prompt_ext *_prev;
-  static Jdb_prompt_ext *_first;
+  typedef cxx::H_list_bss<Jdb_prompt_ext> List;
+  typedef List::Const_iterator Iter;
+  static List exts;
 };
 
 IMPLEMENTATION:
 
-Jdb_prompt_ext *Jdb_prompt_ext::_first;
+Jdb_prompt_ext::List Jdb_prompt_ext::exts;
 
 IMPLEMENT
 Jdb_prompt_ext::Jdb_prompt_ext()
-  : _next(0), _prev(0)
 {
-  _next = _first;
-  _first = this;
+  exts.push_front(this);
 }
 
-IMPLEMENT
-Jdb_prompt_ext::~Jdb_prompt_ext()
-{
-  if (_prev)
-    _prev->_next = _next;
-  else
-    _first = _next;
-  
-  if (_next)
-    _next->_prev = _prev;
-}
+IMPLEMENT inline Jdb_prompt_ext::~Jdb_prompt_ext() {}
 
 IMPLEMENT
 void Jdb_prompt_ext::update()
@@ -48,22 +38,14 @@ void Jdb_prompt_ext::update()
 IMPLEMENT
 void Jdb_prompt_ext::do_all()
 {
-  Jdb_prompt_ext *e = _first;
-  while (e)
-    {
-      e->ext();
-      e = e->_next;
-    }
+  for (Iter e = exts.begin(); e != exts.end(); ++e)
+    e->ext();
 }
 
 IMPLEMENT
 void Jdb_prompt_ext::update_all()
 {
-  Jdb_prompt_ext *e = _first;
-  while (e)
-    {
-      e->update();
-      e = e->_next;
-    }
+  for (Iter e = exts.begin(); e != exts.end(); ++e)
+    e->update();
 }
 

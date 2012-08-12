@@ -7,18 +7,18 @@ class X86desc
 {
 public:
   enum
-    {
-      Accessed            = 0x01,
-      Access_kernel       = 0x00,
-      Access_user         = 0x60,
-      Access_present      = 0x80,
+  {
+    Accessed            = 0x01,
+    Access_kernel       = 0x00,
+    Access_user         = 0x60,
+    Access_present      = 0x80,
 
-      Access_tss          = 0x09,
-      Access_intr_gate    = 0x0e,
-      Access_trap_gate    = 0x0f,
+    Access_tss          = 0x09,
+    Access_intr_gate    = 0x0e,
+    Access_trap_gate    = 0x0f,
 
-      Long_mode	  	  = 0x02, // XXX for code segments
-    };
+    Long_mode           = 0x02, // XXX for code segments
+  };
 };
 
 
@@ -96,6 +96,21 @@ Idt_entry::Idt_entry(Unsigned16 selector, Unsigned8 access)
   _access      = access | X86desc::Access_present;
   _offset_high = 0;
 }
+
+PUBLIC static inline
+Idt_entry
+Idt_entry::free(Unsigned16 val)
+{
+  Idt_entry e;
+  e._access = 0;
+  e._offset_low = val;
+  return e;
+}
+
+PUBLIC inline
+Unsigned16
+Idt_entry::get_free_val() const
+{ return _offset_low; }
 
 PUBLIC inline
 Address

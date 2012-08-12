@@ -1,0 +1,58 @@
+// vi:ft=cpp
+
+#pragma once
+
+#include "hw_device.h"
+#include <l4/vbus/vbus_gpio.h>
+
+namespace Hw {
+
+class Gpio_chip
+{
+public:
+  enum Fix_mode
+  {
+    Input  = L4VBUS_GPIO_SETUP_INPUT,
+    Output = L4VBUS_GPIO_SETUP_OUTPUT,
+    Irq    = L4VBUS_GPIO_SETUP_IRQ,
+  };
+
+  virtual void request(unsigned pin) = 0;
+  virtual void free(unsigned pin) = 0;
+
+
+  virtual void setup(unsigned pin, unsigned mode, int value = 0) = 0;
+  virtual void config_pad(unsigned pin, unsigned pinmask,
+                          unsigned func, unsigned value) = 0;
+
+  virtual int get(unsigned pin) = 0;
+  virtual void set(unsigned pin, int value) = 0;
+  virtual int get_irq(unsigned pin) = 0;
+
+
+  virtual void multi_setup(unsigned mask, unsigned mode, unsigned outvalue = 0) = 0;
+  virtual void multi_config_pad(unsigned mask, unsigned func, unsigned value) = 0;
+  virtual void multi_set(unsigned mask, unsigned data) = 0;
+  virtual unsigned multi_get() = 0;
+
+
+  void ouput(unsigned pin, int value)
+  { setup(pin, Output, value); }
+
+  void input(unsigned pin)
+  { setup(pin, Input); }
+
+  void multi_output(unsigned mask, unsigned data)
+  { multi_setup(mask, mask, data); }
+
+  void multi_input(unsigned mask)
+  { multi_setup(mask, ~mask); }
+};
+
+class Gpio_device :
+  public Gpio_chip,
+  public Hw::Device
+{
+};
+
+}

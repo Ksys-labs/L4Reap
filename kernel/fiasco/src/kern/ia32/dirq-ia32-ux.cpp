@@ -43,44 +43,9 @@ irq_interrupt(Mword _irqobj, Mword ip)
   (void)ip;
 
   // we're entered with disabled irqs
-  Irq *i = nonull_static_cast<Irq*>((Irq_base*)irqobj);
-  Irq::log_irq(i, irqobj);
-  irq_spinners(i->irq());
-
-#if defined(CONFIG_IA32) && defined(CONFIG_PROFILE)
-  cpu_lock.lock();
-#endif
-
-  i->hit();
-
-#if defined(CONFIG_IA32) && defined(CONFIG_PROFILE)
-  cpu_lock.clear_irqdisable();
-#endif
-}
-
-
-// We are entering with disabled interrupts!
-extern "C" FIASCO_FASTCALL
-void
-thread_timer_interrupt (Address ip)
-{
-#if defined(CONFIG_IA32) && defined(CONFIG_PROFILE)
-  cpu_lock.lock();
-#endif
-
-  Thread::assert_irq_entry();
-
-  Timer::acknowledge();
-  Timer::update_system_clock();
-
-  Irq::log_timer_irq(Config::scheduler_irq_vector);
-  (void)ip;
-  irq_spinners(Config::scheduler_irq_vector);
-
-  current_thread()->handle_timer_interrupt();
-
-#if defined(CONFIG_IA32) && defined(CONFIG_PROFILE)
-  cpu_lock.clear();
-#endif
+  Irq_base *i = (Irq_base*)irqobj;
+  i->log();
+  irq_spinners(i->pin());
+  i->hit(0);
 }
 

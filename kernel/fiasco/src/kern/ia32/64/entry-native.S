@@ -141,6 +141,9 @@ in_slow_ipc5:
 	RESTORE_STATE_SYSEXIT
 	
 	pop	%rcx				/* load user rsp */
+        /* make RIP canonical, workaround for intel IA32e flaw */
+        shl     $16, %rcx
+        sar     $16, %rcx
 	add	$8,%rsp				/* through away cs */
 	pop	%r11				/* load user rflags */
 	pop	%r15				/* load user rsp */
@@ -180,6 +183,9 @@ in_sc_ipc2:
 	RESTORE_STATE_SYSEXIT
 	
 	pop	%rcx				/* load user rsp */
+        /* make RIP canonical, workaround for intel IA32e flaw */
+        shl     $16, %rcx
+        sar     $16, %rcx
 	add	$8,%rsp				/* through away cs */
 	pop	%r11				/* load user rflags */
 	pop	%r15				/* load user rsp */

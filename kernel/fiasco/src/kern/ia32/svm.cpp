@@ -67,7 +67,7 @@ IMPLEMENTATION[svm]:
 #include "warn.h"
 #include <cstring>
 
-Per_cpu<Svm> DEFINE_PER_CPU Svm::cpus(true);
+DEFINE_PER_CPU Per_cpu<Svm> Svm::cpus(true);
 
 PUBLIC
 Svm::Svm(unsigned cpu)
@@ -108,9 +108,6 @@ Svm::Svm(unsigned cpu)
   printf("NASID: 0x%x\n", ebx);
   _max_asid = ebx - 1;
   assert(_max_asid > 0);
-  // we internally use Unigned8 for asids to save per cpu data
-  // your machine supports more asids
-  assert(_max_asid < (1<<8));
 
   enum
   {
@@ -121,7 +118,7 @@ Svm::Svm(unsigned cpu)
   };
 
   /* 16kB IO permission map and Vmcb (16kB are good for the buddy allocator)*/
-  check(_iopm = Mapped_allocator::allocator()->unaligned_alloc(Io_pm_size + Vmcb_size));
+  check(_iopm = Kmem_alloc::allocator()->unaligned_alloc(Io_pm_size + Vmcb_size));
   _iopm_base_pa = Kmem::virt_to_phys(_iopm);
   _kernel_vmcb = (Vmcb*)((char*)_iopm + Io_pm_size);
   _kernel_vmcb_pa = Kmem::virt_to_phys(_kernel_vmcb);
@@ -134,7 +131,7 @@ Svm::Svm(unsigned cpu)
   memset(_kernel_vmcb, 0, Vmcb_size);
 
   /* 8kB MSR permission map */
-  check(_msrpm = Mapped_allocator::allocator()->unaligned_alloc(Msr_pm_size));
+  check(_msrpm = Kmem_alloc::allocator()->unaligned_alloc(Msr_pm_size));
   _msrpm_base_pa = Kmem::virt_to_phys(_msrpm);
   memset(_msrpm, ~0, Msr_pm_size);
 
@@ -144,7 +141,7 @@ Svm::Svm(unsigned cpu)
   set_msr_perm(MSR_SYSENTER_ESP, Msr_rw);
 
   /* 4kB Host state-safe area */
-  check(_vm_hsave_area = Mapped_allocator::allocator()->unaligned_alloc(State_save_area_size));
+  check(_vm_hsave_area = Kmem_alloc::allocator()->unaligned_alloc(State_save_area_size));
   Unsigned64 vm_hsave_pa = Kmem::virt_to_phys(_vm_hsave_area);
 
   c.wrmsr(vm_hsave_pa, MSR_VM_HSAVE_PA);
@@ -234,13 +231,14 @@ PUBLIC
 Unsigned32
 Svm::next_asid ()
 {
-  assert (cpu_lock.test());
+  assert(cpu_lock.test());
   _flush_all_asids = false;
-  if (_next_asid > _max_asid) {
-    _global_asid_generation++;
-    _next_asid = 1;
-    assert (_global_asid_generation < ~0U);
-    _flush_all_asids = true;
-  }
+  if (_next_asid > _max_asid)
+    {
+      _global_asid_generation++;
+      _next_asid = 1;
+      assert (_global_asid_generation < ~0U);
+      _flush_all_asids = true;
+    }
   return _next_asid++;
 }

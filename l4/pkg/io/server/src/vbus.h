@@ -17,6 +17,7 @@
 #include "device.h"
 
 namespace Vi {
+class Sw_icu;
 
 class System_bus : public Device, public Dev_feature, public L4::Server_object
 {
@@ -58,10 +59,14 @@ public:
 
   void set_host(Device *d) { _host = d; }
   Device *host() const { return _host; }
+  Sw_icu *sw_icu() const { return _sw_icu; }
+
+  void sw_icu(Sw_icu *icu) { _sw_icu = icu; }
 
 private:
   Resource_set _resources;
   Device *_host;
+  Sw_icu *_sw_icu;
 };
 
 }

@@ -18,41 +18,9 @@
 #include <stdlib.h>
 
 #include <l4/sys/types.h>
-/* Primitives for controlling thread execution */
-#ifdef L4_PTHREAD_USE_USEM
-#include <l4/sys/semaphore.h>
-
-static __inline__ void restart(pthread_descr th)
-{
-  l4_usem_up(th->p_thsem_cap, &th->p_thsem);
-}
-
-static __inline__ void suspend(pthread_descr self)
-{
-  l4_usem_down(self->p_thsem_cap, &self->p_thsem);
-}
-
-static __inline__ int timedsuspend(pthread_descr self,
-		const struct timespec *abstime)
-{
-#if 1
-  extern uint64_t __attribute__((weak)) __libc_l4_kclock_offset;
-  uint64_t clock = abstime->tv_sec * 1000000 + abstime->tv_nsec / 1000;
-  if (&__libc_l4_kclock_offset)
-    clock -= __libc_l4_kclock_offset;
-  l4_msgtag_t res = l4_usem_down_to(self->p_thsem_cap, &self->p_thsem,
-                                    l4_timeout_abs_u(clock, 4, l4_utcb()));
-  if (l4_msgtag_label(res) == L4_USEM_TIMEOUT)
-    return 0;
-  return 1;
-#else
-  return 0;
-#endif
-}
-
-#else
-
 #include <l4/sys/irq.h>
+
+/* Primitives for controlling thread execution */
 
 static __inline__ void restart(pthread_descr th)
 {
@@ -67,9 +35,8 @@ static __inline__ void suspend(pthread_descr self)
 static __inline__ int timedsuspend(pthread_descr self,
 		const struct timespec *abstime)
 {
-#if 1
   extern uint64_t __attribute__((weak)) __libc_l4_kclock_offset;
-  uint64_t clock = abstime->tv_sec * 1000000 + abstime->tv_nsec / 1000;
+  uint64_t clock = abstime->tv_sec * 1000000ULL + abstime->tv_nsec / 1000;
   if (&__libc_l4_kclock_offset)
     clock -= __libc_l4_kclock_offset;
   l4_timeout_t timeout = L4_IPC_NEVER;
@@ -78,9 +45,4 @@ static __inline__ int timedsuspend(pthread_descr self,
   if (l4_error(res) == -(L4_EIPC_LO + L4_IPC_RETIMEOUT))
     return 0;
   return 1;
-#else
-  return 0;
-#endif
 }
-
-#endif

@@ -161,21 +161,19 @@ Jdb_name_hdl::invoke(Kobject_common *o, Syscall_frame *f, Utcb *utcb)
           char const *name = reinterpret_cast<char const*>(&utcb->values[1]);
           ne->clear_name();
           strncpy(ne->name(), name, ne->max_len());
-          ne->add(&o->dbg_info()->_jdb_data);
+          o->dbg_info()->_jdb_data.add(ne);
           f->tag(Kobject_iface::commit_result(0));
           return true;
         }
     case Op_get_name:
         {
-
-          Kobject *o = Kobject::id_to_obj(utcb->values[1]);
-          if (!o)
+          Kobject_dbg::Iterator o = Kobject_dbg::id_to_obj(utcb->values[1]);
+          if (o == Kobject_dbg::end())
             {
               f->tag(Kobject_iface::commit_result(-L4_err::ENoent));
               return true;
             }
-          Jdb_kobject_name *n
-            = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(o);
+          Jdb_kobject_name *n = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(Kobject::from_dbg(o));
           if (!n)
             {
               f->tag(Kobject_iface::commit_result(-L4_err::ENoent));

@@ -59,7 +59,7 @@ fiasco_ldt_set(l4_cap_idx_t task, void *ldt, unsigned int size,
  */
 L4_INLINE long
 fiasco_gdt_set(l4_cap_idx_t thread, void *desc, unsigned int size,
-	       unsigned int entry_number_start, l4_utcb_t *utcb);
+               unsigned int entry_number_start, l4_utcb_t *utcb);
 
 /**
  * Return the offset of the entry in the GDT.
@@ -82,6 +82,17 @@ enum L4_task_ldt_x86_consts
     = (L4_UTCB_GENERIC_DATA_SIZE - 2)
       / (L4_TASK_LDT_X86_ENTRY_SIZE / (L4_MWORD_BITS / 8)),
 };
+
+/**
+ * Set the FS register.
+ * \param  thread    Thread to get info from.
+ * \param  base      Base address.
+ * \param  utcb      UTCB of the caller.
+ * \return System call error
+ */
+L4_INLINE long
+fiasco_amd64_set_fs(l4_cap_idx_t thread, l4_umword_t base, l4_utcb_t *utcb);
+
 
 /*****************************************************************************
  *** Implementation

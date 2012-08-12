@@ -1,22 +1,26 @@
 INTERFACE [sched_fixed_prio || sched_fp_wfq]:
 
+#include "config.h"
+#include <dlist>
 #include "member_offs.h"
 #include "types.h"
 #include "globals.h"
-
 
 template<typename E>
 class Ready_queue_fp
 {
   friend class Jdb_thread_list;
+  template<typename T>
+  friend struct Jdb_thread_list_policy;
 
 private:
+  typedef typename E::Fp_list List;
   unsigned prio_highest;
-  E *prio_next[256];
+  List prio_next[256];
 
 public:
   void set_idle(E *sc)
-  { E::fp_elem(sc)->_prio = Config::kernel_prio; }
+  { sc->_prio = Config::Kernel_prio; }
 
   void enqueue(E *, bool);
   void dequeue(E *);
@@ -38,7 +42,7 @@ IMPLEMENT inline
 template<typename E>
 E *
 Ready_queue_fp<E>::next_to_run() const
-{ return prio_next[prio_highest]; }
+{ return prio_next[prio_highest].front(); }
 
 /**
  * Enqueue context in ready-list.
@@ -54,25 +58,12 @@ Ready_queue_fp<E>::enqueue(E *i, bool is_current_sched)
   if (EXPECT_FALSE (i->in_ready_list()))
     return;
 
-  unsigned short prio = E::fp_elem(i)->prio();
+  unsigned short prio = i->prio();
 
   if (prio > prio_highest)
     prio_highest = prio;
 
-  if (!prio_next[prio])
-    prio_next[prio] = E::fp_elem(i)->_ready_next = E::fp_elem(i)->_ready_prev = i;
-
-  else
-    {
-      E::fp_elem(i)->_ready_next = prio_next[prio];
-      E::fp_elem(i)->_ready_prev = E::fp_elem(prio_next[prio])->_ready_prev;
-      E::fp_elem(prio_next[prio])->_ready_prev = E::fp_elem(E::fp_elem(i)->_ready_prev)->_ready_next = i;
-
-      // Special care must be taken wrt. the position of current() in the ready
-      // list. Logically current() is the next thread to run at its priority.
-      if (is_current_sched)
-        prio_next[prio] = i;
-    }
+  prio_next[prio].push(i, is_current_sched ? List::Front : List::Back);
 }
 
 /**
@@ -89,16 +80,11 @@ Ready_queue_fp<E>::dequeue(E *i)
   if (EXPECT_FALSE (!i->in_ready_list()))
     return;
 
-  unsigned short prio = E::fp_elem(i)->prio();
+  unsigned short prio = i->prio();
 
-  if (prio_next[prio] == i)
-    prio_next[prio] = E::fp_elem(i)->_ready_next == i ? 0 : E::fp_elem(i)->_ready_next;
+  prio_next[prio].remove(i);
 
-  E::fp_elem(E::fp_elem(i)->_ready_prev)->_ready_next = E::fp_elem(i)->_ready_next;
-  E::fp_elem(E::fp_elem(i)->_ready_next)->_ready_prev = E::fp_elem(i)->_ready_prev;
-  E::fp_elem(i)->_ready_next = 0;				// Mark dequeued
-
-  while (!prio_next[prio_highest] && prio_highest)
+  while (prio_next[prio_highest].empty() && prio_highest)
     prio_highest--;
 }
 
@@ -111,6 +97,5 @@ Ready_queue_fp<E>::requeue(E *i)
   if (!i->in_ready_list())
     enqueue(i, false);
 
-  // rotate ready list
-  prio_next[E::fp_elem(i)->prio()] = E::fp_elem(i)->_ready_next;
+  prio_next[i->prio()].rotate_to(*++List::iter(i));
 }

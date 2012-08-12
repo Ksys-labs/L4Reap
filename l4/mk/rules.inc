@@ -71,4 +71,24 @@ define BID_GENERATE_C_MAKE_RULES
   $(call BID_GENERATE_DEFAULT_MAKE_RULES,%,%.$(1),C)
 endef
 
+#
+# arg 1: target pattern
+#     2: source pattern
+#     3: compiler
+#     4: compiler options
+define BID_GENERATE_I_MAKE_RULE
+$(1): $(2) FORCE
+	@$$(COMP_MESSAGE)
+	$$(VERBOSE)$(3) -E -H -dD $$(CPPFLAGS) $(4) $$(call absfilename,$$<) -o $$@
+	$$(VERBOSE)$$(if $$(DO_SHOW_RESULT_FILE),$$(PAGER) $$@)
+endef
 
+#
+# arg 1: source pattern
+#     2: compiler
+#     3: compiler options
+define BID_GENERATE_S_MAKE_RULE
+%.S: $(1) FORCE
+	@$$(COMP_MESSAGE)
+	$$(VERBOSE)$(2) -S $(3) $(CPPFLAGS) $$(call absfilename,$$<) -fverbose-asm -o $$@
+endef

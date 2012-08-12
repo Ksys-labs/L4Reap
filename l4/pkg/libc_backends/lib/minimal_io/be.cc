@@ -11,8 +11,9 @@
 
 #include <l4/re/env>
 #include <sys/types.h>
+#include <unistd.h>
 
-extern "C" ssize_t write(int fd, const void *buf, size_t count) L4_NOTHROW
+extern "C" ssize_t write(int fd, const void *buf, size_t count)
 {
   if (fd == 1 || fd == 2)
     {
@@ -22,7 +23,7 @@ extern "C" ssize_t write(int fd, const void *buf, size_t count) L4_NOTHROW
   return -1;
 }
 
-extern "C" ssize_t read(int, void *, size_t) L4_NOTHROW
+extern "C" ssize_t read(int, void *, size_t)
 {
   return -1;
 }

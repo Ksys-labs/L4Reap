@@ -18,7 +18,6 @@
 #include "kmem_alloc.h"
 #include "mem_layout.h"
 #include "mem_region.h"
-#include "multiboot.h"
 #include "panic.h"
 #include "processor.h"
 #include "reset.h"
@@ -53,16 +52,14 @@ check_overlap (const char *str,
           start1, end1, str, start2, end2);
 }
 
-typedef void (*Start)(Multiboot_info *, unsigned, unsigned) FIASCO_FASTCALL;
+typedef void (*Start)(void *, unsigned, unsigned) FIASCO_FASTCALL;
 
 extern "C" FIASCO_FASTCALL
 void
-bootstrap (Multiboot_info *mbi, unsigned int flag)
+bootstrap (void *, unsigned int flag)
 {
   extern Kip my_kernel_info_page;
   Start start;
-
-  assert(flag == Multiboot_header::Valid);
 
   // setup stuff for base_paging_init()
   base_cpu_setup();
@@ -96,8 +93,8 @@ bootstrap (Multiboot_info *mbi, unsigned int flag)
 
   start = (Start)_start;
 
-  Address phys_start = (Address)_start - Mem_layout::Kernel_image;
-  Address phys_end   = (Address)_end   - Mem_layout::Kernel_image;
+  Address phys_start = (Address)_start - Mem_layout::Kernel_image + Mem_layout::Kernel_image_phys;
+  Address phys_end   = (Address)_end   - Mem_layout::Kernel_image + Mem_layout::Kernel_image_phys;
   check_overlap ("VGA/IO", phys_start, phys_end, 0xa0000, 0x100000);
 
   if (Checksum::get_checksum_ro() != check_sum.checksum_ro)
@@ -106,5 +103,5 @@ bootstrap (Multiboot_info *mbi, unsigned int flag)
   if (Checksum::get_checksum_rw() != check_sum.checksum_rw)
     panic("Read-write (data) checksum does not match.");
 
-  start (mbi, flag, check_sum.checksum_ro);
+  start (0, flag, check_sum.checksum_ro);
 }

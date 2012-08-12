@@ -297,15 +297,14 @@ static void update_mfocus(void) {
 
 static void handle(void)
 {
-  static long    old_mx, old_my, old_mb;
-  static long    update_needed = 0;
-  static EVENT   event;
+  static long    old_mx, old_my;
+  long    update_needed = 0;
+  EVENT   event;
 
   WIDGET *new_mfocus = NULL;
 
   old_mx = curr_mx;
   old_my = curr_my;
-  old_mb = curr_mb;
 
   while (input->get_event(&event))
     {

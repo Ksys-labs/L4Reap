@@ -1,3 +1,5 @@
+
+#line 1 "cfg_scan.rl"
 /*
  * (c) 2010 Adam Lackorzynski <adam@os.inf.tu-dresden.de>,
  *          Alexander Warg <warg@os.inf.tu-dresden.de>
@@ -7,8 +9,6 @@
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
  */
-
-#line 1 "cfg_scan.rl"
 /*
  * A mini C-like language scanner.
  */
@@ -16,11 +16,11 @@
 #include "cfg_scanner.h"
 
 
-#line 109 "cfg_scan.rl"
+#line 119 "cfg_scan.rl"
 
 
 
-#line 15 "cfg_scan.cc"
+#line 24 "cfg_scan.cc"
 static const char _cfg_lang_actions[] = {
 	0, 1, 1, 1, 2, 1, 3, 1, 
 	8, 1, 9, 1, 10, 1, 11, 1, 
@@ -147,14 +147,14 @@ static const int cfg_lang_error = 0;
 static const int cfg_lang_en_main = 12;
 
 
-#line 112 "cfg_scan.rl"
+#line 122 "cfg_scan.rl"
 
 
 void
 cfg::Scanner::init()
 {
   
-#line 149 "cfg_scan.cc"
+#line 158 "cfg_scan.cc"
 	{
 	cs = cfg_lang_start;
 	ts = 0;
@@ -162,7 +162,7 @@ cfg::Scanner::init()
 	act = 0;
 	}
 
-#line 118 "cfg_scan.rl"
+#line 128 "cfg_scan.rl"
   p = s;
   pe = e;
 }
@@ -179,7 +179,7 @@ cfg::Scanner::lex(cfg::Parser::semantic_type *yylval, cfg::location *yylloc)
     yylloc->step();
 
   
-#line 174 "cfg_scan.cc"
+#line 183 "cfg_scan.cc"
 	{
 	int _klen;
 	unsigned int _trans;
@@ -197,10 +197,10 @@ _resume:
 	while ( _nacts-- > 0 ) {
 		switch ( *_acts++ ) {
 	case 2:
-#line 1 "cfg_scan.rl"
+#line 1 "NONE"
 	{ts = p;}
 	break;
-#line 195 "cfg_scan.cc"
+#line 204 "cfg_scan.cc"
 		}
 	}
 
@@ -267,58 +267,58 @@ _eof_trans:
 		switch ( *_acts++ )
 		{
 	case 0:
-#line 10 "cfg_scan.rl"
+#line 19 "cfg_scan.rl"
 	{ yylloc->lines(); yylloc->step(); }
 	break;
 	case 3:
-#line 1 "cfg_scan.rl"
+#line 1 "NONE"
 	{te = p+1;}
 	break;
 	case 4:
-#line 41 "cfg_scan.rl"
+#line 50 "cfg_scan.rl"
 	{act = 10;}
 	break;
 	case 5:
-#line 45 "cfg_scan.rl"
+#line 55 "cfg_scan.rl"
 	{act = 11;}
 	break;
 	case 6:
-#line 24 "cfg_scan.rl"
+#line 33 "cfg_scan.rl"
 	{te = p+1;}
 	break;
 	case 7:
-#line 25 "cfg_scan.rl"
+#line 34 "cfg_scan.rl"
 	{te = p+1;}
 	break;
 	case 8:
-#line 27 "cfg_scan.rl"
+#line 36 "cfg_scan.rl"
 	{te = p+1;{ tt = Token::INSTANCE; {p++; goto _out; } }}
 	break;
 	case 9:
-#line 28 "cfg_scan.rl"
+#line 37 "cfg_scan.rl"
 	{te = p+1;{ tt = Token::RANGE; {p++; goto _out; } }}
 	break;
 	case 10:
-#line 29 "cfg_scan.rl"
+#line 38 "cfg_scan.rl"
 	{te = p+1;{ tt = Token::COMMA; {p++; goto _out; } }}
 	break;
 	case 11:
-#line 33 "cfg_scan.rl"
+#line 42 "cfg_scan.rl"
 	{te = p+1;{
 		tt = static_cast<Token_type>(ts[0]);
 		{p++; goto _out; }
 	}}
 	break;
 	case 12:
-#line 39 "cfg_scan.rl"
+#line 48 "cfg_scan.rl"
 	{te = p+1;{ tt = Token::RESOURCE; {p++; goto _out; } }}
 	break;
 	case 13:
-#line 40 "cfg_scan.rl"
+#line 49 "cfg_scan.rl"
 	{te = p+1;{ tt = Token::HWROOT; {p++; goto _out; } }}
 	break;
 	case 14:
-#line 62 "cfg_scan.rl"
+#line 72 "cfg_scan.rl"
 	{te = p+1;{
 		tt = Token::STRING;
 		yylval->str.s = ts;
@@ -327,22 +327,22 @@ _eof_trans:
 	}}
 	break;
 	case 15:
-#line 71 "cfg_scan.rl"
+#line 81 "cfg_scan.rl"
 	{te = p+1;}
 	break;
 	case 16:
-#line 33 "cfg_scan.rl"
+#line 42 "cfg_scan.rl"
 	{te = p;p--;{
 		tt = static_cast<Token_type>(ts[0]);
 		{p++; goto _out; }
 	}}
 	break;
 	case 17:
-#line 38 "cfg_scan.rl"
+#line 47 "cfg_scan.rl"
 	{te = p;p--;{ tt = Token::NEW; {p++; goto _out; } }}
 	break;
 	case 18:
-#line 45 "cfg_scan.rl"
+#line 55 "cfg_scan.rl"
 	{te = p;p--;{
 		tt = Token::IDENTIFIER;
 		yylval->str.s = ts;
@@ -351,11 +351,11 @@ _eof_trans:
 	}}
 	break;
 	case 19:
-#line 70 "cfg_scan.rl"
+#line 80 "cfg_scan.rl"
 	{te = p;p--;{ yylloc->columns(te-ts); yylloc->step();}}
 	break;
 	case 20:
-#line 75 "cfg_scan.rl"
+#line 85 "cfg_scan.rl"
 	{te = p;p--;{
 		tt = Token::INTEGER;
 		yylval->num = 0;
@@ -365,7 +365,7 @@ _eof_trans:
 	}}
 	break;
 	case 21:
-#line 93 "cfg_scan.rl"
+#line 103 "cfg_scan.rl"
 	{te = p;p--;{
 		tt = Token::INTEGER;
 		yylval->num = 0;
@@ -382,18 +382,18 @@ _eof_trans:
 	}}
 	break;
 	case 22:
-#line 33 "cfg_scan.rl"
+#line 42 "cfg_scan.rl"
 	{{p = ((te))-1;}{
 		tt = static_cast<Token_type>(ts[0]);
 		{p++; goto _out; }
 	}}
 	break;
 	case 23:
-#line 38 "cfg_scan.rl"
+#line 47 "cfg_scan.rl"
 	{{p = ((te))-1;}{ tt = Token::NEW; {p++; goto _out; } }}
 	break;
 	case 24:
-#line 45 "cfg_scan.rl"
+#line 55 "cfg_scan.rl"
 	{{p = ((te))-1;}{
 		tt = Token::IDENTIFIER;
 		yylval->str.s = ts;
@@ -402,7 +402,7 @@ _eof_trans:
 	}}
 	break;
 	case 25:
-#line 75 "cfg_scan.rl"
+#line 85 "cfg_scan.rl"
 	{{p = ((te))-1;}{
 		tt = Token::INTEGER;
 		yylval->num = 0;
@@ -412,7 +412,7 @@ _eof_trans:
 	}}
 	break;
 	case 26:
-#line 1 "cfg_scan.rl"
+#line 1 "NONE"
 	{	switch( act ) {
 	case 10:
 	{{p = ((te))-1;} tt = Token::WRAP; {p++; goto _out; } }
@@ -428,7 +428,7 @@ _eof_trans:
 	}
 	}
 	break;
-#line 423 "cfg_scan.cc"
+#line 432 "cfg_scan.cc"
 		}
 	}
 
@@ -438,10 +438,10 @@ _again:
 	while ( _nacts-- > 0 ) {
 		switch ( *_acts++ ) {
 	case 1:
-#line 1 "cfg_scan.rl"
+#line 1 "NONE"
 	{ts = 0;}
 	break;
-#line 436 "cfg_scan.cc"
+#line 445 "cfg_scan.cc"
 		}
 	}
 
@@ -461,7 +461,7 @@ _again:
 	_out: {}
 	}
 
-#line 134 "cfg_scan.rl"
+#line 144 "cfg_scan.rl"
 
   if ( cs == cfg_lang_error )
     {

@@ -5,7 +5,7 @@ INTERFACE [mp]:
 class App_cpu_thread : public Kernel_thread
 {
 private:
-  void	bootstrap()		asm ("call_ap_bootstrap") FIASCO_FASTCALL;
+  void bootstrap() asm ("call_ap_bootstrap") FIASCO_FASTCALL;
 };
 
 IMPLEMENTATION [mp]:
@@ -20,10 +20,12 @@ IMPLEMENTATION [mp]:
 #include "helping_lock.h"
 #include "kernel_task.h"
 #include "processor.h"
+#include "scheduler.h"
 #include "task.h"
 #include "thread.h"
 #include "thread_state.h"
 #include "timer.h"
+#include "timer_tick.h"
 #include "spin_lock.h"
 
 
@@ -47,7 +49,7 @@ App_cpu_thread::bootstrap()
   Fpu::init(cpu());
 
   // initialize the current_mem_space function to point to the kernel space
-  Kernel_task::kernel_task()->mem_space()->make_current();
+  Kernel_task::kernel_task()->make_current();
 
   Mem_unit::tlb_flush();
 
@@ -57,49 +59,20 @@ App_cpu_thread::bootstrap()
 
   kernel_context(cpu(), this);
   Sched_context::rq(cpu()).set_idle(this->sched());
+  Rcu::leave_idle(cpu());
 
-  Timer::enable();
+  Timer_tick::setup(cpu(true));
+  Timer_tick::enable(cpu(true));
+  enable_tlb(cpu());
 
   Per_cpu_data::run_late_ctors(cpu());
+
+  Scheduler::scheduler.trigger_hotplug_event();
 
   cpu_lock.clear();
 
   printf("CPU[%u]: goes to idle loop\n", cpu());
 
-  do_app_idle();
-}
-
-// ------------------------------------------------------------------------
-IMPLEMENTATION [mp && !kernel_can_exit]:
-
-PRIVATE inline
-void
-App_cpu_thread::do_app_idle()
-{
-  while (1)
+  for (;;)
     idle_op();
-}
-
-// ------------------------------------------------------------------------
-IMPLEMENTATION [mp && kernel_can_exit]:
-
-PRIVATE inline
-void
-App_cpu_thread::do_app_idle()
-{
-  while (running)
-    {
-      Mem::rmb();
-      idle_op();
-    }
-
-  // Boost this thread's priority to the maximum. Since this thread tears down
-  // all other threads, we want it to run whenever possible to advance as fast
-  // as we can.
-  ready_dequeue();
-  sched()->set_prio(255);
-  ready_enqueue();
-  Proc::cli();
-  while(1)
-    Proc::halt();
 }

@@ -1,6 +1,5 @@
 #
-# Automatically generated make config: don't edit
-#
+# Automatically generated file; DO NOT EDIT.
 
 #
 # Target configuration
@@ -72,7 +71,6 @@ CONFIG_CC="gcc"
 CONFIG_CXX="g++"
 CONFIG_HOST_CC="gcc"
 CONFIG_HOST_CXX="g++"
-# CONFIG_VERBOSE is not set
 # CONFIG_MAINTAINER_MODE is not set
 CONFIG_LABEL=""
 CONFIG_EXPERIMENTAL=y

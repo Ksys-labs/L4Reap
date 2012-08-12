@@ -1,0 +1,7 @@
+lwip git master
+
+commit 0a5755145c1cae11f87626545818e81ed7d2efa7
+Author: Simon Goldschmidt <goldsimon@gmx.de>
+Date:   Wed Aug 24 22:00:10 2011 +0200
+
+    added netif remove callback (bug #32397)

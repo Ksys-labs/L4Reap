@@ -16,6 +16,7 @@ IMPLEMENTATION [ux]:
 #include <unistd.h>
 #include <sys/mman.h>
 
+#include "kmem_alloc.h"
 #include "emulation.h"
 
 
@@ -64,7 +65,7 @@ PUBLIC static FIASCO_INIT
 void
 Kmem::init_mmu(Cpu const &boot_cpu)
 {
-  Mapped_allocator *const alloc = Mapped_allocator::allocator();
+  Kmem_alloc *const alloc = Kmem_alloc::allocator();
 
   kdir = (Pdir*)alloc->alloc(Config::PAGE_SHIFT);
   memset (kdir, 0, Config::PAGE_SIZE);
@@ -87,7 +88,7 @@ Kmem::init_mmu(Cpu const &boot_cpu)
   // kernel's page directory sometimes comes in handy
   kdir->map(0, Virt_addr(Mem_layout::Physmem), Virt_size(Mem_layout::pmem_size),
       Pt_entry::Writable | Pt_entry::Referenced | Pt_entry::global(),
-      Pdir::super_level(), alloc);
+      Pdir::super_level(), pdir_alloc(alloc));
 
   // now switch to our new page table
   Emulation::set_pdir_addr (Mem_layout::pmem_to_phys (kdir));
@@ -101,7 +102,7 @@ Kmem::init_mmu(Cpu const &boot_cpu)
       // can map as 4MB page because the cpu_page will land within a
       // 16-bit range from io_bitmap
       *(kdir->walk(Virt_addr(Mem_layout::Io_bitmap - Config::SUPERPAGE_SIZE),
-                   Pdir::Super_level, alloc).e)
+                   Pdir::Super_level, pdir_alloc(alloc)).e)
 	= (pmem_cpu_page & Config::SUPERPAGE_MASK)
 	| Pt_entry::Pse_bit
 	| Pt_entry::Writable | Pt_entry::Referenced
@@ -112,7 +113,7 @@ Kmem::init_mmu(Cpu const &boot_cpu)
     }
   else
     {
-      Pdir::Iter pt = kdir->walk(Virt_addr(Mem_layout::Io_bitmap - Config::PAGE_SIZE), 100, alloc);
+      Pdir::Iter pt = kdir->walk(Virt_addr(Mem_layout::Io_bitmap - Config::PAGE_SIZE), 100, pdir_alloc(alloc));
 
       *pt.e = pmem_cpu_page | Pt_entry::Valid | Pt_entry::Writable
 		   | Pt_entry::Referenced | Pt_entry::Dirty

@@ -150,7 +150,13 @@ L4RE_CALL(int _dl_munmap(void *start, size_t len))
 L4RE_CALL(void *_dl_mmap(void *start, size_t len, int prot, int flags, int fd, off_t offset))
 {
 #if 0
-  outstring("### DL: _dl_mmap...");
+  outstring("### DL: _dl_mmap(");
+    outhex32((int)start); outstring(", ");
+    outhex32((int)len); outstring(", ");
+    outhex32((int)prot); outstring(", ");
+    outhex32((int)flags); outstring(", ");
+    outhex32((int)fd); outstring(", ");
+    outhex32((int)offset); outstring("); from=");
   outhex32((int)__builtin_return_address(0)); outstring("\n");
 #endif
   void *resptr;

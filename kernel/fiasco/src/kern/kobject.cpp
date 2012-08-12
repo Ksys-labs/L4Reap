@@ -2,6 +2,7 @@ INTERFACE:
 
 #include "lock.h"
 #include "obj_space.h"
+#include <hlist>
 
 
 class Kobject_mappable
@@ -9,13 +10,14 @@ class Kobject_mappable
 private:
   friend class Kobject_mapdb;
   friend class Jdb_mapdb;
-  Obj::Mapping *_root;
+
+  Obj::Mapping::List _root;
   Smword _cnt;
   Lock _lock;
 
 public:
-  Kobject_mappable() : _root(0), _cnt(0) {}
-  bool no_mappings() const { return !_root; }
+  Kobject_mappable() : _cnt(0) {}
+  bool no_mappings() const { return _root.empty(); }
 
   /**
    * Insert the root mapping of an object.
@@ -23,7 +25,8 @@ public:
   template<typename M>
   bool insert(void *, Space *, M &m)
   {
-    m._c->put_as_root(&_root);
+    m._c->put_as_root();
+    _root.add(m._c);
     _cnt = 1;
     return true;
   }
@@ -36,7 +39,6 @@ public:
 INTERFACE:
 
 #include "context.h"
-#include "irq_pin.h"
 #include "kobject_dbg.h"
 #include "kobject_iface.h"
 #include "l4_error.h"
@@ -80,6 +82,8 @@ public:
       return reinterpret_cast<T>(_o->kobject_start_addr());
     return 0;
   }
+
+  using Kobject_dbg::dbg_id;
 
   Lock existence_lock;
 
@@ -195,21 +199,6 @@ Kobject::kobject_invoke(L4_obj_ref, Mword /*rights*/,
 
 }
 
-PUBLIC static
-Kobject *
-Kobject::id_to_obj(unsigned long id)
-{ return static_cast<Kobject*>(Kobject_dbg::id_to_obj(id)); }
-
-PUBLIC static
-Kobject *
-Kobject::pointer_to_obj(void const *p)
-{ return static_cast<Kobject*>(Kobject_dbg::pointer_to_obj(p)); }
-
-PUBLIC inline
-Mword
-Kobject::dbg_id() const
-{ return Kobject_dbg::dbg_id(); }
-
 //---------------------------------------------------------------------------
 INTERFACE [debug]:
 
@@ -236,6 +225,15 @@ PUBLIC static inline
 Kobject *
 Kobject::from_dbg(Kobject_dbg *d)
 { return static_cast<Kobject*>(d); }
+
+PUBLIC static inline
+Kobject *
+Kobject::from_dbg(Kobject_dbg::Iterator const &d)
+{
+  if (d != Kobject_dbg::end())
+    return static_cast<Kobject*>(*d);
+  return 0;
+}
 
 PUBLIC
 Kobject_dbg *

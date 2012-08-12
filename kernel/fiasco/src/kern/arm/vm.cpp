@@ -5,7 +5,7 @@ INTERFACE:
 #include "kmem_slab.h"
 #include "l4_types.h"
 #include "prio_list.h"
-#include "slab_cache_anon.h"
+#include "slab_cache.h"
 #include "ref_obj.h"
 
 class Ram_quota;
@@ -68,14 +68,10 @@ class Vm : public Kobject, public Ref_cnt_obj
     };
 
 private:
-  typedef slab_cache_anon Allocator;
+  typedef Slab_cache Allocator;
 
-  bool _valid;
   Mword *_state;
   Space *_space; // space the state is contained in
-
-public:
-  virtual ~Vm();
 };
 
 //-----------------------------------------------------------------------------
@@ -123,23 +119,15 @@ Vm::create(Ram_quota *quota)
   if (void *a = allocator()->q_alloc(quota))
     {
       Vm *vm = new (a) Vm;
-      if (vm->valid())
-	return vm;
-
-      delete vm;
+      return vm;
     }
 
   return 0;
 }
 
-PUBLIC /*inline*/
-Vm::Vm()
-  : _valid(true), _state(0), _space(0)
+PUBLIC
+Vm::Vm() : _state(0), _space(0)
 { inc_ref(); }
-
-IMPLEMENT
-Vm::~Vm()
-{ _valid = false; }
 
 PUBLIC virtual
 bool
@@ -192,7 +180,8 @@ Vm::run(Syscall_frame *f, Utcb *utcb)
       unsigned int attribs;
 
       _space = current()->space();
-      Mem_space *const curr_mem_space = current()->space()->mem_space();
+      assert_opt (_space);
+      Mem_space *const curr_mem_space = _space;
       resident = curr_mem_space->v_lookup(Virt_addr(_state), &phys, &size, &attribs);
 
       if (!resident)
@@ -210,7 +199,7 @@ Vm::run(Syscall_frame *f, Utcb *utcb)
     {
       Proc::preemption_point();
 
-      if (current_thread()->sender_list()->head())
+      if (current_thread()->sender_list()->first())
 	{
 	  current_thread()->do_ipc(L4_msg_tag(), 0, 0, true, 0,
 	      L4_timeout_pair(L4_timeout::Zero, L4_timeout::Zero), f, 7);
@@ -286,7 +275,7 @@ IMPLEMENTATION:
 
 PUBLIC
 void *
-Vm::operator new (size_t, void *p)
+Vm::operator new (size_t, void *p) throw()
 { return p; }
 
 PUBLIC
@@ -303,11 +292,6 @@ PRIVATE static
 Vm::Allocator *
 Vm::allocator()
 { return &_vm_allocator; }
-
-PUBLIC inline
-bool
-Vm::valid() const
-{ return _valid; }
 
 PUBLIC
 void

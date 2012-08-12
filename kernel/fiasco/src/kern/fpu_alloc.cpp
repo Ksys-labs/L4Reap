@@ -1,6 +1,7 @@
 INTERFACE:
 
 #include "fpu.h"
+#include "slab_cache.h"
 
 class Ram_quota;
 
@@ -13,13 +14,12 @@ IMPLEMENTATION:
 #include "fpu_state.h"
 #include "kmem_slab.h"
 #include "ram_quota.h"
-#include "slab_cache_anon.h"
 
 static Kmem_slab _fpu_state_allocator(Fpu::state_size() + sizeof(Ram_quota*),
                                       Fpu::state_align(), "Fpu state");
 
 PRIVATE static
-slab_cache_anon *
+Slab_cache *
 Fpu_alloc::slab_alloc()
 {
   return &_fpu_state_allocator;

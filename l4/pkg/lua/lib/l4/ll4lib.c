@@ -15,11 +15,6 @@
 #include <l4/re/c/util/cap_alloc.h>
 #include <l4/re/c/namespace.h>
 
-//static int srvc_open (lua_State *L)
-//{
-//  return 0;
-//}
-
 static int ipc_call(lua_State *L)
 {
   l4_cap_idx_t object = luaL_checknumber(L, 1);
@@ -135,7 +130,7 @@ static int re_get_env_cap(lua_State *L)
 
   s = luaL_checklstring(L, 1, &len);
 
-  cap = l4re_get_env_cap_l(s, len, l4re_env())->cap;
+  cap = l4re_env_get_cap_l(s, len, l4re_env())->cap;
 
   lua_pushinteger(L, cap);
   return 1;
@@ -155,7 +150,6 @@ static int utcb_mr_put(lua_State *L)
       ++mr_i;
       ++i;
     }
-
 
   return 0;
 }
@@ -179,7 +173,6 @@ static int msgtag(lua_State *L)
 }
 
 static const luaL_Reg l4lib[] = {
-//  { "srvc_open",          srvc_open },
   { "ipc_call",           ipc_call },
   { "ipc_reply_and_wait", ipc_reply_and_wait },
   { "ipc_wait",           ipc_wait },

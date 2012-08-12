@@ -27,6 +27,8 @@
   }
 
 void *mmap2(void *addr, size_t length, int prot, int flags,
+            int fd, off_t pgoffset) L4_NOTHROW;
+void *mmap2(void *addr, size_t length, int prot, int flags,
             int fd, off_t pgoffset) L4_NOTHROW
 {
   void *resptr;

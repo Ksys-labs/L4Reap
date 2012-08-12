@@ -46,6 +46,7 @@ private:
   unsigned _flags;
 public:
   int setup();
+  void view_setup();
 
   explicit Client_fb(Core_api const *core);
 
@@ -54,8 +55,12 @@ public:
   void toggle_shaded();
 
   void draw(Canvas *, View_stack const *, Mode) const;
-  void handle_event(L4Re::Event_buffer::Event const &e,
-                    Point const &mouse);
+  void handle_event(Hid_report *e, Point const &mouse, bool core_dev);
+  bool handle_core_event(Hid_report *e, Point const &mouse);
+
+  int get_stream_info_for_id(l4_umword_t id, L4Re::Event_stream_info *info);
+  int get_abs_info(l4_umword_t id, unsigned naxes, unsigned *axes,
+                   L4Re::Event_absinfo *infos);
 
   int dispatch(l4_umword_t obj, L4::Ipc::Iostream &s);
   int refresh(int x, int y, int w, int h);
@@ -69,6 +74,12 @@ public:
   static void set_geometry_prop(Session *s, Property_handler const *p, cxx::String const &v);
   static void set_flags_prop(Session *s, Property_handler const *p, cxx::String const &v);
   static void set_bar_height_prop(Session *s, Property_handler const *p, cxx::String const &v);
+
+private:
+  int event_get(L4::Ipc::Iostream &s);
+  int event_get_stream_info_for_id(L4::Ipc::Iostream &s);
+  int event_get_axis_info(L4::Ipc::Iostream &s);
+  int event_dispatch(l4_umword_t, L4::Ipc::Iostream &s);
 };
 
 }

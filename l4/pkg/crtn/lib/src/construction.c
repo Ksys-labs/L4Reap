@@ -6,12 +6,13 @@
  * GNU Lesser General Public License 2.1.
  * Please see the COPYING-LGPL-2.1 file for details.
  */
-#include <l4/sys/l4int.h>
-#include <l4/sys/compiler.h>
-#include <l4/sys/kdebug.h>
 #include <l4/crtn/crt0.h>
 
 //#define DEBUG
+
+#ifdef DEBUG
+#include <l4/sys/kdebug.h>
+#endif
 
 int __cxa_atexit(void (*function)(void*), void *arg, void *dso_handle);
 

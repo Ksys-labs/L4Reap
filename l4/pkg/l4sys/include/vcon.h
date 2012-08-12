@@ -147,6 +147,7 @@ enum L4_vcon_o_flags
  */
 enum L4_vcon_l_flags
 {
+  L4_VCON_ICANON = 000002,  ///< Cannonical mode
   L4_VCON_ECHO   = 000010,  ///< Echo input
 };
 

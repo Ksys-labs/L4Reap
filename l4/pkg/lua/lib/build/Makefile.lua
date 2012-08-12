@@ -6,9 +6,5 @@ vpath %.h $(SRC_DIR)/../contrib/src
 %.o: %.c
 	$(CC) -c $(CPPFLAGS) $(CFLAGS)  $<
 
-%: %.o
-	$(CC) $(LDFLAGS) $< $(LOADLIBES) $(LDLIBS)
-	
-
 include $(SRC_DIR)/../contrib/src/Makefile
-MYCFLAGS=-I$(SRC_DIR)/../contrib/src $(L4_DEFINES) -nostdinc -fno-stack-protector $(L4_INCLUDES)
+MYCFLAGS=-I$(SRC_DIR)/../contrib/src -DLUA_USE_L4RE $(L4_DEFINES) -nostdinc $(CFLAGS_L4_GENERIC) $(L4_INCLUDES)

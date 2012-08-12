@@ -39,15 +39,16 @@ IMPLEMENTATION [serial]:
 #include <cstdio>
 
 #include "filter_console.h"
-#include "irq.h"
 #include "irq_chip.h"
-#include "irq_pin.h"
+#include "irq_mgr.h"
+#include "kdb_ke.h"
 #include "kernel_console.h"
 #include "uart.h"
 #include "config.h"
 #include "kip.h"
 #include "koptions.h"
 #include "panic.h"
+#include "vkey.h"
 
 static Static_object<Filter_console> _fcon;
 static Static_object<Kernel_uart> _kernel_uart;
@@ -55,22 +56,22 @@ static Static_object<Kernel_uart> _kernel_uart;
 PUBLIC static FIASCO_CONST
 Uart *
 Kernel_uart::uart()
-{ return _kernel_uart.get(); }
+{ return _kernel_uart; }
 
 PUBLIC static
 bool
 Kernel_uart::init(Init_mode init_mode = Init_before_mmu)
 {
-  if (init_mode != Bsp_init_mode)
+  if ((int)init_mode != Bsp_init_mode)
     return false;
 
   if (Koptions::o()->opt(Koptions::F_noserial)) // do not use serial uart
     return true;
 
-  _kernel_uart.init();
-  _fcon.init(_kernel_uart.get());
+  _kernel_uart.construct();
+  _fcon.construct(_kernel_uart);
 
-  Kconsole::console()->register_console(_fcon.get(), 0);
+  Kconsole::console()->register_console(_fcon, 0);
   return true;
 }
 
@@ -92,23 +93,36 @@ Kernel_uart::Kernel_uart()
     i = Koptions::o()->uart.irqno;
 
   if (!startup(p, i))
-    printf("Comport/base 0x%04lx is not accepted by the uart driver!\n", p);
-  else
-    if (!change_mode(m, n))
-      panic("Somthing is wrong with the baud rate (%d)!\n", n);
+    printf("Comport/base 0x%04llx is not accepted by the uart driver!\n", p);
+  else if (!change_mode(m, n))
+    panic("Somthing is wrong with the baud rate (%d)!\n", n);
 }
+
+
+class Kuart_irq : public Irq_base
+{
+public:
+  Kuart_irq() { hit_func = &handler_wrapper<Kuart_irq>; }
+  void switch_mode(unsigned) {}
+  void handle(Upstream_irq const *ui)
+  {
+    mask_and_ack();
+    ui->ack();
+    if (!Vkey::check_())
+      kdb_ke("IRQ ENTRY");
+    unmask();
+  }
+};
 
 
 IMPLEMENT
 void
 Kernel_uart::enable_rcv_irq()
 {
-  // we must not allocate the IRQ in the constructor but here 
-  // since the constructor is called before Dirq::Dirq() constructor
-  static Irq_debugger uart_irq;
-  if (Irq_chip::hw_chip->alloc(&uart_irq, uart()->irq()))
+  static Kuart_irq uart_irq;
+  if (Irq_mgr::mgr->alloc(&uart_irq, uart()->irq()))
     {
-      uart_irq.pin()->unmask();
+      uart_irq.unmask();
       uart()->enable_rcv_irq();
     }
 }

@@ -25,6 +25,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/socket.h>
 #include <utime.h>
 #include <errno.h>
 
@@ -122,7 +123,7 @@ public:
   virtual int set_status_flags(long flags) throw() = 0;
 
   virtual int utime(const struct utimbuf *) throw() = 0;
-  virtual int utimes(const struct utimbuf [2]) throw() = 0;
+  virtual int utimes(const struct timeval [2]) throw() = 0;
   virtual ssize_t readlink(char *, size_t) = 0;
 };
 
@@ -360,6 +361,32 @@ inline
 Regular_file::~Regular_file() throw()
 {}
 
+class Socket
+{
+public:
+  virtual ~Socket() throw() = 0;
+  virtual int bind(sockaddr const *, socklen_t) throw() = 0;
+  virtual int connect(sockaddr const *, socklen_t) throw() = 0;
+  virtual ssize_t send(void const *, size_t, int) throw() = 0;
+  virtual ssize_t recv(void *, size_t, int) throw() = 0;
+  virtual ssize_t sendto(void const *, size_t, int, sockaddr const *, socklen_t) throw() = 0;
+  virtual ssize_t recvfrom(void *, size_t, int, sockaddr *, socklen_t *) throw() = 0;
+  virtual ssize_t sendmsg(msghdr const *, int) throw() = 0;
+  virtual ssize_t recvmsg(msghdr *, int) throw() = 0;
+  virtual int getsockopt(int level, int opt, void *, socklen_t *) throw() = 0;
+  virtual int setsockopt(int level, int opt, void const *, socklen_t) throw() = 0;
+  virtual int listen(int) throw() = 0;
+  virtual int accept(sockaddr *addr, socklen_t *) throw() = 0;
+  virtual int shutdown(int) throw() = 0;
+
+  virtual int getsockname(sockaddr *, socklen_t *) throw() = 0;
+  virtual int getpeername(sockaddr *, socklen_t *) throw() = 0;
+};
+
+inline
+Socket::~Socket() throw()
+{}
+
 /**
  * \brief Interface for a POSIX file that provides special file semantics.
  *
@@ -404,7 +431,8 @@ class File :
   public Generic_file,
   public Regular_file,
   public Directory,
-  public Special_file
+  public Special_file,
+  public Socket
 {
   friend class Mount_tree;
 

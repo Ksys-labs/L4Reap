@@ -94,7 +94,7 @@ struct Dev_desc _dev_ids[] =
 
     {0xD7, "NAND 4GiB ?V 16-bit",	4096, 218, 4096, 0x80000, LP_OPTIONS16},
 
-    {NULL, 0, 0, 0, 0, 0, 0}
+    {0, 0, 0, 0, 0, 0, 0}
 };
 
 /*

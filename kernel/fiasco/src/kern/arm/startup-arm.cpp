@@ -18,7 +18,6 @@ IMPLEMENTATION [arm]:
 #include "static_init.h"
 #include "timer.h"
 #include "utcb_init.h"
-#include "vmem_alloc.h"
 
 #include <cstdlib>
 #include <cstdio>
@@ -46,21 +45,20 @@ Startup::stage2()
   Kmem_alloc::init();
 
   // Initialize cpu-local data management and run constructors for CPU 0
-  Per_cpu_data::init_ctors(Kmem_alloc::allocator());
+  Per_cpu_data::init_ctors();
   Per_cpu_data_alloc::alloc(0);
   Per_cpu_data::run_ctors(0);
 
   Kmem_space::init();
   Kernel_task::init();
-  Mem_space::kernel_space(Kernel_task::kernel_task()->mem_space());
+  Mem_space::kernel_space(Kernel_task::kernel_task());
   Pic::init();
 
-  Vmem_alloc::init();
   Cpu::init_mmu();
   Cpu::cpus.cpu(0).init(true);
   Fpu::init(0);
-  Ipi::cpu(0).init();
-  Timer::init();
+  Ipi::init(0);
+  Timer::init(0);
   Kern_lib_page::init();
   Utcb_init::init();
 }

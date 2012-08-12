@@ -2,6 +2,7 @@ PKGDIR		?= ../../..
 L4DIR		?= $(PKGDIR)/../..
 
 TARGET		= libcxx_atexit
+SYSTEMS		= $(SYSTEMS_PLAIN)
 SRC_CC		= cxx_atexit.cc
 PC_FILENAME     = cxx_atexit
 

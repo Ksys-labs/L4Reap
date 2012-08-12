@@ -18,7 +18,7 @@ public:
 
   /**
    * The command structure for Jdb_core.
-   * 
+   *
    * This structure consists of a pointer to the Jdb_module
    * and a Jdb_module::Cmd structure. It is used in exec_cmd()
    * and returned from has_cmd().
@@ -31,8 +31,7 @@ public:
     Jdb_module            *mod;
 
     /**
-     * The Jdb_module::Cmd structure, describing the 
-     *        command.
+     * The Jdb_module::Cmd structure, describing the command.
      *
      * If this is a null pointer the command is invalid.
      * @see Jdb_module
@@ -45,8 +44,8 @@ public:
      * @param _mod the Jdb_module providing the command.
      * @param _cmd the command structure (see Jdb_module::Cmd).
      */
-    Cmd( Jdb_module *_mod, Jdb_module::Cmd const *_cmd = 0 ) 
-      : mod(_mod), cmd(_cmd) 
+    Cmd(Jdb_module *_mod, Jdb_module::Cmd const *_cmd = 0)
+      : mod(_mod), cmd(_cmd)
     {}
   };
 
@@ -57,14 +56,14 @@ public:
    *         Cmd structure where Cmd::cmd is a null pointer if
    *         no module provides such a command.
    */
-  static Cmd has_cmd( char const *cmd );
+  static Cmd has_cmd(char const *cmd);
 
   /**
    * Execute the command according to cmd.
    * @param cmd the command structure (see Jdb_core::Cmd), which
    *        describes the command to execute.
    * @return 0 if Jdb_module::action() returned LEAVE
-   *         1 if Jdb_module::action() returned NOTHING 
+   *         1 if Jdb_module::action() returned NOTHING
    *         2 if Jdb_module::action() returned GO_BACK (KEY_HOME entered)
    *         3 if the input was aborted (KEY_ESC entered) or was invalid
    *
@@ -73,26 +72,26 @@ public:
    * the Jdb_module::action() method after that.
    *
    */
-  static int exec_cmd( Cmd const cmd, char const *str, int push_next_char = -1 );
+  static int exec_cmd(Cmd const cmd, char const *str, int push_next_char = -1);
 
   /**
    * Overwritten getchar() to be able to handle next_char.
    */
-  static int getchar( void );
-  
+  static int getchar(void);
+
   /**
    * Call this function every time a `\n' is written to the
    *        console and it stops output when the screen is full.
    * @return 0 if user wants to abort the output (escape or 'q' pressed)
    */
-  static int new_line( unsigned &line );
+  static int new_line(unsigned &line);
 
   static void prompt_start();
   static void prompt_end();
   static void prompt();
   static int  prompt_len();
   static void update_prompt();
-  static int set_prompt_color( char v );
+  static int set_prompt_color(char v);
 
   /**
    * Like strlen but do not count ESC sequences.
@@ -108,7 +107,7 @@ public:
 
 private:
   static int  next_char;
-  static Input_fmt *_fmt_list[26]; 
+  static Input_fmt *_fmt_list[26];
 };
 
 #define JDB_ANSI_black        "30"
@@ -259,28 +258,27 @@ int Jdb_core::set_prompt_color(char x)
     return 0;
 
   if (x >= 'A' && x <= 'Z')
-    snprintf(esc_prompt,sizeof(esc_prompt)-1,"\033[%d;%dm",pc,1);
+    snprintf(esc_prompt, sizeof(esc_prompt) - 1, "\033[%d;%dm", pc, 1);
   else
-    snprintf(esc_prompt,sizeof(esc_prompt)-1,"\033[%dm",pc);
+    snprintf(esc_prompt, sizeof(esc_prompt) - 1, "\033[%dm", pc);
 
   return 1;
 
 }
 
 IMPLEMENT
-Jdb_core::Cmd Jdb_core::has_cmd( char const *cmd )
+Jdb_core::Cmd Jdb_core::has_cmd(char const *cmd)
 {
-  Cmd c(Jdb_module::first());
-  while(c.mod)
+  for (Jdb_module::List::Const_iterator m = Jdb_module::modules.begin();
+       m != Jdb_module::modules.end(); ++m)
     {
-      c.cmd = c.mod->has_cmd( cmd, short_mode );
-      if(c.cmd)
-	return c;
-
-      c.mod = c.mod->next();
+      Cmd c(*m);
+      c.cmd = m->has_cmd(cmd, short_mode);
+      if (c.cmd)
+        return c;
     }
 
-  return c;
+  return Cmd(0);
 }
 
 PRIVATE static
@@ -288,7 +286,7 @@ unsigned
 Jdb_core::match_len(char const *a, char const *b, unsigned l)
 {
   unsigned p = 0;
-  while(*a && *b && p < l && *a == *b)
+  while (*a && *b && p < l && *a == *b)
     {
       ++a; ++b; ++p;
     }
@@ -300,9 +298,9 @@ unsigned
 Jdb_core::print_alternatives(char const *prefix)
 {
   unsigned prefix_len = 0;
-  Jdb_module *m = Jdb_module::first();
   char const *match = 0;
-  while(m)
+  typedef Jdb_module::List::Const_iterator Iter;
+  for (Iter m = Jdb_module::modules.begin(); m != Jdb_module::modules.end(); ++m)
     {
       unsigned sc_max = m->num_cmds();
       Jdb_module::Cmd const *cmds = m->cmds();
@@ -320,7 +318,6 @@ Jdb_core::print_alternatives(char const *prefix)
 	    prefix_len = match_len(match, cmds[sc].cmd, prefix_len);
 	  printf("%s %s\n", cmds[sc].cmd, cmds[sc].fmt);
 	}
-      m = m->next();
     }
   return prefix_len;
 }
@@ -329,10 +326,10 @@ PUBLIC static
 Jdb_core::Cmd
 Jdb_core::complete_cmd(char const *prefix, bool &multi_match)
 {
-  Jdb_module *m = Jdb_module::first();
   Cmd match(0,0);
   multi_match = false;
-  while(m)
+  typedef Jdb_module::List::Const_iterator Iter;
+  for (Iter m = Jdb_module::modules.begin(); m != Jdb_module::modules.end(); ++m)
     {
       unsigned sc_max = m->num_cmds();
       Jdb_module::Cmd const *cmds = m->cmds();
@@ -344,9 +341,8 @@ Jdb_core::complete_cmd(char const *prefix, bool &multi_match)
 	  if (match.cmd)
 	    multi_match = true;
 	  else
-	    match = Cmd(m, cmds + sc);
+	    match = Cmd(*m, cmds + sc);
 	}
-      m = m->next();
     }
 
   return match;
@@ -850,8 +846,7 @@ Jdb_module::Action_code Help_m::action( int, void *&, char const *&, int & )
 {
   size_t const tab_width = 27;
 
-  Jdb_category const *c = Jdb_category::first();
-  if(!c)
+  if(Jdb_category::categories.begin() == Jdb_category::categories.end())
     {
       printf("No debugger commands seem to have been registered\n");
       return NOTHING;
@@ -860,15 +855,16 @@ Jdb_module::Action_code Help_m::action( int, void *&, char const *&, int & )
   unsigned line = 0;
 
   puts("");
-  while(c)
+  for (Jdb_category::List::Const_iterator c = Jdb_category::categories.begin();
+       c != Jdb_category::categories.end(); ++c)
     {
       bool first = true;
-
-      Jdb_category::Iterator i = c->modules();
-      Jdb_module const *m;
- 
-      while((m = i.next()))
+      for (Jdb_module::List::Const_iterator m = Jdb_module::modules.begin();
+           m != Jdb_module::modules.end(); ++m)
 	{
+          if (m->category() != *c)
+            continue;
+
 	  if(first)
 	    {
 	      if(!Jdb_core::new_line(line))
@@ -928,8 +924,6 @@ Jdb_module::Action_code Help_m::action( int, void *&, char const *&, int & )
 		return NOTHING;
 	    }
 	}
-
-      c=c->next();
     }
 
   putchar('\n');
@@ -960,12 +954,9 @@ Help_m::Help_m()
   : Jdb_module("GENERAL")
 {}
 
-
-
-static INIT_PRIORITY(JDB_CATEGORY_INIT_PRIO) Jdb_category std_cats[] = {
-  Jdb_category("GENERAL","general debugger commands",0),
-  Jdb_category("INFO","information about kernel state",1),
-  Jdb_category("MONITORING","monitoring kernel events",2),
-  Jdb_category("DEBUGGING","real debugging stuff",3)
-};
-
+#define CAT(n, x...) static Jdb_category INIT_PRIORITY(JDB_CATEGORY_INIT_PRIO) n(x)
+CAT(a, "GENERAL",    "general debugger commands",      0);
+CAT(b, "INFO",       "information about kernel state", 1);
+CAT(c, "MONITORING", "monitoring kernel events",       2);
+CAT(d, "DEBUGGING",  "real debugging stuff",           3);
+#undef CAT

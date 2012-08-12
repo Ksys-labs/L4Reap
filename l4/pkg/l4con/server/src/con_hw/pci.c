@@ -61,7 +61,7 @@ pci_probe(con_accel_t *accel)
   long err;
   int ret;
 
-  vbus = l4re_get_env_cap("vbus");
+  vbus = l4re_env_get_cap("vbus");
   if (l4_is_invalid_cap(vbus))
     {
       printf("PCI: query vbus service failed, no PCI\n");

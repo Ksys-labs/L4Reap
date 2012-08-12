@@ -33,62 +33,60 @@ using L4Re::Util::Auto_cap;
 
 namespace {
 
-/***********************************************************************
- * Init
- ***********************************************************************/
-static Cap<void> _vbus(Cap<void>::No_init);
+struct Internals
+{
+  Cap<void> _vbus;
+  Cap<L4::Icu> _icu;
+
+  Internals()
+  : _vbus(Cap<void>::No_init), _icu(Cap<void>::No_init)
+  {
+    _vbus = L4Re::Env::env()->get_cap<void>("vbus");
+    if (!_vbus)
+      {
+        printf("libio: Warning: Query of 'vbus' failed!\n");
+        return;
+      }
+
+    l4vbus_device_handle_t handle = 0;
+    int ret = l4vbus_get_device_by_hid(_vbus.cap(), 0, &handle, "L40009",
+        L4VBUS_MAX_DEPTH, 0);
+    if (ret)
+      {
+        printf("libio: Warning: Finding 'icu' in system bus failed with '%s'\n",
+               l4sys_errtostr(ret));
+        return;
+      }
+
+    _icu = L4Re::Util::cap_alloc.alloc<L4::Icu>();
+    if (!_icu)
+      {
+        printf("libio: cannot allocate ICU cap\n");
+        return;
+      }
+
+    ret = l4vbus_vicu_get_cap(_vbus.cap(), handle, _icu.cap());
+    if (ret)
+      {
+        printf("libio: Warning: Getting 'icu' device failed.\n");
+        L4Re::Util::cap_alloc.free(_icu);
+        _icu.invalidate();
+      }
+  }
+};
+
+static Internals _internal __attribute__((init_priority(INIT_PRIO_LIBIO_INIT)));
+
 static Cap<void> &vbus()
 {
-  return _vbus;
+  return _internal._vbus;
 }
 
-static Cap<L4::Icu> _icu(Cap<void>::No_init);
 static Cap<L4::Icu> &icu()
 {
-  return _icu;
+  return _internal._icu;
 }
 
-
-
-extern "C" void __attribute__((__used__))
-__internal_l4io_init()
-{
-  L4::Cap<L4Re::Rm> rm = L4Re::Env::env()->rm();
-
-  vbus() = L4Re::Env::env()->get_cap<void>("vbus");
-  if (!vbus().is_valid())
-    {
-      printf("libio: Warning: Query of 'vbus' failed!\n");
-      return;
-    }
-
-  l4vbus_device_handle_t handle = 0;
-  int ret = l4vbus_get_device_by_hid(vbus().cap(), 0, &handle, "L40009",
-      L4VBUS_MAX_DEPTH, 0);
-  if (ret)
-    {
-      printf("libio: Warning: Finding 'icu' in system bus failed with '%s'\n",
-             l4sys_errtostr(ret));
-      return;
-    }
-
-  icu() = L4Re::Util::cap_alloc.alloc<L4::Icu>();
-  if (!icu().is_valid())
-    {
-      printf("libio: cannot allocate ICU cap\n");
-      return;
-    }
-
-  ret = l4vbus_vicu_get_cap(vbus().cap(), handle, icu().cap());
-  if (ret)
-    {
-      printf("libio: Warning: Getting 'icu' device failed.\n");
-      L4Re::Util::cap_alloc.free(icu());
-      icu().invalidate();
-    }
-}
-
-L4_DECLARE_CONSTRUCTOR(__internal_l4io_init, INIT_PRIO_LIBIO_INIT);
 }
 
 /***********************************************************************

@@ -26,10 +26,8 @@ l4vbus_get_device_by_hid(l4_cap_idx_t vbus, l4vbus_device_handle_t parent,
   if (err < 0)
     return err;
 
-  if (child)
-    s >> *child;
-  else
-    s.skip<l4vbus_device_handle_t>(1);
+  s >> *child;
+
   if (devinfo)
     s.get(*devinfo);
   else

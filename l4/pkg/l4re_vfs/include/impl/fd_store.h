@@ -26,7 +26,7 @@ using cxx::Ref_ptr;
 class Fd_store
 {
 public:
-  enum { MAX_FILES = 20 };
+  enum { MAX_FILES = 50 };
 
   Fd_store() throw() : _fd_hint(0) {}
 

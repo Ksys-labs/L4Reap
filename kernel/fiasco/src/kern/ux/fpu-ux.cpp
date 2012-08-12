@@ -3,7 +3,7 @@
  * Architecture specific floating point unit code
  */
 
-IMPLEMENTATION[ux-fpu]:
+IMPLEMENTATION[ux && fpu]:
 
 #include <cassert>
 #include <sys/ptrace.h>
@@ -11,12 +11,14 @@ IMPLEMENTATION[ux-fpu]:
 #include "regdefs.h"
 #include "space.h"
 
-/**
- * Init FPU. Does nothing here.
- */
-IMPLEMENT
+PRIVATE static
 void
-Fpu::init(unsigned)
+Fpu::init_xsave(unsigned)
+{}
+
+PRIVATE static
+void
+Fpu::init_disable()
 {}
 
 /**
@@ -25,12 +27,13 @@ Fpu::init(unsigned)
  */
 IMPLEMENT
 void
-Fpu::save_state (Fpu_state *s)
+Fpu::save_state(Fpu_state *s)
 {
   assert (s->state_buffer());
 
-  ptrace (Cpu::boot_cpu()->features() & FEAT_FXSR ? PTRACE_GETFPXREGS : PTRACE_GETFPREGS,
-          current_mem_space()->pid(), NULL, s->state_buffer());
+  // FIXME: assume UP here (current_meme_space(0))
+  ptrace(Cpu::boot_cpu()->features() & FEAT_FXSR ? PTRACE_GETFPXREGS : PTRACE_GETFPREGS,
+         Mem_space::current_mem_space(0)->pid(), NULL, s->state_buffer());
 }
 
 /**
@@ -39,12 +42,13 @@ Fpu::save_state (Fpu_state *s)
  */
 IMPLEMENT
 void
-Fpu::restore_state (Fpu_state *s)
+Fpu::restore_state(Fpu_state *s)
 {
   assert (s->state_buffer());
 
-  ptrace (Cpu::boot_cpu()->features() & FEAT_FXSR ? PTRACE_SETFPXREGS : PTRACE_SETFPREGS,
-          current_mem_space()->pid(), NULL, s->state_buffer());
+  // FIXME: assume UP here (current_meme_space(0))
+  ptrace(Cpu::boot_cpu()->features() & FEAT_FXSR ? PTRACE_SETFPXREGS : PTRACE_SETFPREGS,
+         Mem_space::current_mem_space(0)->pid(), NULL, s->state_buffer());
 }
 
 /**

@@ -79,37 +79,38 @@ KERNEL_EXTRA            += $(KERNEL_EXTRA-y)
 # modules that _directly_ precede M and that M does not include).
 
 INTERFACES_KERNEL	:= mem_region simpleio kernel_console panic warn \
-			   bitmap buddy_alloc irq_pin pages koptions      \
+			   bitmap buddy_alloc koptions context_base \
 			   mem_layout per_cpu_data globals loader vhw     \
 			   kip_init ipi queue_item queue cpu_mask rcupdate \
 			   boot_info config jdb_symbol jdb_util	          \
 			   tb_entry perf_cnt jdb_tbuf x86desc		  \
 			   emulation pic usermode cpu trampoline cpu_lock \
-			   spin_lock					  \
+			   spin_lock boot_alloc			  \
 			   entry_frame continuation                \
-			   kmem mapped_alloc mem_unit  \
+			   kmem mem_unit  \
 			   ram_quota kmem_alloc ptab_base per_cpu_data_alloc \
 			   ref_ptr ref_obj                                \
-			   slab_cache_anon kmem_slab_simple dbg_page_info   \
-			   vmem_alloc paging kmem_slab fpu_state fpu	  \
+			   slab_cache kmem_slab dbg_page_info   \
+			   vmem_alloc paging fpu_state fpu	  \
 			   ready_queue_wfq ready_queue_fp \
 			   sched_context switch_lock timer timeout	  \
 			   obj_space kobject_dbg kobject kobject_iface    \
 			   l4_buf_iter lock  \
-			   mem_space mem_space_sigma0 space vcpu context \
+			   mem_space space vcpu context \
 			   helping_lock \
 			   mp_lock ipc_gate irq_controller                \
 			   mapping mapping_tree mappable                  \
 			   mapdb kobject_mapdb map_util \
-			   hostproc task kernel_task prio_list            \
+			   hostproc task sigma0_task kernel_task prio_list \
 			   thread_lock timeslice_timeout	  \
 			   ipc_timeout thread_state	  \
 			   sender receiver ipc_sender thread thread_object \
-			   kobject_helper \
+			   kobject_helper timer_tick \
 			   syscalls					  \
-			   kernel_thread dirq dirq_pic_pin		  \
+			   kernel_thread dirq irq_chip irq_mgr \
+			   irq_chip_ia32 irq_chip_pic  \
 			   banner fpu_alloc irq icu_helper main 	  \
-			   startup irq_chip libc_support                 \
+			   startup libc_support                 \
 			   jdb_dbinfo jdb fb net utcb_init	  \
 			   jdb_core jdb_module jdb_table         	  \
 			   jdb_thread_list jdb_input jdb_dump jdb_thread  \
@@ -132,14 +133,9 @@ INTERFACES_KERNEL	:= mem_region simpleio kernel_console panic warn \
 			   jdb_entry_frame kdb_ke jdb_ipi app_cpu_thread  \
 			   jdb_rcupdate jdb_kobject jdb_kobject_names     \
                            jdb_list jdb_ipc_gate jdb_obj_space            \
-			   jdb_log jdb_factory jdb_semaphore scheduler    \
+			   jdb_log jdb_factory scheduler    \
 			   jdb_scheduler clock jdb_sender_list            \
 			   jdb_disasm jdb_regex
-
-#ifeq ("$(CONFIG_USER_LOCKS)","y")
-  PREPROCESS_PARTS	+= ulock
-  INTERFACES_KERNEL	+= u_semaphore
-#endif
 
 
 boot_info_IMPL		:= boot_info boot_info-ia32 boot_info-ux
@@ -150,7 +146,7 @@ context_IMPL		:= context context-ia32 context-ia32-32 context-ux \
 continuation_IMPL	:= continuation-ia32-32-ux
 cpu_IMPL		:= cpu cpu-ia32 cpu-ux cpu-32
 cpu_lock_IMPL		:= cpu_lock cpu_lock-generic
-dirq_IMPL		:= dirq dirq-ia32-ux
+dirq_IMPL		:= dirq-ia32-ux
 dirq_pic_pin_IMPL	:= dirq_pic_pin dirq_pic_pin-ia32-ux
 entry_frame_IMPL	:= entry_frame entry_frame-ia32-ux                   \
 			   entry_frame-abs-timeout-hack
@@ -171,7 +167,7 @@ jdb_screen_IMPL		:= jdb_screen jdb_screen-ia32
 jdb_trace_set_IMPL	:= jdb_trace_set jdb_trace_set-ia32-ux
 kdb_ke_IMPL		:= kdb_ke kdb_ke-ia32
 kernel_thread_IMPL	:= kernel_thread kernel_thread-std kernel_thread-ux
-kip_init_IMPL		:= kip_init-ia32
+kip_init_IMPL		:= kip_init-ia32 kip_init-ux
 kmem_IMPL		:= kmem-ia32 kmem-ux
 kmem_alloc_IMPL		:= kmem_alloc kmem_alloc-ia32
 main_IMPL		:= main-ia32-32 main-ux
@@ -196,8 +192,9 @@ tb_entry_IMPL		:= tb_entry tb_entry-ia32-32
 terminate_IMPL		:= terminate-ux
 thread_IMPL		:= thread thread-ia32 thread-ia32-32 thread-ux       \
 			   thread-ipc thread-pagefault thread-log            \
-			   thread-debug thread-io thread-ulock thread-vcpu
+			   thread-debug thread-io thread-vcpu
 timer_IMPL 		:= timer timer-ia32-amd64-ux timer-ux
+timer_tick_IMPL		:= timer_tick timer_tick-single-vector timer_tick-ia32
 utcb_init_IMPL		:= utcb_init utcb_init-ux
 vmem_alloc_IMPL		:= vmem_alloc vmem_alloc-ia32 vmem_alloc-ux
 spin_lock_IMPL		:= spin_lock spin_lock-ia32
@@ -257,7 +254,8 @@ INTERFACES_CXXLIB	:= s_cruft paranoia
 LIBK		:= libk.a
 VPATH		+= lib/libk/$(CONFIG_XARCH) lib/libk
 PRIVATE_INCDIR  += lib/libk/$(CONFIG_XARCH) lib/libk
-INTERFACES_LIBK	:= atomic lock_guard auto_ptr std_macros dlist
+INTERFACES_LIBK	:= atomic lock_guard auto_ptr std_macros
+CXXSRC_LIBK     += construction.cc
 
 
 ifneq ($(CONFIG_JDB_GZIP),)
@@ -295,7 +293,8 @@ ifeq ("$(CONFIG_JDB_DISASM)","y")
                        lib/disasm/include/opcode lib/disasm/opcodes \
                        lib/disasm/libiberty lib/disasm/bfd
   PRIVATE_INCDIR    += lib/disasm
-  CSRC_LIBDISASM    := disasm.c dis-init.c i386-dis.c dis-buf.c
+  CXXSRC_LIBDISASM  := disasm.cc
+  CSRC_LIBDISASM    := dis-init.c i386-dis.c dis-buf.c
   NOOPT             += $(patsubst %.o, %, $(OBJ_LIBDISASM))
 endif
 

@@ -7,6 +7,5 @@ EXTENSION class Config
 public:
   enum
   {
-    Max_num_dirqs = 3,
   };
 };

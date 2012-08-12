@@ -26,186 +26,164 @@ public:
   Jdb_list_timeouts() FIASCO_INIT;
 private:
   enum
-    {
-      Timeout_ipc		= 1,
-      Timeout_deadline		= 2,
-      Timeout_timeslice		= 3,
-      Timeout_root		= 4,
-    };
+  {
+    Timeout_ipc       = 1,
+    Timeout_deadline  = 2,
+    Timeout_timeslice = 3
+  };
 };
 
-class Jdb_timeout_list
+
+namespace {
+
+class Timeout_iter
 {
 private:
-  static int	_count;
-  static Timeout *_t_start;
+  typedef Timeout::To_list::Const_iterator To_iter;
+
+  int skip_empty(To_iter *c, int i)
+  {
+    while (*c == _q->first(i).end() && i < (int)_q->queues())
+      {
+        ++i;
+        *c = _q->first(i).begin();
+      }
+    return i;
+  }
+
+public:
+  explicit Timeout_iter(Timeout_q *t)
+  : _q(t), _i(0)
+  { rewind(); }
+
+  explicit Timeout_iter(Timeout_q *t, bool)
+  : _q(t), _c(t->first(0).end()), _i(0)
+  {}
+
+  void rewind()
+  {
+    _i = 0;
+    _c = _q->first(0).begin();
+    _i = skip_empty(&_c, _i);
+  }
+
+  Timeout_iter const &operator ++ ()
+  {
+    if (_c == _q->first(_i).end())
+      return *this;
+
+    ++_c;
+    _i = skip_empty(&_c, _i);
+
+    return *this;
+  }
+
+  Timeout *operator * () const { return *_c; }
+
+  bool operator == (Timeout_iter const &o) const
+  { return _c == o._c; }
+
+  bool operator != (Timeout_iter const &o) const
+  { return _c != o._c; }
+
+private:
+  Timeout_q *_q;
+  To_iter _c;
+  int _i;
 };
+
+template< typename FWD_ITER >
+class Rnd_container
+{
+public:
+  explicit Rnd_container(FWD_ITER const &b, FWD_ITER const &e)
+  : _b(b), _e(e), _cnt(0)
+  {
+    for (FWD_ITER i = b; i != e; ++i)
+      ++_cnt;
+  }
+
+  class Iterator : public FWD_ITER
+  {
+  public:
+    Iterator() {}
+
+    Iterator const &operator += (int offs)
+    {
+      if (offs < 0)
+        return operator -= (-offs);
+
+      if (offs == 0)
+        return *this;
+
+      for (; *this != _c->_e && offs > 0; --offs, ++_p)
+        this->operator ++ ();
+
+      return *this;
+    }
+
+    Iterator const &operator -= (int offs)
+    {
+      if (offs < 0)
+        return this->operator += (-offs);
+
+      if (offs == 0)
+        return *this;
+
+      int p = 0;
+
+      if (_p > (unsigned)offs)
+        p = _p - offs;
+
+      FWD_ITER i = _c->_b;
+
+      for (int z = 0; z < p && i != _c->_e; ++i, ++z)
+        ;
+
+      *this = Iterator(_c, p, i);
+      return *this;
+    }
+
+    Iterator const &operator -- ()
+    { return this->operator -= (1); }
+
+    int pos() const { return _p; }
+
+  private:
+    friend class Rnd_container;
+
+    Iterator(Rnd_container *c, unsigned long pos, FWD_ITER const &i)
+    : FWD_ITER(i), _c(c), _p(pos)
+    {}
+
+    Rnd_container *_c;
+    unsigned long _p;
+  };
+
+public:
+  Iterator begin() { return Iterator(this, 0, _b); }
+  Iterator end() { return Iterator(this, _cnt, _e); }
+  unsigned long size() const { return _cnt; }
+  Iterator at(unsigned long pos)
+  {
+    if (pos >= _cnt)
+      return _e;
+
+    Iterator i = _b;
+    i += pos;
+    return i;
+  }
+
+private:
+  FWD_ITER _b, _e;
+  unsigned long _cnt;
+};
+
+}
 
 
 // available from the jdb_tcb module
 extern int jdb_show_tcb(Thread *thread, int level) __attribute__((weak));
-
-int      Jdb_timeout_list::_count;
-Timeout *Jdb_timeout_list::_t_start;
-
-PUBLIC static
-void
-Jdb_timeout_list::init(Timeout *t_head)
-{
-  _t_start = t_head;
-}
-
-static
-bool
-Jdb_timeout_list::iter(int count, Timeout **t_start,
-		       void (*iter)(Timeout *t) = 0)
-{
-  int i = 0;
-  int forw = count >= 0;
-  Timeout *t_new = *t_start;
-
-  if (count == 0)
-    return false;
-
-  if (count < 0)
-    count = -count;
-
-  if (iter)
-    iter(t_new);
-
-  for (; count; count--)
-    {
-      if (forw)
-	{
-	  if (t_new->_next == Timeout_q::timeout_queue.cpu(0).first())
-	    break;
-	  t_new = t_new->_next;
-	}
-      else
-	{
-	  if (t_new->_prev == Timeout_q::timeout_queue.cpu(0).first())
-	    break;
-	  t_new = t_new->_prev;
-	}
-
-      if (iter)
-	iter(t_new);
-
-      i++;
-    };
-
-  _count = i;
-  bool changed = *t_start != t_new;
-  *t_start = t_new;
-
-  return changed;
-}
-
-// _t_start-- if possible
-PUBLIC static
-int
-Jdb_timeout_list::line_back(void)
-{
-  return _t_start ? iter(-1, &_t_start) : 0;
-}
-
-// _t_start++ if possible
-PUBLIC static
-int
-Jdb_timeout_list::line_forw(void)
-{
-  Timeout *t = _t_start;
-  if (t)
-    {
-      iter(+Jdb_screen::height()-2, &_t_start);
-      iter(-Jdb_screen::height()+3, &_t_start);
-    }
-  return t != _t_start;
-}
-
-// _t_start -= 24 if possible
-PUBLIC static
-int
-Jdb_timeout_list::page_back(void)
-{
-  return _t_start ? iter(-Jdb_screen::height()+2, &_t_start) : 0;
-}
-
-// _t_start += 24 if possible
-PUBLIC static
-int
-Jdb_timeout_list::page_forw(void)
-{
-  Timeout *t = _t_start;
-  if (t)
-    {
-      iter(+Jdb_screen::height()*2-5, &_t_start);
-      iter(-Jdb_screen::height()+3,   &_t_start);
-    }
-  return t != _t_start;
-}
-
-// _t_start = first element of list
-PUBLIC static
-int
-Jdb_timeout_list::goto_home(void)
-{
-  return _t_start ? iter(-9999, &_t_start) : 0;
-}
-
-// _t_start = last element of list
-PUBLIC static
-int
-Jdb_timeout_list::goto_end(void)
-{
-  Timeout *t = _t_start;
-  if (t)
-    {
-      iter(+9999, &_t_start);
-      iter(-Jdb_screen::height()+2, &_t_start);
-    }
-  return t != _t_start;
-}
-
-PUBLIC static
-int
-Jdb_timeout_list::lookup(Timeout *t_search)
-{
-  unsigned i;
-  Timeout *t;
-
-  for (i=0, t=_t_start; i<Jdb_screen::height()-3; i++)
-    {
-      if (t == t_search)
-	break;
-      iter(+1, &t);
-    }
-
-  return i;
-}
-
-PUBLIC static
-Timeout*
-Jdb_timeout_list::index(int y)
-{
-  Timeout *t = _t_start;
-
-  if (!t)
-    return 0;
-
-  iter(y, &t);
-  return t;
-}
-
-PUBLIC static
-int
-Jdb_timeout_list::page_show(void (*show)(Timeout *t))
-{
-  Timeout *t = _t_start;
-
-  iter(Jdb_screen::height()-3, &t, show);
-  return _count;
-}
 
 // use implicit knowledge to determine the type of a timeout because we
 // cannot use dynamic_cast (we compile with -fno-rtti)
@@ -219,10 +197,7 @@ Jdb_list_timeouts::get_type(Timeout *t)
     // there is only one global timeslice timeout
     return Timeout_timeslice;
 
-  if (Timeout_q::timeout_queue.cpu(0).is_root_node(addr))
-    return Timeout_root;
-
-  if ((addr % Config::thread_block_size) >= sizeof(Thread))
+  if ((addr % Context::Size) >= sizeof(Thread))
     // IPC timeouts are located at the kernel stack
     return Timeout_ipc;
 
@@ -241,8 +216,8 @@ Jdb_list_timeouts::get_owner(Timeout *t)
       case Timeout_deadline:
         return static_cast<Thread*>(context_of(t));
       case Timeout_timeslice:
-	return kernel_thread;
-	// XXX: current_sched does not work from the debugger
+        return static_cast<Thread*>(Context::kernel_context(0));
+        // XXX: current_sched does not work from the debugger
         if (Context::current_sched())
           return static_cast<Thread*>(Context::current_sched()->context());
       default:
@@ -290,11 +265,6 @@ Jdb_list_timeouts::list_timeouts_show_timeout(Timeout *t)
       else
        strcpy (ownerstr, "destruct");
       break;
-    case Timeout_root:
-      type  = "root";
-      owner = 0;
-      strcpy(ownerstr, "kern");
-      break;
     default:
       snprintf(ownerstr, sizeof(ownerstr), L4_PTR_FMT, (Address)t);
       type  = "???";
@@ -309,7 +279,7 @@ Jdb_list_timeouts::list_timeouts_show_timeout(Timeout *t)
     {
       char time_str[12];
       Jdb::write_ll_ns(timeout * 1000, time_str,
-	               11 < sizeof(time_str) - 1 ? 11 : sizeof(time_str) - 1,
+                       11 < sizeof(time_str) - 1 ? 11 : sizeof(time_str) - 1,
                        false);
       putstr(time_str);
     }
@@ -332,84 +302,116 @@ void
 Jdb_list_timeouts::list()
 {
   unsigned y, y_max;
-  Timeout *t_current = Timeout_q::timeout_queue.cpu(0).first();
+
+  typedef Rnd_container<Timeout_iter> Cont;
+  typedef Cont::Iterator Iter;
+
+  Cont to_cont(Timeout_iter(&Timeout_q::timeout_queue.cpu(0)), Timeout_iter(&Timeout_q::timeout_queue.cpu(0), true));
+  Iter first = to_cont.begin();
+  Iter current = first;
+  Iter end = to_cont.end();
+  --end;
 
   Jdb::clear_screen();
   show_header();
-  Jdb_timeout_list::init(t_current);
-
   for (;;)
     {
-      y = Jdb_timeout_list::lookup(t_current);
+      y = current.pos();
 
       for (bool resync=false; !resync; )
-	{
-	  Jdb::cursor(2, 1);
-	  y_max = t_current
-		      ? Jdb_timeout_list::page_show(list_timeouts_show_timeout)
-		      : 0;
+        {
+          Jdb::cursor(2, 1);
+          y_max = 0;
+          for (Iter i = current; i != to_cont.end(); ++i, ++y_max)
+            list_timeouts_show_timeout(*i);
 
-	  for (unsigned i=y_max; i<Jdb_screen::height()-3; i++)
-	    putstr("\033[K\n");
+          for (unsigned i=y_max; i<Jdb_screen::height()-3; ++i)
+            putstr("\033[K\n");
 
-	  Jdb::printf_statline("timouts", "<CR>=select owner", "_");
+          Jdb::printf_statline("timouts", "<CR>=select owner", "_");
 
-	  for (bool redraw=false; !redraw; )
-	    {
-	      Jdb::cursor(y+2, 1);
-	      switch (int c=Jdb_core::getchar())
-		{
-		case KEY_CURSOR_UP:
-		  if (y > 0)
-		    y--;
-		  else
-		    redraw = Jdb_timeout_list::line_back();
-		  break;
-		case KEY_CURSOR_DOWN:
-		  if (y < y_max)
-		    y++;
-		  else
-		    redraw = Jdb_timeout_list::line_forw();
-		  break;
-		case KEY_PAGE_UP:
-		  if (!(redraw = Jdb_timeout_list::page_back()))
-		    y = 0;
-		  break;
-		case KEY_PAGE_DOWN:
-		  if (!(redraw = Jdb_timeout_list::page_forw()))
-		    y = y_max;
-		  break;
-		case KEY_CURSOR_HOME:
-		  redraw = Jdb_timeout_list::goto_home();
-		  y = 0;
-		  break;
-		case KEY_CURSOR_END:
-		  redraw = Jdb_timeout_list::goto_end();
-		  y = y_max;
-		  break;
-		case KEY_RETURN:
-		  if (jdb_show_tcb != 0)
-		    {
-		      Thread *owner;
-		      Timeout *t = Jdb_timeout_list::index(y);
-		      if (t && (owner = get_owner(t)))
-			{
-			  if (!jdb_show_tcb(owner, 1))
-			    return;
-			  show_header();
-			  redraw = 1;
-			}
-		    }
-		  break;
-		case KEY_ESC:
-		  Jdb::abort_command();
-		  return;
-		default:
-		  if (Jdb::is_toplevel_cmd(c))
-		    return;
-		}
-	    }
-	}
+          for (bool redraw=false; !redraw; )
+            {
+              Jdb::cursor(y+2, 1);
+              switch (int c=Jdb_core::getchar())
+                {
+                case KEY_CURSOR_UP:
+                  if (y > 0)
+                    y--;
+                  else
+                    {
+                      Iter i = current;
+                      --current;
+                      redraw = i != current;
+                    }
+                  break;
+                case KEY_CURSOR_DOWN:
+                  if (y < y_max)
+                    y++;
+                  else
+                    {
+                      Iter i = current;
+                      ++current;
+
+                      if (current == to_cont.end())
+                        current = i;
+                      redraw = i != current;
+                    }
+                  break;
+                case KEY_PAGE_UP:
+                    {
+                      Iter i = current;
+                      current -= Jdb_screen::height()-3;
+                      redraw =  i != current;
+                      if (!redraw)
+                        y = 0;
+                    }
+                  break;
+                case KEY_PAGE_DOWN:
+                    {
+                      Iter i = current;
+                      current += Jdb_screen::height()-3;
+                      if (current == to_cont.end())
+                        current = end;
+                      redraw =  i != current;
+                      if (!redraw)
+                        y = y_max;
+                    }
+                  break;
+                case KEY_CURSOR_HOME:
+                  redraw = current != first;
+                  current = first;
+                  y = 0;
+                  break;
+                case KEY_CURSOR_END:
+                  redraw = current != end;
+                  current = end;
+                  y = y_max;
+                  break;
+                case KEY_RETURN:
+                  if (jdb_show_tcb != 0)
+                    {
+                      Thread *owner;
+                      Iter i = current;
+                      i += y;
+                      if (i != to_cont.end() && (owner = get_owner(*i)))
+                        {
+                          if (!jdb_show_tcb(owner, 1))
+                            return;
+                          show_header();
+                          redraw = 1;
+                        }
+                    }
+                  break;
+                case KEY_ESC:
+                  Jdb::abort_command();
+                  return;
+                default:
+                  if (Jdb::is_toplevel_cmd(c))
+                    return;
+                }
+            }
+        }
     }
 }
 
@@ -429,7 +431,7 @@ Jdb_list_timeouts::cmds() const
 {
   static Cmd cs[] =
     {
-	{ 0, "lt", "timeouts", "", "lt\tshow enqueued timeouts", 0 },
+        { 0, "lt", "timeouts", "", "lt\tshow enqueued timeouts", 0 },
     };
 
   return cs;

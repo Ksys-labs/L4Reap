@@ -2,7 +2,7 @@ PKGDIR  ?= ../..
 L4DIR   ?= $(PKGDIR)/../..
 
 TARGET	 = libkproxy.so libkproxy.a
-SRC_CC	 = scheduler_svr.cc #factory_svr.cc
+SRC_CC	 = factory_svr.cc
 
 # Hm, warum is das hier drin?
 CXXFLAGS += -DL4_NO_RTTI -fno-rtti

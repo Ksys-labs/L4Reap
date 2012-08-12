@@ -111,22 +111,11 @@ PUBLIC
 virtual void
 Thread::ipc_receiver_aborted()
 {
-  assert_kdb (receiver());
-
-  sender_dequeue(receiver()->sender_list());
-  receiver()->vcpu_update_state();
-  set_receiver(0);
+  assert_kdb (wait_queue());
+  set_wait_queue(0);
 
   // remote_ready_enqueue(): is only for mp
   activate();
-}
-
-PUBLIC inline
-void
-Thread::ipc_receiver_ready()
-{
-  vcpu_disable_irqs();
-  state_change_dirty(~Thread_ipc_mask, Thread_receive_in_progress);
 }
 
 PRIVATE
@@ -240,9 +229,11 @@ Thread::handle_page_fault_pager(Thread_ptr const &_pager,
   // set up a register block used as an IPC parameter block for the
   // page fault IPC
   Syscall_frame r;
-  Utcb *utcb = this->utcb().access(true);
 
   // save the UTCB fields affected by PF IPC
+  Mword vcpu_irqs = vcpu_disable_irqs();
+  Mem::barrier();
+  Utcb *utcb = this->utcb().access(true);
   Pf_msg_utcb_saver saved_utcb_fields(utcb);
 
 
@@ -268,14 +259,6 @@ Thread::handle_page_fault_pager(Thread_ptr const &_pager,
 
   if (EXPECT_FALSE(r.tag().has_error()))
     {
-      if (Config::conservative)
-        {
-          printf(" page fault %s error = 0x%lx\n",
-                 utcb->error.snd_phase() ? "send" : "rcv",
-                 utcb->error.raw());
-	  kdb_ke("ipc to pager failed");
-        }
-
       if (utcb->error.snd_phase()
           && (utcb->error.error() == L4_error::Not_existent)
           && PF::is_usermode_error(error_code)
@@ -294,6 +277,8 @@ Thread::handle_page_fault_pager(Thread_ptr const &_pager,
   // restore previous IPC state
 
   saved_utcb_fields.restore(utcb);
+  Mem::barrier();
+  vcpu_restore_irqs(vcpu_irqs);
   return success;
 }
 
@@ -315,7 +300,7 @@ Thread::check_sender(Thread *sender, bool timeout)
 	  return Failed;
 	}
 
-      sender->set_receiver(this);
+      sender->set_wait_queue(sender_list());
       sender->sender_enqueue(sender_list(), sender->sched_context()->prio());
       vcpu_set_irq_pending();
       return Queued;
@@ -404,16 +389,16 @@ PRIVATE inline
 Sender *
 Thread::get_next_sender(Sender *sender)
 {
-  if (sender_list()->head())
+  if (!sender_list()->empty())
     {
       if (sender) // closed wait
 	{
-	  if (sender->in_sender_list() && this == sender->receiver())
+	  if (sender->in_sender_list() && sender_list() == sender->wait_queue())
 	    return sender;
 	}
       else // open wait
 	{
-	  Sender *next = Sender::cast(sender_list()->head());
+	  Sender *next = Sender::cast(sender_list()->first());
 	  assert_kdb (next->in_sender_list());
 	  set_partner(next);
 	  return next;
@@ -551,7 +536,7 @@ Thread::do_ipc(L4_msg_tag const &tag, bool have_send, Thread *partner,
 
   if (next)
     {
-      ipc_receiver_ready();
+      state_change_dirty(~Thread_ipc_mask, Thread_receive_in_progress);
       next->ipc_send_msg(this);
       state_del_dirty(Thread_ipc_mask);
     }
@@ -588,7 +573,7 @@ Thread::do_ipc(L4_msg_tag const &tag, bool have_send, Thread *partner,
 }
 
 
-PRIVATE inline NEEDS ["map_util.h", Thread::copy_utcb_to]
+PRIVATE inline NEEDS [Thread::copy_utcb_to]
 bool
 Thread::transfer_msg(L4_msg_tag tag, Thread *receiver,
                      Syscall_frame *sender_regs, unsigned char rights)
@@ -656,6 +641,9 @@ Thread::exception(Kobject_iface *handler, Trap_state *ts, Mword rights)
 
   CNT_EXC_IPC;
 
+  Mword vcpu_irqs = vcpu_disable_irqs();
+  Mem::barrier();
+
   void *old_utcb_handler = _utcb_handler;
   _utcb_handler = ts;
 
@@ -682,22 +670,14 @@ Thread::exception(Kobject_iface *handler, Trap_state *ts, Mword rights)
   saved_state.restore(utcb);
 
   if (EXPECT_FALSE(r.tag().has_error()))
-    {
-      if (Config::conservative)
-        {
-          printf(" exception fault %s error = 0x%lx\n",
-                 utcb->error.snd_phase() ? "send" : "rcv",
-                 utcb->error.raw());
-	  kdb_ke("ipc to pager failed");
-        }
-
-      state_del(Thread_in_exception);
-    }
-   else if (r.tag().proto() == L4_msg_tag::Label_allow_syscall)
-     state_add(Thread_dis_alien);
+    state_del(Thread_in_exception);
+  else if (r.tag().proto() == L4_msg_tag::Label_allow_syscall)
+    state_add(Thread_dis_alien);
 
   // restore original utcb_handler
   _utcb_handler = old_utcb_handler;
+  Mem::barrier();
+  vcpu_restore_irqs(vcpu_irqs);
 
   // FIXME: handle not existing pager properly
   // for now, just ignore any errors
@@ -727,6 +707,13 @@ Thread::send_exception(Trap_state *ts)
 
       if (_exc_cont.valid())
 	return 1;
+
+      // before entering kernel mode to have original fpu state before
+      // enabling fpu
+      save_fpu_state_to_utcb(ts, utcb().access());
+
+      spill_user_state();
+
       if (vcpu_enter_kernel_mode(vcpu))
 	{
 	  // enter_kernel_mode has switched the address space from user to
@@ -734,7 +721,6 @@ Thread::send_exception(Trap_state *ts)
 	  vcpu = vcpu_state().access();
 	}
 
-      spill_user_state();
       LOG_TRACE("VCPU events", "vcpu", this, __context_vcpu_log_fmt,
 	  Vcpu_log *l = tbe->payload<Vcpu_log>();
 	  l->type = 2;
@@ -746,7 +732,6 @@ Thread::send_exception(Trap_state *ts)
 	  l->space = vcpu_user_space() ? static_cast<Task*>(vcpu_user_space())->dbg_id() : ~0;
 	  );
       memcpy(&vcpu->_ts, ts, sizeof(Trap_state));
-      save_fpu_state_to_utcb(ts, utcb().access());
       fast_return_to_user(vcpu->_entry_ip, vcpu->_sp, vcpu_state().usr().get());
     }
 
@@ -767,7 +752,7 @@ Thread::send_exception(Trap_state *ts)
                 __fmt_exception_invalid_handler,
                 Log_exc_invalid *l = tbe->payload<Log_exc_invalid>();
                 l->cap_idx = _exc_handler.raw());
-      if (EXPECT_FALSE(space() == sigma0_task))
+      if (EXPECT_FALSE(space()->is_sigma0()))
 	{
 	  ts->dump();
 	  WARNX(Error, "Sigma0 raised an exception --> HALT\n");
@@ -799,7 +784,7 @@ Thread::try_transfer_local_id(L4_buf_iter::Item const *const buf,
       else
 	{
 	  unsigned char rights = 0;
-	  Obj_space::Capability cap = snd->space()->obj_space()->lookup(sfp.obj_index());
+	  Obj_space::Capability cap = snd->space()->lookup(sfp.obj_index());
 	  Kobject_iface *o = cap.obj();
 	  rights = cap.rights();
 	  if (EXPECT_TRUE(o && o->is_local(rcv->space())))
@@ -861,6 +846,7 @@ Thread::transfer_msg_items(L4_msg_tag const &tag, Thread* snd, Utcb *snd_utcb,
                            unsigned char rights)
 {
   // LOG_MSG_3VAL(current(), "map bd=", rcv_utcb->buf_desc.raw(), 0, 0);
+  Task *const rcv_t = nonull_static_cast<Task*>(rcv->space());
   L4_buf_iter mem_buffer(rcv_utcb, rcv_utcb->buf_desc.mem());
   L4_buf_iter io_buffer(rcv_utcb, rcv_utcb->buf_desc.io());
   L4_buf_iter obj_buffer(rcv_utcb, rcv_utcb->buf_desc.obj());
@@ -936,10 +922,23 @@ Thread::transfer_msg_items(L4_msg_tag const &tag, Thread* snd, Utcb *snd_utcb,
 	      // diminish when sending via restricted ipc gates
 	      if (sfp.type() == L4_fpage::Obj)
 		sfp.mask_rights(L4_fpage::Rights(rights | L4_fpage::RX));
-	      cpu_lock.clear();
-	      L4_error err = fpage_map(snd->space(), sfp,
-		  rcv->space(), L4_fpage(buf->d), item->b, &rl);
-	      cpu_lock.lock();
+
+	      L4_error err;
+
+		{
+		  // We take the existence_lock for syncronizing maps...
+		  // This is kind of coarse grained
+		  Lock_guard<decltype(rcv_t->existence_lock)> sp_lock;
+		  if (!sp_lock.try_lock(&rcv_t->existence_lock))
+		    {
+		      snd->set_ipc_error(L4_error::Overflow, rcv);
+		      return false;
+		    }
+
+		  Lock_guard<Cpu_lock, Lock_guard_inverse_policy> c_lock(&cpu_lock);
+		  err = fpage_map(snd->space(), sfp,
+		      rcv->space(), L4_fpage(buf->d), item->b, &rl);
+		}
 
 	      if (EXPECT_FALSE(!err.ok()))
 		{
@@ -1147,7 +1146,6 @@ Thread::remote_ipc_send(Context *src, Ipc_remote_request *rq)
       rq->result = Ok;
       return true;
     }
-  rq->partner->vcpu_disable_irqs();
   bool success = transfer_msg(rq->tag, rq->partner, rq->regs, _ipc_send_rights);
   rq->result = success ? Done : Failed;
 
@@ -1188,7 +1186,7 @@ Thread::remote_handshake_receiver(L4_msg_tag const &tag, Thread *partner,
   rq.rights = rights;
   _snd_regs = regs;
 
-  set_receiver(partner);
+  set_wait_queue(partner->sender_list());
 
   state_add_dirty(Thread_send_wait);
 

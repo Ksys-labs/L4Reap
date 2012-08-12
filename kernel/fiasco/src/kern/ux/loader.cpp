@@ -189,7 +189,7 @@ Loader::load_module (const char * const path,
   }
 
   if (! quiet)
-    printf ("Loading Module 0x"L4_PTR_FMT"-0x"L4_PTR_FMT" [%s]\n",
+    printf ("Loading Module 0x" L4_PTR_FMT "-0x" L4_PTR_FMT " [%s]\n",
 	    (Address)*start, (Address)*end, path);
 
   fclose (fp);
@@ -228,7 +228,7 @@ Loader::copy_module (const char * const path,
   module->mod_end   = *load_addr + s.st_size;
 
   if (! quiet)
-    printf ("Copying Module 0x"L4_PTR_FMT"-0x"L4_PTR_FMT" [%s]\n",
+    printf ("Copying Module 0x" L4_PTR_FMT "-0x" L4_PTR_FMT " [%s]\n",
 	    (Address)module->mod_start, (Address)module->mod_end, path);
 
   fclose (fp);

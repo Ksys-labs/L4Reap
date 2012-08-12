@@ -64,7 +64,7 @@ Sys_call_page::init()
 
   COPY_SYSCALL(debugger);
 
-  Kernel_task::kernel_task()->mem_space()->set_attributes(
+  Kernel_task::kernel_task()->set_attributes(
       Mem_space::Addr(Mem_layout::Syscalls),
       Page::USER_RO);
 }

@@ -25,8 +25,9 @@ class Platform_arm_rv : public Platform_single_region_ram
   bool probe() { return true; }
   void init()
   {
-    static L4::Uart_pl011 _uart(36,36);
-    _uart.startup(0x10009000);
+    static L4::Io_register_block_mmio r(0x10009000);
+    static L4::Uart_pl011 _uart;
+    _uart.startup(&r);
     set_stdio_uart(&_uart);
   }
 };

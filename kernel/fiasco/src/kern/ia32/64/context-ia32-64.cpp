@@ -1,5 +1,13 @@
-IMPLEMENTATION [amd64]:
+INTERFACE [amd64]:
 
+EXTENSION class Context
+{
+protected:
+  Mword _gs_base, _fs_base;
+};
+
+// ------------------------------------------------------------------------
+IMPLEMENTATION [amd64]:
 
 IMPLEMENT inline NEEDS [Context::update_consumed_time,
 			Context::store_segments]
@@ -34,3 +42,30 @@ Context::switch_cpu (Context *t)
      : "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "rbx", "rdx", "memory");
 }
 
+PROTECTED inline
+void
+Context::arch_setup_utcb_ptr()
+{
+  _utcb.access()->utcb_addr = (Mword)_utcb.usr().get();
+  _gs_base = (Address)&_utcb.usr()->utcb_addr;
+}
+
+PROTECTED inline
+void
+Context::load_segments()
+{
+  Cpu::set_fs(0);
+  Cpu::wrmsr(_fs_base, MSR_FS_BASE);
+  Cpu::set_gs(0);
+  Cpu::wrmsr(_gs_base, MSR_GS_BASE);
+}
+
+PROTECTED inline
+void
+Context::store_segments()
+{}
+
+PROTECTED inline
+void
+Context::switch_gdt_user_entries(Context *)
+{}

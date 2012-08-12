@@ -45,21 +45,10 @@
 
 /**
  * \internal
- * \brief Offset of cap_stats system call.
- */
-#define L4_ABS_cap_stats                 (0x100)
-
-/**
- * \internal
  * \brief Offset of debugger system call.
  */
 #define L4_ABS_debugger                  (0x200)
 
-/**
- * \internal
- * \brief System call.
- */
-# define L4_SYSCALL_cap_stats             "int $0x31 \n\t"
 /**
  * \internal
  * \brief System call.

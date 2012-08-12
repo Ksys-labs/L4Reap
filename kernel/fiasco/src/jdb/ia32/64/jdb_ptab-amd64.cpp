@@ -85,21 +85,21 @@ Jdb_ptab::print_statline(unsigned long row, unsigned long col)
   if (cur_pt_level == 0)
     {
       Jdb::printf_statline("pml4", "<Space>=mode <CR>=goto pdp",
-	  "<"L4_PTR_FMT"> task %p", disp_virt(row,col), _task);
+	  "<" L4_PTR_FMT "> task %p", disp_virt(row,col), _task);
     }
   else if (cur_pt_level == 1)
     {
       Jdb::printf_statline("pdp", "<Space>=mode <CR>=goto pdir",
-	  "<"L4_PTR_FMT"> task %p", disp_virt(row,col), _task);
+	  "<" L4_PTR_FMT "> task %p", disp_virt(row,col), _task);
     }
   else if (cur_pt_level == 2)
     {
       Jdb::printf_statline("pdir", "<Space>=mode <CR>=goto ptab/superpage",
-	  "<"L4_PTR_FMT"> task %p", disp_virt(row,col), _task);
+	  "<" L4_PTR_FMT "> task %p", disp_virt(row,col), _task);
     }
   else // PT_MODE
     {
       Jdb::printf_statline("ptab", "<Space>=mode <CR>=goto page",
-	  "<"L4_PTR_FMT"> task %p", disp_virt(row,col), _task);
+	  "<" L4_PTR_FMT "> task %p", disp_virt(row,col), _task);
     }
 }

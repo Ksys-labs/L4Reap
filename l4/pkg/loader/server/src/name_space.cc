@@ -19,12 +19,6 @@
 #include <cstdlib>
 #include <cassert>
 
-Ldr::Name_space *root_name_space()
-{
-  static Ldr::Name_space _root;
-  return &_root;
-}
-
 namespace Ldr {
 
 static Dbg dbg(Dbg::Name_space, "ns");

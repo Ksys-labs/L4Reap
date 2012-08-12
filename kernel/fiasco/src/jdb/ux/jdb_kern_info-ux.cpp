@@ -1,10 +1,13 @@
 IMPLEMENTATION [ux]:
 
 #include <cstdio>
+#include <fcntl.h>
+
 #include "cpu.h"
 #include "perf_cnt.h"
 #include "simpleio.h"
 #include "space.h"
+#include "jdb_kobject.h"
 
 
 class Jdb_kern_info_misc : public Jdb_kern_info_module
@@ -81,10 +84,57 @@ Jdb_kern_info_cpu::show()
     strcpy(time, "not available");
 
   printf("\nPerformance counters: %s"
-	 "\nTime stamp counter: %s"      
+	 "\nTime stamp counter: %s"
          "\n",
 	 perf_type ? perf_type : "no",
-	 time
-	 );
+	 time);
 }
 
+class Jdb_kern_info_host : public Jdb_kern_info_module
+{
+};
+
+static Jdb_kern_info_host k_H INIT_PRIORITY(JDB_MODULE_INIT_PRIO+1);
+
+PUBLIC
+Jdb_kern_info_host::Jdb_kern_info_host()
+  : Jdb_kern_info_module('H', "Host information")
+{
+  Jdb_kern_info::register_subcmd(this);
+}
+
+PUBLIC
+void
+Jdb_kern_info_host::show()
+{
+  for (Kobject_dbg::Iterator i = Kobject_dbg::begin(); i != Kobject_dbg::end(); ++i)
+    {
+      Task const *task = Kobject::dcast<Task const *>(Kobject::from_dbg(*i));
+      if (!task)
+	continue;
+
+      char buf[64];
+
+      Jdb_kobject::obj_description(buf, sizeof(buf), true, *i);
+      buf[sizeof(buf) - 1] = 0;
+      printf("%s, host-pid=%d\n", buf, task->pid());
+
+      snprintf(buf, sizeof(buf), "/proc/%d/maps", task->pid());
+      buf[sizeof(buf) - 1] = 0;
+      int fd = open(buf, O_RDONLY);
+      if (fd >= 0)
+	{
+	  int r;
+	  do
+	    {
+	      r = read(fd, buf, sizeof(buf));
+	      if (r > 0)
+		printf("%.*s", r, buf);
+	    }
+	  while (r == sizeof(buf));
+	  close(fd);
+	}
+
+      printf("\n");
+    }
+}

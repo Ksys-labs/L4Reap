@@ -8,7 +8,7 @@ INTERFACE:
 
 class Context;
 class Log_event;
-class Tracebuffer_status;
+struct Tracebuffer_status;
 
 class Jdb_tbuf
 {
@@ -210,7 +210,7 @@ Jdb_tbuf::new_entry()
 {
   Tb_entry *tb;
   {
-    Lock_guard<typeof(_lock)> guard(&_lock);
+    Lock_guard<decltype(_lock)> guard(&_lock);
 
     tb = _tbuf_act;
 

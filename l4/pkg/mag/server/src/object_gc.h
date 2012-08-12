@@ -16,11 +16,20 @@ namespace Mag_server {
 
 class Object_gc
 {
+private:
+  Object_gc(Object_gc const &);
+  void operator = (Object_gc const &);
+
 protected:
-  Object *_life;
-  Object *_sweep;
+  typedef cxx::H_list<Object> Obj_list;
+  typedef Obj_list::Iterator Obj_iter;
+
+  Obj_list _life;
+  Obj_list _sweep;
 
 public:
+  Object_gc() {}
+
   void gc_sweep();
   void gc_step();
   void add_obj(Object *o) { o->enqueue(&_life); }

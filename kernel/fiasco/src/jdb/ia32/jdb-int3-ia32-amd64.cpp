@@ -1,6 +1,5 @@
 IMPLEMENTATION[ia32,amd64]:
 
-#include "profile.h"
 #include "thread.h"
 
 /**
@@ -30,31 +29,6 @@ Jdb::handle_int3_threadctx(Trap_state *ts)
 	case 13:
 	  ts->value(Vkey::get());
 	  Vkey::clear();
-	  break;
-
-	case 24: // start kernel profiling
-   	  if (Config::profiling)
- 	    {
-	      Proc::Status flags = Proc::cli_save();
-	      Profile::start();
-	      Proc::sti_restore(flags);
-	    }
-	  break;
-	case 25: // stop kernel profiling, dump data to serial
-	  if (Config::profiling)
-	    {
-	      Proc::Status flags = Proc::cli_save();
-	      Profile::stop_and_dump();
-	      Proc::sti_restore(flags);
-	    }
-	  break;
-	case 26: // stop kernel profiling; do not dump
-	  if (Config::profiling)
-	    {
-	      Proc::Status flags = Proc::cli_save();
-	      Profile::stop();
-	      Proc::sti_restore(flags);
-	    }
 	  break;
 
 	case 31: // kernel watchdog

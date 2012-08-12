@@ -26,7 +26,7 @@
 
 #include <l4/sys/utcb.h>
 
-__attribute__((weak)) l4_utcb_t *l4_utcb_wrap(void)
+L4_CV __attribute__((weak)) l4_utcb_t *l4_utcb_wrap(void)
 {
   return l4_utcb_direct();
 }

@@ -39,8 +39,10 @@ LUALIB_API int (luaopen_debug) (lua_State *L);
 #define LUA_LOADLIBNAME	"package"
 LUALIB_API int (luaopen_package) (lua_State *L);
 
+#ifdef LUA_USE_L4RE
 #define LUA_L4LIBNAME "l4"
 LUALIB_API int (luaopen_l4) (lua_State *L);
+#endif
 
 
 /* open all previous libraries */

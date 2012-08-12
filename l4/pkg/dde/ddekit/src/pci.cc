@@ -1,7 +1,7 @@
 /*
  * This file is part of DDEKit.
  *
- * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ * (c) 2006-2012 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
  *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
  *               Thomas Friebel <tf13@os.inf.tu-dresden.de>
  *     economic rights: Technische Universitaet Dresden (Germany)
@@ -50,7 +50,7 @@ DDEKit::Pci_bus::Pci_bus()
 
 	int err;
 
-	_vbus = l4re_get_env_cap("vbus");
+	_vbus = l4re_env_get_cap("vbus");
 	if (l4_is_invalid_cap(_vbus)) {
 		ddekit_printf("PCI: failed to query vbus\n");
 		return;
@@ -290,13 +290,13 @@ unsigned ddekit_pci_dev::emulate_config_dword(unsigned pos) const
 EXTERN_C int ddekit_pci_read(int bus, int slot, int func, int pos, int len, ddekit_uint32_t *val)
 {
   l4_uint32_t devfn = (slot << 16) | func;
-  return l4vbus_pci_cfg_read(_vbus, _root_bridge, bus, devfn, pos, val, len * 8);
+  return l4vbus_pci_cfg_read(_vbus, _root_bridge, bus, devfn, pos, val, len);
 }
 
 EXTERN_C int ddekit_pci_write(int bus, int slot, int func, int pos, int len, ddekit_uint32_t val)
 {
   l4_uint32_t devfn = (slot << 16) | func;
-  return l4vbus_pci_cfg_write(_vbus, _root_bridge, bus, devfn, pos, val, len * 8);
+  return l4vbus_pci_cfg_write(_vbus, _root_bridge, bus, devfn, pos, val, len);
 }
 
 #if 0

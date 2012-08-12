@@ -13,7 +13,7 @@
 
 namespace cxx {
 
-class Observer : public H_list_item<Observer>
+class Observer : public H_list_item
 {
 public:
   virtual void notify() = 0;
@@ -24,7 +24,7 @@ class Notifier : public H_list<Observer>
 public:
   void notify()
   {
-    for (Observer *i = first(); i; i = i->l_next())
+    for (Iterator i = begin(); i != end(); ++i)
       i->notify();
   }
 };

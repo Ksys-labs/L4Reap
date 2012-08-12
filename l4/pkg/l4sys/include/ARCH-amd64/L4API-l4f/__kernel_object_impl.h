@@ -23,7 +23,6 @@
 #pragma once
 
 #include <l4/sys/ipc-invoke.h>
-# define L4_SYSCALL_cap_stats           "int $0x31 \n\t"
 # define L4_SYSCALL_debugger            "int $0x32 \n\t"
 #ifndef L4_SYSCALL
 # define L4_SYSCALL(name)                 L4_SYSCALL_ ## name  ///< syscall entry

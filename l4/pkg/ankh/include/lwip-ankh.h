@@ -16,16 +16,6 @@ typedef struct
 } ankh_config_info;
 
 
-L4_INLINE void print_ip(ip_addr_t *ip)
-{
-    printf("%d.%d.%d.%d",
-           ip4_addr1(ip),
-           ip4_addr2(ip),
-           ip4_addr3(ip),
-           ip4_addr4(ip));
-}
-
-
 L4_INLINE void __hexdump(unsigned char *buf, unsigned len)
 {
 	unsigned i = 0;

@@ -1,5 +1,6 @@
 INTERFACE:
 
+#include "mem.h"
 #include "mem_space.h"
 #include "ram_quota.h"
 
@@ -21,14 +22,13 @@ IMPLEMENTATION:
 #include "config.h"
 #include "cpu.h"
 #include "kdb_ke.h"
-#include "mapped_alloc.h"
+#include "kmem_alloc.h"
 #include "mem_layout.h"
 
-
-PRIVATE template< typename SPACE >
+PRIVATE template< typename SPACE > inline
 Mem_space *
-Generic_obj_space<SPACE>::mem_space() const
-{ return SPACE::space(this)->mem_space(); }
+Generic_obj_space<SPACE>::mem_space()
+{ return static_cast<SPACE*>(this); }
 
 PRIVATE  template< typename SPACE >
 static inline NEEDS["mem_layout.h"]
@@ -59,17 +59,17 @@ PUBLIC  template< typename SPACE >
 inline NEEDS["mem_space.h"]
 Ram_quota *
 Generic_obj_space<SPACE>::ram_quota() const
-{ return mem_space()->ram_quota(); }
+{ return static_cast<SPACE const *>(this)->ram_quota(); }
 
 
 PRIVATE  template< typename SPACE >
-/*inline NEEDS["mapped_alloc.h", <cstring>, "ram_quota.h",
+/*inline NEEDS["kmem_alloc.h", <cstring>, "ram_quota.h",
                      Generic_obj_space::cap_virt]*/
 typename Generic_obj_space<SPACE>::Entry *
 Generic_obj_space<SPACE>::caps_alloc(Address virt)
 {
   Address cv = (Address)cap_virt(virt);
-  void *mem = Mapped_allocator::allocator()->q_unaligned_alloc(ram_quota(), Config::PAGE_SIZE);
+  void *mem = Kmem_alloc::allocator()->q_unaligned_alloc(ram_quota(), Config::PAGE_SIZE);
 
   if (!mem)
     return 0;
@@ -89,12 +89,14 @@ Generic_obj_space<SPACE>::caps_alloc(Address virt)
   switch (s)
     {
     case Insert_ok:
+      break;
     case Insert_warn_exists:
     case Insert_warn_attrib_upgrade:
-    case Insert_err_exists:
+      assert (false);
       break;
+    case Insert_err_exists:
     case Insert_err_nomem:
-      Mapped_allocator::allocator()->q_unaligned_free(ram_quota(),
+      Kmem_alloc::allocator()->q_unaligned_free(ram_quota(),
           Config::PAGE_SIZE, mem);
       return 0;
     };
@@ -112,7 +114,7 @@ Generic_obj_space<SPACE>::caps_free()
   if (EXPECT_FALSE(!ms || !ms->dir()))
     return;
 
-  Mapped_allocator *a = Mapped_allocator::allocator();
+  Kmem_alloc *a = Kmem_alloc::allocator();
   for (unsigned long i = 0; i < map_max_address().value();
        i += Caps_per_page)
     {
@@ -128,12 +130,11 @@ Generic_obj_space<SPACE>::caps_free()
       a->q_unaligned_free(ram_quota(), Config::PAGE_SIZE, cv);
     }
 #if defined (CONFIG_ARM)
-  ms->dir()->free_page_tables((void*)Mem_layout::Caps_start, (void*)Mem_layout::Caps_end);
+  ms->dir()->free_page_tables((void*)Mem_layout::Caps_start, (void*)Mem_layout::Caps_end, Kmem_alloc::q_allocator(ram_quota()));
 #else
-  ms->dir()->Pdir::alloc_cast<Mem_space_q_alloc>()
-    ->destroy(Virt_addr(Mem_layout::Caps_start),
-              Virt_addr(Mem_layout::Caps_end), Pdir::Depth - 1,
-              Mem_space_q_alloc(ram_quota(), Mapped_allocator::allocator()));
+  ms->dir()->destroy(Virt_addr(Mem_layout::Caps_start),
+                     Virt_addr(Mem_layout::Caps_end), Pdir::Depth - 1,
+                     Kmem_alloc::q_allocator(ram_quota()));
 #endif
 }
 

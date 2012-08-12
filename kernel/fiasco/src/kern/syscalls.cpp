@@ -4,7 +4,7 @@ IMPLEMENTATION:
 #include "thread_state.h"
 
 extern "C"
-void
+void  __attribute__((flatten))
 sys_ipc_wrapper()
 {
   assert_kdb (!(current()->state() & Thread_drq_ready));
@@ -32,12 +32,12 @@ IMPLEMENTATION [debug]:
 
 extern "C" void sys_invoke_debug(Kobject_iface *o, Syscall_frame *f) __attribute__((weak));
 
-extern "C" void sys_invoke_debug_wrapper()
+extern "C" void  __attribute__((flatten)) sys_invoke_debug_wrapper()
 {
   Thread *curr = current_thread();
   Syscall_frame *f = curr->regs();
   //printf("sys_invoke_debugger(f=%p, obj=%lx)\n", f, f->ref().raw());
-  Kobject_iface *o = curr->space()->obj_space()->lookup_local(f->ref().cap());
+  Kobject_iface *o = curr->space()->lookup_local(f->ref().cap());
   if (o && &::sys_invoke_debug)
     ::sys_invoke_debug(o, f);
   else

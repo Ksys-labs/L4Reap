@@ -12,6 +12,7 @@ IMPLEMENTATION [arm]:
 
 #include <panic.h>
 
+#include "kmem_alloc.h"
 #include "kmem_space.h"
 #include "pagetable.h"
 #include "ram_quota.h"
@@ -21,7 +22,9 @@ void Kern_lib_page::init()
 {
   extern char kern_lib_start;
   Pte pte = Kmem_space::kdir()->walk((void *)Kmem_space::Kern_lib_base,
-                                     Config::PAGE_SIZE, true, Ram_quota::root);
+                                     Config::PAGE_SIZE, true,
+                                     Kmem_alloc::q_allocator(Ram_quota::root),
+                                     Kmem_space::kdir());
 
   if (pte.lvl() == 0) // allocation of second level faild
     panic("FATAL: Error mapping kernel-lib page to %p\n",
@@ -113,12 +116,14 @@ asm (
     // r2: new value
     // r3: tmp reg
     ".p2align(8)                         \n"
-    "  ldrex r3, [r0]			 \n"
+    "  1: ldrex r3, [r0]		 \n"
     "  cmp r3, r1                        \n"
-    "  strexeq r3, r2, [r0]              \n"
-    "  teqeq r3, #0                      \n"
-    "  moveq r0, #1                      \n"
     "  movne r0, #0                      \n"
+    "  movne pc, lr                      \n"
+    "  strex r3, r2, [r0]                \n"
+    "  teq r3, #0                        \n"
+    "  bne 1b                            \n"
+    "  mov r0, #1                        \n"
     "  mov pc, lr                        \n"
     // return result: 1 success, 0 failure
 

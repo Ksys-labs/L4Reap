@@ -37,10 +37,20 @@ public:
 };
 
 
+class Pdir_alloc_null
+{
+public:
+  Pdir_alloc_null() {}
+  void *alloc(unsigned long) const { return 0; }
+  void free(void *, unsigned long) const {}
+  bool valid() const { return false; }
+};
+
+template<typename ALLOC>
 class Pdir_alloc_simple
 {
 public:
-  Pdir_alloc_simple(Mapped_allocator *a = 0) : _a(a) {}
+  Pdir_alloc_simple(ALLOC *a = 0) : _a(a) {}
 
   void *alloc(unsigned long size) const
   { return _a->unaligned_alloc(size); }
@@ -51,12 +61,11 @@ public:
   bool valid() const { return _a; }
 
 private:
-  Mapped_allocator *_a;
-
+  ALLOC *_a;
 };
 
-class Pdir : public Ptab::Base<Pte_base, Ptab_traits_vpn, Pdir_alloc_simple,
-                               Ptab_va_vpn >
+
+class Pdir : public Ptab::Base<Pte_base, Ptab_traits_vpn, Ptab_va_vpn >
 {
 public:
   enum { Super_level = Pte_base::Super_level };
@@ -72,6 +81,9 @@ IMPLEMENTATION:
 bool Pdir::_have_superpages;
 unsigned  Pdir::_super_level;
 
+template<typename ALLOC>
+inline Pdir_alloc_simple<ALLOC> pdir_alloc(ALLOC *a)
+{ return Pdir_alloc_simple<ALLOC>(a); }
 
 PUBLIC static inline
 void

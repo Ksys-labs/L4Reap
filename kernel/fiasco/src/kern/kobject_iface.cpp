@@ -32,8 +32,7 @@ public:
 
 IMPLEMENTATION:
 
-IMPLEMENT inline 
-Kobject_common::~Kobject_common() {}
+IMPLEMENT inline Kobject_common::~Kobject_common() {}
 
 PUBLIC static inline
 L4_msg_tag

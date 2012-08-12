@@ -75,7 +75,8 @@ public:
     Timer_map_base       = 0xef1ac000,
     Uart_map_base        = 0xef1bc000,
     Watchdog_map_base    = 0xef198000,
-    Pic_map_base         = 0xef200000,
+    Gic_cpu_map_base     = 0,
+    Gic_dist_map_base    = 0xef200000,
     Uart_base            = Uart_map_base,
   };
 
@@ -86,6 +87,6 @@ public:
     Watchdog_phys_base   = 0x73f98000, // wdog1
     Timer_phys_base      = 0x73fac000, // epit1
     Uart_phys_base       = 0x73fbc000, // uart1
-    Pic_phys_base        = 0xe0000000,
+    Gic_dist_phys_base   = 0xe0000000,
   };
 };

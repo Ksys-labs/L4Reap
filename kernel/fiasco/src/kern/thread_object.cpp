@@ -23,6 +23,7 @@ IMPLEMENTATION:
 
 #include "context.h"
 #include "fpu.h"
+#include "irq_chip.h"
 #include "map_util.h"
 #include "processor.h"
 #include "task.h"
@@ -57,7 +58,7 @@ Obj_cap::deref(unsigned char *rights = 0, bool dbg = false)
       return current_thread();
     }
 
-  return current->space()->obj_space()->lookup_local(cap(), rights);
+  return current->space()->lookup_local(cap(), rights);
 }
 
 PUBLIC inline NEEDS["kobject.h"]
@@ -86,7 +87,7 @@ Thread_object::operator delete(void *_t)
 {
   Thread_object * const t = nonull_static_cast<Thread_object*>(_t);
   Ram_quota * const q = t->_quota;
-  Mapped_allocator::allocator()->q_unaligned_free(q, Config::thread_block_size, t);
+  Kmem_alloc::allocator()->q_unaligned_free(q, Thread::Size, t);
 
   LOG_TRACE("Kobject delete", "del", current(), __fmt_kobj_destroy,
       Log_destroy *l = tbe->payload<Log_destroy>();
@@ -159,11 +160,7 @@ Thread_object::invoke(L4_obj_ref /*self*/, Mword rights, Syscall_frame *f, Utcb 
       f->tag(sys_vcpu_control(rights, f->tag(), utcb));
       return;
     default:
-      L4_msg_tag tag = f->tag();
-      if (invoke_arch(tag, utcb))
-	f->tag(tag);
-      else
-        f->tag(commit_result(-L4_err::ENosys));
+      f->tag(invoke_arch(f->tag(), utcb));
       return;
     }
 }
@@ -176,7 +173,7 @@ Thread_object::sys_vcpu_resume(L4_msg_tag const &tag, Utcb *utcb)
   if (this != current() || !(state() & Thread_vcpu_enabled))
     return commit_result(-L4_err::EInval);
 
-  Obj_space *s = space()->obj_space();
+  Space *s = space();
   Vcpu_state *vcpu = vcpu_state().access(true);
 
   L4_obj_ref user_task = vcpu->user_task;
@@ -314,7 +311,7 @@ Thread_object::sys_modify_senders(L4_msg_tag tag, Utcb const *in, Utcb * /*out*/
 
   elems = elems / 4;
 
-  ::Prio_list_elem *c = sender_list()->head();
+  ::Prio_list_elem *c = sender_list()->first();
   while (c)
     {
       // this is kind of arbitrary
@@ -322,7 +319,7 @@ Thread_object::sys_modify_senders(L4_msg_tag tag, Utcb const *in, Utcb * /*out*/
 	{
 	  Sender *s = Sender::cast(c);
 	  s->modify_label(&in->values[1], elems);
-	  c = c->next();
+	  c = sender_list()->next(c);
 	}
 
       if (!c)
@@ -350,10 +347,9 @@ Thread_object::sys_register_delete_irq(L4_msg_tag tag, Utcb const *in, Utcb * /*
 
   register Context *const c_thread = ::current();
   register Space *const c_space = c_thread->space();
-  register Obj_space *const o_space = c_space->obj_space();
   unsigned char irq_rights = 0;
   Irq_base *irq
-    = Irq_base::dcast(o_space->lookup_local(bind_irq.obj_index(), &irq_rights));
+    = Irq_base::dcast(c_space->lookup_local(bind_irq.obj_index(), &irq_rights));
 
   if (!irq)
     return Kobject_iface::commit_result(-L4_err::EInval);
@@ -377,7 +373,7 @@ Thread_object::sys_control(unsigned char rights, L4_msg_tag const &tag, Utcb *ut
     return commit_result(-L4_err::EInval);
 
   Context *curr = current();
-  Obj_space *s = curr->space()->obj_space();
+  Space *s = curr->space();
   L4_snd_item_iter snd_items(utcb, tag.words());
   Task *task = 0;
   User<Utcb>::Ptr utcb_addr(0);

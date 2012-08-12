@@ -81,9 +81,9 @@ void Kip::print() const
   printf("freq_cpu: %ldkHz\n", frequency_cpu);
   printf("freq_bus: %ldkHz\n", frequency_bus);
 
-  printf("sigma0_ip: "L4_PTR_FMT" sigma0_sp: "L4_PTR_FMT"\n", sigma0_ip, sigma0_sp);
-  printf("sigma1_ip: "L4_PTR_FMT" sigma1_sp: "L4_PTR_FMT"\n", sigma1_ip, sigma1_sp);
-  printf("root_ip:   "L4_PTR_FMT" root_sp:   "L4_PTR_FMT"\n", root_ip,   root_sp);
+  printf("sigma0_ip: " L4_PTR_FMT " sigma0_sp: " L4_PTR_FMT "\n", sigma0_ip, sigma0_sp);
+  printf("sigma1_ip: " L4_PTR_FMT " sigma1_sp: " L4_PTR_FMT "\n", sigma1_ip, sigma1_sp);
+  printf("root_ip:   " L4_PTR_FMT " root_sp:   " L4_PTR_FMT "\n", root_ip,   root_sp);
   debug_print_memory();
   debug_print_syscalls();
 

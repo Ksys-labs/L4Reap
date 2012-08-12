@@ -14,6 +14,7 @@
 
 #include <l4/re/video/view>
 #include <l4/re/event>
+#include <l4/mag/server/hid_report>
 
 struct lua_State;
 struct luaL_Reg;
@@ -22,37 +23,38 @@ namespace Mag_server {
 
 using namespace Mag_gfx;
 
+class User_state;
+
+class View_proxy
+{
+private:
+  friend class User_state;
+
+  View_proxy(View_proxy const &);
+  void operator = (View_proxy const &);
+
+  View *_v;
+  View_proxy **_pn;
+  View_proxy *_n;
+
+public:
+  explicit View_proxy(User_state *ust);
+
+  ~View_proxy()
+  {
+    *_pn = _n;
+    _n->_pn = _pn;
+  }
+
+  View *view() const { return _v; }
+  void view(View *v) { _v = v; }
+  void forget(View *v) { if (_v == v) _v = 0; }
+};
+
+
 class User_state
 {
 public:
-  class View_proxy
-  {
-  private:
-    friend class User_state;
-
-    View_proxy(View_proxy const &);
-    void operator = (View_proxy const &);
-
-    View *_v;
-    View_proxy **_pn;
-    View_proxy *_n;
-
-  public:
-    explicit View_proxy(User_state *ust)
-    : _v(0), _pn(&ust->_view_proxies), _n(ust->_view_proxies)
-    { ust->_view_proxies = this; }
-
-    ~View_proxy()
-    {
-      *_pn = _n;
-      _n->_pn = _pn;
-    }
-
-    View *view() const { return _v; }
-    void view(View *v) { _v = v; }
-    void forget(View *v) { if (_v == v) _v = 0; }
-  };
-
   friend class View_proxy;
 
 private:
@@ -86,13 +88,22 @@ public:
   View *kbd_focus() const { return _keyboard_focus; }
 
   typedef L4Re::Event_buffer::Event Event;
+  typedef L4Re::Event_stream_info Input_info;
+  typedef L4Re::Event_absinfo Input_absinfo;
 
-  virtual void handle_event(Event const &e);
-
-  void set_pointer(int x, int y);
+  void set_pointer(int x, int y, bool hide);
   void move_pointer(int x, int y)
-  { set_pointer(_mouse_pos.x() + x, _mouse_pos.y() + y); }
+  { set_pointer(_mouse_pos.x() + x, _mouse_pos.y() + y, false); }
   Point const &mouse_pos() const { return _mouse_pos; }
+
+  int get_input_stream_info_for_id(l4_umword_t id, Input_info *info) const;
+  int get_input_axis_info(l4_umword_t id, unsigned naxes, unsigned *axis,
+                          Input_absinfo *info, unsigned char *ax_mode) const;
 };
+
+inline
+View_proxy::View_proxy(User_state *ust)
+: _v(0), _pn(&ust->_view_proxies), _n(ust->_view_proxies)
+{ ust->_view_proxies = this; }
 
 }

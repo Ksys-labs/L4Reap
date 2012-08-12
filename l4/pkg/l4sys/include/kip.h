@@ -26,9 +26,14 @@
 #include <l4/sys/compiler.h>
 #include <l4/sys/l4int.h>
 
+/**
+ * \internal
+ */
 struct l4_kip_platform_info
 {
-  char name[16];
+  l4_umword_t cpuid;     ///< reserved \internal
+  l4_umword_t mp;        ///< reserved \internal
+  char        name[16];
 };
 
 #if L4_MWORD_BITS == 32

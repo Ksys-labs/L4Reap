@@ -14,6 +14,8 @@ EXTRA_TARGET := \
   server/input_driver \
   server/input_source \
   server/object \
+  server/valuator \
+  server/hid_report \
 
 
 include $(L4DIR)/mk/include.mk

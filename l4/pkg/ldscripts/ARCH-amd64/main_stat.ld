@@ -1,18 +1,20 @@
 /* -*- Makefile -*- */
 ENTRY(_start)
 
-PHDRS 
+PHDRS
 {
   phdr PT_PHDR PHDRS;
   ro PT_LOAD FILEHDR PHDRS;
   rw PT_LOAD;
+  tls PT_TLS;
   L4_DEFINE_L4PHDRS
 }
+
 
 SECTIONS
 {
   L4_DEFINE_X86_KERNEL_ENTRY_SYMS
-  PROVIDE (__executable_start = 0x010000);
+  PROVIDE (__executable_start = 0x0100000);
   . = __executable_start + SIZEOF_HEADERS;
 
   /* No program code/data before _stext/_prog_img_start! */
@@ -54,6 +56,8 @@ SECTIONS
   *(.rela.bss .rela.bss.* .rela.gnu.linkonce.b.*)
   *(.rel.plt)
   *(.rela.plt)
+  *(.stapsdt.*)
+  *(.note.stapsdt)
   *(.plt) }
   .text : ALIGN(0x1000)
   {
@@ -63,31 +67,23 @@ SECTIONS
     KEEP (*(.text.*personality*))
     /* .gnu.warning sections are handled specially by elf32.em.  */
     *(.gnu.warning)
-  } : ro =0x90909090
+  } :ro =0x90909090
   .init           :
   {
     KEEP (*(.init))
-  } =0x90909090
+  } :ro =0x90909090
   .fini           :
   {
     KEEP (*(.fini))
-  } = 0x9090
+  } :ro = 0x9090
 
   PROVIDE (_etext = .);
   PROVIDE (etext = .);
   .rol4re_elf_aux : {
     KEEP (*(.rol4re_elf_aux))
-  } : ro : l4re_aux
-
+  } : l4re_aux : ro
   .rodata         : { *(.rodata .rodata.* .gnu.linkonce.r.*) } : ro
   .rodata1        : { *(.rodata1) }
-
-  /* Linux: exception section for uaccess mechanism */
-  __ex_table :
-  {
-    *(__ex_table)
-  }
-
   .eh_frame_hdr : { *(.eh_frame_hdr) } :ro
 
   .eh_frame       : ONLY_IF_RO
@@ -98,6 +94,7 @@ SECTIONS
   } :ro
 
   .gcc_except_table   : ONLY_IF_RO { *(.gcc_except_table .gcc_except_table.*) }
+
 
   . = ALIGN(CONSTANT(MAXPAGESIZE));
   /* Adjust the address for the data segment.  We want to adjust up to
@@ -113,14 +110,14 @@ SECTIONS
   } :rw
   .gcc_except_table   : ONLY_IF_RW { *(.gcc_except_table .gcc_except_table.*) } :rw
   /* Thread Local Storage sections  */
-  .tdata	  : { *(.tdata .tdata.* .gnu.linkonce.td.*) } :rw
+  .tdata	  : { *(.tdata .tdata.* .gnu.linkonce.td.*) } : rw : tls
   .tbss		  : { *(.tbss .tbss.* .gnu.linkonce.tb.*) *(.tcommon) }
   .preinit_array     :
   {
     PROVIDE_HIDDEN (__preinit_array_start = .);
     KEEP (*(.preinit_array))
     PROVIDE_HIDDEN (__preinit_array_end = .);
-  }
+  } : rw
   .init_array     :
   {
      PROVIDE_HIDDEN (__init_array_start = .);
@@ -139,11 +136,6 @@ SECTIONS
   /*. = ALIGN(0x1000);*/
   .ctors :
   {
-/*    KEEP (*(.mark_beg_l4dde_ctors))
-    KEEP (*(.l4dde_ctors))
-    KEEP (*(.mark_end_l4dde_ctors))
-
-    KEEP (*(.mark_beg_ctors)) */
 
     /* gcc uses crtbegin.o to find the start of
        the constructors, so we make sure it is
@@ -175,7 +167,7 @@ SECTIONS
     KEEP (*(.c_ctors))
     KEEP (*(.mark_end_c_ctors))
     */
-  }
+  } :rw
 
   .dtors :
   {
@@ -270,6 +262,4 @@ SECTIONS
   .debug_ranges   0 : { *(.debug_ranges) }
   .gnu.attributes 0 : { KEEP (*(.gnu.attributes)) }
   /DISCARD/ : { *(.note.GNU-stack) *(.gnu_debuglink) *(.interp) }
-
 }
-

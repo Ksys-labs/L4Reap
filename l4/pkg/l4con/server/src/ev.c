@@ -46,10 +46,8 @@ static l4_cap_idx_t ev_ds, ev_irq;
 static l4re_event_buffer_consumer_t ev_buf;
 
 /** brief Key event handling -> distribution and switch */
-static void
-handle_event(struct l4input *ev, void *data)
+static void handle_event(struct l4input *ev)
 {
-  (void)data;
   static int altgr_down;
   static int shift_down;
   static struct l4input special_ev = { .type = 0xff };
@@ -183,12 +181,24 @@ handle_event(struct l4input *ev, void *data)
   send_event_client(vc[fg_vc], ev);
 }
 
+L4_CV static void handle_input_l4i(struct l4input *ev)
+{
+  handle_event(ev);
+}
+
+L4_CV static void handle_event_ev(l4re_event_t *ev, void *data)
+{
+  (void)data;
+  struct l4input *_ev = (struct l4input *)ev;
+  handle_event(_ev);
+}
+
 static void *ev_thread(void *d)
 {
   (void)d;
   l4re_event_buffer_consumer_process(&ev_buf, ev_irq,
                                      pthread_getl4cap(pthread_self()), NULL,
-                                     (void (*)(l4re_event_t *, void *))handle_event);
+                                     handle_event_ev);
   return NULL;
 }
 
@@ -211,7 +221,7 @@ ev_init()
     Panic("IRQ create failed");
 
   if (l4_error(l4_icu_bind(l4re_util_video_goos_fb_goos(&goosfb), 0, ev_irq))
-      || l4re_event_get(l4re_util_video_goos_fb_goos(&goosfb), ev_ds)
+      || l4re_event_get_buffer(l4re_util_video_goos_fb_goos(&goosfb), ev_ds)
       || l4re_event_buffer_attach(&ev_buf, ev_ds, l4re_env()->rm))
     {
       // failed, try to start the hw driver
@@ -219,7 +229,7 @@ ev_init()
       l4re_util_cap_free_um(ev_irq);
 
       printf("Using l4input\n");
-      l4input_init(254, (void (*)(struct l4input *))handle_event);
+      l4input_init(254, handle_input_l4i);
       return;
     }
 

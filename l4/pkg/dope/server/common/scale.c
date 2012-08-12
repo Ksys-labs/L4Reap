@@ -100,15 +100,13 @@ static WIDGET *new_button(char *txt,void *clic,long context) {
  ******************************/
 
 static int scale_draw(SCALE *w, struct gfx_ds *ds, long x, long y, WIDGET *origin) {
-	long x1, y1, x2, y2;
+	long x1, y1;
 	int ret = 0;
 
 	if (origin == w) return 1;
 
 	x1 = w->wd->x + x;
 	y1 = w->wd->y + y;
-	x2 = x1 + w->wd->w - 1;
-	y2 = y1 + w->wd->h - 1;
 
 	/* draw elements of the scale */
 	ret |= w->sd->slider_bg->gen->draw(w->sd->slider_bg, ds, w->wd->x + x, w->wd->y + y, origin);
@@ -448,12 +446,14 @@ static void slider_callback(BUTTON *b) {
 
 static void slider_bg_callback(BUTTON *b) {
 	SCALE  *s;
+#if 0
 	u16 dir = 1;        /* default right/bottom direction */
+#endif
 
 	if (!b) return;
 	s = (SCALE *)b->gen->get_parent((WIDGET *)b);
 	if (!s) return;
-
+#if 0
 	/* check if mouse is on the left or right side of the slider */
 	if (s->sd->type & SCALE_VER) {
 		if (userstate->get_my() < s->sd->slider->gen->get_abs_y(s->sd->slider)) dir = 0;
@@ -462,15 +462,15 @@ static void slider_bg_callback(BUTTON *b) {
 	}
 
 	/* change view offset dependent on the scroll direction */
-//  if (dir) {
-//      s->view_offset += s->view_size;
-//      if (s->view_offset > s->real_size - s->view_size)
-//          s->view_offset = s->real_size - s->view_size;
-//  } else {
-//      s->view_offset -= s->view_size;
-//      if (s->view_offset < 0) s->view_offset = 0;
-//  }
-
+        if (dir) {
+                s->view_offset += s->view_size;
+                if (s->view_offset > s->real_size - s->view_size)
+                        s->view_offset = s->real_size - s->view_size;
+        } else {
+                s->view_offset -= s->view_size;
+                if (s->view_offset < 0) s->view_offset = 0;
+        }
+#endif
 	s->gen->update(s);
 }
 

@@ -1,5 +1,5 @@
 /*
- * (c) 2009 Adam Lackorzynski <adam@os.inf.tu-dresden.de>
+ * (c) 2009-2012 Adam Lackorzynski <adam@os.inf.tu-dresden.de>
  *     economic rights: Technische Universität Dresden (Germany)
  *
  * This file is part of TUD:OS and distributed under the terms of the
@@ -13,29 +13,73 @@
 
 namespace L4
 {
-  class Uart_s3c2410 : public Uart
+  class Uart_s3c : public Uart
   {
-  private:
-    unsigned long _base;
+  protected:
+    enum Uart_type
+    {
+      Type_24xx, Type_64xx, Type_s5pv210,
+    };
 
-    inline unsigned long rd(unsigned long reg) const;
-    inline void wr(unsigned long reg, unsigned long val) const;
+    Uart_type type() const { return _type; }
 
   public:
-    Uart_s3c2410(int rx_irq, int tx_irq)
-      : Uart(rx_irq, tx_irq), _base(~0UL) {}
-    bool startup(unsigned long base);
+    explicit Uart_s3c(Uart_type type) : _type(type) {}
+    bool startup(Io_register_block const *);
     void shutdown();
-    bool enable_rx_irq(bool enable = true);
-    bool enable_tx_irq(bool enable = true);
     bool change_mode(Transfer_mode m, Baud_rate r);
     int get_char(bool blocking = true) const;
     int char_avail() const;
     inline void out_char(char c) const;
     int write(char const *s, unsigned long count) const;
+    void fifo_reset();
+
+  protected:
+    virtual void ack_rx_irq() const = 0;
+    virtual void wait_for_empty_tx_fifo() const = 0;
+    virtual void wait_for_non_full_tx_fifo() const = 0;
+    virtual unsigned is_rx_fifo_non_empty() const = 0;
+
+  private:
+    Uart_type _type;
+  };
+
+  class Uart_s3c2410 : public Uart_s3c
+  {
+  public:
+    Uart_s3c2410() : Uart_s3c(Type_24xx) {}
+
+  protected:
+    void ack_rx_irq() const {}
+    void wait_for_empty_tx_fifo() const;
+    void wait_for_non_full_tx_fifo() const;
+    unsigned is_rx_fifo_non_empty() const;
 
     void auto_flow_control(bool on);
-    void fifo_reset();
+  };
+
+  class Uart_s3c64xx : public Uart_s3c
+  {
+  public:
+    Uart_s3c64xx() : Uart_s3c(Type_64xx) {}
+
+  protected:
+    void ack_rx_irq() const;
+    void wait_for_empty_tx_fifo() const;
+    void wait_for_non_full_tx_fifo() const;
+    unsigned is_rx_fifo_non_empty() const;
+  };
+
+  class Uart_s5pv210 : public Uart_s3c
+  {
+  public:
+    Uart_s5pv210() : Uart_s3c(Type_s5pv210) {}
+
+  protected:
+    void ack_rx_irq() const;
+    void wait_for_empty_tx_fifo() const;
+    void wait_for_non_full_tx_fifo() const;
+    unsigned is_rx_fifo_non_empty() const;
   };
 };
 

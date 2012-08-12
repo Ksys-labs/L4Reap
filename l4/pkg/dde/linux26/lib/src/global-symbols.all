@@ -180,12 +180,14 @@ pci_bus_read_config_word
 pci_bus_write_config_word
 pci_choose_state
 pci_clear_mwi
+pci_dev_put
 pci_disable_device
 pci_enable_device
 pci_enable_device_io
 pci_enable_device_mem
 pci_enable_wake
 pci_find_capability
+pci_get_device
 pci_iomap
 pci_ioremap_bar
 pci_iounmap

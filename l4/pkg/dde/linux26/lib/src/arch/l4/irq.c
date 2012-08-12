@@ -1,7 +1,7 @@
 /*
  * This file is part of DDE/Linux2.6.
  *
- * (c) 2006-2010 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
+ * (c) 2006-2012 Bjoern Doebel <doebel@os.inf.tu-dresden.de>
  *               Christian Helmuth <ch12@os.inf.tu-dresden.de>
  *     economic rights: Technische Universitaet Dresden (Germany)
  *
@@ -110,7 +110,7 @@ static int claim_irq(struct irqaction *action)
 		                                      irq_handler,
 		                                      (void *)irq);
 		if (!irq->thread) {
-			DEBUG_MSG("failed to attach IRQ");
+			DEBUG_MSG("failed to attach IRQ %d (shared %d)", irq->irq, shared);
 			ddekit_simple_free(irq);
 			return -EBUSY;
 		}

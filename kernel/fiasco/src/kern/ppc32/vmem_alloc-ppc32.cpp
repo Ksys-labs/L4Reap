@@ -21,12 +21,6 @@ void *Vmem_alloc::page_alloc(void * address, Zero_fill zf, unsigned /*mode*/)
 }
 
 IMPLEMENT
-void Vmem_alloc::page_free(void * /*page*/)
-{
-  NOT_IMPL_PANIC;
-}
-
-IMPLEMENT
 void *Vmem_alloc::page_unmap(void * /*page*/)
 {
   NOT_IMPL_PANIC;

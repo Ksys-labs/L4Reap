@@ -628,15 +628,16 @@ public:
    * See \link ipc_stream IPC stream operators \endlink.
    */
   template< typename T >
-  void get(T *buf, unsigned long size)
+  unsigned long get(T *buf, unsigned long elems)
   {
-    size *= sizeof(T);
+    unsigned long size = elems * sizeof(T);
     _pos = cxx::Type_traits<T>::align(_pos);
     if (Utcb_stream_check::check_utcb_data_offset(_pos + size))
-      return;
+      return 0;
 
     __builtin_memcpy(buf, _current_msg + _pos, size);
     _pos += size;
+    return elems;
   }
 
 
@@ -668,15 +669,16 @@ public:
    * See \link ipc_stream IPC stream operators \endlink.
    */
   template< typename T >
-  void get(Msg_ptr<T> const &buf, unsigned long size = 1)
+  unsigned long get(Msg_ptr<T> const &buf, unsigned long size = 1)
   {
     size *= sizeof(T);
     _pos = cxx::Type_traits<T>::align(_pos);
     if (Utcb_stream_check::check_utcb_data_offset(_pos + size))
-      return;
+      return 0;
 
     buf.set(reinterpret_cast<T*>(_current_msg + _pos));
     _pos += size;
+    return size;
   }
 
 
@@ -1295,8 +1297,7 @@ L4::Ipc::Istream &operator >> (L4::Ipc::Istream &s,
 {
   unsigned long si;
   s.get(si);
-  v.set_size(si);
-  s.get(L4::Ipc::Msg_ptr<T>(v.buf()), si);
+  v.set_size(s.get(L4::Ipc::Msg_ptr<T>(v.buf()), si));
   return s;
 }
 
@@ -1340,8 +1341,9 @@ inline
 L4::Ipc::Istream &operator >> (L4::Ipc::Istream &s,
     L4::Ipc::Buf_cp_in<T> const &v)
 {
-  s.get(v.size());
-  s.get(v.buf(), v.size());
+  unsigned long sz;
+  s.get(sz);
+  v.size() = s.get(v.buf(), sz);
   return s;
 }
 

@@ -74,6 +74,7 @@ static void write_dss_reg(unsigned reg, l4_umword_t val)
   *((volatile l4_umword_t *)(omap_dss_virt_base + reg)) = val;
 }
 
+#if 0
 static int disable_dss(void)
 {
   l4_umword_t val = read_dss_reg(Reg_dispc_control);
@@ -227,6 +228,7 @@ static int disble_INI(void)
   return 0;
 }
 #endif
+#endif
 
 static void issue_go_lcd(void)
 {
@@ -372,6 +374,7 @@ static void display_lcd_image(void)
 
 static int configure_lcd(l4_addr_t frame_buffer)
 {
+#if 0
   if (is_omap3evm())
     {
       reset_display_controller();
@@ -388,7 +391,7 @@ static int configure_lcd(l4_addr_t frame_buffer)
       configure_vert_scan_direction(CONV_SCAN_DIRECTION);
       configure_horiz_scan_direction(CONV_SCAN_DIRECTION);
     }
-
+#endif
   configure_dss(frame_buffer);
 
   //enable_replication_logic(GFX_PIPELINE);
@@ -402,7 +405,7 @@ int clcd_init(void)
 {
   if (is_omap3evm())
     {
-      vbus = l4re_get_env_cap("vbus");
+      vbus = l4re_env_get_cap("vbus");
 
       if (l4_is_invalid_cap(vbus))
         {
@@ -516,11 +519,11 @@ static int get_fbinfo(l4re_video_view_info_t *vinfo)
   vinfo->bytes_per_line      = bytes_per_pixel() * vinfo->width;
 
   vinfo->pixel_info.bytes_per_pixel = bytes_per_pixel();
-  vinfo->pixel_info.r.shift         = 0;
+  vinfo->pixel_info.r.shift         = 11;
   vinfo->pixel_info.r.size          = 5;
   vinfo->pixel_info.g.shift         = 5;
   vinfo->pixel_info.g.size          = 6;
-  vinfo->pixel_info.b.shift         = 11;
+  vinfo->pixel_info.b.shift         = 0;
   vinfo->pixel_info.b.size          = 5;
   vinfo->pixel_info.a.shift         = 0;
   vinfo->pixel_info.a.size          = 0;

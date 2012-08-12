@@ -25,16 +25,19 @@ class Platform_arm_omap : public Platform_single_region_ram
 
   void init()
   {
-    static L4::Uart_omap35x _uart(1, 1);
+    static L4::Uart_omap35x _uart;
 #ifdef PLATFORM_TYPE_beagleboard
-    _uart.startup(0x49020000);
+    static L4::Io_register_block_mmio r(0x49020000);
 #elif defined(PLATFORM_TYPE_omap3evm)
-    _uart.startup(0x4806a000);
+    static L4::Io_register_block_mmio r(0x4806a000);
+#elif defined(PLATFORM_TYPE_omap3_am33xx)
+    static L4::Io_register_block_mmio r(0x44e09000);
 #elif defined(PLATFORM_TYPE_pandaboard)
-    _uart.startup(0x48020000);
+    static L4::Io_register_block_mmio r(0x48020000);
 #else
 #error Unknown platform
 #endif
+    _uart.startup(&r);
     set_stdio_uart(&_uart);
   }
 };

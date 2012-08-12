@@ -23,12 +23,10 @@ namespace L4
 
   public:
     Uart_of()
-      : Uart(0, 0), Of(), _serial(0) {}
-    bool startup(unsigned long base);
+      : Of(), _serial(0) {}
+    bool startup(Io_register_block const *);
 
     void shutdown();
-    bool enable_rx_irq(bool enable = true);
-    bool enable_tx_irq(bool enable = true);
     bool change_mode(Transfer_mode m, Baud_rate r);
     int get_char(bool blocking = true) const;
     int char_avail() const;

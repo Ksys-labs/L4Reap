@@ -19,7 +19,6 @@
 
 #ifndef _TLS_H
 #define _TLS_H	1
-#if defined USE_TLS && USE_TLS // l4
 
 #ifndef __ASSEMBLER__
 # include <stdbool.h>
@@ -60,7 +59,7 @@ typedef union dtv
 #ifndef __ASSEMBLER__
 
 /* Get system call information.  */
-# include <sysdep.h>
+//# include <sysdep.h>
 
 /* The TP points to the start of the thread blocks.  */
 # define TLS_DTV_AT_TP	1
@@ -81,21 +80,22 @@ typedef struct
   dtv_t *dtv;
 } tcbhead_t;
 
+
 /* This is the size of the initial TCB.  */
 # define TLS_INIT_TCB_SIZE	0
 
 /* Alignment requirements for the initial TCB.  */
-# define TLS_INIT_TCB_ALIGN	__alignof__ (struct pthread)
+# define TLS_INIT_TCB_ALIGN	__alignof__ (struct _pthread_descr_struct) //pthread)
 
 /* This is the size of the TCB.  */
 # define TLS_TCB_SIZE		0
 
 /* Alignment requirements for the TCB.  */
-# define TLS_TCB_ALIGN		__alignof__ (struct pthread)
+# define TLS_TCB_ALIGN		__alignof__ (struct _pthread_descr_struct) //pthread)
 
 /* This is the size we need before TCB.  */
 # define TLS_PRE_TCB_SIZE \
-  (sizeof (struct pthread)						      \
+  (sizeof (struct _pthread_descr_struct)						      \
    + ((sizeof (tcbhead_t) + TLS_TCB_ALIGN - 1) & ~(TLS_TCB_ALIGN - 1)))
 
 # ifndef __powerpc64__
@@ -139,7 +139,7 @@ register void *__thread_register __asm__ ("r13");
 
 /* Return the thread descriptor for the current thread.  */
 # define THREAD_SELF \
-    ((struct pthread *) (__thread_register \
+    ((struct _pthread_descr_struct *) (__thread_register \
 			 - TLS_TCB_OFFSET - TLS_PRE_TCB_SIZE))
 
 /* Magic for libthread_db to know how to do THREAD_SELF.  */
@@ -213,5 +213,4 @@ register void *__thread_register __asm__ ("r13");
   GL(dl_wait_lookup_done) ()
 
 #endif /* __ASSEMBLER__ */
-#endif /* l4 tls disable */
 #endif	/* tls.h */

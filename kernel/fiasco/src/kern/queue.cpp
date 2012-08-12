@@ -3,7 +3,7 @@ INTERFACE:
 #include "spin_lock.h"
 #include "queue_item.h"
 #include "kdb_ke.h"
-
+#include <dlist>
 
 class Queue
 {
@@ -39,7 +39,16 @@ private:
     { set_unused(get_unused() | 4); }
   };
 
-  Lock_n_ptr _m;
+  struct Queue_head_policy
+  {
+    typedef Lock_n_ptr Head_type;
+    static Queue_item *head(Head_type const &h) { return h.item(); }
+    static void set_head(Head_type &h, Queue_item *v) { h.set_item(v); }
+  };
+
+  typedef cxx::Sd_list<Queue_item, cxx::D_list_item_policy, Queue_head_policy> List;
+
+  List _m;
 };
 
 
@@ -51,62 +60,34 @@ IMPLEMENTATION:
 
 PUBLIC inline
 Queue::Queue()
-{ _m.init(); }
+{ _m.head().init(); }
 
 PUBLIC inline
 Queue::Inner_lock *
 Queue::q_lock()
-{ return &_m; }
+{ return &_m.head(); }
 
 PUBLIC inline NEEDS["kdb_ke.h"]
 void
 Queue::enqueue(Queue_item *i)
 {
   // Queue i at the end of the list
-  assert_kdb (_m.test());
-  Queue_item *const h = _m.item();
+  assert_kdb (_m.head().test());
   i->_q = this;
-  if (h)
-    {
-      i->_n = h;
-      i->_pn = h->_pn;
-      *(h->_pn) = i;
-      h->_pn = &i->_n;
-    }
-  else
-    {
-      i->_pn = &i->_n;
-      i->_n = i;
-      _m.set_item(i);
-    }
+  _m.push_back(i);
 }
 
 PUBLIC inline NEEDS["kdb_ke.h", "std_macros.h"]
 bool
 Queue::dequeue(Queue_item *i, Queue_item::Status reason)
 {
-  assert_kdb (_m.test());
+  assert_kdb (_m.head().test());
   assert_kdb (i->queued());
 
   if (EXPECT_FALSE(i->_q != this))
     return false;
 
-  if (i->_n == i)
-    { // i->_n points to itself, must be the last item !
-      assert_kdb (_m.item() == i);
-      _m.set_item(0);
-      i->_n = 0; // mark item dequeued
-      i->_q = (Queue*)reason;
-      return true;
-    }
-
-  *i->_pn = i->_n; // next ptr of prev to i's next item
-  i->_n->_pn = i->_pn; // prev ptr of next to i's prev item
-
-  if (_m.item() == i)
-    _m.set_item(i->_n);
-
-  i->_n = 0; // mark item dequeued
+  _m.remove(i);
   i->_q = (Queue*)reason;
   return true;
 }
@@ -114,42 +95,42 @@ Queue::dequeue(Queue_item *i, Queue_item::Status reason)
 PUBLIC inline
 Queue_item *
 Queue::first() const
-{ return _m.item(); }
+{ return _m.front(); }
 
 PUBLIC inline
 bool
 Queue::blocked() const
-{ return _m.blocked(); }
+{ return _m.head().blocked(); }
 
 PUBLIC inline NEEDS["kdb_ke.h"]
 void
 Queue::block()
 {
-  assert_kdb (_m.test());
-  _m.block();
+  assert_kdb (_m.head().test());
+  _m.head().block();
 }
 
 PUBLIC inline NEEDS["kdb_ke.h"]
 void
 Queue::unblock()
 {
-  assert_kdb (_m.test());
-  _m.unblock();
+  assert_kdb (_m.head().test());
+  _m.head().unblock();
 }
 
 PUBLIC inline NEEDS["kdb_ke.h"]
 bool
 Queue::invalid() const
 {
-  assert_kdb (_m.test());
-  return _m.invalid();
+  assert_kdb (_m.head().test());
+  return _m.head().invalid();
 }
 
 PUBLIC inline NEEDS["kdb_ke.h"]
 void
 Queue::invalidate()
 {
-  assert_kdb (_m.test());
-  _m.invalidate();
+  assert_kdb (_m.head().test());
+  _m.head().invalidate();
 }
 

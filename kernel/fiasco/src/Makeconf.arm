@@ -1,6 +1,6 @@
 # -*- makefile -*-
 #OPT_SHARED_FLAGS                  += $(call CHECKCC,-finline-limit=10000,)
-SYSTEM_TARGET			  := arm-linux-
+SYSTEM_TARGET			  ?= arm-linux-
 SHARED_FLAGS-$(CONFIG_ARM_PXA)    += -mcpu=xscale
 SHARED_FLAGS-$(CONFIG_ARM_SA)     += -mcpu=strongarm1100
 SHARED_FLAGS-$(CONFIG_ARM_920T)   += -mcpu=arm920t

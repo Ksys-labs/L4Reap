@@ -30,7 +30,6 @@ public:
 private:
   Address _base;
   Space  *_task;
-  int     _level;
   Mode    _mode;
 
   bool show_kobject(Kobject_common *, int) { return false; }
@@ -58,9 +57,9 @@ Jdb_obj_space::Jdb_obj_space(Address base = 0, int level = 0)
 : Jdb_kobject_handler(0),
   _base(base),
   _task(0),
-  _level(level),
   _mode(Name)
 {
+  (void)level;
   Jdb_kobject::module()->register_handler(this);
 }
 
@@ -101,7 +100,7 @@ Jdb_obj_space::print_statline(unsigned long row, unsigned long col)
       return;
     }
 
-  unsigned len = Jdb_kobject::obj_description(buf, sizeof(buf), true, o);
+  unsigned len = Jdb_kobject::obj_description(buf, sizeof(buf), true, o->dbg_info());
   Jdb::printf_statline("objs", "<Space>=mode",
 		       "%lx: %-*s", index(row,col), len, buf);
 }
@@ -162,16 +161,12 @@ Jdb_obj_space::handle_user_keys(int c, Kobject_iface *o)
   if (!o)
     return false;
 
-  Jdb_kobject_handler *h = Jdb_kobject::module()->first_global_handler();
   bool handled = false;
-  while (h)
-    {
-      handled |= h->handle_key(o, c);
-      h = h->next_global();
-    }
+  for (Jdb_kobject::Handler_iter h = Jdb_kobject::module()->global_handlers.begin();
+       h != Jdb_kobject::module()->global_handlers.end(); ++h)
+    handled |= h->handle_key(o, c);
 
-  h = Jdb_kobject::module()->find_handler(o);
-  if (h)
+  if (Jdb_kobject_handler *h = Jdb_kobject::module()->find_handler(o))
     handled |= h->handle_key(o, c);
 
   return handled;
@@ -234,7 +229,7 @@ Kobject_iface *
 Jdb_obj_space::item(Address entry, unsigned *rights)
 {
   Mword dummy;
-  Obj_space::Capability *c = _task->obj_space()->cap_virt(entry);
+  Obj_space::Capability *c = _task->cap_virt(entry);
   if (!c)
     return 0;
 
@@ -255,7 +250,7 @@ PUBLIC
 Kobject_iface *
 Jdb_obj_space::item(Address entry, unsigned *rights)
 {
-  Obj_space::Capability *c = _task->obj_space()->get_cap(entry);
+  Obj_space::Capability *c = _task->get_cap(entry);
 
   if (!c)
     return 0;

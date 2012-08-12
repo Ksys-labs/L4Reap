@@ -22,41 +22,72 @@ T access_once(T const &a)
 template< typename T >
 class Static_object
 {
+private:
+  // prohibit copies
+  Static_object(Static_object<T> const &);
+  void operator = (Static_object<T> const &);
+
+  class O : public T
+  {
+  public:
+    void *operator new (size_t, void *p) throw() { return p; }
+
+    O() : T() {}
+
+    template<typename A1>
+    O(A1 const &a1) : T(a1) {}
+
+    template<typename A1, typename A2>
+    O(A1 const &a1, A2 const &a2) : T(a1, a2) {}
+
+    template<typename A1, typename A2, typename A3>
+    O(A1 const &a1, A2 const &a2, A3 const &a3) : T(a1, a2, a3) {}
+
+    template<typename A1, typename A2, typename A3, typename A4>
+    O(A1 const &a1, A2 const &a2, A3 const &a3, A4 const &a4) : T(a1, a2, a3, a4) {}
+
+    template<typename A1, typename A2, typename A3, typename A4, typename A5>
+    O(A1 const &a1, A2 const &a2, A3 const &a3, A4 const &a4, A5 const &a5)
+    : T(a1, a2, a3, a4, a5) {}
+  };
+
 public:
-  T *get()
+  Static_object() {}
+
+  T *get() const
   {
     Address i = (Address)_i;
-    return reinterpret_cast<T*>(i);
+    return reinterpret_cast<O*>(i);
   }
 
-  T *operator -> ()
-  { return get(); }
+  operator T * () const { return get(); }
+  T *operator -> () const { return get(); }
 
-  void init()
-  { new ((void*)_i) T; }
+  T *construct()
+  { return new (_i) O(); }
 
   template<typename A1>
-  void init(A1 a1)
-  { new ((void*)_i) T(a1); }
+  T *construct(A1 const &a1)
+  { return new (_i) O(a1); }
 
   template<typename A1, typename A2>
-  void init(A1 a1, A2 a2)
-  { new ((void*)_i) T(a1, a2); }
+  T *construct(A1 const &a1, A2 const &a2)
+  { return new (_i) O(a1, a2); }
 
   template<typename A1, typename A2, typename A3>
-  void init(A1 a1, A2 a2, A3 a3)
-  { new ((void*)_i) T(a1, a2, a3); }
+  T *construct(A1 const &a1, A2 const &a2, A3 const &a3)
+  { return new (_i) O(a1, a2, a3); }
 
   template<typename A1, typename A2, typename A3, typename A4>
-  void init(A1 a1, A2 a2, A3 a3, A4 a4)
-  { new ((void*)_i) T(a1, a2, a3, a4); }
+  T *construct(A1 const &a1, A2 const &a2, A3 const &a3, A4 const &a4)
+  { return new (_i) O(a1, a2, a3, a4); }
 
   template<typename A1, typename A2, typename A3, typename A4, typename A5>
-  void init(A1 a1, A2 a2, A3 a3, A4 a4, A5 a5)
-  { new ((void*)_i) T(a1, a2, a3, a4, a5); }
+  T *construct(A1 const &a1, A2 const &a2, A3 const &a3, A4 const &a4, A5 const &a5)
+  { return new (_i) O(a1, a2, a3, a4, a5); }
 
 private:
-  char __attribute__((aligned(sizeof(Mword)))) _i[sizeof(T)];
+  mutable char __attribute__((aligned(sizeof(Mword)*2))) _i[sizeof(O)];
 };
 
 
@@ -169,10 +200,7 @@ public:
   Page_addr(Page_addr const volatile &o) : B(o.value()) {}
   Page_addr(Page_addr const &o) : B(o.value()) {}
 
-
   Page_addr() {}
-
-
 };
 
 class Virt_addr : public Page_addr<ARCH_PAGE_SHIFT>
@@ -185,7 +213,7 @@ public:
   explicit Virt_addr(int a) : Page_addr<ARCH_PAGE_SHIFT>(a) {}
   explicit Virt_addr(long int a) : Page_addr<ARCH_PAGE_SHIFT>(a) {}
   explicit Virt_addr(unsigned long a) : Page_addr<ARCH_PAGE_SHIFT>(a) {}
-  explicit Virt_addr(void *a) : Page_addr<ARCH_PAGE_SHIFT>(Address(a)) {}
+  Virt_addr(void *a) : Page_addr<ARCH_PAGE_SHIFT>(Address(a)) {}
 
   Virt_addr() {}
 };

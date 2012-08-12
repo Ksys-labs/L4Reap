@@ -32,8 +32,8 @@ Jdb_iomap::show()
 {
   // base addresses of the two IO bitmap pages
   Address bitmap_1, bitmap_2;
-  bitmap_1 = space->mem_space()->virt_to_phys (Mem_layout::Io_bitmap);
-  bitmap_2 = space->mem_space()->virt_to_phys (Mem_layout::Io_bitmap + Config::PAGE_SIZE);
+  bitmap_1 = space->virt_to_phys(Mem_layout::Io_bitmap);
+  bitmap_2 = space->virt_to_phys(Mem_layout::Io_bitmap + Config::PAGE_SIZE);
 
   Jdb::clear_screen();
 
@@ -52,7 +52,7 @@ Jdb_iomap::show()
 	putstr("   --    ");
 
       if (bitmap_2 != ~0UL)
-	printf("/ "L4_PTR_FMT, (Address)Kmem::phys_to_virt(bitmap_2));
+	printf("/ " L4_PTR_FMT, (Address)Kmem::phys_to_virt(bitmap_2));
       else
 	putstr("/    --   ");
     }
@@ -64,7 +64,7 @@ Jdb_iomap::show()
 
   for(unsigned i = 0; i < Mem_layout::Io_port_max; i++ )
     {
-      if (space->io_space()->io_lookup(i) != mapped)
+      if (space->io_lookup(i) != mapped)
 	{
 	  if(! mapped)
 	    {
@@ -86,8 +86,8 @@ Jdb_iomap::show()
   if (!any_mapped)
     putstr("<none>");
 
-  printf("\n\nPort counter: %ld ", space->io_space()->get_io_counter() );
-  if(count == space->io_space()->get_io_counter())
+  printf("\n\nPort counter: %ld ", space->get_io_counter() );
+  if(count == space->get_io_counter())
     puts("(correct)");
   else
     printf("%sshould be %d\033[m\n", Jdb::esc_emph, count);

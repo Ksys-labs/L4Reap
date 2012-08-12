@@ -16,11 +16,6 @@
 
 #include "types.h"
 
-#define MAX_REGION 64
-
-#define REGION_NO_OVERLAP -1
-
-
 /** Region in memory. */
 class Region
 {
@@ -61,7 +56,7 @@ public:
   static Region n(unsigned long long begin,
                   unsigned long long end, char const *name = 0,
                   Type t = No_mem, char sub = 0)
-  { return Region(begin, end -1, name ,t, sub); }
+  { return Region(begin, end - 1, name, t, sub); }
 
   /** Get the start address. */
   unsigned long long begin() const { return _begin; }
@@ -172,7 +167,7 @@ public:
   /** Remove the region given by the iterator r. */
   void remove(Region *r);
 
-  /** Sort the region list (does bublle sort). */
+  /** Sort the region list (does bubble sort). */
   void sort();
 
   /** Optimize the region list.
@@ -191,7 +186,7 @@ protected:
 
 private:
   void swap(Region *a, Region *b);
-  unsigned long next_free(unsigned long long start);
+  unsigned long long next_free(unsigned long long start);
   bool test_fit(unsigned long long start, unsigned long long _size);
 
 };

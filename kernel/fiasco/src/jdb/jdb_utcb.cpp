@@ -51,7 +51,7 @@ Jdb_utcb::print(Thread *t)
       Vcpu_state *v = t->vcpu_state().kern();
       printf("\nVcpu-state-addr: %p\n", v);
       printf("state: %x    saved-state:  %x  sticky: %x\n",
-             v->state, v->_saved_state, v->sticky_flags);
+             (int)v->state, (int)v->_saved_state, (int)v->sticky_flags);
       printf("entry_sp = %lx    entry_ip = %lx  sp = %lx\n",
              v->_entry_sp, v->_entry_ip, v->_sp);
       v->_ts.dump();

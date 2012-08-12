@@ -28,8 +28,9 @@ using namespace Mag_gfx;
 
 class View_stack;
 class Session;
+class Hid_report;
 
-class View : public cxx::D_list_item<View>, public Rect
+class View : public cxx::D_list_item, public Rect
 {
 private:
   friend class View_stack;
@@ -96,8 +97,10 @@ public:
       _flags &= ~F_focused;
   }
 
+  typedef L4Re::Event_buffer::Event Event;
+
   virtual void draw(Canvas *, View_stack const *, Mode) const = 0;
-  virtual void handle_event(L4Re::Event_buffer::Event const &, Point const &) {}
+  virtual void handle_event(Hid_report *, Point const &, bool core_dev) = 0;
   virtual ~View() {}
 
   virtual Session *session() const { return 0; }

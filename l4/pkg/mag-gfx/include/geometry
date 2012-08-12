@@ -26,10 +26,6 @@ class Vector_2d : public Vector_2d_base
 public:
   Vector_2d(int x, int y) : Vector_2d_base(x, y) {}
   explicit Vector_2d(Vector_2d_base const &o) : Vector_2d_base(o) {}
-  //  Point() : _x(-1), _y(-1) {}
-
-  //int x() const { return _x; }
-  //int y() const { return _y; }
 
   R operator + (R const &o) const
   { return R(_x + o._x, _y + o._y); }

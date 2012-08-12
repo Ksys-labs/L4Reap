@@ -32,7 +32,19 @@
 #define _GLIBCXX_CXX_CONFIG_H 1
 
 // The current version of the C++ library in compressed ISO date format.
-#define __GLIBCXX__ 20110508
+#define __GLIBCXX__ 20120429
+
+#ifdef __PIC__
+#define SUPPORT_WEAK 1
+#define _GLIBCXX_GTHREAD_USE_WEAK 1
+#endif 
+
+#if !defined(L4_MINIMAL_LIBC)
+# define _GLIBCXX_HAVE_MBSTATE_T 1
+# define _GLIBCXX_HAVE_WCHAR_H 1
+# define _GLIBCXX__PTHREADS 1
+#endif
+
 
 // Macros for various attributes.
 //   _GLIBCXX_PURE
@@ -427,6 +439,8 @@ namespace std
 // For example, <windows.h> is known to #define min and max as macros...
 #undef min
 #undef max
+
+#define _GTHREAD_USE_MUTEX_TIMEDLOCK 1
 
 // End of prewritten config; the settings discovered at configure time follow.
 /* config.h.  Generated from config.h.in by configure.  */
@@ -845,7 +859,7 @@ namespace std
 #define _GLIBCXX_HAVE_TGMATH_H 1
 
 /* Define to 1 if the target supports thread-local storage. */
-#ifdef ARCH_X86
+#if !defined(L4_MINIMAL_LIBC)
 #define _GLIBCXX_HAVE_TLS 1
 #endif
 
@@ -1109,8 +1123,8 @@ namespace std
 
 /* Version number of package */
 /* #undef _GLIBCXX_VERSION */
-#if defined(ARCH_x86) || defined(ARCH_amd64)
 
+#ifdef L4_GCC_HAS_ATOMICS
 /* Define if builtin atomic operations for bool are supported on this host. */
 #define _GLIBCXX_ATOMIC_BUILTINS_1 1
 
@@ -1134,8 +1148,10 @@ namespace std
 /* Define if a fully dynamic basic_string is wanted. */
 /* #undef _GLIBCXX_FULLY_DYNAMIC_STRING */
 
+#if !defined(L4_MINIMAL_LIBC)
 /* Define if gthreads library is available. */
-//#define _GLIBCXX_HAS_GTHREADS 1
+#define _GLIBCXX_HAS_GTHREADS 1
+#endif
 
 /* Define to 1 if a full hosted library is built, or 0 if freestanding. */
 #define _GLIBCXX_HOSTED 1

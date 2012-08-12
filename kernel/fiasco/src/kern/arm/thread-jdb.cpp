@@ -76,8 +76,8 @@ Thread::call_nested_trap_handler(Trap_state *ts)
 
   Mem_space *m = Mem_space::current_mem_space(log_cpu);
 
-  Kernel_task::kernel_task()->mem_space()->make_current();
-
+  if (Kernel_task::kernel_task() != m)
+    Kernel_task::kernel_task()->make_current();
 
   Mword dummy1, tmp, ret;
   {
@@ -115,7 +115,8 @@ Thread::call_nested_trap_handler(Trap_state *ts)
   Mmu<Mem_layout::Cache_flush_area, true>::flush_cache();
   Mem::isb();
 
-  m->make_current();
+  if (m != Kernel_task::kernel_task())
+    m->make_current();
 
   return ret;
 }

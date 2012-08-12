@@ -33,18 +33,28 @@ Context::vcpu_disable_irqs()
 
 PUBLIC inline
 void
+Context::vcpu_restore_irqs(Mword irqs)
+{
+  if (EXPECT_FALSE((irqs & Vcpu_state::F_irqs)
+                   && (state() & Thread_vcpu_enabled)))
+    vcpu_state().access()->state |= Vcpu_state::F_irqs;
+}
+
+PUBLIC inline
+void
 Context::vcpu_save_state_and_upcall()
 {
   extern char leave_by_vcpu_upcall[];
   _exc_cont.activate(regs(), leave_by_vcpu_upcall);
 }
 
-PUBLIC inline NEEDS["fpu.h"]
+PUBLIC inline NEEDS["fpu.h", "space.h"]
 bool
 Context::vcpu_enter_kernel_mode(Vcpu_state *vcpu)
 {
   if (EXPECT_FALSE(state() & Thread_vcpu_enabled))
     {
+      state_del_dirty(Thread_vcpu_user);
       vcpu->_saved_state = vcpu->state;
       Mword flags = Vcpu_state::F_traps
 	            | Vcpu_state::F_user_mode;

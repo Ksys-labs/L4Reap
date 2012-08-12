@@ -18,13 +18,17 @@
 
 #include <l4/cxx/iostream>
 
-extern "C" void __cxa_pure_virtual()
+extern "C" void __cxa_pure_virtual(void);
+
+void __cxa_pure_virtual()
 {
   L4::cerr << "cxa pure virtual function called\n";
 }
 
 
-extern "C" void __pure_virtual()
+extern "C" void __pure_virtual(void);
+
+void __pure_virtual()
 {
   L4::cerr << "cxa pure virtual function called\n";
 }

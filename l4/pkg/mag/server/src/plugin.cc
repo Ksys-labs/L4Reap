@@ -8,7 +8,6 @@
  * Please see the COPYING-GPL-2 file for details.
  */
 #include "plugin"
-#include "lua"
 
 #include <lua.h>
 #include <lauxlib.h>
@@ -30,16 +29,6 @@ Core_api::Core_api(lua_State *lua, User_state *u,
 		   Mag_gfx::Font const *label_font)
 : _ust(u), _rcv_cap(rcvc), _fb(fb), _lua(lua), _label_font(label_font)
 {
-  lua_pushlightuserdata(_lua, this);
-  lua_newtable(_lua);
-  lua_rawset(_lua, LUA_REGISTRYINDEX);
-}
-
-void
-Core_api::get_refs_table() const
-{
-  lua_pushlightuserdata(_lua, const_cast<Core_api*>(this));
-  lua_rawget(_lua, LUA_REGISTRYINDEX);
 }
 
 namespace {

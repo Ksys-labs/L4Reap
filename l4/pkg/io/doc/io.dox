@@ -33,8 +33,8 @@
  *
  * To allow clients access to a available devices, a virtual system bus needs
  * to be created that lists the devices that should be available to that
- * client.  These buses have a name that Io uses to register a vbus object in
- * its name space.
+ * client. The names of the busses correspond to the capabilities given to
+ * Io in its launch configuration.
  *
  * A very simple configuration for Io could look like this:
  *

@@ -6,7 +6,7 @@ EXTENSION class Context
 {
 protected:
   enum { Gdt_user_entries = 4 };
-  Gdt_entry	_gdt_user_entries[Gdt_user_entries];
+  Gdt_entry	_gdt_user_entries[Gdt_user_entries+1];
   Unsigned32	_es, _fs, _gs;
 };
 
@@ -24,8 +24,19 @@ Context::switch_gdt_user_entries(Context *to)
   Gdt &gdt = *Cpu::cpus.cpu(to->cpu()).get_gdt();
   for (unsigned i = 0; i < Gdt_user_entries; ++i)
     gdt[(Gdt::gdt_user_entry1 / 8) + i] = to->_gdt_user_entries[i];
+
+  gdt[Gdt::gdt_utcb/8] = to->_gdt_user_entries[Gdt_user_entries];
 }
 
+PROTECTED inline
+void
+Context::arch_setup_utcb_ptr()
+{
+  _utcb.access()->utcb_addr = (Mword)_utcb.usr().get();
+  _gdt_user_entries[Gdt_user_entries] = Gdt_entry((Address)&_utcb.usr()->utcb_addr, 0xfffff, Gdt_entry::Access_user
+                                                  | Gdt_entry::Access_data_write | Gdt_entry::Accessed, Gdt_entry::Size_32 | 0x80);
+  _gs = _fs = Gdt::gdt_utcb | 3;
+}
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [ia32 || ux]:

@@ -21,19 +21,6 @@ public:
 };
 
 // ------------------------------------------------------------------------
-INTERFACE [!outer_cache]:
-
-EXTENSION class Outer_cache
-{
-public:
-  enum
-  {
-    Cache_line_mask = 0,
-    Cache_line_size = ~0,
-  };
-};
-
-// ------------------------------------------------------------------------
 IMPLEMENTATION [!outer_cache]:
 
 IMPLEMENT inline
@@ -68,22 +55,43 @@ Outer_cache::flush(Address, bool)
 
 IMPLEMENT inline
 void
-Outer_cache::sync() {}
+Outer_cache::sync()
+{}
+
+IMPLEMENT inline
+void
+Outer_cache::invalidate(Address, Address, bool)
+{}
+
+IMPLEMENT inline
+void
+Outer_cache::clean(Address, Address, bool)
+{}
+
+IMPLEMENT inline
+void
+Outer_cache::flush(Address, Address, bool)
+{}
 
 // ------------------------------------------------------------------------
-IMPLEMENTATION:
+IMPLEMENTATION [outer_cache]:
 
 IMPLEMENT inline
 void
 Outer_cache::invalidate(Address start, Address end, bool do_sync)
 {
   if (start & Cache_line_mask)
-    flush(start, false);
+    {
+      flush(start, false);
+      start += Cache_line_size;
+    }
   if (end & Cache_line_mask)
-    flush(start, false);
+    {
+      flush(end, false);
+      end &= ~Cache_line_mask;
+    }
 
-  for (Address a = start & Cache_line_mask;
-       a < end; a += Cache_line_size)
+  for (Address a = start & ~Cache_line_mask; a < end; a += Cache_line_size)
     invalidate(a, false);
 
   if (do_sync)
@@ -94,7 +102,7 @@ IMPLEMENT inline
 void
 Outer_cache::clean(Address start, Address end, bool do_sync)
 {
-  for (Address a = start & Cache_line_mask;
+  for (Address a = start & ~Cache_line_mask;
        a < end; a += Cache_line_size)
     clean(a, false);
   if (do_sync)
@@ -105,7 +113,7 @@ IMPLEMENT inline
 void
 Outer_cache::flush(Address start, Address end, bool do_sync)
 {
-  for (Address a = start & Cache_line_mask;
+  for (Address a = start & ~Cache_line_mask;
        a < end; a += Cache_line_size)
     flush(a, false);
   if (do_sync)

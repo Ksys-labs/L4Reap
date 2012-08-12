@@ -49,41 +49,54 @@
 	.p2align 4
 	.globl	entry_vec01_debug
 entry_vec01_debug:
-#if 0 // FIXME: figure out stuff differently
-	cmpl	$VAL__MEM_LAYOUT__TCBS, %esp
-	ja	2f
-	cmpl	$VAL__MEM_LAYOUT__TCBS_END, %esp
-	jbe	2f
+	/* Check whether user entered the kernel with TF enabled,
+	 * check priv-level to verify that a priv-change happened */
+	testb   $3, 4(%esp)
+	jnz	1f
+	cmpl	$entry_sys_fast_ipc_c, (%esp)
+	je	2f
+#if defined(CONFIG_JDB)
+	cmpl	$entry_sys_fast_ipc_log, (%esp)
+	je	2f
 #endif
 1:	pushl	$0
 	pushl	$1
 	pusha
 	jmp	slowtraps
 
-2:	/* We came from an address equal to one of the sysenter entry
-	 * points. Did we also come from kernel? */
-	testl	$3,4(%esp)
-	jne	1b
 
-	/* copy last three dwords to the current kernel stack */
+2:	mov	12(%esp), %esp
+	pushl	$(GDT_DATA_USER|SEL_PL_U)
+	push	%ebp
+	pushl	$(EFLAGS_IOPL_U|EFLAGS_IF|EFLAGS_TF)
+	pushl	$(GDT_CODE_USER|SEL_PL_U)
+	push	%ebx
+	cld
+
 	pushl	%eax
+	pushl	$0 // %ebp
+	pushl	$0 // %ebx
+	pushl	%edi
+	pushl	%esi
+	pushl	%edx
 	pushl	%ecx
-	movl	20(%esp),%ecx			// x86_tss.esp0
-	movl	 8(%esp),%eax			// 3rd dword == EIP
-	incl	%eax				// skip ``pop %esp''
-	movl	%eax,-12(%ecx)
-	movl	12(%esp),%eax			// 2nd dword == CS
-	movl	%eax, -8(%ecx)
-	movl	16(%esp),%eax			// 1st dword == EFLAGS
-	movl	%eax, -4(%ecx)
-	popl	%ecx
+
+	ESP_TO_TCB_AT %ebx
+	testl	$Thread_alien_or_vcpu_user, OFS__THREAD__STATE (%ebx)
+	jnz	dbg_alien_sys_fast_ipc_log
+	RESET_THREAD_CANCEL_AT %ebx
+	call	*syscall_table
+	CHECK_SANITY $3			/* scratches ecx */
+	RESTORE_STATE_AFTER_IPC
 	popl	%eax
-	movl	12(%esp),%esp			// x86_tss.esp0
-	subl	$12, %esp			// skip entry frame
-	pushl	$0
-	pushl	$1
-	pusha
-	jmp	slowtraps
+	iret
+
+dbg_alien_sys_fast_ipc_log:
+	PRE_FAST_ALIEN_IPC
+	push    $ret_from_fast_alien_ipc
+	jmp     *syscall_table
+
+
 
 
 	.globl	entry_vec0a_invalid_tss

@@ -40,7 +40,9 @@ demangle_ptr (uintptr_t x)
 #define demangle_ptr(x) x
 #endif
 
-void __pthread_cleanup_upto (__jmp_buf target, char *targetframe)
+void
+attribute_hidden
+__pthread_cleanup_upto (__jmp_buf target, char *targetframe)
 {
   pthread_descr self = thread_self();
   struct _pthread_cleanup_buffer * c;

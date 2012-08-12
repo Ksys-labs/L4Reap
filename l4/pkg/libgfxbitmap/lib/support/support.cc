@@ -9,6 +9,7 @@
 
 #include <l4/libgfxbitmap/bitmap.h>
 #include <l4/re/video/view>
+#include <l4/libgfxbitmap/support>
 
 
 // array will be converted to gfxbitmap_color_pix_t in init

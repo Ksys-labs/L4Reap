@@ -10,12 +10,6 @@ EXTENSION class Pic
 public:
   enum
   {
-    Multi_irq_pending = 0,
-    No_irq_pending = 0,
-  };
-
-  enum
-  {
     INTCTL      = Kmem::Pic_map_base + 0x00,
     NIMASK      = Kmem::Pic_map_base + 0x04,
     INTENNUM    = Kmem::Pic_map_base + 0x08,
@@ -48,98 +42,51 @@ public:
 // ---------------------------------------------------------------------
 IMPLEMENTATION [arm && (imx21 || imx35)]:
 
-#include "boot_info.h"
-#include "config.h"
-#include "initcalls.h"
 #include "io.h"
-#include "irq.h"
 #include "irq_chip_generic.h"
-#include "irq_pin.h"
-#include "vkey.h"
+#include "irq_mgr.h"
 
-#include <cstdio>
-
-class Imx_pin : public Irq_pin
+class Irq_chip_arm_imx : public Irq_chip_gen
 {
 public:
-  explicit Imx_pin(unsigned irq) { payload()[0] = irq; }
-  unsigned irq() const { return payload()[0]; }
+  Irq_chip_arm_imx() : Irq_chip_gen(64) {}
+  unsigned set_mode(Mword, unsigned) { return Irq_base::Trigger_level; }
+  void set_cpu(Mword, unsigned) {}
+  void ack(Mword) { /* ack is empty */ }
 };
 
 PUBLIC
 void
-Imx_pin::unbind_irq()
+Irq_chip_arm_imx::mask(Mword irq)
 {
-  mask();
-  disable();
-  Irq_chip::hw_chip->free(Irq::self(this), irq());
-  replace<Sw_irq_pin>();
+  assert(cpu_lock.test());
+  Io::write<Mword>(irq, Pic::INTDISNUM); // disable pin
 }
 
 PUBLIC
 void
-Imx_pin::do_mask()
+Irq_chip_arm_imx::mask_and_ack(Mword irq)
 {
-  assert (cpu_lock.test());
-  Io::write<Mword>(irq(), Pic::INTDISNUM); // disable pin
-}
-
-PUBLIC
-void
-Imx_pin::do_mask_and_ack()
-{
-  assert (cpu_lock.test());
-  __mask();
-  Io::write<Mword>(irq(), Pic::INTDISNUM); // disable pin
+  assert(cpu_lock.test());
+  Io::write<Mword>(irq, Pic::INTDISNUM); // disable pin
   // ack is empty
 }
 
 PUBLIC
 void
-Imx_pin::ack()
-{
-  // ack is empty
-}
-
-PUBLIC
-void
-Imx_pin::do_unmask()
+Irq_chip_arm_imx::unmask(Mword irq)
 {
   assert (cpu_lock.test());
-  Io::write<Mword>(irq(), Pic::INTENNUM);
+  Io::write<Mword>(irq, Pic::INTENNUM);
 }
 
+static Static_object<Irq_mgr_single_chip<Irq_chip_arm_imx> > mgr;
 
-PUBLIC
-bool
-Imx_pin::check_debug_irq()
-{
-  return !Vkey::check_(irq());
-}
-
-PUBLIC
-void
-Imx_pin::set_cpu(unsigned)
-{
-}
-
-class Irq_chip_arm_x : public Irq_chip_gen
-{
-};
-
-PUBLIC
-void
-Irq_chip_arm_x::setup(Irq_base *irq, unsigned irqnum)
-{
-  if (irqnum < Config::Max_num_dirqs)
-    irq->pin()->replace<Imx_pin>(irqnum);
-}
 
 IMPLEMENT FIASCO_INIT
 void Pic::init()
 {
-  static Irq_chip_arm_x _ia;
-  Irq_chip::hw_chip = &_ia;
+  Irq_mgr::mgr = mgr.construct();
 
   Io::write<Mword>(0,    INTCTL);
   Io::write<Mword>(0x10, NIMASK); // Do not disable any normal interrupts
@@ -160,27 +107,32 @@ Pic::Status Pic::disable_all_save()
 }
 
 IMPLEMENT inline
-void Pic::restore_all( Status /*s*/ )
-{
-}
+void Pic::restore_all(Status)
+{}
 
 PUBLIC static inline NEEDS["io.h"]
-Unsigned32 Pic::pending()
+Unsigned32 Irq_chip_arm_imx::pending()
 {
-  return Io::read<Mword>(NIVECSR) >> 16;
+  return Io::read<Mword>(Pic::NIVECSR) >> 16;
 }
 
-PUBLIC static inline
-Mword Pic::is_pending(Mword &irqs, Mword irq)
+PUBLIC inline NEEDS[Irq_chip_arm_imx::pending]
+void
+Irq_chip_arm_imx::irq_handler()
 {
-  return irqs == irq;
+  Unsigned32 p = pending();
+  if (EXPECT_TRUE(p != 0xffff))
+    handle_irq<Irq_chip_arm_imx>(p, 0);
 }
+
+extern "C"
+void irq_handler()
+{ mgr->c.irq_handler(); }
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [debug && imx]:
 
 PUBLIC
 char const *
-Imx_pin::pin_type() const
+Irq_chip_arm_imx::chip_type() const
 { return "HW i.MX IRQ"; }
-

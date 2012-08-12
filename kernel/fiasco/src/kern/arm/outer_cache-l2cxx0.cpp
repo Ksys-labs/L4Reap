@@ -43,7 +43,10 @@ private:
 
   static Spin_lock<> _lock;
 
-  static void platform_init();
+  static Mword platform_init(Mword aux);
+
+  static bool need_sync;
+  static unsigned waymask;
 
 public:
   enum
@@ -57,34 +60,40 @@ public:
 IMPLEMENTATION [arm && outer_cache_l2cxx0]:
 
 #include "io.h"
-#include "static_init.h"
 #include "lock_guard.h"
+#include "static_init.h"
 
 Spin_lock<> Outer_cache::_lock;
+bool Outer_cache::need_sync;
+unsigned Outer_cache::waymask;
 
 IMPLEMENT inline NEEDS ["io.h"]
 void
 Outer_cache::sync()
 {
   while (Io::read<Mword>(CACHE_SYNC))
-    ;
+    Proc::preemption_point();
 }
 
 PRIVATE static inline NEEDS ["io.h", "lock_guard.h"]
 void
-Outer_cache::write(Address reg, Mword val)
+Outer_cache::write(Address reg, Mword val, bool before = false)
 {
   Lock_guard<Spin_lock<> > guard(&_lock);
+  if (before)
+    while (Io::read<Mword>(reg) & 1)
+      ;
   Io::write<Mword>(val, reg);
-  while (Io::read<Mword>(reg) & 1)
-    ;
+  if (!before)
+    while (Io::read<Mword>(reg) & 1)
+      ;
 }
 
 IMPLEMENT inline NEEDS[Outer_cache::write]
 void
 Outer_cache::clean()
 {
-  write(CLEAN_BY_WAY, 0xff);
+  write(CLEAN_BY_WAY, waymask);
   sync();
 }
 
@@ -93,7 +102,7 @@ void
 Outer_cache::clean(Mword phys_addr, bool do_sync = true)
 {
   write(CLEAN_LINE_BY_PA, phys_addr & (~0UL << Cache_line_shift));
-  if (do_sync)
+  if (need_sync && do_sync)
     sync();
 }
 
@@ -101,7 +110,7 @@ IMPLEMENT inline NEEDS[Outer_cache::write]
 void
 Outer_cache::flush()
 {
-  write(CLEAN_BY_WAY, 0xff);
+  write(CLEAN_AND_INV_BY_WAY, waymask);
   sync();
 }
 
@@ -110,7 +119,7 @@ void
 Outer_cache::flush(Mword phys_addr, bool do_sync = true)
 {
   write(CLEAN_AND_INV_LINE_BY_PA, phys_addr & (~0UL << Cache_line_shift));
-  if (do_sync)
+  if (need_sync && do_sync)
     sync();
 }
 
@@ -118,7 +127,7 @@ IMPLEMENT inline NEEDS[Outer_cache::write]
 void
 Outer_cache::invalidate()
 {
-  write(INVALIDATE_BY_WAY, 0xff);
+  write(INVALIDATE_BY_WAY, waymask);
   sync();
 }
 
@@ -127,7 +136,7 @@ void
 Outer_cache::invalidate(Address phys_addr, bool do_sync = true)
 {
   write(INVALIDATE_LINE_BY_PA, phys_addr & (~0UL << Cache_line_shift));
-  if (do_sync)
+  if (need_sync && do_sync)
     sync();
 }
 
@@ -135,20 +144,40 @@ PUBLIC static
 void
 Outer_cache::init()
 {
-  // disable
-  Io::write(0, CONTROL);
+  Mword cache_id   = Io::read<Mword>(CACHE_ID);
+  Mword aux        = Io::read<Mword>(AUX_CONTROL);
+  unsigned ways    = 8;
 
-  platform_init();
+  need_sync = true;
 
-  Io::write<Mword>(0, INTERRUPT_MASK);
+  aux = platform_init(aux);
 
-  invalidate();
+  switch ((cache_id >> 6) & 0xf)
+    {
+    case 1:
+      ways = (aux >> 13) & 0xf;
+      break;
+    case 3:
+      need_sync = false;
+      ways = aux & (1 << 16) ? 16 : 8;
+      break;
+    default:
+      break;
+    }
+
+  waymask = (1 << ways) - 1;
+
+  Io::write<Mword>(0,    INTERRUPT_MASK);
   Io::write<Mword>(~0UL, INTERRUPT_CLEAR);
 
-  // enable
-  Io::write(1, CONTROL);
+  if (!(Io::read<Mword>(CONTROL) & 1))
+    {
+      Io::write(aux, AUX_CONTROL);
+      invalidate();
+      Io::write<Mword>(1, CONTROL);
+    }
 
-  show_info();
+  show_info(ways, cache_id, aux);
 }
 
 STATIC_INITIALIZE_P(Outer_cache, STARTUP_INIT_PRIO);
@@ -158,7 +187,7 @@ IMPLEMENTATION [arm && outer_cache_l2cxx0 && !debug]:
 
 PRIVATE static
 void
-Outer_cache::show_info()
+Outer_cache::show_info(unsigned, Mword, Mword)
 {}
 
 // ------------------------------------------------------------------------
@@ -169,35 +198,30 @@ IMPLEMENTATION [arm && outer_cache_l2cxx0 && debug]:
 
 PRIVATE static
 void
-Outer_cache::show_info()
+Outer_cache::show_info(unsigned ways, Mword cache_id, Mword aux)
 {
+  printf("L2: ID=%08lx Type=%08lx Aux=%08lx WMask=%x S=%d\n",
+         cache_id, Io::read<Mword>(CACHE_TYPE), aux, waymask, need_sync);
+
   const char *type;
-  Mword cache_id   = Io::read<Mword>(CACHE_ID);
-  Mword aux        = Io::read<Mword>(AUX_CONTROL);
-  unsigned ways    = 8;
-  unsigned waysize = 16 << (((aux >> 17) & 7) - 1);
-
-  printf("L2: ID=%08lx Type=%08lx Aux=%08lx\n",
-         cache_id, Io::read<Mword>(CACHE_TYPE), aux);
-
   switch ((cache_id >> 6) & 0xf)
     {
     case 1:
       type = "210";
-      ways = (aux >> 13) & 0xf;
       break;
     case 2:
       type = "220";
-      ways = (aux >> 13) & 0xf;
       break;
     case 3:
       type = "310";
-      ways = aux & (1 << 16) ? 16 : 8;
+      if (cache_id & 0x3f == 5)
+        printf("L2: r3p0\n");
       break;
     default:
       type = "Unknown";
       break;
     }
 
+  unsigned waysize = 16 << (((aux >> 17) & 7) - 1);
   printf("L2: Type L2C-%s Size = %dkB\n", type, ways * waysize);
 }

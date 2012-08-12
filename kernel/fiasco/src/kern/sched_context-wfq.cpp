@@ -17,6 +17,9 @@ class Sched_context
   friend class Jdb_list_timeouts;
   friend class Jdb_thread_list;
 
+  template<typename T>
+  friend class Jdb_thread_list_policy;
+
 public:
   class Ready_queue : public Ready_queue_wfq<Sched_context>
   {
@@ -66,8 +69,8 @@ Sched_context::Sched_context()
 : _ready_link(0),
   _idle(0),
   _dl(0),
-  _left(Config::default_time_slice),
-  _q(Config::default_time_slice),
+  _left(Config::Default_time_slice),
+  _q(Config::Default_time_slice),
   _w(1),
   _qdw(_q / _w)
 {}

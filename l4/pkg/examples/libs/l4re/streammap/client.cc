@@ -17,7 +17,7 @@
 
 #include "shared.h"
 
-int
+static int
 func_smap_call(L4::Cap<void> const &server)
 {
   L4::Ipc::Iostream s(l4_utcb());
@@ -31,13 +31,12 @@ func_smap_call(L4::Cap<void> const &server)
       return 1;
     }
 
-
   s << l4_umword_t(Opcode::Do_map)
     << (l4_addr_t)addr;
   s << L4::Ipc::Rcv_fpage::mem((l4_addr_t)addr, L4_PAGESHIFT, 0);
-  l4_msgtag_t res = s.call(server.cap(), Protocol::Map_example);
-  if (l4_ipc_error(res, l4_utcb()))
-    return 1; // failure
+  int r = l4_error(s.call(server.cap(), Protocol::Map_example));
+  if (r)
+    return r; // failure
 
   printf("String sent by server: %s\n", (char *)addr);
 

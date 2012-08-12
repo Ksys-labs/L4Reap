@@ -115,7 +115,7 @@ public:
   { return -EROFS; }
 
   /// Default backend for POSIX utimes.
-  int utimes(const struct utimbuf [2]) throw()
+  int utimes(const struct timeval [2]) throw()
   { return -EROFS; }
 
   /// Default backend for POSIX mkdir and mkdirat.
@@ -148,6 +148,54 @@ public:
 
   ssize_t getdents(char *, size_t) throw()
   { return -ENOTDIR; }
+
+
+
+  // Socket interface
+  int bind(sockaddr const *, socklen_t) throw()
+  { return -ENOTSOCK; }
+
+  int connect(sockaddr const *, socklen_t) throw()
+  { return -ENOTSOCK; }
+
+  ssize_t send(void const *, size_t, int) throw()
+  { return -ENOTSOCK; }
+
+  ssize_t recv(void *, size_t, int) throw()
+  { return -ENOTSOCK; }
+
+  ssize_t sendto(void const *, size_t, int, sockaddr const *, socklen_t) throw()
+  { return -ENOTSOCK; }
+
+  ssize_t recvfrom(void *, size_t, int, sockaddr *, socklen_t *) throw()
+  { return -ENOTSOCK; }
+
+  ssize_t sendmsg(msghdr const *, int) throw()
+  { return -ENOTSOCK; }
+
+  ssize_t recvmsg(msghdr *, int) throw()
+  { return -ENOTSOCK; }
+
+  int getsockopt(int, int, void *, socklen_t *) throw()
+  { return -ENOTSOCK; }
+
+  int setsockopt(int, int, void const *, socklen_t) throw()
+  { return -ENOTSOCK; }
+
+  int listen(int) throw()
+  { return -ENOTSOCK; }
+
+  int accept(sockaddr *, socklen_t *) throw()
+  { return -ENOTSOCK; }
+
+  int shutdown(int) throw()
+  { return -ENOTSOCK; }
+
+  int getsockname(sockaddr *, socklen_t *) throw()
+  { return -ENOTSOCK; }
+
+  int getpeername(sockaddr *, socklen_t *) throw()
+  { return -ENOTSOCK; }
 
   ~Be_file() throw() = 0;
 
@@ -207,12 +255,16 @@ public:
     return _pos;
   }
 
+  ~Be_file_pos() throw() = 0;
+
 protected:
   off64_t pos() const throw() { return _pos; }
 
 private:
   off64_t _pos;
 };
+
+inline Be_file_pos::~Be_file_pos() throw() {}
 
 class Be_file_stream : public Be_file
 {
@@ -223,7 +275,11 @@ public:
   ssize_t pwritev(const struct iovec *v, int iovcnt, off64_t) throw()
   { return writev(v, iovcnt); }
 
+  ~Be_file_stream() throw () = 0;
+
 };
+
+inline Be_file_stream::~Be_file_stream() throw() {}
 
 /**
  * \brief Boilerplate class for implementing a L4Re::Vfs::File_system.
@@ -273,6 +329,6 @@ public:
 /* Make sure filesystems can register before the constructor of libmount
  * runs */
 #define L4RE_VFS_FILE_SYSTEM_ATTRIBUTE \
-     __attribute__((init_priority(INIT_PRIO_LATE_VAL)))
+     __attribute__((init_priority(INIT_PRIO_LATE)))
 
 }}

@@ -1,6 +1,6 @@
 INTERFACE:
 
-class Irq;
+class Irq_base;
 
 class Vkey
 {
@@ -12,24 +12,26 @@ public:
 // ---------------------------------------------------------------------------
 IMPLEMENTATION:
 
-#include "irq.h"
+#include "irq_chip.h"
 
-static Irq *vkey_irq;
+static Irq_base *vkey_irq;
 
 PUBLIC static
 void
-Vkey::irq(Irq *i)
+Vkey::irq(Irq_base *i)
 { vkey_irq = i; }
 
 // ---------------------------------------------------------------------------
 IMPLEMENTATION [debug && serial && !ux]:
 
+#include <cstdio>
+
 #include "config.h"
 #include "cpu.h"
 #include "globals.h"
 #include "kernel_console.h"
-#include "kernel_uart.h"
 #include "keycodes.h"
+#include "uart.h"
 
 static Vkey::Echo_type vkey_echo;
 static char     vkey_buffer[256];
@@ -43,57 +45,110 @@ Vkey::set_echo(Echo_type echo)
   vkey_echo = echo;
 }
 
+PRIVATE static
+bool
+Vkey::add(int c)
+{
+  bool hit = false;
+  unsigned nh = (vkey_head + 1) % sizeof(vkey_buffer);
+  unsigned oh = vkey_head;
+  if (nh != vkey_tail)
+    {
+      vkey_buffer[vkey_head] = c;
+      vkey_head = nh;
+    }
+
+  if (oh == vkey_tail)
+    hit = true;
+
+  if (vkey_echo == Vkey::Echo_crnl && c == '\r')
+    c = '\n';
+
+  if (vkey_echo)
+    putchar(c);
+
+  return hit;
+}
+
+PRIVATE static
+bool
+Vkey::add(const char *seq)
+{
+  bool hit = false;
+  for (; *seq; ++seq)
+    hit |= add(*seq);
+  return hit;
+}
+
+PRIVATE static
+void
+Vkey::trigger()
+{
+  if (vkey_irq)
+    vkey_irq->hit(0);
+}
+
+PUBLIC static
+void
+Vkey::add_char(int v)
+{
+  if (add(v))
+    trigger();
+}
+
 PUBLIC static
 int
-Vkey::check_(int irq = -1)
+Vkey::check_()
 {
   if (!uart)
     return 1;
 
-  int  ret = 0;
+  int  ret = 1;
   bool hit = false;
 
   // disable last branch recording, branch trace recording ...
   Cpu::cpus.cpu(current_cpu()).debugctl_disable();
 
-  while(1)
+  while (1)
     {
       int c = uart->getchar(false);
 
-      if (irq == Kernel_uart::uart()->irq() && c == -1)
-        {
-          ret = 1;
-          break;
-        }
+      if (c == -1)
+	break;
 
-      if (c == -1 || c == KEY_ESC)
-        break;
+      if (c == KEY_ESC)
+	{
+	  ret = 0;  // break into kernel debugger
+	  break;
+	}
 
-      unsigned nh = (vkey_head + 1) % sizeof(vkey_buffer);
-      unsigned oh = vkey_head;
-      if (nh != vkey_tail)
-        {
-          vkey_buffer[vkey_head] = c;
-          vkey_head = nh;
-        }
-
-      if (oh == vkey_tail)
-        hit = true;
-
-      if (vkey_echo == Vkey::Echo_crnl && c == '\r')
-        c = '\n';
-
-      if (vkey_echo)
-        putchar(c);
-
-      ret = 1;
+      switch (c)
+	{
+	case KEY_CURSOR_UP:    hit |= add("\033[A"); break;
+	case KEY_CURSOR_DOWN:  hit |= add("\033[B"); break;
+	case KEY_CURSOR_LEFT:  hit |= add("\033[D"); break;
+	case KEY_CURSOR_RIGHT: hit |= add("\033[C"); break;
+	case KEY_CURSOR_HOME:  hit |= add("\033[1~"); break;
+	case KEY_CURSOR_END:   hit |= add("\033[4~"); break;
+	case KEY_PAGE_UP:      hit |= add("\033[5~"); break;
+	case KEY_PAGE_DOWN:    hit |= add("\033[6~"); break;
+	case KEY_INSERT:       hit |= add("\033[2~"); break;
+	case KEY_DELETE:       hit |= add("\033[3~"); break;
+	case KEY_F1:           hit |= add("\033OP"); break;
+	case KEY_BACKSPACE:    hit |= add(127); break;
+	case KEY_TAB:          hit |= add(9); break;
+	case KEY_ESC:          hit |= add(27); break;
+	case KEY_RETURN:       hit |= add(13); break;
+	default:               hit |= add(c); break;
+	}
     }
 
-  if (hit && vkey_irq)
-    vkey_irq->hit();
+  if (hit)
+    trigger();
 
-  if(Config::serial_esc == Config::SERIAL_ESC_IRQ)
-    Kernel_uart::uart()->enable_rcv_irq();
+  // Hmmm, we assume that a console with the UART flag set is of type Uart
+  if (Config::serial_esc == Config::SERIAL_ESC_IRQ)
+    static_cast<Uart*>(uart)->enable_rcv_irq();
 
   // reenable debug stuff (undo debugctl_disable)
   Cpu::cpus.cpu(current_cpu()).debugctl_enable();
@@ -122,16 +177,20 @@ Vkey::clear()
 //----------------------------------------------------------------------------
 IMPLEMENTATION [!debug || !serial || ux]:
 
-PUBLIC static
+PUBLIC static inline
 void
 Vkey::set_echo(Echo_type)
 {}
 
-PUBLIC static
+PUBLIC static inline
 void
 Vkey::clear()
 {}
 
+PUBLIC static inline
+void
+Vkey::add_char(int)
+{}
 
 //----------------------------------------------------------------------------
 IMPLEMENTATION [debug && (!serial || ux)]:

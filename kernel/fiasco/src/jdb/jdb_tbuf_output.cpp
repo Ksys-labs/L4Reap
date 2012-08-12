@@ -154,9 +154,9 @@ formatter_default(Tb_entry *tb, const char *tidstr, unsigned tidlen,
     {
       Tb_entry_ke_reg *e = static_cast<Tb_entry_ke_reg*>(tb);
       char ip_buf[32];
-      snprintf(ip_buf, sizeof(ip_buf), " @ "L4_PTR_FMT, e->ip());
+      snprintf(ip_buf, sizeof(ip_buf), " @ " L4_PTR_FMT, e->ip());
       snprintf(buf, maxlen, "\"%s\" "
-               L4_PTR_FMT" "L4_PTR_FMT" "L4_PTR_FMT"%s",
+               L4_PTR_FMT " " L4_PTR_FMT " " L4_PTR_FMT "%s",
                e->msg(), e->val1(), e->val2(), e->val3(),
                e->ip() ? ip_buf : "");
 

@@ -7,6 +7,7 @@
  * GNU General Public License 2.
  * Please see the COPYING-GPL-2 file for details.
  */
+#define _GNU_SOURCE 1
 #include <sys/mman.h>
 #include <errno.h>
 
@@ -59,7 +60,7 @@ int munmap(void * /*start*/, size_t  /*length*/) throw()
 }
 
 void * mremap(void * /*old_address*/, size_t /*old_size*/, size_t /*new_size*/,
-	      int /*may_move*/) throw()
+	      int /*may_move*/, ...) throw()
 {
   L4::cout << "mremap() called: unimplemented!\n";
   errno = EINVAL;

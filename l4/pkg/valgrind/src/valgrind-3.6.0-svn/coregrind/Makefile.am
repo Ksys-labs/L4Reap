@@ -9,6 +9,18 @@ include $(top_srcdir)/Makefile.all.am
 # Basics, flags
 #----------------------------------------------------------------------------
 
+if VGCONF_OS_IS_L4RE
+AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@ += \
+	-I$(top_srcdir)/coregrind \
+	-DVG_LIBDIR="\"rom"\" \
+	-DVG_PLATFORM="\"@VGCONF_ARCH_PRI@-@VGCONF_OS@\""
+if VGCONF_HAVE_PLATFORM_SEC
+AM_CPPFLAGS_@VGCONF_PLATFORM_SEC_CAPS@ += \
+	-I$(top_srcdir)/coregrind \
+	-DVG_LIBDIR="\"rom"\" \
+	-DVG_PLATFORM="\"@VGCONF_ARCH_SEC@-@VGCONF_OS@\""
+endif
+else
 AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@ += \
 	-I$(top_srcdir)/coregrind \
 	-DVG_LIBDIR="\"$(pkglibdir)"\" \
@@ -19,7 +31,7 @@ AM_CPPFLAGS_@VGCONF_PLATFORM_SEC_CAPS@ += \
 	-DVG_LIBDIR="\"$(pkglibdir)"\" \
 	-DVG_PLATFORM="\"@VGCONF_ARCH_SEC@-@VGCONF_OS@\""
 endif
-
+endif
 
 EXTRA_DIST = \
 	m_debuginfo/UNUSED_STABS.txt \

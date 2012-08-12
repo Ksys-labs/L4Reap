@@ -22,13 +22,8 @@ public:
   typedef Page_number Phys_addr;
   typedef void Reap_list;
 
-  void *operator new (size_t, void *p)
-  { return p; }
-
-  void operator delete(void *)
-  {}
-
-  enum {
+  enum
+  {
     Need_insert_tlb_flush = 0,
     Need_xcpu_tlb_flush = 0,
     Map_page_size = 1,
@@ -43,7 +38,8 @@ public:
   // We'd rather like to use a "using Mem_space::Status" declaration here,
   // but that wouldn't make the enum values accessible as
   // Generic_io_space::Insert_ok and so on.
-  enum Status {
+  enum Status
+  {
     Insert_ok = 0,		///< Mapping was added successfully.
     Insert_warn_exists,		///< Mapping already existed
     Insert_warn_attrib_upgrade,	///< Mapping already existed, attribs upgrade
@@ -59,20 +55,30 @@ public:
     Page_all_attribs = Page_writable | Page_user_accessible
   };
 
-  static Addr map_max_address() { return Addr(Map_max_address); }
-  static Address superpage_size() { return Map_superpage_size; }
-  static bool has_superpages() { return true; }
-  static Phys_addr page_address(Phys_addr o, Size s) { return o.trunc(s); }
+  static Addr map_max_address()
+  { return Addr(Map_max_address); }
+
+  static Address superpage_size()
+  { return Map_superpage_size; }
+
+  static bool has_superpages()
+  { return true; }
+
+  static Phys_addr page_address(Phys_addr o, Size s)
+  { return o.trunc(s); }
 
   static Phys_addr subpage_address(Phys_addr addr, Size offset)
   { return addr | offset; }
 
-  static Mword phys_to_word(Phys_addr a)
-  { return a.value(); }
-
 private:
   // DATA
-  Mword   _io_counter;
+  Mword _io_counter;
+
+  Mem_space const *mem_space() const
+  { return static_cast<SPACE const *>(this); }
+
+  Mem_space *mem_space()
+  { return static_cast<SPACE *>(this); }
 };
 
 template< typename SPACE>
@@ -88,7 +94,7 @@ IMPLEMENTATION [io]:
 #include "atomic.h"
 #include "config.h"
 #include "l4_types.h"
-#include "mapped_alloc.h"
+#include "kmem_alloc.h"
 #include "panic.h"
 #include "paging.h"
   
@@ -120,21 +126,15 @@ Generic_io_space<SPACE>::xlate_flush_result(Mword /*attribs*/)
 
 PUBLIC template< typename SPACE >
 inline
-Generic_io_space<SPACE>::Generic_io_space ()
-  : _io_counter (0)
+Generic_io_space<SPACE>::Generic_io_space()
+  : _io_counter(0)
 {}
-
-PRIVATE template< typename SPACE >
-inline
-Mem_space *
-Generic_io_space<SPACE>::mem_space() const
-{ return SPACE::space(this)->mem_space(); }
 
 
 PUBLIC template< typename SPACE >
 Generic_io_space<SPACE>::~Generic_io_space()
 {
-  if (! mem_space() || ! mem_space()->dir())
+  if (!mem_space()->dir())
     return;
 
   Pdir::Iter iopte = mem_space()->dir()->walk(Virt_addr(Mem_layout::Io_bitmap));
@@ -145,20 +145,20 @@ Generic_io_space<SPACE>::~Generic_io_space()
       // sanity check
       assert (iopte.shift() != Config::SUPERPAGE_SHIFT);
 
-      Mapped_allocator::allocator()
-	->q_free_phys(mem_space()->ram_quota(), Config::PAGE_SHIFT,
+      Kmem_alloc::allocator()
+	->q_free_phys(ram_quota(), Config::PAGE_SHIFT,
 	              iopte.e[0].addr());
       
       if (iopte.e[1].valid())
-	Mapped_allocator::allocator()
-	  ->q_free_phys(mem_space()->ram_quota(), Config::PAGE_SHIFT,
+	Kmem_alloc::allocator()
+	  ->q_free_phys(ram_quota(), Config::PAGE_SHIFT,
 	                iopte.e[1].addr());
   
       Pdir::Iter iopde = mem_space()->dir()->walk(Virt_addr(Mem_layout::Io_bitmap), 0);
       
       // free the page table
-      Mapped_allocator::allocator()
-	->q_free_phys(mem_space()->ram_quota(), Config::PAGE_SHIFT,
+      Kmem_alloc::allocator()
+	->q_free_phys(ram_quota(), Config::PAGE_SHIFT,
 	              iopde.e->addr());
 
       // free reference
@@ -170,7 +170,7 @@ PUBLIC template< typename SPACE >
 inline
 Ram_quota *
 Generic_io_space<SPACE>::ram_quota() const
-{ return mem_space()->ram_quota(); }
+{ return static_cast<SPACE const *>(this)->ram_quota(); }
 
 PRIVATE template< typename SPACE >
 inline
@@ -186,8 +186,8 @@ Generic_io_space<SPACE>::is_superpage()
 PUBLIC template< typename SPACE >
 virtual
 bool
-Generic_io_space<SPACE>::v_fabricate(Addr address, Phys_addr* phys,
-                                     Size* size, unsigned* attribs = 0)
+Generic_io_space<SPACE>::v_fabricate(Addr address, Phys_addr *phys,
+                                     Size *size, unsigned *attribs = 0)
 {
   return Generic_io_space::v_lookup(address.trunc(Size(Map_page_size)),
       phys, size, attribs);
@@ -210,7 +210,7 @@ Generic_io_space<SPACE>::v_lookup(Addr virt, Phys_addr *phys = 0,
 
   if (size) *size = Size(1);
 
-  if (io_lookup (virt.value()))
+  if (io_lookup(virt.value()))
     {
       if (phys) *phys = virt;
       if (attribs) *attribs = Page_writable | Page_user_accessible;
@@ -239,17 +239,17 @@ Generic_io_space<SPACE>::v_delete(Addr virt, Size size,
   if (is_superpage())
     {
       assert (size.value() == Map_superpage_size);
-#ifndef CONFIG_IO_PROT_IOPL_3
+
       for (unsigned p = 0; p < Map_max_address; ++p)
 	io_delete(p);
-#endif
+
       _io_counter = 0;
       return Page_writable | Page_user_accessible;
     }
 
   assert (size.value() == 1);
 
-  return io_delete (virt.value());
+  return io_delete(virt.value());
 }
 
 PUBLIC template< typename SPACE >
@@ -268,19 +268,16 @@ Generic_io_space<SPACE>::v_insert(Phys_addr phys, Addr virt, Size size,
 
   if (get_io_counter() == 0 && size.value() == Map_superpage_size)
     {
-#ifndef CONFIG_IO_PROT_IOPL_3
       for (unsigned p = 0; p < Map_max_address; ++p)
 	io_insert(p);
       _io_counter |= 0x10000000;
-#else
-      _io_counter = 0x10000000 | Map_superpage_size;
-#endif
+
       return Insert_ok;
     }
-  
+
   assert (size.value() == 1);
 
-  return typename Generic_io_space::Status(io_insert (virt.value()));
+  return typename Generic_io_space::Status(io_insert(virt.value()));
 }
 
 
@@ -367,13 +364,13 @@ Generic_io_space<SPACE>::io_insert(Address port_number)
   assert(port_number < Mem_layout::Io_port_max);
 
   Address port_virt = Mem_layout::Io_bitmap + (port_number >> 3);
-  Address port_phys = mem_space()->virt_to_phys (port_virt);
+  Address port_phys = mem_space()->virt_to_phys(port_virt);
 
   if (port_phys == ~0UL)
     {
       // nothing mapped! Get a page and map it in the IO bitmap
       void *page;
-      if (!(page=Mapped_allocator::allocator()->q_alloc(ram_quota(),
+      if (!(page=Kmem_alloc::allocator()->q_alloc(ram_quota(),
 	      Config::PAGE_SHIFT)))
 	return Insert_err_nomem;
 
@@ -390,15 +387,15 @@ Generic_io_space<SPACE>::io_insert(Address port_number)
 
       if (status == Mem_space::Insert_err_nomem)
 	{
-	  Mapped_allocator::allocator()->free(Config::PAGE_SHIFT,page);
-	  mem_space()->ram_quota()->free(Config::PAGE_SIZE);
+	  Kmem_alloc::allocator()->free(Config::PAGE_SHIFT,page);
+	  ram_quota()->free(Config::PAGE_SIZE);
 	  return Insert_err_nomem;
 	}
 
       // we've been careful, so insertion should have succeeded
       assert(status == Mem_space::Insert_ok); 
 
-      port_phys = mem_space()->virt_to_phys (port_virt);
+      port_phys = mem_space()->virt_to_phys(port_virt);
       assert(port_phys != ~0UL);
     }
 

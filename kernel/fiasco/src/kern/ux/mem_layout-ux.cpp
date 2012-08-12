@@ -33,8 +33,6 @@ public:
     Vmem_start         = 0x20000000,
     Glibc_mmap_start   = 0x40000000,  ///<         fixed, Linux kernel spec.
     Glibc_mmap_end     = 0x50000000,  ///<         hoping that is enough
-    Slabs_start        = 0x50000000,  ///<         multipage slabs
-    Slabs_end          = 0x58000000,
     Caps_start         = 0x58000000,
     Caps_end           = 0x5f000000,
     Idt                = 0x5f001000,
@@ -60,8 +58,6 @@ public:
   enum
   {
     Vmem_start         = 0x20000000,
-    Slabs_start        = 0x20000000,  ///<         multipage slabs
-    Slabs_end          = 0x28000000,
     Caps_start         = 0x28000000,
     Caps_end           = 0x2f000000,
     Idt                = 0x2f001000,
@@ -79,6 +75,8 @@ public:
 };
 
 INTERFACE[ux]:
+
+#include "template_math.h"
 
 EXTENSION class Mem_layout
 {
@@ -116,7 +114,8 @@ public:
 
   enum
   {
-    Utcb_ptr_page      = Physmem + Utcb_ptr_frame
+    Utcb_ptr_page      = Physmem + Utcb_ptr_frame,
+    utcb_ptr_align     = Tl_math::Ld<sizeof(void*)>::Res,
   };
 
   /// reflect symbols in linker script
@@ -132,6 +131,16 @@ Address Mem_layout::physmem_offs;
 Address Mem_layout::pmem_size;
 Address const Mem_layout::kernel_trampoline_page =
               phys_to_pmem (Trampoline_frame);
+
+
+PUBLIC static inline
+User<Utcb>::Ptr &
+Mem_layout::user_utcb_ptr(unsigned cpu)
+{
+  // Allocate each CPUs utcb ptr in a different cacheline to avoid
+  // false sharing.
+  return reinterpret_cast<User<Utcb>::Ptr*>(Utcb_ptr_page + (cpu << utcb_ptr_align))[0];
+}
 
 
 PUBLIC static inline

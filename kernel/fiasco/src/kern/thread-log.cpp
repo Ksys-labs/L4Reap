@@ -1,6 +1,5 @@
 IMPLEMENTATION [log]:
 
-#include <alloca.h>
 #include <cstring>
 #include "config.h"
 #include "jdb_trace.h"
@@ -25,9 +24,10 @@ Thread::page_fault_log(Address pfa, unsigned error_code, unsigned long eip)
     {
       Lock_guard <Cpu_lock> guard (&cpu_lock);
 
+      Tb_entry_pf _local;
       Tb_entry_pf *tb = static_cast<Tb_entry_pf*>
 	(EXPECT_TRUE(Jdb_pf_trace::log_buf()) ? Jdb_tbuf::new_entry()
-				    : alloca(sizeof(Tb_entry_pf)));
+				    : &_local);
       tb->set(this, eip, pfa, error_code, current()->space());
 
       if (EXPECT_TRUE(Jdb_pf_trace::log_buf()))

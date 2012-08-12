@@ -151,28 +151,6 @@ l4_factory_create_gate_u(l4_cap_idx_t factory,
                          l4_utcb_t *utcb) L4_NOTHROW;
 
 /**
- * \brief Create a new semaphore.
- * \ingroup l4_factory_api
- *
- * \param factory       Capability selector for factory to use for creation.
- * \param target_cap    Capability selector for the root capability of the new
- *                      semaphore.
- *
- * \return Syscall return tag
- * \see \ref l4_sem_api
- */
-L4_INLINE l4_msgtag_t
-l4_factory_create_semaphore(l4_cap_idx_t factory,
-                            l4_cap_idx_t target_cap) L4_NOTHROW;
-
-/**
- * \internal
- */
-L4_INLINE l4_msgtag_t
-l4_factory_create_semaphore_u(l4_cap_idx_t factory,
-                              l4_cap_idx_t target_cap, l4_utcb_t *utcb) L4_NOTHROW;
-
-/**
  * \brief Create a new IRQ.
  * \ingroup l4_factory_api
  *
@@ -304,14 +282,6 @@ l4_factory_create_gate_u(l4_cap_idx_t factory,
 }
 
 L4_INLINE l4_msgtag_t
-l4_factory_create_semaphore_u(l4_cap_idx_t factory,
-                              l4_cap_idx_t target_cap, l4_utcb_t *u) L4_NOTHROW
-{
-  l4_msgtag_t t = l4_factory_create_start_u(L4_PROTO_SEMAPHORE, target_cap, u);
-  return l4_factory_create_commit_u(factory, t, u);
-}
-
-L4_INLINE l4_msgtag_t
 l4_factory_create_irq_u(l4_cap_idx_t factory,
                         l4_cap_idx_t target_cap, l4_utcb_t *u) L4_NOTHROW
 {
@@ -360,13 +330,6 @@ l4_factory_create_gate(l4_cap_idx_t factory,
                        l4_cap_idx_t thread_cap, l4_umword_t label) L4_NOTHROW
 {
   return l4_factory_create_gate_u(factory, target_cap, thread_cap, label, l4_utcb());
-}
-
-L4_INLINE l4_msgtag_t
-l4_factory_create_semaphore(l4_cap_idx_t factory,
-                            l4_cap_idx_t target_cap) L4_NOTHROW
-{
-  return l4_factory_create_semaphore_u(factory, target_cap, l4_utcb());
 }
 
 L4_INLINE l4_msgtag_t

@@ -24,13 +24,13 @@ public:
   enum
   {
 #ifdef CONFIG_ONE_SHOT
-    scheduler_one_shot		= 1,
-    scheduler_granularity	= 1UL,
-    default_time_slice	        = 10000 * scheduler_granularity,
+    Scheduler_one_shot		= 1,
+    Scheduler_granularity	= 1UL,
+    Default_time_slice	        = 10000 * scheduler_granularity,
 #else
-    scheduler_one_shot		= 0,
-    scheduler_granularity	= 1000UL,
-    default_time_slice	        = 10 * scheduler_granularity,
+    Scheduler_one_shot		= 0,
+    Scheduler_granularity	= 1000UL,
+    Default_time_slice	        = 10 * Scheduler_granularity,
 #endif
   };
 
@@ -43,18 +43,12 @@ public:
   static unsigned const default_console_uart	= 3;
   static unsigned const default_console_uart_baudrate = 115200;
 
-  static const bool getchar_does_hlt = false;
-  static const bool getchar_does_hlt_works_ok = true;
+  enum
+  {
+    Cache_enabled = true,
+  };
   static const char char_micro;
-  static const bool enable_io_protection = false;
 
-#ifdef CONFIG_VMEM_ALLOC_TEST
-  static bool const VMEM_ALLOC_TEST = true;
-#else
-  static bool const VMEM_ALLOC_TEST = false;
-#endif
-
-  static const bool cache_enabled = true;
 
   enum
   {

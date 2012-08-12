@@ -83,19 +83,16 @@ int main()
 
   // create kernel thread
   static Kernel_thread *kernel = new (Ram_quota::root) Kernel_thread;
-  nil_thread = kernel;
   Task *const ktask = Kernel_task::kernel_task();
   check(kernel->bind(ktask, User<Utcb>::Ptr(0)));
   //kdb_ke("init");
 
   // switch to stack of kernel thread and bootstrap the kernel
-  asm volatile ( " stw %%r1, 0(%[boot_stack]) \n" //save old stack pointer
-		 " mr  %%r1, %[stack]         \n" //new stack
+  asm volatile ( " mr  %%r1, %[stack]         \n" //new stack
 		 " mr  %%r3, %[kernel]        \n" //"this" pointer
 		 " bl call_bootstrap          \n"
 		 :
-		 : [boot_stack]"r" (&boot_stack),
-		   [stack]"r" (kernel->init_stack()),
+		 : [stack]"r" (kernel->init_stack()),
 		   [kernel]"r" (kernel)
 		 );
 }

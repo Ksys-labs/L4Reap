@@ -21,9 +21,6 @@
 #include <l4/drivers/uart_s3c2410.h>
 #include <l4/drivers/uart_dummy.h>
 
-#define UART_TYPE Uart_s3c2410
-//#define UART_TYPE Uart_dummy
-
 namespace {
 class Platform_arm_om : public Platform_single_region_ram
 {
@@ -31,8 +28,9 @@ class Platform_arm_om : public Platform_single_region_ram
 
   void init()
   {
-    static L4::UART_TYPE _uart(1,1);
-    _uart.startup(0x50000000);
+    static L4::Uart_s3c2410 _uart;
+    static L4::Io_register_block_mmio r(0x50000000);
+    _uart.startup(&r);
     set_stdio_uart(&_uart);
   }
 };

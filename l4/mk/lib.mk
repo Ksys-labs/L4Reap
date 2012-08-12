@@ -46,7 +46,7 @@ include $(L4DIR)/mk/Makeconf
 include $(L4DIR)/mk/binary.inc
 $(GENERAL_D_LOC): $(L4DIR)/mk/lib.mk
 
-ifneq ($(SYSTEM),) # if we a system, really build
+ifneq ($(SYSTEM),) # if we are a system, really build
 
 TARGET_LIB        := $(TARGET) $(TARGET_$(OSYSTEM))
 TARGET_SHARED     := $(filter     %.so,$(TARGET_LIB))
@@ -119,7 +119,7 @@ $(filter %.so, $(TARGET)):%.so: $(OBJS) $(CRTN) $(CRT0) $(CRTP) $(LIBDEPS)
 	$(VERBOSE)$(call MAKEDEP,$(LD)) $(LD) -m $(LD_EMULATION) \
 	   -o $@ $(LDFLAGS_SO) $(addprefix -T,$(LDSCRIPT)) $(CRTP) \
 	   $(OBJS) $(REQUIRES_LIBS_LIST) $(LDFLAGS) \
-	   $(GCCLIB) $(GCCLIB_EH) $(CRTN)
+	   $(GCCLIB_SO) $(GCCLIB_EH) $(CRTN)
 	@$(BUILT_MESSAGE)
 
 # build an object file (which looks like a lib to a later link-call), which

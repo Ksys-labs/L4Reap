@@ -23,10 +23,6 @@
 #include <tls.h>
 #include <l4/sys/utcb.h>
 
-#ifdef L4_PTHREAD_USE_USEM
-#include <l4/sys/semaphore.h>
-#endif
-
 /* Fast thread-specific data internal to libc.  */
 enum __libc_tsd_key_t { _LIBC_TSD_KEY_MALLOC = 0,
 			_LIBC_TSD_KEY_DL_ERROR,
@@ -138,9 +134,6 @@ struct _pthread_descr_struct
   int p_sched_policy;
 
 
-#ifdef L4_PTHREAD_USE_USEM
-  l4_u_semaphore_t p_thsem;
-#endif
   l4_cap_idx_t     p_thsem_cap;
   l4_cap_idx_t     p_th_cap;
   struct _pthread_fastlock * p_lock; /* Spinlock for synchronized accesses */

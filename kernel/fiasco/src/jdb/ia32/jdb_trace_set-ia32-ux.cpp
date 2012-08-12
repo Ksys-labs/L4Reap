@@ -45,20 +45,13 @@ Jdb_set_trace::set_ipc_vector()
       int30_entry = entry_sys_ipc_log;
       fast_entry  = entry_sys_fast_ipc_log;
     }
-  else if (!Config::Assembler_ipc_shortcut ||
-           (Config::Jdb_logging && Jdb_ipc_trace::_cshortcut) ||
-	   (Config::Jdb_logging && Jdb_ipc_trace::_cpath))
+  else
     {
       int30_entry = entry_sys_ipc_c;
       fast_entry  = entry_sys_fast_ipc_c;
     }
-  else
-    {
-      int30_entry = entry_sys_ipc;
-      fast_entry  = entry_sys_fast_ipc;
-    }
 
-  Idt::set_entry (0x30, (Address) int30_entry, true);
+  Idt::set_entry(0x30, (Address) int30_entry, true);
   Jdb::foreach_cpu(Set_fast_entry(fast_entry));
 
   if (Jdb_ipc_trace::_trace)

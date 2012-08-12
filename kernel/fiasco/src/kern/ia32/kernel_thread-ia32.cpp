@@ -5,11 +5,10 @@ IMPLEMENTATION[ia32,amd64]:
 #include "config.h"
 #include "cpu.h"
 #include "io_apic.h"
-#include "irq_chip.h"
+#include "irq_mgr.h"
 #include "koptions.h"
 #include "mem_layout.h"
 #include "pic.h"
-#include "profile.h"
 #include "trap_state.h"
 #include "watchdog.h"
 
@@ -34,40 +33,11 @@ Kernel_thread::bootstrap_arch()
   nested_trap_handler      = Trap_state::base_handler;
   Trap_state::base_handler = thread_handle_trap;
 
-  //
-  // initialize interrupts
-  //
-  if (!Io_apic::active())
-    {
-      Irq_chip::hw_chip->reserve(2);		// reserve cascade irq
-      Pic::enable_locked(2);			// allow cascaded irqs
-    }
-
   // initialize the profiling timer
   bool user_irq0 = Koptions::o()->opt(Koptions::F_irq0);
 
-  if (Config::scheduler_mode == Config::SCHED_PIT && user_irq0)
+  if ((int)Config::Scheduler_mode == Config::SCHED_PIT && user_irq0)
     panic("option -irq0 not possible since irq 0 is used for scheduling");
-
-  if (Config::profiling)
-    {
-      if (user_irq0)
-	panic("options -profile and -irq0 don't mix");
-      if (Config::scheduler_mode == Config::SCHED_PIT)
-	panic("option -profile' not available since PIT is used as "
-              "source for timer tick");
-
-      Irq_chip::hw_chip->reserve(0); // reserve IRQ 0
-      Profile::init();
-      if (Koptions::o()->opt(Koptions::F_profstart))
-        Profile::start();
-    }
-  else
-    {
-      if (!Io_apic::active() && !user_irq0
-          && !Config::scheduler_mode == Config::SCHED_PIT)
-	Irq_chip::hw_chip->reserve(0); // reserve irq0 even though
-    }
 
   boot_app_cpus();
 }

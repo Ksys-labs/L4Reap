@@ -77,43 +77,26 @@ namespace L4
     UTSR1_TBY = 0x01,
     UTSR1_RNE = 0x02,
     UTSR1_TNF = 0x04,
-   UTSR1_PRE = 0x08,
+    UTSR1_PRE = 0x08,
     UTSR1_FRE = 0x10,
     UTSR1_ROR = 0x20,
 
     UARTCLK = 3686400,
   };
 
-  unsigned long Uart_sa1000::rd(unsigned long reg) const
+  bool Uart_sa1000::startup(Io_register_block const *regs)
   {
-    volatile unsigned long *r = (unsigned long*)(_base + reg);
-    return *r;
-  }
-
-  void Uart_sa1000::wr(unsigned long reg, unsigned long val) const
-  {
-    volatile unsigned long *r = (unsigned long*)(_base + reg);
-    *r = val;
-  }
-
-  bool Uart_sa1000::startup(unsigned long base)
-  {
-    _base = base;
-    wr(UTSR0, ~0UL); // clear pending status bits
-    wr(UTCR3, UTCR3_RXE | UTCR3_TXE); //enable transmitter and receiver
+    _regs = regs;
+    _regs->write<unsigned int>(UTSR0, ~0UL); // clear pending status bits
+    _regs->write<unsigned int>(UTCR3, UTCR3_RXE | UTCR3_TXE); //enable transmitter and receiver
     return true;
   }
 
   void Uart_sa1000::shutdown()
   {
-    wr(UTCR3, 0);
+    _regs->write<unsigned int>(UTCR3, 0);
   }
 
-  bool Uart_sa1000::enable_rx_irq(bool /*enable*/)
-  {
-    return true;
-  }
-  bool Uart_sa1000::enable_tx_irq(bool /*enable*/) { return false; }
   bool Uart_sa1000::change_mode(Transfer_mode m, Baud_rate baud)
   {
     unsigned old_utcr3, quot;
@@ -127,30 +110,30 @@ namespace L4
       return false;
 
     //st = proc_cli_save();
-    old_utcr3 = rd(UTCR3);
-    wr(UTCR3, (old_utcr3 & ~(UTCR3_RIE|UTCR3_TIE)));
+    old_utcr3 = _regs->read<unsigned int>(UTCR3);
+    _regs->write<unsigned int>(UTCR3, (old_utcr3 & ~(UTCR3_RIE|UTCR3_TIE)));
     //proc_sti_restore(st);
 
-    while (rd(UTSR1) & UTSR1_TBY)
+    while (_regs->read<unsigned int>(UTSR1) & UTSR1_TBY)
       ;
 
     /* disable all */
-    wr(UTCR3, 0);
+    _regs->write<unsigned int>(UTCR3, 0);
 
     /* set parity, data size, and stop bits */
     if(m != MODE_NC)
-      wr(UTCR0, m & 0x0ff);
+      _regs->write<unsigned int>(UTCR0, m & 0x0ff);
 
     /* set baud rate */
     if(baud!=BAUD_NC)
       {
 	quot = (UARTCLK / (16*baud)) -1;
-	wr(UTCR1, (quot & 0xf00) >> 8);
-	wr(UTCR2, quot & 0x0ff);
+	_regs->write<unsigned int>(UTCR1, (quot & 0xf00) >> 8);
+	_regs->write<unsigned int>(UTCR2, quot & 0x0ff);
       }
 
-    wr(UTSR0, (unsigned)-1);
-    wr(UTCR3, old_utcr3);
+    _regs->write<unsigned int>(UTSR0, (unsigned)-1);
+    _regs->write<unsigned int>(UTCR3, old_utcr3);
     return true;
 
   }
@@ -158,56 +141,49 @@ namespace L4
   int Uart_sa1000::get_char(bool blocking) const
   {
     int ch;
-    unsigned long old_utcr3 = rd(UTCR3);
-    wr(UTCR3, old_utcr3 & ~(UTCR3_RIE|UTCR3_TIE));
+    unsigned long old_utcr3 = _regs->read<unsigned int>(UTCR3);
+    _regs->write<unsigned int>(UTCR3, old_utcr3 & ~(UTCR3_RIE|UTCR3_TIE));
 
-    while (!(rd(UTSR1) & UTSR1_RNE))
+    while (!(_regs->read<unsigned int>(UTSR1) & UTSR1_RNE))
       if(!blocking)
 	return -1;
 
-    ch = rd(UTDR);
-    wr(UTCR3, old_utcr3);
+    ch = _regs->read<unsigned int>(UTDR);
+    _regs->write<unsigned int>(UTCR3, old_utcr3);
     return ch;
 
   }
 
   int Uart_sa1000::char_avail() const
   {
-    return !!(rd(UTSR1) & UTSR1_RNE);
+    return !!(_regs->read<unsigned int>(UTSR1) & UTSR1_RNE);
   }
 
   void Uart_sa1000::out_char(char c) const
   {
     // do UTCR3 thing here as well?
-    while(!(rd(UTSR1) & UTSR1_TNF))
+    while(!(_regs->read<unsigned int>(UTSR1) & UTSR1_TNF))
       ;
-    wr(UTDR, c);
+    _regs->write<unsigned int>(UTDR, c);
   }
 
   int Uart_sa1000::write(char const *s, unsigned long count) const
   {
     unsigned old_utcr3;
-    //proc_status st;
     unsigned i;
 
-    //st = proc_cli_save();
-    old_utcr3 = rd(UTCR3);
-    wr(UTCR3, (old_utcr3 & ~(UTCR3_RIE|UTCR3_TIE)) | UTCR3_TXE );
+    old_utcr3 = _regs->read<unsigned int>(UTCR3);
+    _regs->write<unsigned int>(UTCR3, (old_utcr3 & ~(UTCR3_RIE | UTCR3_TIE)) | UTCR3_TXE );
 
     /* transmission */
-    for(i = 0; i < count; i++)
-      {
-	out_char(s[i]);
-	if (s[i] == '\n')
-	  out_char('\r');
-      }
+    for (i = 0; i < count; i++)
+      out_char(s[i]);
 
     /* wait till everything is transmitted */
-    while (rd(UTSR1) & UTSR1_TBY)
+    while (_regs->read<unsigned int>(UTSR1) & UTSR1_TBY)
       ;
 
-    wr(UTCR3, old_utcr3);
-    //proc_sti_restore(st);
+    _regs->write<unsigned int>(UTCR3, old_utcr3);
     return count;
   }
 };

@@ -73,7 +73,7 @@ int VG_(x86_l4re_REDIR_FOR_dl_close)(int);
 void *VG_(x86_l4re_REDIR_FOR_dl_mmap)(l4_addr_t addr, int len, int prot, int flags, int fd, int offset);
 
 extern Addr _vfs_p;
-void init_vfs_proxy();
+void init_vfs_proxy(void);
 
 /* 
  * VRM - aspacemem interactions
@@ -93,6 +93,6 @@ Char *vrm_get_filename(int fd);
  * Tell a possibly interested tool abouut the UTCB area. This needs
  * to be done once the tool is running.
  */
-void vrm_track_utcb_area();
+void vrm_track_utcb_area(void);
 
 #endif

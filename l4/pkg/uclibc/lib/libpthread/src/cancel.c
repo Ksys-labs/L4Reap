@@ -32,7 +32,9 @@
 #endif
 
 
-int __pthread_setcancelstate(int state, int * oldstate)
+int
+attribute_hidden
+__pthread_setcancelstate(int state, int * oldstate)
 {
   pthread_descr self = thread_self();
   if (state < PTHREAD_CANCEL_ENABLE || state > PTHREAD_CANCEL_DISABLE)
@@ -47,7 +49,9 @@ int __pthread_setcancelstate(int state, int * oldstate)
 }
 strong_alias (__pthread_setcancelstate, pthread_setcancelstate)
 
-int __pthread_setcanceltype(int type, int * oldtype)
+int
+attribute_hidden
+__pthread_setcanceltype(int type, int * oldtype)
 {
   pthread_descr self = thread_self();
   if (type < PTHREAD_CANCEL_DEFERRED || type > PTHREAD_CANCEL_ASYNCHRONOUS)
@@ -132,7 +136,6 @@ static void pthread_handle_sigcancel(void)
 int pthread_cancel(pthread_t thread)
 {
   pthread_handle handle = thread_handle(thread);
-  l4_cap_idx_t cap;
   int dorestart = 0;
   pthread_descr th;
   pthread_extricate_if *pextricate;
@@ -155,7 +158,6 @@ int pthread_cancel(pthread_t thread)
   }
 
   pextricate = th->p_extricate;
-  cap = th->p_th_cap;
 
   /* If the thread has registered an extrication interface, then
      invoke the interface. If it returns 1, then we succeeded in
@@ -198,7 +200,9 @@ void pthread_testcancel(void)
     __pthread_do_exit(PTHREAD_CANCELED, CURRENT_STACK_FRAME);
 }
 
-void _pthread_cleanup_push(struct _pthread_cleanup_buffer * buffer,
+void
+attribute_hidden
+__pthread_cleanup_push(struct _pthread_cleanup_buffer * buffer,
 			   void (*routine)(void *), void * arg)
 {
   pthread_descr self = thread_self();
@@ -210,7 +214,11 @@ void _pthread_cleanup_push(struct _pthread_cleanup_buffer * buffer,
   THREAD_SETMEM(self, p_cleanup, buffer);
 }
 
-void _pthread_cleanup_pop(struct _pthread_cleanup_buffer * buffer,
+strong_alias(__pthread_cleanup_push, _pthread_cleanup_push)
+
+void
+attribute_hidden
+__pthread_cleanup_pop(struct _pthread_cleanup_buffer * buffer,
 			  int execute)
 {
   pthread_descr self = thread_self();
@@ -218,7 +226,11 @@ void _pthread_cleanup_pop(struct _pthread_cleanup_buffer * buffer,
   THREAD_SETMEM(self, p_cleanup, buffer->__prev);
 }
 
-void _pthread_cleanup_push_defer(struct _pthread_cleanup_buffer * buffer,
+strong_alias(__pthread_cleanup_pop, _pthread_cleanup_pop)
+
+void
+attribute_hidden
+__pthread_cleanup_push_defer(struct _pthread_cleanup_buffer * buffer,
 				 void (*routine)(void *), void * arg)
 {
   pthread_descr self = thread_self();
@@ -232,7 +244,11 @@ void _pthread_cleanup_push_defer(struct _pthread_cleanup_buffer * buffer,
   THREAD_SETMEM(self, p_cleanup, buffer);
 }
 
-void _pthread_cleanup_pop_restore(struct _pthread_cleanup_buffer * buffer,
+strong_alias(__pthread_cleanup_push_defer, _pthread_cleanup_push_defer)
+
+void
+attribute_hidden
+__pthread_cleanup_pop_restore(struct _pthread_cleanup_buffer * buffer,
 				  int execute)
 {
   pthread_descr self = thread_self();
@@ -245,8 +261,12 @@ void _pthread_cleanup_pop_restore(struct _pthread_cleanup_buffer * buffer,
     __pthread_do_exit(PTHREAD_CANCELED, CURRENT_STACK_FRAME);
 }
 
+strong_alias(__pthread_cleanup_pop_restore, _pthread_cleanup_pop_restore)
+
 extern void __rpc_thread_destroy(void);
-void __pthread_perform_cleanup(char *currentframe)
+void
+attribute_hidden internal_function
+__pthread_perform_cleanup(char *currentframe)
 {
   pthread_descr self = thread_self();
   struct _pthread_cleanup_buffer *c = THREAD_GETMEM(self, p_cleanup);

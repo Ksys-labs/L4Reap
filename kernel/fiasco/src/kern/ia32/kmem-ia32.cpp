@@ -95,7 +95,7 @@ IMPLEMENTATION [ia32, amd64]:
 
 #include "cpu.h"
 #include "l4_types.h"
-#include "mapped_alloc.h"
+#include "kmem_alloc.h"
 #include "mem_unit.h"
 #include "panic.h"
 #include "paging.h"
@@ -148,7 +148,7 @@ Device_map::map(Address phys, bool /*cache*/)
       | (phys & ~(~0UL << Config::SUPERPAGE_SHIFT));
 
   Address p = phys & (~0UL << Config::SUPERPAGE_SHIFT);
-  Mapped_allocator *const alloc = Mapped_allocator::allocator();
+  Kmem_alloc *const alloc = Kmem_alloc::allocator();
   for (unsigned i = 0; i < Max; ++i)
     if (_map[i] == ~0UL)
       {
@@ -156,7 +156,7 @@ Device_map::map(Address phys, bool /*cache*/)
 	    Virt_addr(Virt_base + (i*Config::SUPERPAGE_SIZE)),
 	    Virt_size(Config::SUPERPAGE_SIZE),
 	    Pt_entry::Dirty | Pt_entry::Writable | Pt_entry::Referenced,
-	    Pdir::super_level(), alloc);
+	    Pdir::super_level(), pdir_alloc(alloc));
 	_map[i] = p;
 
 	return (Virt_base + (i*Config::SUPERPAGE_SIZE))
@@ -295,8 +295,7 @@ void
 Kmem::map_phys_page(Address phys, Address virt,
                     bool cached, bool global, Address *offs=0)
 {
-  Pdir::Iter i = kdir->walk(Virt_addr(virt), 100, Mapped_allocator::allocator()
-);
+  Pdir::Iter i = kdir->walk(Virt_addr(virt), 100, pdir_alloc(Kmem_alloc::allocator()));
   Pte_base *e = i.e;
   Mword pte = phys & Config::PAGE_MASK;
 
@@ -318,7 +317,7 @@ void
 Kmem::init_mmu()
 {
   dev_map.init();
-  Mapped_allocator *const alloc = Mapped_allocator::allocator();
+  Kmem_alloc *const alloc = Kmem_alloc::allocator();
 
   kdir = (Pdir*)alloc->alloc(Config::PAGE_SHIFT);
   memset (kdir, 0, Config::PAGE_SIZE);
@@ -353,34 +352,34 @@ Kmem::init_mmu()
   // first 4MB page
   kdir->map(0, Virt_addr(0), Virt_size(4 << 20),
       Pt_entry::Dirty | Pt_entry::Writable | Pt_entry::Referenced,
-      Pdir::super_level(), alloc);
+      Pdir::super_level(), pdir_alloc(alloc));
 
 
   kdir->map(Mem_layout::Kernel_image_phys,
             Virt_addr(Mem_layout::Kernel_image),
             Virt_size(Config::SUPERPAGE_SIZE),
             Pt_entry::Dirty | Pt_entry::Writable | Pt_entry::Referenced 
-            | Pt_entry::global(), Pdir::super_level(), alloc);
+            | Pt_entry::global(), Pdir::super_level(), pdir_alloc(alloc));
 
    if (!Mem_layout::Adap_in_kernel_image)
      kdir->map(Mem_layout::Adap_image_phys,
                Virt_addr(Mem_layout::Adap_image),
                Virt_size(Config::SUPERPAGE_SIZE),
                Pt_entry::Dirty | Pt_entry::Writable | Pt_entry::Referenced 
-               | Pt_entry::global(), Pdir::super_level(), alloc);
+               | Pt_entry::global(), Pdir::super_level(), pdir_alloc(alloc));
 
   // map the last 64MB of physical memory as kernel memory
   kdir->map(Mem_layout::pmem_to_phys(Mem_layout::Physmem),
             Virt_addr(Mem_layout::Physmem), Virt_size(Mem_layout::pmem_size),
             Pt_entry::Writable | Pt_entry::Referenced | Pt_entry::global(),
-            Pdir::super_level(), alloc);
+            Pdir::super_level(), pdir_alloc(alloc));
 
   // The service page directory entry points to an universal usable
   // page table which is currently used for the Local APIC and the
   // jdb adapter page.
   assert((Mem_layout::Service_page & ~Config::SUPERPAGE_MASK) == 0);
 
-  Pdir::Iter pt = kdir->walk(Virt_addr(Mem_layout::Service_page), 100, alloc);
+  Pdir::Iter pt = kdir->walk(Virt_addr(Mem_layout::Service_page), 100, pdir_alloc(alloc));
 
   // kernel mode should acknowledge write-protected page table entries
   Cpu::set_cr0(Cpu::get_cr0() | CR0_WP);
@@ -406,7 +405,7 @@ Kmem::init_mmu()
       // can map as 4MB page because the cpu_page will land within a
       // 16-bit range from io_bitmap
       *(kdir->walk(Virt_addr(Mem_layout::Io_bitmap - Config::SUPERPAGE_SIZE),
-                   Pdir::Super_level, alloc).e)
+                   Pdir::Super_level, pdir_alloc(alloc)).e)
 	= (pmem_cpu_page & Config::SUPERPAGE_MASK)
 	| Pt_entry::Pse_bit
 	| Pt_entry::Writable | Pt_entry::Referenced
@@ -421,7 +420,7 @@ Kmem::init_mmu()
       for (i = 0; cpu_page_size > 0; ++i, cpu_page_size -= Config::PAGE_SIZE)
 	{
 	  pt = kdir->walk(Virt_addr(Mem_layout::Io_bitmap - Config::PAGE_SIZE * (i+1)),
-	                  100, alloc);
+	                  100, pdir_alloc(alloc));
 
 	  *pt.e = (pmem_cpu_page + i*Config::PAGE_SIZE)
 	          | Pt_entry::Valid | Pt_entry::Writable
@@ -432,25 +431,22 @@ Kmem::init_mmu()
       cpu_page_vm = Mem_layout::Io_bitmap - Config::PAGE_SIZE * i;
     }
 
-  if (Config::enable_io_protection)
-    {
-      // the IO bitmap must be followed by one byte containing 0xff
-      // if this byte is not present, then one gets page faults
-      // (or general protection) when accessing the last port
-      // at least on a Pentium 133.
-      //
-      // Therefore we write 0xff in the first byte of the cpu_page
-      // and map this page behind every IO bitmap
-      io_bitmap_delimiter =
-	reinterpret_cast<Unsigned8 *>(cpu_page_vm);
+    // the IO bitmap must be followed by one byte containing 0xff
+    // if this byte is not present, then one gets page faults
+    // (or general protection) when accessing the last port
+    // at least on a Pentium 133.
+    //
+    // Therefore we write 0xff in the first byte of the cpu_page
+    // and map this page behind every IO bitmap
+    io_bitmap_delimiter =
+      reinterpret_cast<Unsigned8 *>(cpu_page_vm);
 
-      cpu_page_vm += 0x10;
+    cpu_page_vm += 0x10;
 
-      // did we really get the first byte ??
-      assert((reinterpret_cast<Address>(io_bitmap_delimiter)
-	       & ~Config::PAGE_MASK) == 0);
-      *io_bitmap_delimiter = 0xff;
-    }
+    // did we really get the first byte ??
+    assert((reinterpret_cast<Address>(io_bitmap_delimiter)
+             & ~Config::PAGE_MASK) == 0);
+    *io_bitmap_delimiter = 0xff;
 }
 
 
@@ -459,7 +455,7 @@ void
 Kmem::init_cpu(Cpu &cpu)
 {
 
-  void *cpu_mem = Mapped_allocator::allocator()->unaligned_alloc(1024);
+  void *cpu_mem = Kmem_alloc::allocator()->unaligned_alloc(1024);
   printf("Allocate cpu_mem @ %p\n", cpu_mem);
   
   // now initialize the global descriptor table
@@ -475,12 +471,10 @@ Kmem::init_cpu(Cpu &cpu)
   Address tss_mem  = alloc_tss(sizeof(Tss) + 256);
   assert(tss_mem + sizeof(Tss) + 256 < Mem_layout::Io_bitmap);
   size_t tss_size;
+  tss_mem += 256;
 
-  if (Config::enable_io_protection)
-    // this is actually tss_size +1, including the io_bitmap_delimiter byte
-    tss_size = Mem_layout::Io_bitmap + (Mem_layout::Io_port_max / 8) - tss_mem;
-  else
-    tss_size = sizeof(Tss) - 1;
+  // this is actually tss_size +1, including the io_bitmap_delimiter byte
+  tss_size = Mem_layout::Io_bitmap + (Mem_layout::Io_port_max / 8) - tss_mem;
 
   assert(tss_size < 0x100000); // must fit into 20 Bits
 

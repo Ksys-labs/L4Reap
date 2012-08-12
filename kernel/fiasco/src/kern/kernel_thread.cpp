@@ -13,23 +13,16 @@ private:
    * the memory, by filling it with some invalid data and may be
    * unmapping it.
    */
-  void	free_initcall_section();
-  void	bootstrap()		asm ("call_bootstrap") FIASCO_FASTCALL;
-  void	bootstrap_arch();
-  void	run();
-  void  do_idle() __attribute__((noreturn));
+  void free_initcall_section();
+  void bootstrap() asm ("call_bootstrap") FIASCO_FASTCALL;
+  void bootstrap_arch();
+  void run();
+  void do_idle() __attribute__((noreturn));
 
 protected:
-  void	init_workload();
+  void init_workload();
 };
 
-INTERFACE [kernel_can_exit]:
-
-EXTENSION class Kernel_thread
-{
-private:
-  void  arch_exit() __attribute__((noreturn));
-};
 
 IMPLEMENTATION:
 
@@ -47,6 +40,8 @@ IMPLEMENTATION:
 #include "thread.h"
 #include "thread_state.h"
 #include "timer.h"
+#include "timer_tick.h"
+#include "watchdog.h"
 
 
 PUBLIC
@@ -66,28 +61,33 @@ Kernel_thread::bootstrap()
   // Initializations done -- Helping_lock can now use helping lock
   Helping_lock::threading_system_active = true;
 
-  state_change_dirty (0, Thread_ready);		// Set myself ready
 
   set_cpu_of(this, Cpu::boot_cpu()->id());
+  Mem::barrier();
+
+  state_change_dirty(0, Thread_ready);		// Set myself ready
+
   Timer::init_system_clock();
   Sched_context::rq(cpu()).set_idle(this->sched());
 
-  Kernel_task::kernel_task()->mem_space()->make_current();
+  Kernel_task::kernel_task()->make_current();
 
   // Setup initial timeslice
   set_current_sched(sched());
 
-  Timer::enable();
+  Timer_tick::setup(cpu()); assert (cpu() == 0); // currently the boot cpu must be 0
+  Timer_tick::enable(cpu());
+  enable_tlb(cpu());
 
   bootstrap_arch();
 
   Per_cpu_data::run_late_ctors(0);
 
   Proc::sti();
+  Watchdog::enable();
   printf("Calibrating timer loop... ");
   // Init delay loop, needs working timer interrupt
-  if (running)
-    Delay::init();
+  Delay::init();
   printf("done.\n");
 
   run();
@@ -107,15 +107,17 @@ Kernel_thread::run()
 
   kernel_context(cpu(), this);
 
+  Rcu::leave_idle(cpu());
   // init_workload cannot be an initcall, because it fires up the userland
   // applications which then have access to initcall frames as per kinfo page.
   init_workload();
 
-  do_idle();
+  for (;;)
+    idle_op();
 }
 
 // ------------------------------------------------------------------------
-IMPLEMENTATION [!arch_idle]:
+IMPLEMENTATION [!arch_idle && !tickless_idle]:
 
 PUBLIC inline NEEDS["processor.h"]
 void
@@ -127,43 +129,58 @@ Kernel_thread::idle_op()
     Proc::pause();
 }
 
-// ------------------------------------------------------------------------
-IMPLEMENTATION [!kernel_can_exit]:
-
-IMPLEMENT
-void
-Kernel_thread::do_idle()
-{
-  while (1)
-    idle_op();
-}
 
 // ------------------------------------------------------------------------
-IMPLEMENTATION [kernel_can_exit]:
+IMPLEMENTATION [tickless_idle]:
 
-IMPLEMENT
-void
-Kernel_thread::do_idle()
+#include <rcupdate.h>
+
+EXTENSION class Kernel_thread
 {
-  while (running)
+private:
+  friend class Jdb_idle_stats;
+  static Per_cpu<unsigned long> _idle_counter;
+  static Per_cpu<unsigned long> _deep_idle_counter;
+};
+
+
+DEFINE_PER_CPU Per_cpu<unsigned long> Kernel_thread::_idle_counter;
+DEFINE_PER_CPU Per_cpu<unsigned long> Kernel_thread::_deep_idle_counter;
+
+// template code for arch idle
+PUBLIC
+void
+Kernel_thread::idle_op()
+{
+  // this version must run with disabled IRQs and a wakup must continue directly
+  // after the wait for event.
+  Lock_guard<Cpu_lock> guard(&cpu_lock);
+  unsigned cpu = this->cpu();
+  ++_idle_counter.cpu(cpu);
+  // 1. check for latency requirements that prevent low power modes
+  // 2. check for timouts on this CPU ignore the idle thread's timeslice
+  // 3. check for RCU work on this cpu
+  if (Rcu::idle(cpu)
+      && !Timeout_q::timeout_queue.cpu(cpu).have_timeouts(timeslice_timeout.cpu(cpu)))
     {
-      Mem::rmb();
-      idle_op();
+      ++_deep_idle_counter.cpu(cpu);
+      Rcu::enter_idle(cpu);
+      Timer_tick::disable(cpu);
+      disable_tlb(cpu);
+
+
+      // do everything to do to a deep sleep state:
+      //  - flush tlbs
+      //  - flush caches
+      //  - ...
+      arch_tickless_idle(cpu);
+
+      enable_tlb(cpu);
+      Rcu::leave_idle(cpu);
+      Timer_tick::enable(cpu);
     }
-
-  puts ("\nExiting, wait...");
-
-  Reap_list rl;
-  Task *sigma0 = static_cast<Task *>(sigma0_task);
-  delete sigma0;
-
-  rl = Reap_list();
-  boot_task->initiate_deletion(rl.list());
-  boot_task->destroy(rl.list());
-  rl.del();
-  delete boot_task; // Nuke everything else
-
-  Helping_lock::threading_system_active = false;
-
-  arch_exit();
+  else
+    arch_idle(cpu);
 }
+
+

@@ -105,11 +105,6 @@ public:
   int cfg_read(int reg, l4_uint32_t *v, Cfg_width);
   int cfg_write(int reg, l4_uint32_t v, Cfg_width);
   int irq_enable(Irq_info *irq);
-  int bridge_cfg_read(unsigned, l4_uint32_t, int, l4_uint32_t *, Cfg_width)
-  { return -L4_ENODEV; }
-
-  int bridge_cfg_write(unsigned, l4_uint32_t, int, l4_uint32_t, Cfg_width)
-  { return -L4_ENODEV; }
 
   l4_uint32_t read_bar(int bar);
   void write_bar(int bar, l4_uint32_t v);

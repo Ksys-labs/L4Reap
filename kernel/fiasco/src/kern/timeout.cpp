@@ -1,5 +1,6 @@
 INTERFACE:
 
+#include <hlist>
 #include "l4_types.h"
 #include "per_cpu_data.h"
 
@@ -8,46 +9,14 @@ INTERFACE:
     should overwrite expired(), which will do the real work, if an
     timeout hits.
  */
-class Timeout
+class Timeout : public cxx::H_list_item
 {
   friend class Jdb_timeout_list;
   friend class Jdb_list_timeouts;
   friend class Timeout_q;
 
 public:
-  /**
-   * Timeout constructor.
-   */
-  Timeout();
-
-
-  void reset();
-
-  /**
-   * Check if timeout is set.
-   */
-  bool is_set();
-
-  /**
-   * Check if timeout has hit.
-   */
-  bool has_hit();
-
-  void set(Unsigned64 clock, unsigned cpu);
-
-  void set_again(unsigned cpu);
-
-
-  /**
-   * Return remaining time of timeout.
-   */
-  Signed64 get_timeout(Unsigned64 clock);
-
-  /**
-   * Dequeue an expired timeout.
-   * @return true if a reschedule is necessary, false otherwise.
-   */
-  bool dequeue(bool is_expired = true);
+  typedef cxx::H_list<Timeout> To_list;
 
 protected:
   /**
@@ -61,44 +30,40 @@ private:
    */
   Timeout(const Timeout&);
 
-
-
   /**
    * Overwritten timeout handler function.
    * @return true if a reschedule is necessary, false otherwise.
    */
   virtual bool expired();
 
-  struct {
-    bool     set  : 1;
+  struct
+  {
     bool     hit  : 1;
     unsigned res  : 6; // performance optimization
   } _flags;
-
-  /**
-   * Next/Previous Timeout in timer list
-   */
-  Timeout *_next, *_prev;
-
 };
 
 
 class Timeout_q
 {
-  friend class Timeout;
 private:
   /**
    * Timeout queue count (2^n) and  distance between two queues in 2^n.
    */
-  enum {
+  enum
+  {
     Wakeup_queue_count	  = 8,
     Wakeup_queue_distance = 12 // i.e. (1<<12)us
   };
 
+  typedef Timeout::To_list To_list;
+  typedef To_list::Iterator Iterator;
+  typedef To_list::Const_iterator Const_iterator;
+
   /**
    * The timeout queues.
    */
-  Timeout _q[Wakeup_queue_count];
+  To_list _q[Wakeup_queue_count];
 
   /**
    * The current programmed timeout.
@@ -106,26 +71,11 @@ private:
   Unsigned64 _current;
   Unsigned64 _old_clock;
 
-
-public:
-  /**
-   * Enqueue a new timeout.
-   */
-  void enqueue(Timeout *to);
-
-  Timeout* first(int index = 0);
-
-  /**
-   * Handles the timeouts, i.e. call expired() for the expired timeouts
-   * and programs the "oneshot timer" to the next timeout.
-   * @return true if a reschedule is necessary, false otherwise.
-   */
-  bool do_timeouts();
-
 public:
   static Per_cpu<Timeout_q> timeout_queue;
 };
 
+//----------------------------------------------------------------------------------
 IMPLEMENTATION:
 
 #include <cassert>
@@ -139,40 +89,42 @@ IMPLEMENTATION:
 #include "kdb_ke.h"
 
 
-Per_cpu<Timeout_q> Timeout_q::timeout_queue DEFINE_PER_CPU;
+DEFINE_PER_CPU Per_cpu<Timeout_q> Timeout_q::timeout_queue;
 
 
-IMPLEMENT inline
-Timeout*
+PUBLIC inline
+Timeout_q::To_list &
 Timeout_q::first(int index)
-{ return _q + (index & (Wakeup_queue_count-1)); }
+{ return _q[index & (Wakeup_queue_count-1)]; }
+
+PUBLIC inline
+Timeout_q::To_list const &
+Timeout_q::first(int index) const
+{ return _q[index & (Wakeup_queue_count-1)]; }
+
+PUBLIC inline
+unsigned
+Timeout_q::queues() const { return Wakeup_queue_count; }
 
 
-
-/* Hazelnut uses an unsortet queue, this is fast in enqueuing and dequeue,
-   but slow in finding the next programmable timeout.
-*/
-IMPLEMENT inline NEEDS["timer.h", "config.h"]
+/**
+ * Enqueue a new timeout.
+ */
+PUBLIC inline NEEDS[Timeout_q::first, "timer.h", "config.h"]
 void
 Timeout_q::enqueue(Timeout *to)
 {
   int queue = (to->_wakeup >> Wakeup_queue_distance) & (Wakeup_queue_count-1);
 
-  to->_flags.set = 1;
+  To_list &q = first(queue);
+  Iterator tmp = q.begin();
 
-  Timeout *tmp = first(queue);
+  while (tmp != q.end() && tmp->_wakeup < to->_wakeup)
+    ++tmp;
 
-  while (tmp->_next != first(queue+1) && tmp->_next->_wakeup < to->_wakeup)
-    tmp = tmp->_next;
+  q.insert_before(to, tmp);
 
-  to->_next = tmp->_next;
-  tmp->_next = to;
-
-  to->_prev = tmp;
-  to->_next->_prev = to;
-
-
-  if (Config::scheduler_one_shot && (to->_wakeup <= _current))
+  if (Config::Scheduler_one_shot && (to->_wakeup <= _current))
     {
       _current = to->_wakeup;
       Timer::update_timer(_current);
@@ -180,11 +132,14 @@ Timeout_q::enqueue(Timeout *to)
 }
 
 
-IMPLEMENT inline
+/**
+ * Timeout constructor.
+ */
+PUBLIC inline
 Timeout::Timeout()
 {
-  _flags.set  = _flags.hit = 0;
-  _flags.res  = 0;
+  _flags.hit = 0;
+  _flags.res = 0;
 }
 
 
@@ -195,7 +150,6 @@ PUBLIC inline  NEEDS[<climits>]
 void
 Timeout::init()
 {
-  _next = _prev = this;
   _wakeup = ULONG_LONG_MAX;
 }
 
@@ -209,14 +163,20 @@ Timeout::expired()
   return false;
 }
 
-IMPLEMENT inline
+/**
+ * Check if timeout is set.
+ */
+PUBLIC inline
 bool
 Timeout::is_set()
 {
-  return _flags.set;
+  return To_list::in_list(this);
 }
 
-IMPLEMENT inline
+/**
+ * Check if timeout has hit.
+ */
+PUBLIC inline
 bool
 Timeout::has_hit()
 {
@@ -224,8 +184,8 @@ Timeout::has_hit()
 }
 
 
-IMPLEMENT inline NEEDS [<cassert>, "cpu_lock.h", "lock_guard.h",
-			Timeout_q::enqueue, Timeout::is_set]
+PUBLIC inline NEEDS [<cassert>, "cpu_lock.h", "lock_guard.h",
+                     Timeout_q::enqueue, Timeout::is_set]
 void
 Timeout::set(Unsigned64 clock, unsigned cpu)
 {
@@ -238,15 +198,18 @@ Timeout::set(Unsigned64 clock, unsigned cpu)
   Timeout_q::timeout_queue.cpu(cpu).enqueue(this);
 }
 
-IMPLEMENT inline
+/**
+ * Return remaining time of timeout.
+ */
+PUBLIC inline
 Signed64
 Timeout::get_timeout(Unsigned64 clock)
 {
   return _wakeup - clock;
 }
 
-IMPLEMENT inline NEEDS [<cassert>, "cpu_lock.h", "lock_guard.h",
-                        Timeout::is_set, Timeout_q::enqueue, Timeout::has_hit]
+PUBLIC inline NEEDS [<cassert>, "cpu_lock.h", "lock_guard.h",
+                     Timeout::is_set, Timeout_q::enqueue, Timeout::has_hit]
 void
 Timeout::set_again(unsigned cpu)
 {
@@ -260,43 +223,52 @@ Timeout::set_again(unsigned cpu)
   Timeout_q::timeout_queue.cpu(cpu).enqueue(this);
 }
 
-IMPLEMENT inline NEEDS ["cpu_lock.h", "lock_guard.h", "timer.h",
-			"kdb_ke.h", Timeout::is_set]
+PUBLIC inline NEEDS ["cpu_lock.h", "lock_guard.h", "timer.h",
+                     "kdb_ke.h", Timeout::is_set]
 void
 Timeout::reset()
 {
   assert_kdb (cpu_lock.test());
-  if (EXPECT_FALSE(!is_set()))
-    return;			// avoid lock overhead if not set
-
-  _next->_prev = _prev;
-  _prev->_next = _next;
-
-  _flags.set = 0;
+  To_list::remove(this);
 
   // Normaly we should reprogramm the timer in one shot mode
   // But we let the timer interrupt handler to do this "lazily", to save cycles
 }
 
-IMPLEMENT inline
+/**
+ * Dequeue an expired timeout.
+ * @return true if a reschedule is necessary, false otherwise.
+ */
+PRIVATE inline
 bool
-Timeout::dequeue(bool is_expired)
+Timeout::expire()
 {
-  // XXX assume we run kernel-locked
-
-  _next->_prev = _prev;
-  _prev->_next = _next;
+  _flags.hit = 1;
+  return expired();
+}
+/**
+ * Dequeue an expired timeout.
+ * @return true if a reschedule is necessary, false otherwise.
+ */
+PUBLIC inline
+bool
+Timeout::dequeue(bool is_expired = true)
+{
+  To_list::remove(this);
 
   if (is_expired)
-    _flags.hit = 1;
-
-  _flags.set = 0;
-
-  return is_expired ? expired() : false;
+    return expire();
+  else
+    return false;
 }
 
-IMPLEMENT inline NEEDS [<cassert>, <climits>, "kip.h", "timer.h", "config.h",
-			Timeout::dequeue]
+/**
+ * Handles the timeouts, i.e. call expired() for the expired timeouts
+ * and programs the "oneshot timer" to the next timeout.
+ * @return true if a reschedule is necessary, false otherwise.
+ */
+PUBLIC inline NEEDS [<cassert>, <climits>, "kip.h", "timer.h", "config.h",
+                     Timeout::expire]
 bool
 Timeout_q::do_timeouts()
 {
@@ -332,22 +304,15 @@ Timeout_q::do_timeouts()
 
   for (;;)
     {
-      Timeout *timeout = first(start)->_next;
+      To_list &q = first(start);
+      Iterator timeout = q.begin();
 
       // now scan this queue for timeouts below current clock
-      while ((timeout != first(start+1)))
-	{
-	  Timeout *tmp = timeout->_next;
-
-	  if (!timeout->_wakeup || timeout->_wakeup > (Kip::k()->clock))
-	    break;
-
-
-	  if (timeout->dequeue())
-	    reschedule = true;
-
-	  timeout = tmp;
-	}
+      while (timeout != q.end() && timeout->_wakeup <= (Kip::k()->clock))
+        {
+          reschedule |= timeout->expire();
+          timeout = q.erase(timeout);
+        }
 
       // next queue
       start = (start + 1) & (Wakeup_queue_count - 1);
@@ -356,7 +321,7 @@ Timeout_q::do_timeouts()
 	break;
     }
 
-  if (Config::scheduler_one_shot)
+  if (Config::Scheduler_one_shot)
     {
       // scan all queues for the next minimum
       //_current = (Unsigned64) ULONG_LONG_MAX;
@@ -366,13 +331,13 @@ Timeout_q::do_timeouts()
       for (int i = 0; i < Wakeup_queue_count; i++)
 	{
 	  // make sure that something enqueued other than the dummy element
-	  if (first(i)->_next == first(i+1))
+	  if (first(i).empty())
 	    continue;
 
 	  update_timer = true;
 
-	  if (first(i)->_next->_wakeup < _current)
-	    _current =  first(i)->_next->_wakeup;
+	  if (first(i).front()->_wakeup < _current)
+	    _current =  first(i).front()->_wakeup;
 	}
 
       if (update_timer)
@@ -382,26 +347,28 @@ Timeout_q::do_timeouts()
   return reschedule;
 }
 
-
 PUBLIC inline
-bool Timeout_q::is_root_node(Address addr)
-{
-  if ((addr >= (Address) &_q) && (addr <= (Address)&_q + sizeof(_q)))
-    return true;
-  return false;
-}
-
-
-PUBLIC inline NEEDS[Timeout_q::first]
 Timeout_q::Timeout_q()
 : _current(ULONG_LONG_MAX), _old_clock(0)
+{}
+
+PUBLIC inline
+bool
+Timeout_q::have_timeouts(Timeout const *ignore) const
 {
-  for (int i=0; i< Wakeup_queue_count; i++)
+  for (unsigned i = 0; i < Wakeup_queue_count; ++i)
     {
-      Timeout *t = _q + i;
-      t->_next = first(i+1);
-      t->_prev = first(i-1);
-      t->_wakeup =  0;
+      To_list const &t = first(i);
+      if (!t.empty())
+        {
+          To_list::Const_iterator f = t.begin();
+          if (*f == ignore && (++f) == t.end())
+            continue;
+
+          return true;
+        }
     }
+
+  return false;
 }
 

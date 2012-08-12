@@ -21,7 +21,7 @@ void init_io_ports(l4_kernel_info_t * /*info*/)
 
 void handle_io_page_fault(l4_umword_t /*t*/, l4_utcb_t * /*utcb*/, Answer *a)
 {
-  a->clear();
+  a->error(L4_EINVAL);
 }
 
 void dump_io_ports()

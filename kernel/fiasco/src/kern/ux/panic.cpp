@@ -16,15 +16,15 @@ IMPLEMENTATION:
 #include <cstdlib>
 
 EXT_DECL __attribute__ ((noreturn))
-void panic (const char *format, ...) {
-
+void panic(const char *format, ...)
+{
   va_list pvar;
 
-  va_start (pvar, format);
-  vprintf  (format, pvar);
-  va_end   (pvar);
+  printf("\033[1mPanic: ");
+  va_start(pvar, format);
+  vprintf(format, pvar);
+  va_end(pvar);
+  puts("\033[m\n");
 
-  putchar ('\n');
- 
-  exit (EXIT_FAILURE);
+  exit(EXIT_FAILURE);
 }

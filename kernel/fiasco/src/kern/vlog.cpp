@@ -4,7 +4,7 @@ INTERFACE:
 
 class Irq;
 
-class Vlog : public Icu_h<Vlog>
+class Vlog : public Icu_h<Vlog>, public Irq_chip_soft
 {
   FIASCO_DECLARE_KOBJ();
 public:
@@ -28,7 +28,7 @@ public:
   };
 
 private:
-  Irq *_irq;
+  Irq_base *_irq;
   Mword _i_flags;
   Mword _o_flags;
   Mword _l_flags;
@@ -45,38 +45,13 @@ IMPLEMENTATION:
 #include "irq.h"
 #include "irq_controller.h"
 
-class Vlog_irq_pin : public Sw_irq_pin
-{};
-
-
-PUBLIC inline explicit
-Vlog_irq_pin::Vlog_irq_pin(Vlog *i)
-{ payload()[0] = Mword(i); }
-
-PUBLIC inline
-Vlog *
-Vlog_irq_pin::vlog() const
-{ return (Vlog*)payload()[0]; }
-
-
-PUBLIC
-void
-Vlog_irq_pin::unbind_irq()
-{
-  Vlog *l = vlog();
-  if (l)
-    l->unbind_irq();
-
-  replace<Sw_irq_pin>();
-}
-
 
 FIASCO_DEFINE_KOBJ(Vlog);
 
 PUBLIC
 Vlog::Vlog()
 : _irq(0),
-  _i_flags(F_ICRNL), _o_flags(F_ONLRET | F_OCRNL), _l_flags(F_ECHO)
+  _i_flags(F_ICRNL), _o_flags(F_ONLCR), _l_flags(F_ECHO)
 {
   Vkey::set_echo(Vkey::Echo_crnl);
   // CAP idx 5 is the initial kernel stream
@@ -89,13 +64,6 @@ Vlog::operator delete (void *)
   printf("WARNING: tried to delete kernel Vlog object.\n");
 }
 
-PUBLIC
-void
-Vlog::unbind_irq()
-{
-  _irq = 0;
-  Vkey::irq(0);
-}
 
 PRIVATE inline NOEXPORT
 void
@@ -113,8 +81,11 @@ Vlog::log_string(Syscall_frame *f, Utcb const *u)
     {
       int c = *str++;
 
+      // the kernel does this anyway
+#if 0
       if (_o_flags & F_ONLCR && c == '\n')
 	putchar('\r');
+#endif
 
       if (_o_flags & F_OCRNL && c == '\r')
 	c = '\n';
@@ -166,6 +137,15 @@ Vlog::get_input(Mword rights, Syscall_frame *f, Utcb *u)
 }
 
 PUBLIC
+void
+Vlog::bind(Irq_base *irq, Mword irqnum)
+{
+  Irq_chip_soft::bind(irq, irqnum);
+  _irq = irq;
+  Vkey::irq(irq);
+}
+
+PUBLIC
 L4_msg_tag
 Vlog::icu_bind_irq(Irq *irq_o, unsigned irqnum)
 {
@@ -173,12 +153,9 @@ Vlog::icu_bind_irq(Irq *irq_o, unsigned irqnum)
     return commit_result(-L4_err::EInval);
 
   if (_irq)
-    _irq->pin()->unbind_irq();
+    _irq->unbind();
 
-  irq_o->pin()->unbind_irq();
-  irq_o->pin()->replace<Vlog_irq_pin>(this);
-  _irq = irq_o;
-  Vkey::irq(irq_o);
+  bind(irq_o, irqnum);
   return commit_result(0);
 }
 
@@ -188,7 +165,7 @@ L4_msg_tag
 Vlog::set_attr(Mword, Syscall_frame const *, Utcb const *u)
 {
   _i_flags = u->values[1];
-  _o_flags = u->values[2];
+  _o_flags = u->values[2] | F_ONLCR;
   _l_flags = u->values[3];
   Vkey::set_echo((!(_l_flags & F_ECHO))
                   ? Vkey::Echo_off

@@ -260,8 +260,10 @@ exception_vector:
 /* locations to pass lr and spsr from one mode to the other
    these are globally shared !!! */
 .section	.excp.text,"xa"
+#if !defined(CONFIG_ARM_V6PLUS)
 s_lr:	.word	0
 s_spsr:	.word	0
+#endif
 
 /***************************************************************************
 **
@@ -535,9 +537,7 @@ irq_entry:
         msr	cpsr_c, #0xd3 // disable IRQs
 	add	sp, sp, #20
 	return_from_exception
-#if 1	
 1:	.word	irq_handler
-#endif
 
 
 /******************************************************************************
@@ -558,9 +558,7 @@ fiq_entry:
 	msr	cpsr_c, #0xd3 // disable IRQs
 	add	sp, sp, #20
 	return_from_exception
-#if 1	
 1:	.word	irq_handler
-#endif
 
 
 /**************************************************************************/

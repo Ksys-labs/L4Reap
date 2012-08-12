@@ -1,10 +1,8 @@
-
-/* A Bison parser, made by GNU Bison 2.4.1.  */
+/* A Bison parser, made by GNU Bison 2.5.  */
 
 /* Skeleton interface for Bison LALR(1) parsers in C++
    
-      Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software
-   Foundation, Inc.
+      Copyright (C) 2002-2011 Free Software Foundation, Inc.
    
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -45,63 +43,23 @@
 
 #include "vdevice.h"
 #include "device.h"
+#include "expression.h"
 #include "hw_device.h"
 #include <vector>
 #include <l4/cxx/string>
 #include "vbus_factory.h"
-
-struct Const_expression
-{
-  unsigned type;
-  union {
-    l4_uint64_t num;
-
-    struct {
-      l4_uint64_t s;
-      l4_uint64_t e;
-    } range;
-
-    struct {
-      char const *s;
-      char const *e;
-    } str;
-  } val;
-};
-
-
-typedef std::vector<Hw::Device*> Dev_list;
-typedef std::vector<Const_expression> Const_expression_list;
+#include "tagged_parameter.h"
 
 
 
 
 /* Line 35 of lalr1.cc  */
-#line 80 "cfg_parser.tab.hh"
+#line 58 "cfg_parser.tab.hh"
 
 
 #include <string>
 #include <iostream>
 #include "stack.hh"
-
-
-/* Line 35 of lalr1.cc  */
-#line 1 "[Bison:b4_percent_define_default]"
-
-namespace cfg {
-
-/* Line 35 of lalr1.cc  */
-#line 94 "cfg_parser.tab.hh"
-  class position;
-  class location;
-
-/* Line 35 of lalr1.cc  */
-#line 1 "[Bison:b4_percent_define_default]"
-
-} // cfg
-
-/* Line 35 of lalr1.cc  */
-#line 104 "cfg_parser.tab.hh"
-
 #include "location.hh"
 
 /* Enabling traces.  */
@@ -122,33 +80,11 @@ namespace cfg {
 # define YYTOKEN_TABLE 0
 #endif
 
-/* YYLLOC_DEFAULT -- Set CURRENT to span from RHS[1] to RHS[N].
-   If N is 0, then set CURRENT to the empty location which ends
-   the previous symbol: RHS[0] (always defined).  */
-
-#ifndef YYLLOC_DEFAULT
-# define YYLLOC_DEFAULT(Current, Rhs, N)		\
-do {							\
-  if (N)						\
-    {							\
-      (Current).begin = (Rhs)[1].begin;			\
-      (Current).end   = (Rhs)[N].end;			\
-    }							\
-  else							\
-    {							\
-      (Current).begin = (Current).end = (Rhs)[0].end;	\
-    }							\
-} while (false)
-#endif
-
-
-/* Line 35 of lalr1.cc  */
-#line 1 "[Bison:b4_percent_define_default]"
 
 namespace cfg {
 
 /* Line 35 of lalr1.cc  */
-#line 152 "cfg_parser.tab.hh"
+#line 88 "cfg_parser.tab.hh"
 
   /// A Bison parser.
   class Parser
@@ -160,24 +96,22 @@ namespace cfg {
     {
 
 /* Line 35 of lalr1.cc  */
-#line 72 "cfg_parser.yy"
+#line 52 "cfg_parser.yy"
 
     l4_uint64_t num;
     struct {
       char const *s;
       char const *e;
     } str;
+    Tagged_parameter *param;
+    Expression *expr;
     Vi::Device *device;
     Hw::Device *hw_device;
-    Dev_list *dev_list;
-    Adr_resource *resource;
-    Const_expression const_expression;
-    Const_expression_list *const_expr_list;
 
 
 
 /* Line 35 of lalr1.cc  */
-#line 181 "cfg_parser.tab.hh"
+#line 115 "cfg_parser.tab.hh"
     };
 #else
     typedef YYSTYPE semantic_type;
@@ -273,6 +207,14 @@ namespace cfg {
     /// The location stack.
     location_stack_type yylocation_stack_;
 
+    /// Whether the given \c yypact_ value indicates a defaulted state.
+    /// \param yyvalue   the value to check
+    static bool yy_pact_value_is_default_ (int yyvalue);
+
+    /// Whether the given \c yytable_ value indicates a syntax error.
+    /// \param yyvalue   the value to check
+    static bool yy_table_value_is_error_ (int yyvalue);
+
     /// Internal symbol numbers.
     typedef unsigned char token_number_type;
     /* Tables.  */
@@ -280,7 +222,7 @@ namespace cfg {
     static const signed char yypact_[];
     static const signed char yypact_ninf_;
 
-    /// For a state, default rule to reduce.
+    /// For a state, default reduction number.
     /// Unless\a  yytable_ specifies something else to do.
     /// Zero means the default is an error.
     static const unsigned char yydefact_[];
@@ -311,10 +253,8 @@ namespace cfg {
     static const char* const yytname_[];
 #endif
 
-#if YYERROR_VERBOSE
     /// Convert the symbol name \a n to a form suitable for a diagnostic.
-    virtual std::string yytnamerr_ (const char *n);
-#endif
+    static std::string yytnamerr_ (const char *n);
 
 #if YYDEBUG
     /// A type to store symbol numbers and -1.
@@ -373,13 +313,10 @@ namespace cfg {
     Hw::Device *_hw_root;
   };
 
-/* Line 35 of lalr1.cc  */
-#line 1 "[Bison:b4_percent_define_default]"
-
 } // cfg
 
 /* Line 35 of lalr1.cc  */
-#line 383 "cfg_parser.tab.hh"
+#line 320 "cfg_parser.tab.hh"
 
 
 

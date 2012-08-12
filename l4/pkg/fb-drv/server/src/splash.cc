@@ -18,7 +18,6 @@
 
 void splash_display(L4Re::Video::View::Info *fb_info, l4_addr_t fbaddr)
 {
-
   if (fb_info->width < SPLASHNAME.width)
     return;
   if (fb_info->height < SPLASHNAME.height)
@@ -39,6 +38,7 @@ void splash_display(L4Re::Video::View::Info *fb_info, l4_addr_t fbaddr)
               + off_x * fb_info->pixel_info.bytes_per_pixel();
   char *a;
   unsigned x;
+
   for (unsigned y = 0; y < SPLASHNAME.height;
        ++y, _fb += fb_info->bytes_per_line)
     for (x = 0, a = _fb; x < SPLASHNAME.width;
@@ -53,12 +53,12 @@ void splash_display(L4Re::Video::View::Info *fb_info, l4_addr_t fbaddr)
         v |= (((valg <<  8) >> (16 - fb_info->pixel_info.g().size())) & ((1 << fb_info->pixel_info.g().size()) - 1)) << fb_info->pixel_info.g().shift();
         v |= (((valb << 16) >> (24 - fb_info->pixel_info.b().size())) & ((1 << fb_info->pixel_info.b().size()) - 1)) << fb_info->pixel_info.b().shift();
 
-        switch (fb_info->pixel_info.bits_per_pixel())
+        switch (fb_info->pixel_info.bytes_per_pixel())
           {
-          case 8: *(unsigned char  *)a= v; break;
-          case 15:
-          case 16: *(unsigned short *)a = v; break;
-          case 32: *(unsigned int   *)a = v; break;
+          case 1: *(unsigned char  *)a = v; break;
+          case 2: *(unsigned short *)a = v; break;
+          case 3: memcpy(a, &v, 3); break;
+          case 4: *(unsigned int   *)a = v; break;
           };
 
         buf_idx += SPLASHNAME.bytes_per_pixel;

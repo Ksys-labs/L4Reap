@@ -1,30 +1,24 @@
 IMPLEMENTATION [realview && (!(mpcore || armca9) || realview_pbx)]:
 
-#include "arm/uart_pl011.h"
-
-IMPLEMENT L4::Uart *Uart::uart()
-{
-  static L4::Uart_pl011 uart(44, 44);
-  return &uart;
-}
+IMPLEMENT int Uart::irq() const { return 44; }
 
 IMPLEMENTATION [realview && (mpcore || armca9) && !realview_pbx && !realview_vexpress]:
 
-#include "arm/uart_pl011.h"
-
-IMPLEMENT L4::Uart *Uart::uart()
-{
-  static L4::Uart_pl011 uart(36, 36);
-  return &uart;
-}
+IMPLEMENT int Uart::irq() const { return 36; }
 
 IMPLEMENTATION [realview && realview_vexpress]:
 
-#include "arm/uart_pl011.h"
+IMPLEMENT int Uart::irq() const { return 37; }
+
+IMPLEMENTATION: // --------------------------------------------------------
+
+#include "mem_layout.h"
+#include "uart_pl011.h"
+
+IMPLEMENT Address Uart::base() const { return Mem_layout::Uart_base; }
 
 IMPLEMENT L4::Uart *Uart::uart()
 {
-  static L4::Uart_pl011 uart(37, 37);
+  static L4::Uart_pl011 uart;
   return &uart;
 }
-

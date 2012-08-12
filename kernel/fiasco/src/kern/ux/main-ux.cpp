@@ -33,7 +33,7 @@ int boot_ap_cpu(unsigned _cpu)
   Idt::load();
   //Utcb_init::init_ap(cpu);
 
-  //Timer::init();
+  //Timer::init(_cpu);
 
   // caution: no stack variables in this function because we're going
   // to change the stack pointer!

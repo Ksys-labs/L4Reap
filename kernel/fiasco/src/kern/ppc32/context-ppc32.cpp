@@ -26,6 +26,8 @@ void
 Context::fill_user_state()
 {}
 
+PROTECTED inline void Context::arch_setup_utcb_ptr() {}
+
 IMPLEMENT inline
 void
 Context::switch_cpu(Context *t)
@@ -33,7 +35,7 @@ Context::switch_cpu(Context *t)
   unsigned long dummy1, dummy2, dummy3;
 
 //  printf("Switch %p -> %p (sp %p -> %p)\n", this, t, _kernel_sp, t->_kernel_sp);
-#warning FIXIT: switchin_context_label needs a Context* parameter (old Context *)
+//  WARNING: switchin_context_label needs a Context* parameter (old Context *)
   asm volatile (" lis    %%r5, 1f@ha                \n"
 		" addi   %%r5, %%r5, 1f@l           \n"
 

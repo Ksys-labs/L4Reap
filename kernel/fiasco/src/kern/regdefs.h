@@ -16,7 +16,7 @@
 #define CR0_NW          0x20000000      // Not Write-Through
 #define CR0_CD          0x40000000      // Cache Disable
 #define CR0_PG          0x80000000      // Paging
-        
+
 #define CR3_PWT         0x00000008      // Page-Level Write Transparent
 #define CR3_PCD         0x00000010      // Page-Level Cache Disable
 
@@ -32,6 +32,7 @@
 #define CR4_OSFXSR      0x00000200      // OS Supports FXSAVE/FXRSTOR
 #define CR4_OSXMMEXCPT  0x00000400      // OS Supports SIMD Exceptions
 #define CR4_VMXE        0x00002000      // VMX enable
+#define CR4_OSXSAVE     0x00040000      // OS Support XSAVE
 
 #define EFLAGS_CF       0x00000001      // Carry Flag
 #define EFLAGS_PF       0x00000004      // Parity Flag
@@ -91,9 +92,18 @@
 #define FEATX_VMX       0x00000020      // Virtual Machine Extensions
 #define FEATX_EST       0x00000080      // Enhanced SpeedStep Technology
 #define FEATX_TM2       0x00000100      // Thermal Monitor 2
+#define FEATX_SSSE3     0x00000200      // SSSE3
 #define FEATX_CID       0x00000400      // L1 Context ID (adaptive/shared)
 #define FEATX_CX16      0x00002000      // CMPXCHG16B Instruction
 #define FEATX_XTPR      0x00004000      // Disable Task Priority Messages
+#define FEATX_PCID      0x00020000      // PCID
+#define FEATX_SSE4_1    0x00080000      // SSE4_1
+#define FEATX_SSE4_2    0x00100000      // SSE4_2
+#define FEATX_X2APIC    0x00200000      // x2APIC
+#define FEATX_AES       0x02000000      // AES instructions
+#define FEATX_XSAVE     0x04000000      // XSAVE
+#define FEATX_OSXSAVE   0x08000000      // OSXSAVE
+#define FEATX_AVX       0x10000000      // AVX
 
 // AMD: CPU Feature Flags, Fn80000001_ECX
 #define FEATA_SVM	0x00000004
@@ -118,6 +128,7 @@
 
 // Model Specific Registers
 #define MSR_TSC              0x010      // Time Stamp Counter
+#define MSR_IA32_FEATURE_CONTROL 0x03a  // Control Features in Intel 64 Processor
 #define MSR_SYSENTER_CS      0x174      // Kernel Code Segment
 #define MSR_SYSENTER_ESP     0x175      // Kernel Syscall Entry
 #define MSR_SYSENTER_EIP     0x176      // Kernel Stack Pointer
@@ -141,6 +152,8 @@
 #define MSR_LSTAR       0xc0000082      // EIP for Syscall (64Bit-Mode)
 #define MSR_CTAR        0xc0000083      // EIP for Syscall (Comp-Mode)
 #define MSR_SFMASK      0xc0000084      // RFLAGS for Syscall
+#define MSR_FS_BASE     0xc0000100      // FS-Base
+#define MSR_GS_BASE     0xc0000101      // GS-Base
 #define MSR_VM_CR       0xc0010114      // SVM
 #define MSR_VM_HSAVE_PA 0xc0010117      // SVM host state-save area
 

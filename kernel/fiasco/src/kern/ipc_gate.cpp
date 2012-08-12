@@ -3,7 +3,7 @@ INTERFACE:
 #include "kobject.h"
 #include "kobject_helper.h"
 #include "ref_ptr.h"
-#include "slab_cache_anon.h"
+#include "slab_cache.h"
 #include "thread_object.h"
 
 class Ram_quota;
@@ -23,6 +23,7 @@ private:
 class Ipc_gate : public Kobject
 {
   friend class Ipc_gate_ctl;
+  friend class Jdb_sender_list;
 protected:
 
   Ref_ptr<Thread> _thread;
@@ -37,7 +38,7 @@ class Ipc_gate_obj : public Ipc_gate, public Ipc_gate_ctl
 
 private:
   friend class Ipc_gate;
-  typedef slab_cache_anon Self_alloc;
+  typedef Slab_cache Self_alloc;
 
 public:
   bool put() { return Ipc_gate::put(); }
@@ -45,7 +46,7 @@ public:
   Thread *thread() const { return _thread.ptr(); }
   Mword id() const { return _id; }
   Mword obj_id() const { return _id; }
-  bool is_local(Space *s) const { return _thread->space() == s; }
+  bool is_local(Space *s) const { return _thread && _thread->space() == s; }
 };
 
 //---------------------------------------------------------------------------
@@ -69,6 +70,7 @@ IMPLEMENTATION:
 
 #include <cstddef>
 
+#include "assert_opt.h"
 #include "entry_frame.h"
 #include "ipc_timeout.h"
 #include "kmem_slab.h"
@@ -110,13 +112,13 @@ PUBLIC
 void
 Ipc_gate_obj::unblock_all()
 {
-  while (::Prio_list_elem *h = _wait_q.head())
+  while (::Prio_list_elem *h = _wait_q.first())
     {
       Lock_guard<Cpu_lock> g1(&cpu_lock);
       Thread *w;
 	{
-	  Lock_guard<typeof(_wait_q)> g2(&_wait_q);
-	  if (EXPECT_FALSE(h != _wait_q.head()))
+	  Lock_guard<decltype(_wait_q.lock())> g2(_wait_q.lock());
+	  if (EXPECT_FALSE(h != _wait_q.first()))
 	    continue;
 
 	  w = static_cast<Thread*>(Sender::cast(h));
@@ -153,7 +155,7 @@ Ipc_gate_obj::~Ipc_gate_obj()
 
 PUBLIC inline NEEDS[<cstddef>]
 void *
-Ipc_gate_obj::operator new (size_t, void *b)
+Ipc_gate_obj::operator new (size_t, void *b) throw()
 { return b; }
 
 static Kmem_slab_t<Ipc_gate_obj> _ipc_gate_allocator("Ipc_gate");
@@ -167,16 +169,17 @@ PUBLIC static
 Ipc_gate_obj *
 Ipc_gate::create(Ram_quota *q, Thread *t, Mword id)
 {
-  void *nq;
-  if (q->alloc(sizeof(Ipc_gate_obj)))
-    {
-      if (nq = Ipc_gate_obj::allocator()->alloc())
-	return new (nq) Ipc_gate_obj(q, t, id);
-      else
-	q->free(sizeof(Ipc_gate_obj));
-    }
+  Auto_quota<Ram_quota> quota(q, sizeof(Ipc_gate_obj));
 
-  return 0;
+  if (EXPECT_FALSE(!quota))
+    return 0;
+
+  void *nq = Ipc_gate_obj::allocator()->alloc();
+  if (EXPECT_FALSE(!nq))
+    return 0;
+
+  quota.release();
+  return new (nq) Ipc_gate_obj(q, t, id);
 }
 
 PUBLIC
@@ -185,13 +188,12 @@ void Ipc_gate_obj::operator delete (void *_f)
   register Ipc_gate_obj *f = (Ipc_gate_obj*)_f;
   Ram_quota *p = f->_quota;
 
+  allocator()->free(f);
   if (p)
     p->free(sizeof(Ipc_gate_obj));
-
-  allocator()->free(f);
 }
 
-PRIVATE inline NOEXPORT
+PRIVATE inline NOEXPORT NEEDS["assert_opt.h"]
 L4_msg_tag
 Ipc_gate_ctl::bind_thread(L4_obj_ref, Mword, Syscall_frame *f, Utcb const *in, Utcb *)
 {
@@ -206,10 +208,11 @@ Ipc_gate_ctl::bind_thread(L4_obj_ref, Mword, Syscall_frame *f, Utcb const *in, U
     return commit_error(in, L4_error::Overflow);
 
   register Context *const c_thread = ::current();
+  assert_opt(c_thread);
   register Space *const c_space = c_thread->space();
-  register Obj_space *const o_space = c_space->obj_space();
+  assert_opt (c_space);
   unsigned char t_rights = 0;
-  Thread *t = Kobject::dcast<Thread_object*>(o_space->lookup_local(bind_thread.obj_index(), &t_rights));
+  Thread *t = Kobject::dcast<Thread_object*>(c_space->lookup_local(bind_thread.obj_index(), &t_rights));
 
   if (!(t_rights & L4_fpage::CS))
     return commit_result(-L4_err::EPerm);
@@ -283,8 +286,8 @@ Ipc_gate::block(Thread *ct, L4_timeout const &to, Utcb *u)
     }
 
     {
-      Lock_guard<typeof(_wait_q)> g(&_wait_q);
-      ct->wait_queue(&_wait_q);
+      Lock_guard<decltype(_wait_q.lock())> g(_wait_q.lock());
+      ct->set_wait_queue(&_wait_q);
       ct->sender_enqueue(&_wait_q, ct->sched_context()->prio());
     }
   ct->state_change_dirty(~Thread_ready, Thread_send_wait);
@@ -303,7 +306,7 @@ Ipc_gate::block(Thread *ct, L4_timeout const &to, Utcb *u)
 
   if (EXPECT_FALSE(ct->in_sender_list() && timeout.has_hit()))
     {
-      Lock_guard<typeof(_wait_q)> g(&_wait_q);
+      Lock_guard<decltype(_wait_q.lock())> g(_wait_q.lock());
       if (!ct->in_sender_list())
 	return L4_error::None;
 

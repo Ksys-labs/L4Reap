@@ -65,9 +65,9 @@ enum l4_msgtag_protocol
   L4_PROTO_LOG           = -13L, ///< Protocol for messages to a log object
   L4_PROTO_SCHEDULER     = -14L, ///< Protocol for messages to a scheduler object
   L4_PROTO_FACTORY       = -15L, ///< Protocol for messages to a factory object
-  L4_PROTO_VM            = -16L,
-  L4_PROTO_SEMAPHORE     = -20L,
-  L4_PROTO_META          = -21L,
+  L4_PROTO_VM            = -16L, ///< Protocol for messages to a virtual machine object
+  L4_PROTO_DEBUGGER      = -17L,
+  L4_PROTO_META          = -21L, ///< Meta information protocol
 };
 
 enum L4_varg_type
@@ -366,8 +366,9 @@ L4_INLINE
 l4_msgtag_t l4_msgtag(long label, unsigned words, unsigned items,
                       unsigned flags) L4_NOTHROW
 {
-  return (l4_msgtag_t){(label << 16) | (words & 0x3f) | ((items & 0x3f) << 6)
-                       | (flags & 0xf000)};
+  return (l4_msgtag_t){(label << 16) | (l4_mword_t)(words & 0x3f)
+                       | (l4_mword_t)((items & 0x3f) << 6)
+                       | (l4_mword_t)(flags & 0xf000)};
 }
 
 

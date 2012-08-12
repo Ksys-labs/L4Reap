@@ -134,6 +134,7 @@ public:
     F_level_low  = L4_IRQ_F_LEVEL_LOW,
     F_pos_edge   = L4_IRQ_F_POS_EDGE,
     F_neg_edge   = L4_IRQ_F_NEG_EDGE,
+    F_both_edge  = L4_IRQ_F_BOTH_EDGE,
     F_mask       = L4_IRQ_F_MASK,
   };
 

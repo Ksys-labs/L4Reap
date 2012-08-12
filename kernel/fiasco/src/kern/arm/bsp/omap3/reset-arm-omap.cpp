@@ -1,4 +1,4 @@
-IMPLEMENTATION [arm && omap3]:
+IMPLEMENTATION [arm && omap3_35x]: //--------------------------------------
 
 #include "io.h"
 #include "kmem.h"
@@ -17,7 +17,23 @@ platform_reset(void)
     ;
 }
 
-IMPLEMENTATION [arm && omap4]:
+IMPLEMENTATION [arm && omap3_am33xx]: //-----------------------------------
+
+#include "io.h"
+#include "kmem.h"
+
+void __attribute__ ((noreturn))
+platform_reset(void)
+{
+  enum { PRM_RSTCTRL = Kmem::Devices1_map_base + 0xF00, };
+
+  Io::write<Mword>(1, PRM_RSTCTRL);
+
+  for (;;)
+    ;
+}
+
+IMPLEMENTATION [arm && omap4]: //------------------------------------------
 
 #include "io.h"
 #include "kmem.h"

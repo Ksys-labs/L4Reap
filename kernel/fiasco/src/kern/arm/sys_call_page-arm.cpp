@@ -48,7 +48,7 @@ Sys_call_page::init()
 
   set_utcb_get_code((Mword*)(Mem_layout::Syscalls + 0xf00));
 
-  Kernel_task::kernel_task()->mem_space()
+  Kernel_task::kernel_task()
       ->set_attributes(Mem_layout::Syscalls,
                        Mem_space::Page_cacheable | Mem_space::Page_user_accessible);
 

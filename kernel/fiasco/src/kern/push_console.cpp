@@ -10,7 +10,6 @@ private:
   int _out;
 };
 
-
 IMPLEMENTATION:
 
 #include "keycodes.h"
@@ -73,4 +72,3 @@ Push_console::get_attributes() const
 {
   return PUSH | IN;
 }
-

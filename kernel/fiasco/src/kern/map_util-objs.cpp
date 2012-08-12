@@ -6,11 +6,13 @@ INTERFACE:
 IMPLEMENTATION:
 
 #include "assert.h"
+#include "assert_opt.h"
+
 #include "obj_space.h"
 #include "l4_types.h"
 #include "mappable.h"
 
-inline
+inline NEEDS["assert_opt.h"]
 void
 save_access_attribs (Kobject_mapdb* /*mapdb*/,
     const Kobject_mapdb::Frame& /*mapdb_frame*/,
@@ -25,6 +27,9 @@ obj_map(Space *from, L4_fpage const &fp_from,
         Space *to, L4_fpage const &fp_to, L4_msg_item control,
         Kobject ***reap_list)
 {
+  assert_opt (from);
+  assert_opt (to);
+
   typedef Map_traits<Obj_space> Mt;
   Mt::Addr rcv_addr = Mt::get_addr(fp_to);
   Mt::Addr snd_addr = Mt::get_addr(fp_from);
@@ -38,27 +43,24 @@ obj_map(Space *from, L4_fpage const &fp_from,
   Mt::constraint(snd_addr, snd_size, rcv_addr, rcv_size, offs);
 
   if (snd_size == 0)
-    {
-      if (Config::conservative)
-	kdb_ke("fpage transfer = nop");
-      return L4_error::None;
-    }
+    return L4_error::None;
 
   unsigned long del_attribs, add_attribs;
   Mt::attribs(control, fp_from, &del_attribs, &add_attribs);
 
-  return map((Kobject_mapdb*)0,
-	      from->obj_space(), from, snd_addr,
+  return map<Obj_space>((Kobject_mapdb*)0,
+	      from, from, snd_addr,
 	      snd_size,
-	      to->obj_space(), to, rcv_addr,
+	      to, to, rcv_addr,
 	      control.is_grant(), add_attribs, del_attribs,
 	      reap_list);
 }
 
-unsigned
+unsigned __attribute__((nonnull(1)))
 obj_fpage_unmap(Space * space, L4_fpage fp, L4_map_mask mask,
                 Kobject ***reap_list)
 {
+  assert_opt (space);
   typedef Map_traits<Obj_space> Mt;
   Mt::Size size = Mt::Size::from_shift(fp.order());
   Mt::Addr addr = Mt::get_addr(fp);
@@ -66,7 +68,7 @@ obj_fpage_unmap(Space * space, L4_fpage fp, L4_map_mask mask,
 
   // XXX prevent unmaps when a task has no caps enabled
 
-  return unmap((Kobject_mapdb*)0, space->obj_space(), space,
+  return unmap<Obj_space>((Kobject_mapdb*)0, space, space,
                addr, size,
                fp.rights(), mask, reap_list);
 }
@@ -78,12 +80,14 @@ obj_map(Space *from, unsigned long snd_addr, unsigned long snd_size,
         Kobject ***reap_list, bool grant = false,
         unsigned attrib_add = 0, unsigned attrib_del = 0)
 {
+  assert_opt (from);
+  assert_opt (to);
   typedef Map_traits<Obj_space> Mt;
 
-  return map((Kobject_mapdb*)0,
-	     from->obj_space(), from, Mt::Addr(snd_addr),
+  return map<Obj_space>((Kobject_mapdb*)0,
+	     from, from, Mt::Addr(snd_addr),
 	     Mt::Size(snd_size),
-	     to->obj_space(), to, Mt::Addr(rcv_addr),
+	     to, to, Mt::Addr(rcv_addr),
 	     grant, attrib_add, attrib_del, reap_list);
 }
 
@@ -91,6 +95,10 @@ bool
 map(Kobject_iface *o, Obj_space* to, Space *to_id, Address _rcv_addr,
     Kobject ***reap_list, unsigned attribs = L4_fpage::CRWSD)
 {
+  assert_opt (o);
+  assert_opt (to);
+  assert_opt (to_id);
+
   typedef Obj_space SPACE;
   typedef Obj_space::Addr Addr;
   typedef Obj_space::Size Size;
@@ -133,13 +141,11 @@ map(Kobject_iface *o, Obj_space* to, Space *to_id, Address _rcv_addr,
 
     case SPACE::Insert_err_nomem:
       return 0;
-      break;
 
     case SPACE::Insert_err_exists:
-      if (Config::conservative)
-	kdb_ke("existing mapping");
       // Do not flag an error here -- because according to L4
       // semantics, it isn't.
+      break;
     }
 
   return 1;

@@ -60,6 +60,21 @@ IMPLEMENTATION [ia32,ux]:
 
 inline
 void
+atomic_mp_and(Mword *l, Mword value)
+{
+  asm volatile ("lock; andl %1, %2" : "=m"(*l) : "ir"(value), "m"(*l));
+}
+
+inline
+void
+atomic_mp_or(Mword *l, Mword value)
+{
+  asm volatile ("lock; orl %1, %2" : "=m"(*l) : "ir"(value), "m"(*l));
+}
+
+
+inline
+void
 atomic_mp_add(Mword *l, Mword value)
 {
   asm volatile ("lock; addl %1, %2" : "=m"(*l) : "ir"(value), "m"(*l));
@@ -170,13 +185,30 @@ IMPLEMENTATION[(ppc32 && !mp) || (arm && !armv6plus)]:
 
 inline NEEDS["processor.h"]
 void
+atomic_mp_and(Mword *l, Mword value)
+{
+  Proc::Status s = Proc::cli_save();
+  *l &= value;
+  Proc::sti_restore(s);
+}
+
+inline NEEDS["processor.h"]
+void
+atomic_mp_or(Mword *l, Mword value)
+{
+  Proc::Status s = Proc::cli_save();
+  *l |= value;
+  Proc::sti_restore(s);
+}
+
+inline NEEDS["processor.h"]
+void
 atomic_mp_add(Mword *l, Mword value)
 {
   Proc::Status s = Proc::cli_save();
   *l += value;
   Proc::sti_restore(s);
 }
-
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION[arm && armv6plus]:
@@ -196,6 +228,42 @@ atomic_mp_add(Mword *l, Mword value)
       "bne     1b                         \n"
       : [v] "=&r" (tmp), [ret] "=&r" (ret), "+m" (*l)
       :  [mem] "r" (l), [addval] "r" (value)
+      : "cc");
+}
+
+inline
+void
+atomic_mp_and(Mword *l, Mword value)
+{
+  Mword tmp, ret;
+
+  asm volatile (
+      "1:                                 \n"
+      "ldrex   %[v], [%[mem]]             \n"
+      "and     %[v], %[v], %[andval]     \n"
+      "strex   %[ret], %[v], [%[mem]]     \n"
+      "teq     %[ret], #0                 \n"
+      "bne     1b                         \n"
+      : [v] "=&r" (tmp), [ret] "=&r" (ret), "+m" (*l)
+      :  [mem] "r" (l), [andval] "r" (value)
+      : "cc");
+}
+
+inline
+void
+atomic_mp_or(Mword *l, Mword value)
+{
+  Mword tmp, ret;
+
+  asm volatile (
+      "1:                                 \n"
+      "ldrex   %[v], [%[mem]]             \n"
+      "orr     %[v], %[v], %[orval]     \n"
+      "strex   %[ret], %[v], [%[mem]]     \n"
+      "teq     %[ret], #0                 \n"
+      "bne     1b                         \n"
+      : [v] "=&r" (tmp), [ret] "=&r" (ret), "+m" (*l)
+      :  [mem] "r" (l), [orval] "r" (value)
       : "cc");
 }
 

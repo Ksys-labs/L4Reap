@@ -40,7 +40,6 @@ class Task;
 class Thread;
 class Factory;
 class Irq;
-class K_semaphore;
 class Log;
 class Vm;
 class Kobject;

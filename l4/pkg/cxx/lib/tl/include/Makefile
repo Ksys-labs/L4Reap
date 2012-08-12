@@ -9,6 +9,7 @@ EXTRA_TARGET := \
   bitmap      \
   dlist       \
   hlist       \
+  slist       \
   list        \
   list_alloc  \
   minmax      \
@@ -16,6 +17,7 @@ EXTRA_TARGET := \
   pair        \
   ref_ptr     \
   slab_alloc  \
+  static_container \
   std_alloc   \
   std_ops     \
   std_tmpl    \

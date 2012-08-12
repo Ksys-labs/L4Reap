@@ -7,13 +7,14 @@ PREPROCESS_PARTS        += $(if $(CONFIG_PF_REALVIEW_EB),realview_eb)
 PREPROCESS_PARTS        += $(if $(CONFIG_PF_REALVIEW_PB11MP),realview_pb11mp)
 PREPROCESS_PARTS        += $(if $(CONFIG_PF_REALVIEW_PBX),realview_pbx)
 PREPROCESS_PARTS        += $(if $(CONFIG_PF_REALVIEW_VEXPRESS),realview_vexpress)
+PREPROCESS_PARTS        += generic_tickless_idle
 CONFIG_KERNEL_LOAD_ADDR := $(CONFIG_PF_REALVIEW_RAM_PHYS_BASE)
 
 MPCORE_PHYS_BASE        := $(if $(CONFIG_PF_REALVIEW_VEXPRESS),0x1e000000,0x1f000000)
 
+timer_IMPL            += timer-arm-realview
 ifeq ($(CONFIG_ARM_MPCORE)$(CONFIG_ARM_CORTEX_A9),)
   PREPROCESS_PARTS    += sp804
-  timer_IMPL          += timer-arm-realview
 else
   PREPROCESS_PARTS    += mptimer
   timer_IMPL          += timer-arm-mptimer timer-arm-mptimer-realview
@@ -21,10 +22,11 @@ endif
 
 INTERFACES_KERNEL     += gic boot_mp platform board_check-arm-realview
 
+timer_tick_IMPL       += timer_tick-single-vector
 uart_IMPL             += uart-arm-realview
 config_IMPL           += config-arm-realview
 mem_layout_IMPL       += mem_layout-arm-realview
-pic_IMPL              += pic-arm-realview
+pic_IMPL              += pic-gic pic-arm-realview
 bootstrap_IMPL        += bootstrap-arm-realview
 kernel_uart_IMPL      += kernel_uart-arm-realview
 reset_IMPL            += reset-arm-realview

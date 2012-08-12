@@ -2,7 +2,7 @@ INTERFACE [ppc32 && mpc52xx]:
 
 #include "types.h"
 
-class Irq_base;
+class Irq_chip_icu;
 
 EXTENSION class Pic
 {
@@ -58,6 +58,8 @@ private:
 public:
   enum { IRQ_MAX  = (IRQ_PER << IRQ_SHIFT) + NUM_PER};
   enum { No_irq_pending = ~0U };
+
+  static Irq_chip_icu *main;
 };
 
 //------------------------------------------------------------------------------
@@ -66,82 +68,73 @@ IMPLEMENTATION [ppc32 && mpc52xx]:
 #include "boot_info.h"
 #include "io.h"
 #include "irq.h"
-#include "irq_pin.h"
 #include "irq_chip_generic.h"
+#include "irq_mgr.h"
 #include "mmu.h"
 #include "panic.h"
 #include "ppc_types.h"
-#include "vkey.h"
 
 #include <cassert>
 #include <cstdio>
 
-//------------------------------------------------------------------------------
-//Irq_pin implementation
-//------------------------------------------------------------------------------
-class Mpc52xx_pin : public Irq_pin
+Irq_chip_icu *Pic::main;
+
+class Chip : public Irq_chip_gen
 {
+public:
+  Chip() : Irq_chip_gen(Pic::IRQ_MAX) {}
+  unsigned set_mode(Mword, unsigned) { return Irq_base::Trigger_level; }
+  void set_cpu(Mword, unsigned) {}
 };
 
 PUBLIC
 void
-Mpc52xx_pin::do_mask()
+Chip::mask(Mword)
 {
   assert(cpu_lock.test());
-  //Pic::disable_locked(irq());
+  //Pic::disable_locked(irq);
 }
 
 PUBLIC
 void
-Mpc52xx_pin::ack()
+Chip::ack(Mword)
 {
   assert(cpu_lock.test());
+  //Pic::acknowledge_locked(irq);
+}
+
+PUBLIC
+void
+Chip::mask_and_ack(Mword)
+{
+  assert(cpu_lock.test());
+  //Pic::disable_locked(irq());
   //Pic::acknowledge_locked(irq());
 }
 
 PUBLIC
 void
-Mpc52xx_pin::do_mask_and_ack()
-{
-  assert(cpu_lock.test());
-  //Pic::disable_locked(irq());
-  //Pic::acknowledge_locked(irq());
-}
-
-PUBLIC
-void
-Mpc52xx_pin::do_unmask()
+Chip::unmask(Mword)
 {
   assert(cpu_lock.test());
   //Pic::enable_locked(irq());
 }
 
-PUBLIC
-void
-Mpc52xx_pin::set_cpu(unsigned)
-{}
-
-PUBLIC
-void
-Mpc52xx_pin::unbind_irq()
+class Mgr : public Irq_mgr
 {
-  mask();
-  disable();
-  //Irq_chip::hw_chip->free(Irq::self(this), irq());
-  replace<Sw_irq_pin>();
-}
+public:
+  unsigned nr_irqs() const { return Pic::IRQ_MAX; }
+  unsigned nr_msis() const { return 0; }
+  Irq chip(Mword irqnum) const
+  { return Irq(_chip, irqnum); }
 
-PUBLIC
-bool
-Mpc52xx_pin::check_debug_irq()
-{
-  //return !Vkey::check_(irq());
-  return 0;
-}
+  Chip *_chip;
+};
 
-//------------------------------------------------------------------------------
-//Pic implementation
-//------------------------------------------------------------------------------
+static Static_object<Mgr> mgr;
+static Static_object<Chip> chip;
+
+
 Address Pic::_pic_base = 0;
 
 IMPLEMENT FIASCO_INIT
@@ -170,8 +163,8 @@ Pic::init()
   Io::write_dirty<Unsigned32>(0, main_prio1());
   Io::write_dirty<Unsigned32>(0, main_prio2());
 
-  static Irq_chip_x _ia;
-  Irq_chip::hw_chip = &_ia;
+  Irq_mgr::mgr = mgr.construct();
+  mgr->_chip = chip.construct();
 }
 
 //------------------------------------------------------------------------------
@@ -227,19 +220,6 @@ Pic::pic_num(unsigned irq_num)
   return num;
 }
 
-
-class Irq_chip_x : public Irq_chip_gen
-{
-};
-
-PUBLIC
-void
-Irq_chip_x::setup(Irq_base *irq, unsigned irqnum)
-{
-  //let assertions trigger
-  //pic_num(irqnum);
- // irq->pin()->replace<Mpc52xx_pin>(irqnum);
-}
 
 //-------------------------------------------------------------------------------
 /**
@@ -359,7 +339,7 @@ Pic::pending()
 {
   Unsigned32 irq = No_irq_pending;
   Unsigned32 state = Io::read<Unsigned32>(stat());
-  
+
   //critical interupt
   if(state & 0x00000400)
     panic("No support for critical interrupt, yet");
@@ -396,9 +376,10 @@ Pic::restore_all(Status s)
   Io::write<Unsigned32>(s, ext());
 }
 
+// ------------------------------------------------------------------------
 IMPLEMENTATION [debug && ppc32]:
 
 PUBLIC
 char const *
-Mpc52xx_pin::pin_type() const
+Chip::chip_type() const
 { return "HW Mpc52xx IRQ"; }

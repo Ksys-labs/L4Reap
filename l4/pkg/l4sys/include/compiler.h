@@ -66,18 +66,24 @@
 #endif  /* __cplusplus */
 #endif  /* L4_INLINE */
 
+#if ((__GNUC__ * 100 + __GNUC_MINOR__) >= 405)
+# define L4_DECLARE_CONSTRUCTOR(func, prio) \
+  static inline __attribute__((constructor(prio))) void func ## _ctor_func(void) { func(); }
+#else
+
 
 /**
  * \brief Handcoded version of __attribute__((constructor(xx))).
  * \param func function declaration (prototype)
  * \param prio the prio must be 65535 - \a gcc_prio
  */
-#ifdef __ARM_EABI__
+#if defined (__ARM_EABI__)
 #  define L4_DECLARE_CONSTRUCTOR(func, prio) \
-    static void (* func ## _ctor__)(void) __attribute__((used,section(".init_array." L4_stringify(prio)))) = &func;
+    static __typeof(&func) func ## _ctor__ __attribute__((used,section(".init_array." L4_stringify(prio)))) = &func;
 #else
 #  define L4_DECLARE_CONSTRUCTOR(func, prio) \
-    static void (* func ## _ctor__)(void) __attribute__((used,section(".ctors." L4_stringify(prio)))) = &func;
+    static __typeof(&func) func ## _ctor__ __attribute__((used,section(".ctors." L4_stringify(prio)))) = &func;
+#endif
 #endif
 
 

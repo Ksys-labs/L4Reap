@@ -13,6 +13,7 @@ WARNINGS	= -Wall -Wstrict-prototypes
 
 # for building the C library we access internal headers
 PRIVATE_INCDIR += $(CONTRIB_DIR)/libc/sysdeps/linux/$(BUILD_ARCH)
+PRIVATE_INCDIR += $(CONTRIB_DIR)/libc/sysdeps/linux
 # here we cheat a little and allow ../ includes from internal headers
 PRIVATE_INCDIR += $(LIBC_DST_DIR)/libc $(PTHREAD_INCDIR)
 

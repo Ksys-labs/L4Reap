@@ -72,7 +72,7 @@ struct dtv_slotinfo_list *_dl_tls_dtv_slotinfo_list;
 /* Number of modules in the static TLS block.  */
 size_t _dl_tls_static_nelem;
 /* Size of the static TLS block.  */
-size_t _dl_tls_static_size __attribute__((weak));
+size_t _dl_tls_static_size __attribute__((weak)) = TLS_TCB_SIZE;
 /* Size actually allocated in the static TLS block.  */
 size_t _dl_tls_static_used;
 /* Alignment requirement of the static TLS block.  */
@@ -118,7 +118,7 @@ init_static_tls (size_t memsz, size_t align)
 }
 
 __attribute__ ((weak))
-void *__libc_alloc_initial_tls(unsigned long size)// __THROW
+void *__libc_alloc_initial_tls(unsigned long size) __THROW
 {
   using namespace L4;
   using namespace L4Re;
@@ -128,8 +128,7 @@ void *__libc_alloc_initial_tls(unsigned long size)// __THROW
     return NULL;
 
   void *addr = NULL;
-  if(Env::env()->rm()->attach(&addr, size, Rm::Search_addr,
-                        ds, 0, 0) < 0)
+  if(Env::env()->rm()->attach(&addr, size, Rm::Search_addr, ds, 0, 0) < 0)
     return NULL;
 
   return addr;
@@ -176,7 +175,8 @@ __libc_setup_tls (size_t tcbsize, size_t tcbalign)
   tcb_offset = roundup (tcbsize, align ?: 1);
   tlsblock = __libc_alloc_initial_tls(tcb_offset + memsz + max_align
 		     + TLS_PRE_TCB_SIZE + GL(dl_tls_static_size));
-  tlsblock += TLS_PRE_TCB_SIZE;
+  //tlsblock += TLS_PRE_TCB_SIZE;
+  tlsblock = (char *)tlsblock + TLS_PRE_TCB_SIZE;
 # else
   /* In case a model with a different layout for the TCB and DTV
      is defined add another #elif here and in the following #ifs.  */

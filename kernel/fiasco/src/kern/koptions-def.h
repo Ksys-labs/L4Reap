@@ -20,10 +20,7 @@ namespace L4_kernel_options
     F_apic              = 1 << 8,
     F_loadcnt           = 1 << 9,
     F_watchdog          = 1 << 10,
-    F_rotext            = 1 << 11,
-    F_profile           = 1 << 12,
     F_irq0              = 1 << 13,
-    F_profstart         = 1 << 14,
     F_nosfn             = 1 << 15,
     F_jdb_never_stop    = 1 << 16,
 
@@ -42,7 +39,7 @@ namespace L4_kernel_options
     Magic = 0x4C344B43,
   };
 
-  enum Uart_types
+  enum Uart_type
   {
     Uart_type_invalid = 0,
     Uart_type_ioport  = 1,

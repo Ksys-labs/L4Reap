@@ -1,29 +1,24 @@
-IMPLEMENTATION [arm && omap3_evm]: // -------------------------------------
+IMPLEMENTATION [arm && (omap3_35xevm || omap3_am33xx)]: // ----------------
 
-#include "arm/uart_omap35x.h"
-
-IMPLEMENT L4::Uart *Uart::uart()
-{
-  static L4::Uart_omap35x uart(72, 72);
-  return &uart;
-}
+IMPLEMENT int Uart::irq() const { return 72; }
 
 IMPLEMENTATION [arm && omap3_beagleboard]: // -----------------------------
 
-#include "arm/uart_omap35x.h"
+IMPLEMENT int Uart::irq() const { return 74; }
+
+IMPLEMENTATION [arm && omap4_pandaboard]: // ------------------------------
+
+IMPLEMENT int Uart::irq() const { return 32 + 74; }
+
+IMPLEMENTATION: // --------------------------------------------------------
+
+#include "mem_layout.h"
+#include "uart_omap35x.h"
+
+IMPLEMENT Address Uart::base() const { return Mem_layout::Uart_base; }
 
 IMPLEMENT L4::Uart *Uart::uart()
 {
-  static L4::Uart_omap35x uart(74, 74);
-  return &uart;
-}
-
-IMPLEMENTATION [arm && omap4_pandaboard]: // -----------------------------
-
-#include "arm/uart_omap35x.h"
-
-IMPLEMENT L4::Uart *Uart::uart()
-{
-  static L4::Uart_omap35x uart(32 + 74, 32 + 74);
+  static L4::Uart_omap35x uart;
   return &uart;
 }

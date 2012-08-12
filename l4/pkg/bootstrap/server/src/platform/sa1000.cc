@@ -25,9 +25,10 @@ class Platform_arm_sa1000 : public Platform_single_region_ram
 
   void init()
   {
-    static L4::Uart_sa1000 _uart(1,1);
-    _uart.startup(0x80010000);
-    //_uart.startup(0x80050000);
+    static L4::Uart_sa1000 _uart;
+    static L4::Io_register_block_mmio r(0x80010000);
+    //static L4::Io_register_block_mmio r(0x80050000);
+    _uart.startup(&r);
     set_stdio_uart(&_uart);
   }
 };

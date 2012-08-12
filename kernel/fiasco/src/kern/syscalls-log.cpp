@@ -1,6 +1,5 @@
 IMPLEMENTATION [log]:
 
-#include <alloca.h>
 #include <cstring>
 #include "config.h"
 #include "jdb_trace.h"
@@ -49,9 +48,10 @@ extern "C" void sys_ipc_log_wrapper(void)
 	  else
 	    dbg_id = ~0UL;
 	}
+      Tb_entry_ipc _local;
       Tb_entry_ipc *tb = static_cast<Tb_entry_ipc*>
 	(EXPECT_TRUE(Jdb_ipc_trace::log_buf()) ? Jdb_tbuf::new_entry()
-					   : alloca(sizeof(Tb_entry_ipc)));
+					   : &_local);
       tb->set(curr, regs->ip(), ipc_regs, utcb,
 	      dbg_id, curr->sched_context()->left());
 
@@ -80,9 +80,10 @@ skip_ipc_log:
 
   if (Jdb_ipc_trace::log() && Jdb_ipc_trace::log_result() && do_log)
     {
+      Tb_entry_ipc_res _local;
       Tb_entry_ipc_res *tb = static_cast<Tb_entry_ipc_res*>
 	(EXPECT_TRUE(Jdb_ipc_trace::log_buf()) ? Jdb_tbuf::new_entry()
-					    : alloca(sizeof(Tb_entry_ipc_res)));
+					    : &_local);
       tb->set(curr, regs->ip(), ipc_regs, utcb, utcb->error.raw(),
 	      entry_event_num, have_snd, is_next_period);
 

@@ -3,6 +3,7 @@ INTERFACE [amd64]:
 #include "types.h"
 #include "config.h"
 #include "linking.h"
+#include "template_math.h"
 
 EXTENSION class Mem_layout
 {
@@ -18,9 +19,6 @@ public:
     Utcb_addr         = 0xffffffff8ff00000UL,    ///< % 4kB UTCB map address
     Kip_auto_map      = 0xffffffff8fff2000UL,    ///< % 4kB
     User_max          = 0x0000800000000000UL,
-    Slabs_start       = 0xffffffffe0000000UL,    ///<       multipage slabs
-    Slabs_end         = 0xffffffffea000000UL,    ///<       slabs_start + 160MB
-    Space_index       = 200,
     Service_page      = 0xffffffffeac00000UL,    ///< % 4MB global mappings
     Local_apic_page   = Service_page + 0x0000,   ///< % 4KB
     Kmem_tmp_page_1   = Service_page + 0x2000,   ///< % 4KB size 8KB
@@ -28,8 +26,7 @@ public:
     Tbuf_status_page  = Service_page + 0x6000,   ///< % 4KB
     Tbuf_ustatus_page = Tbuf_status_page,
     Jdb_bench_page    = Service_page + 0x8000,   ///< % 4KB
-    Utcb_ptr_page     = Service_page + 0xfd000,  ///< % 4KB
-    Utcb_ptr_offset   = Utcb_ptr_page,
+    utcb_ptr_align    = Tl_math::Ld<64>::Res,    // 64byte cachelines
     Idt               = Service_page + 0xfe000,  ///< % 4KB
     Syscalls          = Service_page + 0xff000,  ///< % 4KB syscall page
     Tbuf_buffer_area  = Service_page + 0x200000, ///< % 2MB

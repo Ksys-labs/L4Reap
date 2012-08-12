@@ -82,13 +82,6 @@ Mem_space::vsid_to_dir(Mword vsid)
   return reinterpret_cast<Dir_type*>(vsid);
 }
 
-PRIVATE static inline NEEDS["cpu.h", Mem_space::vsid_to_dir]
-Pdir *
-Mem_space::current_pdir() 
-{
-  return vsid_to_dir(Cpu::read_vsid());
-}
-
 IMPLEMENT inline NEEDS["cpu.h", Mem_space::vsid]
 void
 Mem_space::make_current()
@@ -385,7 +378,7 @@ PRIVATE static FIASCO_INIT
 Mword
 Mem_space::alloc(Mword alloc_size)
 {
-  unsigned long max = ~0UL;
+  //unsigned long max = ~0UL;
   Mword start;
   for (;;)
     {
@@ -396,14 +389,13 @@ Mem_space::alloc(Mword alloc_size)
       if (r.start == r.end)
         panic("not enough memory for page table");
 
-      max = r.start;
+      //max = r.start;
       Mword size  = r.end - r.start + 1;
       start = (r.end - alloc_size + 1) & ~(alloc_size - 1);
       if(alloc_size <= size && start >= r.start)
 	{
 	  Kip::k()->add_mem_region(Mem_desc(start, r.end,
 					    Mem_desc::Reserved));
-	
 	  break;
 	}
     }
@@ -413,7 +405,7 @@ Mem_space::alloc(Mword alloc_size)
 /**
  * Install htab
  */
-PRIVATE static FIASCO_INIT 
+PRIVATE static FIASCO_INIT
 void
 Mem_space::install()
 {
@@ -435,7 +427,7 @@ IMPLEMENT static FIASCO_INIT
 void
 Mem_space::init()
 {
-   Mword alloc_size = htab_size(Kip::k()->total_ram);
+   Mword alloc_size = 0; // tbd: get size from memory descriptors
    _htaborg  = alloc(alloc_size);
    _htabmask = ((alloc_size >> 16) - 1) & 0x1ff; //9 bit
 

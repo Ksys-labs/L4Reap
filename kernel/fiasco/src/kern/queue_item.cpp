@@ -1,15 +1,16 @@
 INTERFACE:
 
+#include <dlist>
+
 class Queue;
 
-class Queue_item
+class Queue_item : public cxx::D_list_item
 {
   friend class Queue;
 public:
   enum Status { Ok, Retry, Invalid };
 
 private:
-  Queue_item **_pn, *_n;
   Queue *_q;
 } __attribute__((aligned(16)));
 
@@ -21,14 +22,9 @@ IMPLEMENTATION:
 #include "std_macros.h"
 
 PUBLIC inline
-Queue_item::Queue_item()
-  : _n(0)
-{}
-
-PUBLIC inline
 bool
 Queue_item::queued() const
-{ return _n; }
+{ return cxx::D_list_cyclic<Queue_item>::in_list(this); }
 
 PUBLIC inline NEEDS["kdb_ke.h"]
 Queue *

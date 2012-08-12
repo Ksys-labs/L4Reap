@@ -3,7 +3,7 @@ INTERFACE:
 class Ipi
 {
 public:
-  void init();
+  static void init(unsigned cpu);
 };
 
 INTERFACE[!mp]:
@@ -25,82 +25,67 @@ private:
   static Per_cpu<Ipi> _ipi;
 };
 
-
-INTERFACE[mp && debug]:
-
-EXTENSION class Ipi
-{
-public:
-  Mword _stat_sent;
-  Mword _stat_received;
-};
-
 // ------------------------------------------------------------------------
 IMPLEMENTATION[!mp]:
 
-PUBLIC static inline
-Ipi &
-Ipi::cpu(unsigned)
-{
-  return *reinterpret_cast<Ipi*>(0);
-}
-
-
 IMPLEMENT inline
 void
-Ipi::init()
-{}
-
-PUBLIC inline
-void
-Ipi::send(Message)
-{}
+Ipi::init(unsigned cpu)
+{ (void)cpu; }
 
 PUBLIC static inline
 void
-Ipi::eoi(Message)
-{}
+Ipi::send(Message, unsigned from_cpu, unsigned to_cpu)
+{ (void)from_cpu; (void)to_cpu; }
 
 PUBLIC static inline
 void
-Ipi::bcast(Message)
-{}
+Ipi::eoi(Message, unsigned on_cpu)
+{ (void)on_cpu; }
+
+PUBLIC static inline
+void
+Ipi::bcast(Message, unsigned from_cpu)
+{ (void)from_cpu; }
 
 
 // ------------------------------------------------------------------------
 IMPLEMENTATION[mp]:
 
-Per_cpu<Ipi> DEFINE_PER_CPU Ipi::_ipi;
-
-PUBLIC static inline
-Ipi &
-Ipi::cpu(unsigned cpu)
-{ return Ipi::_ipi.cpu(cpu); }
+DEFINE_PER_CPU Per_cpu<Ipi> Ipi::_ipi;
 
 // ------------------------------------------------------------------------
 IMPLEMENTATION[!(mp && debug)]:
 
 PUBLIC static inline
 void
-Ipi::stat_sent()
-{}
+Ipi::stat_sent(unsigned from_cpu)
+{ (void)from_cpu; }
 
 PUBLIC static inline
 void
-Ipi::stat_received()
-{}
+Ipi::stat_received(unsigned on_cpu)
+{ (void)on_cpu; }
 
 // ------------------------------------------------------------------------
 IMPLEMENTATION[mp && debug]:
 
 #include "globals.h"
 
-PUBLIC inline
-void
-Ipi::stat_sent()
-{ atomic_mp_add(&_stat_sent, 1); }
+EXTENSION class Ipi
+{
+private:
+  friend class Jdb_ipi_module;
+  Mword _stat_sent;
+  Mword _stat_received;
+};
 
-PUBLIC static inline NEEDS["globals.h"]
+PUBLIC static inline
 void
-Ipi::stat_received()
-{ _ipi.cpu(current_cpu())._stat_received++; }
+Ipi::stat_sent(unsigned from_cpu)
+{ atomic_mp_add(&_ipi.cpu(from_cpu)._stat_sent, 1); }
+
+PUBLIC static inline
+void
+Ipi::stat_received(unsigned on_cpu)
+{ _ipi.cpu(on_cpu)._stat_received++; }

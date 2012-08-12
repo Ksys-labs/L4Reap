@@ -155,10 +155,7 @@ Jdb_ipc_trace::show()
       printf("IPC logging disabled -- using the IPC %s path",
 	  _slow_ipc
 	    ? "slow" 
-	    : (!Config::Assembler_ipc_shortcut ||
-	       (Config::Jdb_logging && Jdb_ipc_trace::_cshortcut) ||
-	       (Config::Jdb_logging && Jdb_ipc_trace::_cpath))
-	        ? "C fast" : "Assembler fast");
+	    : "C fast");
     }
 
   putchar('\n');
@@ -204,10 +201,10 @@ Jdb_pf_trace::show()
 	  else
     	    putstr(", restricted to ");
 	  if (_addr.lo <= _addr.hi)
-	    printf(L4_PTR_FMT" <= pfa <= "L4_PTR_FMT
+	    printf(L4_PTR_FMT " <= pfa <= " L4_PTR_FMT
 		   , _addr.lo, _addr.hi);
 	  else
-    	    printf("pfa < "L4_PTR_FMT" || pfa > "L4_PTR_FMT, 
+    	    printf("pfa < " L4_PTR_FMT " || pfa > " L4_PTR_FMT,
 		   _addr.hi, _addr.lo);
 	}
     }
@@ -262,10 +259,10 @@ Jdb_unmap_trace::show()
 	  else
     	    putstr(", restricted to ");
 	  if (_addr.lo <= _addr.hi)
-	    printf(L4_PTR_FMT" <= addr <= "L4_PTR_FMT,
+	    printf(L4_PTR_FMT " <= addr <= " L4_PTR_FMT,
 		   _addr.lo, _addr.hi);
 	  else
-    	    printf("addr < "L4_PTR_FMT" || addr > "L4_PTR_FMT
+    	    printf("addr < " L4_PTR_FMT " || addr > " L4_PTR_FMT
 		   , _addr.hi, _addr.lo);
 	}
     }

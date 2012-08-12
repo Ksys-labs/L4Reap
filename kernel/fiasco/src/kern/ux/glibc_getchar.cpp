@@ -12,15 +12,17 @@ class Glibc_getchar : public Console
 
 PUBLIC
 int
-Glibc_getchar::getchar( bool /*blocking*/ )
+Glibc_getchar::getchar(bool blocking)
 {
+  (void)blocking;
   return ::getchar();
 }
 
 PUBLIC
 int
-Glibc_getchar::write( char const * /*str*/, size_t /*len*/ )
+Glibc_getchar::write(char const *str, size_t len)
 {
+  (void)str; (void)len;
   return 1;
 }
 

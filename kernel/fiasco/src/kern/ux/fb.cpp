@@ -27,7 +27,6 @@ IMPLEMENTATION:
 #include "boot_info.h"
 #include "initcalls.h"
 #include "irq_chip.h"
-#include "irq_pin.h"
 #include "kmem.h"
 #include "pic.h"
 #include "warn.h"
@@ -129,24 +128,21 @@ Fb::init()
   setup_mbi();
 
   // Setup virtual interrupt
-  if (!Pic::setup_irq_prov (Pic::IRQ_CON,
-                            Boot_info::fb_program(), bootstrap))
+  if (!Pic::setup_irq_prov(Pic::Irq_con,
+                           Boot_info::fb_program(), bootstrap))
     {
       puts ("Problems setting up console interrupt!");
       exit (1);
     }
 
-  static Irq_base ib;
-  Irq_chip::hw_chip->setup(&ib, Pic::IRQ_CON);
-
   Kip::k()->vhw()->set_desc(Vhw_entry::TYPE_FRAMEBUFFER,
                          Boot_info::fb_virt(), Boot_info::fb_size(),
-                         Pic::IRQ_CON,
-                         Pic::get_pid_for_irq_prov(Pic::IRQ_CON), 0);
+                         Pic::Irq_con,
+                         Pic::get_pid_for_irq_prov(Pic::Irq_con), 0);
   Kip::k()->vhw()->set_desc(Vhw_entry::TYPE_INPUT,
                          Boot_info::input_start(), Boot_info::input_size(),
-                         Pic::IRQ_CON,
-                         Pic::get_pid_for_irq_prov(Pic::IRQ_CON), 0);
+                         Pic::Irq_con,
+                         Pic::get_pid_for_irq_prov(Pic::Irq_con), 0);
 
   printf ("Starting Framebuffer: %ux%u@%u\n\n",
           Boot_info::fb_width(), Boot_info::fb_height(),

@@ -14,7 +14,7 @@ Vm_factory::allocate(Ram_quota *quota)
   if (void *t = Vm::allocator<VM>()->q_alloc(quota))
     {
       VM *a = new (t) VM(quota);
-      if (a->valid())
+      if (a->initialize())
         return a;
 
       delete a;
@@ -25,19 +25,15 @@ Vm_factory::allocate(Ram_quota *quota)
 
 IMPLEMENT
 Vm *
-Vm_factory::create(Ram_quota *quota)
+Vm_factory::create(Ram_quota *quota, int *err)
 {
+  *err = -L4_err::ENomem;
   if (Svm::cpus.cpu(current_cpu()).svm_enabled())
     return allocate<Vm_svm>(quota);
   if (Vmx::cpus.cpu(current_cpu()).vmx_enabled())
     return allocate<Vm_vmx>(quota);
 
+  *err = L4_err::ENodev;
   return 0;
 }
 
-IMPLEMENTATION [!(vmx && svm)]:
-
-IMPLEMENT
-Vm *
-Vm_factory::create(Ram_quota *)
-{ return 0; }

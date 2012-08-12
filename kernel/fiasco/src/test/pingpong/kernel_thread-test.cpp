@@ -21,7 +21,6 @@ IMPLEMENTATION:
 
 #include "config.h"
 #include "console.h"
-#include "profile.h"
 #include "space.h"
 #include "thread.h"
 #include "thread_state.h"
@@ -36,7 +35,7 @@ IMPLEMENTATION:
 // bootstrapping
 PUBLIC
 void *
-kernel_thread_t::operator new(size_t s, threadid_t id)
+kernel_thread_t::operator new(size_t s, threadid_t id) throw()
 {
   // call superclass' allocator
   void *addr = thread_t::operator new(s, id);

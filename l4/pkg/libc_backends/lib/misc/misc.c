@@ -265,6 +265,13 @@ int execlp(const char *file, const char *arg, ...)
   return -1;
 }
 
+long fpathconf(int fd, int name)
+{
+  printf("Unimplemented: %s(%d, %d)\n", __func__, fd, name);
+  errno = EINVAL;
+  return -1;
+}
+
 long pathconf(const char *path, int name)
 {
   printf("Unimplemented: %s(%s, %d)\n", __func__, path, name);
@@ -277,21 +284,6 @@ long pathconf(const char *path, int name)
 
 
 #include <termios.h>
-int cfsetispeed(struct termios *termios_p, speed_t speed)
-{
-  printf("Unimplemented: %s()\n", __func__);
-  (void)termios_p; (void)speed;
-  errno = EINVAL;
-  return -1;
-}
-
-int cfsetospeed(struct termios *termios_p, speed_t speed)
-{
-  printf("Unimplemented: %s()\n", __func__);
-  (void)termios_p; (void)speed;
-  errno = EINVAL;
-  return -1;
-}
 
 int tcsendbreak(int fd, int duration)
 {

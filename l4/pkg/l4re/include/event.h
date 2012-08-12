@@ -47,6 +47,7 @@ enum l4re_event_stream_max_values_t
   L4RE_EVENT_KEY_MAX = 0x1ff,
   L4RE_EVENT_REL_MAX = 0xf,
   L4RE_EVENT_ABS_MAX = 0x3f,
+  L4RE_EVENT_PROP_MAX = 0x1f,
 };
 
 enum l4re_event_stream_props_t
@@ -55,7 +56,7 @@ enum l4re_event_stream_props_t
 };
 
 
-#define __UNUM_B(x) (x + sizeof(unsigned long)*8 - 1) / (sizeof(unsigned long)*8)
+#define __UNUM_B(x) ((x+1) + sizeof(unsigned long)*8 - 1) / (sizeof(unsigned long)*8)
 
 typedef struct l4re_event_stream_info_t
 {
@@ -64,7 +65,7 @@ typedef struct l4re_event_stream_info_t
   char phys[32];
   l4re_event_stream_id_t id;
 
-  unsigned long props;
+  unsigned long propbits[__UNUM_B(L4RE_EVENT_PROP_MAX)];
 
   unsigned long evbits[__UNUM_B(L4RE_EVENT_EV_MAX)];
   unsigned long keybits[__UNUM_B(L4RE_EVENT_KEY_MAX)];

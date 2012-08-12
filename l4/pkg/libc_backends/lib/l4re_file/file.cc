@@ -27,6 +27,7 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/uio.h>
+#include <sys/time.h>
 #include <l4/l4re_vfs/backend>
 #include <string.h>
 #include <stdio.h>
@@ -342,7 +343,8 @@ int close(int fd) L4_NOTHROW
 int access(const char *path, int mode) L4_NOTHROW
 { return faccessat(AT_FDCWD, path, mode, 0); }
 
-extern "C" ssize_t __getdents64 (int fd, char *buf, size_t nbytes)
+extern "C" ssize_t __getdents64(int fd, char *buf, size_t nbytes);
+extern "C" ssize_t __getdents64(int fd, char *buf, size_t nbytes)
 {
   Ops *o = L4Re::Vfs::vfs_ops;
   Ref_ptr<File> fdo = o->get_file(fd);
@@ -381,7 +383,7 @@ L4_STRONG_ALIAS(__getdents64,__getdents)
 #define L4B_REDIRECT_FUNC(func) func
 L4B_REDIRECT_3(ssize_t, readlink, const char *, char *, size_t)
 L4B_REDIRECT_2(int,     utime,    const char *, const struct utimbuf *)
-L4B_REDIRECT_2(int,     utimes,   const char *, const struct utimbuf *)
+L4B_REDIRECT_2(int,     utimes,   const char *, const struct timeval *)
 #undef L4B_REDIRECT_FUNC
 
 #define L4B_REDIRECT_FUNC(func) f##func
@@ -455,9 +457,11 @@ int select(int nfds, fd_set *readfds, fd_set *writefds,
   (void)nfds; (void)readfds; (void)writefds; (void)exceptfds;
   //printf("Call: %s(%d, %p, %p, %p, %p[%ld])\n", __func__, nfds, readfds, writefds, exceptfds, timeout, timeout->tv_usec + timeout->tv_sec * 1000000);
 
+#if 0
   int us = timeout->tv_usec + timeout->tv_sec * 1000000;
   l4_timeout_t to = l4_timeout(L4_IPC_TIMEOUT_NEVER,
                                l4util_micros2l4to(us));
+#endif
 
   // only the timeout for now
   if (timeout)
@@ -484,6 +488,8 @@ int select(int nfds, fd_set *readfds, fd_set *writefds,
     POST(); \
   }
 
+ssize_t preadv(int, const struct iovec *, int, off_t);
+ssize_t pwritev(int, const struct iovec *, int, off_t);
 
 L4B_REDIRECT_2(int,       fstat64,     int, struct stat64 *)
 L4B_REDIRECT_3(ssize_t,   readv,       int, const struct iovec *, int)
@@ -612,6 +618,19 @@ extern "C" int mknod(const char *, mode_t, dev_t) L4_NOTHROW
   errno = EINVAL;
   return -1;
 }
+
+int chown(const char *, __uid_t, __gid_t)
+{
+  errno = EINVAL;
+  return -1;
+}
+
+int fchown(int, __uid_t, __gid_t)
+{
+  errno = EINVAL;
+  return -1;
+}
+
 
 extern "C" int lchown(const char *, uid_t, gid_t) L4_NOTHROW
 {

@@ -1,12 +1,13 @@
 INTERFACE:
 
 #include "context.h"
-#include "kobject_helper.h"
+#include "icu_helper.h"
 #include "types.h"
 
-class Scheduler : public Kobject_h<Scheduler>
+class Scheduler : public Icu_h<Scheduler>, public Irq_chip_soft
 {
   FIASCO_DECLARE_KOBJ();
+  typedef Icu_h<Scheduler> Icu;
 
 public:
   enum Operation
@@ -37,6 +38,10 @@ public:
       return map & (1UL << cpu);
     }
   };
+
+  static Scheduler scheduler;
+private:
+  Irq_base *_irq;
 };
 
 // ----------------------------------------------------------------------------
@@ -48,7 +53,7 @@ IMPLEMENTATION:
 
 FIASCO_DEFINE_KOBJ(Scheduler);
 
-static Scheduler scheduler;
+Scheduler Scheduler::scheduler;
 
 PUBLIC void
 Scheduler::operator delete (void *)
@@ -58,7 +63,7 @@ Scheduler::operator delete (void *)
 }
 
 PUBLIC inline
-Scheduler::Scheduler()
+Scheduler::Scheduler() : _irq(0)
 {
   initial_kobjects.register_obj(this, 7);
 }
@@ -95,7 +100,9 @@ Scheduler::sys_run(unsigned char /*rights*/, Syscall_frame *f, Utcb const *utcb)
   L4_msg_tag const tag = f->tag();
   unsigned const curr_cpu = current_cpu();
 
-  Obj_space *s = current()->space()->obj_space();
+  Obj_space *s = current()->space();
+  assert(s);
+
   L4_snd_item_iter snd_items(utcb, tag.words());
 
   if (EXPECT_FALSE(tag.words() < 5))
@@ -137,7 +144,7 @@ Scheduler::sys_run(unsigned char /*rights*/, Syscall_frame *f, Utcb const *utcb)
   if (info.prio > 255)
     info.prio = 255;
   if (!info.quantum)
-    info.quantum = Config::default_time_slice;
+    info.quantum = Config::Default_time_slice;
 
 
   thread->migrate(info);
@@ -191,13 +198,63 @@ Scheduler::sys_info(unsigned char, Syscall_frame *f,
   return commit_result(0, 2);
 }
 
+PUBLIC inline
+Irq_base *
+Scheduler::icu_get_irq(unsigned irqnum)
+{
+  if (irqnum > 0)
+    return 0;
+
+  return _irq;
+}
+
+
+PUBLIC inline
+void
+Scheduler::icu_get_info(Mword *features, Mword *num_irqs, Mword *num_msis)
+{
+  *features = 0; // supported features (only normal irqs)
+  *num_irqs = 1;
+  *num_msis = 0;
+}
+
 PUBLIC
 L4_msg_tag
-Scheduler::kinvoke(L4_obj_ref, Mword rights, Syscall_frame *f,
+Scheduler::icu_bind_irq(Irq *irq_o, unsigned irqnum)
+{
+  if (irqnum > 0)
+    return commit_result(-L4_err::EInval);
+
+  if (_irq)
+    _irq->unbind();
+
+  Irq_chip_soft::bind(irq_o, irqnum);
+  _irq = irq_o;
+  return commit_result(0);
+}
+
+PUBLIC inline
+void
+Scheduler::trigger_hotplug_event()
+{
+  if (_irq)
+    _irq->hit(0);
+}
+
+PUBLIC
+L4_msg_tag
+Scheduler::kinvoke(L4_obj_ref ref, Mword rights, Syscall_frame *f,
                    Utcb const *iutcb, Utcb *outcb)
 {
-  if (EXPECT_FALSE(f->tag().proto() != L4_msg_tag::Label_scheduler))
-    return commit_result(-L4_err::EBadproto);
+  switch (f->tag().proto())
+    {
+    case L4_msg_tag::Label_irq:
+      return Icu::icu_invoke(ref, rights, f, iutcb,outcb);
+    case L4_msg_tag::Label_scheduler:
+      break;
+    default:
+      return commit_result(-L4_err::EBadproto);
+    }
 
   switch (iutcb->values[0])
     {

@@ -1,43 +1,28 @@
 INTERFACE:
 
 #include <cassert>
+#include <hlist>
 #include "bitmap.h"
 #include "config.h"
 
 class Buddy_base
 {
-
 protected:
-
-  //bool _debug;
   unsigned long _base;
 
-  struct Head
+  struct Head : cxx::H_list_item
   {
-    Head *next;
-    Head **prev_next;
     unsigned long index;
 
-    void unlink()
-    { 
-      assert (prev_next);
-
-      if (next)
-	next->prev_next = prev_next;
-      *prev_next = next;
-    }
-
-    static void link(Head **h, void *b, unsigned idx)
+    static void link(cxx::H_list<Head> &h, void *b, unsigned idx)
     {
       Head *n = (Head*)b;
       n->index = idx;
-      n->next = *h;
-      n->prev_next = h;
-      if (*h)
-        (*h)->prev_next = &(n->next);
-      *h = n;
+      h.add(n);
     }
   };
+
+  typedef cxx::H_list_bss<Head> B_list;
 };
 
 template< int MIN_LOG2_SIZE, int NUM_SIZES, int MAX_MEM >
@@ -49,7 +34,7 @@ public:
     Min_log2_size = MIN_LOG2_SIZE,
     Min_size = 1UL << MIN_LOG2_SIZE,
     Num_sizes = NUM_SIZES,
-    Max_size = Min_size << NUM_SIZES,
+    Max_size = Min_size << (NUM_SIZES - 1),
     Max_mem = MAX_MEM,
   };
 
@@ -63,7 +48,7 @@ private:
     Buddy_bits = (Max_mem + Min_size - 1)/Min_size
                  + !!(Max_mem & (Max_size-1))
   };
-  Head *_free[Num_sizes];
+  B_list _free[Num_sizes];
   Bitmap<Buddy_bits> _free_map;
 };
 
@@ -137,7 +122,7 @@ Buddy_t_base<A,B,M>::free(void *block, unsigned long size)
 	{
 	//if (!_b && _debug) dump();
 	//if (_debug) printf("  found buddy %p (n=%p size=%ld)\n", b, n, size_index+1);
-	  b->unlink();
+	  B_list::remove(b);
 	  block = n;
 	  ++size_index;
 	  //_b = 1;
@@ -147,7 +132,7 @@ Buddy_t_base<A,B,M>::free(void *block, unsigned long size)
     }
 
   //printf("  link free %p\n", block);
-  Head::link(_free + size_index, block, size_index);
+  Head::link(_free[size_index], block, size_index);
   _free_map.set_bit(((unsigned long)block - _base) / Min_size);
   //if (_b && _debug) dump();
 }
@@ -194,7 +179,7 @@ Buddy_t_base<A,B,M>::split(Head *b, unsigned size_index, unsigned i)
   for (; i > size_index; ++size_index)
     {
       unsigned long buddy = (unsigned long)b + (Min_size << size_index);
-      Head::link(_free + size_index, (void*)buddy, size_index);
+      Head::link(_free[size_index], (void*)buddy, size_index);
       _free_map.set_bit((buddy - _base) / Min_size);
     }
 
@@ -219,10 +204,10 @@ Buddy_t_base<A,B,M>::alloc(unsigned long size)
 
   for (unsigned i = size_index; i < Num_sizes; ++i)
     {
-      Head *f = _free[i];
+      Head *f = _free[i].front();
       if (f)
 	{
-	  f->unlink();
+	  B_list::remove(f);
 	  split(f, size_index, i);
 	  _free_map.clear_bit(((unsigned long)f - _base) / Min_size);
 	  //printf("[%u]: =%p\n", Proc::cpu_id(), f);
@@ -241,13 +226,13 @@ Buddy_t_base<A,B,M>::dump() const
   for (unsigned i = 0; i < Num_sizes; ++i)
     {
       unsigned c = 0;
-      Head *h = _free[i];
-      printf("  [%d] %p(%ld)", Min_size << i, h, h?h->index:0UL);
-      while (h)
+      B_list::Const_iterator h = _free[i].begin();
+      printf("  [%d] %p(%ld)", Min_size << i, *h, h != _free[i].end() ? h->index : 0UL);
+      while (h != _free[i].end())
 	{
-	  h = h->next;
+	  ++h;
 	  if (c < 5)
-	    printf(" -> %p(%ld)", h, h?h->index:0UL);
+	    printf(" -> %p(%ld)", *h, *h?h->index:0UL);
 	  else
 	    {
 	      printf(" ...");
@@ -273,12 +258,8 @@ Buddy_t_base<A,B,M>::avail() const
   unsigned long a = 0;
   for (unsigned i = 0; i < Num_sizes; ++i)
     {
-      Head *h = _free[i];
-      while (h)
-	{
-	  a += (Min_size << i);
-	  h = h->next;
-	}
+      for (B_list::Const_iterator h = _free[i].begin(); h != _free[i].end(); ++h)
+        a += (Min_size << i);
     }
   return a;
 }

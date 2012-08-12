@@ -23,7 +23,6 @@ IMPLEMENTATION [arm]:
 
 #include "console.h"
 #include "pagetable.h"
-#include "mapped_alloc.h"
 #include "kmem.h"
 #include "kip_init.h"
 #include "mem_unit.h"
@@ -42,10 +41,7 @@ Page_table *Kmem_space::kdir()
 IMPLEMENT
 void Kmem_space::init()
 {
-  Page_table::set_allocator(Mapped_allocator::allocator());
-
-  puts("Initialize page table");
-  Page_table::init(kdir());
+  Page_table::init();
 
   Mem_unit::clean_vdcache();
 }

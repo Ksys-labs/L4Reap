@@ -14,7 +14,7 @@ EXTENSION class Kip
 {
 public:
 
-  /* 00 */
+  /* 0x00 */
   Mword      magic;
   Mword      version;
   Unsigned8  offset_version_strings;
@@ -27,56 +27,47 @@ public:
      image so that these declarations are consistent with section 2.9
      of the L4 Reference Manual */
 
-  /* 10 */
-  Mword      init_default_kdebug;
-  Mword      default_kdebug_exception;
+  /* 0x10 */
   Mword      sched_granularity;
-  Mword      default_kdebug_end;
+  Mword      _res1[3];
 
-  /* 20 */
+  /* 0x20 */
   Mword      sigma0_sp, sigma0_ip;
   Mword      _res2[2];
 
-  /* 30 */
+  /* 0x30 */
   Mword      sigma1_sp, sigma1_ip;
   Mword      _res3[2];
 
-  /* 40 */
+  /* 0x40 */
   Mword      root_sp, root_ip;
-  Mword	     _res4[2];
+  Mword      _res4[2];
 
-  /* 50 */
-  Mword      l4_config;
+  /* 0x50 */
+  Mword      _res_50;
   Mword      _mem_info;
-  Mword      kdebug_config;
-  Mword      kdebug_permission;
+  Mword      _res_58[2];
 
-  /* 60 */
-  Mword      total_ram;
-  Mword      processor_info;
-  Mword      _res6[14];
+  /* 0x60 */
+  Mword      _res5[16];
 
-  /* A0 */
+  /* 0xA0 */
   volatile Cpu_time clock;
-  Unsigned64 _res7;
+  Unsigned64 _res6;
 
-  /* B0 */
+  /* 0xB0 */
   Mword      frequency_cpu;
   Mword      frequency_bus;
-  Unsigned64 _res8;
 
-  /* C0 */
-  Mword      _res9[4];
+  /* 0xB8 */
+  Mword      _res7[10];
 
-  /* D0 */
-  Mword      _res10[4];
-
-  /* E0 */
+  /* 0xE0 */
   Mword      user_ptr;
   Mword      vhw_offset;
-  char       __pad[8];
+  Unsigned32 _res8[2];
 
-  /* F0 */
+  /* 0xF0 */
   Unsigned32 __reserved[20];
 };
 

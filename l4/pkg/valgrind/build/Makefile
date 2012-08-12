@@ -1,6 +1,8 @@
 PKGDIR ?= ..
 L4DIR ?= $(PKGDIR)/../..
 
+INSTALL_TARGET = memcheck-x86-l4re none-x86-l4re
+
 include $(L4DIR)/mk/Makeconf
 
 # path- and version-specific variables
@@ -9,7 +11,7 @@ VALGRIND_SRC = $(shell find $(PKGDIR)/src/ -name valgrind-$(VALGRIND_VERSION))
 VALGRIND_BUILD = $(OBJ_DIR)/OBJ-$(SYSTEM)/vg
 
 # basic BID settings
-REQUIRES_LIBS    = l4re_c-util
+REQUIRES_LIBS    = l4re_c-util l4util
 
 # variables used for passing to Valgrind's build system
 # gcc need a "," after defsym and a "=" after dynamic-linker
@@ -27,8 +29,6 @@ SYSTEMS = x86-l4f
 
 include $(L4DIR)/mk/prog.mk
 
-all :: valgrind
-
 ifneq ($(SYSTEM), )
 ifeq ($(BUILD_ARCH), x86)
 
@@ -41,7 +41,11 @@ TMP_LDFLAGS += -Wl,--end-group
 TMP_LDFLAGS += -Wl,--warn-common -gc-sections
 L4_LDFLAGS = $(TMP_LDFLAGS)
 
-valgrind : check_rediff valgrind_conf
+$(INSTALL_TARGET): valgrind_build
+	$(VERBOSE)$(LN) -sf vg/none/none-x86-l4re
+	$(VERBOSE)$(LN) -sf vg/memcheck/memcheck-x86-l4re
+
+valgrind_build: check_rediff valgrind_conf
 	@echo -e "\033[35;1m___...---=== COMPILING ===---...___\033[0m"
 	L4_CFLAGS="$(L4_CFLAGS)" \
 	L4_CPPFLAGS="$(CPPFLAGS)" \
@@ -60,7 +64,7 @@ valgrind : check_rediff valgrind_conf
 	AR="$(AR)" \
 		make -C $(VALGRIND_BUILD)
 
-valgrind_conf :
+valgrind_conf:
 	if [ ! -e $(VALGRIND_BUILD)/config.ready ]; then \
 		echo -e "\033[35;1m___...---=== CONFIG ===---...___\033[0m" && \
 		echo OBJ: $(VALGRIND_BUILD) && \
@@ -77,13 +81,12 @@ valgrind_conf :
 # this rule checks whether the modified file copies from other l4 packages
 # are still up-to-date
 check_rediff:
-	@cd $(PKGDIR)/.. && shasum -c $(SRC_DIR)/ext-checksums
+	@shacmd=shasum; command -v $$shacmd 2>&1 /dev/null || shacmd=sha1sum; \
+	cd $(PKGDIR)/.. && $$shacmd -c $(SRC_DIR)/ext-checksums
 
-.PHONY = valgrind_conf valgrind
+.PHONY = valgrind_conf valgrind_build
 
 endif # ARCH_x86
-else
-valgrind :
 endif # SYSTEM != ""
 
 clean cleanall::

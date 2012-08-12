@@ -34,7 +34,7 @@ enum
   INTEL_PTE_WRITE	= 0x0000000000000002LL,
   INTEL_PTE_USER	= 0x0000000000000004LL,
   INTEL_PTE_WTHRU	= 0x00000008,
-  INTEL_PTE_NCACHE 	= 0x00000010,
+  INTEL_PTE_NCACHE      = 0x00000010,
   INTEL_PTE_REF		= 0x00000020,
   INTEL_PTE_MOD		= 0x00000040,
   INTEL_PTE_GLOBAL	= 0x00000100,
@@ -45,7 +45,7 @@ enum
   INTEL_PDE_WRITE	= 0x0000000000000002LL,
   INTEL_PDE_USER	= 0x0000000000000004LL,
   INTEL_PDE_WTHRU	= 0x00000008,
-  INTEL_PDE_NCACHE 	= 0x00000010,
+  INTEL_PDE_NCACHE      = 0x00000010,
   INTEL_PDE_REF		= 0x00000020,
   INTEL_PDE_MOD		= 0x00000040,
   INTEL_PDE_SUPERPAGE	= 0x0000000000000080LL,
@@ -62,9 +62,9 @@ enum
   INTEL_PML4E_WRITE	= 0x0000000000000002LL,
   INTEL_PML4E_USER	= 0x0000000000000004LL,
   INTEL_PML4E_PFN	= 0x000ffffffffff000LL,
-  
+
   CPUF_4MB_PAGES	= 0x00000008,
-  
+
   CR0_PG		= 0x80000000,
   CR4_PSE		= 0x00000010,
   CR4_PAE		= 0x00000020,
@@ -75,7 +75,7 @@ enum
   BASE_TSS		= 0x08,
   KERNEL_CS		= 0x10,
   KERNEL_DS		= 0x18,
-  
+
   DBF_TSS		= 0x28, // XXX check this value
 
   ACC_TSS		= 0x09,
@@ -87,7 +87,7 @@ enum
   SZ_32			= 0x4,
   SZ_16			= 0x0,
   SZ_G			= 0x8,
-  SZ_CODE_64		= 0x2, // XXX 64 Bit Code Segment 
+  SZ_CODE_64		= 0x2, // XXX 64 Bit Code Segment
 
   GDTSZ			= (0x30/8), // XXX check this value
   IDTSZ			= 256,
@@ -101,7 +101,7 @@ struct pseudo_descriptor
   l4_uint32_t linear_base;
 };
 
-struct x86_desc 
+struct x86_desc
 {
   l4_uint16_t limit_low;		/* limit 0..15 */
   l4_uint16_t base_low;		/* base  0..15 */
@@ -161,8 +161,8 @@ static void handle_dbf(void);
 static char           dbf_stack[2048];
 static struct x86_tss dbf_tss =
   {
-    0/*back_link*/, 
-    0/*esp0*/, 0/*ss0*/, 0/*esp1*/, 0/*ss1*/, 0/*esp2*/, 0/*ss2*/, 
+    0/*back_link*/,
+    0/*esp0*/, 0/*ss0*/, 0/*esp1*/, 0/*ss1*/, 0/*esp2*/, 0/*ss2*/,
     0/*cr3*/,
     (l4_uint32_t)handle_dbf/*eip*/, 0x00000082/*eflags*/,
     0/*eax*/, 0/*ecx*/, 0/*edx*/, 0/*ebx*/,
@@ -240,10 +240,10 @@ static inline l4_uint16_t get_ss(void)
 
 
 static inline void enable_longmode(void)
-{ 
+{
   l4_uint32_t dummy;
-  asm volatile("rdmsr; bts $8,%%eax; wrmsr"
-      :"=a"(dummy), "=d"(dummy) : "c"(0xc0000080)); 
+  asm volatile("rdmsr; bts $8, %%eax; wrmsr"
+               :"=a"(dummy), "=d"(dummy) : "c"(0xc0000080));
 }
 
 static inline void
@@ -294,6 +294,9 @@ paging_enable(l4_uint32_t pml4)
 static void
 panic(const char *str)
 {
+  printf("PANIC: %s\n", str);
+  while (1)
+    ;
   _exit(-1);
 }
 
@@ -311,7 +314,7 @@ cpuid(void)
       if ((get_eflags() ^ orig_eflags) & EFL_ID)
 	{
 	  int highest_val, dummy;
-	  asm volatile("cpuid" 
+	  asm volatile("cpuid"
 			: "=a" (highest_val)
 			: "a" (0) : "ebx", "ecx", "edx");
 
@@ -319,9 +322,9 @@ cpuid(void)
 	    {
 	      asm volatile("cpuid"
 		           : "=a" (dummy),
-      			     "=d" (cpu_feature_flags)
-			     : "a" (1)
-			     : "ebx", "ecx");
+                             "=d" (cpu_feature_flags)
+			   : "a" (1)
+			   : "ebx", "ecx");
 	    }
 	}
     }
@@ -354,7 +357,7 @@ base_gdt_init(void)
   /* Initialize the base TSS descriptor.  */
   fill_descriptor(&base_gdt[BASE_TSS / 8],
 		  (l4_uint32_t)&base_tss, sizeof(base_tss) - 1,
-	  	  ACC_PL_K | ACC_TSS, 0);
+                  ACC_PL_K | ACC_TSS, 0);
   /* Initialize the TSS descriptor for the double fault handler */
   fill_descriptor(&base_gdt[DBF_TSS / 8],
 		  (l4_uint32_t)&dbf_tss, sizeof(dbf_tss) - 1,
@@ -362,12 +365,12 @@ base_gdt_init(void)
   /* Initialize the 32-bit kernel code and data segment descriptors
      to point to the base of the kernel linear space region.  */
   fill_descriptor(&base_gdt[KERNEL_CS / 8], 0, 0xffffffff,
-	  	  ACC_PL_K | ACC_CODE_R, SZ_32);
+                  ACC_PL_K | ACC_CODE_R, SZ_32);
   fill_descriptor(&base_gdt[KERNEL_DS / 8], 0, 0xffffffff,
-	  	  ACC_PL_K | ACC_DATA_W, SZ_32);
+                  ACC_PL_K | ACC_DATA_W, SZ_32);
   /* XXX Initialize the 64-bit kernel code segment descriptor */
   fill_descriptor(&base_gdt[KERNEL_CS_64 / 8], 0, 0xffffffff,
-      		  ACC_PL_K | ACC_CODE_R, SZ_CODE_64);
+                  ACC_PL_K | ACC_CODE_R, SZ_CODE_64);
 }
 
 static void
@@ -437,8 +440,8 @@ struct ptab64_mem_info_t ptab64_mem_info;
 static void
 ptab_alloc(l4_uint32_t *out_ptab_pa)
 {
-  // this pool covers around 64GB physical memory
-  static char pool[69<<12] __attribute__((aligned(4096)));
+  // this pool covers around 128GB physical memory
+  static char pool[150<<12] __attribute__((aligned(4096)));
   static l4_uint32_t pdirs;
   static int initialized;
 
@@ -570,7 +573,6 @@ base_paging_init(l4_uint64_t phys_mem_max)
   pdir_map_range(base_pml4_pa, 0, 0, phys_mem_max,
 		 INTEL_PDE_VALID | INTEL_PDE_WRITE | INTEL_PDE_USER);
 
-
   //dbf_tss.cr3 = base_pml4_pa;
 
   // XXX Turn on paging and activate long mode
@@ -578,24 +580,24 @@ base_paging_init(l4_uint64_t phys_mem_max)
 }
 
 void trap_dump_panic(const struct trap_state *st);
-void
-trap_dump_panic(const struct trap_state *st)
+void trap_dump_panic(const struct trap_state *st)
 {
-  int from_user = (st->cs & 3);
+  int from_user = st->cs & 3;
   int i;
-   
+
   printf("EAX %08x EBX %08x ECX %08x EDX %08x\n",
-      st->eax, st->ebx, st->ecx, st->edx);
+         st->eax, st->ebx, st->ecx, st->edx);
   printf("ESI %08x EDI %08x EBP %08x ESP %08x\n",
-      st->esi, st->edi, st->ebp,
-      from_user ? st->esp : (l4_uint32_t)&st->esp);
+         st->esi, st->edi, st->ebp,
+         from_user ? st->esp : (l4_uint32_t)&st->esp);
   printf("EIP %08x EFLAGS %08x\n", st->eip, st->eflags);
   printf("CS %04x SS %04x DS %04x ES %04x FS %04x GS %04x\n",
-      st->cs & 0xffff, from_user ? st->ss & 0xffff : get_ss(),
-      st->ds & 0xffff, st->es & 0xffff,
-      st->fs & 0xffff, st->gs & 0xffff);
+         st->cs & 0xffff, from_user ? st->ss & 0xffff : get_ss(),
+         st->ds & 0xffff, st->es & 0xffff,
+         st->fs & 0xffff, st->gs & 0xffff);
   printf("trapno %d, error %08x, from %s mode\n",
-      st->trapno, st->err, from_user ? "user" : "kernel");
+         st->trapno, st->err, from_user ? "user" : "kernel");
+
   if (st->trapno == 0x0d)
     {
       if (st->err & 1)
@@ -603,30 +605,23 @@ trap_dump_panic(const struct trap_state *st)
       else
 	printf("(internal event");
       if (st->err & 2)
-	{
-	  printf(" regarding IDT gate descriptor no. 0x%02x)\n",
-	      st->err >> 3);
-	}
+        printf(" regarding IDT gate descriptor no. 0x%02x)\n", st->err >> 3);
       else
-	{
-	  printf(" regarding %s entry no. 0x%02x)\n",
-	      st->err & 4 ? "LDT" : "GDT", st->err >> 3);
-	}
+        printf(" regarding %s entry no. 0x%02x)\n",
+               st->err & 4 ? "LDT" : "GDT", st->err >> 3);
     }
   else if (st->trapno == 0x0e)
     printf("page fault linear address %08x\n", st->cr2);
 
   if (!from_user)
-    {
-      for (i = 0; i < 32; i++)
-	printf("%08x%c", (&st->esp)[i], ((i & 7) == 7) ? '\n' : ' ');
-    }
-  
+    for (i = 0; i < 32; i++)
+      printf("%08x%c", (&st->esp)[i], ((i & 7) == 7) ? '\n' : ' ');
+
   panic("Unexpected trap while booting Fiasco!");
 }
 
 static void
-handle_dbf()
+handle_dbf(void)
 {
   /*
   printf("\n"

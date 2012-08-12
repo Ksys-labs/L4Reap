@@ -29,37 +29,40 @@ namespace {
 void
 Object_gc::gc_step()
 {
-  printf("GC: step this=%p _life = %p\n", this, _life);
-  Object *n = _life;
-  while (n)
+  //printf("GC: step this=%p _life = %p\n", this, _life.front());
+  for (Obj_iter n = _life.begin(); n != _life.end();)
     {
-      Object *o = n;
-      n = o->_n;
-
-      if (!o->obj_cap() || !o->obj_cap().validate().label())
+      if (!n->obj_cap() || !n->obj_cap().validate().label())
 	{
-	  printf("GC: object=%p\n", o);
+	  //printf("GC: object=%p\n", *n);
 	  L4::Thread::Modify_senders todo;
-	  todo.add(~3UL, reinterpret_cast<l4_umword_t>((L4::Server_object*)o),
+	  todo.add(~3UL, reinterpret_cast<l4_umword_t>((L4::Server_object*)*n),
 	           ~0UL, reinterpret_cast<l4_umword_t>((L4::Server_object*)&_trash));
 	  L4::Cap<L4::Thread>()->modify_senders(todo);
-	  o->dequeue();
+          Object *o = *n;
+	  n = _life.erase(n);
 	  o->destroy();
 	  // drop the reference held in the IPC gate
 	  cxx::Ref_ptr<Object> p(o, true);
 	}
+      else
+        ++n;
     }
 }
 
 void
 Object_gc::gc_sweep()
 {
-  while (_sweep)
+  for (;;)
     {
-      Object *o = _sweep;
-      o->dequeue();
-      printf("GC: delete object %p\n", o);
-      delete o;
+      Obj_iter o = _sweep.begin();
+      if (o == _sweep.end())
+        break;
+
+      Object *x = *o;
+      _sweep.erase(o);
+      printf("GC: delete object %p\n", x);
+      delete x;
     }
 }
 

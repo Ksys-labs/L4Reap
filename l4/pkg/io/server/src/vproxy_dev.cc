@@ -12,7 +12,7 @@
 
 namespace Vi {
 
-Proxy_dev::Proxy_dev(Hw::Device *d)
+Proxy_dev::Proxy_dev(Hw::Device *d, Tagged_parameter *)
 : _hwd(d)
 {
   // suck features from real dev

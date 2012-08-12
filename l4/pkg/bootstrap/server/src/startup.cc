@@ -47,9 +47,6 @@
 #include "loader_mbi.h"
 #include "startup.h"
 #include "koptions.h"
-#if defined (ARCH_x86) || defined(ARCH_amd64)
-#include "ARCH-x86/serial.h"
-#endif
 
 #if defined (ARCH_ppc32)
 #include <l4/drivers/of_if.h>
@@ -58,10 +55,12 @@
 
 #undef getchar
 
+enum { Verbose_load = 0 };
+
 static l4util_mb_info_t *mb_info;
 /* management of allocated memory regions */
 static Region_list regions;
-static Region __regs[MAX_REGION];
+static Region __regs[300];
 
 /* management of conventional memory regions */
 static Region_list ram;
@@ -72,8 +71,8 @@ static l4util_mb_vbe_mode_t __mb_vbe;
 static l4util_mb_vbe_ctrl_t __mb_ctrl;
 #endif
 
-static L4_kernel_options::Uart kuart;
-static unsigned int kuart_flags;
+L4_kernel_options::Uart kuart;
+unsigned int kuart_flags;
 
 /*
  * IMAGE_MODE means that all boot modules are linked together to one
@@ -238,7 +237,7 @@ check_arg_str(char *cmdline, const char *arg)
  *
  * return pointer after argument, NULL if not found
  */
-static char *
+char *
 check_arg(l4util_mb_info_t *mbi, const char *arg)
 {
   const char *c = get_cmdline(mbi);
@@ -409,39 +408,15 @@ static void fill_mem(unsigned fill_value)
     }
 }
 
-
-/**
- * Move modules to another address.
- *
- * Source and destination regions may overlap.
- */
 static void
-move_modules(l4util_mb_info_t *mbi, unsigned long modaddr)
+move_module(l4util_mb_info_t *mbi, int i, Region *from, Region *to,
+            bool overlap_check)
 {
-  long offset = modaddr - (L4_MB_MOD_PTR(mbi->mods_addr))[0].mod_start;
-  unsigned i, i_end;
-  unsigned dir = offset > 0 ? -1 : 1;
+  unsigned long start = from->begin();
+  unsigned long size = from->end() - start + 1;
 
-  if (!offset)
+  if (Verbose_load)
     {
-      printf("  => Images in place\n");
-      return;
-    }
-
-  printf("  Moving %d modules to %lx with offset %lx\n",
-         mbi->mods_count, modaddr, offset);
-
-  i     = dir == 1 ? 1 : mbi->mods_count;
-  i_end = dir == 1 ? mbi->mods_count + 1 : 0;
-  for (; i != i_end ; i += dir)
-    {
-      unsigned long start = (L4_MB_MOD_PTR(mbi->mods_addr))[i-1].mod_start;
-      unsigned long end = (L4_MB_MOD_PTR(mbi->mods_addr))[i-1].mod_end;
-
-      if (start == end)
-        continue;
-
-#ifdef VERBOSE_LOAD
       unsigned char c[5];
       c[0] = *(unsigned char*)(start + 0);
       c[1] = *(unsigned char*)(start + 1);
@@ -452,30 +427,152 @@ move_modules(l4util_mb_info_t *mbi, unsigned long modaddr)
       c[1] = c[1] < 32 ? '.' : c[1];
       c[2] = c[2] < 32 ? '.' : c[2];
       c[3] = c[3] < 32 ? '.' : c[3];
-      printf("  moving module %02d { %lx, %lx } (%s) -> { %lx - %lx }\n",
-             i, start, end, c, start + offset, end + offset);
+      printf("  moving module %02d { %lx, %llx } (%s) -> { %llx - %llx } [%ld]\n",
+             i, start, from->end(), c, to->begin(), to->end(), size);
 
       for (int a = 0; a < 0x100; a += 4)
-	printf("%08lx%s", *(unsigned long *)(start + a), (a % 32 == 28) ? "\n" : " ");
+        printf("%08lx%s", *(unsigned long *)(start + a), (a % 32 == 28) ? "\n" : " ");
       printf("\n");
-#else
-      printf("  moving module %02d { %lx-%lx } -> { %lx-%lx }\n",
-             i, start, end, start + offset, end + offset);
-#endif
+    }
+  else
+    printf("  moving module %02d { %lx-%llx } -> { %llx-%llx } [%ld]\n",
+           i, start, from->end(), to->begin(), to->end(), size);
 
-      Region *overlap = regions.find(Region(start + offset, end + offset));
+  if (overlap_check)
+    {
+      Region *overlap = regions.find(*to);
       if (overlap)
-	{
-	  printf("ERROR: module target [%lx-%lx) overlaps\n", start + offset, 
-	      end + offset);
-	  overlap->vprint();
-	  panic("can not move module");
-	}
-      if (!ram.contains(Region(start + offset, end + offset)))
-        panic("Panic: Would move outside of RAM");
-      memmove((void *)(start+offset), (void *)start, end-start);
-      (L4_MB_MOD_PTR(mbi->mods_addr))[i-1].mod_start += offset;
-      (L4_MB_MOD_PTR(mbi->mods_addr))[i-1].mod_end += offset;
+        {
+          printf("ERROR: module target [%llx-%llx) overlaps\n",
+                 to->begin(), to->end());
+          overlap->vprint();
+          panic("can not move module");
+        }
+    }
+  if (!ram.contains(*to))
+    panic("Panic: Would move outside of RAM");
+  memmove((void *)to->begin(), (void *)start, size);
+  unsigned long x = to->end() + 1;
+  memset((char *)x, 0, l4_round_page(x) - x);
+
+  (L4_MB_MOD_PTR(mbi->mods_addr))[i].mod_start = to->begin();
+  (L4_MB_MOD_PTR(mbi->mods_addr))[i].mod_end   = to->end() + 1;
+  from->begin(to->begin());
+  from->end(to->end());
+}
+
+static inline
+unsigned long mbi_mod_start(l4util_mb_info_t *mbi, int i)
+{ return (L4_MB_MOD_PTR(mbi->mods_addr))[i].mod_start; }
+
+static inline
+unsigned long mbi_mod_end(l4util_mb_info_t *mbi, int i)
+{ return (L4_MB_MOD_PTR(mbi->mods_addr))[i].mod_end; }
+
+static inline
+unsigned long mbi_mod_size(l4util_mb_info_t *mbi, int i)
+{ return mbi_mod_end(mbi, i) - mbi_mod_start(mbi, i); }
+
+/**
+ * Move modules to another address.
+ *
+ * Source and destination regions may overlap.
+ */
+static void
+move_modules(l4util_mb_info_t *mbi, unsigned long modaddr)
+{
+  printf("  Moving modules behind %lx\n", modaddr);
+
+  Region *ramr = ram.find(Region(modaddr, modaddr));
+  Region module_area(modaddr, ramr->end(), "ram for modules");
+
+  unsigned long firstmodulestart = ~0UL, lastmoduleend = 0;
+  for (unsigned i = 0; i < mbi->mods_count; ++i)
+    {
+      if (lastmoduleend < mbi_mod_end(mbi, i))
+        lastmoduleend = mbi_mod_end(mbi, i);
+      if (firstmodulestart > mbi_mod_start(mbi, i))
+        firstmodulestart = mbi_mod_start(mbi, i);
+    }
+  lastmoduleend = l4_round_page(lastmoduleend);
+  if (firstmodulestart < modaddr)
+    {
+      Region s(lastmoduleend, ramr->end());
+      unsigned long sz = modaddr - firstmodulestart;
+      lastmoduleend = regions.find_free(s, sz, L4_PAGESHIFT) + sz;
+    }
+
+
+  for (unsigned i = 0; i < mbi->mods_count; ++i)
+    {
+      unsigned long start = mbi_mod_start(mbi, i);
+      unsigned long end = mbi_mod_end(mbi, i);
+      unsigned long size = mbi_mod_size(mbi, i);
+
+      if (start == end)
+        continue;
+
+      Region from(start, end - 1);
+      Region *this_module = regions.find(from);
+      assert(this_module->begin() == from.begin()
+             && this_module->end() == from.end());
+
+      if (i < 3)
+        {
+          unsigned long start = mbi_mod_start(mbi, i);
+          if (start < lastmoduleend)
+            {
+              unsigned long end = mbi_mod_end(mbi, i);
+
+              Region to(lastmoduleend, lastmoduleend + (end - start) - 1);
+              move_module(mbi, i, this_module, &to, true);
+              lastmoduleend = l4_round_page(this_module->end());
+            }
+          continue;
+        }
+
+      if (start >= modaddr)
+        continue;
+
+      unsigned long long to = regions.find_free(module_area, size, L4_PAGESHIFT);
+      assert(to);
+
+      Region m_to = Region(to, to + size - 1);
+      move_module(mbi, i, this_module, &m_to, true);
+    }
+
+  // now everything is behind modaddr -> pull close to modaddr now
+  // this is optional but avoids holes and gives more consecutive memory
+
+  if (0)
+    printf("  Compactifying\n");
+
+  regions.sort();
+  unsigned long lastend = modaddr;
+  for (Region *i = regions.begin(); i < regions.end(); ++i)
+    {
+      if (i->begin() < modaddr)
+        continue;
+
+      // find in mbi
+      unsigned mi = 0;
+      for (; mi < mbi->mods_count; ++mi)
+        if (i->begin() == mbi_mod_start(mbi, mi))
+          break;
+
+      if (mi < 3 || mbi->mods_count == mi)
+        continue;
+
+      unsigned long start = mbi_mod_start(mbi, mi);
+      unsigned long end = mbi_mod_end(mbi, mi);
+
+      if (start > lastend)
+        {
+          Region to(lastend, end - 1 - (start - lastend));
+          move_module(mbi, mi, i, &to, false);
+          end = i->end();
+        }
+      lastend = l4_round_page(end);
     }
 }
 
@@ -500,10 +597,9 @@ init_regions()
 static void
 add_boot_modules_region(l4util_mb_info_t *mbi)
 {
-  regions.add(
-      Region::n((L4_MB_MOD_PTR(mbi->mods_addr))[0].mod_start,
-	     (L4_MB_MOD_PTR(mbi->mods_addr))[mbi->mods_count-1].mod_end,
-	     ".Modules Memory", Region::Root));
+  for (unsigned int i = 0; i < mbi->mods_count; ++i)
+    regions.add(Region(mbi_mod_start(mbi, i), mbi_mod_end(mbi, i) - 1,
+                       ".Module", Region::Root));
 }
 
 
@@ -537,22 +633,20 @@ add_elf_regions(l4util_mb_info_t *mbi, l4_umword_t module,
 
   if (r)
     {
-#ifdef VERBOSE_LOAD
-      int i;
-      printf("\n%p: ", exec_task.mod_start);
-      for (i = 0; i < 16; ++i)
+      if (Verbose_load)
         {
-	  printf("%02x", *(unsigned char *)exec_task.mod_start);
-	  if (i % 4 == 3)
-	    printf(" ");
-	}
-      printf("  ");
-      for (i = 0; i < 16; ++i)
-        {
-	  unsigned char c = *(unsigned char *)exec_task.mod_start;
-	  printf("%c", c < 32 ? '.' : c);
-	}
-#endif
+          printf("\n%p: ", exec_task.mod_start);
+          for (int i = 0; i < 4; ++i)
+            {
+              printf("%08lx ", *((unsigned long *)exec_task.mod_start + i));
+            }
+          printf("  ");
+          for (int i = 0; i < 16; ++i)
+            {
+              unsigned char c = *(unsigned char *)((char *)exec_task.mod_start + i);
+              printf("%c", c < 32 ? '.' : c);
+            }
+        }
       panic("\n\nThis is an invalid binary, fix it (%s).", error_msg);
     }
 }
@@ -938,70 +1032,17 @@ construct_mbi(l4util_mb_info_t *mbi)
 #endif /* IMAGE_MODE */
 
 
-void
-init_pc_serial(l4util_mb_info_t *mbi)
-{
-#if defined(ARCH_x86) || defined(ARCH_amd64)
-  const char *s;
-  int comport = -1;
-  int comirq = -1;
-  int pci = 0;
-
-  if ((s = check_arg(mbi, "-comirq")))
-    {
-      s += 8;
-      comirq = strtoul(s, 0, 0);
-    }
-
-  if ((s = check_arg(mbi, "-comport")))
-    {
-      s += 9;
-      if ((pci = !strncmp(s, "pci:", 4)))
-        s += 4;
-
-      comport = strtoul(s, 0, 0);
-    }
-
-  if (!check_arg(mbi, "-noserial"))
-    {
-      if (pci)
-        {
-          extern unsigned long search_pci_serial_devs(int port_idx, bool scan_only);
-          if (unsigned long port = search_pci_serial_devs(comport, true))
-            comport = port;
-	  else
-	    comport = -1;
-
-	  printf("PCI IO port = %x\n", comport);
-        }
-
-      if (comport == -1)
-        comport = 1;
-
-      if (com_cons_init(comport, comirq, &kuart, &kuart_flags))
-        printf("UART init failed\n");
-    }
-#else
-  (void)mbi;
-#endif
-}
-
-#if defined(ARCH_arm) || defined(ARCH_ppc32) || defined(ARCH_sparc)
-#ifndef IMAGE_MODE
-// check that our is_precious_ram function can work ok
-#error For ARM/PPC/SPARC, IMAGE_MODE must always be enabled
-#endif
-
 /* Occupied RAM at the point we are scannig it */
 static int
 is_precious_ram(unsigned long addr)
 {
   extern int _start, _end;
-  unsigned i, c = _module_info_end - _module_info_start;
 
   if ((unsigned long)&_start <= addr && addr <= (unsigned long)&_end)
     return 1;
 
+#ifdef IMAGE_MODE
+  unsigned i, c = _module_info_end - _module_info_start;
   if ((unsigned long)_module_info_start <= addr
        && addr <= (unsigned long)_module_info_end)
     return 1;
@@ -1012,8 +1053,9 @@ is_precious_ram(unsigned long addr)
 
   for (i = 0; i < c; ++i)
     if (_module_info_start[i].start <= addr
-        && _module_info_start[i].start + _module_info_start[i].size_uncompressed <= addr)
+        && addr < _module_info_start[i].start + _module_info_start[i].size_uncompressed)
       return 1;
+#endif
 
   return 0;
 }
@@ -1044,7 +1086,6 @@ scan_ram_size(unsigned long base_addr, unsigned long max_scan_size_mb)
 
   return max_scan_size_mb;
 }
-#endif
 
 /**
  * \brief  Startup, started from crt0.S
@@ -1060,9 +1101,6 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
   void *l4i;
   boot_info_t boot_info;
   l4util_mb_mod_t *mb_mod;
-
-  /* fire up serial port if specificed on the command line */
-  init_pc_serial(mbi);
 
   if (!Platform_base::platform)
     {
@@ -1085,8 +1123,8 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
 #endif
       );
 
-  regions.init(__regs, sizeof(__regs)/sizeof(__regs[0]), "regions");
-  ram.init(__ram, sizeof(__ram)/sizeof(__ram[0]), "RAM",
+  regions.init(__regs, sizeof(__regs) / sizeof(__regs[0]), "regions");
+  ram.init(__ram, sizeof(__ram) / sizeof(__ram[0]), "RAM",
            get_memory_limit(mbi));
 
 #ifdef ARCH_amd64
@@ -1166,6 +1204,8 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
   if (const char *s = check_arg(mbi, "-modaddr"))
     _mod_addr = strtoul(s + 9, 0, 0);
 
+  _mod_addr = l4_round_page(_mod_addr);
+
 #ifdef IMAGE_MODE
   construct_mbi(mbi);
 #endif
@@ -1191,9 +1231,6 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
     }
 #endif
 
-  if (_mod_addr)
-    move_modules(mbi, _mod_addr);
-
   /* We need at least two boot modules */
   assert(mbi->flags & L4UTIL_MB_MODS);
   /* We have at least the L4 kernel and the first user task */
@@ -1202,6 +1239,9 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
 
   /* we're just a GRUB-booted kernel! */
   add_boot_modules_region(mbi);
+
+  if (_mod_addr)
+    move_modules(mbi, _mod_addr);
 
   if (const char *s = get_cmdline(mbi))
     {
@@ -1356,6 +1396,9 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
 #elif defined(ARCH_sparc)
 
   printf("ENTER THE KERNEL!\n");
+  asm volatile("or %%g0,%0,%%g2\n\t"
+               "jmpl %%g2,%%g0\n\t"
+               "nop\n\t" : : "r"(boot_info.kernel_start));
 
 #else
 
@@ -1388,9 +1431,8 @@ l4_exec_read_exec(void * handle,
   if (mem_addr + mem_size > exec_task->end)
     exec_task->end = mem_addr + mem_size;
 
-#ifdef VERBOSE_LOAD
-  printf("    [%p-%p]\n", (void *) mem_addr, (void *) (mem_addr + mem_size));
-#endif
+  if (Verbose_load)
+    printf("    [%p-%p]\n", (void *) mem_addr, (void *) (mem_addr + mem_size));
 
   if (!ram.contains(Region::n(mem_addr, mem_addr + mem_size)))
     {

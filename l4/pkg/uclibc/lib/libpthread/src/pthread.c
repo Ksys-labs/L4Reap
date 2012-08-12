@@ -186,9 +186,11 @@ static void pthread_onexit_process(int retcode, void *arg);
 static void pthread_atexit_process(void *arg, int retcode);
 static void pthread_atexit_retcode(void *arg, int retcode);
 #endif
+#ifdef NOT_FOR_L4
 static void pthread_handle_sigcancel(int sig);
 static void pthread_handle_sigrestart(int sig);
 static void pthread_handle_sigdebug(int sig);
+#endif
 
 /* Signal numbers used for the communication.
    In these variables we keep track of the used variables.  If the
@@ -304,10 +306,10 @@ struct pthread_functions __pthread_functions =
     .ptr_pthread_sigwait = NULL,
     .ptr_pthread_raise = NULL,
 #endif
-    .ptr__pthread_cleanup_push = _pthread_cleanup_push,
-    .ptr__pthread_cleanup_push_defer = _pthread_cleanup_push_defer,
-    .ptr__pthread_cleanup_pop = _pthread_cleanup_pop,
-    .ptr__pthread_cleanup_pop_restore = _pthread_cleanup_pop_restore,
+    .ptr__pthread_cleanup_push = __pthread_cleanup_push,
+    .ptr__pthread_cleanup_push_defer = __pthread_cleanup_push_defer,
+    .ptr__pthread_cleanup_pop = __pthread_cleanup_pop,
+    .ptr__pthread_cleanup_pop_restore = __pthread_cleanup_pop_restore,
   };
 #ifdef SHARED
 # define ptr_pthread_functions &__pthread_functions
@@ -490,7 +492,9 @@ cannot allocate TLS data structures for initial thread\n";
 void
 __pthread_init_max_stacksize(void)
 {
+#ifdef NOT_FOR_L4
   struct rlimit limit;
+#endif
   size_t max_stack;
 
 #ifdef NOT_FOR_L4
@@ -590,8 +594,10 @@ __pthread_init_static_tls (struct link_map *map)
 
 static void pthread_initialize(void)
 {
+#ifdef NOT_USED
   struct sigaction sa;
   sigset_t mask;
+#endif
 
   /* If already done (e.g. by a constructor called earlier!), bail out */
   if (__pthread_initial_thread_bos != NULL) return;
@@ -878,7 +884,9 @@ int __pthread_initialize_manager(void)
 
 /* Thread creation */
 
-int __pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+int
+attribute_hidden
+__pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 			 void * (*start_routine)(void *), void *arg)
 {
   pthread_descr self = thread_self();
@@ -915,14 +923,18 @@ pthread_descr __pthread_thread_self(void)
   return thread_self();
 }
 
-pthread_t __pthread_self(void)
+pthread_t
+attribute_hidden
+__pthread_self(void)
 {
   pthread_descr self = thread_self();
   return THREAD_GETMEM(self, p_tid);
 }
 strong_alias (__pthread_self, pthread_self)
 
-int __pthread_equal(pthread_t thread1, pthread_t thread2)
+int
+attribute_hidden
+__pthread_equal(pthread_t thread1, pthread_t thread2)
 {
   return thread1 == thread2;
 }
@@ -933,7 +945,9 @@ strong_alias (__pthread_equal, pthread_equal)
 
 #ifndef THREAD_SELF
 
-pthread_descr __pthread_find_self(void)
+pthread_descr
+attribute_hidden internal_function
+__pthread_find_self(void)
 {
   char * sp = CURRENT_STACK_FRAME;
   pthread_handle h;
@@ -951,7 +965,9 @@ pthread_descr __pthread_find_self(void)
 
 #else
 
-pthread_descr __pthread_self_stack(void)
+pthread_descr
+attribute_hidden internal_function
+__pthread_self_stack(void)
 {
   char *sp = CURRENT_STACK_FRAME;
   pthread_handle h;
@@ -985,7 +1001,9 @@ pthread_descr __pthread_self_stack(void)
 
 /* Thread scheduling */
 
-int __pthread_setschedparam(pthread_t thread, int policy,
+int
+attribute_hidden internal_function
+__pthread_setschedparam(pthread_t thread, int policy,
                             const struct sched_param *param)
 {
   pthread_handle handle = thread_handle(thread);
@@ -1010,7 +1028,9 @@ int __pthread_setschedparam(pthread_t thread, int policy,
 }
 strong_alias (__pthread_setschedparam, pthread_setschedparam)
 
-int __pthread_getschedparam(pthread_t thread, int *policy,
+int
+attribute_hidden internal_function
+__pthread_getschedparam(pthread_t thread, int *policy,
                             struct sched_param *param)
 {
   pthread_handle handle = thread_handle(thread);
@@ -1218,7 +1238,9 @@ void __pthread_reset_main_thread(void)
 
 /* Process-wide exec() request */
 
-void __pthread_kill_other_threads_np(void)
+void
+attribute_hidden internal_function
+__pthread_kill_other_threads_np(void)
 {
   struct sigaction sa;
   /* Terminate all other threads and thread manager */
@@ -1244,7 +1266,9 @@ weak_alias (__pthread_kill_other_threads_np, pthread_kill_other_threads_np)
 /* Concurrency symbol level.  */
 static int current_level;
 
-int __pthread_setconcurrency(int level)
+int
+attribute_hidden
+__pthread_setconcurrency(int level)
 {
   /* We don't do anything unless we have found a useful interpretation.  */
   current_level = level;
@@ -1252,7 +1276,9 @@ int __pthread_setconcurrency(int level)
 }
 weak_alias (__pthread_setconcurrency, pthread_setconcurrency)
 
-int __pthread_getconcurrency(void)
+int
+attribute_hidden
+__pthread_getconcurrency(void)
 {
   return current_level;
 }
@@ -1261,7 +1287,9 @@ weak_alias (__pthread_getconcurrency, pthread_getconcurrency)
 /* Primitives for controlling thread execution */
 
 #ifdef NOT_FOR_L4
-void __pthread_wait_for_restart_signal(pthread_descr self)
+void
+attribute_hidden
+__pthread_wait_for_restart_signal(pthread_descr self)
 {
   sigset_t mask;
 
@@ -1284,19 +1312,24 @@ void __pthread_wait_for_restart_signal(pthread_descr self)
    queuing semantics. This is needed to resolve a rare race condition in
    pthread_cond_timedwait_relative. */
 
-void __pthread_restart_old(pthread_descr th)
+void
+attribute_hidden internal_function
+__pthread_restart_old(pthread_descr th)
 {
   if (pthread_atomic_increment(&th->p_resume_count) == -1)
     kill(th->p_pid, __pthread_sig_restart);
 }
 
-void __pthread_suspend_old(pthread_descr self)
+void
+attribute_hidden internal_function
+__pthread_suspend_old(pthread_descr self)
 {
   if (pthread_atomic_decrement(&self->p_resume_count) <= 0)
     __pthread_wait_for_restart_signal(self);
 }
 
 int
+attribute_hidden internal_function
 __pthread_timedsuspend_old(pthread_descr self, const struct timespec *abstime)
 {
   sigset_t unblock, initial_mask;
@@ -1374,7 +1407,9 @@ __pthread_timedsuspend_old(pthread_descr self, const struct timespec *abstime)
 }
 #endif /* __ASSUME_REALTIME_SIGNALS */
 
-void __pthread_restart_new(pthread_descr th)
+void
+attribute_hidden internal_function
+__pthread_restart_new(pthread_descr th)
 {
   /* The barrier is proabably not needed, in which case it still documents
      our assumptions. The intent is to commit previous writes to shared
@@ -1388,6 +1423,7 @@ void __pthread_restart_new(pthread_descr th)
    be a wasteful wrapper for __pthread_wait_for_restart_signal */
 
 int
+attribute_hidden internal_function
 __pthread_timedsuspend_new(pthread_descr self, const struct timespec *abstime)
 {
   sigset_t unblock, initial_mask;
@@ -1450,7 +1486,9 @@ __pthread_timedsuspend_new(pthread_descr self, const struct timespec *abstime)
 #ifdef DEBUG
 #include <stdarg.h>
 
-void __pthread_message(const char * fmt, ...)
+void
+attribute_hidden internal_function
+__pthread_message(const char * fmt, ...)
 {
   char buffer[1024];
   va_list args;

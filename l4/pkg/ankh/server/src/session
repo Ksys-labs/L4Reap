@@ -68,7 +68,7 @@ namespace Ankh
 
 		static inline bool is_broadcast_mac(char const * const buf)
 		{
-			static char bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+			static unsigned char bcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 			return (memcmp(buf, bcast, 6) == 0);
 		}
 
@@ -156,7 +156,13 @@ namespace Ankh
 
 				// get Device, assume this does not fail!
 				_dev = Ankh::Device_manager::dev_mgr()->find_device_by_name(name, debug);
-				assert(_dev);
+				if (!_dev) {
+					std::cout << "Could not open device: " << name << std::endl;
+					std::cout << "Please check the spelling as well as " << std::endl
+					          << "the initialization sequence above." << std::endl;
+					enter_kdebug("no device");
+				}
+
 				// the area needs to be created immediately, chunks are created
 				// on shm_open()
 				create_shm_area();

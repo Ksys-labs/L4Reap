@@ -45,6 +45,7 @@ enum Thread_state
   Thread_waiting              = 0x200000, // Thread waits for a lock
 
   Thread_vcpu_enabled         = 0x400000,
+  Thread_vcpu_user            = 0x800000,
   Thread_vcpu_fpu_disabled    = 0x1000000,
   Thread_ext_vcpu_enabled     = 0x2000000,
 };

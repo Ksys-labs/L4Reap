@@ -57,29 +57,30 @@ Vm_svm::get_vm_cr3(Vmcb *)
 {
   // When running in 32bit mode we already return the page-table of our Vm
   // object, whether we're running with shadow or nested paging
-  return mem_space()->phys_dir();
+  return phys_dir();
 }
 
 //----------------------------------------------------------------------------
 IMPLEMENTATION [svm && amd64]:
 
+#include "assert_opt.h"
 #include "virt.h"
 
-PRIVATE inline NEEDS["virt.h"]
+PRIVATE inline NEEDS["assert_opt.h", "virt.h"]
 Address
 Vm_svm::get_vm_cr3(Vmcb *v)
 {
   // When we have nested paging, we just return the 4lvl host page-table of
   // our Vm.
   if (v->np_enabled())
-     return mem_space()->phys_dir();
+     return phys_dir();
 
   // When running with shadow paging and the guest is running in long mode
   // and has paging enabled, we can just return the 4lvl page table of our
   // host Vm object.
   if (   (v->state_save_area.efer & EFER_LME)
       && (v->state_save_area.cr0 & CR0_PG))
-    return mem_space()->phys_dir();
+    return phys_dir();
 
   // Now it's getting tricky when running with shadow paging.
   // We need to obey the following rules:
@@ -103,14 +104,14 @@ Vm_svm::get_vm_cr3(Vmcb *v)
   //    real hardware.
   //    So why is the code still here? Well, QEmu isn't so picky about the
   //    bits in the PDPE and it thus works there...
-  Address vm_cr3 = mem_space()->dir()->walk(Virt_addr(0), 0).e->addr();
+  assert_opt (this);
+  Address vm_cr3 = static_cast<Mem_space*>(this)->dir()->walk(Virt_addr(0), 0).e->addr();
   if (EXPECT_FALSE(!vm_cr3))
     {
       // force allocation of new secondary page-table level
-      mem_space()->dir()->alloc_cast<Mem_space_q_alloc>()
-                 ->walk(Virt_addr(0), 1, Mem_space_q_alloc(ram_quota(),
-                        Mapped_allocator::allocator()));
-      vm_cr3 = mem_space()->dir()->walk(Virt_addr(0), 0).e->addr();
+      static_cast<Mem_space*>(this)->dir()
+                 ->walk(Virt_addr(0), 1, Kmem_alloc::q_allocator(ram_quota()));
+      vm_cr3 = static_cast<Mem_space*>(this)->dir()->walk(Virt_addr(0), 0).e->addr();
     }
 
   if (EXPECT_FALSE(vm_cr3 >= 1UL << 32))
@@ -163,7 +164,7 @@ Vm_svm::Vm_svm(Ram_quota *q)
 
 PUBLIC inline
 void *
-Vm_svm::operator new (size_t size, void *p)
+Vm_svm::operator new (size_t size, void *p) throw()
 {
   (void)size;
   assert (size == sizeof (Vm_svm));

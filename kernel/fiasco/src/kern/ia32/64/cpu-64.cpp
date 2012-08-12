@@ -1,5 +1,6 @@
 IMPLEMENTATION[amd64]:
 
+#include "mem_layout.h"
 #include "tss.h"
 
 PUBLIC inline
@@ -104,9 +105,6 @@ IMPLEMENT inline NEEDS["tss.h"]
 Address volatile &
 Cpu::kernel_sp() const
 { return *reinterpret_cast<Address volatile *>(&get_tss()->_rsp0); }
-
-//----------------------------------------------------------------------------
-IMPLEMENTATION[amd64]:
 
 PUBLIC static inline
 void

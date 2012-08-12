@@ -84,7 +84,6 @@ kernel_main()
 
   // create kernel thread
   static Kernel_thread *kernel = new (Ram_quota::root) Kernel_thread;
-  nil_thread = kernel;
   Task *const ktask = Kernel_task::kernel_task();
   check(kernel->bind(ktask, User<Utcb>::Ptr(0)));
 
@@ -92,12 +91,10 @@ kernel_main()
 
   // switch to stack of kernel thread and bootstrap the kernel
   asm volatile
-    ("	str sp,%0	        \n"	// save stack pointer in safe register
-     "	mov sp,%1	        \n"	// switch stack
-     "	mov r0,%2	        \n"	// push "this" pointer
+    ("	mov sp,%0	        \n"	// switch stack
+     "	mov r0,%1	        \n"	// push "this" pointer
      "	bl call_bootstrap     \n"
-     :	"=m" (boot_stack)
-     :	"r" (kernel->init_stack()), "r" (kernel));
+     : : "r" (kernel->init_stack()), "r" (kernel));
 }
 
 //------------------------------------------------------------------------
@@ -108,10 +105,12 @@ IMPLEMENTATION[arm && mp]:
 #include "cpu.h"
 #include "globals.h"
 #include "app_cpu_thread.h"
+#include "ipi.h"
 #include "per_cpu_data_alloc.h"
 #include "perf_cnt.h"
 #include "pic.h"
 #include "spin_lock.h"
+#include "timer.h"
 #include "utcb_init.h"
 
 
@@ -131,10 +130,9 @@ int boot_ap_cpu(unsigned _cpu)
   Cpu &cpu = Cpu::cpus.cpu(_cpu);
   cpu.init();
 
-  Utcb_init::init_ap(cpu);
   Pic::init_ap();
-  Ipi::cpu(_cpu).init();
-  Timer::init();
+  Ipi::init(_cpu);
+  Timer::init(_cpu);
   Perf_cnt::init_ap();
 
   // create kernel thread

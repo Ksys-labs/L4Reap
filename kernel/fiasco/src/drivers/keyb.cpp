@@ -11,10 +11,10 @@ class Keyb : public Console
 {
 public:
   // must be implemented in platform part.
-  int getchar( bool blocking = true );
+  int getchar(bool blocking = true);
 
   // implemented empty
-  int write( char const *str, size_t len );
+  int write(char const *str, size_t len);
 };
 
 

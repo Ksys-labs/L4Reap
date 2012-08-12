@@ -5,6 +5,8 @@ INTERFACE:
 
 class Ipc_sender_base : public Sender
 {
+public:
+  virtual ~Ipc_sender_base() = 0;
 };
 
 template< typename Derived >
@@ -14,6 +16,9 @@ private:
   Derived *derived() { return static_cast<Derived*>(this); }
   static bool dequeue_sender() { return true; }
   static bool requeue_sender() { return false; }
+
+public:
+  virtual ~Ipc_sender() = 0;
 };
 
 extern "C" void fast_ret_from_irq(void);
@@ -27,15 +32,15 @@ IMPLEMENTATION:
 #include "thread_state.h"
 #include <cassert>
 
+IMPLEMENT inline Ipc_sender_base::~Ipc_sender_base() {}
+IMPLEMENT inline template<typename D> Ipc_sender<D>::~Ipc_sender() {}
+
 PUBLIC
 virtual void
 Ipc_sender_base::ipc_receiver_aborted()
 {
-  assert (receiver());
-
-  sender_dequeue(receiver()->sender_list());
-  receiver()->vcpu_update_state();
-  set_receiver(0);
+  assert (wait_queue());
+  set_wait_queue(0);
 }
 
 /** Sender-activation function called when receiver gets ready.
@@ -83,10 +88,6 @@ Ipc_sender_base::handle_shortcut(Syscall_frame *dst_regs,
           return true;
         }
 
-      // The following shortcut optimization does not work if PROFILE
-      // is defined because fast_ret_from_irq does not handle the
-      // different implementation of the kernel lock in profiling mode
-
       // At this point we are sure that the connected interrupt
       // thread is waiting for the next interrupt and that its 
       // thread priority is higher than the current one. So we
@@ -123,12 +124,11 @@ inline  NEEDS["config.h","globals.h", "thread_state.h",
 void
 Ipc_sender<Derived>::send_msg(Receiver *receiver)
 {
-  set_receiver(receiver);
+  set_wait_queue(receiver->sender_list());
 
   if (!Config::Irq_shortcut)
     {
-      // in profile mode, don't optimize
-      // in non-profile mode, enqueue _after_ shortcut if still necessary
+      // enqueue _after_ shortcut if still necessary
       sender_enqueue(receiver->sender_list(), 255);
       receiver->vcpu_set_irq_pending();
     }
@@ -169,8 +169,7 @@ Ipc_sender<Derived>::send_msg(Receiver *receiver)
 
   if (Config::Irq_shortcut)
     {
-      // in profile mode, don't optimize
-      // in non-profile mode, enqueue after shortcut if still necessary
+      // enqueue after shortcut if still necessary
       sender_enqueue(receiver->sender_list(), 255);
       receiver->vcpu_set_irq_pending();
     }

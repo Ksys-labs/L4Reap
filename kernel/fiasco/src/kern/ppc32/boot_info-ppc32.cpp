@@ -1,10 +1,9 @@
 INTERFACE [ppc32]:
 
 #include "types.h"
-#include "multiboot.h"
 #include "ppc_types.h"
 
-EXTENSION class Boot_info 
+EXTENSION class Boot_info
 {
   public:
     /**
@@ -14,7 +13,6 @@ EXTENSION class Boot_info
     static Address pic_base();
 
   private:
-    static Multiboot_info _mbi;
     static Address _prom_ptr;
 };
 
@@ -25,30 +23,26 @@ IMPLEMENTATION [ppc32]:
 #include "boot_info.h"
 #include <string.h>
 
-Multiboot_info Boot_info::_mbi;
 Address Boot_info::_prom_ptr;
 
 PUBLIC static
-Of_device * Boot_info::get_device(const char *name, const char *type)
+Of_device *
+Boot_info::get_device(const char *name, const char *type)
 {
+#if 0
   Of_device *dev = reinterpret_cast<Of_device *>(_mbi.drives_addr);
 
-  for(Unsigned32 i = 0; i < _mbi.drives_length/sizeof(Of_device); i ++)
-    if((!type || !strncmp(type, (dev + i)->type, strlen(type))) &&
-       (!name || !strncmp(name, (dev + i)->name, strlen(name))))
-      return (dev + i);
+  for (Unsigned32 i = 0; i < _mbi.drives_length/sizeof(Of_device); i ++)
+    if ((!type || !strncmp(type, (dev + i)->type, strlen(type))) &&
+        (!name || !strncmp(name, (dev + i)->name, strlen(name))))
+      return dev + i;
+#endif
 
   return NULL;
 }
 
-PUBLIC static inline
-void Boot_info::set_mbi_phys(Multiboot_info *mbi)
-{
-  _mbi = *mbi;
-}
-
-/** 
- * Return OF prom pointer 
+/**
+ * Return OF prom pointer
  */
 PUBLIC static inline
 Address Boot_info::get_prom()

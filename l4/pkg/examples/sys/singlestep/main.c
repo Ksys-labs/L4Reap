@@ -41,7 +41,7 @@ static void thread_func(void)
       asm volatile("nop");
       asm volatile("nop");
       asm volatile("nop");
-      asm volatile("mov $12345678, %%edx" : : : "edx"); // a non-existant cap
+      asm volatile("mov $0x12345000, %%edx" : : : "edx"); // a non-existent cap
       asm volatile("int $0x30\n");
       asm volatile("nop");
       asm volatile("nop");

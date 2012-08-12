@@ -96,17 +96,32 @@ Icu_svr<ICU>::dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
 template< typename ICU >
 class Icu_cap_array_svr : public Icu_svr<ICU>
 {
+protected:
+  static L4::Cap<L4::Irq> alloc_irq_cap()
+  { return L4Re::Util::cap_alloc.alloc<L4::Irq>(); }
+
+  static void free_irq_cap(L4::Cap<L4::Irq> &cap)
+  {
+    if (cap)
+      {
+        L4Re::Util::cap_alloc.free(cap);
+        cap.invalidate();
+      }
+  }
+
 public:
+
   class Irq
   {
     public:
     Irq() {}
+    ~Irq() { ICU::free_irq_cap(_cap); }
 
     explicit Irq(L4Re::Util::Auto_cap<L4::Irq>::Cap const &cap)
     : _cap(cap) {}
 
     void trigger() const
-    { _cap->trigger(); }
+    { if (_cap) _cap->trigger(); }
 
     int bind(ICU *, L4::Ipc::Snd_fpage const &irq_fp);
     int unbind(ICU *, L4::Ipc::Snd_fpage const &irq_fp);
@@ -116,10 +131,10 @@ public:
     int msi_info(L4::Ipc::Ostream &) const
     { return -L4_EINVAL; }
 
-    L4::Cap<L4::Irq> cap() const { return _cap.get(); }
+    L4::Cap<L4::Irq> cap() const { return _cap; }
 
   private:
-    L4Re::Util::Auto_cap<L4::Irq>::Cap _cap;
+    L4::Cap<L4::Irq> _cap;
   };
 
 private:
@@ -155,10 +170,10 @@ Icu_cap_array_svr<ICU>::Irq::bind(ICU *cfb, L4::Ipc::Snd_fpage const &irq_fp)
   if (!irq_fp.cap_received())
     return -L4_EINVAL;
 
-  _cap = L4Re::Util::cap_alloc.alloc<L4::Irq>();
+  _cap = ICU::alloc_irq_cap();
   if (!_cap.is_valid())
     return -L4_ENOMEM;
-  _cap.get().move(L4::cap_cast<L4::Irq>(cfb->rcv_cap()));
+  _cap.move(L4::cap_cast<L4::Irq>(cfb->rcv_cap()));
   return 0;
 }
 

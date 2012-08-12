@@ -216,6 +216,20 @@ l4shmc_get_chunk_to(l4shmc_area_t *shmarea,
                     l4shmc_chunk_t *chunk);
 
 /**
+ * \brief Iterate over names of all existing chunks
+ * \ingroup api_l4shmc_chunk
+ *
+ * \param shmarea     Shared memory area.
+ * \param chunk_name  Where the name of the current chunk will be stored
+ * \param offs        0 to start iteration, return value of previous
+ *                    call to l4shmc_iterate_chunk() to get next chunk
+ * \return <0 on error, 0 if no more chunks, >0 iterator value for next call
+ */
+L4_CV long
+l4shmc_iterate_chunk(l4shmc_area_t *shmarea, const char **chunk_name,
+                     long offs);
+
+/**
  * \brief Attach to signal.
  * \ingroup api_l4shmc_signal
  *
@@ -468,7 +482,7 @@ l4shmc_chunk_ptr(l4shmc_chunk_t *chunk);
  * \param chunk Chunk.
  * \return 0 on success, <0 on error
  */
-L4_CV L4_INLINE l4_umword_t
+L4_CV L4_INLINE long
 l4shmc_chunk_size(l4shmc_chunk_t *chunk);
 
 /**
@@ -478,7 +492,7 @@ l4shmc_chunk_size(l4shmc_chunk_t *chunk);
  * \param chunk Chunk.
  * \return 0 on success, <0 on error
  */
-L4_CV L4_INLINE l4_umword_t
+L4_CV L4_INLINE long
 l4shmc_chunk_capacity(l4shmc_chunk_t *chunk);
 
 /**
@@ -521,6 +535,37 @@ l4shmc_check_magic(l4shmc_chunk_t *chunk);
  */
 L4_CV L4_INLINE long
 l4shmc_area_size(l4shmc_area_t *shmarea);
+
+/**
+ * \brief Get free size of shared memory area. To get the max size to
+ * pass to l4shmc_add_chunk, substract l4shmc_chunk_overhead().
+ * \ingroup api_l4shm
+ *
+ * \param shmarea Shared memory area.
+ * \return <0 on error, otherwise: free capacity in the area.
+ *
+ */
+L4_CV long
+l4shmc_area_size_free(l4shmc_area_t *shmarea);
+
+/**
+ * \brief Get memory overhead per area that is not available for chunks
+ * \ingroup api_l4shm
+ *
+ * \return size of the overhead in bytes
+ */
+L4_CV long
+l4shmc_area_overhead(void);
+
+/**
+ * \brief Get memory overhead required in addition to the chunk capacity
+ * for adding one chunk
+ * \ingroup api_l4shm
+ *
+ * \return size of the overhead in bytes
+ */
+L4_CV long
+l4shmc_chunk_overhead(void);
 
 #include <l4/shmc/internal.h>
 

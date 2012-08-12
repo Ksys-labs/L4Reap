@@ -38,6 +38,38 @@ namespace Hw { namespace Pci {
   template<> struct Cfg_type<Cfg_short> { typedef l4_uint16_t Type; };
   template<> struct Cfg_type<Cfg_long>  { typedef l4_uint32_t Type; };
 
+  class Cfg_addr
+  {
+  public:
+
+    // we store the config space address as specified in the PCI Express spec
+    Cfg_addr(unsigned char bus, unsigned char dev, unsigned char fn, unsigned reg)
+    : _a(  ((l4_uint32_t)bus << 20)
+         | ((l4_uint32_t)dev << 15)
+         | ((l4_uint32_t)fn  << 12)
+         | ((l4_uint32_t)reg))
+    {}
+
+    l4_uint32_t to_compat_addr() const
+    { return (_a & 0xff) | ((_a >> 4) & 0xffff00); }
+
+    l4_uint32_t reg_offs(Cfg_width w = Cfg_byte) const
+    { return (_a & 3) & (~0UL << (unsigned long)w); }
+
+    unsigned bus() const { return (_a >> 20) & 0xff; }
+    unsigned dev() const { return (_a >> 15) & 0x1f; }
+    unsigned fn() const { return (_a >> 12) & 0x7; }
+    unsigned reg() const { return _a & 0xfff; }
+
+    Cfg_addr operator + (unsigned reg_offs) const
+    { return Cfg_addr(_a + reg_offs); }
+
+  private:
+    explicit Cfg_addr(l4_uint32_t raw) : _a(raw) {}
+
+    l4_uint32_t _a;
+  };
+
   class If : public virtual Dev_if, public Dev_feature
   {
   public:
@@ -81,8 +113,8 @@ private:
 
 
 public:
-
   typedef Hw::Pci::Cfg_width Cfg_width;
+  typedef Hw::Pci::Cfg_addr Cfg_addr;
 
   enum Flags
   {
@@ -159,13 +191,18 @@ public:
 
   enum Cfg_status
   {
-    CS_cap_list = 0x10,
-    CS_66_mhz   = 0x20,
-    CS_sig_target_abort = 0x0800,
-    CS_rec_target_abort = 0x1000,
-    CS_rec_master_abort = 0x2000,
-    CS_sig_system_error = 0x4000,
-    CS_detected_parity_error = 0x8000,
+    CS_cap_list = 0x10, // ro
+    CS_66_mhz   = 0x20, // ro
+    CS_fast_back2back_cap        = 0x00f0,
+    CS_master_data_paritey_error = 0x0100,
+    CS_devsel_timing_fast        = 0x0000,
+    CS_devsel_timing_medium      = 0x0200,
+    CS_devsel_timing_slow        = 0x0400,
+    CS_sig_target_abort          = 0x0800,
+    CS_rec_target_abort          = 0x1000,
+    CS_rec_master_abort          = 0x2000,
+    CS_sig_system_error          = 0x4000,
+    CS_detected_parity_error     = 0x8000,
   };
 
   enum Cfg_command
@@ -205,6 +242,8 @@ public:
   Hw::Device *host() const { return _host; }
 
   bool supports_msi() const { return flags & F_msi; }
+
+  Cfg_addr cfg_addr(unsigned reg = 0) const;
 
   bool is_bridge() const
   { return (cls_rev >> 16) == 0x0604 && (hdr_type & 0x7f) == 1; }
@@ -280,16 +319,21 @@ class Pci_bridge : public virtual Hw::Discover_bus_if
 {
 public:
   typedef Hw::Pci::Cfg_width Cfg_width;
+  typedef Hw::Pci::Cfg_addr Cfg_addr;
 
   unsigned char num;
   unsigned char subordinate;
 
   explicit Pci_bridge(unsigned char bus) : num(bus), subordinate(bus) {}
 
-  virtual int cfg_read(unsigned bus, l4_uint32_t devfn,
-                       l4_uint32_t reg, l4_uint32_t *value, Cfg_width) = 0;
-  virtual int cfg_write(unsigned bus, l4_uint32_t devfn,
-                        l4_uint32_t reg, l4_uint32_t value, Cfg_width) = 0;
+  virtual int cfg_read(Cfg_addr addr, l4_uint32_t *value, Cfg_width) = 0;
+  virtual int cfg_write(Cfg_addr addr, l4_uint32_t value, Cfg_width) = 0;
+
+  int cfg_read(unsigned bus, l4_uint32_t devfn, l4_uint32_t reg, l4_uint32_t *value, Cfg_width w)
+  { return cfg_read(Cfg_addr(bus, devfn >> 16, devfn & 0xffff, reg), value, w); }
+
+  int cfg_write(unsigned bus, l4_uint32_t devfn, l4_uint32_t reg, l4_uint32_t value, Cfg_width w)
+  { return cfg_write(Cfg_addr(bus, devfn >> 16, devfn & 0xffff, reg), value, w); }
 
   void scan_bus();
   void dump(int) const;
@@ -303,6 +347,7 @@ class Pci_pci_bridge_basic : public Pci_bridge, public Pci_dev
 {
 public:
   typedef Pci_dev::Cfg_width Cfg_width;
+  typedef Hw::Pci::Cfg_addr Cfg_addr;
 
   unsigned char pri;
 
@@ -325,13 +370,11 @@ public:
       }
   }
 
-  int cfg_read(unsigned bus, l4_uint32_t devfn,
-               l4_uint32_t reg, l4_uint32_t *value, Cfg_width width)
-  { return _bus->cfg_read(bus, devfn, reg, value, width); }
+  int cfg_read(Cfg_addr addr, l4_uint32_t *value, Cfg_width width)
+  { return _bus->cfg_read(addr, value, width); }
 
-  int cfg_write(unsigned bus, l4_uint32_t devfn,
-                l4_uint32_t reg, l4_uint32_t value, Cfg_width width)
-  { return _bus->cfg_write(bus, devfn, reg, value, width); }
+  int cfg_write(Cfg_addr addr, l4_uint32_t value, Cfg_width width)
+  { return _bus->cfg_write(addr, value, width); }
 
   void dump(int indent) const
   {
@@ -386,11 +429,9 @@ struct Pci_port_root_bridge : public Pci_root_bridge
   explicit Pci_port_root_bridge(unsigned bus_nr, Hw::Device *host)
   : Pci_root_bridge(bus_nr, host) {}
 
-  int cfg_read(unsigned  bus, l4_uint32_t devfn, l4_uint32_t reg,
-               l4_uint32_t *value, Cfg_width);
+  int cfg_read(Cfg_addr addr, l4_uint32_t *value, Cfg_width);
 
-  int cfg_write(unsigned bus, l4_uint32_t devfn, l4_uint32_t reg,
-                l4_uint32_t value, Cfg_width);
+  int cfg_write(Cfg_addr addr, l4_uint32_t value, Cfg_width);
 };
 
 Pci_root_bridge *pci_root_bridge(int segment);
@@ -403,13 +444,19 @@ inline
 int
 Pci_dev::cfg_read(l4_uint32_t reg, l4_uint32_t *value, Cfg_width width)
 {
-  return _bus->cfg_read(_bus->num, _host->adr(), reg, value, width);
+  return _bus->cfg_read(cfg_addr(reg), value, width);
 }
 
 inline
 int
 Pci_dev::cfg_write(l4_uint32_t reg, l4_uint32_t value, Cfg_width width)
 {
-  return _bus->cfg_write(_bus->num, _host->adr(), reg, value, width);
+  return _bus->cfg_write(cfg_addr(reg), value, width);
 }
 
+inline
+Hw::Pci::Cfg_addr
+Pci_dev::cfg_addr(unsigned reg) const
+{
+  return Cfg_addr(bus()->num, host()->adr() >> 16, host()->adr() & 0xff, reg);
+}

@@ -41,18 +41,18 @@ Mux_console::Mux_console()
 
 IMPLEMENT
 int
-Mux_console::write( char const *str, size_t len )
+Mux_console::write(char const *str, size_t len)
 {
-  for(int i=0; i<_items; ++i) 
-    if(_cons[i] && (_cons[i]->state() & OUTENABLED))
-      _cons[i]->write(str,len);
+  for (int i = 0; i < _items; ++i)
+    if (_cons[i] && (_cons[i]->state() & OUTENABLED))
+      _cons[i]->write(str, len);
 
   return len;
 }
 
 IMPLEMENT
 int
-Mux_console::getchar( bool blocking )
+Mux_console::getchar(bool blocking)
 {
   if (_next_getchar != -1)
     {
@@ -62,19 +62,20 @@ Mux_console::getchar( bool blocking )
     }
 
   int ret = -1;
-  do {
-    for(int i=0; i<_items; ++i)
-      {
-	if(_cons[i] && (_cons[i]->state() & INENABLED))
-	  {
-	    ret = _cons[i]->getchar( false );
-	    if (ret != -1)
-	      return ret;
-	  }
-      }
-    if(blocking)
-      Proc::pause();
-  } while( blocking && ret==-1 );
+  do
+    {
+      for (int i = 0; i < _items; ++i)
+        if (_cons[i] && (_cons[i]->state() & INENABLED))
+          {
+            ret = _cons[i]->getchar(false);
+            if (ret != -1)
+              return ret;
+          }
+
+      if (blocking)
+	Proc::pause();
+    }
+  while (blocking && ret == -1);
 
   return ret;
 }
@@ -88,8 +89,8 @@ Mux_console::get_attributes() const
 {
   Mword attr = 0;
 
-  for (int i=0; i<_items; i++)
-    if(_cons[i])
+  for (int i = 0; i < _items; i++)
+    if (_cons[i])
       attr |= _cons[i]->get_attributes();
 
   return attr;
@@ -97,18 +98,16 @@ Mux_console::get_attributes() const
 
 PUBLIC
 void
-Mux_console::getchar_chance ()
+Mux_console::getchar_chance()
 {
-  for (int i=0; i<_items; ++i)
-    {
-      if (_cons[i] && (_cons[i]->state() & INENABLED) &&
-	  _cons[i]->char_avail() == 1)
-	{
-	  int c = _cons[i]->getchar(false);
-	  if (c != -1 && _next_getchar == -1)
-      	    _next_getchar = c;
-	}
-    }
+  for (int i = 0; i < _items; ++i)
+    if (   _cons[i] && (_cons[i]->state() & INENABLED)
+        && _cons[i]->char_avail() == 1)
+      {
+        int c = _cons[i]->getchar(false);
+        if (c != -1 && _next_getchar == -1)
+          _next_getchar = c;
+      }
 }
 
 IMPLEMENT
@@ -116,14 +115,14 @@ int
 Mux_console::char_avail() const
 {
   int ret = -1;
-  for(int i=0; i<_items; ++i) 
-    if(_cons[i] && (_cons[i]->state() & INENABLED)) 
+  for (int i = 0; i < _items; ++i)
+    if (_cons[i] && (_cons[i]->state() & INENABLED))
       {
-	int tmp = _cons[i]->char_avail();
-	if(tmp==1) 
-	  return 1;
-	else if(tmp==0)
-	  ret = tmp;
+        int tmp = _cons[i]->char_avail();
+        if (tmp == 1)
+          return 1;
+        else if (tmp == 0)
+          ret = tmp;
       }
   return ret;
 }
@@ -135,30 +134,30 @@ Mux_console::char_avail() const
  */
 PUBLIC virtual
 bool
-Mux_console::register_console( Console *c, int pos = 0)
+Mux_console::register_console(Console *c, int pos = 0)
 {
   if (c->failed())
     return false;
 
-  if(_items >= SIZE) 
+  if (_items >= SIZE)
     return false;
 
-  if(pos>=SIZE || pos<0) 
+  if (pos >= SIZE || pos < 0)
     return false;
 
-  if(pos>_items)
+  if (pos > _items)
     pos = _items;
 
-  if(pos<_items) {
-    for(int i = _items-1; i>=pos; --i) 
-      _cons[i+1] = _cons[i];
-  } 
+  if (pos < _items)
+    for (int i = _items - 1; i >= pos; --i)
+      _cons[i + 1] = _cons[i];
+
   _items++;
   _cons[pos] = c;
   if (_cons[pos]->state() & DISABLED_INIT)
-      _cons[pos]->state(DISABLED);
+    _cons[pos]->state(DISABLED);
   else
-      _cons[pos]->state(INENABLED|OUTENABLED);
+    _cons[pos]->state(INENABLED | OUTENABLED);
 
   return true;
 }
@@ -169,17 +168,17 @@ Mux_console::register_console( Console *c, int pos = 0)
  */
 PUBLIC
 bool
-Mux_console::unregister_console( Console *c )
+Mux_console::unregister_console(Console *c)
 {
   int pos;
-  for(pos = 0; pos < _items && _cons[pos]!=c; pos++)
+  for (pos = 0; pos < _items && _cons[pos] != c; pos++)
     ;
-  if(pos==_items) 
+  if (pos == _items)
     return false;
-  
-  _items--;
-  for(int i = pos; i<_items; ++i) 
-    _cons[i] = _cons[i+1];
+
+  --_items;
+  for (int i = pos; i < _items; ++i)
+    _cons[i] = _cons[i + 1];
 
   return true;
 }
@@ -219,11 +218,9 @@ PUBLIC
 Console*
 Mux_console::find_console(Mword any_true)
 {
-  for (int i=0; i<_items; i++)
-    {
-      if (_cons[i] && _cons[i]->get_attributes() & any_true)
-	return _cons[i];
-    }
+  for (int i = 0; i < _items; i++)
+    if (_cons[i] && _cons[i]->get_attributes() & any_true)
+      return _cons[i];
 
   return 0;
 }
@@ -265,19 +262,16 @@ PUBLIC
 void
 Mux_console::list_consoles()
 {
-  for (int i=0; i<_items; i++)
-    {
-      if (_cons[i])
-	{
-	  Mword attr = _cons[i]->get_attributes();
+  for (int i = 0; i < _items; i++)
+    if (_cons[i])
+      {
+        Mword attr = _cons[i]->get_attributes();
 
-	  printf("  "L4_PTR_FMT"  %s  (%s)  ", 
-	      attr, _cons[i]->str_mode(), _cons[i]->str_state());
-	  for (unsigned bit=2; bit<sizeof(attr)*4; bit++)
-	    if (attr & (1<<bit))
-	      printf("%s ", Console::str_attr(bit));
-	  putchar('\n');
-	}
-    }
+        printf("  " L4_PTR_FMT "  %s  (%s)  ",
+               attr, _cons[i]->str_mode(), _cons[i]->str_state());
+        for (unsigned bit = 2; bit < sizeof(attr) * 4; bit++)
+          if (attr & (1 << bit))
+            printf("%s ", Console::str_attr(bit));
+        putchar('\n');
+      }
 }
-

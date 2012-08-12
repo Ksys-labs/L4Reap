@@ -13,6 +13,9 @@ public:
     Op_cache_coherent          = 0x03,
     Op_cache_dma_coherent      = 0x04,
     Op_cache_dma_coherent_full = 0x05,
+    Op_cache_l2_clean          = 0x06,
+    Op_cache_l2_flush          = 0x07,
+    Op_cache_l2_inv            = 0x08,
   };
 
   enum Op_mem
@@ -35,10 +38,44 @@ IMPLEMENTATION [arm]:
 #include "space.h"
 #include "warn.h"
 
+PRIVATE static void
+Mem_op::l1_inv_dcache(Address start, Address end)
+{
+  if (start & Mem_unit::Cache_line_mask)
+    {
+      Mem_unit::flush_dcache((void *)start, (void *)start);
+      start += Mem_unit::Cache_line_size;
+      start &= ~Mem_unit::Cache_line_mask;
+    }
+  if (end & Mem_unit::Cache_line_mask)
+    {
+      Mem_unit::flush_dcache((void *)end, (void *)end);
+      end &= ~Mem_unit::Cache_line_mask;
+    }
+
+  Mem_unit::inv_dcache((void *)start, (void *)end);
+}
+
+PRIVATE static void
+Mem_op::inv_icache(Address start, Address end)
+{
+  if (Address(end) - Address(start) > 0x2000)
+    asm volatile("mcr p15, 0, r0, c7, c5, 0");
+  else
+    {
+      for (start &= ~Mem_unit::Icache_line_mask;
+           start < end; start += Mem_unit::Icache_line_size)
+	asm volatile("mcr p15, 0, %0, c7, c5, 1" : : "r" (start));
+    }
+}
+
 PUBLIC static void
 Mem_op::arm_mem_cache_maint(int op, void const *start, void const *end)
 {
   Context *c = current();
+
+  if (EXPECT_FALSE(start > end))
+    return;
 
   c->set_ignore_mem_op_in_progress(true);
 
@@ -53,40 +90,27 @@ Mem_op::arm_mem_cache_maint(int op, void const *start, void const *end)
       break;
 
     case Op_cache_inv_data:
-      Mem_unit::inv_dcache(start, end);
+      l1_inv_dcache((Address)start, (Address)end);
       break;
 
     case Op_cache_coherent:
       Mem_unit::clean_dcache(start, end);
       Mem::dsb();
       Mem_unit::btc_inv();
+      inv_icache(Address(start), Address(end));
+      Mem::dsb();
+      break;
+
+    case Op_cache_l2_clean:
+    case Op_cache_l2_flush:
+    case Op_cache_l2_inv:
+      outer_cache_op(op, Address(start), Address(end));
       break;
 
     case Op_cache_dma_coherent:
         {
-          Mem_space::Vaddr v = Virt_addr(Address(start));
-          Mem_space::Vaddr e = Virt_addr(Address(end));
-
-          Mem_unit::flush_dcache(v, e);
-          while (v < e)
-            {
-              Mem_space::Size phys_size;
-              Mem_space::Phys_addr phys_addr;
-              unsigned attrs;
-
-              if (   c->mem_space()->v_lookup(v, &phys_addr,
-                                              &phys_size, &attrs)
-                  && (attrs & Mem_space::Page_user_accessible))
-                {
-                  Outer_cache::flush(Virt_addr(phys_addr).value(),
-                                     Virt_addr(phys_addr).value()
-                                     + Virt_size(phys_size).value() - 1,
-                                     false);
-                }
-              v += phys_size;
-            }
-          Outer_cache::sync();
-
+          Mem_unit::flush_dcache(Virt_addr(Address(start)), Virt_addr(Address(end)));
+          outer_cache_op(Op_cache_l2_flush, Address(start), Address(end));
         }
       break;
 
@@ -176,4 +200,58 @@ extern "C" void sys_arm_mem_op()
     Mem_op::arm_mem_access(e->r);
   else
     Mem_op::arm_mem_cache_maint(e->r[0], (void *)e->r[1], (void *)e->r[2]);
+}
+
+// ------------------------------------------------------------------------
+IMPLEMENTATION [arm && !outer_cache]:
+
+PRIVATE static inline
+void
+Mem_op::outer_cache_op(int, Address, Address)
+{}
+
+// ------------------------------------------------------------------------
+IMPLEMENTATION [arm && outer_cache]:
+
+PRIVATE static
+void
+Mem_op::outer_cache_op(int op, Address start, Address end)
+{
+  Mem_space::Vaddr v = Virt_addr(Address(start));
+  Mem_space::Vaddr e = Virt_addr(Address(end));
+
+  Context *c = current();
+
+  while (v < e)
+    {
+      Mem_space::Size phys_size;
+      Mem_space::Phys_addr phys_addr;
+      unsigned attrs;
+
+      if (   c->mem_space()->v_lookup(v, &phys_addr,
+            &phys_size, &attrs)
+          && (attrs & Mem_space::Page_user_accessible))
+        {
+          unsigned long sz = Virt_size(phys_size).value();
+          if (Address(end) - Address(start) < sz)
+            sz = Address(end) - Address(start);
+          switch (op)
+            {
+            case Op_cache_l2_clean:
+              Outer_cache::clean(Virt_addr(phys_addr).value(),
+                                 Virt_addr(phys_addr).value() + sz, false);
+              break;
+            case Op_cache_l2_flush:
+              Outer_cache::flush(Virt_addr(phys_addr).value(),
+                                 Virt_addr(phys_addr).value() + sz, false);
+              break;
+            case Op_cache_l2_inv:
+              Outer_cache::invalidate(Virt_addr(phys_addr).value(),
+                                      Virt_addr(phys_addr).value() + sz, false);
+              break;
+            }
+        }
+      v += phys_size;
+    }
+  Outer_cache::sync();
 }

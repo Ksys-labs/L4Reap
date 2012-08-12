@@ -79,6 +79,7 @@ int __v_printf(struct output_op* fn, const char *format, va_list arg_ptr)
       char flag_space=0;
       char flag_sign=0;
       char flag_dot=0;
+      char flag_size_t = 0;
       signed char flag_long=0;
 
       unsigned int base;
@@ -106,6 +107,9 @@ inn_printf:
 	goto inn_printf;
       case 'l':
 	++flag_long;
+	goto inn_printf;
+      case 'z':
+	flag_size_t = 1;
 	goto inn_printf;
 
       case '0':
@@ -229,7 +233,9 @@ num_printf:
 	  else
 	    number=va_arg(arg_ptr,long);
 	}
-	else
+	else if (flag_size_t)
+          number=va_arg(arg_ptr,size_t);
+        else
 	  number=va_arg(arg_ptr,int);
 
 	if (flag_in_sign) {

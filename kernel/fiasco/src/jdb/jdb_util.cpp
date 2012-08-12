@@ -11,10 +11,10 @@ IMPLEMENTATION[ia32|ux|amd64]:
 #include "kmem.h"
 
 IMPLEMENT
-bool 
+bool
 Jdb_util::is_mapped(void const *x)
-{ 
-  return Kmem::virt_to_phys(x) != ~0UL; 
+{
+  return Kmem::virt_to_phys(x) != ~0UL;
 }
 
 IMPLEMENTATION[arm]:
@@ -22,11 +22,11 @@ IMPLEMENTATION[arm]:
 #include "pagetable.h"
 #include "kmem_space.h"
 
-IMPLEMENT inline NEEDS["kmem_space.h","pagetable.h"]
+IMPLEMENT inline NEEDS["kmem_space.h", "pagetable.h"]
 bool
 Jdb_util::is_mapped(void const* addr)
 {
-  return Kmem_space::kdir()->walk(const_cast<void*>(addr),0,false,0).valid();
+  return Kmem_space::kdir()->walk(const_cast<void*>(addr), 0, false, Ptab::Null_alloc(), 0).valid();
 }
 
 IMPLEMENTATION[ppc32]:
@@ -38,4 +38,11 @@ Jdb_util::is_mapped(void const * /*addr*/)
   return true;
 }
 
+IMPLEMENTATION[sparc]:
 
+IMPLEMENT inline
+bool
+Jdb_util::is_mapped(void const * /*addr*/)
+{
+  return false; // TBD
+}

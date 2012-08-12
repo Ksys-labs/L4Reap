@@ -6,9 +6,9 @@
 
 # The -Os option of gcc-4.0 sets max-inline-insns-single to 5 which prevents
 # inlining of almost every function
-NOOPT_SHARED_FLAGS	+= $(call CHECKCC,--param max-inline-insns-single=50)
-SHARED_FLAGS		+= -mpreferred-stack-boundary=4 -m64 -mcmodel=kernel \
-			   -mno-red-zone -funit-at-a-time
+NOOPT_SHARED_FLAGS-gcc  += $(call CHECKCC,--param max-inline-insns-single=50)
+SHARED_FLAGS-gcc        += -mpreferred-stack-boundary=4
+SHARED_FLAGS            += -m64 -mcmodel=kernel -mno-red-zone -funit-at-a-time
 
 OPT_CFLAGS		+= -mno-red-zone -funit-at-a-time
 OPT_CXXFLAGS		+= -mno-red-zone -funit-at-a-time

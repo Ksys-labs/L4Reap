@@ -63,9 +63,9 @@ Jdb_rcupdate::action(int cmd, void *&, char const *&, int &)
 	  printf("    wait for quiescent state: %s\n", d->_pending?"yes":"no");
 	  printf("    batch=");
 	  print_batch(d->_batch); puts("");
-	  printf("    next list:    h=%p t=%p len=%ld\n", d->_n._l, d->_n._t, d->_len);
-	  printf("    current list: h=%p t=%p\n", d->_c._l, d->_c._t);
-	  printf("    done list:    h=%p t=%p\n", d->_d._l, d->_d._t);
+	  printf("    next list:    h=%p len=%ld\n", d->_n.front(), d->_len);
+	  printf("    current list: h=%p \n", d->_c.front());
+	  printf("    done list:    h=%p\n", d->_d.front());
 	}
 
       return NOTHING;

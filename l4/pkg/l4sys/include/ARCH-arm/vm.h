@@ -96,14 +96,16 @@ struct l4_vm_state
  * \param vm         Capability selector for VM
  */
 L4_INLINE l4_msgtag_t
-l4_vm_run(l4_cap_idx_t vm) L4_NOTHROW;
+l4_vm_run(l4_cap_idx_t vm, l4_fpage_t const vm_state_fpage,
+          l4_umword_t *label) L4_NOTHROW;
 
 /**
  * \internal
  * \ingroup l4_vm_tz_api
  */
 L4_INLINE l4_msgtag_t
-l4_vm_run_u(l4_cap_idx_t vm, l4_utcb_t *u) L4_NOTHROW;
+l4_vm_run_u(l4_cap_idx_t vm, l4_fpage_t const vm_state_fpage,
+            l4_umword_t *label, l4_utcb_t *u) L4_NOTHROW;
 
 /**
  * \internal
@@ -125,7 +127,6 @@ l4_vm_run_u(l4_cap_idx_t vm, l4_fpage_t const vm_state_fpage,
   l4_msg_regs_t *r = l4_utcb_mr_u(u);
   r->mr[0] = L4_VM_RUN_OP;
   r->mr[1] = vm_state_fpage.raw;
-  //r->mr[2] = *label;
 
   return l4_ipc(vm, u, L4_SYSF_CALL, *label, l4_msgtag(L4_PROTO_TASK, 3, 0, 0), label, L4_IPC_NEVER);
 }

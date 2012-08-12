@@ -3,6 +3,7 @@ INTERFACE:
 #include "jdb_module.h"
 #include "jdb_list.h"
 #include "kobject.h"
+#include <slist>
 
 class Kobject;
 class Jdb_kobject_handler;
@@ -10,16 +11,20 @@ class Jdb_kobject_handler;
 class Jdb_kobject : public Jdb_module
 {
 public:
+  typedef cxx::S_list_tail<Jdb_kobject_handler> Handler_list;
+  typedef Handler_list::Const_iterator Handler_iter;
+
   Jdb_kobject();
 
+  Handler_list handlers;
+  Handler_list global_handlers;
+
 private:
-  Jdb_kobject_handler *_first;
-  Jdb_kobject_handler **_tail;
   static void *kobjp;
 };
 
 
-class Jdb_kobject_handler
+class Jdb_kobject_handler : public cxx::S_list_item
 {
   friend class Jdb_kobject;
 
@@ -35,6 +40,8 @@ public:
   virtual Kobject *parent(Kobject_common *) { return 0; }
   virtual char const *kobject_type() const { return kobj_type; }
 
+  bool is_global() const { return !kobj_type; }
+
 protected:
   enum {
     Op_set_name         = 0,
@@ -45,8 +52,6 @@ protected:
     Op_get_name         = 5,
     Op_query_log_name   = 6,
   };
-private:
-  Jdb_kobject_handler *_next;
 };
 
 class Jdb_kobject_extension : public Kobject_dbg::Dbg_extension
@@ -61,37 +66,35 @@ class Jdb_kobject_list : public Jdb_list
 public:
   typedef bool Filter_func(Kobject_common const *);
 
-  struct Mode
+  struct Mode : cxx::S_list_item
   {
     char const *name;
     Filter_func *filter;
-    Mode const *next;
-    static Mode *first;
+    typedef cxx::S_list_bss<Mode> Mode_list;
+    static Mode_list modes;
 
     Mode(char const *name, Filter_func *filter)
     : name(name), filter(filter)
     {
       // make sure that non-filtered mode is first in the list so that we
       // get this one displayed initially
-      if (!filter || !first)
-        {
-	  next = first;
-	  first = this;
-	}
+      if (!filter)
+        modes.push_front(this);
       else
         {
-	  next = first->next;
-	  first->next = this;
-	}
+          Mode_list::Iterator i = modes.begin();
+          if (i != modes.end())
+            ++i;
+          modes.insert_before(this, i);
+        }
     }
   };
 
   void *get_head() const
-  { return Kobject::from_dbg(Kobject_dbg::_jdb_head.get_unused()); }
+  { return Kobject::from_dbg(Kobject_dbg::begin()); }
 
 private:
-  Mode const *_current_mode;
-
+  Mode::Mode_list::Const_iterator _current_mode;
   Filter_func *_filter;
 };
 
@@ -116,7 +119,7 @@ IMPLEMENTATION:
 #include "space.h"
 #include "static_init.h"
 
-Jdb_kobject_list::Mode *Jdb_kobject_list::Mode::first;
+Jdb_kobject_list::Mode::Mode_list Jdb_kobject_list::Mode::modes;
 
 class Jdb_kobject_id_hdl : public Jdb_kobject_handler
 {
@@ -147,23 +150,22 @@ PRIVATE
 void *
 Jdb_kobject_list::get_first()
 {
-  Kobject *f = static_cast<Kobject*>(get_head());
-  while (f && _filter && !_filter(f))
-    f = Kobject::from_dbg(f->dbg_info()->_next);
-  return f;
+  Kobject_dbg::Iterator f = Kobject_dbg::begin();
+  while (f != Kobject_dbg::end() && _filter && !_filter(Kobject::from_dbg(f)))
+    ++f;
+  return Kobject::from_dbg(f);
 }
-
 
 PUBLIC explicit
 Jdb_kobject_list::Jdb_kobject_list(Filter_func *filt)
-: Jdb_list(), _current_mode(0), _filter(filt)
+: Jdb_list(), _current_mode(Mode::modes.end()), _filter(filt)
 { set_start(get_first()); }
 
 PUBLIC
 Jdb_kobject_list::Jdb_kobject_list()
-: Jdb_list(), _current_mode(Mode::first), _filter(0)
+: Jdb_list(), _current_mode(Mode::modes.begin())
 {
-  if (_current_mode)
+  if (_current_mode != Mode::modes.end())
     _filter = _current_mode->filter;
 
   set_start(get_first());
@@ -173,7 +175,7 @@ PUBLIC
 int
 Jdb_kobject_list::show_item(char *buffer, int max, void *item) const
 {
-  return Jdb_kobject::obj_description(buffer, max, false, static_cast<Kobject*>(item));
+  return Jdb_kobject::obj_description(buffer, max, false, static_cast<Kobject*>(item)->dbg_info());
 }
 
 PUBLIC
@@ -189,8 +191,7 @@ void *
 Jdb_kobject_list::follow_link(void *item)
 {
   Kobject *o = static_cast<Kobject*>(item);
-  Jdb_kobject_handler *h = Jdb_kobject::module()->find_handler(o);
-  if (h)
+  if (Jdb_kobject_handler *h = Jdb_kobject::module()->find_handler(o))
     return h->follow_link(o);
 
   return item;
@@ -201,16 +202,12 @@ bool
 Jdb_kobject_list::handle_key(void *item, int keycode)
 {
   Kobject *o = static_cast<Kobject*>(item);
-  Jdb_kobject_handler *h = Jdb_kobject::module()->first_global_handler();
   bool handled = false;
-  while (h)
-    {
-      handled |= h->handle_key(o, keycode);
-      h = h->next_global();
-    }
+  for (Jdb_kobject::Handler_iter h = Jdb_kobject::module()->global_handlers.begin();
+       h != Jdb_kobject::module()->global_handlers.end(); ++h)
+    handled |= h->handle_key(o, keycode);
 
-  h = Jdb_kobject::module()->find_handler(o);
-  if (h)
+  if (Jdb_kobject_handler *h = Jdb_kobject::module()->find_handler(o))
     handled |= h->handle_key(o, keycode);
 
   return handled;
@@ -218,32 +215,40 @@ Jdb_kobject_list::handle_key(void *item, int keycode)
 
 PRIVATE inline NOEXPORT
 Kobject *
-Jdb_kobject_list::next(Kobject *o)
+Jdb_kobject_list::next(Kobject *obj)
 {
-  if (!o)
+  if (!obj)
     return 0;
+
+  Kobject_dbg::Iterator o = Kobject_dbg::Kobject_list::iter(obj->dbg_info());
 
   do
     {
-      o = Kobject::from_dbg(o->dbg_info()->_next);
+      ++o;
+      if (o == Kobject_dbg::end())
+	return 0;
     }
-  while (o && _filter && !_filter(o));
-  return o;
+  while (_filter && !_filter(Kobject::from_dbg(*o)));
+  return Kobject::from_dbg(*o);
 }
 
 PRIVATE inline NOEXPORT
 Kobject *
-Jdb_kobject_list::prev(Kobject *o)
+Jdb_kobject_list::prev(Kobject *obj)
 {
-  if (!o)
+  if (!obj)
     return 0;
+
+  Kobject_dbg::Iterator o = Kobject_dbg::Kobject_list::iter(obj->dbg_info());
 
   do
     {
-      o = Kobject::from_dbg(o->dbg_info()->_pref);
+      --o;
+      if (o == Kobject_dbg::end())
+	return 0;
     }
-  while (o && _filter && !_filter(o));
-  return o;
+  while (_filter && !_filter(Kobject::from_dbg(*o)));
+  return Kobject::from_dbg(*o);
 }
 
 PUBLIC
@@ -296,7 +301,7 @@ PUBLIC
 char const *
 Jdb_kobject_list::get_mode_str() const
 {
-  if (!_current_mode)
+  if (_current_mode == Mode::modes.end())
     return "[Objects]";
   return _current_mode->name;
 }
@@ -307,12 +312,12 @@ PUBLIC
 void
 Jdb_kobject_list::next_mode()
 {
-  if (!_current_mode)
+  if (_current_mode == Mode::modes.end())
     return;
 
-  _current_mode = _current_mode->next;
-  if (!_current_mode)
-    _current_mode = Mode::first;
+  ++_current_mode;
+  if (_current_mode == Mode::modes.end())
+    _current_mode = Mode::modes.begin();
 
   _filter = _current_mode->filter;
 }
@@ -323,7 +328,7 @@ PUBLIC
 void *
 Jdb_kobject_list::get_valid(void *o)
 {
-  if (!_current_mode)
+  if (!_filter)
     return o;
 
   if (_filter && _filter(static_cast<Kobject*>(o)))
@@ -336,60 +341,32 @@ bool
 Jdb_kobject_handler::invoke(Kobject_common *, Syscall_frame *, Utcb *)
 { return false; }
 
-PUBLIC
-Jdb_kobject_handler *
-Jdb_kobject_handler::next_global()
-{
-  Jdb_kobject_handler *h = this->_next;
-  while (h)
-    {
-      if (!h->kobj_type)
-	return h;
-      h = h->_next;
-    }
-  return 0;
-}
-
 void *Jdb_kobject::kobjp;
 
 IMPLEMENT
 Jdb_kobject::Jdb_kobject()
-  : Jdb_module("INFO"),
-    _first(0),
-    _tail(&_first)
-{
-}
+  : Jdb_module("INFO")
+{}
 
 
 PUBLIC
 void
 Jdb_kobject::register_handler(Jdb_kobject_handler *h)
 {
-  h->_next = 0;
-  *_tail = h;
-  _tail = &h->_next;
-}
-
-PUBLIC inline
-Jdb_kobject_handler *
-Jdb_kobject::first_global_handler() const
-{
-  if (!_first || !_first->kobj_type)
-    return _first;
-  return _first->next_global();
+  if (h->is_global())
+    global_handlers.push_back(h);
+  else
+    handlers.push_back(h);
 }
 
 PUBLIC
 Jdb_kobject_handler *
 Jdb_kobject::find_handler(Kobject_common *o)
 {
-  Jdb_kobject_handler *h = _first;
-  while (h)
-    {
-      if (o->kobj_type() == h->kobj_type)
-	return h;
-      h = h->_next;
-    }
+  for (Handler_iter h = handlers.begin(); h != handlers.end(); ++h)
+    if (o->kobj_type() == h->kobj_type)
+      return *h;
+
   return 0;
 }
 
@@ -397,8 +374,7 @@ PUBLIC
 bool
 Jdb_kobject::handle_obj(Kobject *o, int lvl)
 {
-  Jdb_kobject_handler *h = find_handler(o);
-  if (h)
+  if (Jdb_kobject_handler *h = find_handler(o))
     return h->show_kobject(o, lvl);
 
   return true;
@@ -408,31 +384,27 @@ PUBLIC static
 char const *
 Jdb_kobject::kobject_type(Kobject_common *o)
 {
-  Jdb_kobject_handler *h = module()->find_handler(o);
-  if (h)
+  if (Jdb_kobject_handler *h = module()->find_handler(o))
     return h->kobject_type();
+
   return o->kobj_type();
 }
 
 
 PUBLIC static
 int
-Jdb_kobject::obj_description(char *buffer, int max, bool dense, Kobject_common *o)
+Jdb_kobject::obj_description(char *buffer, int max, bool dense, Kobject_dbg *o)
 {
   int pos = snprintf(buffer, max,
                      dense ? "%lx %lx [%-*s]" : "%8lx %08lx [%-*s]",
-                     o->dbg_info()->dbg_id(), (Mword)o, 7, kobject_type(o));
+                     o->dbg_id(), (Mword)Kobject::from_dbg(o), 7, kobject_type(Kobject::from_dbg(o)));
 
-  Jdb_kobject_handler *h = Jdb_kobject::module()->first_global_handler();
-  while (h)
-    {
-      pos += h->show_kobject_short(buffer + pos, max-pos, o);
-      h = h->next_global();
-    }
+  for (Handler_iter h = module()->global_handlers.begin();
+       h != module()->global_handlers.end(); ++h)
+    pos += h->show_kobject_short(buffer + pos, max-pos, Kobject::from_dbg(o));
 
-  Jdb_kobject_handler *oh = Jdb_kobject::module()->find_handler(o);
-  if (oh)
-    pos += oh->show_kobject_short(buffer + pos, max-pos, o);
+  if (Jdb_kobject_handler *oh = Jdb_kobject::module()->find_handler(Kobject::from_dbg(o)))
+    pos += oh->show_kobject_short(buffer + pos, max-pos, Kobject::from_dbg(o));
 
   return pos;
 }
@@ -451,11 +423,12 @@ Jdb_kobject::action(int cmd, void *&, char const *&, int &)
   if (cmd == 0)
     {
       puts("");
-      Kobject *k = Kobject::pointer_to_obj(kobjp);
-      if (!k)
+      Kobject_dbg::Iterator i = Kobject_dbg::pointer_to_obj(kobjp);
+      if (i == Kobject_dbg::end())
 	printf("Not a kobj.\n");
       else
         {
+          Kobject *k = Kobject::from_dbg(i);
           if (!handle_obj(k, 0))
             printf("Kobj w/o handler: ");
           print_kobj(k);
@@ -522,7 +495,7 @@ Jdb_kobject::fmt_handler(char /*fmt*/, int *size, char const *cmd_str, void *arg
 	}
     }
 
-  void **a = (void**)arg;
+  Kobject **a = (Kobject**)arg;
 
   if (!pos)
     {
@@ -536,14 +509,17 @@ Jdb_kobject::fmt_handler(char /*fmt*/, int *size, char const *cmd_str, void *arg
 
   n = strtoul(num, 0, 16);
 
-  Kobject *ko;
+  Kobject_dbg::Iterator ko;
 
   if (buffer[0] != 'P')
-    ko = Kobject::id_to_obj(n);
+    ko = Kobject_dbg::id_to_obj(n);
   else
-    ko = Kobject::pointer_to_obj((void*)n);
+    ko = Kobject_dbg::pointer_to_obj((void*)n);
 
-  *a = ko;
+  if (ko != Kobject_dbg::end())
+    *a = Kobject::from_dbg(ko);
+  else
+    *a = 0;
 
   return 0;
 }
@@ -607,13 +583,10 @@ sys_invoke_debug(Kobject_iface *o, Syscall_frame *f)
   if (h && h->invoke(o, f, utcb))
     return;
 
-  h = Jdb_kobject::module()->first_global_handler();
-  while (h)
-    {
-      if (h->invoke(o, f, utcb))
-	return;
-      h = h->next_global();
-    }
+  for (Jdb_kobject::Handler_iter i = Jdb_kobject::module()->global_handlers.begin();
+       i != Jdb_kobject::module()->global_handlers.end(); ++i)
+    if (i->invoke(o, f, utcb))
+      return;
 
   f->tag(Kobject_iface::commit_result(-L4_err::ENosys));
 }
@@ -624,14 +597,13 @@ static
 T *
 Jdb_kobject_extension::find_extension(Kobject_common const *o)
 {
-  Kobject_dbg::Dbg_extension *ex = o->dbg_info()->_jdb_data;
-  while (ex)
+  typedef Kobject_dbg::Dbg_ext_list::Iterator Iterator;
+  for (Iterator ex = o->dbg_info()->_jdb_data.begin();
+       ex != o->dbg_info()->_jdb_data.end(); ++ex)
     {
-      Jdb_kobject_extension *je = static_cast<Jdb_kobject_extension*>(ex);
+      Jdb_kobject_extension *je = static_cast<Jdb_kobject_extension*>(*ex);
       if (je->type() == T::static_type)
 	return static_cast<T*>(je);
-
-      ex = ex->next();
     }
 
   return 0;

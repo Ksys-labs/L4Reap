@@ -10,7 +10,7 @@ public:
   void getchar_chance();
 
   static Mux_console *console() FIASCO_CONST
-  { return _c.get(); }
+  { return _c; }
 
 private:
   static Static_object<Kconsole> _c;
@@ -23,6 +23,8 @@ IMPLEMENTATION:
 #include "mux_console.h"
 #include "processor.h"
 
+Static_object<Kconsole> Kconsole::_c;
+
 
 IMPLEMENT
 int Kconsole::getchar(bool blocking)
@@ -34,24 +36,15 @@ int Kconsole::getchar(bool blocking)
     {
       int c;
       if ((c = Mux_console::getchar(false)) != -1)
-	return c;
+        return c;
 
-      if (Config::getchar_does_hlt &&		// does work in principle
-	  Config::getchar_does_hlt_works_ok &&	// wakeup timer is enabled
-	  Proc::interrupts())			// does'nt work without ints
-	Proc::halt();
+      if (Config::getchar_does_hlt_works_ok // wakeup timer is enabled
+          && Proc::interrupts())            // does'nt work without ints
+        Proc::halt();
       else
-	Proc::pause();
+        Proc::pause();
     }
 }
-
-Static_object<Kconsole> Kconsole::_c;
-
-
-PUBLIC static FIASCO_NOINLINE
-void
-Kconsole::init()
-{ _c.init(); }
 
 
 PUBLIC inline
@@ -61,4 +54,11 @@ Kconsole::Kconsole()
   Console::stderr = this;
   Console::stdin  = this;
 }
+
+
+PUBLIC static FIASCO_NOINLINE
+void
+Kconsole::init()
+{ _c.construct(); }
+
 

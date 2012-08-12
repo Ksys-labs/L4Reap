@@ -44,9 +44,12 @@
 #  define L4S_PIC_SAVE "push %%ebx; "
 #  define L4S_PIC_RESTORE "pop %%ebx; "
 #  define L4S_PIC_CLOBBER
+#if 1
 #  define IPC_SYSENTER      "# indirect sys invoke \n\t" \
                             "call *__l4sys_invoke_indirect@GOTOFF(%%ebx)    \n\t"
-//#  define IPC_SYSENTER      "call __l4sys_invoke_direct@plt    \n\t"
+#else
+#  define IPC_SYSENTER      "call __l4sys_invoke_direct@plt    \n\t"
+#endif
 #  define IPC_SYSENTER_ASM   call __l4sys_invoke_direct@plt
 #else
 /**

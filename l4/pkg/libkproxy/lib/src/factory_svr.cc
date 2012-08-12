@@ -87,18 +87,6 @@ public:
       return r;
     }
 
-  static int handle_semaphore(Factory_svr *svr, Factory_interface *fi,
-                              L4::Ipc::Iostream &ios)
-    {
-      L4::Cap<L4::K_semaphore> s = svr->cap_alloc<L4::K_semaphore>();
-      if (!s.is_valid())
-        return -L4_ENOMEM;
-      int r = fi->create_semaphore(s);
-      if (r == 0)
-        ios << s;
-      return r;
-    }
-
   static int handle_irq(Factory_svr *svr, Factory_interface *fi,
                         L4::Ipc::Iostream &ios)
     {
@@ -106,6 +94,18 @@ public:
       if (!i.is_valid())
         return -L4_ENOMEM;
       int r = fi->create_irq(i);
+      if (r == 0)
+        ios << i;
+      return r;
+    }
+
+  static int handle_vm(Factory_svr *svr, Factory_interface *fi,
+                       L4::Ipc::Iostream &ios)
+    {
+      L4::Cap<L4::Vm> i = svr->cap_alloc<L4::Vm>();
+      if (!i.is_valid())
+        return -L4_ENOMEM;
+      int r = fi->create_vm(i);
       if (r == 0)
         ios << i;
       return r;
@@ -118,18 +118,18 @@ int Factory_svr::factory_dispatch(l4_umword_t, L4::Ipc::Iostream &ios)
   ios >> op;
   switch (op)
     {
-    case L4_FACTORY_CREATE_FACTORY_OP:
+    case L4_PROTO_FACTORY:
       return Factory_hndl::handle_factory(this, _factory, ios);
-    case L4_FACTORY_CREATE_THREAD_OP:
+    case L4_PROTO_THREAD:
       return Factory_hndl::handle_thread(this, _factory, ios);
-    case L4_FACTORY_CREATE_TASK_OP:
+    case L4_PROTO_TASK:
       return Factory_hndl::handle_task(this, _factory, ios);
-    case L4_FACTORY_CREATE_GATE_OP:
+    case 0:
       return Factory_hndl::handle_gate(this, _factory, ios);
-    case L4_FACTORY_CREATE_SEMAPHORE_OP:
-      return Factory_hndl::handle_semaphore(this, _factory, ios);
-    case L4_FACTORY_CREATE_IRQ_OP:
+    case L4_PROTO_IRQ:
       return Factory_hndl::handle_irq(this, _factory, ios);
+    case L4_PROTO_VM:
+      return Factory_hndl::handle_vm(this, _factory, ios);
     default:
       return -L4_ENOSYS;
     };

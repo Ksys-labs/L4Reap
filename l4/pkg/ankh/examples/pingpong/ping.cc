@@ -33,7 +33,7 @@ unsigned char const bcast_mac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 /*
  * Print a MAC formatted
  */
-void print_mac(unsigned char *macptr)
+static void print_mac(unsigned char *macptr)
 {
 	char macbuf_size = 32;
 	char mac_buf[macbuf_size];
@@ -44,7 +44,7 @@ void print_mac(unsigned char *macptr)
 }
 
 
-char *human_readable_size(unsigned size) {
+static char *human_readable_size(unsigned size) {
 	char sizebuf[40];
 
 	if (size < 1000)
@@ -63,7 +63,7 @@ char *human_readable_size(unsigned size) {
 /*
  * Print my device's stats
  */
-void print_stats()
+static void print_stats()
 {
 	struct AnkhSessionDescriptor *sd = reinterpret_cast<struct AnkhSessionDescriptor*>(info->addr());
 
@@ -98,7 +98,7 @@ static void ankh_activate()
 }
 
 
-void get_shm_area(L4::Cap<void> /*session*/)
+static void get_shm_area(L4::Cap<void> /*session*/)
 {
 	int err = l4shmc_attach(shm_name, &ankh_shmarea);
 	ASSERT_OK(err);
@@ -146,13 +146,13 @@ void get_shm_area(L4::Cap<void> /*session*/)
 #endif
 
 typedef struct {
-	char _1[4];
+	unsigned char _1[4];
 	unsigned char txbuf[1024];
-	char _2[4];
+	unsigned char _2[4];
 	unsigned char rxbuf[1024];
-	char _3[4];
+	unsigned char _3[4];
 	const unsigned char packet_const;
-	char _4[4];
+	unsigned char _4[4];
 } rx_struct;
 
 rx_struct recv_buffer = {
@@ -202,7 +202,7 @@ static void recv_packet(Ankh::Shm_receiver *rcv,
 }
 
 
-void sanity_check_packet(unsigned char *buf,
+static void sanity_check_packet(unsigned char *buf,
 						 unsigned char src[6],
 						 unsigned char dest[6],
 						 unsigned char payload,

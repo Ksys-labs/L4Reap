@@ -85,33 +85,28 @@ L4_INLINE l4_utcb_t *l4_utcb_direct(void) L4_NOTHROW
 
 L4_INLINE l4_umword_t l4_utcb_exc_pc(l4_exc_regs_t *u) L4_NOTHROW
 {
-  (void)u;
-  return ~0;
+  return u->ip;
 }
 
 L4_INLINE void l4_utcb_exc_pc_set(l4_exc_regs_t *u, l4_addr_t pc) L4_NOTHROW
 {
-  (void)u;
-  (void)pc;
+  u->ip = pc;
 }
 
 L4_INLINE l4_umword_t l4_utcb_exc_typeval(l4_exc_regs_t *u) L4_NOTHROW
 {
-  (void)u;
-  return ~0;
+  return u->trapno;
 }
 
-//TODO: cbass check pfa values
 L4_INLINE int l4_utcb_exc_is_pf(l4_exc_regs_t *u) L4_NOTHROW
 {
   (void)u;
-  return ~0;
+  return 0;
 }
 
 L4_INLINE l4_addr_t l4_utcb_exc_pfa(l4_exc_regs_t *u) L4_NOTHROW
 {
-  (void)u;
-  return ~0;
+  return u->pfa;
 }
 
 #endif /* ! __L4_SYS__INCLUDE__ARCH_SPARC__UTCB_H__ */

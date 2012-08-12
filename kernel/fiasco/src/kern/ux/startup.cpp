@@ -4,11 +4,11 @@ IMPLEMENTATION:
 #include "boot_info.h"
 #include "config.h"
 #include "cpu.h"
-#include "dirq_pic_pin.h"
 #include "fb.h"
 #include "fpu.h"
 #include "idt.h"
 #include "initcalls.h"
+#include "irq_chip_pic.h"
 #include "jdb.h"
 #include "kernel_console.h"
 #include "kernel_task.h"
@@ -23,7 +23,6 @@ IMPLEMENTATION:
 #include "timer.h"
 #include "usermode.h"
 #include "utcb_init.h"
-#include "vmem_alloc.h"
 
 STATIC_INITIALIZER_P(startup_system1, UX_STARTUP1_INIT_PRIO);
 STATIC_INITIALIZER_P(startup_system2, STARTUP_INIT_PRIO);
@@ -41,13 +40,12 @@ static void FIASCO_INIT
 startup_system2()
 {
   Banner::init();
-  Kip_init::setup_ux();
-  Kmem_alloc::base_init();
   Kip_init::init();
+  Kmem_alloc::base_init();
   Kmem_alloc::init();
 
   // Initialize cpu-local data management and run constructors for CPU 0
-  Per_cpu_data::init_ctors(Kmem_alloc::allocator());
+  Per_cpu_data::init_ctors();
   Per_cpu_data_alloc::alloc(0);
   Per_cpu_data::run_ctors(0);
 
@@ -61,14 +59,13 @@ startup_system2()
   memcpy(kip, Kip::k(), Config::PAGE_SIZE);
   Kip::init_global_kip(kip);
 
-  Vmem_alloc::init();
   Utcb_init::init();
   Pic::init();
-  Dirq_pic_pin::init();
-  Ipi::cpu(0).init();
+  Irq_chip_ia32_pic::init();
+  Ipi::init(0);
   Idt::init();
   Fpu::init(0);
-  Timer::init();
+  Timer::init(0);
   Fb::init();
   Net::init();
   Cpu::init_global_features();

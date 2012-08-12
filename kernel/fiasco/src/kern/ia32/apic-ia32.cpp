@@ -734,7 +734,7 @@ Apic::error_interrupt(Return_frame *regs)
       if (ignore_invalid_apic_reg_access)
 	return;
 
-      printf("cpu%d: APIC invalid register access error at "L4_PTR_FMT"\n",
+      printf("cpu%d: APIC invalid register access error at " L4_PTR_FMT "\n",
 	     current_cpu(), regs->ip());
       return;
     }

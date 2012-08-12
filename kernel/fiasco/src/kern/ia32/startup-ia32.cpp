@@ -9,12 +9,13 @@ IMPLEMENTATION[ia32,amd64]:
 #include "boot_info.h"
 #include "config.h"
 #include "cpu.h"
-#include "dirq.h"
-#include "dirq_io_apic.h"
 #include "fpu.h"
 #include "idt.h"
 #include "initcalls.h"
+#include "io_apic.h"
 #include "ipi.h"
+#include "irq_chip_pic.h"
+#include "irq_mgr.h"
 #include "kernel_console.h"
 #include "kernel_task.h"
 #include "kip_init.h"
@@ -29,7 +30,6 @@ IMPLEMENTATION[ia32,amd64]:
 #include "thread.h"
 #include "timer.h"
 #include "utcb_init.h"
-#include "vmem_alloc.h"
 
 #include "io_apic.h"
 
@@ -57,7 +57,7 @@ Startup::stage2()
     Banner::init();
 
   // Initialize cpu-local data management and run constructors for CPU 0
-  Per_cpu_data::init_ctors(Kmem_alloc::allocator());
+  Per_cpu_data::init_ctors();
   Per_cpu_data_alloc::alloc(0);
   Per_cpu_data::run_ctors(0);
 
@@ -69,16 +69,14 @@ Startup::stage2()
     {
       Config::apic = true;
       Pic::disable_all_save();
-      Dirq_io_apic::init();
     }
   else
     {
       Pic::init();
-      Dirq_pic_pin::init();
+      Irq_chip_ia32_pic::init();
     }
 
   Kernel_task::init(); // enables current_mem_space()
-  Vmem_alloc::init();
 
   // initialize initial TSS, GDT, IDT
   Kmem::init_cpu(Cpu::cpus.cpu(0));
@@ -86,9 +84,9 @@ Startup::stage2()
   Idt::init();
   Fpu::init(0);
   Apic::init();
-  Ipi::cpu(0).init();
-  Timer::init();
-  int timer_irq = Timer::irq_line();
+  Ipi::init(0);
+  Timer::init(0);
+  int timer_irq = Timer::irq();
   if (use_io_apic)
     {
       // If we use the IOAPIC, we route our timer IRQ to
@@ -97,11 +95,13 @@ Startup::stage2()
 
       if (timer_irq >= 0)
 	{
-	  unsigned const pic_pin = Io_apic::legacy_override(timer_irq);
-	  // assume the legacy irqs are routet to IO-APIC 0
-	  Io_apic_entry e = Io_apic::apic(0)->read_entry(pic_pin);
+	  Irq_mgr *const m = Irq_mgr::mgr;
+	  Irq_mgr::Irq const irq = m->chip(m->legacy_override(timer_irq));
+	  Io_apic *const apic = static_cast<Io_apic*>(irq.chip);
+
+	  Io_apic_entry e = apic->read_entry(irq.pin);
 	  e.vector(Config::Apic_timer_vector);
-	  Io_apic::apic(0)->write_entry(pic_pin, e);
+	  apic->write_entry(irq.pin, e);
 	}
     }
   else

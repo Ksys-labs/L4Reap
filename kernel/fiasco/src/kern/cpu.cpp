@@ -65,9 +65,7 @@ private:
 // --------------------------------------------------------------------------
 IMPLEMENTATION:
 
-#include "static_init.h"
-
-Cpu_mask Cpu::_online_mask INIT_PRIORITY(EARLY_INIT_PRIO);
+Cpu_mask Cpu::_online_mask(Cpu_mask::Init::Bss);
 
 IMPLEMENT inline
 Cpu_mask const &
@@ -103,11 +101,11 @@ IMPLEMENT
 unsigned
 Cpu::p2l(unsigned phys_id)
 {
-  for (int i = 0; i < Config::Max_num_cpus; ++i)
+  for (unsigned i = 0; i < Config::Max_num_cpus; ++i)
     if (Per_cpu_data::valid(i) && Cpu::cpus.cpu(i).phys_id() == phys_id)
       return i;
 
-  return -1;
+  return ~0U;
 }
 
 IMPLEMENT static inline NEEDS["kdb_ke.h"]

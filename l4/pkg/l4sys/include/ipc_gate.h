@@ -74,8 +74,8 @@ l4_ipc_gate_get_infos_u(l4_cap_idx_t gate, l4_umword_t *label, l4_utcb_t *utcb);
  */
 enum L4_ipc_gate_ops
 {
-  L4_IPC_GATE_OP_BIND     = 0x10, /**< Bind operation */
-  L4_IPC_GATE_OP_GET_INFO = 0x11, /**< Info operation */
+  L4_IPC_GATE_BIND_OP     = 0x10, /**< Bind operation */
+  L4_IPC_GATE_GET_INFO_OP = 0x11, /**< Info operation */
 };
 
 
@@ -89,7 +89,7 @@ l4_ipc_gate_bind_thread_u(l4_cap_idx_t gate,
                           l4_utcb_t *utcb)
 {
   l4_msg_regs_t *m = l4_utcb_mr_u(utcb);
-  m->mr[0] = L4_IPC_GATE_OP_BIND;
+  m->mr[0] = L4_IPC_GATE_BIND_OP;
   m->mr[1] = label;
   m->mr[2] = l4_map_obj_control(0, 0);
   m->mr[3] = l4_obj_fpage(thread, 0, L4_FPAGE_RWX).raw;
@@ -102,7 +102,7 @@ l4_ipc_gate_get_infos_u(l4_cap_idx_t gate, l4_umword_t *label, l4_utcb_t *utcb)
 {
   l4_msgtag_t tag;
   l4_msg_regs_t *m = l4_utcb_mr_u(utcb);
-  m->mr[0] = L4_IPC_GATE_OP_GET_INFO;
+  m->mr[0] = L4_IPC_GATE_GET_INFO_OP;
   tag = l4_ipc_call(gate, utcb, l4_msgtag(L4_PROTO_KOBJECT, 1, 0, 0),
                     L4_IPC_NEVER);
   if (!l4_msgtag_has_error(tag) && l4_msgtag_label(tag) >= 0)

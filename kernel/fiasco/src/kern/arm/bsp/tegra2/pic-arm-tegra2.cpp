@@ -1,50 +1,26 @@
-INTERFACE [arm && tegra2]:
+INTERFACE [arm && pic_gic && tegra2]:
 
 #include "gic.h"
-
-class Irq_base;
-
-EXTENSION class Pic
-{
-public:
-  enum
-  {
-    Multi_irq_pending = 0,
-    No_irq_pending = 1023,
-  };
-};
 
 //-------------------------------------------------------------------
 IMPLEMENTATION [arm && pic_gic && tegra2]:
 
-#include <cstring>
-#include <cstdio>
-
-#include "config.h"
-#include "initcalls.h"
 #include "irq_chip.h"
-#include "irq_chip_generic.h"
+#include "irq_mgr_multi_chip.h"
+#include "gic.h"
 #include "kmem.h"
-
-Gic Gic_pin::_gic[1];
-
-class Irq_chip_tegra2 : public Irq_chip_gen
-{
-};
-
-PUBLIC
-void Irq_chip_tegra2::setup(Irq_base *irq, unsigned irqnum)
-{
-  irq->pin()->replace<Gic_pin>(0, irqnum);
-}
 
 IMPLEMENT FIASCO_INIT
 void Pic::init()
 {
-  static Irq_chip_tegra2 _ia;
-  Irq_chip::hw_chip = &_ia;
+  typedef Irq_mgr_multi_chip<8> M;
 
-  Gic_pin::_gic[0].init(Kmem::Gic_cpu_map_base, Kmem::Gic_dist_map_base);
+  M *m = new Boot_object<M>(16);
+
+  gic.construct(Kmem::Gic_cpu_map_base, Kmem::Gic_dist_map_base);
+  m->add_chip(0, gic, gic->nr_irqs());
+
+  Irq_mgr::mgr = m;
 }
 
 IMPLEMENT inline
@@ -55,21 +31,11 @@ IMPLEMENT inline
 void Pic::restore_all(Status)
 {}
 
-PUBLIC static inline
-Unsigned32 Pic::pending()
-{
-  return Gic_pin::_gic[0].pending();
-}
-
-PUBLIC static inline
-Mword Pic::is_pending(Mword &irqs, Mword irq)
-{ return irqs == irq; }
-
 //-------------------------------------------------------------------
 IMPLEMENTATION [arm && mp && pic_gic && tegra2]:
 
 PUBLIC static
 void Pic::init_ap()
 {
-  Gic_pin::_gic[0].init_ap();
+  gic->init_ap();
 }

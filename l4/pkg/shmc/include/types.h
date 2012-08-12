@@ -50,6 +50,7 @@ typedef struct {
   l4re_ds_t         _shm_ds;
   void             *_local_addr;
   char              _name[L4SHMC_NAME_STRINGLEN];
+  l4_umword_t       _size;
 } l4shmc_area_t;
 
 /* l4shmc_signal_t is local to one address space */
@@ -62,4 +63,5 @@ typedef struct {
   l4shmc_chunk_desc_t  *_chunk;
   l4shmc_area_t        *_shm;
   l4shmc_signal_t      *_sig;
+  l4_umword_t           _capacity;
 } l4shmc_chunk_t;

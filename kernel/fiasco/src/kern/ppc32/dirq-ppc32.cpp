@@ -18,14 +18,14 @@ void irq_handler()
 
   Mword irq;
 
-  if(EXPECT_TRUE(rf->user_mode()))
+  if (EXPECT_TRUE(rf->user_mode()))
     rf->srr1 = Proc::wake(rf->srr1);
 
   irq = Pic::pending();
   if(EXPECT_FALSE(irq == Pic::No_irq_pending))
     return;
 
-  Irq *i = nonull_static_cast<Irq*>(Irq_chip_gen::irqs[irq]);
-  Irq::log_irq(i, irq);
-  i->hit();
+  Irq_base *i = nonull_static_cast<Irq_base*>(Pic::main->irq(irq));
+//  Irq::log_irq(i, irq);
+  i->hit(0);
 }

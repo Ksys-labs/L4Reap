@@ -1,6 +1,8 @@
 INTERFACE:
 
+#include "fiasco_defs.h"
 #include "ram_quota.h"
+#include "slab_cache.h"
 #include "kobject_helper.h"
 
 class Factory : public Ram_quota, public Kobject_h<Factory>
@@ -8,7 +10,7 @@ class Factory : public Ram_quota, public Kobject_h<Factory>
   FIASCO_DECLARE_KOBJ();
 
 private:
-  typedef slab_cache_anon Self_alloc;
+  typedef Slab_cache Self_alloc;
 };
 
 //---------------------------------------------------------------------------
@@ -21,7 +23,6 @@ IMPLEMENTATION:
 #include "static_init.h"
 #include "l4_buf_iter.h"
 #include "l4_types.h"
-#include "u_semaphore.h"
 #include "irq.h"
 #include "map_util.h"
 #include "logdefs.h"
@@ -49,20 +50,25 @@ Factory::allocator()
 { return &_factory_allocator; }
 
 PUBLIC static inline
-Factory *
+Factory * FIASCO_PURE
 Factory::root()
-{ return static_cast<Factory*>(Ram_quota::root); }
+{ return nonull_static_cast<Factory*>(Ram_quota::root); }
 
 
 PRIVATE
 Factory *
 Factory::create_factory(unsigned long max)
 {
-  void *nq;
-  if (alloc(sizeof(Factory) + max) && (nq = allocator()->alloc()))
-    return new (nq) Factory(this, max);
+  Auto_quota<Ram_quota> q(this, sizeof(Factory) + max);
+  if (EXPECT_FALSE(!q))
+    return 0;
 
-  return 0;
+  void *nq = allocator()->alloc();
+  if (EXPECT_FALSE(!nq))
+    return 0;
+
+  q.release();
+  return new (nq) Factory(this, max);
 }
 
 PUBLIC
@@ -75,10 +81,10 @@ void Factory::operator delete (void *_f)
     return;
 
   Ram_quota *p = f->parent();
-  if (p)
-    p->free(sizeof(Factory) + f->limit());
 
   allocator()->free(f);
+  if (p)
+    p->free(sizeof(Factory) + f->limit());
 }
 
 PRIVATE
@@ -86,14 +92,6 @@ L4_msg_tag
 Factory::map_obj(Kobject_iface *o, Mword cap, Space *c_space,
                  Obj_space *o_space)
 {
-  switch (Mword(o))
-    {
-    case 0:               return commit_result(-L4_err::ENomem);
-    case -L4_err::EInval: return commit_result(-L4_err::EInval);
-    case -L4_err::EPerm:  return commit_result(-L4_err::EPerm);
-    default:              break;
-    };
-
   Reap_list rl;
 
   if (!map(o, o_space, c_space, cap, rl.list()))
@@ -110,7 +108,7 @@ Factory::map_obj(Kobject_iface *o, Mword cap, Space *c_space,
 
 PRIVATE inline NOEXPORT
 Kobject_iface *
-Factory::new_factory(Utcb const *u)
+Factory::new_factory(Utcb const *u, int *)
 {
   // XXX: should check for type tag in new call
   return create_factory(u->values[2]);
@@ -119,37 +117,27 @@ Factory::new_factory(Utcb const *u)
 
 PRIVATE inline NOEXPORT
 Kobject_iface *
-Factory::new_task(Utcb const *u)
+Factory::new_task(Utcb const *u, int *)
 {
   L4_fpage utcb_area(0);
   // XXX: should check for type tag in new call
   utcb_area = L4_fpage(u->values[2]);
 
-  Task *new_t = Task::create(Space::Default_factory(), this, utcb_area);
+  if (Task *new_t = Task::create<Task>(this, utcb_area))
+    return new_t;
 
-  if (!new_t)
-    return 0;
-
-  if (!new_t->valid() || !new_t->initialize())
-    {
-      delete new_t;
-      return 0;
-    }
-
-  return new_t;
+  return 0;
 }
 
 PRIVATE inline NOEXPORT
 Kobject_iface *
-Factory::new_thread(Utcb const *)
-{
-  Thread_object *t = new (this) Thread_object();
-  return t;
-}
+Factory::new_thread(Utcb const *, int *)
+{ return new (this) Thread_object(); }
 
 PRIVATE inline NOEXPORT
 Kobject_iface *
-Factory::new_gate(L4_msg_tag const &tag, Utcb const *utcb, Obj_space *o_space)
+Factory::new_gate(L4_msg_tag const &tag, Utcb const *utcb, Obj_space *o_space,
+                  int *err)
 {
   L4_snd_item_iter snd_items(utcb, tag.words());
   Thread *thread = 0;
@@ -157,34 +145,29 @@ Factory::new_gate(L4_msg_tag const &tag, Utcb const *utcb, Obj_space *o_space)
   if (tag.items() && snd_items.next())
     {
       L4_fpage bind_thread(snd_items.get()->d);
+      *err = L4_err::EInval;
       if (EXPECT_FALSE(!bind_thread.is_objpage()))
-	return reinterpret_cast<Kobject_iface*>(-L4_err::EInval);
+	return 0;
 
       unsigned char thread_rights = 0;
       thread = Kobject::dcast<Thread_object*>(o_space->lookup_local(bind_thread.obj_index(), &thread_rights));
 
+      *err = L4_err::EPerm;
       if (EXPECT_FALSE(!(thread_rights & L4_fpage::W)))
-	return reinterpret_cast<Kobject_iface*>(-L4_err::EPerm);
+	return 0;
     }
 #if 0
   if (!thread)
     return reinterpret_cast<Kobject_iface*>(-L4_err::EInval);
 #endif
   // should check type tag of varg
+  *err = L4_err::ENomem;
   return static_cast<Ipc_gate_ctl*>(Ipc_gate::create(this, thread, utcb->values[2]));
 }
 
-
 PRIVATE inline NOEXPORT
 Kobject_iface *
-Factory::new_semaphore(Utcb const *)
-{
-  return U_semaphore::alloc(this);
-}
-
-PRIVATE inline NOEXPORT
-Kobject_iface *
-Factory::new_irq(unsigned w, Utcb const *utcb)
+Factory::new_irq(unsigned w, Utcb const *utcb, int *)
 {
   if (w >= 3 && utcb->values[2])
     return Irq::allocate<Irq_muxer>(this);
@@ -198,8 +181,7 @@ Factory::kinvoke(L4_obj_ref ref, Mword rights, Syscall_frame *f,
                  Utcb const *utcb, Utcb *)
 {
   register Context *const c_thread = ::current();
-  register Space *const c_space = c_thread->space();
-  register Obj_space *const o_space = c_space->obj_space();
+  register Task *const c_space = static_cast<Task*>(c_thread->space());
 
   if (EXPECT_FALSE(f->tag().proto() != L4_msg_tag::Label_factory))
     return commit_result(-L4_err::EBadproto);
@@ -229,35 +211,42 @@ Factory::kinvoke(L4_obj_ref ref, Mword rights, Syscall_frame *f,
     return commit_error(utcb, L4_error(L4_error::Overflow, L4_error::Rcv));
 
   Kobject_iface *new_o;
+  int err = L4_err::ENomem;
+
+  Lock_guard<decltype(c_space->existence_lock)> space_lock_guard;
+
+  // We take the existence_lock for syncronizing maps...
+  // This is kind of coarse grained
+  // try_lock fails if the lock is neither locked nor unlocked
+  if (!space_lock_guard.try_lock(&c_space->existence_lock))
+    return commit_error(utcb, L4_error(L4_error::Overflow, L4_error::Rcv));
+
+  Lock_guard<Cpu_lock, Lock_guard_inverse_policy> cpu_lock_guard(&cpu_lock);
 
   switch ((long)utcb->values[0])
     {
     case 0:  // new IPC Gate
-      new_o = new_gate(f->tag(), utcb, o_space);
+      new_o = new_gate(f->tag(), utcb, c_space, &err);
       break;
 
     case L4_msg_tag::Label_factory:
-      new_o = new_factory(utcb);
+      new_o = new_factory(utcb, &err);
       break;
 
     case L4_msg_tag::Label_task:
-      new_o =  new_task(utcb);
+      new_o =  new_task(utcb, &err);
       break;
 
     case L4_msg_tag::Label_thread:
-      new_o = new_thread(utcb);
-      break;
-
-    case L4_msg_tag::Label_semaphore:
-      new_o = new_semaphore(utcb);
+      new_o = new_thread(utcb, &err);
       break;
 
     case L4_msg_tag::Label_irq:
-      new_o = new_irq(f->tag().words(), utcb);
+      new_o = new_irq(f->tag().words(), utcb, &err);
       break;
 
     case L4_msg_tag::Label_vm:
-      new_o = new_vm(utcb);
+      new_o = new_vm(utcb, &err);
       break;
 
     default:
@@ -272,7 +261,10 @@ Factory::kinvoke(L4_obj_ref ref, Mword rights, Syscall_frame *f,
     le->ram = current();
     le->newo = new_o ? new_o->dbg_info()->dbg_id() : ~0);
 
-  return map_obj(new_o, buffer.obj_index(), c_space, o_space);
+  if (new_o)
+    return map_obj(new_o, buffer.obj_index(), c_space, c_space);
+  else
+    return commit_result(-err);
 
 }
 
@@ -284,20 +276,12 @@ IMPLEMENTATION [svm || vmx]:
 
 PRIVATE inline NOEXPORT
 Kobject_iface *
-Factory::new_vm(Utcb const *)
+Factory::new_vm(Utcb const *, int *err)
 {
-  Vm *new_t = Vm_factory::create(this);
+  if (Vm *new_t = Vm_factory::create(this, err))
+    return new_t;
 
-  if (!new_t)
-    return 0;
-
-  if (!new_t->valid() || !new_t->initialize())
-    {
-      delete new_t;
-      return 0;
-    }
-
-  return new_t;
+  return 0;
 }
 
 IMPLEMENTATION [tz]:
@@ -306,8 +290,9 @@ IMPLEMENTATION [tz]:
 
 PRIVATE inline NOEXPORT
 Kobject_iface *
-Factory::new_vm(Utcb const *)
+Factory::new_vm(Utcb const *, int *err)
 {
+  *err = L4_err::ENomem;
   return Vm::create(this);
 }
 
@@ -316,8 +301,11 @@ IMPLEMENTATION [!svm && !tz && !vmx]:
 
 PRIVATE inline NOEXPORT
 Kobject_iface *
-Factory::new_vm(Utcb const *)
-{ return (Kobject_iface*)(-L4_err::EInval); }
+Factory::new_vm(Utcb const *, int *err)
+{
+  *err = L4_err::ENodev;
+  return 0;
+}
 
 // ------------------------------------------------------------------------
 INTERFACE [debug]:

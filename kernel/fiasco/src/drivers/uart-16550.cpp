@@ -48,7 +48,6 @@ public:
   // or baud rate unchanged on a call to change_mode
     MODE_NC  = 0x1000000,
     BAUD_NC  = 0x1000000,
-
   };
 
 private:
@@ -264,7 +263,7 @@ Uart::TransferMode Uart::get_mode()
 }
 
 IMPLEMENT
-int Uart::write( char const *s, size_t count )
+int Uart::write(char const *s, size_t count)
 {
   /* disable uart irqs */
   Unsigned8 old_ier;
@@ -276,17 +275,7 @@ int Uart::write( char const *s, size_t count )
     {
       while (!(lsr() & 0x20 /* THRE */))
 	;
-      if (s[i] == '\346')
-	trb('\265');
-      else
-	trb(s[i]);
-
-      if (s[i] == '\n')
-	{
-	  while (!(lsr() & 0x20 /* THRE */))
-	    ;
-	  trb('\r');
-	}
+      trb(s[i]);
     }
 
   /* wait till everything is transmitted */
@@ -294,8 +283,7 @@ int Uart::write( char const *s, size_t count )
     ;
 
   ier(old_ier);
-  return 1;
-
+  return count;
 }
 
 IMPLEMENT

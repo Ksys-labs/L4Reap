@@ -33,7 +33,9 @@ public:
 };
 
 
-extern "C" void init_plugin(Core_api *core)
+extern "C" void init_plugin(Core_api *core);
+
+void init_plugin(Core_api *core)
 {
   Plugin_manager::init(core);
 }

@@ -17,32 +17,12 @@
 
 #include "vdevice.h"
 #include "device.h"
+#include "expression.h"
 #include "hw_device.h"
 #include <vector>
 #include <l4/cxx/string>
 #include "vbus_factory.h"
-
-struct Const_expression
-{
-  unsigned type;
-  union {
-    l4_uint64_t num;
-
-    struct {
-      l4_uint64_t s;
-      l4_uint64_t e;
-    } range;
-
-    struct {
-      char const *s;
-      char const *e;
-    } str;
-  } val;
-};
-
-
-typedef std::vector<Hw::Device*> Dev_list;
-typedef std::vector<Const_expression> Const_expression_list;
+#include "tagged_parameter.h"
 
 }
 
@@ -75,17 +55,16 @@ typedef std::vector<Const_expression> Const_expression_list;
       char const *s;
       char const *e;
     } str;
+    Tagged_parameter *param;
+    Expression *expr;
     Vi::Device *device;
     Hw::Device *hw_device;
-    Dev_list *dev_list;
-    Adr_resource *resource;
-    Const_expression const_expression;
-    Const_expression_list *const_expr_list;
 }
 
 %token		END	0	"end of file"
 //%token		EOL		"end of line"
 %token		NEW		"new operator"
+//%token		RETURN		"return operator"
 %token		RESOURCE	"new-res operator"
 %token		HWROOT		"hw-root operator"
 %token		WRAP		"wrap operator"
@@ -96,31 +75,42 @@ typedef std::vector<Const_expression> Const_expression_list;
 %token		RANGE		"range operator '..'"
 %token		COMMA		"comma"
 
+%type<device> device_body device_def_statement
+%type<expr> expression device_def_expr
+%type<expr> hw_device_list
 %type<hw_device> hw_device
-%type<dev_list> hw_device_list
-%type<device> device_def device_body expression expression_statement
 %type<device> statement_list top_level_list top_level_statement
 %type<str>    param_list
-%type<resource> hw_resource_def
+%type<expr> hw_resource_def
 %type<hw_device> hw_device_def hw_device_body_statement
-%type<const_expression> const_expression
-%type<const_expr_list> parameter_list
+%type<expr> const_expression
+%type<expr> parameter_list
+%type<param> tagged_parameter tagged_parameter_list_ne tagged_parameter_list
 
 %code {
 
 #include <algorithm>
 #include "cfg_scanner.h"
 #include "hw_device.h"
+#include "tagged_parameter.h"
 
 #undef yylex
 #define yylex _lexer->lex
 
+static inline
+std::ostream &operator << (std::ostream &s, cxx::String const &str)
+{
+  s.write(str.start(), str.len());
+  return s;
+}
+
+
 static
-void wrap(Device *h, Vi::Device **first)
+void wrap(Device *h, Vi::Device **first, Tagged_parameter *filter)
 {
   Hw::Device *hd = dynamic_cast<Hw::Device *>(h);
 
-  Vi::Device *vd = Vi::Dev_factory::create(hd);
+  Vi::Device *vd = Vi::Dev_factory::create(hd, filter);
   if (vd)
     {
       vd->add_sibling(*first);
@@ -132,9 +122,9 @@ struct match_by_cid
 {
   enum { DEPTH = L4VBUS_MAX_DEPTH };
   cxx::String cid;
-  Dev_list *l;
+  mutable Expression **tail;
 
-  match_by_cid(cxx::String const &cid, Dev_list *l) : cid(cid), l(l)
+  match_by_cid(cxx::String const &cid, Expression *&l) : cid(cid), tail(&l)
   {}
 
   void operator () (Hw::Device *dev) const
@@ -146,7 +136,7 @@ struct match_by_cid
 	 h = h.substr(n+1), n = h.find(","))
       if (hd->match_cid(h.head(n)))
         {
-	  l->push_back(hd);
+	  tail = Expression::append(tail, new Expression(hd));
 	  return;
 	}
   }
@@ -156,16 +146,16 @@ struct match_by_name
 {
   enum { DEPTH = 0 };
   cxx::String cid;
-  Dev_list *l;
+  mutable Expression **tail;
 
-  match_by_name(cxx::String const &cid, Dev_list *l) : cid(cid), l(l)
+  match_by_name(cxx::String const &cid, Expression *&l) : cid(cid), tail(&l)
   {}
 
   void operator () (Hw::Device *dev) const
   {
     Hw::Device *hd = dev;
     if (cid == hd->name())
-      l->push_back(hd);
+      tail = Expression::append(tail, new Expression(hd));
   }
 };
 
@@ -188,19 +178,28 @@ LI *concat(LI *l, LI *r)
 
 template<typename Match, typename LOC>
 static
-Dev_list *
+Expression *
 dev_list_from_dev(Hw::Device *in, cxx::String const & /*op*/,
                   cxx::String const &arg, LOC const &l)
 {
-  Dev_list *nl = new Dev_list();
+  Expression *nl = 0;
 
   std::for_each(in->begin(Match::DEPTH), in->end(),
                 Match(arg, nl));
-  if (nl->empty())
+  if (!nl)
     std::cerr << l << ": warning: could not find '" << arg << "'"
               << std::endl;
 
   return nl;
+}
+
+static void check_parameter_list(cfg::location const &l, Tagged_parameter *t)
+{
+  for (; t; t = t->next())
+    {
+      if (!t->used())
+        std::cerr << l << ": warning: unused parameter '" << t->tag() << "'" << std::endl;
+    }
 }
 
 static
@@ -224,15 +223,26 @@ add_children(Vi::Device *p, Vi::Device *cld_list)
 }
 
 static
-Vi::Device *
-wrap_hw_devices(Dev_list *hw_devs)
+Expression *
+wrap_hw_devices(cfg::location const &l, Expression *hw_devs, Tagged_parameter *filter)
 {
   Vi::Device *vd = 0;
-  for (Dev_list::iterator i = hw_devs->begin(); i != hw_devs->end(); ++i)
-    wrap(*i, &vd);
+  Expression *i = hw_devs;
+  while (i)
+    {
+      Value v = i->eval();
+      if (v.type == Value::Hw_dev)
+        wrap(v.val.hw_dev, &vd, filter);
+      else
+        std::cerr << l << ": error: 'wrap' takes a list of hardware devices" << std::endl;
 
-  delete hw_devs;
-  return vd;
+      i = Expression::del_this(i);
+    }
+
+  if (vd)
+    return new Expression(vd);
+  else
+    return 0;
 }
 
 static
@@ -254,13 +264,6 @@ set_device_names(Device *devs, cxx::String const &name, bool array = false)
 }
 
 static inline
-std::ostream &operator << (std::ostream &s, cxx::String const &str)
-{
-  s.write(str.start(), str.len());
-  return s;
-}
-
-static inline
 std::ostream &operator << (std::ostream &s, Hw::Device::Prop_val const &v)
 {
   if (v.type == Hw::Device::Prop_val::String)
@@ -273,12 +276,13 @@ std::ostream &operator << (std::ostream &s, Hw::Device::Prop_val const &v)
 
 
 static
-Adr_resource *
+Expression *
 create_resource(cfg::Parser::location_type const &l, cxx::String const &type,
-                Const_expression_list *args)
+                Expression *args)
 {
 
   unsigned flags = 0;
+  Value a;
 
   if (type == "Io")
     flags = Adr_resource::Io_res;
@@ -307,76 +311,104 @@ create_resource(cfg::Parser::location_type const &l, cxx::String const &type,
     case Adr_resource::Io_res:
     case Adr_resource::Irq_res:
     case Adr_resource::Mmio_res:
-      if (args->size() < 1)
+      if (!args)
         {
 	  std::cerr << l << ": too few arguments to constructor of resource '" << type << "'" << std::endl;
-	  delete args;
 	  return 0;
 	}
-      if (args->size() > 2)
+
+      a = args->eval();
+      switch (a.type)
         {
-	  std::cerr << l << ": too many arguments to constructor of resource '" << type << "'" << std::endl;
-	  delete args;
-	  return 0;
-	}
-      switch ((*args)[0].type)
-        {
-	case 0:
-	  s = (*args)[0].val.num;
-	  e = (*args)[0].val.num;
+	case Value::Num:
+	  s = a.val.num;
+	  e = a.val.num;
 	  break;
-	case 1:
-	  s = (*args)[0].val.range.s;
-	  e = (*args)[0].val.range.e;
+	case Value::Range:
+	  s = a.val.range.s;
+	  e = a.val.range.e;
 	  break;
 	default:
+	  std::cerr << l
+	    << ": error: first argument for a resource definition must be a numer or a range"
+	    << std::endl;
 	  s = 0;
 	  e = 0;
 	  break;
 	}
-
-      if (args->size() == 2)
-        {
-	  if ((*args)[1].type != 0)
-	    {
-	      std::cerr << l << ": argument 2 must by of type integer in constructor of resource '" << type << "'" << std::endl;
-	      delete args;
-	      return 0;
-	    }
-	  if (s > e)
-	    {
-	      std::cerr << l << ": start of range bigger than end" << std::endl;
-	      delete args;
-	      return 0;
-	    }
-          flags |= (*args)[1].val.num & 0x3fff00;
-	}
-
-      delete args;
-
-      return new Adr_resource(flags, s , e);
-
-    case (Adr_resource::Mmio_res |  Adr_resource::Mmio_data_space):
-      if (args->size() < 2)
-        {
-	  std::cerr << l << ": too few arguments to constructor of resource '" << type << "'" << std::endl;
-	  delete args;
+      if (s > e)
+	{
+	  std::cerr << l << ": start of range bigger than end" << std::endl;
+	  Expression::del_all(args);
 	  return 0;
 	}
-      if (args->size() > 2)
+
+      args = Expression::del_this(args);
+
+      if (args)
+        {
+	  a = args->eval();
+	  if (a.type != Value::Num)
+	    {
+	      std::cerr << l
+	        << ": argument 2 must by of type integer in constructor of resource '"
+	        << type << "'" << std::endl;
+	      Expression::del_all(args);
+	      return 0;
+	    }
+          flags |= a.val.num & 0x3fff00;
+
+	  args = Expression::del_this(args);
+	}
+
+      if (args)
         {
 	  std::cerr << l << ": too many arguments to constructor of resource '" << type << "'" << std::endl;
-	  delete args;
+	  Expression::del_all(args);
+	}
+
+      return new Expression(new Adr_resource(flags, s , e));
+
+    case (Adr_resource::Mmio_res |  Adr_resource::Mmio_data_space):
+      if (!args)
+        {
+	  std::cerr << l << ": too few arguments to constructor of resource '" << type << "'" << std::endl;
+	  Expression::del_all(args);
 	  return 0;
 	}
-      s = (*args)[0].val.num;
-      e = (*args)[1].val.num;
-      delete args;
 
-      return new Mmio_data_space(s, e);
+      a = args->eval();
+      if (a.type != Value::Num)
+        {
+	  std::cerr << l << ": error: expected number argument to constructor of resource '" << type << "'" << std::endl;
+	  Expression::del_all(args);
+	  return 0;
+	}
+
+      s = a.val.num;
+      args = Expression::del_this(args);
+
+      a = args->eval();
+      if (a.type != Value::Num)
+        {
+	  std::cerr << l << ": error: expected number argument to constructor of resource '" << type << "'" << std::endl;
+	  Expression::del_all(args);
+	  return 0;
+	}
+
+      e = a.val.num;
+      args = Expression::del_this(args);
+      if (args)
+        {
+	  std::cerr << l << ": too many arguments to constructor of resource '" << type << "'" << std::endl;
+	  Expression::del_all(args);
+	  return 0;
+	}
+
+      return new Expression(new Mmio_data_space(s, e));
     }
 
-  delete args;
+  Expression::del_all(args);
   return 0;
 }
 
@@ -404,6 +436,39 @@ hw_device_set_property(cfg::Parser::location_type const &l, Hw::Device *dev,
     }
 }
 
+static
+Vi::Device *check_dev_expr(cfg::location const &l, Expression *e)
+{
+  if (!e)
+    return 0;
+
+  Value v = e->eval();
+  if (v.type != Value::Vi_dev)
+    {
+      std::cerr << l << ": error: expected a device definition" << std::endl;
+      return 0;
+    }
+
+  Expression::del_all(e);
+  return v.val.vi_dev;
+}
+
+static
+Adr_resource *check_resource_expr(cfg::location const &l, Expression *e)
+{
+  if (!e)
+    return 0;
+
+  Value v = e->eval();
+  if (v.type != Value::Res)
+    {
+      std::cerr << l << ": error: expected a device definition" << std::endl;
+      return 0;
+    }
+
+  Expression::del_all(e);
+  return v.val.res;
+}
 }
 
 %%
@@ -413,28 +478,50 @@ param_list
 	: '(' ')' { $$.s = "(noname)"; $$.e = $$.s + strlen($$.s); }
 /*	| '(' STRING ')' { $$=$2; ++$$.s; --$$.e; } */
 
-device_def
+tagged_parameter
+	: IDENTIFIER '=' const_expression { $$ = new Tagged_parameter(cxx::String($1.s, $1.e), $3); }
+	| IDENTIFIER '=' '(' parameter_list ')' { $$ = new Tagged_parameter(cxx::String($1.s, $1.e), $4); }
+
+tagged_parameter_list_ne
+	: tagged_parameter
+	| tagged_parameter COMMA tagged_parameter_list_ne { $$ = $3->prepend($1); }
+
+tagged_parameter_list
+	: /*empty*/ { $$ = 0; }
+	| tagged_parameter_list_ne
+
+device_def_expr
 	: NEW IDENTIFIER param_list device_body
 	  {
-	    $$ = _vbus_factory->create(std::string($2.s, $2.e));
-	    add_children($$, $4);
-	    $$->finalize_setup();
+	    Vi::Device *d = _vbus_factory->create(std::string($2.s, $2.e));
+	    if (d)
+	      {
+	        add_children(d, $4);
+	        d->finalize_setup();
+		$$ = new Expression(d);
+	      }
 	  }
 	| WRAP '(' hw_device_list ')' ';'
-	  { $$ = wrap_hw_devices($3); }
+	  { $$ = wrap_hw_devices(@3, $3, 0); }
+	| WRAP '[' tagged_parameter_list ']' '(' hw_device_list ')' ';'
+	  { $$ = wrap_hw_devices(@6, $6, $3); check_parameter_list(@3, $3); Tagged_parameter::del_all($3); }
 
 expression
-	: device_def { $$ = $1; }
-	| IDENTIFIER INSTANCE device_def
-	  { $$ = $3; set_device_names($3, cxx::String($1.s, $1.e)); }
-	| IDENTIFIER '[' ']' INSTANCE device_def
-	  { $$ = $5; set_device_names($5, cxx::String($1.s, $1.e), true); }
+	: device_def_expr
 
-expression_statement : expression
+device_def_statement : expression { $$ = check_dev_expr(@1, $1); }
+	| IDENTIFIER INSTANCE expression
+	  { $$ = check_dev_expr(@3, $3); set_device_names($$, cxx::String($1.s, $1.e)); }
+	| IDENTIFIER '[' ']' INSTANCE expression
+	  { $$ = check_dev_expr(@5, $5); set_device_names($$, cxx::String($1.s, $1.e), true); }
+	| STRING INSTANCE expression
+	  { $$ = check_dev_expr(@3, $3); set_device_names($$, cxx::String($1.s + 1, $1.e - 1)); }
+	| STRING '[' ']' INSTANCE expression
+	  { $$ = check_dev_expr(@5, $5); set_device_names($$, cxx::String($1.s + 1, $1.e - 1), true); }
 
 statement_list
 	: /*empty*/ { $$ = 0; }
-	| expression_statement statement_list
+	| device_def_statement statement_list
 	  { $$ = concat($1, $2); }
 
 device_body
@@ -442,8 +529,8 @@ device_body
 	| '{' statement_list '}' { $$ = $2; }
 
 hw_device_list
-	: hw_device { $$ = new Dev_list(); $$->push_back($1); }
-	| hw_device ',' hw_device_list { $$ = $3; $$->push_back($1); }
+	: hw_device { $$ = new Expression($1); }
+	| hw_device ',' hw_device_list { $$ = (new Expression($1))->prepend($3); }
 	| hw_device '.' IDENTIFIER '(' STRING ')'
 	  { $$ = dev_list_from_dev<match_by_cid>($1, cxx::String($3.s, $3.e), cxx::String($5.s + 1, $5.e - 1), @5); }
 
@@ -460,20 +547,38 @@ hw_device
 	      }
 	  }
 
+macro_parameter_list
+	: /* empty */
+	| IDENTIFIER
+	| IDENTIFIER COMMA macro_parameter_list
+
+macro_statement
+	: expression
+
+macro_statement_list
+	: /* empty */
+	| macro_statement ';' macro_statement_list
+
+macro_body
+	: '{' macro_statement_list '}'
+
+macro_def
+	: '(' macro_parameter_list ')' macro_body
+
 const_expression
 	: INTEGER
-	{ $$.type = 0; $$.val.num = $1; }
+	{ $$ = new Expression($1); }
 	| INTEGER RANGE INTEGER
-	{ $$.type = 1; $$.val.range.s = $1; $$.val.range.e = $3; }
+	{ $$ = new Expression($1, $3); }
 	| IDENTIFIER
-	{ $$.type = 2; $$.val.str.s = $1.s; $$.val.str.e = $1.e; }
+	{ $$ = new Expression($1.s, $1.e); }
 
 parameter_list
 	: /* empty */ { $$ = 0; }
 	| const_expression
-	{ $$ = new Const_expression_list(); $$->push_back($1); }
-	| parameter_list COMMA const_expression
-	{ $$ = $1; $$->push_back($3); }
+	{ $$ = $1; }
+	| const_expression COMMA parameter_list
+	{ $$ = $1->prepend($3); }
 
 hw_resource_def
 	: RESOURCE IDENTIFIER '(' parameter_list ')' ';'
@@ -493,7 +598,7 @@ hw_device_body_statement
 	    if ($$->parent() || $$ == _hw_root)
 	      $1->plugin();
 	  }
-	| hw_resource_def {$$ = $<hw_device>0; $$->add_resource($1); }
+	| hw_resource_def {$$ = $<hw_device>0; $$->add_resource(check_resource_expr(@1, $1)); }
 	| hw_device_set_property { $$ = $<hw_device>0; }
 
 hw_device_body
@@ -517,7 +622,8 @@ hw_device_ext
 	: hw_device '{' { $<hw_device>$ = $1; } hw_device_body '}'
 
 top_level_statement
-	: expression_statement
+	: device_def_statement
+	| IDENTIFIER macro_def { $$ = 0; } /* add_macro(cxx::String($1.s, $1.e), $2); }*/
 	| hw_device_ext { $$ = 0; }
 
 top_level_list

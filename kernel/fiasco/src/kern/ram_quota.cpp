@@ -2,13 +2,11 @@ INTERFACE:
 
 #include <cstddef>
 
-class slab_cache_anon;
-
 class Ram_quota
 {
 public:
   static Ram_quota *root;
-  virtual ~Ram_quota() {}
+  virtual ~Ram_quota() = 0;
 
 private:
   Ram_quota *_parent;
@@ -24,9 +22,11 @@ IMPLEMENTATION:
 
 Ram_quota *Ram_quota::root;
 
+IMPLEMENT inline Ram_quota::~Ram_quota() {}
+
 PUBLIC inline NEEDS[<cstddef>]
 void *
-Ram_quota::operator new (size_t, void *b)
+Ram_quota::operator new (size_t, void *b) throw()
 { return b; }
 
 PUBLIC
@@ -46,7 +46,6 @@ unsigned long
 Ram_quota::current() const
 { return _current; }
 
-#if 1
 PUBLIC
 bool
 Ram_quota::alloc(signed long bytes)
@@ -66,20 +65,6 @@ void
 Ram_quota::free(signed long bytes)
 { alloc(-bytes); }
 
-#endif
-#if 0
-
-PUBLIC
-inline bool
-Ram_quota::alloc(signed long)
-{ return true; }
-
-PUBLIC inline
-void
-Ram_quota::free(signed long)
-{}
-
-#endif
 
 PUBLIC inline
 Ram_quota*

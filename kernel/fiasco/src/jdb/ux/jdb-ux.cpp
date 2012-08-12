@@ -12,8 +12,6 @@ class Mem_space;
 EXTENSION class Jdb
 {
 public:
-  static const char * const reg_names[];
-
   typedef enum
     {
       s_unknown, s_ipc, s_syscall, s_pagefault, s_fputrap,
@@ -35,6 +33,7 @@ private:
 IMPLEMENTATION [ux]:
 
 #include <cstdio>
+#include <cstdlib>
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
@@ -67,9 +66,6 @@ int (*Jdb::bp_test_break)(char *errbuf, size_t bufsize);
 
 unsigned short Jdb::rows, Jdb::cols;
 
-const char * const Jdb::reg_names[] =
-{ "EAX", "EBX", "ECX", "EDX", "EBP", "ESI", "EDI", "EIP", "ESP", "EFL" };
-
 static Proc::Status jdb_irq_state;
 
 IMPLEMENT inline
@@ -95,8 +91,6 @@ Jdb::leave_trap_handler(unsigned)
   // Flush all output streams
   fflush (NULL);
 
-  if (!::running)
-    signal (SIGIO, SIG_IGN);		// Ignore hardware interrupts
 }
 
 PROTECTED static inline
@@ -143,10 +137,10 @@ Jdb::init()
   Trap_state::base_handler = (Trap_state::Handler)enter_jdb;
 
   // be sure that Push_console comes very first
-  static Push_console c;
-  Kconsole::console()->register_console(&c, 0);
+  Kconsole::console()->register_console(push_cons()),
 
   register_libc_atexit(leave_getchar);
+  atexit(leave_getchar);
 
   Thread::set_int3_handler(handle_int3_threadctx);
 }
@@ -262,37 +256,6 @@ Jdb::handle_conditional_breakpoint(unsigned /*cpu*/)
 
 
 PUBLIC
-static int
-Jdb::get_register(char *reg)
-{
-  char reg_name[4];
-  int i;
-
-  putchar(reg_name[0] = 'E');
-
-  for (i=1; i<3; i++)
-    {
-      int c = getchar();
-      if (c == KEY_ESC)
-	return false;
-      putchar(reg_name[i] = c & 0xdf);
-    }
-
-  reg_name[3] = '\0';
-
-  for (i=0; i<9; i++)
-    if (*((unsigned*)reg_name) == *((unsigned*)reg_names[i]))
-      break;
-
-  if (i==9)
-    return false;
-
-  *reg = i+1;
-  return true;
-}
-
-
-PUBLIC
 static Space *
 Jdb::translate_task(Address /*addr*/, Space *task)
 {
@@ -318,8 +281,7 @@ Jdb::virt_to_kvirt(Address virt, Mem_space* space)
 	      virt <  (Kernel_thread::init_done() 
 				? (Address)&Mem_layout::end
 				: (Address)&Mem_layout::initcall_end)
-	      || Kernel_task::kernel_task()->mem_space()->v_lookup (
-		Mem_space::Addr::create(virt), 0, 0, 0))
+	      || (Kernel_task::kernel_task()->virt_to_phys(virt) != ~0UL))
 	? virt
 	: (Address) -1;
     }
@@ -329,8 +291,8 @@ Jdb::virt_to_kvirt(Address virt, Mem_space* space)
       // We can't directly access it because it's in a different host process
       // but if the task's pagetable has a mapping for it, we can translate
       // task-virtual -> physical -> kernel-virtual address and then access.
-      return (space->v_lookup (Mem_space::Addr::create(virt), &phys, &size, 0))
-	? (Address) Kmem::phys_to_virt (phys.value() + (virt & (size.value()-1)))
+      return (space->v_lookup(Mem_space::Addr::create(virt), &phys, &size, 0))
+	? (Address) Kmem::phys_to_virt(phys.value() + (virt & (size.value()-1)))
 	: (Address) -1;
     }
 }
@@ -340,7 +302,8 @@ template <typename T>
 T
 Jdb::peek (T const *addr, Address_type user)
 {
-  return current_mem_space()->peek(addr, user);
+  // FIXME: assume UP here (current_meme_space(0))
+  return Mem_space::current_mem_space(0)->peek(addr, user);
 }
 
 PUBLIC static
@@ -351,7 +314,7 @@ Jdb::peek_task(Address virt, Space *space, void *value, int width)
   if (virt & (width-1))
     return -1;
 
-  Address kvirt = virt_to_kvirt(virt, space?space->mem_space():0);
+  Address kvirt = virt_to_kvirt(virt, space);
   if (kvirt == (Address)-1)
     return -1;
 
@@ -367,7 +330,7 @@ Jdb::poke_task(Address virt, Space *space, void const *value, int width)
   if (virt & (width-1))
     return -1;
 
-  Address kvirt = virt_to_kvirt(virt, space?space->mem_space():0);
+  Address kvirt = virt_to_kvirt(virt, space);
 
   if (kvirt == (Address)-1)
     return -1;
@@ -399,7 +362,7 @@ Jdb::guess_thread_state(Thread *t)
 {
   Guessed_thread_state state = s_unknown;
   Mword *ktop = (Mword*)((Mword)context_of(t->get_kernel_sp()) +
-			 Config::thread_block_size);
+			 Context::Size);
 
   for (int i=-1; i>-26; i--)
     {

@@ -54,10 +54,8 @@ typedef struct l4_kernel_info_t
 
   /* offset 0x10 */
   /* Kernel debugger */
-  l4_umword_t            init_default_kdebug; ///< Kdebug init function
-  l4_umword_t            default_kdebug_exception; ///< Kdebug exception handler
   l4_umword_t            scheduler_granularity; ///< for rounding time slices
-  l4_umword_t            default_kdebug_end;  ///< default_kdebug_end
+  l4_umword_t            _res00[3];           ///< default_kdebug_end
 
   /* offset 0x20 */
   /* Sigma0 */
@@ -79,67 +77,12 @@ typedef struct l4_kernel_info_t
 
   /* offset 0x50 */
   /* L4 configuration */
-  l4_umword_t            l4_config;           /**< L4 kernel configuration.
-					       **
-					       ** Values:
-					       **  - bits 0-7: set the number
-					       **    of page table entries to
-					       **    allocate
-					       **  - bits 8-15: set the number
-					       **    of mapping nodes.
-					       **/
+  l4_umword_t            _res50[1];           ///< reserved \internal
   l4_umword_t            mem_info;            ///< memory information
-  l4_umword_t            kdebug_config;       /**< Kernel debugger config.
-					       **
-					       **  Values:
-					       **  - bits 0-7: set the number
-					       **    of pages to allocate for
-					       **    the trace buffer
-					       **  - bit 8: if set to 1, the
-					       **    kernel enters kdebug
-					       **    before starting the root
-					       **    task
-					       **  - bits 16-19: set the port
-					       **    speed to use with serial
-					       **    line (1..115.2KBd,
-					       **    2..57.6KBd, 3..38.4KBd,
-					       **    6..19.2KBd, 12..9.6KBD)
-					       **  - bits 20-31: set the I/O
-					       **    port to use with serial
-					       **    line, 0 indicates that no
-					       **    serial output should be
-					       **    used
-					       **/
-  l4_umword_t            kdebug_permission;   /**< Kernel debugger permissions.
-					       **
-					       **  Values:
-					       **  - bits 0-7: if 0 all tasks
-					       **    can enter the kernel
-					       **    debugger, otherwise only
-					       **    tasks with a number lower
-					       **    the set value can enter
-					       **    kdebug, other tasks will be
-					       **    shut down.
-					       **  - bit 8: if set, kdebug may
-					       **    display mappings
-					       **  - bit 9: if set, kdebug may
-					       **    display user registers
-					       **  - bit 10: if set, kdebug may
-					       **    display user memory
-					       **  - bit 11: if set, kdebug may
-					       **    modify memory, registers,
-					       **    mappings and tcbs
-					       **  - bit 12: if set, kdebug may
-					       **    read/write I/O ports
-					       **  - bit 13: if set, kdebug may
-					       **    protocol page faults and
-					       **    IPC
-					       **/
+  l4_umword_t            _res58[2];           ///< reserved \internal
 
   /* offset 0x60 */
-  l4_umword_t            total_ram;           ///< Size of RAM in bytes
-  l4_umword_t            processor_info;      ///< CPU info
-  l4_umword_t            _res04[14];          ///< reserved \internal
+  l4_umword_t            _res04[16];          ///< reserved \internal
 
   /* offset 0xA0 */
   volatile l4_cpu_time_t clock;               ///< L4 system clock (µs)

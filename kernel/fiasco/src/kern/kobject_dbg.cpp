@@ -9,36 +9,27 @@ INTERFACE[debug]:
 
 #include "spin_lock.h"
 #include "lock_guard.h"
+#include <dlist>
+#include <hlist>
 
 class Kobject;
 
-EXTENSION class Kobject_dbg
+EXTENSION class Kobject_dbg : public cxx::D_list_item
 {
   friend class Jdb_kobject;
   friend class Jdb_kobject_list;
   friend class Jdb_mapdb;
 
 public:
-  class Dbg_extension
+  class Dbg_extension : public cxx::H_list_item
   {
   public:
-    virtual ~Dbg_extension() {}
-    void operator delete (void *) {}
-    Dbg_extension *next() const { return _next; }
-    void add(Dbg_extension **head)
-    {
-      _next = *head;
-      *head = this;
-    }
-
-
-  private:
-    Dbg_extension *_next;
+    virtual ~Dbg_extension() = 0;
   };
 
 public:
-  Dbg_extension *_jdb_data;
-  Kobject_dbg *_pref, *_next;
+  typedef cxx::H_list<Dbg_extension> Dbg_ext_list;
+  Dbg_ext_list _jdb_data;
 
 private:
   Mword _dbg_id;
@@ -47,9 +38,18 @@ public:
   Mword dbg_id() const { return _dbg_id; }
   virtual Address kobject_start_addr() const = 0;
   virtual Mword kobject_size() const = 0;
+  virtual ~Kobject_dbg() = 0;
 
-  static Spin_lock_coloc<Kobject_dbg *> _jdb_head;
-  static Kobject_dbg *_jdb_tail;
+
+  typedef cxx::D_list<Kobject_dbg> Kobject_list;
+  typedef Kobject_list::Iterator Iterator;
+  typedef Kobject_list::Const_iterator Const_iterator;
+
+  static Spin_lock<> _kobjects_lock;
+  static Kobject_list _kobjects;
+
+  static Iterator begin() { return _kobjects.begin(); }
+  static Iterator end() { return _kobjects.end(); }
 
 private:
   static unsigned long _next_dbg_id;
@@ -58,32 +58,32 @@ private:
 
 //----------------------------------------------------------------------------
 IMPLEMENTATION[debug]:
-
-Spin_lock_coloc<Kobject_dbg *> Kobject_dbg::_jdb_head;
-Kobject_dbg *Kobject_dbg::_jdb_tail;
+#include "static_init.h"
+Spin_lock<> Kobject_dbg::_kobjects_lock;
+Kobject_dbg::Kobject_list Kobject_dbg::_kobjects INIT_PRIORITY(101);
 unsigned long Kobject_dbg::_next_dbg_id;
 
+IMPLEMENT inline Kobject_dbg::Dbg_extension::~Dbg_extension() {}
+
 PUBLIC static
-Kobject_dbg *
+Kobject_dbg::Iterator
 Kobject_dbg::pointer_to_obj(void const *p)
 {
-  Kobject_dbg *l = _jdb_head.get_unused();
-  while (l)
+  for (Iterator l = _kobjects.begin(); l != _kobjects.end(); ++l)
     {
       Mword a = l->kobject_start_addr();
       if (a <= Mword(p) && Mword(p) < (a + l->kobject_size()))
         return l;
-      l = l->_next;
     }
-  return 0;
+  return _kobjects.end();
 }
 
 PUBLIC static
 unsigned long
 Kobject_dbg::pointer_to_id(void const *p)
 {
-  Kobject_dbg *o = pointer_to_obj(p);
-  if (o)
+  Iterator o = pointer_to_obj(p);
+  if (o != _kobjects.end())
     return o->dbg_id();
   return ~0UL;
 }
@@ -92,21 +92,19 @@ PUBLIC static
 bool
 Kobject_dbg::is_kobj(void const *o)
 {
-  return pointer_to_obj(o);
+  return pointer_to_obj(o) != _kobjects.end();
 }
 
 PUBLIC static
-Kobject_dbg *
+Kobject_dbg::Iterator
 Kobject_dbg::id_to_obj(unsigned long id)
 {
-  Kobject_dbg *l = _jdb_head.get_unused();
-  while (l)
+  for (Iterator l = _kobjects.begin(); l != _kobjects.end(); ++l)
     {
       if (l->dbg_id() == id)
 	return l;
-      l = l->_next;
     }
-  return 0;
+  return end();
 }
 
 PUBLIC static
@@ -118,84 +116,24 @@ Kobject_dbg::obj_to_id(void const *o)
 
 
 PROTECTED
-void
-Kobject_dbg::enqueue_debug_queue()
-{
-  Lock_guard<typeof(_jdb_head)> guard(&_jdb_head);
-
-  _pref = _jdb_tail;
-  if (_pref)
-    _pref->_next = this;
-
-  _jdb_tail = this;
-  if (!_jdb_head.get_unused())
-    _jdb_head.set_unused(this);
-}
-
-PRIVATE
-void
-Kobject_dbg::init_debug_info()
-{
-  _next = _pref = 0;
-  _jdb_data = 0;
-
-  Lock_guard<typeof(_jdb_head)> guard(&_jdb_head);
-
-  _dbg_id = _next_dbg_id++;
-  _pref = _jdb_tail;
-  if (_pref)
-    _pref->_next = this;
-
-  _jdb_tail = this;
-  if (!_jdb_head.get_unused())
-    _jdb_head.set_unused(this);
-}
-
-PROTECTED
-void
-Kobject_dbg::dequeue_debug_queue()
-{
-    {
-      Lock_guard<typeof(_jdb_head)> guard(&_jdb_head);
-
-      if (_pref)
-	_pref->_next = _next;
-
-      if (_next)
-	_next->_pref = _pref;
-
-      if (_jdb_head.get_unused() == this)
-	_jdb_head.set_unused(_next);
-
-      if (_jdb_tail == this)
-	_jdb_tail = _pref;
-    }
-  _pref = 0;
-  _next = 0;
-}
-
-PRIVATE
-void
-Kobject_dbg::fini_debug_info()
-{
-  dequeue_debug_queue();
-
-  if (_jdb_data)
-    delete _jdb_data;
-
-  _jdb_data = 0;
-}
-
-PROTECTED
 Kobject_dbg::Kobject_dbg()
 {
-  init_debug_info();
+  Lock_guard<decltype(_kobjects_lock)> guard(&_kobjects_lock);
+
+  _dbg_id = _next_dbg_id++;
+  _kobjects.push_back(this);
 }
 
-PROTECTED virtual
+IMPLEMENT inline
 Kobject_dbg::~Kobject_dbg()
 {
-  fini_debug_info();
+    {
+      Lock_guard<decltype(_kobjects_lock)> guard(&_kobjects_lock);
+      _kobjects.remove(this);
+    }
+
+  while (Dbg_extension *ex = _jdb_data.front())
+    delete ex;
 }
 
 //---------------------------------------------------------------------------

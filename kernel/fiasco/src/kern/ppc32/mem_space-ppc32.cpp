@@ -1,7 +1,8 @@
 INTERFACE [ppc32]:
 
 #include "entry_frame.h"
-extern "C" 
+
+extern "C"
 Mword
 pagefault_entry(Address, Mword, Mword, Return_frame *);
 
@@ -12,7 +13,7 @@ public:
   typedef Pdir Dir_type;
 
   /** Return status of v_insert. */
-  enum //Status 
+  enum //Status
   {
     Insert_ok = 0,		///< Mapping was added successfully.
     Insert_warn_exists,		///< Mapping already existed
@@ -55,7 +56,6 @@ public:
   };
 
   bool try_htab_fault(Address virt);
-  Address lookup( void *);
 protected:
   // DATA
   Dir_type *_dir;
@@ -80,25 +80,35 @@ IMPLEMENTATION [ppc32]:
 #include "cpu_lock.h"
 #include "warn.h"
 
-Per_cpu<Mem_space *> DEFINE_PER_CPU Mem_space::_current;
 
-PUBLIC
-Mem_space::Mem_space(Ram_quota *q) //, bool sync_kernel = true)
-  : _quota(q),
-    _dir (0)
+
+
+PUBLIC explicit inline
+Mem_space::Mem_space(Ram_quota *q) : _quota(q), _dir(0) {}
+
+PROTECTED inline
+bool
+Mem_space::initialize()
 {
   void *b;
-  if (EXPECT_FALSE(!(b = Mapped_allocator::allocator()
-      ->q_alloc(_quota, Config::PAGE_SHIFT))))
-    return;
+  if (EXPECT_FALSE(!(b = Kmem_alloc::allocator()
+	  ->q_alloc(_quota, Config::PAGE_SHIFT))))
+    return false;
 
   _dir = static_cast<Dir_type*>(b);
   _dir->clear();	// initialize to zero
+  return true; // success
+}
+
+PROTECTED inline
+void
+Mem_space::sync_kernel()
+{
 }
 
 PUBLIC
 Mem_space::Mem_space(Ram_quota *q, Dir_type* pdir)
-  : _quota(q), _dir (pdir)
+  : _quota(q), _dir(pdir)
 {
   _kernel_space = this;
   _current.cpu(0) = this;
@@ -156,11 +166,10 @@ Mem_space::tlb_flush(bool = false)
 }
 
 
-/*
 PUBLIC inline
-bool 
+bool
 Mem_space::set_attributes(Address virt, unsigned page_attribs)
-{*/
+{
 /*
   Pdir::Iter i = _dir->walk(virt);
 
@@ -171,9 +180,15 @@ Mem_space::set_attributes(Address virt, unsigned page_attribs)
   i.e->add_attr(page_attribs);
   return true;
 */
-/*  NOT_IMPL_PANIC;
+  NOT_IMPL_PANIC;
+  (void)virt; (void)page_attribs;
   return false;
-}*/
+}
+
+PROTECTED inline
+void
+Mem_space::destroy()
+{}
 
 
 /**
@@ -193,7 +208,7 @@ Mem_space::dir_shutdown()
   /*
   _dir->alloc_cast<Mem_space_q_alloc>()
     ->destroy(0, Kmem::mem_user_max, Pdir::Depth - 1,
-              Mem_space_q_alloc(_quota, Mapped_allocator::allocator()));
+              Mem_space_q_alloc(_quota, Kmem_alloc::allocator()));
 */
   NOT_IMPL_PANIC;
 }
@@ -387,19 +402,6 @@ Mem_space::v_lookup(Vaddr virt, Phys_addr *phys = 0, Size *size = 0,
   return true;
 }
 
-/** v_lookup wrapper */
-IMPLEMENT inline
-Address
-Mem_space::lookup(void *a)
-{
-   Phys_addr phys;
-
-   if(!v_lookup(Vaddr((Address)a), &phys))
-     return ~0UL;
-
-   return phys.value();
-}
-
 /** Delete page-table entries, or some of the entries' attributes.  This
     function works for one or multiple mappings (in contrast to v_insert!).
     @param virt Virtual address of the memory region that should be changed.
@@ -455,15 +457,6 @@ Mem_space::v_delete(Vaddr virt, Vsize size,
   i.e = 0;
 
   return ret;
-}
-
-
-/** we assume that v_lookup was called on kernel_space beforehand */
-IMPLEMENT inline
-void
-Mem_space::kmem_update(void * /* *addr */)
-{
-  NOT_IMPL_PANIC;
 }
 
 PUBLIC static inline

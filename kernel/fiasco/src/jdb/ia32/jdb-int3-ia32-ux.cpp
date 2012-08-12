@@ -179,10 +179,10 @@ Jdb::handle_int3_threadctx_generic(Trap_state *ts)
 		}
 	      break;
 	    case 6: // fiasco_timer_disable
-	      Timer::disable();
+	      // XXX: no longer do Timer_tick::disable(0);
 	      break;
 	    case 7: // fiasco_timer_enable
-	      Timer::enable();
+	      // XXX: no longer do Timer_tick::enable(0);
 	      break;
             case 8: // fiasco_tbuf_log_binary()
               // interrupts are disabled in handle_slow_trap()

@@ -162,6 +162,7 @@ public:
     Irq_edge        = L4_IRQ_F_EDGE  * Irq_info_factor, //0x100000,
     Irq_high        = L4_IRQ_F_POS   * Irq_info_factor, //0x000000,
     Irq_low         = L4_IRQ_F_NEG   * Irq_info_factor, //0x200000,
+    Irq_both        = L4_IRQ_F_BOTH  * Irq_info_factor, //0x400000,
   };
 
   explicit Resource(unsigned long flags = 0)
@@ -258,6 +259,7 @@ public:
 
   void set_empty() { _d.start_end(0, 0); Resource::set_empty(true); }
 
+  void dump(char const *type, int indent) const;
   void dump(int indent = 0) const;
 
   void alignment(Size a)

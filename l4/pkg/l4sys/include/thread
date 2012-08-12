@@ -196,7 +196,7 @@ public:
    { return l4_thread_vcpu_control_u(cap(), vcpu_state, utcb); }
 
    /**
-    * \copydoc l4_thread_vcpu_control_exit()
+    * \copydoc l4_thread_vcpu_control_ext()
     */
    l4_msgtag_t vcpu_control_ext(l4_addr_t ext_vcpu_state,
                                 l4_utcb_t *utcb = l4_utcb()) throw()
@@ -228,7 +228,7 @@ public:
     explicit Modify_senders(l4_utcb_t *u = l4_utcb()) throw()
     : utcb(u), cnt(1)
     {
-      l4_utcb_mr_u(utcb)->mr[0] = L4_THREAD_MODIFY_SENDER;
+      l4_utcb_mr_u(utcb)->mr[0] = L4_THREAD_MODIFY_SENDER_OP;
     }
 
     /**

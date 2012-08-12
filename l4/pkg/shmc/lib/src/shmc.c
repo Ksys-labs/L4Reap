@@ -36,6 +36,9 @@ enum {
   SHMAREA_LOCK_FREE, SHMAREA_LOCK_TAKEN,
 };
 
+enum {
+  MAX_SIZE = (~0UL) >> 1,
+};
 
 static inline l4shmc_chunk_desc_t *
 chunk_get(l4_addr_t o, void *shm_local_addr)
@@ -49,9 +52,12 @@ l4shmc_create(const char *shm_name, l4_umword_t shm_size)
   shared_mem_t *s;
   l4re_ds_t shm_ds = L4_INVALID_CAP;
   l4re_namespace_t shm_cap;
-  long r = -L4_ENOMEM;
+  long r;
 
-  shm_cap = l4re_get_env_cap(shm_name);
+  if (shm_size > MAX_SIZE)
+    return -L4_ENOMEM;
+
+  shm_cap = l4re_env_get_cap(shm_name);
   if (l4_is_invalid_cap(shm_cap))
     return -L4_ENOENT;
 
@@ -66,14 +72,14 @@ l4shmc_create(const char *shm_name, l4_umword_t shm_size)
     goto out_shm_free_mem;
 
   s->_first_chunk = 0;
+  s->lock = SHMAREA_LOCK_FREE;
 
-  r = L4_EOK;
   if ((r = l4re_ns_register_obj_srv(shm_cap, "shm", shm_ds, L4RE_NS_REGISTER_RW)))
-    r = -L4_EINVAL;
+    goto out_shm_free_mem;
 
   l4re_rm_detach_unmap((l4_addr_t)s, L4RE_THIS_TASK_CAP);
 
-  return r;
+  return 0;
 
 out_shm_free_mem:
   l4re_ma_free(shm_ds);
@@ -87,38 +93,101 @@ L4_CV long
 l4shmc_attach_to(const char *shm_name, l4_umword_t timeout_ms,
                  l4shmc_area_t *shmarea)
 {
-  long r;
+  long r = -L4_ENOENT;
   l4re_namespace_t nssrv;
 
   strncpy(shmarea->_name, shm_name, sizeof(shmarea->_name));
   shmarea->_name[sizeof(shmarea->_name) - 1] = 0;
+  shmarea->_local_addr = 0;
 
   if (l4_is_invalid_cap(shmarea->_shm_ds = l4re_util_cap_alloc()))
     return -L4_ENOMEM;
 
-  nssrv = l4re_get_env_cap(shm_name);
+  nssrv = l4re_env_get_cap(shm_name);
   if (l4_is_invalid_cap(nssrv))
     {
       printf("shm: did not find '%s' namespace\n", shm_name);
-      return -L4_ENOENT;
+      goto out_free_cap;
     }
 
   if ((r = l4re_ns_query_to_srv(nssrv, "shm", shmarea->_shm_ds, timeout_ms)))
     {
       printf("shm: did not find shm-ds 'shm' (%ld)\n", r);
-      return -L4_ENOENT;
+      goto out_free_cap;
     }
 
-  shmarea->_local_addr = 0;
-  if ((r = l4re_rm_attach(&shmarea->_local_addr,
-                          l4shmc_area_size(shmarea),
+  r = l4shmc_area_size(shmarea);
+  if (r < 0)
+    {
+      r = -L4_ENOMEM;
+      goto out_free_cap;
+    }
+  shmarea->_size = r;
+
+  if ((r = l4re_rm_attach(&shmarea->_local_addr, shmarea->_size,
                           L4RE_RM_SEARCH_ADDR, shmarea->_shm_ds,
                           0, L4_PAGESHIFT)))
-    return r;
+    goto out_free_cap;
 
   return L4_EOK;
+
+out_free_cap:
+  l4re_util_cap_free(shmarea->_shm_ds);
+  return r;
 }
 
+L4_CV long
+l4shmc_area_overhead(void)
+{
+  return sizeof(shared_mem_t);
+}
+
+L4_CV long
+l4shmc_chunk_overhead(void)
+{
+  return sizeof(l4shmc_chunk_desc_t);
+}
+
+static long next_chunk(l4shmc_area_t *shmarea, l4_addr_t offs)
+{
+  shared_mem_t *shm_addr = (shared_mem_t *)shmarea->_local_addr;
+  volatile l4shmc_chunk_desc_t *p;
+  l4_addr_t next;
+
+  if (offs == 0)
+    {
+      next = shm_addr->_first_chunk;
+    }
+  else
+    {
+      p = chunk_get(offs, shmarea->_local_addr);
+      next = p->_next;
+    }
+  if (next == 0)
+    return 0;
+  if (next >= shmarea->_size || next + sizeof(*p) >= shmarea->_size || next <= offs)
+    return -L4_EIO;
+  if (next % sizeof(l4_addr_t) != 0)
+    return -L4_EINVAL;
+  p = chunk_get(next, shmarea->_local_addr);
+  if (p->_magic != L4SHMC_CHUNK_MAGIC)
+    return -L4_EIO;
+  return next;
+}
+
+L4_CV long
+l4shmc_iterate_chunk(l4shmc_area_t *shmarea, const char **chunk_name, long offs)
+{
+  if (offs < 0)
+    return -L4_EINVAL;
+  offs = next_chunk(shmarea, offs);
+  if (offs > 0)
+    {
+      l4shmc_chunk_desc_t *p = chunk_get(offs, shmarea->_local_addr);
+      *chunk_name =  p->_name;
+    }
+  return offs;
+}
 
 L4_CV long
 l4shmc_add_chunk(l4shmc_area_t *shmarea,
@@ -128,64 +197,91 @@ l4shmc_add_chunk(l4shmc_area_t *shmarea,
 {
   shared_mem_t *shm_addr = (shared_mem_t *)shmarea->_local_addr;
 
-  l4shmc_chunk_desc_t *p;
+  l4shmc_chunk_desc_t *p = NULL;
   l4shmc_chunk_desc_t *prev = NULL;
+  l4_addr_t offs = 0;
+  long ret;
 
-  shm_addr->lock = 0;
+  if (chunk_capacity >> (sizeof(chunk_capacity) * 8 - 1))
+    return -L4_ENOMEM;
 
   while (!l4util_cmpxchg(&shm_addr->lock, SHMAREA_LOCK_FREE,
                          SHMAREA_LOCK_TAKEN))
     l4_sleep(1);
   asm volatile ("" : : : "memory");
-  {
-    l4_addr_t offs;
-    long shm_sz;
-    if (shm_addr->_first_chunk)
-      {
-        offs = shm_addr->_first_chunk;
-        p = chunk_get(offs, shmarea->_local_addr);
-        do
-          {
-            offs = p->_offset + p->_capacity + sizeof(*p);
-            prev = p;
-            p = chunk_get(p->_next, shmarea->_local_addr);
-          }
-        while (prev->_next);
-      }
-    else
-      // first chunk starts right after shm-header
-      offs = sizeof(shared_mem_t);
+  while ((ret = next_chunk(shmarea, offs)) > 0)
+    {
+      p = chunk_get(ret, shmarea->_local_addr);
+      if (strcmp(p->_name, chunk_name) == 0)
+        {
+          ret = -L4_EEXIST;
+          goto out_free_lock;
+        }
+      offs = ret;
+    }
+  if (ret < 0)
+     goto out_free_lock;
+  if (offs == 0)
+    offs = sizeof(shared_mem_t);
+  else
+    {
+      l4_addr_t n = p->_offset + p->_capacity + sizeof(*p);
+      if (n <= offs || n >= shmarea->_size)
+        {
+          ret = -L4_EIO;
+          goto out_free_lock;
+        }
+      offs = n;
+      prev = p;
+    }
 
-    if ((shm_sz = l4shmc_area_size(shmarea)) < 0)
-      return -L4_ENOMEM;
-
-    if (offs + chunk_capacity + sizeof(*p) >= (unsigned long)shm_sz)
-      return -L4_ENOMEM; // no more free memory in this shm
-
-    p = chunk_get(offs, shmarea->_local_addr);
-    p->_offset = offs;
-    p->_next = 0;
-    p->_capacity = chunk_capacity;
-
-    if (prev)
-      prev->_next = offs;
-    else
-      shm_addr->_first_chunk = offs;
-  }
-  asm volatile ("" : : : "memory");
-  shm_addr->lock = SHMAREA_LOCK_FREE;
-
-  p->_size = 0;
+  if (offs + chunk_capacity + sizeof(*p) > (unsigned long)shmarea->_size)
+    {
+      ret = -L4_ENOMEM;
+      goto out_free_lock; // no more free memory in this shm
+    }
+  p = chunk_get(offs, shmarea->_local_addr);
+  p->_offset = offs;
+  p->_next = 0;
+  p->_capacity = chunk_capacity;
+  p->_size   = 0;
   p->_status = L4SHMC_CHUNK_CLEAR;
-  p->_magic = L4SHMC_CHUNK_MAGIC;
+  p->_magic  = L4SHMC_CHUNK_MAGIC;
   strncpy(p->_name, chunk_name, sizeof(p->_name));
   p->_name[sizeof(p->_name) - 1] = 0;
+  // Ensure that other CPUs have correct data before inserting chunk
+  __sync_synchronize();
 
-  chunk->_chunk = p;
-  chunk->_shm    = shmarea;
-  chunk->_sig    = NULL;
+  if (prev)
+    prev->_next = offs;
+  else
+    shm_addr->_first_chunk = offs;
+
+  __sync_synchronize();
+  shm_addr->lock = SHMAREA_LOCK_FREE;
+
+  chunk->_chunk    = p;
+  chunk->_shm      = shmarea;
+  chunk->_sig      = NULL;
+  chunk->_capacity = chunk_capacity;
 
   return L4_EOK;
+out_free_lock:
+  shm_addr->lock = SHMAREA_LOCK_FREE;
+  return ret;
+}
+
+L4_CV long
+l4shmc_area_size_free(l4shmc_area_t *shmarea)
+{
+  long ret;
+  l4_addr_t offs = 0;
+  while ((ret = next_chunk(shmarea, offs)) > 0)
+    offs = ret;
+  if (ret < 0)
+    return ret;
+  ret = shmarea->_size - offs;
+  return ret > 0 ? ret : 0;
 }
 
 L4_CV long
@@ -198,30 +294,35 @@ l4shmc_add_signal(l4shmc_area_t *shmarea,
   long r;
   l4re_namespace_t tmp;
   char b[L4SHMC_NAME_STRINGLEN + L4SHMC_SIGNAL_NAME_SIZE + 5]; // strings + "sig-"
+
+  tmp = l4re_env_get_cap(shmarea->_name);
+  if (l4_is_invalid_cap(tmp))
+    return -L4_ENOENT;
+
   signal->_sigcap = l4re_util_cap_alloc();
   if (l4_is_invalid_cap(signal->_sigcap))
     return -L4_ENOMEM;
 
   if ((r = l4_error(l4_factory_create_irq(l4re_env()->factory,
                                           signal->_sigcap))))
-    return r;
+    goto out_free_cap;
 
   snprintf(b, sizeof(b) - 1, "sig-%s", signal_name);
   b[sizeof(b) - 1] = 0;
 
-  tmp = l4re_get_env_cap(shmarea->_name);
-  if (l4_is_invalid_cap(tmp))
-    return -L4_ENOENT;
-
-  if (l4re_ns_register_obj_srv(tmp, b, signal->_sigcap, 0))
-    {
-      l4re_util_cap_free(tmp);
-      return -L4_ENOENT;
-    }
-
-  l4re_util_cap_free(tmp);
+  r = l4re_ns_register_obj_srv(tmp, b, signal->_sigcap, 0);
+  if (r)
+    goto out_unmap_irq;
 
   return L4_EOK;
+
+out_unmap_irq:
+  l4_task_unmap(L4_BASE_TASK_CAP,
+                l4_obj_fpage(signal->_sigcap, 0, L4_FPAGE_RWX),
+                L4_FP_ALL_SPACES);
+out_free_cap:
+  l4re_util_cap_free(signal->_sigcap);
+  return r;
 }
 
 L4_CV long
@@ -231,30 +332,35 @@ l4shmc_get_chunk_to(l4shmc_area_t *shmarea,
                     l4shmc_chunk_t *chunk)
 {
   l4_kernel_clock_t try_until = l4re_kip()->clock + (timeout_ms * 1000);
-  shared_mem_t *shm_addr = (shared_mem_t *)shmarea->_local_addr;
+  long ret;
 
   do
     {
-      l4_addr_t offs = shm_addr->_first_chunk;
-      while (offs)
+      l4_addr_t offs = 0;
+      while ((ret = next_chunk(shmarea, offs)) > 0)
         {
           l4shmc_chunk_desc_t *p;
+          offs = ret;
           p = chunk_get(offs, shmarea->_local_addr);
-
           if (!strcmp(p->_name, chunk_name))
             { // found it!
-               chunk->_shm    = shmarea;
-               chunk->_chunk = p;
-               chunk->_sig    = NULL;
+               chunk->_shm      = shmarea;
+               chunk->_chunk    = p;
+               chunk->_sig      = NULL;
+               chunk->_capacity = p->_capacity;
+               if (chunk->_capacity > shmarea->_size ||
+                   chunk->_capacity + offs > shmarea->_size)
+                  return -L4_EIO;
                return L4_EOK;
             }
-          offs = p->_next;
         }
+      if (ret < 0)
+        return ret;
 
       if (!timeout_ms)
         break;
 
-      l4_sleep(100); // sleep 100ms
+      l4_sleep(100);
     }
   while (l4re_kip()->clock < try_until);
 
@@ -297,14 +403,13 @@ l4shmc_get_signal_to(l4shmc_area_t *shmarea,
   l4re_namespace_t ns;
   l4_cpu_time_t timeout;
 
-  signal->_sigcap = l4re_util_cap_alloc();
-
-  if (l4_is_invalid_cap(signal->_sigcap))
-    return -L4_ENOMEM;
-
-  ns = l4re_get_env_cap(shmarea->_name);
+  ns = l4re_env_get_cap(shmarea->_name);
   if (l4_is_invalid_cap(ns))
     return -L4_ENOENT;
+
+  signal->_sigcap = l4re_util_cap_alloc();
+  if (l4_is_invalid_cap(signal->_sigcap))
+    return -L4_ENOMEM;
 
   snprintf(b, sizeof(b) - 1, "sig-%s", signal_name);
   b[sizeof(b) - 1] = 0;
@@ -314,14 +419,18 @@ l4shmc_get_signal_to(l4shmc_area_t *shmarea,
     {
       int e = l4re_ns_query_to_srv(ns, b, signal->_sigcap, timeout_ms);
       if (e != -L4_ENOENT)
-        return e;
+        {
+          if (e)
+            l4re_util_cap_free(signal->_sigcap);
+          return e;
+        }
       if (l4re_kip()->clock < timeout)
         l4_sleep(100);
       else
         break;
     }
 
-  return L4_EOK;
+  return -L4_ENOENT;
 }
 
 

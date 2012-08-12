@@ -28,7 +28,7 @@ void operator delete(void *)
   // generate a call to this function (because all destructors of
   // abstract base classes have been are marked abstract virtual), and
   // we wouldn't need to define this.
-  panic("operator delete (aka __builtin_delete) called from "L4_PTR_FMT,
+  panic("operator delete (aka __builtin_delete) called from " L4_PTR_FMT,
       L4_PTR_ARG(__builtin_return_address(0)));
 }
 

@@ -238,7 +238,7 @@ public:
 private:
 
   char const *_start;
-  unsigned long      _len;
+  unsigned long _len;
 
 };
 

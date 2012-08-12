@@ -1,5 +1,5 @@
 /*
- * (c) 2009 Adam Lackorzynski <adam@os.inf.tu-dresden.de>
+ * (c) 2009-2012 Adam Lackorzynski <adam@os.inf.tu-dresden.de>
  *     economic rights: Technische Universität Dresden (Germany)
  *
  * This file is part of TUD:OS and distributed under the terms of the
@@ -10,22 +10,19 @@
 
 namespace L4
 {
-  bool Uart_dummy::startup(unsigned long /*base*/)
+  bool Uart_dummy::startup(Io_register_block const *)
   { return true; }
 
   void Uart_dummy::shutdown()
   {}
 
-  bool Uart_dummy::enable_rx_irq(bool /*enable*/) 
-  { return true; }
-  bool Uart_dummy::enable_tx_irq(bool /*enable*/) { return false; }
   bool Uart_dummy::change_mode(Transfer_mode, Baud_rate)
   { return true; }
 
   int Uart_dummy::get_char(bool /*blocking*/) const
   { return 0; }
 
-  int Uart_dummy::char_avail() const 
+  int Uart_dummy::char_avail() const
   { return false; }
 
   void Uart_dummy::out_char(char c) const

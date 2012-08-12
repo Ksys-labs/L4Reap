@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <signal.h>
+#include <stdlib.h>
 
 #include "SDL.h"
 
@@ -17,8 +18,8 @@
 #define WM_WINDOW_TITLE "Fiasco-UX graphical console"
 #define WM_ICON_TITLE   "F-UX con"
 
-#define KEY_LOGGING 0
-#define KEY_LOGGING_FILE "/tmp/ux_con_key.log"
+#define LOGGING 0
+#define LOGGING_FILE "/tmp/ux_con_key.log"
 
 /* this is from libinput.h  --  size == 16 byte */
 struct l4input
@@ -40,12 +41,20 @@ enum {
   NR_INPUT_OBJS = INPUTMEM_SIZE / sizeof(struct l4input),
 };
 
-#define EV_KEY		0x01
-#define EV_REL		0x02
+enum {
+  EV_SYN = 0,
+  EV_KEY = 0x01,
+  EV_REL = 0x02,
 
-#define BTN_LEFT	0x110
-#define BTN_RIGHT	0x111
-#define BTN_MIDDLE	0x112
+  SYN_REPORT = 0,
+
+  BTN_LEFT    = 0x110,
+  BTN_RIGHT   = 0x111,
+  BTN_MIDDLE  = 0x112,
+
+  REL_X = 0,
+  REL_Y = 1,
+};
 
 int physmem_fd;
 unsigned long physmem_fb_start;
@@ -201,29 +210,40 @@ static struct key_mapping key_map[] = {
   { 0, 0},
 };
 
+#if LOGGING
+FILE *log_fd;
+#define DO_LOG(x...) do { fprintf(log_fd, x); fflush(log_fd); } while (0)
+#else
+#define DO_LOG(x...) do { } while (0)
+#endif
+
+static void start_logging(void)
+{
+#if LOGGING
+  log_fd = fopen(LOGGING_FILE, "a");
+#endif
+}
+
+static void end_logging(void)
+{
+#if LOGGING
+  fclose(log_fd);
+#endif
+}
+
 static unsigned long map_keycode(SDLKey sk)
 {
   unsigned int i;
 
-#if KEY_LOGGING
-  FILE *blah;
-  blah = fopen(KEY_LOGGING_FILE, "a");
-#endif
   for (i = 0; key_map[i].sdlkey; i++)
     if (key_map[i].sdlkey == sk) {
-#if KEY_LOGGING
-      fprintf(blah, "%s: keytrans: #%d (%s) -> %ld\n",
-	      PROGNAME, sk, SDL_GetKeyName(sk), key_map[i].l4ev);
-      fclose(blah);
-#endif
+      DO_LOG("%s: keytrans: #%d (%s) -> %ld\n",
+	     PROGNAME, sk, SDL_GetKeyName(sk), key_map[i].l4ev);
       return key_map[i].l4ev;
     }
 
-#if KEY_LOGGING
-  fprintf(blah, "%s: Unknown key pressed/released: #%d (%s)\n",
+  DO_LOG("%s: Unknown key pressed/released: #%d (%s)\n",
          PROGNAME, sk, SDL_GetKeyName(sk));
-  fclose(blah);
-#endif
   return 0;
 }
 
@@ -263,21 +283,13 @@ Uint32 timer_call_back(Uint32 interval, void *param)
   return interval;
 }
 
-static inline void generate_irq(void)
-{
-  if (write(0, "I", 1) == -1) {
-    printf("%s: Communication problems with Fiasco-UX, dying...!\n",
-	   PROGNAME);
-    exit(0);
-  }
-}
-
 static inline int enqueue_event(struct l4input e)
 {
   struct l4input *p = input_mem + input_queue_pos;
 
   if (p->time) {
     printf("Ringbuffer overflow, don't type/move too fast!\n");
+    DO_LOG("Ringbuffer overflow, don't type/move too fast!\n");
     return 1;
   }
 
@@ -288,6 +300,22 @@ static inline int enqueue_event(struct l4input e)
   if (input_queue_pos == NR_INPUT_OBJS)
     input_queue_pos = 0;
   return 0;
+}
+
+static inline void generate_irq(void)
+{
+  struct l4input e;
+  e.type  = EV_SYN;
+  e.code  = SYN_REPORT;
+  e.value = e.stream_id = 0;
+  enqueue_event(e);
+
+
+  if (write(0, "I", 1) != 1) {
+    DO_LOG("%s: Communication problems with Fiasco-UX, dying...!\n",
+	   PROGNAME);
+    exit(0);
+  }
 }
 
 static void propagate_event(struct l4input e)
@@ -318,7 +346,8 @@ static void loop(SDL_Surface *screen, void *fbmem)
   }
 
   while (SDL_WaitEvent(&e)) {
-    struct l4input l4e = { .time = 0, .code = 0, .type = 0, .value = 0 };
+    struct l4input l4e = { .time = 0, .code = 0,
+                           .type = 0, .value = 0, .stream_id = 0 };
 
     if (signal_mode && poll_mode_shown) {
       set_window_title(count);
@@ -370,12 +399,12 @@ static void loop(SDL_Surface *screen, void *fbmem)
 
 	  l4e.type = EV_REL;
 	  if (e.motion.xrel) {
-	    l4e.code = 0; // y motion
+	    l4e.code = REL_X;
 	    l4e.value = e.motion.xrel;
 	    ret = enqueue_event(l4e);
 	  }
 	  if (e.motion.yrel) {
-	    l4e.code = 1; // x motion
+	    l4e.code = REL_Y;
 	    l4e.value = e.motion.yrel;
 	    ret |= enqueue_event(l4e);
 	  }
@@ -406,6 +435,7 @@ static void loop(SDL_Surface *screen, void *fbmem)
 
       default:
 	fprintf(stderr, "%s: Unknown event: %d\n", PROGNAME, e.type);
+	DO_LOG("Unknown event: %d\n", e.type);
 	break;
     }
 
@@ -454,6 +484,9 @@ int main(int argc, char **argv)
 	break;
     }
   }
+
+  start_logging();
+  atexit(end_logging);
 
   if (!physmem_fd || !physmem_fb_start || !width || !height || !depth ||
       !refresh_rate) {

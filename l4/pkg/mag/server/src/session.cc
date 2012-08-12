@@ -62,7 +62,9 @@ Mag_server::Session::~Session()
   if (_label)
     delete [] _label;
 
-  l_remove();
+  if (cxx::D_list_cyclic<Session>::in_list(this))
+    cxx::D_list_cyclic<Session>::remove(this);
+
   if (_ntfy)
     _ntfy->notify();
 }

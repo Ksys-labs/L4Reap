@@ -15,10 +15,10 @@ include $(L4DIR)/mk/include.mk
 
 headers:: $(OBJ_DIR)/itab.h $(OBJ_DIR)/itab.c
 	$(VERBOSE)mkdir -p $(OBJ_DIR)/libudis86
-	$(VERBOSE)cp $(SRC_DIR)/../contrib/udis86.h $(OBJ_DIR)
-	$(VERBOSE)cp $(SRC_DIR)/../contrib/libudis86/extern.h $(OBJ_DIR)/libudis86
-	$(VERBOSE)cp $(SRC_DIR)/../contrib/libudis86/types.h $(OBJ_DIR)/libudis86
-	$(VERBOSE)cp $(OBJ_DIR)/itab.h $(OBJ_DIR)/libudis86
+	$(VERBOSE)cp -a $(SRC_DIR)/../contrib/udis86.h $(OBJ_DIR)
+	$(VERBOSE)cp -a $(SRC_DIR)/../contrib/libudis86/extern.h $(OBJ_DIR)/libudis86
+	$(VERBOSE)cp -a $(SRC_DIR)/../contrib/libudis86/types.h $(OBJ_DIR)/libudis86
+	$(VERBOSE)cp -a $(OBJ_DIR)/itab.h $(OBJ_DIR)/libudis86
 
 # PYTHONPATH=$(CONTRIB_PATH)/scripts python -B would be enough instead of
 # linking the contrib files but the -B option is only available from python

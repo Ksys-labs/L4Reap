@@ -1,6 +1,6 @@
 INTERFACE[ppc32]:
 
-#include "pages.h"
+#include "types.h"
 
 class PF {};
 
@@ -10,7 +10,6 @@ INTERFACE[ppc32]:
 #include <cassert>
 #include "types.h"
 #include "ptab_base.h"
-#include "mapped_alloc.h"
 #include "kdb_ke.h"
 
 class Paging {};
@@ -133,6 +132,7 @@ typedef Ptab::Page_addr_wrap<Page_number, Virt_addr::Shift> Ptab_va_vpn;
 
 IMPLEMENTATION[ppc32]:
 
+#include "config.h"
 #include "msr.h"
 #include "lock_guard.h"
 #include "cpu_lock.h"
@@ -314,7 +314,7 @@ Pte_htab::api_reverse()
   return this->pte.api << 22;
 }
 
-PUBLIC inline NEEDS[Pte_htab::api_reverse]
+PUBLIC inline NEEDS[Pte_htab::api_reverse, "config.h"]
 Address
 Pte_htab::pte_to_ea()
 {

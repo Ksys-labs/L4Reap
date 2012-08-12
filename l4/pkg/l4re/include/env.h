@@ -74,6 +74,15 @@ typedef struct l4re_env_cap_entry_t
 	  break;
       }
   }
+
+  static bool is_vaild_name(char const *n)
+  {
+    for (unsigned i = 0; *n; ++i, ++n)
+      if (i > sizeof(name))
+        return false;
+
+    return true;
+  }
 #endif
 } l4re_env_cap_entry_t;
 
@@ -133,7 +142,11 @@ L4_INLINE l4_kernel_info_t *l4re_kip(void) L4_NOTHROW;
  *         capability selector if not (l4_is_invalid_cap()).
  */
 L4_INLINE l4_cap_idx_t
-l4re_get_env_cap(char const *name) L4_NOTHROW;
+l4re_env_get_cap(char const *name) L4_NOTHROW;
+
+EXTERN_C l4_cap_idx_t
+l4re_get_env_cap(char const *name) L4_NOTHROW
+L4_DEPRECATED("Please use l4re_env_get_cap() now.");
 
 /**
  * \brief Get the capability selector for the object named \a name.
@@ -144,7 +157,11 @@ l4re_get_env_cap(char const *name) L4_NOTHROW;
  *         capability selector if not (l4_is_invalid_cap()).
  */
 L4_INLINE l4_cap_idx_t
-l4re_get_env_cap_e(char const *name, l4re_env_t const *e) L4_NOTHROW;
+l4re_env_get_cap_e(char const *name, l4re_env_t const *e) L4_NOTHROW;
+
+EXTERN_C l4_cap_idx_t
+l4re_get_env_cap_e(char const *name, l4re_env_t const *e) L4_NOTHROW
+L4_DEPRECATED("Please use l4re_env_get_cap_e() now.");
 
 /**
  * \brief Get the full l4re_env_cap_entry_t for the object named \a name.
@@ -157,7 +174,11 @@ l4re_get_env_cap_e(char const *name, l4re_env_t const *e) L4_NOTHROW;
  *         NULL if not.
  */
 L4_INLINE l4re_env_cap_entry_t const *
-l4re_get_env_cap_l(char const *name, unsigned l, l4re_env_t const *e) L4_NOTHROW;
+l4re_env_get_cap_l(char const *name, unsigned l, l4re_env_t const *e) L4_NOTHROW;
+
+EXTERN_C l4re_env_cap_entry_t const *
+l4re_get_env_cap_l(char const *name, unsigned l, l4re_env_t const *e) L4_NOTHROW
+L4_DEPRECATED("Please use l4re_env_get_cap_l() now.");
 
 
 L4_INLINE
@@ -172,14 +193,15 @@ l4_kernel_info_t *l4re_kip() L4_NOTHROW
 }
 
 L4_INLINE l4re_env_cap_entry_t const *
-l4re_get_env_cap_l(char const *name, unsigned l, l4re_env_t const *e) L4_NOTHROW
+l4re_env_get_cap_l(char const *name, unsigned l, l4re_env_t const *e) L4_NOTHROW
 {
   l4re_env_cap_entry_t const *c = e->caps;
   for (; c && c->flags != ~0UL; ++c)
     {
       unsigned i;
-      char const *n = name;
-      for (i = 0; i < sizeof(c->name) && i < l && c->name[i] && *n && *n == c->name[i]; ++i, ++n)
+      for (i = 0;
+           i < sizeof(c->name) && i < l && c->name[i] && name[i] && name[i] == c->name[i];
+           ++i)
 	;
 
       if (i == l && (i == sizeof(c->name) || !c->name[i]))
@@ -189,12 +211,12 @@ l4re_get_env_cap_l(char const *name, unsigned l, l4re_env_t const *e) L4_NOTHROW
 }
 
 L4_INLINE l4_cap_idx_t
-l4re_get_env_cap_e(char const *name, l4re_env_t const *e) L4_NOTHROW
+l4re_env_get_cap_e(char const *name, l4re_env_t const *e) L4_NOTHROW
 {
   unsigned l;
   l4re_env_cap_entry_t const *r;
   for (l = 0; name[l]; ++l) ;
-  r = l4re_get_env_cap_l(name, l, e);
+  r = l4re_env_get_cap_l(name, l, e);
   if (r)
     return r->cap;
 
@@ -202,6 +224,6 @@ l4re_get_env_cap_e(char const *name, l4re_env_t const *e) L4_NOTHROW
 }
 
 L4_INLINE l4_cap_idx_t
-l4re_get_env_cap(char const *name) L4_NOTHROW
-{ return l4re_get_env_cap_e(name, l4re_env()); }
+l4re_env_get_cap(char const *name) L4_NOTHROW
+{ return l4re_env_get_cap_e(name, l4re_env()); }
 

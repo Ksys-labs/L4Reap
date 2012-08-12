@@ -198,7 +198,7 @@ _dl_do_reloc(struct elf_resolve *tpnt, struct dyn_elf *scope,
 	
 
 #if defined (__SUPPORT_LD_DEBUG__)
-	/* Start: aw11: fixed pagefualt with empty relocations */
+	/* Start: aw11: fixed pagefault with empty relocations */
 	if (reloc_type != R_386_NONE) old_val = *reloc_addr; else old_val = 0;
 	/* End: aw11 */
 #endif

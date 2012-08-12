@@ -56,6 +56,8 @@ SECTIONS
   *(.rela.bss .rela.bss.* .rela.gnu.linkonce.b.*)
   *(.rel.plt)
   *(.rela.plt)
+  *(.stapsdt.*)
+  *(.note.stapsdt)
   *(.plt) }
   .text :
   {
@@ -80,7 +82,7 @@ SECTIONS
   PROVIDE (etext = .);
   .rol4re_elf_aux : {
     KEEP (*(.rol4re_elf_aux))
-  } : ro : l4re_aux
+  } : l4re_aux : ro
   .rodata         : { *(.rodata .rodata.* .gnu.linkonce.r.*) } : ro
   .rodata1        : { *(.rodata1) }
   .eh_frame_hdr : { *(.eh_frame_hdr) } :ro
@@ -135,13 +137,6 @@ SECTIONS
   /*. = ALIGN(0x1000);*/
   .ctors :
   {
-/*
-    KEEP (*(.mark_beg_l4dde_ctors))
-    KEEP (*(.l4dde_ctors))
-    KEEP (*(.mark_end_l4dde_ctors))
-
-    KEEP (*(.mark_beg_ctors))
-*/
 
     /* gcc uses crtbegin.o to find the start of
        the constructors, so we make sure it is

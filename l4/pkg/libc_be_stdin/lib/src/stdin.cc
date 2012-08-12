@@ -147,7 +147,7 @@ static void get_in_ops() __attribute__((constructor));
 static void get_in_ops()
 {
   static in_ops _myops(L4Re::Env::env()->log());
-  _myops.add_ref(); // prevent the static object from beeing deleted
+  _myops.add_ref(); // prevent the static object from being deleted
   L4Re::Vfs::vfs_ops->set_fd(STDIN_FILENO, cxx::ref_ptr(&_myops));
 }
 

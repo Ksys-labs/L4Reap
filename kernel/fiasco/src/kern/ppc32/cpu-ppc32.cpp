@@ -40,7 +40,7 @@ IMPLEMENTATION [ppc32]:
 
 #include <cstdio>
 
-Per_cpu<Cpu> DEFINE_PER_CPU Cpu::cpus(true);
+DEFINE_PER_CPU Per_cpu<Cpu> Cpu::cpus(true);
 Cpu *Cpu::_boot_cpu;
 unsigned long Cpu::_ns_per_cycle;
 

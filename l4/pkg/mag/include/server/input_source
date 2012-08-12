@@ -17,25 +17,31 @@ struct lua_State;
 namespace Mag_server {
 
 class Core_api;
-
 class Input_source
 {
 public:
   Input_source *_next_active;
-  void add_lua_input_source(lua_State *l, int ref_table);
+  void add_lua_input_source(lua_State *l);
 
 protected:
   Core_api *_core;
   int _ref;
 
 public:
+  typedef L4Re::Event_buffer::Event Event;
+  typedef L4Re::Event_stream_info Input_info;
+  typedef L4Re::Event_absinfo Input_absinfo;
+
+
   explicit Input_source(Core_api *core = 0) : _core(core) {}
   virtual void poll_events() = 0;
-  void post_event(L4Re::Event_buffer::Event const *e);
+  void post_event(Event const *e);
   Input_source *next() const { return _next_active; }
-  virtual int get_stream_info(l4_umword_t stream_id, L4Re::Event_stream_info *info) = 0;
-  virtual int get_axis_info(l4_umword_t stream_id, unsigned naxes, unsigned *axes, L4Re::Event_absinfo *info) = 0;
+  virtual int get_stream_info(l4_umword_t stream_id, Input_info *info) = 0;
+  virtual int get_axis_info(l4_umword_t stream_id, unsigned naxes, unsigned *axes, Input_absinfo *info) = 0;
+  virtual ~Input_source() = 0;
 };
 
+inline Input_source::~Input_source() {}
 
 }

@@ -1,12 +1,14 @@
 INTERFACE:
 
 #include <cassert>
+#include <dlist>
+#include <hlist>
 #include "member_offs.h"
 #include "spin_lock.h"
 #include "types.h"
 
 /**
- * Priority sorted list with insert complexity O(n) n = number of available 
+ * Priority sorted list with insert complexity O(n) n = number of available
  * priorities (256 in Fiasco).
  */
 
@@ -24,44 +26,43 @@ class Prio_list_elem;
  * list for each priority. This double-linked list implements FIFO policy for
  * finding the next element.
  */
-class Prio_list
+class Prio_list : private cxx::H_list<Prio_list_elem>
 {
   MEMBER_OFFSET();
-private:
-  Prio_list_elem *_head;
+  friend class Jdb_sender_list;
+public:
+  typedef cxx::H_list<Prio_list_elem> P_list;
+  typedef cxx::D_list_cyclic<Prio_list_elem> S_list;
+
+  using P_list::front;
+  using P_list::empty;
+
+  Prio_list_elem *first() const { return front(); }
 };
 
 class Iteratable_prio_list : public Prio_list
 {
+public:
+  Spin_lock<> *lock() { return &_lock; }
+
 private:
   Prio_list_elem *_cursor;
+  Spin_lock<> _lock;
 };
 
+typedef Iteratable_prio_list Locked_prio_list;
 
-class Locked_prio_list : public Prio_list, public Spin_lock<>
-{
-};
 
 /**
  * Single element of a priority sorted list.
  */
-class Prio_list_elem
+class Prio_list_elem : public cxx::H_list_item, public cxx::D_list_item
 {
   MEMBER_OFFSET();
-  friend class Prio_list;
-  friend class Jdb_semaphore;
-  friend class Jdb_sender_list;
 private:
-  /**
-   * Priority list pointers. optimized for fast dequeue and insert. However
-   * not reverse iteratable.
-   */
-  Prio_list_elem *_p_next, **_p_prev_next;
-
-  /**
-   * Pointers for FIFO queue for equal priorities.
-   */
-  Prio_list_elem *_s_next, *_s_prev;
+  friend class Prio_list;
+  friend class Jdb_sender_list;
+  typedef cxx::D_list_cyclic<Prio_list_elem> S_list;
 
   /**
    * Priority, the higher the better.
@@ -74,92 +75,13 @@ private:
 IMPLEMENTATION:
 
 /**
- * Create a stand alone (not queued) list element.
- */
-PUBLIC inline
-Prio_list_elem::Prio_list_elem() 
-: _s_next(0) 
-{}
-
-/**
  * Setup pointers for enqueue.
  */
 PRIVATE inline
 void
 Prio_list_elem::init(unsigned short p)
-{ 
-  _prio = p; 
-  _s_next = _s_prev = this;
-  _p_next = 0;
-  _p_prev_next = 0;
-}
-
-/**
- * Dequeue from the priority list.
- */
-PRIVATE inline
-void
-Prio_list_elem::p_dequeue()
 {
-  *_p_prev_next = _p_next;
-  if (_p_next)
-    _p_next->_p_prev_next = _p_prev_next;
-}
-
-/**
- * Dequeue from the equal-prio FIFO.
- */
-PRIVATE inline
-void
-Prio_list_elem::s_dequeue()
-{
-  _s_next->_s_prev = _s_prev;
-  _s_prev->_s_next = _s_next;
-}
-
-/**
- * Replace an element in the priority list with an element with the
- * same priority.
- */
-PRIVATE inline
-void
-Prio_list_elem::replace_with(Prio_list_elem *e)
-{
-  e->_p_next = _p_next;
-  e->_p_prev_next = _p_prev_next;
-  if (_p_next)
-    _p_next->_p_prev_next = &e->_p_next;
-
-  *_p_prev_next = e;
-}
-
-/**
- * Insert into priority list.
- */
-PRIVATE inline
-void
-Prio_list_elem::p_insert(Prio_list_elem **e)
-{
-  _p_next = *e;
-  _p_prev_next = e;
-  if (*e)
-    (*e)->_p_prev_next = &_p_next;
-
-  *e = this;
-}
-
-/**
- * Insert into equal-prio FIFO.
- */
-PRIVATE inline
-void
-Prio_list_elem::s_insert(Prio_list_elem *succ)
-{ 
-  _s_prev = succ->_s_prev;
-  _s_next = succ;
-  if (_s_prev)
-    _s_prev->_s_next = this;
-  succ->_s_prev = this;
+  _prio = p;
 }
 
 /**
@@ -172,125 +94,84 @@ Prio_list_elem::prio() const
 
 PUBLIC inline
 Prio_list_elem *
-Prio_list_elem::next() const
+Prio_list::next(Prio_list_elem *e) const
 {
-  if (_s_next->is_head())
-    return _p_next;
-  return _s_next;
+  if (P_list::in_list(*++S_list::iter(e)))
+    return *++P_list::iter(e);
+  return *++S_list::iter(e);
 }
-
-
-/**
- * Create an empty Prio_list.
- */
-PUBLIC inline
-Prio_list::Prio_list() : _head(0) 
-{}
-
 
 /**
  * Insert a new element into the priority list.
  * @param e the element to insert
  * @param prio the priority for the element
  */
-PUBLIC inline NEEDS[Prio_list_elem::init, Prio_list_elem::s_insert,
-                    Prio_list_elem::p_insert]
+PUBLIC inline NEEDS[Prio_list_elem::init]
 void
 Prio_list::insert(Prio_list_elem *e, unsigned short prio)
 {
   assert (e);
   e->init(prio);
 
-  Prio_list_elem **pos = &_head;
+  Iterator pos = begin();
 
-  while (*pos && (*pos)->prio() > prio)
-    pos = &(*pos)->_p_next;
+  while (pos != end() && pos->prio() > prio)
+    ++pos;
 
-  if (*pos && (*pos)->prio() == prio)
-    e->s_insert(*pos);
+  if (pos != end() && pos->prio() == prio)
+    S_list::insert_before(e, S_list::iter(*pos));
   else
-    e->p_insert(pos);
+    {
+      S_list::self_insert(e);
+      insert_before(e, pos);
+    }
 }
-
-/**
- * Are there element with the same priority?
- * @return true if there exist other elements with the same priority.
- */
-PUBLIC inline
-bool
-Prio_list_elem::has_sibling() const
-{ return _s_next != this; }
 
 /**
  * Is the element actually enqueued?
  * @return true if the element is actaully enqueued in a list.
  */
 PUBLIC inline
-bool
-Prio_list_elem::in_list() const
-{ return _s_next; }
-
-/**
- * Is the element the first of its priority?
- * @return true if the element is the first element of it's priority.
- */
-PUBLIC inline
-bool
-Prio_list_elem::is_head() const
-{ return _p_next || _p_prev_next; }
-
-/**
- * Get the highest priority element from the list.
- * @return a pointer to the higest priority element (enqueued).
- */
-PUBLIC inline
-Prio_list_elem *
-Prio_list::head() const
-{
-  return _head;
-}
+bool Prio_list_elem::in_list() const { return S_list::in_list(this); }
 
 /**
  * Dequeue a given element from the list.
  * @param e the element to dequeue
  */
-PUBLIC inline NEEDS[Prio_list_elem::has_sibling, Prio_list_elem::is_head,
-                    Prio_list_elem::s_dequeue, Prio_list_elem::replace_with,
-		    Prio_list_elem::p_dequeue]
+PUBLIC inline
 void
 Prio_list::dequeue(Prio_list_elem *e, Prio_list_elem **next = 0)
 {
-  if (e->is_head())
+  if (P_list::in_list(e))
     {
-      if (e->has_sibling())
+      assert (S_list::in_list(e));
+      // yes we are the head of our priority
+      if (S_list::has_sibling(e))
 	{
-	  e->s_dequeue();
-	  e->replace_with(e->_s_next);
-	  if (next) *next = e->_s_next;
+	  P_list::replace(e, *++S_list::iter(e));
+	  if (next) *next = *++S_list::iter(e);
 	}
       else
 	{
-	  e->p_dequeue();
-	  if (next) *next = e->_p_next;
+	  if (next) *next = *++P_list::iter(e);
+	  P_list::remove(e);
 	}
     }
   else
     {
-      e->s_dequeue();
       if (next)
 	{
-	  if (e->_s_next->is_head())
-	    *next = e->_p_next;
+	  if (P_list::in_list(*++S_list::iter(e))) // actually we are the last on our priority
+	    *next = *++P_list::iter(e);
 	  else
-	    *next = e->_s_next;
+	    *next = *++S_list::iter(e);
 	}
     }
-
-  e->_s_next = 0;
+  S_list::remove(e);
 }
 
 PUBLIC inline
-Iteratable_prio_list::Iteratable_prio_list() : _cursor(0) {}
+Iteratable_prio_list::Iteratable_prio_list() : _cursor(0), _lock(Spin_lock<>::Unlocked) {}
 
 /**
  * Dequeue a given element from the list.

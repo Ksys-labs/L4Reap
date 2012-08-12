@@ -11,10 +11,8 @@ IMPLEMENTATION [ux]:
 
 IMPLEMENT
 void
-Task::host_init()
-{
-  mem_space()->set_pid (Hostproc::create());
-}
+Task::ux_init()
+{ set_pid(Hostproc::create()); }
 
 PRIVATE inline
 bool
@@ -87,36 +85,6 @@ Task::invoke_arch(L4_msg_tag &tag, Utcb *utcb)
   return false;
 }
 
-/** Map tracebuffer into each userland task for easy access. */
-IMPLEMENT
-void
-Task::map_tbuf ()
-{
-  return; // FIXME
-#if 0
-  if (id() != Config::sigma0_taskno)
-    {
-      mem_map (sigma0_task, 
-	  L4_fpage(0, 1, Config::PAGE_SHIFT, 
-	    Kmem::virt_to_phys ((const void*)(Mem_layout::Tbuf_status_page))),
-	  nonull_static_cast<Space*>(this),    // to: space
-	  L4_fpage(0, 0, Config::PAGE_SHIFT,
-	    Mem_layout::Tbuf_ustatus_page, L4_fpage::Cached), 0);
-
-      for (Address size=0; size<Jdb_tbuf::size(); size+=Config::PAGE_SIZE)
-	{
-	  mem_map (sigma0_task,                            // from: space
-	      L4_fpage(0, 1, Config::PAGE_SHIFT,
-		Kmem::virt_to_phys ((const void*)
-		  (Mem_layout::Tbuf_buffer_area+size))),
-	      nonull_static_cast<Space*>(this),	   // to: space
-	      L4_fpage(0, 0, Config::PAGE_SHIFT, 
-		Mem_layout::Tbuf_ubuffer_area+size, L4_fpage::Cached), 0);
-	}
-    }
-#endif
-}
-
 PUBLIC
 Task::~Task()
 {
@@ -126,6 +94,10 @@ Task::~Task()
 
   pid_t hostpid = pid();
   ptrace (PTRACE_KILL, hostpid, NULL, NULL);
+
+  // If we crash very early in the boot process we might get a pid of 0
+  if (EXPECT_FALSE(hostpid == 0))
+    return;
 
   while (waitpid (hostpid, NULL, 0) != hostpid)
     ;
@@ -137,7 +109,7 @@ void
 Task::map_utcb_ptr_page()
 {
   //Mem_space::Status res =
-	mem_space()->v_insert(
+	static_cast<Mem_space*>(this)->v_insert(
 	    Mem_space::Phys_addr::create(Mem_layout::Utcb_ptr_frame),
 	    Mem_space::Addr::create(Mem_layout::Utcb_ptr_page_user),
 	    Mem_space::Size::create(Config::PAGE_SIZE),

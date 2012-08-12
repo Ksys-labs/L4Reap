@@ -220,9 +220,6 @@ Scrollbar::slider_pos(int pos)
 Area
 Scrollbar::min_size() const
 {
-  Area us = _uparrow->preferred_size();
-  Area ss = _slider->preferred_size();
-  Area ds = _dnarrow->preferred_size();
   int a = Sb_elem_w * (_orientation == Horizontal ? 4 : 1);
   int b = Sb_elem_h * (_orientation == Vertical ? 4 : 1);
   return Area(a, b);

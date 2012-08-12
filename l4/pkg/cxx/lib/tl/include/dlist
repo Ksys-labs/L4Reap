@@ -21,100 +21,250 @@
 
 namespace cxx {
 
-template< typename T > class D_list;
+class D_list_item
+{
+public:
+  D_list_item() : _dli_next(0) {}
+private:
+  friend class D_list_item_policy;
+
+  D_list_item(D_list_item const &);
+  void operator = (D_list_item const &);
+
+  D_list_item *_dli_next, *_dli_prev;
+};
+
+struct D_list_item_policy
+{
+  typedef D_list_item Item;
+  static D_list_item *&prev(D_list_item *e) { return e->_dli_prev; }
+  static D_list_item *&next(D_list_item *e) { return e->_dli_next; }
+};
 
 template< typename T >
-class D_list_item_base
+struct Sd_list_head_policy
 {
-private:
-  friend class D_list<T>;
-  D_list_item_base *_n, *_p;
+  typedef T *Head_type;
+  static T *head(Head_type h) { return h; }
+  static void set_head(Head_type &h, T *v) { h = v; }
+};
 
-public:
-  explicit D_list_item_base(D_list_item_base *n = 0, D_list_item_base *p = 0)
-  : _n(n), _p(p) {}
-
-  T *l_next() const { return static_cast<T*>(_n); }
-  T *l_prev() const { return static_cast<T*>(_p); }
-
-  void l_remove()
+template<
+  typename T,
+  typename C = D_list_item_policy
+>
+class D_list_cyclic
+{
+protected:
+  template< typename VALUE, typename ITEM >
+  class __Iterator
   {
-    if (_p) _p->_n = _n;
-    if (_n) _n->_p = _p;
-    _n = 0;
-    _p = 0;
+  public:
+    typedef VALUE *Value_type;
+    typedef VALUE *value_type;
+
+    __Iterator() {}
+
+    bool operator == (__Iterator const &o) const
+    { return _c == o._c; }
+
+    bool operator != (__Iterator const &o) const
+    { return _c != o._c; }
+
+    __Iterator &operator ++ ()
+    {
+      _c = C::next(_c);
+      return *this;
+    }
+
+    __Iterator &operator -- ()
+    {
+      _c = C::prev(_c);
+      return *this;
+    }
+
+    Value_type operator * () const { return static_cast<Value_type>(_c); }
+    Value_type operator -> () const { return static_cast<Value_type>(_c); }
+
+  private:
+    friend class D_list_cyclic;
+
+    explicit __Iterator(ITEM *s) : _c(s) {}
+
+    ITEM *_c;
   };
 
-  void l_add_before(D_list_item_base *other)
+public:
+  typedef T *Value_type;
+  typedef T *value_type;
+  typedef __Iterator<T, typename C::Item> Iterator;
+  typedef Iterator Const_iterator;
+
+  static void remove(T *e)
   {
-    _p = other->_p;
-    _n = other;
-    other->_p->_n = this;
-    other->_p = this;
+    C::next(C::prev(e)) = C::next(e);
+    C::prev(C::next(e)) = C::prev(e);
+    C::next(e) = 0;
   }
 
-  void l_add_after(D_list_item_base *other)
+  static Iterator erase(Iterator const &e)
   {
-    _p = other;
-    _n = other->_n;
-    if (other->_n) other->_n->_p = this;
-    other->_n = this;
+    typename C::Item *n = C::next(*e);
+    remove(*e);
+    return __iter(n);
   }
 
-  ~D_list_item_base() { l_remove(); }
-};
+  static Iterator iter(T const *e) { return Iterator(const_cast<T*>(e)); }
 
+  static bool in_list(T const *e) { return C::next(const_cast<T*>(e)); }
+  static bool has_sibling(T const *e) { return C::next(const_cast<T*>(e)) != e; }
 
-template< typename T >
-class D_list_item : private D_list_item_base<T>
-{
-private:
-  friend class D_list<T>;
-  friend class D_list_item_base<T>;
-  typedef D_list_item_base<T> B;
-
-public:
-  using B::l_prev;
-  using B::l_next;
-  using B::l_remove;
-  void l_add_before(T *other) { B::l_add_before(other); }
-  void l_add_after(T *other) { B::l_add_after(other); }
-};
-
-template< typename T >
-class D_list : private D_list_item_base<T>
-{
-private:
-  friend class D_list_item_base<T>;
-  typedef D_list_item_base<T> B;
-
-public:
-  typedef T Item;
-
-  D_list() : B(this, this)
-  {}
-
-  explicit D_list(T *first) : B(first, first)
+  static Iterator insert_after(T *e, Iterator const &pos)
   {
-    if (first)
+    C::prev(e) = *pos;
+    C::next(e) = C::next(*pos);
+    C::prev(C::next(*pos)) = e;
+    C::next(*pos) = e;
+    return pos;
+  }
+
+  static Iterator insert_before(T *e, Iterator const &pos)
+  {
+    C::next(e) = *pos;
+    C::prev(e) = C::prev(*pos);
+    C::next(C::prev(*pos)) = e;
+    C::prev(*pos) = e;
+    return pos;
+  }
+
+  static T *self_insert(T *e)
+  { C::next(e) = C::prev(e) = e; return e; }
+
+  static void remove_last(T *e)
+  { C::next(e) = 0; }
+
+protected:
+  static Iterator __iter(typename C::Item *e) { return Iterator(e); }
+};
+
+template<
+  typename T,
+  typename C = D_list_item_policy,
+  typename H = Sd_list_head_policy<T>,
+  bool BSS = false
+>
+class Sd_list : public D_list_cyclic<T, C>
+{
+private:
+  typedef D_list_cyclic<T, C> Base;
+
+public:
+  typedef typename Base::Iterator Iterator;
+  enum Pos
+  { Back, Front };
+
+  Sd_list() { if (!BSS) H::set_head(_f, 0); }
+
+  bool empty() const { return !H::head(_f); }
+  T *front() const { return H::head(_f); }
+
+  void remove(T *e)
+  {
+    T *h = H::head(_f);
+    if (e == C::next(e)) // must be the last
       {
-	B::_n->_n = this;
-	B::_n->_p = this;
+        Base::remove_last(e);
+        H::set_head(_f, 0);
+        return;
+      }
+
+    if (e == H::head(_f))
+      H::set_head(_f, static_cast<T*>(C::next(h)));
+
+    Base::remove(e);
+  }
+
+  Iterator erase(Iterator const &e)
+  {
+    typename C::Item *n = C::next(*e);
+    remove(*e);
+    return __iter(n);
+  }
+
+  void push(T *e, Pos pos)
+  {
+    T *h = H::head(_f);
+    if (!h)
+      H::set_head(_f, Base::self_insert(e));
+    else
+      {
+        Base::insert_before(e, this->iter(h));
+        if (pos == Front)
+          H::set_head(_f, e);
       }
   }
 
-  T *first() const { return B::_n != this  ? B::l_next() : 0; }
-  T *last() const { return B::_p != this  ? B::l_prev() : 0; }
+  void push_back(T *e) { push(e, Back); }
+  void push_front(T *e) { push(e, Front); }
+  void rotate_to(T *h) { H::set_head(_f, h); }
 
-  void add(T *e) { e->D_list_item_base<T>::l_add_after(this); }
-  void add_tail(T *e) { e->D_list_item_base<T>::l_add_before(this); }
+  typename H::Head_type const &head() const { return _f; }
+  typename H::Head_type &head() { return _f; }
 
-  T* next(T const *current) const
-  { return current->_n != this ? current->l_next() : 0; }
+private:
+  Sd_list(Sd_list const &);
+  void operator = (Sd_list const &);
 
-  T* prev(T const *current) const
-  { return current->_p != this ? current->l_prev() : 0; }
+  typename H::Head_type _f;
 };
 
+template<
+  typename T,
+  typename C = D_list_item_policy,
+  bool BSS = false
+>
+class D_list : public D_list_cyclic<T, C>
+{
+private:
+  typedef D_list_cyclic<T, C> Base;
+  typedef typename C::Item Internal_type;
+
+public:
+  enum Pos
+  { Back, Front };
+
+  typedef typename Base::Iterator Iterator;
+  typedef typename Base::Const_iterator Const_iterator;
+  typedef T* value_type;
+  typedef T* Value_type;
+
+  D_list() { this->self_insert(static_cast<T*>(&_h)); }
+
+  bool empty() const { return C::next(static_cast<T*>(&_h)) == &_h; }
+
+  void remove(T *e) { Base::remove(e); }
+  void erase(Iterator const &e) { return Base::erase(e); }
+
+  void push(T *e, Pos pos)
+  {
+    if (pos == Front)
+      Base::insert_after(e, end());
+    else
+      Base::insert_before(e, end());
+  }
+
+  void push_back(T *e) { push(e, Back); }
+  void push_front(T *e) { push(e, Front); }
+
+  Iterator begin() const { return this->__iter(C::next(const_cast<Internal_type *>(&_h))); }
+  Iterator end() const { return this->__iter(const_cast<Internal_type *>(&_h)); }
+
+private:
+  D_list(D_list const &);
+  void operator = (D_list const &);
+
+  Internal_type _h;
+};
 
 }
+

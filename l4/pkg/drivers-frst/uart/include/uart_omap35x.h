@@ -15,20 +15,11 @@ namespace L4
 {
   class Uart_omap35x : public Uart
   {
-  private:
-    unsigned long _base;
-
-    inline unsigned long rd(unsigned long reg) const;
-    inline void wr(unsigned long reg, unsigned long val) const;
-
   public:
-    Uart_omap35x(int rx_irq, int tx_irq)
-       : Uart(rx_irq, tx_irq), _base(~0UL) {}
-    bool startup(unsigned long base);
+    bool startup(Io_register_block const *);
     void shutdown();
-    bool enable_rx_irq(bool enable = true);
-    bool enable_tx_irq(bool enable = true);
     bool change_mode(Transfer_mode m, Baud_rate r);
+    bool enable_rx_irq(bool);
     int get_char(bool blocking = true) const;
     int char_avail() const;
     inline void out_char(char c) const;

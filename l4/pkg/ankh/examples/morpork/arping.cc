@@ -106,6 +106,8 @@ struct icmp_hdr
 
 
 extern "C" int handle_icmp_packet(char *packet, unsigned size __attribute__((unused)),
+								  char *buffer);
+extern "C" int handle_icmp_packet(char *packet, unsigned size __attribute__((unused)),
 								  char *buffer)
 {
     static const int ICMP_REPLY = 0;

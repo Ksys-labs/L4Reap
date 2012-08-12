@@ -41,7 +41,7 @@ Vm_vmx::Vm_vmx(Ram_quota *q)
 
 PUBLIC inline
 void *
-Vm_vmx::operator new (size_t size, void *p)
+Vm_vmx::operator new (size_t size, void *p) throw()
 {
   (void)size;
   assert (size == sizeof (Vm_vmx));
@@ -216,7 +216,7 @@ Vm_vmx::load_guest_state(unsigned cpu, void *src)
   if (entry_ctls.test(13)) // IA32_PERF_GLOBAL_CTRL load requested
     load(0x2808, src);
 
-  // complete *beep*, this is Fiasco.OC internal state
+  // this is Fiasco.OC internal state
 #if 0
   if (vmx.has_ept())
     load(0x280a, 0x2810, src);
@@ -234,14 +234,14 @@ Vm_vmx::load_guest_state(unsigned cpu, void *src)
   if (sizeof(long) > sizeof(int))
     {
       if (read<Mword>(src, 0x2806) & EFER_LME)
-        Vmx::vmwrite(0x6802, (Mword)mem_space()->phys_dir());
+        Vmx::vmwrite(0x6802, (Mword)phys_dir());
       else
 	WARN("VMX: No, not possible\n");
     }
   else
     {
       // for 32bit we can just load the Vm pdbr
-      Vmx::vmwrite(0x6802, (Mword)mem_space()->phys_dir());
+      Vmx::vmwrite(0x6802, (Mword)phys_dir());
     }
 
   load<Mword>(0x6804, src, vmx.info.cr4_defs);
@@ -323,10 +323,11 @@ Vm_vmx::store_guest_state(unsigned cpu, void *dest)
   store(0x4800, 0x4826, dest);
 
   // sysenter msr is not saved here, because we trap all msr accesses right now
-#if 0
-  store(0x482a, dest);
-  store(0x6824, 0x6826, dest);
-#endif
+  if (0)
+    {
+      store(0x482a, dest);
+      store(0x6824, 0x6826, dest);
+    }
 
   // read natural-width fields
   store(0x6800, dest);
@@ -334,72 +335,12 @@ Vm_vmx::store_guest_state(unsigned cpu, void *dest)
   store(0x6804, 0x6822, dest);
 }
 
-#if 0
-PRIVATE
-void
-Vm_vmx::copy_execution_control_back(unsigned cpu, void *dest)
-{
-  Vmx &v = Vmx::cpus.cpu(cpu);
-  // read 16-bit fields
-  if (v.has_vpid())
-    store(0, dest);
-
-  // read 64-bit fields
-  store(0x2000, 0x2002, dest);
-  store(0x200c, dest);
-  store(0x2010, dest);
-
-  Unsigned64 msr = Vmx::cpus.cpu(cpu).info._procbased_ctls; // IA32_VMX_PROCBASED_CTLS
-  if (msr & (1ULL<<53))
-    store(0x2012, dest);
-
-  if (vmread<Unsigned32>(0x4002) & (1 << 31))
-    {
-      msr = Vmx::cpus.cpu(cpu).info._procbased_ctls2; // IA32_VMX_PROCBASED_CTLS2
-      if (msr & (1ULL << 32))
-	store(0x2014, dest);
-    }
-
-  if (v.has_ept())
-    store(0x201a, dest);
-
-  // read 32-bit fields
-  store(0x4000, 0x4004, dest);
-  store(0x401e, dest);
-
-  // read natural-width fields
-  store(0x6000, 0x600e, dest);
-}
-
-PRIVATE
-void
-Vm_vmx::copy_exit_control_back(unsigned ,void *dest)
-{
-  // read 64-bit fields
-  store(0x2006, 0x2008, dest);
-
-  // read 32-bit fields
-  store(0x400c, 0x4010, dest);
-}
-
-PRIVATE
-void
-Vm_vmx::copy_entry_control_back(unsigned, void *dest)
-{
-  // read 64-bit fields
-  store(0x200a, dest);
-
-  // read 32-bit fields
-  store(0x4012, 0x401a, dest);
-}
-#endif
-
 PRIVATE
 void
 Vm_vmx::store_exit_info(unsigned cpu, void *dest)
 {
   (void)cpu;
-  // read 64-bit fields, HM EPT pf stuff
+  // read 64-bit fields, that is a EPT pf thing
 #if 0
   if (Vmx::cpus.cpu(cpu).has_ept())
     store(0x2400, dest);
@@ -459,11 +400,10 @@ Vm_vmx::do_resume_vcpu(Context *ctxt, Vcpu_state *vcpu, void *vmcs_s)
   unsigned cpu = current_cpu();
   Vmx &v = Vmx::cpus.cpu(cpu);
 
-  // FIXME: this can be an assertion I think, however, think about MP
-  if(!v.vmx_enabled())
+  if (!v.vmx_enabled())
     {
-      WARN("VMX: not supported/enabled\n");
-      return -L4_err::EInval;
+      WARNX(Info, "VMX: not supported/enabled\n");
+      return -L4_err::ENodev;
     }
 
   // XXX:
@@ -500,8 +440,7 @@ Vm_vmx::do_resume_vcpu(Context *ctxt, Vcpu_state *vcpu, void *vmcs_s)
   asm volatile("mov %0, %%cr2" : : "r" (read<Mword>(vmcs_s, Vmx::F_guest_cr2)));
 
   unsigned long ret = resume_vm_vmx(vcpu);
-
-  // FIXME: What is this for
+  // vmread error?
   if (EXPECT_FALSE(ret & 0x40))
     return -L4_err::EInval;
 
@@ -527,7 +466,7 @@ Vm_vmx::do_resume_vcpu(Context *ctxt, Vcpu_state *vcpu, void *vmcs_s)
   store_guest_state(cpu, vmcs_s);
   store_exit_info(cpu, vmcs_s);
 
-  if ((read<Unsigned32>(vmcs_s, 0x4402) & 0xffff) == 1)
+  if ((read<Unsigned32>(vmcs_s, Vmx::F_exit_reason) & 0xffff) == 1)
     return 1;
 
   vcpu->state &= ~(Vcpu_state::F_traps | Vcpu_state::F_user_mode);
@@ -554,7 +493,7 @@ Vm_vmx::resume_vcpu(Context *ctxt, Vcpu_state *vcpu, bool user_mode)
 	  && (vcpu->sticky_flags & Vcpu_state::Sf_irq_pending))
 	{
 	  // XXX: check if this is correct, we set external irq exit as reason
-	  write<Unsigned32>(vmcs_s, 0x4402, 1);
+	  write<Unsigned32>(vmcs_s, Vmx::F_exit_reason, 1);
 	  return 1; // return 1 to indicate pending IRQs (IPCs)
 	}
 

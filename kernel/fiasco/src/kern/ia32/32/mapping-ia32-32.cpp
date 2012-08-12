@@ -14,11 +14,7 @@ public:
       struct 
 	{
 	  unsigned long _space:32;	///< Address-space number
-//	  unsigned long _pad1:1;        // Pad to 16-bit boundary to avoid
 	  unsigned long address:20;	///< Virtual address in address space
-	  unsigned long tag:11;		///< Unmap tag
-	  unsigned long _pad2:5;	// Pad to 16-bit boundary to avoid
-	                                // compiler bugs
         } __attribute__((packed)) data;
       Treemap *_submap;
     } __attribute__((packed));

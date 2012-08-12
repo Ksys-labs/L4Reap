@@ -24,10 +24,9 @@ Region_list::test_fit(unsigned long long start, unsigned long long _size)
   Region r(start, start + _size);
   for (Region const *c = _reg; c < _end; ++c)
     {
-#if 0
-      printf("test [%p-%p] [%llx-%llx]\n", (char*)start, (char*)start + _size,
-             c->begin(), c->end());
-#endif
+      if (0)
+        printf("test [%p-%p] [%llx-%llx]\n",
+               (char *)start, (char *)start + _size, c->begin(), c->end());
 
       if (c->overlaps(r))
 	return false;
@@ -35,13 +34,19 @@ Region_list::test_fit(unsigned long long start, unsigned long long _size)
   return true;
 }
 
-unsigned long
+unsigned long long
 Region_list::next_free(unsigned long long start)
 {
-  unsigned long long s = ~0ULL;
+  unsigned long long s = ~0ULL, e = ~0ULL;
   for (Region const *c = _reg; c < _end; ++c)
-    if (c->end() > start && c->end() < s)
-      s = c->end();
+    {
+      e = c->end();
+      if (e > start && e < s)
+        s = e;
+    }
+
+  if (s == ~0ULL)
+    return e;
 
   return s;
 }
@@ -59,14 +64,13 @@ Region_list::find_free(Region const &search, unsigned long long _size,
       if (start + _size - 1 > end)
 	return 0;
 
-      //printf("try start %p\n", (void*)start);
+      if (0)
+        printf("try start %p\n", (void *)start);
+
       if (test_fit(start, _size))
 	return start;
 
       start = next_free(start);
-
-      if (start == ~0UL)
-	return 0;
     }
 }
 
@@ -184,7 +188,7 @@ Region_list::dump()
   Region const *min_idx;
   unsigned long long min, mark = 0;
 
-  printf("Regions of list %s\n", _name);
+  printf("Regions of list '%s'\n", _name);
   for (i = _reg; i < _end; ++i)
     {
       min = ~0;

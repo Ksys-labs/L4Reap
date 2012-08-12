@@ -68,6 +68,7 @@ namespace L4 {
 
   static Fake_iobackend _iob;
 
+  void iostream_init();
   void iostream_init()
   {
     static int _initialized;
@@ -105,7 +106,14 @@ ctor_init()
   call_ctors(__init_array_start, __init_array_end);
 }
 
-extern char _bss_start[], _bss_end[];
+
+static inline void clear_bss()
+{
+  extern char _bss_start[], _bss_end[];
+  extern int crt0_stack_low, crt0_stack_high;
+  memset(_bss_start, 0, (char *)&crt0_stack_low - _bss_start);
+  memset((char *)&crt0_stack_high, 0, _bss_end - (char *)&crt0_stack_high);
+}
 
 extern "C"
 void startup(unsigned long p1, unsigned long p2,
@@ -122,16 +130,14 @@ extern "C" int __aeabi_unwind_cpp_pr1(void) { return _URC_FAILURE; }
 extern "C" void __main();
 void __main()
 {
-  extern int crt0_stack_low, crt0_stack_high;
   unsigned long r;
 
   asm volatile("mrc p15, 0, %0, c1, c0, 0" : "=r" (r) : : "memory");
+  r &= ~1UL;
   r |= 2; // alignment check on
   asm volatile("mcr p15, 0, %0, c1, c0, 0" : : "r" (r) : "memory");
 
-  memset(_bss_start, 0, (char *)&crt0_stack_low - _bss_start);
-  memset((char *)&crt0_stack_high, 0, _bss_end - (char *)&crt0_stack_high);
-
+  clear_bss();
   ctor_init();
   Platform_base::iterate_platforms();
 
@@ -146,10 +152,7 @@ void __main()
 extern "C" void __main(unsigned long p1, unsigned long p2, unsigned long p3);
 void __main(unsigned long, unsigned long, unsigned long p3)
 {
-  extern int crt0_stack_low, crt0_stack_high;
-  memset(_bss_start, 0, (char *)&crt0_stack_low - _bss_start);
-  memset((char *)&crt0_stack_high, 0, _bss_end - (char *)&crt0_stack_high);
-
+  clear_bss();
   ctor_init();
   L4_drivers::Of::set_prom(p3); //p3 is OF prom pointer
   Platform_base::iterate_platforms();
@@ -162,21 +165,22 @@ void __main(unsigned long, unsigned long, unsigned long p3)
 #endif
 
 #if defined(ARCH_x86) || defined(ARCH_amd64)
+extern l4util_mb_info_t *x86_bootloader_mbi;
 extern "C" void __main(unsigned long p1, unsigned long p2, unsigned long p3, unsigned long p4);
 void __main(unsigned long p1, unsigned long p2, unsigned long p3, unsigned long p4)
 {
   ctor_init();
+  x86_bootloader_mbi = (l4util_mb_info_t *)p1;
   Platform_base::iterate_platforms();
   startup(p1, p2, p3, p4);
 }
 #endif
 
-
 #if defined(ARCH_sparc)
-
 extern "C" void __main();
 void __main()
 {
+  clear_bss();
   ctor_init();
   Platform_base::iterate_platforms();
   startup(0, 0, 0, 0);
@@ -189,6 +193,9 @@ void exit(int c) throw()
 }
 
 void (*__exit_cleanup) (int) = 0;
+
+extern "C" void __attribute__((noreturn))
+__assert(const char *, const char *, int, register const char *);
 
 extern "C" void __attribute__((noreturn))
 __assert(const char *assertion, const char * filename,
@@ -210,14 +217,22 @@ write(int fd, const void *buf, size_t count)
 {
   if (!uart())
     return 0;
-  // just accept write to stdout and stderr
+
   if (fd == STDOUT_FILENO || fd == STDERR_FILENO)
     {
-      uart()->write((const char*)buf, count);
+      char *b = (char *)buf;
+      int i = count;
+      while (i--)
+        {
+          char c = *b++;
+          if (c == '\n')
+            uart()->write("\r", 1);
+          uart()->write(&c, 1);
+        }
+
       return count;
     }
 
-  // writes to other fds shall fail fast
   errno = EBADF;
   return -1;
 }

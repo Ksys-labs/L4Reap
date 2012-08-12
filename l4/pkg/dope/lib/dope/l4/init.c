@@ -80,7 +80,7 @@ L4_CV long dope_init(void)
 
   INFO(printf("DOpElib(dope_init): ask for 'dope'...\n"));
 
-  dope_server = l4re_get_env_cap("dope");
+  dope_server = l4re_env_get_cap("dope");
   if (l4_is_invalid_cap(dope_server))
     {
       ERROR(printf("no 'dope' cap found!\n"));
@@ -116,7 +116,7 @@ L4_CV long dope_init(void)
       return -L4_ENOMEM;
     }
 
-  if (l4re_event_get(dope_server, ev_ds))
+  if (l4re_event_get_buffer(dope_server, ev_ds))
     {
       ERROR(printf("Did not get the event object!\n"));
       l4re_util_cap_free_um(ev_ds);

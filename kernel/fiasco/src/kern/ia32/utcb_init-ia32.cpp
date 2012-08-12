@@ -28,30 +28,8 @@ Unsigned32
 Utcb_init::utcb_segment()
 { return Gdt::gdt_utcb | Gdt::Selector_user; }
 
-PUBLIC static
-void
-Utcb_init::init_ap(Cpu const &cpu)
-{
-  cpu.get_gdt()->set_entry_byte(Gdt::gdt_utcb / 8,
-                                Address(&Mem_layout::user_utcb_ptr(cpu.id()))
-                                 - Mem_layout::Utcb_ptr_offset,
-                                sizeof(Address) - 1,
-                                Gdt_entry::Access_user
-                                 | Gdt_entry::Access_data_write
-                                 | Gdt_entry::Accessed,
-                                Gdt_entry::Size_32);
 
-  cpu.set_gs(utcb_segment());
-  cpu.set_fs(utcb_segment());
-}
-
-IMPLEMENT
+IMPLEMENT inline
 void
 Utcb_init::init()
-{
-  if (!Vmem_alloc::page_alloc((void *)Mem_layout::Utcb_ptr_page,
-                              Vmem_alloc::ZERO_FILL, Vmem_alloc::User))
-    panic("UTCB pointer page allocation failure");
-
-  init_ap(*Cpu::boot_cpu());
-}
+{}

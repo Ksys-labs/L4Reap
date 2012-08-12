@@ -27,6 +27,8 @@ public:
     c->draw_box(*this, Rgb32::Color(25, 37, 50));
   }
 
+  void handle_event(Hid_report *, Point const &, bool) {}
+
 };
 
 }

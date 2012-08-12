@@ -24,13 +24,13 @@ public:
 //---------------------------------------------------------------------------
 INTERFACE [arm]:
 
+#include "template_math.h"
+
 EXTENSION class Mem_layout
 {
 public:
   enum Virt_layout {
     Utcb_addr            = User_max - 0x10000,
-    Slabs_start          = 0xe0000000,
-    Slabs_end            = 0xea000000,
     Service_page         = 0xeac00000,
     Tbuf_status_page     = Service_page + 0x5000,
     Tbuf_ustatus_page    = Tbuf_status_page,
@@ -43,12 +43,13 @@ public:
     Cache_flush_area_end = 0xef100000,
     Registers_map_start  = 0xef100000,
     Registers_map_end    = 0xef500000,
-    Space_index		 = 0xeff00000,
     Map_base             = 0xf0000000,
     Map_end              = 0xf5000000,
     Caps_start           = 0xf5000000,
     Caps_end             = 0xfd000000,
     Utcb_ptr_page        = 0xffffd000,
+    // don't care about caches here, because arm uses a register on MP
+    utcb_ptr_align       = Tl_math::Ld<sizeof(void*)>::Res,
     Kern_lib_base	 = 0xffffe000,
     Ivt_base             = 0xffff0000,
     Syscalls		 = 0xfffff000,

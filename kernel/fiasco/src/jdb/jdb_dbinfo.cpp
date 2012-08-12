@@ -66,15 +66,12 @@ IMPLEMENTATION[ia32, amd64]:
 
 PUBLIC static FIASCO_INIT
 void
-Jdb_dbinfo::init ()
+Jdb_dbinfo::init()
 {
   Address addr;
 
   for (addr = area_start; addr < area_end; addr += Config::SUPERPAGE_SIZE)
-    {
-      Kmem::kdir->walk(Virt_addr(addr), 100, Mapped_allocator::allocator());
-      current_mem_space()->kmem_update((void*)addr);
-    }
+    Kmem::kdir->walk(Virt_addr(addr), 100, pdir_alloc(Kmem_alloc::allocator()));
 
   init_symbols_lines();
 }
@@ -82,9 +79,9 @@ Jdb_dbinfo::init ()
 
 PRIVATE static
 Address
-Jdb_dbinfo::reserve_pages (unsigned pages)
+Jdb_dbinfo::reserve_pages(unsigned pages)
 {
-  Lock_guard<Cpu_lock> guard (&cpu_lock);
+  Lock_guard<Cpu_lock> guard(&cpu_lock);
 
   Unsigned8 *ptr, bit;
 
@@ -135,9 +132,9 @@ Jdb_dbinfo::reserve_pages (unsigned pages)
 
 PRIVATE static
 void
-Jdb_dbinfo::return_pages (Address addr, unsigned pages)
+Jdb_dbinfo::return_pages(Address addr, unsigned pages)
 {
-  Lock_guard<Cpu_lock> guard (&cpu_lock);
+  Lock_guard<Cpu_lock> guard(&cpu_lock);
 
   unsigned nr_page = (addr-area_start) / Config::PAGE_SIZE;
   Unsigned8 *ptr = bitmap + nr_page/8, bit = nr_page % 8;
@@ -159,7 +156,7 @@ IMPLEMENTATION[ia32, amd64]:
 
 PUBLIC static
 bool
-Jdb_dbinfo::map (Address phys, size_t &size, Address &virt)
+Jdb_dbinfo::map(Address phys, size_t &size, Address &virt)
 {
   Address offs  = phys & ~Config::PAGE_MASK;
 
@@ -172,7 +169,7 @@ Jdb_dbinfo::map (Address phys, size_t &size, Address &virt)
 
   Kmem::kdir->map(phys, Virt_addr(virt), Virt_size(size),
       Pt_entry::Valid | Pt_entry::Writable | Pt_entry::Referenced
-      | Pt_entry::Dirty, 100);
+      | Pt_entry::Dirty, 100, Ptab::Null_alloc());
 
   virt += offs;
   return true;
@@ -180,7 +177,7 @@ Jdb_dbinfo::map (Address phys, size_t &size, Address &virt)
 
 PUBLIC static
 void
-Jdb_dbinfo::unmap (Address virt, size_t size)
+Jdb_dbinfo::unmap(Address virt, size_t size)
 {
   if (virt && size)
     {
@@ -189,13 +186,13 @@ Jdb_dbinfo::unmap (Address virt, size_t size)
       Kmem::kdir->unmap(Virt_addr(virt), Virt_size(size), 100);
       Mem_unit::tlb_flush ();
 
-      return_pages (virt, size/Config::PAGE_SIZE);
+      return_pages(virt, size/Config::PAGE_SIZE);
     }
 }
 
 PUBLIC static
 void
-Jdb_dbinfo::set (Jdb_symbol_info *sym, Address phys, size_t size)
+Jdb_dbinfo::set(Jdb_symbol_info *sym, Address phys, size_t size)
 {
   Address virt;
 
@@ -225,30 +222,30 @@ Jdb_dbinfo::set (Jdb_symbol_info *sym, Address phys, size_t size)
 
 PUBLIC static
 void
-Jdb_dbinfo::set (Jdb_lines_info *lin, Address phys, size_t size)
+Jdb_dbinfo::set(Jdb_lines_info *lin, Address phys, size_t size)
 {
   Address virt;
 
-  if (! lin)
+  if (!lin)
     return;
 
-  if (! phys)
+  if (!phys)
     {
-      lin->get (virt, size);
+      lin->get(virt, size);
       if (! virt)
 	return;
 
-      unmap (virt, size);
+      unmap(virt, size);
       lin->reset ();
     }
 
-  if (! map (phys, size, virt))
+  if (!map(phys, size, virt))
     return;
 
-  if (! lin->set (virt, size))
+  if (!lin->set(virt, size))
     {
-      unmap (virt, size);
-      lin->reset ();
+      unmap(virt, size);
+      lin->reset();
     }
 }
 
@@ -268,33 +265,33 @@ STATIC_INITIALIZE(Jdb_dbinfo);
 
 PUBLIC static
 void
-Jdb_dbinfo::init ()
+Jdb_dbinfo::init()
 {
   init_symbols_lines();
 }
 
 PUBLIC static
 void
-Jdb_dbinfo::set (Jdb_symbol_info *sym, Address phys, size_t size)
+Jdb_dbinfo::set(Jdb_symbol_info *sym, Address phys, size_t size)
 {
-  if (! sym)
+  if (!sym)
     return;
 
-  if (! phys)
-    sym->reset ();
+  if (!phys)
+    sym->reset();
   else
-    sym->set (Mem_layout::phys_to_pmem(phys), size);
+    sym->set(Mem_layout::phys_to_pmem(phys), size);
 }
 
 PUBLIC static
 void
-Jdb_dbinfo::set (Jdb_lines_info *lin, Address phys, size_t size)
+Jdb_dbinfo::set(Jdb_lines_info *lin, Address phys, size_t size)
 {
-  if (! lin)
+  if (!lin)
     return;
 
-  if (! phys)
+  if (!phys)
     lin->reset();
   else
-    lin->set (Mem_layout::phys_to_pmem(phys), size);
+    lin->set(Mem_layout::phys_to_pmem(phys), size);
 }

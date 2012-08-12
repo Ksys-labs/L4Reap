@@ -7,6 +7,7 @@ L4.Env.user_factory = L4.Env.mem_alloc;
 
 -- L4 protocol constants
 Proto = {
+  Dataspace = 0x4000,
   Namespace = 0x4001,
   Goos      = 0x4003,
   Mem_alloc = 0x4004,

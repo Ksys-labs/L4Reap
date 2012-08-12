@@ -295,10 +295,19 @@ extern int __pthread_sched_rr_prio_min;
 extern int __pthread_sched_rr_prio_max;
 
 
+extern void __pthread_cleanup_push(struct _pthread_cleanup_buffer * buffer,
+			   void (*routine)(void *), void * arg);
+extern void __pthread_cleanup_pop(struct _pthread_cleanup_buffer * buffer,
+			  int execute);
+extern void __pthread_cleanup_pop_restore(struct _pthread_cleanup_buffer * buffer,
+				  int execute);
+extern void __pthread_cleanup_push_defer(struct _pthread_cleanup_buffer * buffer,
+				 void (*routine)(void *), void * arg);
+
 extern void __pthread_do_exit (void *retval, char *currentframe)
      __attribute__ ((__noreturn__));
 extern void __pthread_destroy_specifics (void);
-extern void __pthread_perform_cleanup (char *currentframe);
+extern void __pthread_perform_cleanup (char *currentframe) internal_function;
 extern void __pthread_init_max_stacksize (void);
 extern int __pthread_initialize_manager (void);
 extern void __pthread_message (const char * fmt, ...);

@@ -45,7 +45,7 @@ public:
 
 class Timeout;
 
-Per_cpu<Timeout *> timeslice_timeout DEFINE_PER_CPU;
+DEFINE_PER_CPU Per_cpu<Timeout *> timeslice_timeout;
 STATIC_INITIALIZER_P(init, STARTUP_INIT_PRIO);
 STATIC_INITIALIZER_P(init2, POST_CPU_LOCAL_INIT_PRIO);
 
@@ -59,7 +59,7 @@ static void init()
   Kmem_alloc::init();
 
   // Initialize cpu-local data management and run constructors for CPU 0
-  Per_cpu_data::init_ctors(Kmem_alloc::allocator());
+  Per_cpu_data::init_ctors();
   Per_cpu_data_alloc::alloc(0);
   Per_cpu_data::run_ctors(0);
 
@@ -94,8 +94,7 @@ int main()
   // 
   Space *sigma0 = new Space (Sigma0_space_factory(), &rq, L4_fpage::mem(0x1200000, Config::PAGE_SHIFT));
 
-  sigma0_task = sigma0;
-  sigma0_space = sigma0->mem_space();
+  init_mapdb_mem(sigma0);
 
   Test_space *server = new Test_space (&rq);
   assert (server);

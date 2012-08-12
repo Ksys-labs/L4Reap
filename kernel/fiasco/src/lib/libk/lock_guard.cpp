@@ -1,13 +1,43 @@
 INTERFACE:
+#include <type_traits>
 
-// 
-// Lock_guard: a guard object using a lock such as helping_lock_t
-// 
+//
+// Regular lock-guard policy, lock on ctor, unlock/reset in dtor
+//
+template< typename LOCK >
+struct Lock_guard_regular_policy
+{
+  typedef typename LOCK::Status Status;
+  static Status test_and_set(LOCK *l) { return l->test_and_set(); }
+  static void set(LOCK *l, Status s) { l->set(s); }
+};
+
+//
+// Inverse lock-guard policy, unlock in ctor, lock in dtor
+// NOTE: this is applicable only to some locks (e.g., the cpu lock)
+//
 template<typename LOCK>
+struct Lock_guard_inverse_policy : private LOCK
+{
+  typedef typename LOCK::Status Status;
+  static Status test_and_set(LOCK *l) { l->clear(); return LOCK::Locked; }
+  static void set(LOCK *l, Status s) { l->set(s); }
+};
+
+
+//
+// Lock_guard: a guard object using a lock such as helping_lock_t
+//
+template<
+  typename LOCK,
+  template< typename L > class POLICY = Lock_guard_regular_policy >
 class Lock_guard
 {
-  LOCK *_lock;
-  typename LOCK::Status _state;
+  typedef typename cxx::remove_pointer<typename cxx::remove_reference<LOCK>::type>::type Lock;
+  typedef POLICY<Lock> Policy;
+
+  Lock *_lock;
+  typename Policy::Status _state;
 };
 
 template< typename LOCK>
@@ -19,43 +49,43 @@ class Lock_guard_2
 
 IMPLEMENTATION:
 
-PUBLIC template<typename LOCK>
+PUBLIC template<typename LOCK, template< typename L > class POLICY>
 inline
-Lock_guard<LOCK>::Lock_guard()
+Lock_guard<LOCK, POLICY>::Lock_guard()
   : _lock(0)
 #ifndef NDEBUG
-    , _state(LOCK::Invalid) // silence GCC warning
+    , _state(Lock::Invalid) // silence GCC warning
 #endif
 {}
 
-PUBLIC template<typename LOCK>
+PUBLIC template<typename LOCK, template< typename L > class POLICY>
 inline
-Lock_guard<LOCK>::Lock_guard(LOCK *l)
+Lock_guard<LOCK, POLICY>::Lock_guard(Lock *l)
   : _lock(l)
 {
-  _state = _lock->test_and_set();
+  _state = Policy::test_and_set(_lock);
 }
 
-PUBLIC template<typename LOCK>
+PUBLIC template<typename LOCK, template< typename L > class POLICY>
 inline
 void
-Lock_guard<LOCK>::lock(LOCK *l)
+Lock_guard<LOCK, POLICY>::lock(Lock *l)
 {
   _lock = l;
-  _state = l->test_and_set();
+  _state = Policy::test_and_set(l);
 }
 
-PUBLIC template<typename LOCK>
+PUBLIC template<typename LOCK, template< typename L > class POLICY>
 inline
 bool
-Lock_guard<LOCK>::try_lock(LOCK *l)
+Lock_guard<LOCK, POLICY>::try_lock(Lock *l)
 {
-  _state = l->test_and_set();
+  _state = Policy::test_and_set(l);
   switch (_state)
     {
-    case LOCK::Locked:
+    case Lock::Locked:
       return true;
-    case LOCK::Not_locked:
+    case Lock::Not_locked:
       _lock = l;			// Was not locked -- unlock.
       return true;
     default:
@@ -63,30 +93,38 @@ Lock_guard<LOCK>::try_lock(LOCK *l)
     }
 }
 
-PUBLIC template<typename LOCK>
+PUBLIC template<typename LOCK, template< typename L > class POLICY>
 inline
 void
-Lock_guard<LOCK>::release()
+Lock_guard<LOCK, POLICY>::release()
+{
+  _lock = 0;
+}
+
+PUBLIC template<typename LOCK, template< typename L > class POLICY>
+inline
+void
+Lock_guard<LOCK, POLICY>::reset()
 {
   if (_lock)
     {
-      _lock->set(_state);
+      Policy::set(_lock, _state);
       _lock = 0;
     }
 }
 
-PUBLIC template<typename LOCK>
+PUBLIC template<typename LOCK, template< typename L > class POLICY>
 inline
-Lock_guard<LOCK>::~Lock_guard()
+Lock_guard<LOCK, POLICY>::~Lock_guard()
 {
   if (_lock)
-    _lock->set(_state);
+    Policy::set(_lock, _state);
 }
 
-PUBLIC template<typename LOCK>
+PUBLIC template<typename LOCK, template< typename L > class POLICY>
 inline
 bool
-Lock_guard<LOCK>::was_set(void)
+Lock_guard<LOCK, POLICY>::was_set(void)
 {
   return _state; //!_lock;
 }

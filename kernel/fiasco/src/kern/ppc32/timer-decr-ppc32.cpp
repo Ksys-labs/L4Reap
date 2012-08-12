@@ -15,29 +15,44 @@ IMPLEMENTATION [ppc32]:
 
 IMPLEMENT inline NEEDS ["decrementer.h", "kip.h", "config.h", <cstdio>]
 void
-Timer::init()
+Timer::init(unsigned)
 {
   printf("Using PowerPC decrementer for scheduling\n");
 
   //1000 Hz
   Decrementer::d()->init(Kip::k()->frequency_bus /
-                         (4*Config::scheduler_granularity));
+                         (4*Config::Scheduler_granularity));
 
 }
 
-IMPLEMENT inline NEEDS ["decrementer.h"]
+PUBLIC static inline
+unsigned
+Timer::irq()
+{ return 0; }
+
+PUBLIC static inline
+unsigned
+Timer::irq_mode()
+{ return 0; }
+
+PUBLIC static inline
 void
-Timer::enable()
-{
-  Decrementer::d()->enable();
-}
+Timer::acknowledge()
+{ }
 
-IMPLEMENT inline NEEDS ["decrementer.h"]
-void
-Timer::disable()
-{
-  Decrementer::d()->disable();
-}
+//IMPLEMENT inline NEEDS ["decrementer.h"]
+//void
+//Timer::enable()
+//{
+//  Decrementer::d()->enable();
+//}
+
+//IMPLEMENT inline NEEDS ["decrementer.h"]
+//void
+//Timer::disable()
+//{
+//  Decrementer::d()->disable();
+//}
 
 IMPLEMENT inline NEEDS ["kip.h"]
 void
@@ -53,16 +68,15 @@ Timer::system_clock()
   return Kip::k()->clock;
 }
 
-IMPLEMENT inline NEEDS ["decrementer.h", "config.h", "globals.h", "kip.h"]
+IMPLEMENT inline NEEDS ["decrementer.h", "config.h", "kip.h"]
 void
-Timer::update_system_clock()
+Timer::update_system_clock(unsigned cpu)
 {
-  //not boot cpu
-  if(current_cpu())
-    return;
-
-  Decrementer::d()->set();
-  Kip::k()->clock += Config::scheduler_granularity;
+  if (cpu == 0)
+    {
+      Decrementer::d()->set();
+      Kip::k()->clock += Config::Scheduler_granularity;
+    }
 }
 
 IMPLEMENT inline

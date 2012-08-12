@@ -22,8 +22,8 @@
  * invalidate any other reasons why the executable file might be covered by
  * the GNU General Public License.
  */
-#ifndef __L4__SYS__ARCH_X86__LINKAGE_H__
-#define __L4__SYS__ARCH_X86__LINKAGE_H__
+#ifndef __L4__SYS__ARCH_SPARC__LINKAGE_H__
+#define __L4__SYS__ARCH_SPARC__LINKAGE_H__
 
 #ifdef __ASSEMBLY__
 
@@ -36,14 +36,14 @@
 #endif /* ! ENTRY */
 #endif /* __ASSEMBLY__ */
 
-#define L4_FASTCALL(x)	x __attribute__((regparm(3)))
-#define l4_fastcall	__attribute__((regparm(3)))
+#define L4_FASTCALL(x)	x
+#define l4_fastcall
 
 /**
  * Define calling convention.
  * \ingroup l4sys_defines
  * \hideinitializer
  */
-#define L4_CV		
+#define L4_CV
 
-#endif /* ! __L4__SYS__ARCH_X86__LINKAGE_H__ */
+#endif /* ! __L4__SYS__ARCH_SPARC__LINKAGE_H__ */

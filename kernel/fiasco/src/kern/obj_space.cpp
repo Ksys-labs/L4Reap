@@ -1,8 +1,9 @@
 INTERFACE:
 
+#include "config.h"
 #include "l4_types.h"
 #include "l4_msg_item.h"
-#include "pages.h"
+#include <hlist>
 
 class Kobject_mapdb;
 class Jdb_mapdb;
@@ -40,12 +41,14 @@ namespace Obj {
    * Tn the case of a flat copy model for capabilities, we have some
    * extra mapping information directly colocated within the cap tables.
    */
-  class Mapping
+  class Mapping : public cxx::H_list_item
   {
     friend class ::Kobject_mapdb;
     friend class ::Jdb_mapdb;
 
   public:
+    typedef cxx::H_list<Mapping> List;
+
     enum Flag
     {
       Delete  = L4_fpage::CD,
@@ -55,7 +58,6 @@ namespace Obj {
     };
 
   protected:
-    Mapping **_pn, *_n;
     Mword _flags : 8;
     Mword _pad   : 24;
 
@@ -66,13 +68,7 @@ namespace Obj {
     Mword delete_rights() const { return _flags & Delete; }
     Mword ref_cnt() const { return _flags & Ref_cnt; }
 
-    void put_as_root(Mapping **root_ptr)
-    {
-      *root_ptr = this;
-      _flags = Initial_flags;
-      _pn = root_ptr;
-      _n = 0;
-    }
+    void put_as_root() { _flags = Initial_flags; }
   };
 
 
@@ -199,7 +195,6 @@ public:
   static bool has_superpages() { return false; }
   static Phys_addr page_address(Phys_addr o, Size) { return o; }
   static Phys_addr subpage_address(Phys_addr addr, Size) { return addr; }
-  static Mword phys_to_word(Phys_addr a) { return Mword(a); }
 };
 
 template< typename SPACE >

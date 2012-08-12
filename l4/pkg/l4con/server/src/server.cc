@@ -289,6 +289,8 @@ void
 Vc::send_event(l4input *ev)
 {
   evbuf.put(*reinterpret_cast<L4Re::Event_buffer::Event const*>(ev));
+  static_assert(sizeof(L4Re::Event_buffer::Event) == sizeof(*ev),
+                "Size mismatch");
   _irq.trigger();
 }
 

@@ -30,7 +30,7 @@ int main(void)
   l4_cap_idx_t irqcap, icucap;
   l4_msgtag_t tag;
   int err;
-  icucap = l4re_get_env_cap("icu");
+  icucap = l4re_env_get_cap("icu");
 
   /* Get a free capability slot for the ICU capability */
   if (l4_is_invalid_cap(icucap))
@@ -49,7 +49,7 @@ int main(void)
       return 1;
     }
 
-  /* 
+  /*
    * Bind the recently allocated IRQ object to the IRQ number irqno
    * as provided by the ICU.
    */

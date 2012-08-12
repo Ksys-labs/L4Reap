@@ -2,6 +2,7 @@
 INTERFACE [ppc32]:
 
 #include "initcalls.h"
+#include "template_math.h"
 
 EXTENSION class Mem_layout
 {
@@ -18,12 +19,10 @@ public:
     User_max             = 0xf0000000,
     Tcbs                 = 0xc0000000,
     Utcb_addr            = User_max - 0x2000,
+    utcb_ptr_align       = Tl_math::Ld<sizeof(void*)>::Res,
     Tcbs_end             = 0xe0000000,
-    Slabs_start          = 0xe0000000,
-    Slabs_end            = 0xea000000,
     __free_1_start       = 0xec000000,
     __free_1_end         = 0xed000000,
-    Space_index          = 0xedf00000,
     Htab                 = 0xee000000, ///< % 32MB hashed pgtab
     Map_base             = 0xf0000000, ///< % 80MB kernel memory
     Map_end              = 0xf5000000,
@@ -104,7 +103,6 @@ Mem_layout::is_special_mapped(void const * /*a*/)
 IMPLEMENTATION [ppc32 && debug]:
 
 #include "kip_init.h"
-
 
 PUBLIC static FIASCO_INIT
 void

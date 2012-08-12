@@ -14,6 +14,7 @@
 #include <l4/util/util.h>
 #include <cstdio>
 
+#include "lua.h"
 #include "server.h"
 
 static Dbg info(Dbg::Info);
@@ -26,8 +27,6 @@ l4re_aux_t* l4re_aux;
 Ned::Server *Ned::server;// = &s;
 
 static Dbg ldr(Dbg::Loader, "ldr");
-
-int lua(int argc, char const* const* argv);
 
 static
 int

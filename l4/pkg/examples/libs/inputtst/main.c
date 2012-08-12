@@ -323,14 +323,14 @@ static void log_event(struct l4input *ev)
 }
 
 /** CALLBACK MODE TEST **/
-static void event_cb(struct l4input *ev)
+static L4_CV void event_cb(struct l4input *ev)
 {
 	/* XXX seems stupid but it's historical */
 	log_event(ev);
 }
 
 /** BUFFER MODE TEST **/
-static void event_buf(void)
+static L4_CV void event_buf(void)
 {
 	int rd, i;
 	static struct l4input ev[64];

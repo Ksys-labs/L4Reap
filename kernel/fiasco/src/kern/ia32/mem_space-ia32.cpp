@@ -76,28 +76,28 @@ IMPLEMENTATION [ia32 || ux || amd64]:
 #include "std_macros.h"
 
 
-Per_cpu<Mem_space *> DEFINE_PER_CPU Mem_space::_current;
 
 
-PUBLIC
-Mem_space::Mem_space (Ram_quota *q, bool sync_kernel = true)
-  : _quota(q),
-    _dir (0)
+PUBLIC explicit inline
+Mem_space::Mem_space(Ram_quota *q) : _quota(q), _dir(0) {}
+
+PROTECTED inline
+bool
+Mem_space::initialize()
 {
   void *b;
-  if (EXPECT_FALSE(! (b = Mapped_allocator::allocator()
+  if (EXPECT_FALSE(!(b = Kmem_alloc::allocator()
 	  ->q_alloc(_quota, Config::PAGE_SHIFT))))
-    return;
+    return false;
 
   _dir = static_cast<Dir_type*>(b);
   _dir->clear();	// initialize to zero
-  if (sync_kernel)
-    initial_sync();
+  return true; // success
 }
 
 PUBLIC
 Mem_space::Mem_space(Ram_quota *q, Dir_type* pdir)
-  : _quota(q), _dir (pdir)
+  : _quota(q), _dir(pdir)
 {
   _kernel_space = this;
   _current.cpu(0) = this;
@@ -182,6 +182,11 @@ Mem_space::set_attributes(Addr virt, unsigned page_attribs)
 }
 
 
+PROTECTED inline
+void
+Mem_space::destroy()
+{}
+
 /**
  * Destructor.  Deletes the address space and unregisters it from
  * Space_index.
@@ -192,10 +197,9 @@ Mem_space::dir_shutdown()
 {
   // free all page tables we have allocated for this address space
   // except the ones in kernel space which are always shared
-  _dir->alloc_cast<Mem_space_q_alloc>()
-    ->destroy(Virt_addr(0),
-              Virt_addr(Kmem::mem_user_max), Pdir::Depth - 1,
-              Mem_space_q_alloc(_quota, Mapped_allocator::allocator()));
+  _dir->destroy(Virt_addr(0),
+                Virt_addr(Kmem::mem_user_max), Pdir::Depth - 1,
+                Kmem_alloc::q_allocator(_quota));
 
 }
 
@@ -221,9 +225,8 @@ Mem_space::v_insert(Phys_addr phys, Vaddr virt, Vsize size,
   unsigned shift = (size == Size(Config::SUPERPAGE_SIZE) ? Config::SUPERPAGE_SHIFT : Config::PAGE_SHIFT);
   unsigned attrs = (size == Size(Config::SUPERPAGE_SIZE) ? (unsigned long)Pt_entry::Pse_bit : 0);
 
-  Pdir::Iter i = _dir->alloc_cast<Mem_space_q_alloc>()
-    ->walk(virt, level,
-           Mem_space_q_alloc(_quota, Mapped_allocator::allocator()));
+  Pdir::Iter i = _dir->walk(virt, level,
+                            Kmem_alloc::q_allocator(_quota));
 
   if (EXPECT_FALSE(!i.e->valid() && i.shift() != shift))
     return Insert_err_nomem;
@@ -333,12 +336,7 @@ Mem_space::v_delete(Vaddr virt, Vsize size,
   Pdir::Iter i = _dir->walk(virt);
 
   if (EXPECT_FALSE (! i.e->valid()))
-    {
-      if (Config::conservative)
-	kdb_ke("v_delete did not find anything");
-
-      return 0;
-    }
+    return 0;
 
   assert (! (i.e->raw() & Pt_entry::global())); // Cannot unmap shared ptables
 
@@ -370,7 +368,7 @@ Mem_space::~Mem_space()
   if (_dir)
     {
       dir_shutdown();
-      Mapped_allocator::allocator()->q_free(_quota, Config::PAGE_SHIFT, _dir);
+      Kmem_alloc::allocator()->q_free(_quota, Config::PAGE_SHIFT, _dir);
     }
 }
 
@@ -390,13 +388,6 @@ IMPLEMENTATION [ia32 || amd64]:
 #include <cstring>
 #include "config.h"
 #include "kmem.h"
-
-PRIVATE static inline NEEDS ["cpu.h", "kmem.h"]
-Pdir *
-Mem_space::current_pdir()
-{
-  return reinterpret_cast<Pdir*>(Kmem::phys_to_virt(Cpu::get_pdbr()));
-}
 
 IMPLEMENT inline NEEDS ["cpu.h", "kmem.h"]
 void
@@ -434,15 +425,7 @@ void
 Mem_space::page_unmap (Address, Address)
 {}
 
-IMPLEMENT inline NEEDS ["kmem.h"]
-void Mem_space::kmem_update (void *addr)
-{
-  Pdir::Iter dir = _dir->walk(Addr::create((Address)addr), Pdir::Super_level);
-  Pdir::Iter kdir = Kmem::dir()->walk(Addr::create((Address)addr), Pdir::Super_level);
-  *dir.e = *kdir.e;
-}
-
-IMPLEMENT inline NEEDS["kmem.h", "logdefs.h", Mem_space::current_pdir]
+IMPLEMENT inline NEEDS["kmem.h", "logdefs.h"]
 void
 Mem_space::switchin_context(Mem_space *from)
 {
@@ -461,15 +444,14 @@ Mem_space::switchin_context(Mem_space *from)
     }
 }
 
-PRIVATE inline NOEXPORT
+PROTECTED inline
 void
-Mem_space::initial_sync()
+Mem_space::sync_kernel()
 {
-  _dir->alloc_cast<Mem_space_q_alloc>()
-    ->sync(Virt_addr(Mem_layout::User_max), Kmem::dir(),
-           Virt_addr(Mem_layout::User_max),
-           Virt_addr(-Mem_layout::User_max), Pdir::Super_level,
-           Mem_space_q_alloc(_quota, Mapped_allocator::allocator()));
+  _dir->sync(Virt_addr(Mem_layout::User_max), Kmem::dir(),
+             Virt_addr(Mem_layout::User_max),
+             Virt_addr(-Mem_layout::User_max), Pdir::Super_level,
+             Kmem_alloc::q_allocator(_quota));
 }
 
 // --------------------------------------------------------------------

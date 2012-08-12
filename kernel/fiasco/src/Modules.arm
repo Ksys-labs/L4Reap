@@ -9,8 +9,7 @@ SUBSYSTEMS := 	ABI KERNEL LIBK DRIVERS MINILIBC \
 
 
 PREPROCESS_PARTS 	+= arch $(CONFIG_ABI) 32bit $(CONFIG_XARCH) \
-                           h3800 noncont_mem \
-			   abs_syscalls
+                           h3800 noncont_mem abs_syscalls
 
 PREPROCESS_PARTS-$(CONFIG_SERIAL)             += serial
 PREPROCESS_PARTS-$(CONFIG_MP)                 += mp
@@ -36,7 +35,6 @@ PREPROCESS_PARTS-$(CONFIG_SCHED_FIXED_PRIO)  += sched_fixed_prio
 PREPROCESS_PARTS-$(CONFIG_SCHED_WFQ)         += sched_wfq
 PREPROCESS_PARTS-$(CONFIG_SCHED_FP_WFQ)      += sched_fp_wfq
 
-PREPROCESS_PARTS	+= $(PREPROCESS_PARTS-y)
 
 OBJ_SPACE-y = phys
 OBJ_SPACE-  = virt
@@ -57,7 +55,7 @@ PREPROCESS_PARTS	+= obj_space_$(OBJ_SPACE_TYPE)
 
 PRIVATE_INCDIR += types/$(CONFIG_XARCH) types
 
-VPATH_LIBUART  := $(srcdir)/lib/uart $(srcdir)/lib/uart/arm
+VPATH_LIBUART  := $(srcdir)/lib/uart
 PRIVATE_INCDIR += lib/uart
 
 #
@@ -71,7 +69,7 @@ INTERFACES_DRIVERS 	:= sa1100 mux_console console uart filter_console \
 io_IMPL			:= io io-arm
 mmu_IMPL		:= mmu mmu-arm
 mem_IMPL		:= mem mem-arm
-uart_IMPL		:= uart
+uart_IMPL		:= uart uart-mmio
 reset_IMPL		:=
 processor_IMPL		:= processor processor-arm
 CXXSRC_DRIVERS		:= glue_libc.cc 
@@ -89,7 +87,7 @@ CSRC_MINILIBC	:= atexit.c memccpy.c memcmp.c memmove.c memset.c memcpy.c \
 		   strncmp.c strncpy.c strstr.c __assert_fail.c printf.c \
 		   __v_printf.c vprintf.c strtol.c strtoul.c __lltostr.c \
 		   __ltostr.c putchar.c puts.c getchar.c gets.c \
-		   construction.c sprintf.c snprintf.c vsnprintf.c vsprintf.c \
+		   sprintf.c snprintf.c vsnprintf.c vsprintf.c \
 		   longjmp.c isalnum.c isalpha.c isascii.c isblank.c \
 		   iscntrl.c isdigit.c isgraph.c islower.c isprint.c \
 		   ispunct.c isspace.c isupper.c isxdigit.c strspn.c \
@@ -145,10 +143,8 @@ PRIVATE_INCDIR 	+= kern/$(CONFIG_XARCH) kern
 
 INTERFACES_KERNEL += 	__main mem_op pagetable kmem_space boot_uart_init     \
 			irq_chip_generic bootstrap kern_lib_page              \
-			jdb_extensions outer_cache utcb_support
-
-PREPROCESS_PARTS	+= ulock
-INTERFACES_KERNEL	+= u_semaphore
+			jdb_extensions outer_cache utcb_support cascade_irq   \
+			irq_mgr_multi_chip
 
 INTERFACES_KERNEL-$(CONFIG_SERIAL) += uart_console
 INTERFACES_KERNEL-$(CONFIG_ARM_TZ) += vm
@@ -166,7 +162,6 @@ cpu_IMPL	  	:= cpu cpu-arm
 cpu_lock_IMPL  	  	:= cpu_lock cpu_lock-generic
 entry_frame_IMPL  	:= entry_frame entry_frame-arm                       \
 			   entry_frame-abs-timeout-hack
-dirq_IMPL               := dirq dirq-arm
 fpu_IMPL		:= fpu fpu-arm
 ipi_IMPL		:= ipi ipi-arm
 kdb_ke_IMPL		:= kdb_ke kdb_ke-arm
@@ -183,7 +178,7 @@ outer_cache_IMPL	:= outer_cache outer_cache-l2cxx0
 pagetable_IMPL	  	:= pagetable pagetable-arch
 paging_IMPL	  	:= paging-arm paging
 perf_cnt_IMPL		:= perf_cnt perf_cnt-arm
-pic_IMPL		:= pic pic-arm
+pic_IMPL		:= pic
 sched_context_IMPL	:= sched_context-wfq sched_context-fixed_prio \
 			   sched_context-fp_wfq sched_context
 space_IMPL		:= space space-arm
@@ -194,8 +189,10 @@ task_IMPL		:= task task-arm
 thread_IMPL	  	:= thread thread-arm \
 			   thread-jdb thread-ipc \
 			   thread-pagefault  thread-log \
-			   thread-ulock thread-vcpu
+			   thread-vcpu
 timer_IMPL		:= timer timer-arm
+timer_tick_IMPL		:= timer_tick timer_tick-arm
+utcb_init_IMPL		:= utcb_init utcb_init-arm
 utcb_support_IMPL       := utcb_support utcb_support-arm
 vmem_alloc_IMPL	  	:= vmem_alloc vmem_alloc-arch
 tb_entry_IMPL		:= tb_entry tb_entry-arm
@@ -218,9 +215,10 @@ INTERFACES_JDB		:= jdb_handler_queue jdb_module jdb_pic            \
 			   jdb_util jdb_space jdb_utcb                     \
 			   jdb_trap_state jdb_ipi jdb_rcupdate             \
 			   jdb_ipc_gate jdb_obj_space jdb_log jdb_factory  \
-			   jdb_semaphore jdb_thread jdb_scheduler jdb_sender_list\
+			   jdb_thread jdb_scheduler jdb_sender_list\
 			   jdb_perf jdb_vm jdb_regex jdb_disasm jdb_bp \
-			   jdb_tbuf_output jdb_tbuf_show tb_entry_output
+			   jdb_tbuf_output jdb_tbuf_show tb_entry_output \
+                           jdb_idle_stats
 
 
 INTERFACES_KERNEL 	+= jdb_tbuf jdb_tbuf_init tb_entry jdb_trace
@@ -257,15 +255,6 @@ NOOPT			+= $(filter jdb%,\
 NOOPT			+= tb_entry tb_entry_output
 
 
-#INTERFACES_KERNEL = boot_info __main mapdb region \
-#  space_context space space_index space_index_util \
-#  stack kmem kmem_alloc slab_cache_anon kmem_slab_simple kmem_slab \
-#  switch_lock thread_lock helping_lock kernel_lock timer \
-#  thread_state sched context threadid thread_regs sender receiver \
-#  thread kernel_thread thread_util \
-#  map_util irq dirq virq console paranoia globals \
-#  checksum main config
-
 #
 # CRT0 subsystem
 #
@@ -288,7 +277,8 @@ VPATH          	+= lib/libk/$(CONFIG_XARCH) lib/libk
 PRIVATE_INCDIR 	+= lib/libk/$(CONFIG_XARCH) lib/libk
 
 #INTERFACES_LIBK:= atomic lock_guard profile uuencode gmon unistd panic auto_ptr
-INTERFACES_LIBK := std_macros atomic lock_guard auto_ptr dlist
+INTERFACES_LIBK := std_macros atomic lock_guard auto_ptr
+CXXSRC_LIBK     += construction.cc
 atomic_IMPL     := atomic atomic-arm-up
 
 ifeq ("$(CONFIG_JDB_DISASM)","y")
@@ -308,7 +298,8 @@ ifeq ("$(CONFIG_JDB_DISASM)","y")
                          lib/disasm/include/opcode lib/disasm/opcodes \
                          lib/disasm/libiberty lib/disasm/bfd
   PRIVATE_INCDIR      += lib/disasm
-  CSRC_LIBDISASM      := disasm.c arm-dis.c dis-init.c dis-buf.c safe-ctype.c
+  CXXSRC_LIBDISASM    := disasm.cc
+  CSRC_LIBDISASM      := arm-dis.c dis-init.c dis-buf.c safe-ctype.c
   NOOPT               += $(patsubst %.o, %, $(OBJ_LIBDISASM))
 endif
 
@@ -327,7 +318,8 @@ ifeq ($(wildcard $(MODULES_FILE_BSP)),)
 endif
 
 include $(MODULES_FILE_BSP)
-VPATH += kern/arm/bsp/$(BSP_NAME) kern/arm/bsp
+VPATH += kern/arm/bsp/$(BSP_NAME)
+PREPROCESS_PARTS	+= $(PREPROCESS_PARTS-y)
 
 ifeq ("$(filter LIBUART, $(SUBSYSTEMS))","LIBUART")
   LIBUART			:= uart/libuart.a

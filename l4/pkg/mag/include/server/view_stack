@@ -30,13 +30,18 @@ private:
   public:
     Dummy_view() : View(Rect(Point(0,0), Area(0,0)), F_ignore) {}
     void draw(Canvas *, View_stack const *, Mode) const {}
+    void handle_event(Hid_report *, Point const &, bool) {}
   };
+
+  typedef cxx::D_list<View> View_list;
+  typedef View_list::Iterator View_iter;
+  typedef View_list::Const_iterator Const_view_iter;
 
   Dummy_view _no_stay_top_v;
 
   Canvas *_canvas;
   View *const _no_stay_top;
-  cxx::D_list<View> _top;
+  View_list _top;
   View *const _background;
   View *_focused;
 
@@ -52,21 +57,22 @@ private:
   void draw_label(View const *v) const;
 
   void insert_before(View *o, View *p)
-  { o->l_add_before(p); }
+  { _top.insert_before(o, _top.iter(p)); }
 
   void insert_after(View *o, View *p)
-  { o->l_add_after(p); }
+  { _top.insert_after(o, _top.iter(p)); }
 
 public:
   explicit View_stack(Canvas *canvas, L4Re::Video::View *canvas_view, View *bg,
                       Font const *label_font)
-  : _canvas(canvas), _no_stay_top(&_no_stay_top_v),  _top(&_no_stay_top_v),
+  : _canvas(canvas), _no_stay_top(&_no_stay_top_v),
     _background(bg), _canvas_view(canvas_view), _label_font(label_font)
   {
-    bg->l_add_after(_no_stay_top);
+    _top.push_front(_no_stay_top);
+    _top.insert_after(bg, _top.iter(_no_stay_top));
   }
 
-  View *top() const { return _top.first(); }
+  View *top() const { return const_cast<View*>(*_top.begin()); }
 
   virtual
   void refresh_view(View const *v, View const *dst, Rect const &rect) const;
@@ -124,7 +130,7 @@ public:
   void push_bottom(View *v);
 
   void remove(View *v)
-  { v->l_remove(); }
+  { if (_top.in_list(v)) _top.remove(v); }
 
   void forget_view(View *v)
   {
@@ -135,9 +141,17 @@ public:
   }
 
   bool on_top(View const *v) const
-  { return _top.next(_no_stay_top) == v; }
+  { return *++_top.iter(_no_stay_top) == v; }
 
-  View *next_view(View *c) const { return _top.next(c); }
+  View *next_view(View *c) const
+  {
+    View_iter i = _top.iter(c);
+    ++i;
+    if (i != _top.end())
+      return *i;
+    else
+      return 0;
+  }
 
   void add_mode_observer(cxx::Observer *o) { _mode_notifier.add(o); }
 

@@ -4,19 +4,21 @@
         mov int_level, %l7; rd %psr, %l0; b _prom_leonbare_irq_entry; rd %wim, %l3;
 #define BAD_TRAP ta 0; nop; nop; nop;
 
-.data
-.globl _leon_traphandlers
-.globl _stack
-
+.section ".bss"
 .align(0x2000)
+	.global crt0_stack_low
 _stack:
+crt0_stack_low:
 .space 8192
+	.global crt0_stack_high
+crt0_stack_high:
 
 .text
 /*
  * Trap handler table -> must be aligned to page size
  * as specified by the SPARC v8 manual (p. 31).
  */
+.globl _leon_traphandlers
 .align(0x1000)
 _leon_traphandlers:
   BAD_TRAP
@@ -63,6 +65,11 @@ _start:
 
   sethi %hi(_stack), %fp
   or %fp, %lo(_stack), %fp
+
+  /* enable traps */
+  mov %psr, %l0
+  or  %l0, (1 << 5), %l0
+  mov %l0, %psr
 
   ba __main
   nop
@@ -130,8 +137,8 @@ sparc_window_underflow:
   /* Determine LEON version */
   mov %psr, %l5
   srl %l5, 24, %l5
-  and %l4, 3, %l4
-  subcc %l4, 3, %g0
+  and %l5, 3, %l5
+  subcc %l5, 3, %g0
   bne 1f
   nop
 

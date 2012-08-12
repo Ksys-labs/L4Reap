@@ -98,8 +98,13 @@ out:
 static int __init l4bus_init(void)
 {
   // FIXME: iterate over vbus to find devices
-  l4bus_probe("OMAP_TSC");
-  l4bus_probe("OMAP_KP");
+  // ... indeed: disabled those two probe functions because they emit a
+  // warning and someone might think there could be working omap input stuff
+  if (0)
+    {
+      l4bus_probe("OMAP_TSC");
+      l4bus_probe("OMAP_KP");
+    }
   return 0;
 }
 

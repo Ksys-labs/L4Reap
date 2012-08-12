@@ -28,20 +28,20 @@ static Static_object<Keyb> keyb;
 IMPLEMENT FIASCO_INIT
 void Boot_console::init()
 {
-  keyb.init();
-  Kconsole::console()->register_console(keyb.get());
+  keyb.construct();
+  Kconsole::console()->register_console(keyb);
 
   if (Koptions::o()->opt(Koptions::F_noscreen))
     return;
 
 #if defined(CONFIG_IRQ_SPINNER)
-  vga.init((unsigned long)Mem_layout::Adap_vram_cga_beg,80,20,true,true);
+  vga.construct((unsigned long)Mem_layout::Adap_vram_cga_beg,80,20,true,true);
 #else
-  vga.init((unsigned long)Mem_layout::Adap_vram_cga_beg,80,25,true,true);
+  vga.construct((unsigned long)Mem_layout::Adap_vram_cga_beg,80,25,true,true);
 #endif
 
   if (vga->is_working())
-    Kconsole::console()->register_console(vga.get());
+    Kconsole::console()->register_console(vga);
 
 #if defined(CONFIG_IRQ_SPINNER)
   for (int y = 20; y < 25; ++y)

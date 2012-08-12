@@ -30,21 +30,3 @@ enum
   L4vbus_vicu_get_cap
 };
 
-enum
-{
-  L4vbus_gpio_read,
-  L4vbus_gpio_write,
-};
-
-enum
-{
-  L4vbus_i2c_write,
-  L4vbus_i2c_read,
-};
-
-enum
-{
-  L4vbus_mcspi_read,
-  L4vbus_mcspi_write,
-};
-

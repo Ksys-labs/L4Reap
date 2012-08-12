@@ -18,9 +18,10 @@ IMPLEMENTATION[ia32,amd64]:
 #include "processor.h"
 #include "reset.h"
 #include "timer.h"
+#include "timer_tick.h"
 #include "terminate.h"
 
-int exit_question_active;
+static int exit_question_active;
 
 
 extern "C" void __attribute__ ((noreturn))
@@ -45,10 +46,10 @@ exit_question()
   exit_question_active = 1;
 
   Pic::Status irqs = Pic::disable_all_save();
-  if (Config::getchar_does_hlt && Config::getchar_does_hlt_works_ok)
+  if (Config::getchar_does_hlt_works_ok)
     {
-      Idt::set_vectors_stop();
-      Timer::enable();
+      Timer_tick::set_vectors_stop();
+      Timer_tick::enable(0); // hmexit alway on CPU 0
       Proc::sti();
     }
 
@@ -118,11 +119,10 @@ int FIASCO_FASTCALL boot_ap_cpu(unsigned _cpu)
 
   Kmem::init_cpu(cpu);
   Idt::load();
-  Utcb_init::init_ap(cpu);
 
   Apic::init_ap();
-  Ipi::cpu(_cpu).init();
-  Timer::init();
+  Ipi::init(_cpu);
+  Timer::init(_cpu);
   Apic::check_still_getting_interrupts();
 
 

@@ -69,6 +69,10 @@ SUPP_FILES = \
 	darwin9.supp darwin9-drd.supp \
 	darwin10.supp darwin10-drd.supp
 
+if VGCONF_OS_IS_L4RE
+SUPP_FILES += pthread_l4re.supp
+endif
+
 DEFAULT_SUPP_FILES = @DEFAULT_SUPP@
 GENERATED_SUPP_FILES = @GENERATED_SUPP@
 

@@ -21,7 +21,7 @@
 #pragma once
 
 #include <l4/cxx/std_alloc>
-#include <l4/cxx/list>
+#include <l4/cxx/hlist>
 #include <l4/sys/consts.h>
 
 namespace cxx {
@@ -49,7 +49,7 @@ protected:
   struct Slab_i;
 
 private:
-  struct Slab_head : public List_item
+  struct Slab_head : public H_list_item
   {
     unsigned num_free;
     Free_o *free;
@@ -72,7 +72,7 @@ public:
 
 protected:
   struct Slab_store
-  { 
+  {
     char _o[slab_size - sizeof(Slab_head)]; 
     Free_o *object(unsigned obj) throw()
     { return reinterpret_cast<Free_o*>(_o + object_size * obj); }
@@ -80,7 +80,7 @@ protected:
 
   struct Slab_i : public Slab_store, public Slab_head
   {};
-  
+
 public:
   /// Type of the allocator for the slab caches.
   typedef Alloc<Slab_i> Slab_alloc;
@@ -91,9 +91,9 @@ private:
   Slab_alloc _alloc;
   unsigned _num_free;
   unsigned _num_slabs;
-  Slab_i *_full_slabs;
-  Slab_i *_partial_slabs;
-  Slab_i *_empty_slabs;
+  H_list<Slab_i> _full_slabs;
+  H_list<Slab_i> _partial_slabs;
+  H_list<Slab_i> _empty_slabs;
 
   /// Add a new slab cache.
   void add_slab(Slab_i *s) throw()
@@ -114,7 +114,7 @@ private:
     f->next = 0;
 
     // insert slab into cache's list
-    _empty_slabs = List_item::push_front(_empty_slabs, s);
+    _empty_slabs.push_front(s);
     ++_num_slabs;
     ++_num_free;
   }
@@ -138,10 +138,10 @@ private:
     if (!_alloc.can_free)
       return;
 
-    while (_empty_slabs && _num_free > max_free_slabs)
+    while (!_empty_slabs.empty() && _num_free > max_free_slabs)
       {
-	Slab_i *s = _empty_slabs;
-	_empty_slabs = List_item::remove(_empty_slabs, s);
+	Slab_i *s = _empty_slabs.front();
+	_empty_slabs.remove(s);
 	--_num_free;
 	--_num_slabs;
 	_alloc.free(s);
@@ -156,42 +156,42 @@ public:
 
   ~Base_slab() throw()
   {
-    while (_empty_slabs)
+    while (!_empty_slabs.empty())
       {
-	Slab_i *o = _empty_slabs;
-	_empty_slabs = List_item::remove(_empty_slabs, o);
+	Slab_i *o = _empty_slabs.front();
+	_empty_slabs.remove(o);
 	_alloc.free(o);
       }
-    while (_partial_slabs)
+    while (!_partial_slabs.empty())
       {
-	Slab_i *o = _partial_slabs;
-	_partial_slabs = List_item::remove(_partial_slabs, o);
+	Slab_i *o = _partial_slabs.front();
+	_partial_slabs.remove(o);
 	_alloc.free(o);
       }
-    while (_full_slabs)
+    while (!_full_slabs.empty())
       {
-	Slab_i *o = _full_slabs;
-	_full_slabs = List_item::remove(_full_slabs, o);
+	Slab_i *o = _full_slabs.front();
+	_full_slabs.remove(o);
 	_alloc.free(o);
       }
   }
 
   void *alloc() throw()
   {
-    Slab_i **free = &_partial_slabs;
-    if (!(*free))
+    H_list<Slab_i> *free = &_partial_slabs;
+    if (free->empty())
       free = &_empty_slabs;
 
-    if (!(*free) && !grow())
+    if (free->empty() && !grow())
       return 0;
 
-    Slab_i *s = *free;
+    Slab_i *s = free->front();
     Free_o *o = s->free;
     s->free = o->next;
 
     if (free == &_empty_slabs)
       {
-	_empty_slabs = List_item::remove(_empty_slabs, s);
+	_empty_slabs.remove(s);
         --_num_free;
       }
 
@@ -199,11 +199,11 @@ public:
 
     if (!s->free)
       {
-	_partial_slabs = List_item::remove(_partial_slabs, s);
-        _full_slabs = List_item::push_front(_full_slabs, s);
+	_partial_slabs.remove(s);
+        _full_slabs.push_front(s);
       }
     else if (free == &_empty_slabs)
-      _partial_slabs = List_item::push_front(_partial_slabs, s);
+      _partial_slabs.push_front(s);
 
     //L4::cerr << this << "->alloc(): " << o << ", of " << s << '\n';
 
@@ -231,7 +231,7 @@ public:
 
     if (!s->num_free)
       {
-	_full_slabs = List_item::remove(_full_slabs, s);
+	_full_slabs.remove(s);
 	was_full = true;
       }
 
@@ -240,18 +240,17 @@ public:
     if (s->num_free == objects_per_slab)
       {
 	if (!was_full)
-	  _partial_slabs = List_item::remove(_partial_slabs, s);
+	  _partial_slabs.remove(s);
 
-	_empty_slabs = List_item::push_front(_empty_slabs, s);
+	_empty_slabs.push_front(s);
 	++_num_free;
 	if (_num_free > max_free_slabs)
 	  shrink();
 
 	was_full = false;
       }
-
-    if (was_full) 
-      _partial_slabs = List_item::push_front(_partial_slabs, s);
+    else if (was_full)
+      _partial_slabs.push_front(s);
 
     //L4::cerr << this << "->free(" << _o << "): of " << s << '\n';
   }
@@ -274,12 +273,9 @@ public:
     unsigned count = 0;
 
     /* count partial slabs first */
-    List_item::T_iter<Slab_i> s = _partial_slabs;
-    while (*s)
-      {
-        count += s->num_free;
-        s++;
-      }
+    for (typename H_list<Slab_i>::Const_iterator s = _partial_slabs.begin();
+         s != _partial_slabs.end(); ++s)
+      count += s->num_free;
 
     /* add empty slabs */
     count += _num_free * objects_per_slab;

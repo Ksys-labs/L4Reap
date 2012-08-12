@@ -1,10 +1,8 @@
-
-/* A Bison parser, made by GNU Bison 2.4.1.  */
+/* A Bison parser, made by GNU Bison 2.5.  */
 
 /* Skeleton implementation for Bison LALR(1) parsers in C++
    
-      Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software
-   Foundation, Inc.
+      Copyright (C) 2002-2011 Free Software Foundation, Inc.
    
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -33,7 +31,7 @@
    version 2.2 of Bison.  */
 /* "%code top" blocks.  */
 
-/* Line 304 of lalr1.cc  */
+/* Line 286 of lalr1.cc  */
 #line 10 "cfg_parser.yy"
 
 #include "vbus_factory.h"
@@ -42,8 +40,8 @@
 
 
 
-/* Line 304 of lalr1.cc  */
-#line 47 "cfg_parser.tab.cc"
+/* Line 286 of lalr1.cc  */
+#line 45 "cfg_parser.tab.cc"
 
 // Take the name prefix into account.
 #define yylex   cfglex
@@ -51,8 +49,8 @@
 /* First part of user declarations.  */
 
 
-/* Line 311 of lalr1.cc  */
-#line 56 "cfg_parser.tab.cc"
+/* Line 293 of lalr1.cc  */
+#line 54 "cfg_parser.tab.cc"
 
 
 #include "cfg_parser.tab.hh"
@@ -60,27 +58,36 @@
 /* User implementation prologue.  */
 
 
-/* Line 317 of lalr1.cc  */
-#line 65 "cfg_parser.tab.cc"
+/* Line 299 of lalr1.cc  */
+#line 63 "cfg_parser.tab.cc"
 /* Unqualified %code blocks.  */
 
-/* Line 318 of lalr1.cc  */
-#line 109 "cfg_parser.yy"
+/* Line 300 of lalr1.cc  */
+#line 90 "cfg_parser.yy"
 
 
 #include <algorithm>
 #include "cfg_scanner.h"
 #include "hw_device.h"
+#include "tagged_parameter.h"
 
 #undef yylex
 #define yylex _lexer->lex
 
+static inline
+std::ostream &operator << (std::ostream &s, cxx::String const &str)
+{
+  s.write(str.start(), str.len());
+  return s;
+}
+
+
 static
-void wrap(Device *h, Vi::Device **first)
+void wrap(Device *h, Vi::Device **first, Tagged_parameter *filter)
 {
   Hw::Device *hd = dynamic_cast<Hw::Device *>(h);
 
-  Vi::Device *vd = Vi::Dev_factory::create(hd);
+  Vi::Device *vd = Vi::Dev_factory::create(hd, filter);
   if (vd)
     {
       vd->add_sibling(*first);
@@ -92,9 +99,9 @@ struct match_by_cid
 {
   enum { DEPTH = L4VBUS_MAX_DEPTH };
   cxx::String cid;
-  Dev_list *l;
+  mutable Expression **tail;
 
-  match_by_cid(cxx::String const &cid, Dev_list *l) : cid(cid), l(l)
+  match_by_cid(cxx::String const &cid, Expression *&l) : cid(cid), tail(&l)
   {}
 
   void operator () (Hw::Device *dev) const
@@ -106,7 +113,7 @@ struct match_by_cid
 	 h = h.substr(n+1), n = h.find(","))
       if (hd->match_cid(h.head(n)))
         {
-	  l->push_back(hd);
+	  tail = Expression::append(tail, new Expression(hd));
 	  return;
 	}
   }
@@ -116,16 +123,16 @@ struct match_by_name
 {
   enum { DEPTH = 0 };
   cxx::String cid;
-  Dev_list *l;
+  mutable Expression **tail;
 
-  match_by_name(cxx::String const &cid, Dev_list *l) : cid(cid), l(l)
+  match_by_name(cxx::String const &cid, Expression *&l) : cid(cid), tail(&l)
   {}
 
   void operator () (Hw::Device *dev) const
   {
     Hw::Device *hd = dev;
     if (cid == hd->name())
-      l->push_back(hd);
+      tail = Expression::append(tail, new Expression(hd));
   }
 };
 
@@ -148,19 +155,28 @@ LI *concat(LI *l, LI *r)
 
 template<typename Match, typename LOC>
 static
-Dev_list *
+Expression *
 dev_list_from_dev(Hw::Device *in, cxx::String const & /*op*/,
                   cxx::String const &arg, LOC const &l)
 {
-  Dev_list *nl = new Dev_list();
+  Expression *nl = 0;
 
   std::for_each(in->begin(Match::DEPTH), in->end(),
                 Match(arg, nl));
-  if (nl->empty())
+  if (!nl)
     std::cerr << l << ": warning: could not find '" << arg << "'"
               << std::endl;
 
   return nl;
+}
+
+static void check_parameter_list(cfg::location const &l, Tagged_parameter *t)
+{
+  for (; t; t = t->next())
+    {
+      if (!t->used())
+        std::cerr << l << ": warning: unused parameter '" << t->tag() << "'" << std::endl;
+    }
 }
 
 static
@@ -184,15 +200,26 @@ add_children(Vi::Device *p, Vi::Device *cld_list)
 }
 
 static
-Vi::Device *
-wrap_hw_devices(Dev_list *hw_devs)
+Expression *
+wrap_hw_devices(cfg::location const &l, Expression *hw_devs, Tagged_parameter *filter)
 {
   Vi::Device *vd = 0;
-  for (Dev_list::iterator i = hw_devs->begin(); i != hw_devs->end(); ++i)
-    wrap(*i, &vd);
+  Expression *i = hw_devs;
+  while (i)
+    {
+      Value v = i->eval();
+      if (v.type == Value::Hw_dev)
+        wrap(v.val.hw_dev, &vd, filter);
+      else
+        std::cerr << l << ": error: 'wrap' takes a list of hardware devices" << std::endl;
 
-  delete hw_devs;
-  return vd;
+      i = Expression::del_this(i);
+    }
+
+  if (vd)
+    return new Expression(vd);
+  else
+    return 0;
 }
 
 static
@@ -214,13 +241,6 @@ set_device_names(Device *devs, cxx::String const &name, bool array = false)
 }
 
 static inline
-std::ostream &operator << (std::ostream &s, cxx::String const &str)
-{
-  s.write(str.start(), str.len());
-  return s;
-}
-
-static inline
 std::ostream &operator << (std::ostream &s, Hw::Device::Prop_val const &v)
 {
   if (v.type == Hw::Device::Prop_val::String)
@@ -233,12 +253,13 @@ std::ostream &operator << (std::ostream &s, Hw::Device::Prop_val const &v)
 
 
 static
-Adr_resource *
+Expression *
 create_resource(cfg::Parser::location_type const &l, cxx::String const &type,
-                Const_expression_list *args)
+                Expression *args)
 {
 
   unsigned flags = 0;
+  Value a;
 
   if (type == "Io")
     flags = Adr_resource::Io_res;
@@ -267,76 +288,104 @@ create_resource(cfg::Parser::location_type const &l, cxx::String const &type,
     case Adr_resource::Io_res:
     case Adr_resource::Irq_res:
     case Adr_resource::Mmio_res:
-      if (args->size() < 1)
+      if (!args)
         {
 	  std::cerr << l << ": too few arguments to constructor of resource '" << type << "'" << std::endl;
-	  delete args;
 	  return 0;
 	}
-      if (args->size() > 2)
+
+      a = args->eval();
+      switch (a.type)
         {
-	  std::cerr << l << ": too many arguments to constructor of resource '" << type << "'" << std::endl;
-	  delete args;
-	  return 0;
-	}
-      switch ((*args)[0].type)
-        {
-	case 0:
-	  s = (*args)[0].val.num;
-	  e = (*args)[0].val.num;
+	case Value::Num:
+	  s = a.val.num;
+	  e = a.val.num;
 	  break;
-	case 1:
-	  s = (*args)[0].val.range.s;
-	  e = (*args)[0].val.range.e;
+	case Value::Range:
+	  s = a.val.range.s;
+	  e = a.val.range.e;
 	  break;
 	default:
+	  std::cerr << l
+	    << ": error: first argument for a resource definition must be a numer or a range"
+	    << std::endl;
 	  s = 0;
 	  e = 0;
 	  break;
 	}
-
-      if (args->size() == 2)
-        {
-	  if ((*args)[1].type != 0)
-	    {
-	      std::cerr << l << ": argument 2 must by of type integer in constructor of resource '" << type << "'" << std::endl;
-	      delete args;
-	      return 0;
-	    }
-	  if (s > e)
-	    {
-	      std::cerr << l << ": start of range bigger than end" << std::endl;
-	      delete args;
-	      return 0;
-	    }
-          flags |= (*args)[1].val.num & 0x3fff00;
-	}
-
-      delete args;
-
-      return new Adr_resource(flags, s , e);
-
-    case (Adr_resource::Mmio_res |  Adr_resource::Mmio_data_space):
-      if (args->size() < 2)
-        {
-	  std::cerr << l << ": too few arguments to constructor of resource '" << type << "'" << std::endl;
-	  delete args;
+      if (s > e)
+	{
+	  std::cerr << l << ": start of range bigger than end" << std::endl;
+	  Expression::del_all(args);
 	  return 0;
 	}
-      if (args->size() > 2)
+
+      args = Expression::del_this(args);
+
+      if (args)
+        {
+	  a = args->eval();
+	  if (a.type != Value::Num)
+	    {
+	      std::cerr << l
+	        << ": argument 2 must by of type integer in constructor of resource '"
+	        << type << "'" << std::endl;
+	      Expression::del_all(args);
+	      return 0;
+	    }
+          flags |= a.val.num & 0x3fff00;
+
+	  args = Expression::del_this(args);
+	}
+
+      if (args)
         {
 	  std::cerr << l << ": too many arguments to constructor of resource '" << type << "'" << std::endl;
-	  delete args;
+	  Expression::del_all(args);
+	}
+
+      return new Expression(new Adr_resource(flags, s , e));
+
+    case (Adr_resource::Mmio_res |  Adr_resource::Mmio_data_space):
+      if (!args)
+        {
+	  std::cerr << l << ": too few arguments to constructor of resource '" << type << "'" << std::endl;
+	  Expression::del_all(args);
 	  return 0;
 	}
-      s = (*args)[0].val.num;
-      e = (*args)[1].val.num;
-      delete args;
 
-      return new Mmio_data_space(s, e);
+      a = args->eval();
+      if (a.type != Value::Num)
+        {
+	  std::cerr << l << ": error: expected number argument to constructor of resource '" << type << "'" << std::endl;
+	  Expression::del_all(args);
+	  return 0;
+	}
+
+      s = a.val.num;
+      args = Expression::del_this(args);
+
+      a = args->eval();
+      if (a.type != Value::Num)
+        {
+	  std::cerr << l << ": error: expected number argument to constructor of resource '" << type << "'" << std::endl;
+	  Expression::del_all(args);
+	  return 0;
+	}
+
+      e = a.val.num;
+      args = Expression::del_this(args);
+      if (args)
+        {
+	  std::cerr << l << ": too many arguments to constructor of resource '" << type << "'" << std::endl;
+	  Expression::del_all(args);
+	  return 0;
+	}
+
+      return new Expression(new Mmio_data_space(s, e));
     }
 
-  delete args;
+  Expression::del_all(args);
   return 0;
 }
 
@@ -364,14 +413,47 @@ hw_device_set_property(cfg::Parser::location_type const &l, Hw::Device *dev,
     }
 }
 
+static
+Vi::Device *check_dev_expr(cfg::location const &l, Expression *e)
+{
+  if (!e)
+    return 0;
+
+  Value v = e->eval();
+  if (v.type != Value::Vi_dev)
+    {
+      std::cerr << l << ": error: expected a device definition" << std::endl;
+      return 0;
+    }
+
+  Expression::del_all(e);
+  return v.val.vi_dev;
+}
+
+static
+Adr_resource *check_resource_expr(cfg::location const &l, Expression *e)
+{
+  if (!e)
+    return 0;
+
+  Value v = e->eval();
+  if (v.type != Value::Res)
+    {
+      std::cerr << l << ": error: expected a device definition" << std::endl;
+      return 0;
+    }
+
+  Expression::del_all(e);
+  return v.val.res;
+}
 
 
 
-/* Line 318 of lalr1.cc  */
-#line 372 "cfg_parser.tab.cc"
+/* Line 300 of lalr1.cc  */
+#line 454 "cfg_parser.tab.cc"
 
 #ifndef YY_
-# if YYENABLE_NLS
+# if defined YYENABLE_NLS && YYENABLE_NLS
 #  if ENABLE_NLS
 #   include <libintl.h> /* FIXME: INFRINGES ON USER NAME SPACE */
 #   define YY_(msgid) dgettext ("bison-runtime", msgid)
@@ -380,6 +462,26 @@ hw_device_set_property(cfg::Parser::location_type const &l, Hw::Device *dev,
 # ifndef YY_
 #  define YY_(msgid) msgid
 # endif
+#endif
+
+/* YYLLOC_DEFAULT -- Set CURRENT to span from RHS[1] to RHS[N].
+   If N is 0, then set CURRENT to the empty location which ends
+   the previous symbol: RHS[0] (always defined).  */
+
+#define YYRHSLOC(Rhs, K) ((Rhs)[K])
+#ifndef YYLLOC_DEFAULT
+# define YYLLOC_DEFAULT(Current, Rhs, N)                               \
+ do                                                                    \
+   if (N)                                                              \
+     {                                                                 \
+       (Current).begin = YYRHSLOC (Rhs, 1).begin;                      \
+       (Current).end   = YYRHSLOC (Rhs, N).end;                        \
+     }                                                                 \
+   else                                                                \
+     {                                                                 \
+       (Current).begin = (Current).end = YYRHSLOC (Rhs, 0).end;        \
+     }                                                                 \
+ while (false)
 #endif
 
 /* Suppress unused-variable warnings by "using" E.  */
@@ -431,14 +533,10 @@ do {					\
 #define YYRECOVERING()  (!!yyerrstatus_)
 
 
-/* Line 380 of lalr1.cc  */
-#line 1 "[Bison:b4_percent_define_default]"
-
 namespace cfg {
 
-/* Line 380 of lalr1.cc  */
-#line 441 "cfg_parser.tab.cc"
-#if YYERROR_VERBOSE
+/* Line 382 of lalr1.cc  */
+#line 540 "cfg_parser.tab.cc"
 
   /* Return YYSTR after stripping away unnecessary quotes and
      backslashes, so that it's suitable for yyerror.  The heuristic is
@@ -477,7 +575,6 @@ namespace cfg {
     return yystr;
   }
 
-#endif
 
   /// Build a parser object.
   Parser::Parser (class Scanner *_lexer_yyarg, Vi::Dev_factory *_vbus_factory_yyarg, Vi::Device *&_glbl_vbus_yyarg, Hw::Device *_hw_root_yyarg)
@@ -581,6 +678,18 @@ namespace cfg {
   }
 #endif
 
+  inline bool
+  Parser::yy_pact_value_is_default_ (int yyvalue)
+  {
+    return yyvalue == yypact_ninf_;
+  }
+
+  inline bool
+  Parser::yy_table_value_is_error_ (int yyvalue)
+  {
+    return yyvalue == yytable_ninf_;
+  }
+
   int
   Parser::parse ()
   {
@@ -602,7 +711,7 @@ namespace cfg {
     /// Location of the lookahead.
     location_type yylloc;
     /// The locations where the error started and ended.
-    location_type yyerror_range[2];
+    location_type yyerror_range[3];
 
     /// $$.
     semantic_type yyval;
@@ -640,7 +749,7 @@ namespace cfg {
 
     /* Try to take a decision without lookahead.  */
     yyn = yypact_[yystate];
-    if (yyn == yypact_ninf_)
+    if (yy_pact_value_is_default_ (yyn))
       goto yydefault;
 
     /* Read a lookahead token.  */
@@ -673,8 +782,8 @@ namespace cfg {
     yyn = yytable_[yyn];
     if (yyn <= 0)
       {
-	if (yyn == 0 || yyn == yytable_ninf_)
-	goto yyerrlab;
+	if (yy_table_value_is_error_ (yyn))
+	  goto yyerrlab;
 	yyn = -yyn;
 	goto yyreduce;
       }
@@ -730,110 +839,163 @@ namespace cfg {
       {
 	  case 2:
 
-/* Line 678 of lalr1.cc  */
-#line 413 "cfg_parser.yy"
+/* Line 690 of lalr1.cc  */
+#line 478 "cfg_parser.yy"
     { (yyval.str).s = "(noname)"; (yyval.str).e = (yyval.str).s + strlen((yyval.str).s); }
     break;
 
   case 3:
 
-/* Line 678 of lalr1.cc  */
-#line 418 "cfg_parser.yy"
-    {
-	    (yyval.device) = _vbus_factory->create(std::string((yysemantic_stack_[(4) - (2)].str).s, (yysemantic_stack_[(4) - (2)].str).e));
-	    add_children((yyval.device), (yysemantic_stack_[(4) - (4)].device));
-	    (yyval.device)->finalize_setup();
-	  }
+/* Line 690 of lalr1.cc  */
+#line 482 "cfg_parser.yy"
+    { (yyval.param) = new Tagged_parameter(cxx::String((yysemantic_stack_[(3) - (1)].str).s, (yysemantic_stack_[(3) - (1)].str).e), (yysemantic_stack_[(3) - (3)].expr)); }
     break;
 
   case 4:
 
-/* Line 678 of lalr1.cc  */
-#line 424 "cfg_parser.yy"
-    { (yyval.device) = wrap_hw_devices((yysemantic_stack_[(5) - (3)].dev_list)); }
-    break;
-
-  case 5:
-
-/* Line 678 of lalr1.cc  */
-#line 427 "cfg_parser.yy"
-    { (yyval.device) = (yysemantic_stack_[(1) - (1)].device); }
+/* Line 690 of lalr1.cc  */
+#line 483 "cfg_parser.yy"
+    { (yyval.param) = new Tagged_parameter(cxx::String((yysemantic_stack_[(5) - (1)].str).s, (yysemantic_stack_[(5) - (1)].str).e), (yysemantic_stack_[(5) - (4)].expr)); }
     break;
 
   case 6:
 
-/* Line 678 of lalr1.cc  */
-#line 429 "cfg_parser.yy"
-    { (yyval.device) = (yysemantic_stack_[(3) - (3)].device); set_device_names((yysemantic_stack_[(3) - (3)].device), cxx::String((yysemantic_stack_[(3) - (1)].str).s, (yysemantic_stack_[(3) - (1)].str).e)); }
+/* Line 690 of lalr1.cc  */
+#line 487 "cfg_parser.yy"
+    { (yyval.param) = (yysemantic_stack_[(3) - (3)].param)->prepend((yysemantic_stack_[(3) - (1)].param)); }
     break;
 
   case 7:
 
-/* Line 678 of lalr1.cc  */
-#line 431 "cfg_parser.yy"
-    { (yyval.device) = (yysemantic_stack_[(5) - (5)].device); set_device_names((yysemantic_stack_[(5) - (5)].device), cxx::String((yysemantic_stack_[(5) - (1)].str).s, (yysemantic_stack_[(5) - (1)].str).e), true); }
+/* Line 690 of lalr1.cc  */
+#line 490 "cfg_parser.yy"
+    { (yyval.param) = 0; }
     break;
 
   case 9:
 
-/* Line 678 of lalr1.cc  */
-#line 436 "cfg_parser.yy"
-    { (yyval.device) = 0; }
+/* Line 690 of lalr1.cc  */
+#line 495 "cfg_parser.yy"
+    {
+	    Vi::Device *d = _vbus_factory->create(std::string((yysemantic_stack_[(4) - (2)].str).s, (yysemantic_stack_[(4) - (2)].str).e));
+	    if (d)
+	      {
+	        add_children(d, (yysemantic_stack_[(4) - (4)].device));
+	        d->finalize_setup();
+		(yyval.expr) = new Expression(d);
+	      }
+	  }
     break;
 
   case 10:
 
-/* Line 678 of lalr1.cc  */
-#line 438 "cfg_parser.yy"
-    { (yyval.device) = concat((yysemantic_stack_[(2) - (1)].device), (yysemantic_stack_[(2) - (2)].device)); }
+/* Line 690 of lalr1.cc  */
+#line 505 "cfg_parser.yy"
+    { (yyval.expr) = wrap_hw_devices((yylocation_stack_[(5) - (3)]), (yysemantic_stack_[(5) - (3)].expr), 0); }
     break;
 
   case 11:
 
-/* Line 678 of lalr1.cc  */
-#line 441 "cfg_parser.yy"
-    { (yyval.device) = 0; }
-    break;
-
-  case 12:
-
-/* Line 678 of lalr1.cc  */
-#line 442 "cfg_parser.yy"
-    { (yyval.device) = (yysemantic_stack_[(3) - (2)].device); }
+/* Line 690 of lalr1.cc  */
+#line 507 "cfg_parser.yy"
+    { (yyval.expr) = wrap_hw_devices((yylocation_stack_[(8) - (6)]), (yysemantic_stack_[(8) - (6)].expr), (yysemantic_stack_[(8) - (3)].param)); check_parameter_list((yylocation_stack_[(8) - (3)]), (yysemantic_stack_[(8) - (3)].param)); Tagged_parameter::del_all((yysemantic_stack_[(8) - (3)].param)); }
     break;
 
   case 13:
 
-/* Line 678 of lalr1.cc  */
-#line 445 "cfg_parser.yy"
-    { (yyval.dev_list) = new Dev_list(); (yyval.dev_list)->push_back((yysemantic_stack_[(1) - (1)].hw_device)); }
+/* Line 690 of lalr1.cc  */
+#line 512 "cfg_parser.yy"
+    { (yyval.device) = check_dev_expr((yylocation_stack_[(1) - (1)]), (yysemantic_stack_[(1) - (1)].expr)); }
     break;
 
   case 14:
 
-/* Line 678 of lalr1.cc  */
-#line 446 "cfg_parser.yy"
-    { (yyval.dev_list) = (yysemantic_stack_[(3) - (3)].dev_list); (yyval.dev_list)->push_back((yysemantic_stack_[(3) - (1)].hw_device)); }
+/* Line 690 of lalr1.cc  */
+#line 514 "cfg_parser.yy"
+    { (yyval.device) = check_dev_expr((yylocation_stack_[(3) - (3)]), (yysemantic_stack_[(3) - (3)].expr)); set_device_names((yyval.device), cxx::String((yysemantic_stack_[(3) - (1)].str).s, (yysemantic_stack_[(3) - (1)].str).e)); }
     break;
 
   case 15:
 
-/* Line 678 of lalr1.cc  */
-#line 448 "cfg_parser.yy"
-    { (yyval.dev_list) = dev_list_from_dev<match_by_cid>((yysemantic_stack_[(6) - (1)].hw_device), cxx::String((yysemantic_stack_[(6) - (3)].str).s, (yysemantic_stack_[(6) - (3)].str).e), cxx::String((yysemantic_stack_[(6) - (5)].str).s + 1, (yysemantic_stack_[(6) - (5)].str).e - 1), (yylocation_stack_[(6) - (5)])); }
+/* Line 690 of lalr1.cc  */
+#line 516 "cfg_parser.yy"
+    { (yyval.device) = check_dev_expr((yylocation_stack_[(5) - (5)]), (yysemantic_stack_[(5) - (5)].expr)); set_device_names((yyval.device), cxx::String((yysemantic_stack_[(5) - (1)].str).s, (yysemantic_stack_[(5) - (1)].str).e), true); }
     break;
 
   case 16:
 
-/* Line 678 of lalr1.cc  */
-#line 452 "cfg_parser.yy"
-    { (yyval.hw_device) = _hw_root; }
+/* Line 690 of lalr1.cc  */
+#line 518 "cfg_parser.yy"
+    { (yyval.device) = check_dev_expr((yylocation_stack_[(3) - (3)]), (yysemantic_stack_[(3) - (3)].expr)); set_device_names((yyval.device), cxx::String((yysemantic_stack_[(3) - (1)].str).s + 1, (yysemantic_stack_[(3) - (1)].str).e - 1)); }
     break;
 
   case 17:
 
-/* Line 678 of lalr1.cc  */
-#line 454 "cfg_parser.yy"
+/* Line 690 of lalr1.cc  */
+#line 520 "cfg_parser.yy"
+    { (yyval.device) = check_dev_expr((yylocation_stack_[(5) - (5)]), (yysemantic_stack_[(5) - (5)].expr)); set_device_names((yyval.device), cxx::String((yysemantic_stack_[(5) - (1)].str).s + 1, (yysemantic_stack_[(5) - (1)].str).e - 1), true); }
+    break;
+
+  case 18:
+
+/* Line 690 of lalr1.cc  */
+#line 523 "cfg_parser.yy"
+    { (yyval.device) = 0; }
+    break;
+
+  case 19:
+
+/* Line 690 of lalr1.cc  */
+#line 525 "cfg_parser.yy"
+    { (yyval.device) = concat((yysemantic_stack_[(2) - (1)].device), (yysemantic_stack_[(2) - (2)].device)); }
+    break;
+
+  case 20:
+
+/* Line 690 of lalr1.cc  */
+#line 528 "cfg_parser.yy"
+    { (yyval.device) = 0; }
+    break;
+
+  case 21:
+
+/* Line 690 of lalr1.cc  */
+#line 529 "cfg_parser.yy"
+    { (yyval.device) = (yysemantic_stack_[(3) - (2)].device); }
+    break;
+
+  case 22:
+
+/* Line 690 of lalr1.cc  */
+#line 532 "cfg_parser.yy"
+    { (yyval.expr) = new Expression((yysemantic_stack_[(1) - (1)].hw_device)); }
+    break;
+
+  case 23:
+
+/* Line 690 of lalr1.cc  */
+#line 533 "cfg_parser.yy"
+    { (yyval.expr) = (new Expression((yysemantic_stack_[(3) - (1)].hw_device)))->prepend((yysemantic_stack_[(3) - (3)].expr)); }
+    break;
+
+  case 24:
+
+/* Line 690 of lalr1.cc  */
+#line 535 "cfg_parser.yy"
+    { (yyval.expr) = dev_list_from_dev<match_by_cid>((yysemantic_stack_[(6) - (1)].hw_device), cxx::String((yysemantic_stack_[(6) - (3)].str).s, (yysemantic_stack_[(6) - (3)].str).e), cxx::String((yysemantic_stack_[(6) - (5)].str).s + 1, (yysemantic_stack_[(6) - (5)].str).e - 1), (yylocation_stack_[(6) - (5)])); }
+    break;
+
+  case 25:
+
+/* Line 690 of lalr1.cc  */
+#line 539 "cfg_parser.yy"
+    { (yyval.hw_device) = _hw_root; }
+    break;
+
+  case 26:
+
+/* Line 690 of lalr1.cc  */
+#line 541 "cfg_parser.yy"
     {
 	    (yyval.hw_device) = find_by_name((yysemantic_stack_[(3) - (1)].hw_device), cxx::String((yysemantic_stack_[(3) - (3)].str).s, (yysemantic_stack_[(3) - (3)].str).e));
 	    if (!(yyval.hw_device))
@@ -844,73 +1006,73 @@ namespace cfg {
 	  }
     break;
 
-  case 18:
+  case 35:
 
-/* Line 678 of lalr1.cc  */
-#line 465 "cfg_parser.yy"
-    { (yyval.const_expression).type = 0; (yyval.const_expression).val.num = (yysemantic_stack_[(1) - (1)].num); }
+/* Line 690 of lalr1.cc  */
+#line 570 "cfg_parser.yy"
+    { (yyval.expr) = new Expression((yysemantic_stack_[(1) - (1)].num)); }
     break;
 
-  case 19:
+  case 36:
 
-/* Line 678 of lalr1.cc  */
-#line 467 "cfg_parser.yy"
-    { (yyval.const_expression).type = 1; (yyval.const_expression).val.range.s = (yysemantic_stack_[(3) - (1)].num); (yyval.const_expression).val.range.e = (yysemantic_stack_[(3) - (3)].num); }
+/* Line 690 of lalr1.cc  */
+#line 572 "cfg_parser.yy"
+    { (yyval.expr) = new Expression((yysemantic_stack_[(3) - (1)].num), (yysemantic_stack_[(3) - (3)].num)); }
     break;
 
-  case 20:
+  case 37:
 
-/* Line 678 of lalr1.cc  */
-#line 469 "cfg_parser.yy"
-    { (yyval.const_expression).type = 2; (yyval.const_expression).val.str.s = (yysemantic_stack_[(1) - (1)].str).s; (yyval.const_expression).val.str.e = (yysemantic_stack_[(1) - (1)].str).e; }
+/* Line 690 of lalr1.cc  */
+#line 574 "cfg_parser.yy"
+    { (yyval.expr) = new Expression((yysemantic_stack_[(1) - (1)].str).s, (yysemantic_stack_[(1) - (1)].str).e); }
     break;
 
-  case 21:
+  case 38:
 
-/* Line 678 of lalr1.cc  */
-#line 472 "cfg_parser.yy"
-    { (yyval.const_expr_list) = 0; }
+/* Line 690 of lalr1.cc  */
+#line 577 "cfg_parser.yy"
+    { (yyval.expr) = 0; }
     break;
 
-  case 22:
+  case 39:
 
-/* Line 678 of lalr1.cc  */
-#line 474 "cfg_parser.yy"
-    { (yyval.const_expr_list) = new Const_expression_list(); (yyval.const_expr_list)->push_back((yysemantic_stack_[(1) - (1)].const_expression)); }
+/* Line 690 of lalr1.cc  */
+#line 579 "cfg_parser.yy"
+    { (yyval.expr) = (yysemantic_stack_[(1) - (1)].expr); }
     break;
 
-  case 23:
+  case 40:
 
-/* Line 678 of lalr1.cc  */
-#line 476 "cfg_parser.yy"
-    { (yyval.const_expr_list) = (yysemantic_stack_[(3) - (1)].const_expr_list); (yyval.const_expr_list)->push_back((yysemantic_stack_[(3) - (3)].const_expression)); }
+/* Line 690 of lalr1.cc  */
+#line 581 "cfg_parser.yy"
+    { (yyval.expr) = (yysemantic_stack_[(3) - (1)].expr)->prepend((yysemantic_stack_[(3) - (3)].expr)); }
     break;
 
-  case 24:
+  case 41:
 
-/* Line 678 of lalr1.cc  */
-#line 480 "cfg_parser.yy"
-    { (yyval.resource) = create_resource((yylocation_stack_[(6) - (2)]), cxx::String((yysemantic_stack_[(6) - (2)].str).s, (yysemantic_stack_[(6) - (2)].str).e), (yysemantic_stack_[(6) - (4)].const_expr_list)); }
+/* Line 690 of lalr1.cc  */
+#line 585 "cfg_parser.yy"
+    { (yyval.expr) = create_resource((yylocation_stack_[(6) - (2)]), cxx::String((yysemantic_stack_[(6) - (2)].str).s, (yysemantic_stack_[(6) - (2)].str).e), (yysemantic_stack_[(6) - (4)].expr)); }
     break;
 
-  case 25:
+  case 42:
 
-/* Line 678 of lalr1.cc  */
-#line 484 "cfg_parser.yy"
+/* Line 690 of lalr1.cc  */
+#line 589 "cfg_parser.yy"
     { hw_device_set_property((yylocation_stack_[(5) - (2)]), (yysemantic_stack_[(5) - (0)].hw_device), cxx::String((yysemantic_stack_[(5) - (2)].str).s, (yysemantic_stack_[(5) - (2)].str).e), cxx::String((yysemantic_stack_[(5) - (4)].str).s + 1, (yysemantic_stack_[(5) - (4)].str).e - 1)); }
     break;
 
-  case 26:
+  case 43:
 
-/* Line 678 of lalr1.cc  */
-#line 486 "cfg_parser.yy"
+/* Line 690 of lalr1.cc  */
+#line 591 "cfg_parser.yy"
     { hw_device_set_property((yylocation_stack_[(5) - (2)]), (yysemantic_stack_[(5) - (0)].hw_device), cxx::String((yysemantic_stack_[(5) - (2)].str).s, (yysemantic_stack_[(5) - (2)].str).e), (yysemantic_stack_[(5) - (4)].num)); }
     break;
 
-  case 27:
+  case 44:
 
-/* Line 678 of lalr1.cc  */
-#line 490 "cfg_parser.yy"
+/* Line 690 of lalr1.cc  */
+#line 595 "cfg_parser.yy"
     {
 	    (yyval.hw_device) = (yysemantic_stack_[(1) - (0)].hw_device);
 	    (yyval.hw_device)->add_child((yysemantic_stack_[(1) - (1)].hw_device));
@@ -919,24 +1081,24 @@ namespace cfg {
 	  }
     break;
 
-  case 28:
+  case 45:
 
-/* Line 678 of lalr1.cc  */
-#line 496 "cfg_parser.yy"
-    {(yyval.hw_device) = (yysemantic_stack_[(1) - (0)].hw_device); (yyval.hw_device)->add_resource((yysemantic_stack_[(1) - (1)].resource)); }
+/* Line 690 of lalr1.cc  */
+#line 601 "cfg_parser.yy"
+    {(yyval.hw_device) = (yysemantic_stack_[(1) - (0)].hw_device); (yyval.hw_device)->add_resource(check_resource_expr((yylocation_stack_[(1) - (1)]), (yysemantic_stack_[(1) - (1)].expr))); }
     break;
 
-  case 29:
+  case 46:
 
-/* Line 678 of lalr1.cc  */
-#line 497 "cfg_parser.yy"
+/* Line 690 of lalr1.cc  */
+#line 602 "cfg_parser.yy"
     { (yyval.hw_device) = (yysemantic_stack_[(1) - (0)].hw_device); }
     break;
 
-  case 32:
+  case 49:
 
-/* Line 678 of lalr1.cc  */
-#line 505 "cfg_parser.yy"
+/* Line 690 of lalr1.cc  */
+#line 610 "cfg_parser.yy"
     {
 	    Hw::Device *d = Hw::Device_factory::create(cxx::String((yysemantic_stack_[(7) - (4)].str).s, (yysemantic_stack_[(7) - (4)].str).e));
 	    if (!d)
@@ -949,55 +1111,73 @@ namespace cfg {
 	  }
     break;
 
-  case 33:
+  case 50:
 
-/* Line 678 of lalr1.cc  */
-#line 514 "cfg_parser.yy"
+/* Line 690 of lalr1.cc  */
+#line 619 "cfg_parser.yy"
     { (yyval.hw_device) = (yysemantic_stack_[(10) - (8)].hw_device); }
     break;
 
-  case 34:
+  case 51:
 
-/* Line 678 of lalr1.cc  */
-#line 517 "cfg_parser.yy"
+/* Line 690 of lalr1.cc  */
+#line 622 "cfg_parser.yy"
     { (yyval.hw_device) = (yysemantic_stack_[(2) - (1)].hw_device); }
     break;
 
-  case 37:
+  case 54:
 
-/* Line 678 of lalr1.cc  */
-#line 521 "cfg_parser.yy"
+/* Line 690 of lalr1.cc  */
+#line 626 "cfg_parser.yy"
     { (yyval.device) = 0; }
     break;
 
-  case 38:
+  case 55:
 
-/* Line 678 of lalr1.cc  */
-#line 524 "cfg_parser.yy"
+/* Line 690 of lalr1.cc  */
+#line 627 "cfg_parser.yy"
     { (yyval.device) = 0; }
     break;
 
-  case 39:
+  case 56:
 
-/* Line 678 of lalr1.cc  */
-#line 526 "cfg_parser.yy"
+/* Line 690 of lalr1.cc  */
+#line 630 "cfg_parser.yy"
+    { (yyval.device) = 0; }
+    break;
+
+  case 57:
+
+/* Line 690 of lalr1.cc  */
+#line 632 "cfg_parser.yy"
     { (yyval.device) = concat((yysemantic_stack_[(2) - (1)].device), (yysemantic_stack_[(2) - (2)].device)); }
     break;
 
-  case 40:
+  case 58:
 
-/* Line 678 of lalr1.cc  */
-#line 528 "cfg_parser.yy"
+/* Line 690 of lalr1.cc  */
+#line 634 "cfg_parser.yy"
     { _glbl_vbus = (yysemantic_stack_[(1) - (1)].device); }
     break;
 
 
 
-/* Line 678 of lalr1.cc  */
-#line 998 "cfg_parser.tab.cc"
+/* Line 690 of lalr1.cc  */
+#line 1167 "cfg_parser.tab.cc"
 	default:
           break;
       }
+    /* User semantic actions sometimes alter yychar, and that requires
+       that yytoken be updated with the new translation.  We take the
+       approach of translating immediately before every use of yytoken.
+       One alternative is translating here after every semantic action,
+       but that translation would be missed if the semantic action
+       invokes YYABORT, YYACCEPT, or YYERROR immediately after altering
+       yychar.  In the case of YYABORT or YYACCEPT, an incorrect
+       destructor might then be invoked immediately.  In the case of
+       YYERROR, subsequent parser actions might lead to an incorrect
+       destructor call or verbose syntax error message before the
+       lookahead is translated.  */
     YY_SYMBOL_PRINT ("-> $$ =", yyr1_[yyn], &yyval, &yyloc);
 
     yypop_ (yylen);
@@ -1021,14 +1201,20 @@ namespace cfg {
   | yyerrlab -- here on detecting error |
   `------------------------------------*/
   yyerrlab:
+    /* Make sure we have latest lookahead translation.  See comments at
+       user semantic actions for why this is necessary.  */
+    yytoken = yytranslate_ (yychar);
+
     /* If not already recovering from an error, report this error.  */
     if (!yyerrstatus_)
       {
 	++yynerrs_;
+	if (yychar == yyempty_)
+	  yytoken = yyempty_;
 	error (yylloc, yysyntax_error_ (yystate, yytoken));
       }
 
-    yyerror_range[0] = yylloc;
+    yyerror_range[1] = yylloc;
     if (yyerrstatus_ == 3)
       {
 	/* If just tried and failed to reuse lookahead token after an
@@ -1063,7 +1249,7 @@ namespace cfg {
     if (false)
       goto yyerrorlab;
 
-    yyerror_range[0] = yylocation_stack_[yylen - 1];
+    yyerror_range[1] = yylocation_stack_[yylen - 1];
     /* Do not reclaim the symbols of the rule which action triggered
        this YYERROR.  */
     yypop_ (yylen);
@@ -1080,7 +1266,7 @@ namespace cfg {
     for (;;)
       {
 	yyn = yypact_[yystate];
-	if (yyn != yypact_ninf_)
+	if (!yy_pact_value_is_default_ (yyn))
 	{
 	  yyn += yyterror_;
 	  if (0 <= yyn && yyn <= yylast_ && yycheck_[yyn] == yyterror_)
@@ -1095,7 +1281,7 @@ namespace cfg {
 	if (yystate_stack_.height () == 1)
 	YYABORT;
 
-	yyerror_range[0] = yylocation_stack_[0];
+	yyerror_range[1] = yylocation_stack_[0];
 	yydestruct_ ("Error: popping",
 		     yystos_[yystate],
 		     &yysemantic_stack_[0], &yylocation_stack_[0]);
@@ -1104,10 +1290,10 @@ namespace cfg {
 	YY_STACK_PRINT ();
       }
 
-    yyerror_range[1] = yylloc;
+    yyerror_range[2] = yylloc;
     // Using YYLLOC is tempting, but would change the location of
     // the lookahead.  YYLOC is available though.
-    YYLLOC_DEFAULT (yyloc, (yyerror_range - 1), 2);
+    YYLLOC_DEFAULT (yyloc, yyerror_range, 2);
     yysemantic_stack_.push (yylval);
     yylocation_stack_.push (yyloc);
 
@@ -1130,7 +1316,13 @@ namespace cfg {
 
   yyreturn:
     if (yychar != yyempty_)
-      yydestruct_ ("Cleanup: discarding lookahead", yytoken, &yylval, &yylloc);
+      {
+        /* Make sure we have latest lookahead translation.  See comments
+           at user semantic actions for why this is necessary.  */
+        yytoken = yytranslate_ (yychar);
+        yydestruct_ ("Cleanup: discarding lookahead", yytoken, &yylval,
+                     &yylloc);
+      }
 
     /* Do not reclaim the symbols of the rule which action triggered
        this YYABORT or YYACCEPT.  */
@@ -1149,135 +1341,201 @@ namespace cfg {
 
   // Generate an error message.
   std::string
-  Parser::yysyntax_error_ (int yystate, int tok)
+  Parser::yysyntax_error_ (int yystate, int yytoken)
   {
-    std::string res;
-    YYUSE (yystate);
-#if YYERROR_VERBOSE
-    int yyn = yypact_[yystate];
-    if (yypact_ninf_ < yyn && yyn <= yylast_)
+    std::string yyres;
+    // Number of reported tokens (one for the "unexpected", one per
+    // "expected").
+    size_t yycount = 0;
+    // Its maximum.
+    enum { YYERROR_VERBOSE_ARGS_MAXIMUM = 5 };
+    // Arguments of yyformat.
+    char const *yyarg[YYERROR_VERBOSE_ARGS_MAXIMUM];
+
+    /* There are many possibilities here to consider:
+       - If this state is a consistent state with a default action, then
+         the only way this function was invoked is if the default action
+         is an error action.  In that case, don't check for expected
+         tokens because there are none.
+       - The only way there can be no lookahead present (in yytoken) is
+         if this state is a consistent state with a default action.
+         Thus, detecting the absence of a lookahead is sufficient to
+         determine that there is no unexpected or expected token to
+         report.  In that case, just report a simple "syntax error".
+       - Don't assume there isn't a lookahead just because this state is
+         a consistent state with a default action.  There might have
+         been a previous inconsistent state, consistent state with a
+         non-default action, or user semantic action that manipulated
+         yychar.
+       - Of course, the expected token list depends on states to have
+         correct lookahead information, and it depends on the parser not
+         to perform extra reductions after fetching a lookahead from the
+         scanner and before detecting a syntax error.  Thus, state
+         merging (from LALR or IELR) and default reductions corrupt the
+         expected token list.  However, the list is correct for
+         canonical LR with one exception: it will still contain any
+         token that will not be accepted due to an error action in a
+         later state.
+    */
+    if (yytoken != yyempty_)
       {
-	/* Start YYX at -YYN if negative to avoid negative indexes in
-	   YYCHECK.  */
-	int yyxbegin = yyn < 0 ? -yyn : 0;
-
-	/* Stay within bounds of both yycheck and yytname.  */
-	int yychecklim = yylast_ - yyn + 1;
-	int yyxend = yychecklim < yyntokens_ ? yychecklim : yyntokens_;
-	int count = 0;
-	for (int x = yyxbegin; x < yyxend; ++x)
-	  if (yycheck_[x + yyn] == x && x != yyterror_)
-	    ++count;
-
-	// FIXME: This method of building the message is not compatible
-	// with internationalization.  It should work like yacc.c does it.
-	// That is, first build a string that looks like this:
-	// "syntax error, unexpected %s or %s or %s"
-	// Then, invoke YY_ on this string.
-	// Finally, use the string as a format to output
-	// yytname_[tok], etc.
-	// Until this gets fixed, this message appears in English only.
-	res = "syntax error, unexpected ";
-	res += yytnamerr_ (yytname_[tok]);
-	if (count < 5)
-	  {
-	    count = 0;
-	    for (int x = yyxbegin; x < yyxend; ++x)
-	      if (yycheck_[x + yyn] == x && x != yyterror_)
-		{
-		  res += (!count++) ? ", expecting " : " or ";
-		  res += yytnamerr_ (yytname_[x]);
-		}
-	  }
+        yyarg[yycount++] = yytname_[yytoken];
+        int yyn = yypact_[yystate];
+        if (!yy_pact_value_is_default_ (yyn))
+          {
+            /* Start YYX at -YYN if negative to avoid negative indexes in
+               YYCHECK.  In other words, skip the first -YYN actions for
+               this state because they are default actions.  */
+            int yyxbegin = yyn < 0 ? -yyn : 0;
+            /* Stay within bounds of both yycheck and yytname.  */
+            int yychecklim = yylast_ - yyn + 1;
+            int yyxend = yychecklim < yyntokens_ ? yychecklim : yyntokens_;
+            for (int yyx = yyxbegin; yyx < yyxend; ++yyx)
+              if (yycheck_[yyx + yyn] == yyx && yyx != yyterror_
+                  && !yy_table_value_is_error_ (yytable_[yyx + yyn]))
+                {
+                  if (yycount == YYERROR_VERBOSE_ARGS_MAXIMUM)
+                    {
+                      yycount = 1;
+                      break;
+                    }
+                  else
+                    yyarg[yycount++] = yytname_[yyx];
+                }
+          }
       }
-    else
-#endif
-      res = YY_("syntax error");
-    return res;
+
+    char const* yyformat = 0;
+    switch (yycount)
+      {
+#define YYCASE_(N, S)                         \
+        case N:                               \
+          yyformat = S;                       \
+        break
+        YYCASE_(0, YY_("syntax error"));
+        YYCASE_(1, YY_("syntax error, unexpected %s"));
+        YYCASE_(2, YY_("syntax error, unexpected %s, expecting %s"));
+        YYCASE_(3, YY_("syntax error, unexpected %s, expecting %s or %s"));
+        YYCASE_(4, YY_("syntax error, unexpected %s, expecting %s or %s or %s"));
+        YYCASE_(5, YY_("syntax error, unexpected %s, expecting %s or %s or %s or %s"));
+#undef YYCASE_
+      }
+
+    // Argument number.
+    size_t yyi = 0;
+    for (char const* yyp = yyformat; *yyp; ++yyp)
+      if (yyp[0] == '%' && yyp[1] == 's' && yyi < yycount)
+        {
+          yyres += yytnamerr_ (yyarg[yyi++]);
+          ++yyp;
+        }
+      else
+        yyres += *yyp;
+    return yyres;
   }
 
 
   /* YYPACT[STATE-NUM] -- Index in YYTABLE of the portion describing
      STATE-NUM.  */
-  const signed char Parser::yypact_ninf_ = -43;
+  const signed char Parser::yypact_ninf_ = -90;
   const signed char
   Parser::yypact_[] =
   {
-         5,    -3,   -43,     2,     0,   -43,   -43,   -43,    -1,   -43,
-       5,   -43,    30,    13,    32,    18,    21,   -43,    31,   -43,
-     -43,    27,    10,    28,    11,   -43,    36,    -2,   -43,   -43,
-     -43,     6,   -43,    29,    32,    37,    18,    38,    40,    41,
-     -43,   -43,    -2,    33,   -43,     6,    34,   -43,   -43,    35,
-     -43,    42,    47,    39,   -43,   -43,   -43,   -43,    44,    25,
-      43,    26,    45,   -43,    46,   -43,    15,    49,    48,    50,
-     -43,    51,    25,    52,    54,   -43,   -43,   -43,   -43,   -43,
-      53,   -43,    -2,    55,   -43
+        22,    -1,   -90,     2,     3,     4,   -90,   -90,   -90,    12,
+     -90,    22,   -90,    14,    13,    36,    10,    30,    27,    25,
+     -90,    30,    29,   -90,    41,   -90,   -90,    44,    32,    45,
+      31,    48,    52,   -90,    42,   -90,    53,    54,    59,   -90,
+      60,     1,   -90,   -90,   -90,    34,   -90,    55,    36,    61,
+      37,    10,    57,    27,    56,    30,    30,    64,    66,    68,
+     -90,   -90,     1,    58,   -90,     5,    34,    62,   -90,   -90,
+      67,   -90,    63,    46,   -90,   -90,    36,   -90,    30,   -90,
+     -90,   -90,    70,    74,    69,   -90,   -90,   -90,   -90,    71,
+      76,    75,    65,    72,   -90,    73,    77,    46,    82,    47,
+      78,   -90,    46,   -90,    79,    30,   -90,    80,    83,    84,
+      85,   -90,   -90,   -90,   -90,    86,    89,   -90,   -90,   -90,
+      87,   -90,     1,    88,   -90
   };
 
-  /* YYDEFACT[S] -- default rule to reduce with in state S when YYTABLE
-     doesn't specify something else to do.  Zero means the default is an
-     error.  */
+  /* YYDEFACT[S] -- default reduction number in state S.  Performed when
+     YYTABLE doesn't specify something else to do.  Zero means the
+     default is an error.  */
   const unsigned char
   Parser::yydefact_[] =
   {
-        38,     0,    16,     0,     0,     5,     8,    36,     0,    37,
-      38,    40,     0,     0,     0,     0,     0,    34,     0,    39,
-       1,     0,     0,     0,    13,     6,     0,    30,    17,     2,
-      11,     9,     3,     0,     0,     0,     0,     0,     0,     0,
-      28,    29,    30,     0,    27,     9,     0,     4,    14,    17,
-       7,     0,     0,     0,    31,    35,    10,    12,     0,    21,
-       0,     0,     0,    20,    18,    22,     0,     0,     0,     0,
-      15,     0,     0,     0,     0,    26,    25,    19,    23,    24,
-       0,    32,    30,     0,    33
+        56,     0,    25,     0,     0,     0,    12,    13,    53,     0,
+      55,    56,    58,     0,     0,     0,     7,     0,    27,     0,
+      54,     0,     0,    51,     0,    57,     1,     0,     0,     0,
+      22,     0,     5,     8,     0,    14,    28,     0,     0,    16,
+       0,    47,    26,     2,    20,    18,     9,     0,     0,     0,
+       0,     0,     0,    27,     0,     0,     0,     0,     0,     0,
+      45,    46,    47,     0,    44,     0,    18,     0,    10,    23,
+      26,    37,    35,    38,     3,     6,     0,    29,    31,    34,
+      15,    17,     0,     0,     0,    48,    52,    19,    21,     0,
+       0,    39,     0,     0,    30,     0,     0,    38,     0,     0,
+       0,    36,    38,     4,     0,    31,    33,     0,     0,     0,
+       0,    24,    40,    11,    32,     0,     0,    43,    42,    41,
+       0,    49,    47,     0,    50
   };
 
   /* YYPGOTO[NTERM-NUM].  */
   const signed char
   Parser::yypgoto_[] =
   {
-       -43,   -43,   -14,   -43,   -27,    19,   -43,    22,   -11,    -6,
-     -43,   -43,   -43,   -43,   -42,   -43,   -43,   -43,   -43,   -43,
-      59,   -43
+       -90,   -90,   -90,    40,   -90,   -90,   -17,   -42,    33,   -90,
+     -47,     6,    51,   -90,   -12,   -90,   -90,    81,   -89,   -90,
+     -90,   -90,   -60,   -90,   -90,   -90,   -90,   -90,    94,   -90
   };
 
   /* YYDEFGOTO[NTERM-NUM].  */
   const signed char
   Parser::yydefgoto_[] =
   {
-        -1,    22,     5,     6,     7,    46,    32,    23,     8,    65,
-      66,    40,    41,    42,    43,    44,    82,     9,    27,    10,
-      11,    12
+        -1,    28,    32,    33,    34,     6,     7,     8,    67,    46,
+      29,    30,    37,    95,    96,    79,    20,    91,    92,    60,
+      61,    62,    63,    64,   122,    10,    41,    11,    12,    13
   };
 
   /* YYTABLE[YYPACT[STATE-NUM]].  What to do in state STATE-NUM.  If
      positive, shift that token.  If negative, reduce the rule which
-     number is the opposite.  If zero, do what YYDEFACT says.  */
+     number is the opposite.  If YYTABLE_NINF_, syntax error.  */
   const signed char Parser::yytable_ninf_ = -1;
   const unsigned char
   Parser::yytable_[] =
   {
-        54,    25,    37,    24,    45,    13,    38,    15,     1,     1,
-       2,     3,     3,     4,     4,    14,    16,    17,    45,    39,
-      18,     1,    50,    24,     3,    30,    21,    72,    31,    73,
-      20,    34,    35,    63,    64,    68,    69,     2,    26,    28,
-      83,    29,    33,    36,    47,    49,    51,    52,    58,    53,
-      60,    67,    55,    57,    62,    59,    48,    71,     0,    70,
-      77,    61,    74,    75,    56,    76,    78,    79,    80,    19,
-       0,    81,     0,     0,    84
+        35,    69,    85,    66,    39,    57,     9,    14,   107,    58,
+      17,    21,    17,   112,    26,    15,    18,     9,    31,    16,
+      19,    22,    19,    59,    66,     1,    27,     2,     3,    93,
+       4,    23,     5,     1,    24,    36,     3,     1,    80,    81,
+       3,     2,    65,    38,     5,    71,    72,    40,    44,    42,
+      73,    45,    48,    49,    71,    72,   109,   110,    43,    47,
+      52,    94,   123,    50,    51,    53,    55,    56,    54,    70,
+      76,    68,    82,    83,    90,    78,    84,    98,    86,   103,
+      89,   100,    88,    97,    99,   101,   104,   102,    94,   105,
+     108,    75,   111,   114,   115,   113,   116,   106,     0,    87,
+     117,   118,   119,   120,    77,    25,   121,     0,   124,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,    74
   };
 
   /* YYCHECK.  */
   const signed char
   Parser::yycheck_[] =
   {
-        42,    15,     4,    14,    31,     8,     8,     7,     3,     3,
-       5,     6,     6,     8,     8,    13,    16,    18,    45,    21,
-      21,     3,    36,    34,     6,    15,    13,    12,    18,    14,
-       0,    20,    21,     8,     9,     9,    10,     5,    17,     8,
-      82,    14,    14,     7,    15,     8,     8,     7,    13,     8,
-       3,     8,    19,    19,    10,    13,    34,    11,    -1,    14,
-       9,    22,    13,    15,    45,    15,    72,    15,    14,    10,
-      -1,    18,    -1,    -1,    19
+        17,    48,    62,    45,    21,     4,     0,     8,    97,     8,
+       7,     7,     7,   102,     0,    13,    13,    11,     8,    17,
+      17,    17,    17,    22,    66,     3,    13,     5,     6,    76,
+       8,    19,    10,     3,    22,     8,     6,     3,    55,    56,
+       6,     5,     8,    18,    10,     8,     9,    18,    16,     8,
+      13,    19,    21,    22,     8,     9,     9,    10,    14,    14,
+      18,    78,   122,    15,    12,    12,     7,     7,    14,     8,
+      13,    16,     8,     7,    11,    19,     8,     3,    20,    14,
+      13,    10,    20,    13,    15,     9,    14,    12,   105,    16,
+       8,    51,    14,   105,    14,    16,    13,    20,    -1,    66,
+      16,    16,    16,    14,    53,    11,    19,    -1,    20,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    50
   };
 
   /* STOS_[STATE-NUM] -- The (internal number of the) accessing
@@ -1285,15 +1543,19 @@ namespace cfg {
   const unsigned char
   Parser::yystos_[] =
   {
-         0,     3,     5,     6,     8,    25,    26,    27,    31,    40,
-      42,    43,    44,     8,    13,     7,    16,    18,    21,    43,
-       0,    13,    24,    30,    31,    25,    17,    41,     8,    14,
-      15,    18,    29,    14,    20,    21,     7,     4,     8,    21,
-      34,    35,    36,    37,    38,    27,    28,    15,    30,     8,
-      25,     8,     7,     8,    37,    19,    28,    19,    13,    13,
-       3,    22,    10,     8,     9,    32,    33,     8,     9,    10,
-      14,    11,    12,    14,    13,    15,    15,     9,    32,    15,
-      14,    18,    39,    37,    19
+         0,     3,     5,     6,     8,    10,    28,    29,    30,    34,
+      48,    50,    51,    52,     8,    13,    17,     7,    13,    17,
+      39,     7,    17,    19,    22,    51,     0,    13,    24,    33,
+      34,     8,    25,    26,    27,    29,     8,    35,    18,    29,
+      18,    49,     8,    14,    16,    19,    32,    14,    21,    22,
+      15,    12,    18,    12,    14,     7,     7,     4,     8,    22,
+      42,    43,    44,    45,    46,     8,    30,    31,    16,    33,
+       8,     8,     9,    13,    40,    26,    13,    35,    19,    38,
+      29,    29,     8,     7,     8,    45,    20,    31,    20,    13,
+      11,    40,    41,    33,    29,    36,    37,    13,     3,    15,
+      10,     9,    12,    14,    14,    16,    20,    41,     8,     9,
+      10,    14,    41,    16,    37,    14,    13,    16,    16,    16,
+      14,    19,    47,    45,    20
   };
 
 #if YYDEBUG
@@ -1303,8 +1565,8 @@ namespace cfg {
   Parser::yytoken_number_[] =
   {
          0,   256,   257,   258,   259,   260,   261,   262,   263,   264,
-     265,   266,   267,    40,    41,    59,    91,    93,   123,   125,
-      44,    46,    61
+     265,   266,   267,    40,    41,    61,    59,    91,    93,   123,
+     125,    44,    46
   };
 #endif
 
@@ -1312,22 +1574,24 @@ namespace cfg {
   const unsigned char
   Parser::yyr1_[] =
   {
-         0,    23,    24,    25,    25,    26,    26,    26,    27,    28,
-      28,    29,    29,    30,    30,    30,    31,    31,    32,    32,
-      32,    33,    33,    33,    34,    35,    35,    36,    36,    36,
-      37,    37,    39,    38,    41,    40,    42,    42,    43,    43,
-      44
+         0,    23,    24,    25,    25,    26,    26,    27,    27,    28,
+      28,    28,    29,    30,    30,    30,    30,    30,    31,    31,
+      32,    32,    33,    33,    33,    34,    34,    35,    35,    35,
+      36,    37,    37,    38,    39,    40,    40,    40,    41,    41,
+      41,    42,    43,    43,    44,    44,    44,    45,    45,    47,
+      46,    49,    48,    50,    50,    50,    51,    51,    52
   };
 
   /* YYR2[YYN] -- Number of symbols composing right hand side of rule YYN.  */
   const unsigned char
   Parser::yyr2_[] =
   {
-         0,     2,     2,     4,     5,     1,     3,     5,     1,     0,
-       2,     1,     3,     1,     3,     6,     1,     3,     1,     3,
-       1,     0,     1,     3,     6,     5,     5,     1,     1,     1,
-       0,     2,     0,    10,     0,     5,     1,     1,     0,     2,
-       1
+         0,     2,     2,     3,     5,     1,     3,     0,     1,     4,
+       5,     8,     1,     1,     3,     5,     3,     5,     0,     2,
+       1,     3,     1,     3,     6,     1,     3,     0,     1,     3,
+       1,     0,     3,     3,     4,     1,     3,     1,     0,     1,
+       3,     6,     5,     5,     1,     1,     1,     0,     2,     0,
+      10,     0,     5,     1,     2,     1,     0,     2,     1
   };
 
 #if YYDEBUG || YYERROR_VERBOSE || YYTOKEN_TABLE
@@ -1340,13 +1604,15 @@ namespace cfg {
   "\"new-res operator\"", "\"hw-root operator\"", "\"wrap operator\"",
   "\"instantiation oprtator '=>'\"", "\"identifier\"", "\"integer\"",
   "\"string\"", "\"range operator '..'\"", "\"comma\"", "'('", "')'",
-  "';'", "'['", "']'", "'{'", "'}'", "','", "'.'", "'='", "$accept",
-  "param_list", "device_def", "expression", "expression_statement",
-  "statement_list", "device_body", "hw_device_list", "hw_device",
-  "const_expression", "parameter_list", "hw_resource_def",
-  "hw_device_set_property", "hw_device_body_statement", "hw_device_body",
-  "hw_device_def", "@1", "hw_device_ext", "@2", "top_level_statement",
-  "top_level_list", "start", 0
+  "'='", "';'", "'['", "']'", "'{'", "'}'", "','", "'.'", "$accept",
+  "param_list", "tagged_parameter", "tagged_parameter_list_ne",
+  "tagged_parameter_list", "device_def_expr", "expression",
+  "device_def_statement", "statement_list", "device_body",
+  "hw_device_list", "hw_device", "macro_parameter_list", "macro_statement",
+  "macro_statement_list", "macro_body", "macro_def", "const_expression",
+  "parameter_list", "hw_resource_def", "hw_device_set_property",
+  "hw_device_body_statement", "hw_device_body", "hw_device_def", "@1",
+  "hw_device_ext", "@2", "top_level_statement", "top_level_list", "start", 0
   };
 #endif
 
@@ -1355,20 +1621,26 @@ namespace cfg {
   const Parser::rhs_number_type
   Parser::yyrhs_[] =
   {
-        44,     0,    -1,    13,    14,    -1,     3,     8,    24,    29,
-      -1,     6,    13,    30,    14,    15,    -1,    25,    -1,     8,
-       7,    25,    -1,     8,    16,    17,     7,    25,    -1,    26,
-      -1,    -1,    27,    28,    -1,    15,    -1,    18,    28,    19,
-      -1,    31,    -1,    31,    20,    30,    -1,    31,    21,     8,
-      13,    10,    14,    -1,     5,    -1,    31,    21,     8,    -1,
-       9,    -1,     9,    11,     9,    -1,     8,    -1,    -1,    32,
-      -1,    33,    12,    32,    -1,     4,     8,    13,    33,    14,
-      15,    -1,    21,     8,    22,    10,    15,    -1,    21,     8,
-      22,     9,    15,    -1,    38,    -1,    34,    -1,    35,    -1,
-      -1,    36,    37,    -1,    -1,     8,     7,     3,     8,    13,
-      14,    18,    39,    37,    19,    -1,    -1,    31,    18,    41,
-      37,    19,    -1,    27,    -1,    40,    -1,    -1,    42,    43,
-      -1,    43,    -1
+        52,     0,    -1,    13,    14,    -1,     8,    15,    40,    -1,
+       8,    15,    13,    41,    14,    -1,    25,    -1,    25,    12,
+      26,    -1,    -1,    26,    -1,     3,     8,    24,    32,    -1,
+       6,    13,    33,    14,    16,    -1,     6,    17,    27,    18,
+      13,    33,    14,    16,    -1,    28,    -1,    29,    -1,     8,
+       7,    29,    -1,     8,    17,    18,     7,    29,    -1,    10,
+       7,    29,    -1,    10,    17,    18,     7,    29,    -1,    -1,
+      30,    31,    -1,    16,    -1,    19,    31,    20,    -1,    34,
+      -1,    34,    21,    33,    -1,    34,    22,     8,    13,    10,
+      14,    -1,     5,    -1,    34,    22,     8,    -1,    -1,     8,
+      -1,     8,    12,    35,    -1,    29,    -1,    -1,    36,    16,
+      37,    -1,    19,    37,    20,    -1,    13,    35,    14,    38,
+      -1,     9,    -1,     9,    11,     9,    -1,     8,    -1,    -1,
+      40,    -1,    40,    12,    41,    -1,     4,     8,    13,    41,
+      14,    16,    -1,    22,     8,    15,    10,    16,    -1,    22,
+       8,    15,     9,    16,    -1,    46,    -1,    42,    -1,    43,
+      -1,    -1,    44,    45,    -1,    -1,     8,     7,     3,     8,
+      13,    14,    19,    47,    45,    20,    -1,    -1,    34,    19,
+      49,    45,    20,    -1,    30,    -1,     8,    39,    -1,    48,
+      -1,    -1,    50,    51,    -1,    51,    -1
   };
 
   /* YYPRHS[YYN] -- Index of the first RHS symbol of rule number YYN in
@@ -1376,22 +1648,24 @@ namespace cfg {
   const unsigned char
   Parser::yyprhs_[] =
   {
-         0,     0,     3,     6,    11,    17,    19,    23,    29,    31,
-      32,    35,    37,    41,    43,    47,    54,    56,    60,    62,
-      66,    68,    69,    71,    75,    82,    88,    94,    96,    98,
-     100,   101,   104,   105,   116,   117,   123,   125,   127,   128,
-     131
+         0,     0,     3,     6,    10,    16,    18,    22,    23,    25,
+      30,    36,    45,    47,    49,    53,    59,    63,    69,    70,
+      73,    75,    79,    81,    85,    92,    94,    98,    99,   101,
+     105,   107,   108,   112,   116,   121,   123,   127,   129,   130,
+     132,   136,   143,   149,   155,   157,   159,   161,   162,   165,
+     166,   177,   178,   184,   186,   189,   191,   192,   195
   };
 
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
   const unsigned short int
   Parser::yyrline_[] =
   {
-         0,   413,   413,   417,   423,   427,   428,   430,   433,   436,
-     437,   441,   442,   445,   446,   447,   452,   453,   464,   466,
-     468,   472,   473,   475,   479,   483,   485,   489,   496,   497,
-     499,   501,   505,   504,   517,   517,   520,   521,   524,   525,
-     528
+         0,   478,   478,   482,   483,   486,   487,   490,   491,   494,
+     504,   506,   510,   512,   513,   515,   517,   519,   523,   524,
+     528,   529,   532,   533,   534,   539,   540,   550,   552,   553,
+     556,   558,   560,   563,   566,   569,   571,   573,   577,   578,
+     580,   584,   588,   590,   594,   601,   602,   604,   606,   610,
+     609,   622,   622,   625,   626,   627,   630,   631,   634
   };
 
   // Print the state stack on the debug stream.
@@ -1435,15 +1709,15 @@ namespace cfg {
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-      13,    14,     2,     2,    20,     2,    21,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,    15,
-       2,    22,     2,     2,     2,     2,     2,     2,     2,     2,
+      13,    14,     2,     2,    21,     2,    22,     2,     2,     2,
+       2,     2,     2,     2,     2,     2,     2,     2,     2,    16,
+       2,    15,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,    16,     2,    17,     2,     2,     2,     2,     2,     2,
+       2,    17,     2,    18,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,    18,     2,    19,     2,     2,     2,     2,
+       2,     2,     2,    19,     2,    20,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -1466,10 +1740,10 @@ namespace cfg {
   }
 
   const int Parser::yyeof_ = 0;
-  const int Parser::yylast_ = 74;
-  const int Parser::yynnts_ = 22;
+  const int Parser::yylast_ = 131;
+  const int Parser::yynnts_ = 30;
   const int Parser::yyempty_ = -2;
-  const int Parser::yyfinal_ = 20;
+  const int Parser::yyfinal_ = 26;
   const int Parser::yyterror_ = 1;
   const int Parser::yyerrcode_ = 256;
   const int Parser::yyntokens_ = 23;
@@ -1478,17 +1752,14 @@ namespace cfg {
   const Parser::token_number_type Parser::yyundef_token_ = 2;
 
 
-/* Line 1054 of lalr1.cc  */
-#line 1 "[Bison:b4_percent_define_default]"
-
 } // cfg
 
-/* Line 1054 of lalr1.cc  */
-#line 1488 "cfg_parser.tab.cc"
+/* Line 1136 of lalr1.cc  */
+#line 1759 "cfg_parser.tab.cc"
 
 
-/* Line 1056 of lalr1.cc  */
-#line 530 "cfg_parser.yy"
+/* Line 1138 of lalr1.cc  */
+#line 636 "cfg_parser.yy"
 
 
 void cfg::Parser::error(const Parser::location_type& l,

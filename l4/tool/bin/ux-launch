@@ -71,5 +71,7 @@ $ux_cmd .= " -S '".shift(@mods)."'";
 $ux_cmd .= " -R '".shift(@mods)."'";
 $ux_cmd .= ' '.join(' ', map { "-l $_" } @mods);
 
+$ux_cmd = "$ENV{UX_GDB_CMD} --args $ux_cmd" if defined $ENV{UX_GDB_CMD};
+
 print "$ux_cmd\n";
 system("$ux_cmd");

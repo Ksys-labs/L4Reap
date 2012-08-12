@@ -41,7 +41,8 @@ extern "C" void sys_kdb_ke()
   //arriving from enter_kdebug
   if (t->regs()->r[29] == (Mword)-0x24 && t->regs()->r[2] & (1 << 30)) //ip && r3
     {
-      t->mem_space()->copy_from_user(str, (char *)(x + 1), sizeof(str));
+      //t->mem_space()->copy_from_user(str, (char *)(x + 1), sizeof(str));
+      strncpy(str, (char *)(x + 1), sizeof(str));
       str[sizeof(str)-1] = 0;
     }
 

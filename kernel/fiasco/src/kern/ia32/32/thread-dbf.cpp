@@ -28,8 +28,8 @@ IMPLEMENT
 void
 Thread::handle_double_fault (void)
 {
-  // XXX: will not work, because currnt_cpu() must run on a thread stack, not
-  // on a dbf stack!!!
+  // cannot use currnt_cpu() here because this must run on a thread stack,
+  // not on a dbf stack
   volatile Tss *tss = Cpu::boot_cpu()->get_tss();
   int c;
 

@@ -29,7 +29,7 @@ PUBLIC
 Jdb_module::Action_code
 Jdb_exit_module::action (int cmd, void *&, char const *&, int &)
 {
-  if (cmd!=0)
+  if (cmd != 0)
     return NOTHING;
 
   // re-enable output of all consoles but GZIP and DEBUG
@@ -59,7 +59,7 @@ Jdb_module::Cmd const *
 Jdb_exit_module::cmds() const
 {
   static Cmd cs[] =
-    { { 0, "^", "exit", "", "^\treboot the system", (void*)0 } };
+    { { 0, "^", "exit", "", "^\treboot the system", 0 } };
 
   return cs;
 }

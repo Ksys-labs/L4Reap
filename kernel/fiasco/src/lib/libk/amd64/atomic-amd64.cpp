@@ -2,6 +2,20 @@ IMPLEMENTATION [amd64]:
 
 inline
 void
+atomic_mp_and(Mword *l, Mword value)
+{
+  asm volatile ("lock; andq %1, %2" : "=m"(*l) : "ir"(value), "m"(*l));
+}
+
+inline
+void
+atomic_mp_or(Mword *l, Mword value)
+{
+  asm volatile ("lock; orq %1, %2" : "=m"(*l) : "ir"(value), "m"(*l));
+}
+
+inline
+void
 atomic_mp_add (Mword *l, Mword value)
 {
   asm volatile ("lock; addq %1, %2" : "=m"(*l) : "ir"(value), "m"(*l));

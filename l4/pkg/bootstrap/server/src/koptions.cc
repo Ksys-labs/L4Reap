@@ -22,10 +22,7 @@ static struct {
   { " -apic",              L4_kernel_options::F_apic              },
   { " -loadcnt",           L4_kernel_options::F_loadcnt           },
   { " -watchdog",          L4_kernel_options::F_watchdog          },
-  { " -rotext",            L4_kernel_options::F_rotext            },
-  { " -profile",           L4_kernel_options::F_profile           },
   { " -irq0",              L4_kernel_options::F_irq0              },
-  { " -profstart",         L4_kernel_options::F_profstart         },
   { " -nosfn",             L4_kernel_options::F_nosfn             },
   { " -jdb_never_stop",    L4_kernel_options::F_jdb_never_stop    },
 };
@@ -56,7 +53,7 @@ static struct {
                       offsetof(L4_kernel_options::Options, jdb_cmd) },
 };
 
-void kcmdline_show(L4_kernel_options::Options *lko)
+static void kcmdline_show(L4_kernel_options::Options *lko)
 {
   printf("Location: %016lx  Size: %zd Bytes\n",
          (unsigned long)lko, sizeof(*lko));

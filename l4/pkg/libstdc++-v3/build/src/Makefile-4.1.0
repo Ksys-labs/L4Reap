@@ -1,6 +1,0 @@
-
-SRC_CC += globals_locale.cc list.cc valarray-inst.cc debug_list.cc
-SRC_CC += atomicity.cc
-
-$(OBJ_DIR)/atomicity.cc: $(call CPU_file,atomicity.h)
-	$(LN) -sf $< $@

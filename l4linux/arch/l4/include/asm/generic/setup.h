@@ -1,7 +1,7 @@
 #ifndef __ASM_L4__GENERIC__SETUP_H__
 #define __ASM_L4__GENERIC__SETUP_H__
 
-#include <asm/thread_info.h>
+#include <linux/thread_info.h>
 #include <l4/sys/kip.h>
 
 extern l4_kernel_info_t *l4lx_kinfo;
@@ -14,7 +14,7 @@ void l4x_setup_memory(char *cmdl,
                       unsigned long *isa_dma_mem_start,
                       unsigned long *isa_dma_mem_size);
 
-unsigned long l4x_get_isa_dma_memory_end(void);
+void l4x_v2p_add_item(l4_addr_t phys, void *virt, l4_size_t size);
 
 void l4x_free_initrd_mem(void);
 void l4x_load_initrd(char *command_line);

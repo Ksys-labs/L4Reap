@@ -111,6 +111,9 @@ static void cx231xx_audio_isocirq(struct urb *urb)
 	struct snd_pcm_substream *substream;
 	struct snd_pcm_runtime *runtime;
 
+	if (dev->state & DEV_DISCONNECTED)
+		return;
+
 	switch (urb->status) {
 	case 0:		/* success */
 	case -ETIMEDOUT:	/* NAK */
@@ -196,6 +199,9 @@ static void cx231xx_audio_bulkirq(struct urb *urb)
 	struct snd_pcm_substream *substream;
 	struct snd_pcm_runtime *runtime;
 
+	if (dev->state & DEV_DISCONNECTED)
+		return;
+
 	switch (urb->status) {
 	case 0:		/* success */
 	case -ETIMEDOUT:	/* NAK */
@@ -273,6 +279,9 @@ static int cx231xx_init_audio_isoc(struct cx231xx *dev)
 
 	cx231xx_info("%s: Starting ISO AUDIO transfers\n", __func__);
 
+	if (dev->state & DEV_DISCONNECTED)
+		return -ENODEV;
+
 	sb_size = CX231XX_ISO_NUM_AUDIO_PACKETS * dev->adev.max_pkt_size;
 
 	for (i = 0; i < CX231XX_AUDIO_BUFS; i++) {
@@ -330,6 +339,9 @@ static int cx231xx_init_audio_bulk(struct cx231xx *dev)
 	int sb_size;
 
 	cx231xx_info("%s: Starting BULK AUDIO transfers\n", __func__);
+
+	if (dev->state & DEV_DISCONNECTED)
+		return -ENODEV;
 
 	sb_size = CX231XX_NUM_AUDIO_PACKETS * dev->adev.max_pkt_size;
 
@@ -432,6 +444,11 @@ static int snd_cx231xx_capture_open(struct snd_pcm_substream *substream)
 		return -ENODEV;
 	}
 
+	if (dev->state & DEV_DISCONNECTED) {
+		cx231xx_errdev("Can't open. the device was removed.\n");
+		return -ENODEV;
+	}
+
 	/* Sets volume, mute, etc */
 	dev->mute = 0;
 
@@ -506,21 +523,24 @@ static int snd_cx231xx_pcm_close(struct snd_pcm_substream *substream)
 static int snd_cx231xx_hw_capture_params(struct snd_pcm_substream *substream,
 					 struct snd_pcm_hw_params *hw_params)
 {
-	unsigned int channels, rate, format;
 	int ret;
 
 	dprintk("Setting capture parameters\n");
 
 	ret = snd_pcm_alloc_vmalloc_buffer(substream,
 					   params_buffer_bytes(hw_params));
-	format = params_format(hw_params);
-	rate = params_rate(hw_params);
-	channels = params_channels(hw_params);
-
+#if 0
 	/* TODO: set up cx231xx audio chip to deliver the correct audio format,
 	   current default is 48000hz multiplexed => 96000hz mono
 	   which shouldn't matter since analogue TV only supports mono */
-	return 0;
+	unsigned int channels, rate, format;
+
+	format = params_format(hw_params);
+	rate = params_rate(hw_params);
+	channels = params_channels(hw_params);
+#endif
+
+	return ret;
 }
 
 static int snd_cx231xx_hw_capture_free(struct snd_pcm_substream *substream)
@@ -569,7 +589,10 @@ static int snd_cx231xx_capture_trigger(struct snd_pcm_substream *substream,
 				       int cmd)
 {
 	struct cx231xx *dev = snd_pcm_substream_chip(substream);
-	int retval;
+	int retval = 0;
+
+	if (dev->state & DEV_DISCONNECTED)
+		return -ENODEV;
 
 	spin_lock(&dev->adev.slock);
 	switch (cmd) {
@@ -581,12 +604,13 @@ static int snd_cx231xx_capture_trigger(struct snd_pcm_substream *substream,
 		break;
 	default:
 		retval = -EINVAL;
+		break;
 	}
 	spin_unlock(&dev->adev.slock);
 
 	schedule_work(&dev->wq_trigger);
 
-	return 0;
+	return retval;
 }
 
 static snd_pcm_uframes_t snd_cx231xx_capture_pointer(struct snd_pcm_substream

@@ -11,8 +11,8 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 
-#include "../iio.h"
-#include "../trigger.h"
+#include <linux/iio/iio.h>
+#include <linux/iio/trigger.h>
 
 struct iio_sysfs_trig {
 	struct iio_trigger *trig;
@@ -77,9 +77,16 @@ static const struct attribute_group *iio_sysfs_trig_groups[] = {
 	NULL
 };
 
+
+/* Nothing to actually do upon release */
+static void iio_trigger_sysfs_release(struct device *dev)
+{
+}
+
 static struct device iio_sysfs_trig_dev = {
 	.bus = &iio_bus_type,
 	.groups = iio_sysfs_trig_groups,
+	.release = &iio_trigger_sysfs_release,
 };
 
 static ssize_t iio_sysfs_trigger_poll(struct device *dev,
@@ -107,6 +114,10 @@ static const struct attribute_group *iio_sysfs_trigger_attr_groups[] = {
 	NULL
 };
 
+static const struct iio_trigger_ops iio_sysfs_trigger_ops = {
+	.owner = THIS_MODULE,
+};
+
 static int iio_sysfs_trigger_probe(int id)
 {
 	struct iio_sysfs_trig *t;
@@ -128,14 +139,14 @@ static int iio_sysfs_trigger_probe(int id)
 		goto out1;
 	}
 	t->id = id;
-	t->trig = iio_allocate_trigger("sysfstrig%d", id);
+	t->trig = iio_trigger_alloc("sysfstrig%d", id);
 	if (!t->trig) {
 		ret = -ENOMEM;
 		goto free_t;
 	}
 
 	t->trig->dev.groups = iio_sysfs_trigger_attr_groups;
-	t->trig->owner = THIS_MODULE;
+	t->trig->ops = &iio_sysfs_trigger_ops;
 	t->trig->dev.parent = &iio_sysfs_trig_dev;
 
 	ret = iio_trigger_register(t->trig);
@@ -147,7 +158,7 @@ static int iio_sysfs_trigger_probe(int id)
 	return 0;
 
 out2:
-	iio_put_trigger(t->trig);
+	iio_trigger_put(t->trig);
 free_t:
 	kfree(t);
 out1:
@@ -171,7 +182,7 @@ static int iio_sysfs_trigger_remove(int id)
 	}
 
 	iio_trigger_unregister(t->trig);
-	iio_free_trigger(t->trig);
+	iio_trigger_free(t->trig);
 
 	list_del(&t->l);
 	kfree(t);

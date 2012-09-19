@@ -356,12 +356,12 @@ static struct nouveau_channel *
 nv04_graph_channel(struct drm_device *dev)
 {
 	struct drm_nouveau_private *dev_priv = dev->dev_private;
-	int chid = dev_priv->engine.fifo.channels;
+	int chid = 15;
 
 	if (nv_rd32(dev, NV04_PGRAPH_CTX_CONTROL) & 0x00010000)
 		chid = nv_rd32(dev, NV04_PGRAPH_CTX_USER) >> 24;
 
-	if (chid >= dev_priv->engine.fifo.channels)
+	if (chid > 15)
 		return NULL;
 
 	return dev_priv->channels.ptr[chid];
@@ -404,7 +404,6 @@ nv04_graph_load_context(struct nouveau_channel *chan)
 static int
 nv04_graph_unload_context(struct drm_device *dev)
 {
-	struct drm_nouveau_private *dev_priv = dev->dev_private;
 	struct nouveau_channel *chan = NULL;
 	struct graph_state *ctx;
 	uint32_t tmp;
@@ -420,7 +419,7 @@ nv04_graph_unload_context(struct drm_device *dev)
 
 	nv_wr32(dev, NV04_PGRAPH_CTX_CONTROL, 0x10000000);
 	tmp  = nv_rd32(dev, NV04_PGRAPH_CTX_USER) & 0x00ffffff;
-	tmp |= (dev_priv->engine.fifo.channels - 1) << 24;
+	tmp |= 15 << 24;
 	nv_wr32(dev, NV04_PGRAPH_CTX_USER, tmp);
 	return 0;
 }
@@ -450,13 +449,13 @@ nv04_graph_context_del(struct nouveau_channel *chan, int engine)
 	unsigned long flags;
 
 	spin_lock_irqsave(&dev_priv->context_switch_lock, flags);
-	nv04_graph_fifo_access(dev, false);
+	nv_mask(dev, NV04_PGRAPH_FIFO, 0x00000001, 0x00000000);
 
 	/* Unload the context if it's the currently active one */
 	if (nv04_graph_channel(dev) == chan)
 		nv04_graph_unload_context(dev);
 
-	nv04_graph_fifo_access(dev, true);
+	nv_mask(dev, NV04_PGRAPH_FIFO, 0x00000001, 0x00000001);
 	spin_unlock_irqrestore(&dev_priv->context_switch_lock, flags);
 
 	/* Free the context resources */
@@ -495,7 +494,6 @@ nv04_graph_object_new(struct nouveau_channel *chan, int engine,
 static int
 nv04_graph_init(struct drm_device *dev, int engine)
 {
-	struct drm_nouveau_private *dev_priv = dev->dev_private;
 	uint32_t tmp;
 
 	nv_wr32(dev, NV03_PMC_ENABLE, nv_rd32(dev, NV03_PMC_ENABLE) &
@@ -527,7 +525,7 @@ nv04_graph_init(struct drm_device *dev, int engine)
 	nv_wr32(dev, NV04_PGRAPH_STATE        , 0xFFFFFFFF);
 	nv_wr32(dev, NV04_PGRAPH_CTX_CONTROL  , 0x10000100);
 	tmp  = nv_rd32(dev, NV04_PGRAPH_CTX_USER) & 0x00ffffff;
-	tmp |= (dev_priv->engine.fifo.channels - 1) << 24;
+	tmp |= 15 << 24;
 	nv_wr32(dev, NV04_PGRAPH_CTX_USER, tmp);
 
 	/* These don't belong here, they're part of a per-channel context */
@@ -538,43 +536,15 @@ nv04_graph_init(struct drm_device *dev, int engine)
 }
 
 static int
-nv04_graph_fini(struct drm_device *dev, int engine)
+nv04_graph_fini(struct drm_device *dev, int engine, bool suspend)
 {
+	nv_mask(dev, NV04_PGRAPH_FIFO, 0x00000001, 0x00000000);
+	if (!nv_wait(dev, NV04_PGRAPH_STATUS, ~0, 0) && suspend) {
+		nv_mask(dev, NV04_PGRAPH_FIFO, 0x00000001, 0x00000001);
+		return -EBUSY;
+	}
 	nv04_graph_unload_context(dev);
 	nv_wr32(dev, NV03_PGRAPH_INTR_EN, 0x00000000);
-	return 0;
-}
-
-void
-nv04_graph_fifo_access(struct drm_device *dev, bool enabled)
-{
-	if (enabled)
-		nv_wr32(dev, NV04_PGRAPH_FIFO,
-					nv_rd32(dev, NV04_PGRAPH_FIFO) | 1);
-	else
-		nv_wr32(dev, NV04_PGRAPH_FIFO,
-					nv_rd32(dev, NV04_PGRAPH_FIFO) & ~1);
-}
-
-static int
-nv04_graph_mthd_set_ref(struct nouveau_channel *chan,
-			u32 class, u32 mthd, u32 data)
-{
-	atomic_set(&chan->fence.last_sequence_irq, data);
-	return 0;
-}
-
-int
-nv04_graph_mthd_page_flip(struct nouveau_channel *chan,
-			  u32 class, u32 mthd, u32 data)
-{
-	struct drm_device *dev = chan->dev;
-	struct nouveau_page_flip_state s;
-
-	if (!nouveau_finish_page_flip(chan, &s))
-		nv_set_crtc_base(dev, s.crtc,
-				 s.offset + s.y * s.pitch + s.x * s.bpp / 8);
-
 	return 0;
 }
 
@@ -1026,7 +996,8 @@ nv04_graph_context_switch(struct drm_device *dev)
 	nv04_graph_unload_context(dev);
 
 	/* Load context for next channel */
-	chid = dev_priv->engine.fifo.channel_id(dev);
+	chid = nv_rd32(dev, NV03_PFIFO_CACHE1_PUSH1) &
+			    NV03_PFIFO_CACHE1_PUSH1_CHID_MASK;
 	chan = dev_priv->channels.ptr[chid];
 	if (chan)
 		nv04_graph_load_context(chan);
@@ -1351,9 +1322,5 @@ nv04_graph_create(struct drm_device *dev)
 	NVOBJ_MTHD (dev, 0x005e, 0x0198, nv04_graph_mthd_bind_surf2d);
 	NVOBJ_MTHD (dev, 0x005e, 0x02fc, nv04_graph_mthd_set_operation);
 
-	/* nvsw */
-	NVOBJ_CLASS(dev, 0x506e, SW);
-	NVOBJ_MTHD (dev, 0x506e, 0x0150, nv04_graph_mthd_set_ref);
-	NVOBJ_MTHD (dev, 0x506e, 0x0500, nv04_graph_mthd_page_flip);
 	return 0;
 }

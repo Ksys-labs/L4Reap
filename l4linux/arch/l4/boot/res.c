@@ -91,7 +91,6 @@ __attribute__((regparm(3)))
 #endif
 __C__l4_external_resolver(unsigned long jmptblentry, char *funcname);
 
-#include <l4/sys/kdebug.h>
 unsigned long
 #ifdef ARCH_x86
 __attribute__((regparm(3)))

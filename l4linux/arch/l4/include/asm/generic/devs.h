@@ -1,6 +1,7 @@
 #ifndef __ASM_L4__GENERIC__DEVS_H__
 #define __ASM_L4__GENERIC__DEVS_H__
 
+#include <linux/list.h>
 #include <asm/generic/io.h>
 
 struct l4x_platform_callback_elem;
@@ -13,7 +14,7 @@ typedef void (*l4x_dev_cb_func_type)
 
 struct l4x_platform_callback_elem {
 	struct list_head      list;
-	const char           *name;
+	char                  name[52];
 	l4x_dev_cb_func_type  cb;
 	void                 *privdata;
 };

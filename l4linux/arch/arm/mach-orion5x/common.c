@@ -15,12 +15,14 @@
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/serial_8250.h>
-#include <linux/mbus.h>
 #include <linux/mv643xx_i2c.h>
 #include <linux/ata_platform.h>
+#include <linux/delay.h>
+#include <linux/clk-provider.h>
 #include <net/dsa.h>
 #include <asm/page.h>
 #include <asm/setup.h>
+#include <asm/system_misc.h>
 #include <asm/timex.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -29,8 +31,10 @@
 #include <mach/hardware.h>
 #include <mach/orion5x.h>
 #include <plat/orion_nand.h>
+#include <plat/ehci-orion.h>
 #include <plat/time.h>
 #include <plat/common.h>
+#include <plat/addr-map.h>
 #include "common.h"
 
 /*****************************************************************************
@@ -67,12 +71,25 @@ void __init orion5x_map_io(void)
 
 
 /*****************************************************************************
+ * CLK tree
+ ****************************************************************************/
+static struct clk *tclk;
+
+static void __init clk_init(void)
+{
+	tclk = clk_register_fixed_rate(NULL, "tclk", NULL, CLK_IS_ROOT,
+				       orion5x_tclk);
+
+	orion_clkdev_init(tclk);
+}
+
+/*****************************************************************************
  * EHCI0
  ****************************************************************************/
 void __init orion5x_ehci0_init(void)
 {
-	orion_ehci_init(&orion5x_mbus_dram_info,
-			ORION5X_USB0_PHYS_BASE, IRQ_ORION5X_USB0_CTRL);
+	orion_ehci_init(ORION5X_USB0_PHYS_BASE, IRQ_ORION5X_USB0_CTRL,
+			EHCI_PHY_ORION);
 }
 
 
@@ -81,8 +98,7 @@ void __init orion5x_ehci0_init(void)
  ****************************************************************************/
 void __init orion5x_ehci1_init(void)
 {
-	orion_ehci_1_init(&orion5x_mbus_dram_info,
-			  ORION5X_USB1_PHYS_BASE, IRQ_ORION5X_USB1_CTRL);
+	orion_ehci_1_init(ORION5X_USB1_PHYS_BASE, IRQ_ORION5X_USB1_CTRL);
 }
 
 
@@ -91,9 +107,9 @@ void __init orion5x_ehci1_init(void)
  ****************************************************************************/
 void __init orion5x_eth_init(struct mv643xx_eth_platform_data *eth_data)
 {
-	orion_ge00_init(eth_data, &orion5x_mbus_dram_info,
+	orion_ge00_init(eth_data,
 			ORION5X_ETH_PHYS_BASE, IRQ_ORION5X_ETH_SUM,
-			IRQ_ORION5X_ETH_ERR, orion5x_tclk);
+			IRQ_ORION5X_ETH_ERR);
 }
 
 
@@ -121,8 +137,7 @@ void __init orion5x_i2c_init(void)
  ****************************************************************************/
 void __init orion5x_sata_init(struct mv_sata_platform_data *sata_data)
 {
-	orion_sata_init(sata_data, &orion5x_mbus_dram_info,
-			ORION5X_SATA_PHYS_BASE, IRQ_ORION5X_SATA);
+	orion_sata_init(sata_data, ORION5X_SATA_PHYS_BASE, IRQ_ORION5X_SATA);
 }
 
 
@@ -131,7 +146,7 @@ void __init orion5x_sata_init(struct mv_sata_platform_data *sata_data)
  ****************************************************************************/
 void __init orion5x_spi_init()
 {
-	orion_spi_init(SPI_PHYS_BASE, orion5x_tclk);
+	orion_spi_init(SPI_PHYS_BASE);
 }
 
 
@@ -141,7 +156,7 @@ void __init orion5x_spi_init()
 void __init orion5x_uart0_init(void)
 {
 	orion_uart0_init(UART0_VIRT_BASE, UART0_PHYS_BASE,
-			 IRQ_ORION5X_UART0, orion5x_tclk);
+			 IRQ_ORION5X_UART0, tclk);
 }
 
 /*****************************************************************************
@@ -150,7 +165,7 @@ void __init orion5x_uart0_init(void)
 void __init orion5x_uart1_init(void)
 {
 	orion_uart1_init(UART1_VIRT_BASE, UART1_PHYS_BASE,
-			 IRQ_ORION5X_UART1, orion5x_tclk);
+			 IRQ_ORION5X_UART1, tclk);
 }
 
 /*****************************************************************************
@@ -158,8 +173,7 @@ void __init orion5x_uart1_init(void)
  ****************************************************************************/
 void __init orion5x_xor_init(void)
 {
-	orion_xor0_init(&orion5x_mbus_dram_info,
-			ORION5X_XOR_PHYS_BASE,
+	orion_xor0_init(ORION5X_XOR_PHYS_BASE,
 			ORION5X_XOR_PHYS_BASE + 0x200,
 			IRQ_ORION5X_XOR0, IRQ_ORION5X_XOR1);
 }
@@ -169,12 +183,7 @@ void __init orion5x_xor_init(void)
  ****************************************************************************/
 static void __init orion5x_crypto_init(void)
 {
-	int ret;
-
-	ret = orion5x_setup_sram_win();
-	if (ret)
-		return;
-
+	orion5x_setup_sram_win();
 	orion_crypto_init(ORION5X_CRYPTO_PHYS_BASE, ORION5X_SRAM_PHYS_BASE,
 			  SZ_8K, IRQ_ORION5X_CESA);
 }
@@ -184,7 +193,7 @@ static void __init orion5x_crypto_init(void)
  ****************************************************************************/
 void __init orion5x_wdt_init(void)
 {
-	orion_wdt_init(orion5x_tclk);
+	orion_wdt_init();
 }
 
 
@@ -210,7 +219,7 @@ int __init orion5x_find_tclk(void)
 	return 166666667;
 }
 
-static void orion5x_timer_init(void)
+static void __init orion5x_timer_init(void)
 {
 	orion5x_tclk = orion5x_find_tclk();
 
@@ -281,6 +290,9 @@ void __init orion5x_init(void)
 	 */
 	orion5x_setup_cpu_mbus_bridge();
 
+	/* Setup root of clk tree */
+	clk_init();
+
 	/*
 	 * Don't issue "Wait for Interrupt" instruction if we are
 	 * running on D0 5281 silicon.
@@ -304,12 +316,23 @@ void __init orion5x_init(void)
 	orion5x_wdt_init();
 }
 
+void orion5x_restart(char mode, const char *cmd)
+{
+	/*
+	 * Enable and issue soft reset
+	 */
+	orion5x_setbits(RSTOUTn_MASK, (1 << 2));
+	orion5x_setbits(CPU_SOFT_RESET, 1);
+	mdelay(200);
+	orion5x_clrbits(CPU_SOFT_RESET, 1);
+}
+
 /*
  * Many orion-based systems have buggy bootloader implementations.
  * This is a common fixup for bogus memory tags.
  */
-void __init tag_fixup_mem32(struct machine_desc *mdesc, struct tag *t,
-			    char **from, struct meminfo *meminfo)
+void __init tag_fixup_mem32(struct tag *t, char **from,
+			    struct meminfo *meminfo)
 {
 	for (; t->hdr.size; t = tag_next(t))
 		if (t->hdr.tag == ATAG_MEM &&

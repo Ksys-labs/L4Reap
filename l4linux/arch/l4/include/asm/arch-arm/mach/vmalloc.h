@@ -4,6 +4,7 @@
 #ifndef __ASM_L4__ARCH_ARM__ARCH__VMALLOC_H__
 #define __ASM_L4__ARCH_ARM__ARCH__VMALLOC_H__
 
+#error foo
 #include <asm/api/api.h>
 
 #define VMALLOC_SIZE	128

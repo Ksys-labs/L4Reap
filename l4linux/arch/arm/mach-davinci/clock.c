@@ -31,20 +31,13 @@ static LIST_HEAD(clocks);
 static DEFINE_MUTEX(clocks_mutex);
 static DEFINE_SPINLOCK(clockfw_lock);
 
-static unsigned psc_domain(struct clk *clk)
-{
-	return (clk->flags & PSC_DSP)
-		? DAVINCI_GPSC_DSPDOMAIN
-		: DAVINCI_GPSC_ARMDOMAIN;
-}
-
 static void __clk_enable(struct clk *clk)
 {
 	if (clk->parent)
 		__clk_enable(clk->parent);
 	if (clk->usecount++ == 0 && (clk->flags & CLK_PSC))
-		davinci_psc_config(psc_domain(clk), clk->gpsc, clk->lpsc,
-				PSC_STATE_ENABLE);
+		davinci_psc_config(clk->domain, clk->gpsc, clk->lpsc,
+				true, clk->flags);
 }
 
 static void __clk_disable(struct clk *clk)
@@ -53,9 +46,8 @@ static void __clk_disable(struct clk *clk)
 		return;
 	if (--clk->usecount == 0 && !(clk->flags & CLK_PLL) &&
 	    (clk->flags & CLK_PSC))
-		davinci_psc_config(psc_domain(clk), clk->gpsc, clk->lpsc,
-				(clk->flags & PSC_SWRSTDISABLE) ?
-				PSC_STATE_SWRSTDISABLE : PSC_STATE_DISABLE);
+		davinci_psc_config(clk->domain, clk->gpsc, clk->lpsc,
+				false, clk->flags);
 	if (clk->parent)
 		__clk_disable(clk->parent);
 }
@@ -221,7 +213,7 @@ EXPORT_SYMBOL(clk_unregister);
 /*
  * Disable any unused clocks left on by the bootloader
  */
-static int __init clk_disable_unused(void)
+int __init davinci_clk_disable_unused(void)
 {
 	struct clk *ck;
 
@@ -238,15 +230,13 @@ static int __init clk_disable_unused(void)
 
 		pr_debug("Clocks: disable unused %s\n", ck->name);
 
-		davinci_psc_config(psc_domain(ck), ck->gpsc, ck->lpsc,
-				(ck->flags & PSC_SWRSTDISABLE) ?
-				PSC_STATE_SWRSTDISABLE : PSC_STATE_DISABLE);
+		davinci_psc_config(ck->domain, ck->gpsc, ck->lpsc,
+				false, ck->flags);
 	}
 	spin_unlock_irq(&clockfw_lock);
 
 	return 0;
 }
-late_initcall(clk_disable_unused);
 #endif
 
 static unsigned long clk_sysclk_recalc(struct clk *clk)
@@ -366,6 +356,12 @@ static unsigned long clk_leafclk_recalc(struct clk *clk)
 		return clk->rate;
 
 	return clk->parent->rate;
+}
+
+int davinci_simple_set_rate(struct clk *clk, unsigned long rate)
+{
+	clk->rate = rate;
+	return 0;
 }
 
 static unsigned long clk_pllclk_recalc(struct clk *clk)
@@ -505,6 +501,38 @@ int davinci_set_pllrate(struct pll_data *pll, unsigned int prediv,
 	return 0;
 }
 EXPORT_SYMBOL(davinci_set_pllrate);
+
+/**
+ * davinci_set_refclk_rate() - Set the reference clock rate
+ * @rate:	The new rate.
+ *
+ * Sets the reference clock rate to a given value. This will most likely
+ * result in the entire clock tree getting updated.
+ *
+ * This is used to support boards which use a reference clock different
+ * than that used by default in <soc>.c file. The reference clock rate
+ * should be updated early in the boot process; ideally soon after the
+ * clock tree has been initialized once with the default reference clock
+ * rate (davinci_common_init()).
+ *
+ * Returns 0 on success, error otherwise.
+ */
+int davinci_set_refclk_rate(unsigned long rate)
+{
+	struct clk *refclk;
+
+	refclk = clk_get(NULL, "ref");
+	if (IS_ERR(refclk)) {
+		pr_err("%s: failed to get reference clock.\n", __func__);
+		return PTR_ERR(refclk);
+	}
+
+	clk_set_rate(refclk, rate);
+
+	clk_put(refclk);
+
+	return 0;
+}
 
 int __init davinci_clk_init(struct clk_lookup *clocks)
   {

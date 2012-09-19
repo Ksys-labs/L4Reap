@@ -472,7 +472,7 @@ static struct sk_buff *carl9170_rx_copy_data(u8 *buf, int len)
 		u8 *qc = ieee80211_get_qos_ctl(hdr);
 		reserved += NET_IP_ALIGN;
 
-		if (*qc & IEEE80211_QOS_CONTROL_A_MSDU_PRESENT)
+		if (*qc & IEEE80211_QOS_CTL_A_MSDU_PRESENT)
 			reserved += NET_IP_ALIGN;
 	}
 
@@ -538,7 +538,7 @@ static void carl9170_ps_beacon(struct ar9170 *ar, void *data, unsigned int len)
 		return;
 
 	/* and only beacons from the associated BSSID, please */
-	if (compare_ether_addr(hdr->addr3, ar->common.curbssid) ||
+	if (!ether_addr_equal(hdr->addr3, ar->common.curbssid) ||
 	    !ar->common.curaid)
 		return;
 

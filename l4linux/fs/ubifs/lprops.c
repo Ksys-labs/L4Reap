@@ -447,7 +447,7 @@ static void change_category(struct ubifs_info *c, struct ubifs_lprops *lprops)
 	int new_cat = ubifs_categorize_lprops(c, lprops);
 
 	if (old_cat == new_cat) {
-		struct ubifs_lpt_heap *heap = &c->lpt_heap[new_cat - 1];
+		struct ubifs_lpt_heap *heap;
 
 		/* lprops on a heap now must be moved up or down */
 		if (new_cat < 1 || new_cat > LPROPS_HEAP_CNT)
@@ -504,7 +504,7 @@ static int is_lprops_dirty(struct ubifs_info *c, struct ubifs_lprops *lprops)
 	pnode = (struct ubifs_pnode *)container_of(lprops - pos,
 						   struct ubifs_pnode,
 						   lprops[0]);
-	return !test_bit(COW_ZNODE, &pnode->flags) &&
+	return !test_bit(COW_CNODE, &pnode->flags) &&
 	       test_bit(DIRTY_CNODE, &pnode->flags);
 }
 
@@ -846,7 +846,9 @@ const struct ubifs_lprops *ubifs_fast_find_frdi_idx(struct ubifs_info *c)
 	return lprops;
 }
 
-#ifdef CONFIG_UBIFS_FS_DEBUG
+/*
+ * Everything below is related to debugging.
+ */
 
 /**
  * dbg_check_cats - check category heaps and lists.
@@ -860,7 +862,7 @@ int dbg_check_cats(struct ubifs_info *c)
 	struct list_head *pos;
 	int i, cat;
 
-	if (!(ubifs_chk_flags & (UBIFS_CHK_GEN | UBIFS_CHK_LPROPS)))
+	if (!dbg_is_chk_gen(c) && !dbg_is_chk_lprops(c))
 		return 0;
 
 	list_for_each_entry(lprops, &c->empty_list, list) {
@@ -958,7 +960,7 @@ void dbg_check_heap(struct ubifs_info *c, struct ubifs_lpt_heap *heap, int cat,
 {
 	int i = 0, j, err = 0;
 
-	if (!(ubifs_chk_flags & (UBIFS_CHK_GEN | UBIFS_CHK_LPROPS)))
+	if (!dbg_is_chk_gen(c) && !dbg_is_chk_lprops(c))
 		return;
 
 	for (i = 0; i < heap->cnt; i++) {
@@ -1001,8 +1003,8 @@ void dbg_check_heap(struct ubifs_info *c, struct ubifs_lpt_heap *heap, int cat,
 out:
 	if (err) {
 		dbg_msg("failed cat %d hpos %d err %d", cat, i, err);
-		dbg_dump_stack();
-		dbg_dump_heap(c, heap, cat);
+		dump_stack();
+		ubifs_dump_heap(c, heap, cat);
 	}
 }
 
@@ -1109,8 +1111,8 @@ static int scan_check_cb(struct ubifs_info *c,
 	if (IS_ERR(sleb)) {
 		ret = PTR_ERR(sleb);
 		if (ret == -EUCLEAN) {
-			dbg_dump_lprops(c);
-			dbg_dump_budg(c, &c->bi);
+			ubifs_dump_lprops(c);
+			ubifs_dump_budg(c, &c->bi);
 		}
 		goto out;
 	}
@@ -1237,7 +1239,7 @@ out_print:
 	ubifs_err("bad accounting of LEB %d: free %d, dirty %d flags %#x, "
 		  "should be free %d, dirty %d",
 		  lnum, lp->free, lp->dirty, lp->flags, free, dirty);
-	dbg_dump_leb(c, lnum);
+	ubifs_dump_leb(c, lnum);
 out_destroy:
 	ubifs_scan_destroy(sleb);
 	ret = -EINVAL;
@@ -1262,7 +1264,7 @@ int dbg_check_lprops(struct ubifs_info *c)
 	int i, err;
 	struct ubifs_lp_stats lst;
 
-	if (!(ubifs_chk_flags & UBIFS_CHK_LPROPS))
+	if (!dbg_is_chk_lprops(c))
 		return 0;
 
 	/*
@@ -1315,5 +1317,3 @@ int dbg_check_lprops(struct ubifs_info *c)
 out:
 	return err;
 }
-
-#endif /* CONFIG_UBIFS_FS_DEBUG */

@@ -116,22 +116,25 @@ void default_send_IPI_mask_logical(const struct cpumask *cpumask, int vector)
 
 	local_irq_save(flags);
 	WARN_ON(mask & ~cpumask_bits(cpu_online_mask)[0]);
-	//l4/__default_send_IPI_dest_field(mask, vector, apic->dest_logical);
+#ifdef CONFIG_L4
 	l4x_send_IPI_mask_bitmask(mask, vector);
+#else
+	__default_send_IPI_dest_field(mask, vector, apic->dest_logical);
+#endif
 	local_irq_restore(flags);
 }
 
 void __l4x_send_IPI_shortcut(unsigned int shortcut, int vector)
 {
 	if (shortcut == APIC_DEST_ALLBUT) {
-		struct cpumask mask = cpu_online_map;
-		cpu_clear(smp_processor_id(), mask);
+		struct cpumask mask = *cpu_online_mask;
+		cpumask_clear_cpu(smp_processor_id(), &mask);
 		default_send_IPI_mask_logical(&mask, vector);
 	} else if (shortcut == APIC_DEST_ALLINC) {
-		default_send_IPI_mask_logical(&cpu_online_map, vector);
+		default_send_IPI_mask_logical(cpu_online_mask, vector);
 	} else if (shortcut == APIC_DEST_SELF) {
 		struct cpumask mask = CPU_MASK_NONE;
-		cpu_set(smp_processor_id(), mask);
+		cpumask_set_cpu(smp_processor_id(), &mask);
 		default_send_IPI_mask_logical(&mask, vector);
 	} else {
 		LOG_printf("Unknown IPI shortcut %x\n", shortcut);
@@ -148,8 +151,11 @@ void default_send_IPI_allbutself(int vector)
 	if (!(num_online_cpus() > 1))
 		return;
 
-	//l4/__default_local_send_IPI_allbutself(vector);
+#ifdef CONFIG_L4
 	__l4x_send_IPI_shortcut(APIC_DEST_ALLBUT, vector);
+#else
+	__default_local_send_IPI_allbutself(vector);
+#endif
 }
 
 void default_send_IPI_all(int vector)
@@ -193,5 +199,12 @@ int safe_smp_processor_id(void)
 	cpuid = convert_apicid_to_cpu(apicid);
 
 	return cpuid >= 0 ? cpuid : 0;
+}
+#endif
+
+#ifdef CONFIG_X86_64_SMP
+void l4x_smp_broadcast_timer(void)
+{
+	printk("%s\n", __func__);
 }
 #endif

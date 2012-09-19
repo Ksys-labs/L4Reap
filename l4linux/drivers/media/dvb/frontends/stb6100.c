@@ -158,7 +158,6 @@ static int stb6100_read_regs(struct stb6100_state *state, u8 regs[])
 static int stb6100_read_reg(struct stb6100_state *state, u8 reg)
 {
 	u8 regs[STB6100_NUMREGS];
-	int rc;
 
 	struct i2c_msg msg = {
 		.addr	= state->config->tuner_address + reg,
@@ -167,7 +166,7 @@ static int stb6100_read_reg(struct stb6100_state *state, u8 reg)
 		.len	= 1
 	};
 
-	rc = i2c_transfer(state->i2c, &msg, 1);
+	i2c_transfer(state->i2c, &msg, 1);
 
 	if (unlikely(reg >= STB6100_NUMREGS)) {
 		dprintk(verbose, FE_ERROR, 1, "Invalid register offset 0x%x", reg);
@@ -327,7 +326,7 @@ static int stb6100_set_frequency(struct dvb_frontend *fe, u32 frequency)
 	int rc;
 	const struct stb6100_lkup *ptr;
 	struct stb6100_state *state = fe->tuner_priv;
-	struct dvb_frontend_parameters p;
+	struct dtv_frontend_properties *p = &fe->dtv_property_cache;
 
 	u32 srate = 0, fvco, nint, nfrac;
 	u8 regs[STB6100_NUMREGS];
@@ -337,9 +336,9 @@ static int stb6100_set_frequency(struct dvb_frontend *fe, u32 frequency)
 
 	if (fe->ops.get_frontend) {
 		dprintk(verbose, FE_DEBUG, 1, "Get frontend parameters");
-		fe->ops.get_frontend(fe, &p);
+		fe->ops.get_frontend(fe);
 	}
-	srate = p.u.qpsk.symbol_rate;
+	srate = p->symbol_rate;
 
 	/* Set up tuner cleanly, LPF calibration on */
 	rc = stb6100_write_reg(state, STB6100_FCCK, 0x4d | STB6100_FCCK_FCCK);

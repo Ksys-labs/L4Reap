@@ -33,7 +33,7 @@ L4_CV
 long l4x_srv_generic_dispatch(l4x_srv_object *_this, l4_umword_t obj,
                               l4_utcb_t *msg, l4_msgtag_t *tag)
 {
-	L4::Ipc_iostream ios(msg);
+	L4::Ipc::Iostream ios(msg);
 	ios.reset();
 	ios.Istream::tag() = *tag;
 

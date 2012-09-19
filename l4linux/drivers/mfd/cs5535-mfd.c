@@ -172,32 +172,21 @@ static void __devexit cs5535_mfd_remove(struct pci_dev *pdev)
 	pci_disable_device(pdev);
 }
 
-static struct pci_device_id cs5535_mfd_pci_tbl[] = {
+static DEFINE_PCI_DEVICE_TABLE(cs5535_mfd_pci_tbl) = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_NS, PCI_DEVICE_ID_NS_CS5535_ISA) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_CS5536_ISA) },
 	{ 0, }
 };
 MODULE_DEVICE_TABLE(pci, cs5535_mfd_pci_tbl);
 
-static struct pci_driver cs5535_mfd_drv = {
+static struct pci_driver cs5535_mfd_driver = {
 	.name = DRV_NAME,
 	.id_table = cs5535_mfd_pci_tbl,
 	.probe = cs5535_mfd_probe,
 	.remove = __devexit_p(cs5535_mfd_remove),
 };
 
-static int __init cs5535_mfd_init(void)
-{
-	return pci_register_driver(&cs5535_mfd_drv);
-}
-
-static void __exit cs5535_mfd_exit(void)
-{
-	pci_unregister_driver(&cs5535_mfd_drv);
-}
-
-module_init(cs5535_mfd_init);
-module_exit(cs5535_mfd_exit);
+module_pci_driver(cs5535_mfd_driver);
 
 MODULE_AUTHOR("Andres Salomon <dilinger@queued.net>");
 MODULE_DESCRIPTION("MFD driver for CS5535/CS5536 southbridge's ISA PCI device");

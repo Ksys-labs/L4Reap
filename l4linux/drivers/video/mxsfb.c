@@ -39,11 +39,13 @@
  * the required value in the imx_fb_videomode structure.
  */
 
+#include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <linux/io.h>
+#include <linux/pinctrl/consumer.h>
 #include <mach/mxsfb.h>
 
 #define REG_SET	4
@@ -327,7 +329,7 @@ static void mxsfb_enable_controller(struct fb_info *fb_info)
 
 	dev_dbg(&host->pdev->dev, "%s\n", __func__);
 
-	clk_enable(host->clk);
+	clk_prepare_enable(host->clk);
 	clk_set_rate(host->clk, PICOS2KHZ(fb_info->var.pixclock) * 1000U);
 
 	/* if it was disabled, re-enable the mode again */
@@ -367,7 +369,7 @@ static void mxsfb_disable_controller(struct fb_info *fb_info)
 
 	writel(VDCTRL4_SYNC_SIGNALS_ON, host->base + LCDC_VDCTRL4 + REG_CLR);
 
-	clk_disable(host->clk);
+	clk_disable_unprepare(host->clk);
 
 	host->enabled = 0;
 }
@@ -667,7 +669,7 @@ static int __devinit mxsfb_restore_mode(struct mxsfb_info *host)
 	line_count = fb_info->fix.smem_len / fb_info->fix.line_length;
 	fb_info->fix.ypanstep = 1;
 
-	clk_enable(host->clk);
+	clk_prepare_enable(host->clk);
 	host->enabled = 1;
 
 	return 0;
@@ -755,6 +757,7 @@ static int __devinit mxsfb_probe(struct platform_device *pdev)
 	struct mxsfb_info *host;
 	struct fb_info *fb_info;
 	struct fb_modelist *modelist;
+	struct pinctrl *pinctrl;
 	int i, ret;
 
 	if (!pdata) {
@@ -791,6 +794,12 @@ static int __devinit mxsfb_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, host);
 
 	host->devdata = &mxsfb_devdata[pdev->id_entry->driver_data];
+
+	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+	if (IS_ERR(pinctrl)) {
+		ret = PTR_ERR(pinctrl);
+		goto error_getpin;
+	}
 
 	host->clk = clk_get(&host->pdev->dev, NULL);
 	if (IS_ERR(host->clk)) {
@@ -840,13 +849,14 @@ static int __devinit mxsfb_probe(struct platform_device *pdev)
 
 error_register:
 	if (host->enabled)
-		clk_disable(host->clk);
+		clk_disable_unprepare(host->clk);
 	fb_destroy_modelist(&fb_info->modelist);
 error_init_fb:
 	kfree(fb_info->pseudo_palette);
 error_pseudo_pallette:
 	clk_put(host->clk);
 error_getclock:
+error_getpin:
 	iounmap(host->base);
 error_ioremap:
 	framebuffer_release(fb_info);
@@ -879,6 +889,18 @@ static int __devexit mxsfb_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void mxsfb_shutdown(struct platform_device *pdev)
+{
+	struct fb_info *fb_info = platform_get_drvdata(pdev);
+	struct mxsfb_info *host = to_imxfb_host(fb_info);
+
+	/*
+	 * Force stop the LCD controller as keeping it running during reboot
+	 * might interfere with the BootROM's boot mode pads sampling.
+	 */
+	writel(CTRL_RUN, host->base + LCDC_CTRL + REG_CLR);
+}
+
 static struct platform_device_id mxsfb_devtype[] = {
 	{
 		.name = "imx23-fb",
@@ -895,24 +917,14 @@ MODULE_DEVICE_TABLE(platform, mxsfb_devtype);
 static struct platform_driver mxsfb_driver = {
 	.probe = mxsfb_probe,
 	.remove = __devexit_p(mxsfb_remove),
+	.shutdown = mxsfb_shutdown,
 	.id_table = mxsfb_devtype,
 	.driver = {
 		   .name = DRIVER_NAME,
 	},
 };
 
-static int __init mxsfb_init(void)
-{
-	return platform_driver_register(&mxsfb_driver);
-}
-
-static void __exit mxsfb_exit(void)
-{
-	platform_driver_unregister(&mxsfb_driver);
-}
-
-module_init(mxsfb_init);
-module_exit(mxsfb_exit);
+module_platform_driver(mxsfb_driver);
 
 MODULE_DESCRIPTION("Freescale mxs framebuffer driver");
 MODULE_AUTHOR("Sascha Hauer, Pengutronix");

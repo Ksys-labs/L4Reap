@@ -15,6 +15,10 @@
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/onenand.h>
 #include <linux/interrupt.h>
+#include <linux/i2c/pca953x.h>
+#include <linux/gpio.h>
+#include <linux/mfd/88pm860x.h>
+#include <linux/platform_data/mv_usb.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -22,10 +26,22 @@
 #include <mach/addr-map.h>
 #include <mach/mfp-pxa910.h>
 #include <mach/pxa910.h>
+#include <mach/irqs.h>
+#include <mach/regs-usb.h>
 
 #include "common.h"
 
-#define TTCDKB_NR_IRQS		(IRQ_BOARD_START + 24)
+#define TTCDKB_GPIO_EXT0(x)	(MMP_NR_BUILTIN_GPIO + ((x < 0) ? 0 :	\
+				((x < 16) ? x : 15)))
+#define TTCDKB_GPIO_EXT1(x)	(MMP_NR_BUILTIN_GPIO + 16 + ((x < 0) ? 0 : \
+				((x < 16) ? x : 15)))
+
+/*
+ * 16 board interrupts -- MAX7312 GPIO expander
+ * 16 board interrupts -- PCA9575 GPIO expander
+ * 24 board interrupts -- 88PM860x PMIC
+ */
+#define TTCDKB_NR_IRQS		(MMP_NR_IRQS + 16 + 16 + 24)
 
 static unsigned long ttc_dkb_pin_config[] __initdata = {
 	/* UART2 */
@@ -81,7 +97,7 @@ static struct mtd_partition ttc_dkb_onenand_partitions[] = {
 	}, {
 		.name		= "filesystem",
 		.offset		= MTDPART_OFS_APPEND,
-		.size		= SZ_48M,
+		.size		= SZ_32M + SZ_16M,
 		.mask_flags	= 0,
 	}
 };
@@ -110,8 +126,56 @@ static struct platform_device ttc_dkb_device_onenand = {
 };
 
 static struct platform_device *ttc_dkb_devices[] = {
+	&pxa910_device_gpio,
+	&pxa910_device_rtc,
 	&ttc_dkb_device_onenand,
 };
+
+static struct pca953x_platform_data max7312_data[] = {
+	{
+		.gpio_base	= TTCDKB_GPIO_EXT0(0),
+		.irq_base	= MMP_NR_IRQS,
+	},
+};
+
+static struct pm860x_platform_data ttc_dkb_pm8607_info = {
+	.irq_base       = IRQ_BOARD_START,
+};
+
+static struct i2c_board_info ttc_dkb_i2c_info[] = {
+	{
+		.type           = "88PM860x",
+		.addr           = 0x34,
+		.platform_data  = &ttc_dkb_pm8607_info,
+		.irq            = IRQ_PXA910_PMIC_INT,
+	},
+	{
+		.type		= "max7312",
+		.addr		= 0x23,
+		.irq		= MMP_GPIO_TO_IRQ(80),
+		.platform_data	= &max7312_data,
+	},
+};
+
+#ifdef CONFIG_USB_SUPPORT
+#if defined(CONFIG_USB_MV_UDC) || defined(CONFIG_USB_EHCI_MV_U2O)
+
+static char *pxa910_usb_clock_name[] = {
+	[0] = "U2OCLK",
+};
+
+static struct mv_usb_platform_data ttc_usb_pdata = {
+	.clknum		= 1,
+	.clkname	= pxa910_usb_clock_name,
+	.vbus		= NULL,
+	.mode		= MV_USB_MODE_OTG,
+	.otg_force_a_bus_req = 1,
+	.phy_init	= pxa_usb_phy_init,
+	.phy_deinit	= pxa_usb_phy_deinit,
+	.set_vbus	= NULL,
+};
+#endif
+#endif
 
 static void __init ttc_dkb_init(void)
 {
@@ -121,7 +185,23 @@ static void __init ttc_dkb_init(void)
 	pxa910_add_uart(1);
 
 	/* off-chip devices */
+	pxa910_add_twsi(0, NULL, ARRAY_AND_SIZE(ttc_dkb_i2c_info));
 	platform_add_devices(ARRAY_AND_SIZE(ttc_dkb_devices));
+
+#ifdef CONFIG_USB_MV_UDC
+	pxa168_device_u2o.dev.platform_data = &ttc_usb_pdata;
+	platform_device_register(&pxa168_device_u2o);
+#endif
+
+#ifdef CONFIG_USB_EHCI_MV_U2O
+	pxa168_device_u2oehci.dev.platform_data = &ttc_usb_pdata;
+	platform_device_register(&pxa168_device_u2oehci);
+#endif
+
+#ifdef CONFIG_USB_MV_OTG
+	pxa168_device_u2ootg.dev.platform_data = &ttc_usb_pdata;
+	platform_device_register(&pxa168_device_u2ootg);
+#endif
 }
 
 MACHINE_START(TTC_DKB, "PXA910-based TTC_DKB Development Platform")
@@ -130,4 +210,5 @@ MACHINE_START(TTC_DKB, "PXA910-based TTC_DKB Development Platform")
 	.init_irq       = pxa910_init_irq,
 	.timer          = &pxa910_timer,
 	.init_machine   = ttc_dkb_init,
+	.restart	= mmp_restart,
 MACHINE_END

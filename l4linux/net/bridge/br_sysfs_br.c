@@ -149,6 +149,39 @@ static ssize_t store_stp_state(struct device *d,
 static DEVICE_ATTR(stp_state, S_IRUGO | S_IWUSR, show_stp_state,
 		   store_stp_state);
 
+static ssize_t show_group_fwd_mask(struct device *d,
+			      struct device_attribute *attr, char *buf)
+{
+	struct net_bridge *br = to_bridge(d);
+	return sprintf(buf, "%#x\n", br->group_fwd_mask);
+}
+
+
+static ssize_t store_group_fwd_mask(struct device *d,
+			       struct device_attribute *attr, const char *buf,
+			       size_t len)
+{
+	struct net_bridge *br = to_bridge(d);
+	char *endp;
+	unsigned long val;
+
+	if (!capable(CAP_NET_ADMIN))
+		return -EPERM;
+
+	val = simple_strtoul(buf, &endp, 0);
+	if (endp == buf)
+		return -EINVAL;
+
+	if (val & BR_GROUPFWD_RESTRICTED)
+		return -EINVAL;
+
+	br->group_fwd_mask = val;
+
+	return len;
+}
+static DEVICE_ATTR(group_fwd_mask, S_IRUGO | S_IWUSR, show_group_fwd_mask,
+		   store_group_fwd_mask);
+
 static ssize_t show_priority(struct device *d, struct device_attribute *attr,
 			     char *buf)
 {
@@ -264,7 +297,7 @@ static ssize_t store_group_addr(struct device *d,
 				const char *buf, size_t len)
 {
 	struct net_bridge *br = to_bridge(d);
-	unsigned new_addr[6];
+	unsigned int new_addr[6];
 	int i;
 
 	if (!capable(CAP_NET_ADMIN))
@@ -345,6 +378,23 @@ static ssize_t store_multicast_snooping(struct device *d,
 }
 static DEVICE_ATTR(multicast_snooping, S_IRUGO | S_IWUSR,
 		   show_multicast_snooping, store_multicast_snooping);
+
+static ssize_t show_multicast_querier(struct device *d,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	struct net_bridge *br = to_bridge(d);
+	return sprintf(buf, "%d\n", br->multicast_querier);
+}
+
+static ssize_t store_multicast_querier(struct device *d,
+				       struct device_attribute *attr,
+				       const char *buf, size_t len)
+{
+	return store_bridge_parm(d, buf, len, br_multicast_set_querier);
+}
+static DEVICE_ATTR(multicast_querier, S_IRUGO | S_IWUSR,
+		   show_multicast_querier, store_multicast_querier);
 
 static ssize_t show_hash_elasticity(struct device *d,
 				    struct device_attribute *attr, char *buf)
@@ -652,6 +702,7 @@ static struct attribute *bridge_attrs[] = {
 	&dev_attr_max_age.attr,
 	&dev_attr_ageing_time.attr,
 	&dev_attr_stp_state.attr,
+	&dev_attr_group_fwd_mask.attr,
 	&dev_attr_priority.attr,
 	&dev_attr_bridge_id.attr,
 	&dev_attr_root_id.attr,
@@ -668,6 +719,7 @@ static struct attribute *bridge_attrs[] = {
 #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
 	&dev_attr_multicast_router.attr,
 	&dev_attr_multicast_snooping.attr,
+	&dev_attr_multicast_querier.attr,
 	&dev_attr_hash_elasticity.attr,
 	&dev_attr_hash_max.attr,
 	&dev_attr_multicast_last_member_count.attr,

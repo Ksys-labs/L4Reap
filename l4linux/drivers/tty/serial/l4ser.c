@@ -1,9 +1,9 @@
 /*
- *  drivers/char/l4ser.c
+ *  drivers/tty/serial/l4ser.c
  *
  *  L4 pseudo serial driver.
  *
- *  Based on sa1100.c and other drivers from drivers/serial/.
+ *  Based on sa1100.c and other drivers from drivers/tty/serial/.
  */
 #if defined(CONFIG_L4_SERIAL_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ)
 #define SUPPORT_SYSRQ
@@ -65,18 +65,13 @@ static void l4ser_enable_ms(struct uart_port *port)
 static int
 l4ser_getchar(struct l4ser_uart_port *l4port)
 {
-	char c;
-	int res;
-	L4XV_V(f);
+	unsigned char c;
 
-	L4XV_L(f);
 	if (l4_is_invalid_cap(l4port->vcon_irq_cap)
-	    || l4_vcon_read(l4port->vcon_cap, &c, 1) <= 0)
-		res = -1;
-	else
-		res = c;
-	L4XV_U(f);
-	return res;
+	    || L4XV_FN_i(l4_vcon_read(l4port->vcon_cap, &c, 1)) <= 0)
+		return -1;
+
+	return c;
 }
 
 static void
@@ -86,12 +81,9 @@ l4ser_rx_chars(struct uart_port *port)
 	struct tty_struct *tty = port->state->port.tty;
 	unsigned int flg;
 	int ch;
-	L4XV_V(f);
 
 	while (1)  {
-		L4XV_L(f);
 		ch = l4ser_getchar(l4port);
-		L4XV_U(f);
 		if (ch == -1)
 			break;
 		port->icount.rx++;
@@ -124,12 +116,9 @@ static void l4ser_tx_chars(struct uart_port *port)
 	struct l4ser_uart_port *l4port = (struct l4ser_uart_port *)port;
 	struct circ_buf *xmit = &port->state->xmit;
 	int c;
-	L4XV_V(f);
 
 	if (port->x_char) {
-		L4XV_L(f);
-		l4_vcon_write(l4port->vcon_cap, &port->x_char, 1);
-		L4XV_U(f);
+		L4XV_FN_v(l4_vcon_write(l4port->vcon_cap, &port->x_char, 1));
 		port->icount.tx++;
 		port->x_char = 0;
 		return;
@@ -139,9 +128,7 @@ static void l4ser_tx_chars(struct uart_port *port)
 		c = CIRC_CNT_TO_END(xmit->head, xmit->tail, UART_XMIT_SIZE);
 		if (c > L4_VCON_WRITE_SIZE)
 			c = L4_VCON_WRITE_SIZE;
-		L4XV_L(f);
-		l4_vcon_write(l4port->vcon_cap, &xmit->buf[xmit->tail], c);
-		L4XV_U(f);
+		L4XV_FN_v(l4_vcon_write(l4port->vcon_cap, &xmit->buf[xmit->tail], c));
 		xmit->tail = (xmit->tail + c) & (UART_XMIT_SIZE - 1);
 		port->icount.tx += c;
 	}
@@ -254,8 +241,8 @@ static struct uart_ops l4ser_pops = {
 static int __init l4ser_init_port(int num, const char *name)
 {
 	int irq, r;
+	l4_msgtag_t t;
 	l4_vcon_attr_t vcon_attr;
-	L4XV_V(f);
 
 	if (l4ser_port[num].inited)
 		return 0;
@@ -268,28 +255,23 @@ static int __init l4ser_init_port(int num, const char *name)
 			return r;
 	}
 
-	L4XV_L(f);
 	l4ser_port[num].vcon_irq_cap = l4x_cap_alloc();
-	if (l4_is_invalid_cap(l4ser_port[num].vcon_irq_cap)) {
-		l4x_cap_free(l4ser_port[num].vcon_cap);
-		L4XV_U(f);
-		l4ser_port[num].vcon_cap = L4_INVALID_CAP;
+	if (l4_is_invalid_cap(l4ser_port[num].vcon_irq_cap))
 		return -ENOMEM;
-	}
 
-
-	if (l4_error(l4_factory_create_irq(l4re_env()->factory,
-	                                   l4ser_port[num].vcon_irq_cap))) {
-		l4re_util_cap_release(l4ser_port[num].vcon_cap);
-		L4XV_U(f);
+	t = L4XV_FN(l4_msgtag_t,
+	            l4_factory_create_irq(l4re_env()->factory,
+	                                  l4ser_port[num].vcon_irq_cap));
+	if (l4_error(t)) {
 		l4x_cap_free(l4ser_port[num].vcon_irq_cap);
-		l4x_cap_free(l4ser_port[num].vcon_cap);
 		return -ENOMEM;
 	}
 
-	if ((l4_error(l4_icu_bind(l4ser_port[num].vcon_cap, 0,
-	                          l4ser_port[num].vcon_irq_cap)))) {
-		l4re_util_cap_release(l4ser_port[num].vcon_irq_cap);
+	t = L4XV_FN(l4_msgtag_t,
+	            l4_icu_bind(l4ser_port[num].vcon_cap, 0,
+	                        l4ser_port[num].vcon_irq_cap));
+	if ((l4_error(t))) {
+		L4XV_FN_v(l4re_util_cap_release(l4ser_port[num].vcon_irq_cap));
 		l4x_cap_free(l4ser_port[num].vcon_irq_cap);
 
 		// No interrupt, just output
@@ -297,16 +279,13 @@ static int __init l4ser_init_port(int num, const char *name)
 		irq = 0;
 	} else if ((irq = l4x_register_irq(l4ser_port[num].vcon_irq_cap)) < 0) {
 		l4x_cap_free(l4ser_port[num].vcon_irq_cap);
-		l4x_cap_free(l4ser_port[num].vcon_cap);
-		L4XV_U(f);
 		return -EIO;
 	}
 
 	vcon_attr.i_flags = 0;
 	vcon_attr.o_flags = 0;
 	vcon_attr.l_flags = 0;
-	l4_vcon_set_attr(l4ser_port[num].vcon_cap, &vcon_attr);
-	L4XV_U(f);
+	L4XV_FN_v(l4_vcon_set_attr(l4ser_port[num].vcon_cap, &vcon_attr));
 
 	l4ser_port[num].port.uartclk   = 3686400;
 	l4ser_port[num].port.ops       = &l4ser_pops;
@@ -345,12 +324,9 @@ l4ser_console_write(struct console *co, const char *s, unsigned int count)
 {
 	do {
 		unsigned c = count;
-		L4XV_V(f);
 		if (c > L4_VCON_WRITE_SIZE)
 			c = L4_VCON_WRITE_SIZE;
-		L4XV_L(f);
-		l4_vcon_write(l4ser_port[co->index].vcon_cap, s, c);
-		L4XV_U(f);
+		L4XV_FN_v(l4_vcon_write(l4ser_port[co->index].vcon_cap, s, c));
 		count -= c;
 	} while (count);
 }
@@ -395,7 +371,7 @@ static int __init l4ser_serial_init(void)
 {
 	int ret, i;
 
-	printk(KERN_INFO "L4 serial driver\n");
+	pr_info("L4 serial driver\n");
 
 	if (l4ser_init_port(0, PORT0_NAME))
 		return -ENODEV;
@@ -407,7 +383,7 @@ static int __init l4ser_serial_init(void)
 	for (i = 0; i < NR_ADDITIONAL_PORTS; ++i) {
 		if (*ports_to_add[i]
 		    && l4ser_init_port(i + 1, ports_to_add[i])) {
-			printk(KERN_WARNING "l4ser: Failed to initialize additional port '%s'.\n", ports_to_add[i]);
+			pr_warn("l4ser: Failed to initialize additional port '%s'.\n", ports_to_add[i]);
 			continue;
 		}
 		uart_add_one_port(&l4ser_reg, &l4ser_port[i + 1].port);
@@ -432,7 +408,7 @@ module_exit(l4ser_serial_exit);
 static int l4ser_setup(const char *val, struct kernel_param *kp)
 {
 	if (ports_to_add_pos >= NR_ADDITIONAL_PORTS) {
-		printk("l4ser: Too many additional ports specified\n");
+		pr_err("l4ser: Too many additional ports specified\n");
 		return 1;
 	}
 	strlcpy(ports_to_add[ports_to_add_pos], val,

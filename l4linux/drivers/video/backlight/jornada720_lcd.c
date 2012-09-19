@@ -9,6 +9,8 @@
  *
  */
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/device.h>
 #include <linux/fb.h>
 #include <linux/kernel.h>
@@ -44,7 +46,7 @@ static int jornada_lcd_get_contrast(struct lcd_device *dev)
 	jornada_ssp_start();
 
 	if (jornada_ssp_byte(GETCONTRAST) != TXDUMMY) {
-		printk(KERN_ERR "lcd: get contrast failed\n");
+		pr_err("get contrast failed\n");
 		jornada_ssp_end();
 		return -ETIMEDOUT;
 	} else {
@@ -65,7 +67,7 @@ static int jornada_lcd_set_contrast(struct lcd_device *dev, int value)
 
 	/* push the new value */
 	if (jornada_ssp_byte(value) != TXDUMMY) {
-		printk(KERN_ERR "lcd : set contrast failed\n");
+		pr_err("set contrast failed\n");
 		jornada_ssp_end();
 		return -ETIMEDOUT;
 	}
@@ -103,7 +105,7 @@ static int jornada_lcd_probe(struct platform_device *pdev)
 
 	if (IS_ERR(lcd_device)) {
 		ret = PTR_ERR(lcd_device);
-		printk(KERN_ERR "lcd : failed to register device\n");
+		pr_err("failed to register device\n");
 		return ret;
 	}
 
@@ -135,19 +137,8 @@ static struct platform_driver jornada_lcd_driver = {
 	},
 };
 
-static int __init jornada_lcd_init(void)
-{
-	return platform_driver_register(&jornada_lcd_driver);
-}
-
-static void __exit jornada_lcd_exit(void)
-{
-	platform_driver_unregister(&jornada_lcd_driver);
-}
+module_platform_driver(jornada_lcd_driver);
 
 MODULE_AUTHOR("Kristoffer Ericson <kristoffer.ericson@gmail.com>");
 MODULE_DESCRIPTION("HP Jornada 710/720/728 LCD driver");
 MODULE_LICENSE("GPL");
-
-module_init(jornada_lcd_init);
-module_exit(jornada_lcd_exit);

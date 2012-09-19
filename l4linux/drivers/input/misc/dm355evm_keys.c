@@ -17,6 +17,7 @@
 #include <linux/interrupt.h>
 
 #include <linux/i2c/dm355evm_msp.h>
+#include <linux/module.h>
 
 
 /*
@@ -212,7 +213,8 @@ static int __devinit dm355evm_keys_probe(struct platform_device *pdev)
 	/* REVISIT:  flush the event queue? */
 
 	status = request_threaded_irq(keys->irq, NULL, dm355evm_keys_irq,
-			IRQF_TRIGGER_FALLING, dev_name(&pdev->dev), keys);
+				      IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+				      dev_name(&pdev->dev), keys);
 	if (status < 0)
 		goto fail2;
 
@@ -266,17 +268,6 @@ static struct platform_driver dm355evm_keys_driver = {
 		.name	= "dm355evm_keys",
 	},
 };
-
-static int __init dm355evm_keys_init(void)
-{
-	return platform_driver_register(&dm355evm_keys_driver);
-}
-module_init(dm355evm_keys_init);
-
-static void __exit dm355evm_keys_exit(void)
-{
-	platform_driver_unregister(&dm355evm_keys_driver);
-}
-module_exit(dm355evm_keys_exit);
+module_platform_driver(dm355evm_keys_driver);
 
 MODULE_LICENSE("GPL");

@@ -47,6 +47,7 @@
 #include <linux/usb.h>
 #include <linux/usb/serial.h>
 #include <linux/uaccess.h>
+#include "usb-wwan.h"
 
 /*
  * Version Information
@@ -131,22 +132,13 @@ enum {
 
 #define IPW_WANTS_TO_SEND	0x30
 
-static const struct usb_device_id usb_ipw_ids[] = {
+static const struct usb_device_id id_table[] = {
 	{ USB_DEVICE(IPW_VID, IPW_PID) },
 	{ },
 };
+MODULE_DEVICE_TABLE(usb, id_table);
 
-MODULE_DEVICE_TABLE(usb, usb_ipw_ids);
-
-static struct usb_driver usb_ipw_driver = {
-	.name =		"ipwtty",
-	.probe =	usb_serial_probe,
-	.disconnect =	usb_serial_disconnect,
-	.id_table =	usb_ipw_ids,
-	.no_dynamic_id = 	1,
-};
-
-static int debug;
+static bool debug;
 
 static int ipw_open(struct tty_struct *tty, struct usb_serial_port *port)
 {
@@ -154,8 +146,6 @@ static int ipw_open(struct tty_struct *tty, struct usb_serial_port *port)
 	u8 buf_flow_static[16] = IPW_BYTES_FLOWINIT;
 	u8 *buf_flow_init;
 	int result;
-
-	dbg("%s", __func__);
 
 	buf_flow_init = kmemdup(buf_flow_static, 16, GFP_KERNEL);
 	if (!buf_flow_init)
@@ -185,7 +175,7 @@ static int ipw_open(struct tty_struct *tty, struct usb_serial_port *port)
 
 	/*--2: Start reading from the device */
 	dbg("%s: setting up bulk read callback", __func__);
-	usb_serial_generic_open(tty, port);
+	usb_wwan_open(tty, port);
 
 	/*--3: Tell the modem to open the floodgates on the rx bulk channel */
 	dbg("%s:asking modem for RxRead (RXBULK_ON)", __func__);
@@ -217,6 +207,29 @@ static int ipw_open(struct tty_struct *tty, struct usb_serial_port *port)
 
 	kfree(buf_flow_init);
 	return 0;
+}
+
+/* fake probe - only to allocate data structures */
+static int ipw_probe(struct usb_serial *serial, const struct usb_device_id *id)
+{
+	struct usb_wwan_intf_private *data;
+
+	data = kzalloc(sizeof(struct usb_wwan_intf_private), GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	spin_lock_init(&data->susp_lock);
+	usb_set_serial_data(serial, data);
+	return 0;
+}
+
+static void ipw_release(struct usb_serial *serial)
+{
+	struct usb_wwan_intf_private *data = usb_get_serial_data(serial);
+
+	usb_wwan_release(serial);
+	usb_set_serial_data(serial, NULL);
+	kfree(data);
 }
 
 static void ipw_dtr_rts(struct usb_serial_port *port, int on)
@@ -285,7 +298,7 @@ static void ipw_close(struct usb_serial_port *port)
 		dev_err(&port->dev,
 			"Disabling bulk RxRead failed (error = %d)\n", result);
 
-	usb_serial_generic_close(port);
+	usb_wwan_close(port);
 }
 
 static struct usb_serial_driver ipw_device = {
@@ -294,41 +307,23 @@ static struct usb_serial_driver ipw_device = {
 		.name =		"ipw",
 	},
 	.description =		"IPWireless converter",
-	.usb_driver =		&usb_ipw_driver,
-	.id_table =		usb_ipw_ids,
+	.id_table =		id_table,
 	.num_ports =		1,
+	.disconnect =		usb_wwan_disconnect,
 	.open =			ipw_open,
 	.close =		ipw_close,
+	.probe =		ipw_probe,
+	.attach =		usb_wwan_startup,
+	.release =		ipw_release,
 	.dtr_rts =		ipw_dtr_rts,
+	.write =		usb_wwan_write,
 };
 
+static struct usb_serial_driver * const serial_drivers[] = {
+	&ipw_device, NULL
+};
 
-
-static int __init usb_ipw_init(void)
-{
-	int retval;
-
-	retval = usb_serial_register(&ipw_device);
-	if (retval)
-		return retval;
-	retval = usb_register(&usb_ipw_driver);
-	if (retval) {
-		usb_serial_deregister(&ipw_device);
-		return retval;
-	}
-	printk(KERN_INFO KBUILD_MODNAME ": " DRIVER_VERSION ":"
-	       DRIVER_DESC "\n");
-	return 0;
-}
-
-static void __exit usb_ipw_exit(void)
-{
-	usb_deregister(&usb_ipw_driver);
-	usb_serial_deregister(&ipw_device);
-}
-
-module_init(usb_ipw_init);
-module_exit(usb_ipw_exit);
+module_usb_serial_driver(serial_drivers, id_table);
 
 /* Module information */
 MODULE_AUTHOR(DRIVER_AUTHOR);

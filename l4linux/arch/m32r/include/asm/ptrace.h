@@ -113,9 +113,6 @@ struct pt_regs {
 
 #define PTRACE_OLDSETOPTIONS	21
 
-/* options set using PTRACE_SETOPTIONS */
-#define PTRACE_O_TRACESYSGOOD	0x00000001
-
 #ifdef __KERNEL__
 
 #include <asm/m32r.h>		/* M32R_PSW_BSM, M32R_PSW_BPM */
@@ -137,8 +134,6 @@ extern void init_debug_traps(struct task_struct *);
 
 #define instruction_pointer(regs) ((regs)->bpc)
 #define profile_pc(regs) instruction_pointer(regs)
-
-extern void show_regs(struct pt_regs *);
 
 extern void withdraw_debug_trap(struct pt_regs *regs);
 

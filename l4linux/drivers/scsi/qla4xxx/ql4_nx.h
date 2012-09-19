@@ -19,12 +19,28 @@
 #define PHAN_PEG_RCV_INITIALIZED	0xff01
 
 /*CRB_RELATED*/
-#define QLA82XX_CRB_BASE	QLA82XX_CAM_RAM(0x200)
-#define QLA82XX_REG(X)		(QLA82XX_CRB_BASE+(X))
-
+#define QLA82XX_CRB_BASE		(QLA82XX_CAM_RAM(0x200))
+#define QLA82XX_REG(X)			(QLA82XX_CRB_BASE+(X))
 #define CRB_CMDPEG_STATE		QLA82XX_REG(0x50)
 #define CRB_RCVPEG_STATE		QLA82XX_REG(0x13c)
 #define CRB_DMA_SHIFT			QLA82XX_REG(0xcc)
+#define CRB_TEMP_STATE			QLA82XX_REG(0x1b4)
+
+#define qla82xx_get_temp_val(x)		((x) >> 16)
+#define qla82xx_get_temp_state(x)	((x) & 0xffff)
+#define qla82xx_encode_temp(val, state)	(((val) << 16) | (state))
+
+/*
+ * Temperature control.
+ */
+enum {
+	QLA82XX_TEMP_NORMAL = 0x1,	/* Normal operating range */
+	QLA82XX_TEMP_WARN,	/* Sound alert, temperature getting high */
+	QLA82XX_TEMP_PANIC	/* Fatal error, hardware has shut down. */
+};
+
+#define CRB_NIU_XG_PAUSE_CTL_P0		0x1
+#define CRB_NIU_XG_PAUSE_CTL_P1		0x8
 
 #define QLA82XX_HW_H0_CH_HUB_ADR	0x05
 #define QLA82XX_HW_H1_CH_HUB_ADR	0x0E
@@ -607,6 +623,7 @@ struct crb_addr_pair {
 
 #define ADDR_ERROR	((unsigned long) 0xffffffff)
 #define MAX_CTL_CHECK	1000
+#define QLA82XX_FWERROR_CODE(code)	((code >> 8) & 0x1fffff)
 
 /***************************************************************************
  *		PCI related defines.
@@ -775,4 +792,196 @@ struct crb_addr_pair {
 #define MIU_TEST_AGT_WRDATA_UPPER_LO	(0x0b0)
 #define	MIU_TEST_AGT_WRDATA_UPPER_HI	(0x0b4)
 
+/* Minidump related */
+
+/* Entry Type Defines */
+#define QLA82XX_RDNOP	0
+#define QLA82XX_RDCRB	1
+#define QLA82XX_RDMUX	2
+#define QLA82XX_QUEUE	3
+#define QLA82XX_BOARD	4
+#define QLA82XX_RDOCM	6
+#define QLA82XX_PREGS	7
+#define QLA82XX_L1DTG	8
+#define QLA82XX_L1ITG	9
+#define QLA82XX_L1DAT	11
+#define QLA82XX_L1INS	12
+#define QLA82XX_L2DTG	21
+#define QLA82XX_L2ITG	22
+#define QLA82XX_L2DAT	23
+#define QLA82XX_L2INS	24
+#define QLA82XX_RDROM	71
+#define QLA82XX_RDMEM	72
+#define QLA82XX_CNTRL	98
+#define QLA82XX_RDEND	255
+
+/* Opcodes for Control Entries.
+ * These Flags are bit fields.
+ */
+#define QLA82XX_DBG_OPCODE_WR		0x01
+#define QLA82XX_DBG_OPCODE_RW		0x02
+#define QLA82XX_DBG_OPCODE_AND		0x04
+#define QLA82XX_DBG_OPCODE_OR		0x08
+#define QLA82XX_DBG_OPCODE_POLL		0x10
+#define QLA82XX_DBG_OPCODE_RDSTATE	0x20
+#define QLA82XX_DBG_OPCODE_WRSTATE	0x40
+#define QLA82XX_DBG_OPCODE_MDSTATE	0x80
+
+/* Driver Flags */
+#define QLA82XX_DBG_SKIPPED_FLAG	0x80 /* driver skipped this entry  */
+#define QLA82XX_DBG_SIZE_ERR_FLAG	0x40 /* Entry vs Capture size
+					      * mismatch */
+
+/* Driver_code is for driver to write some info about the entry
+ * currently not used.
+ */
+struct qla82xx_minidump_entry_hdr {
+	uint32_t entry_type;
+	uint32_t entry_size;
+	uint32_t entry_capture_size;
+	struct {
+		uint8_t entry_capture_mask;
+		uint8_t entry_code;
+		uint8_t driver_code;
+		uint8_t driver_flags;
+	} d_ctrl;
+};
+
+/*  Read CRB entry header */
+struct qla82xx_minidump_entry_crb {
+	struct qla82xx_minidump_entry_hdr h;
+	uint32_t addr;
+	struct {
+		uint8_t addr_stride;
+		uint8_t state_index_a;
+		uint16_t poll_timeout;
+	} crb_strd;
+	uint32_t data_size;
+	uint32_t op_count;
+
+	struct {
+		uint8_t opcode;
+		uint8_t state_index_v;
+		uint8_t shl;
+		uint8_t shr;
+	} crb_ctrl;
+
+	uint32_t value_1;
+	uint32_t value_2;
+	uint32_t value_3;
+};
+
+struct qla82xx_minidump_entry_cache {
+	struct qla82xx_minidump_entry_hdr h;
+	uint32_t tag_reg_addr;
+	struct {
+		uint16_t tag_value_stride;
+		uint16_t init_tag_value;
+	} addr_ctrl;
+	uint32_t data_size;
+	uint32_t op_count;
+	uint32_t control_addr;
+	struct {
+		uint16_t write_value;
+		uint8_t poll_mask;
+		uint8_t poll_wait;
+	} cache_ctrl;
+	uint32_t read_addr;
+	struct {
+		uint8_t read_addr_stride;
+		uint8_t read_addr_cnt;
+		uint16_t rsvd_1;
+	} read_ctrl;
+};
+
+/* Read OCM */
+struct qla82xx_minidump_entry_rdocm {
+	struct qla82xx_minidump_entry_hdr h;
+	uint32_t rsvd_0;
+	uint32_t rsvd_1;
+	uint32_t data_size;
+	uint32_t op_count;
+	uint32_t rsvd_2;
+	uint32_t rsvd_3;
+	uint32_t read_addr;
+	uint32_t read_addr_stride;
+};
+
+/* Read Memory */
+struct qla82xx_minidump_entry_rdmem {
+	struct qla82xx_minidump_entry_hdr h;
+	uint32_t rsvd[6];
+	uint32_t read_addr;
+	uint32_t read_data_size;
+};
+
+/* Read ROM */
+struct qla82xx_minidump_entry_rdrom {
+	struct qla82xx_minidump_entry_hdr h;
+	uint32_t rsvd[6];
+	uint32_t read_addr;
+	uint32_t read_data_size;
+};
+
+/* Mux entry */
+struct qla82xx_minidump_entry_mux {
+	struct qla82xx_minidump_entry_hdr h;
+	uint32_t select_addr;
+	uint32_t rsvd_0;
+	uint32_t data_size;
+	uint32_t op_count;
+	uint32_t select_value;
+	uint32_t select_value_stride;
+	uint32_t read_addr;
+	uint32_t rsvd_1;
+};
+
+/* Queue entry */
+struct qla82xx_minidump_entry_queue {
+	struct qla82xx_minidump_entry_hdr h;
+	uint32_t select_addr;
+	struct {
+		uint16_t queue_id_stride;
+		uint16_t rsvd_0;
+	} q_strd;
+	uint32_t data_size;
+	uint32_t op_count;
+	uint32_t rsvd_1;
+	uint32_t rsvd_2;
+	uint32_t read_addr;
+	struct {
+		uint8_t read_addr_stride;
+		uint8_t read_addr_cnt;
+		uint16_t rsvd_3;
+	} rd_strd;
+};
+
+#define QLA82XX_MINIDUMP_OCM0_SIZE		(256 * 1024)
+#define QLA82XX_MINIDUMP_L1C_SIZE		(256 * 1024)
+#define QLA82XX_MINIDUMP_L2C_SIZE		1572864
+#define QLA82XX_MINIDUMP_COMMON_STR_SIZE	0
+#define QLA82XX_MINIDUMP_FCOE_STR_SIZE		0
+#define QLA82XX_MINIDUMP_MEM_SIZE		0
+#define QLA82XX_MAX_ENTRY_HDR			4
+
+struct qla82xx_minidump {
+	uint32_t md_ocm0_data[QLA82XX_MINIDUMP_OCM0_SIZE];
+	uint32_t md_l1c_data[QLA82XX_MINIDUMP_L1C_SIZE];
+	uint32_t md_l2c_data[QLA82XX_MINIDUMP_L2C_SIZE];
+	uint32_t md_cs_data[QLA82XX_MINIDUMP_COMMON_STR_SIZE];
+	uint32_t md_fcoes_data[QLA82XX_MINIDUMP_FCOE_STR_SIZE];
+	uint32_t md_mem_data[QLA82XX_MINIDUMP_MEM_SIZE];
+};
+
+#define MBC_DIAGNOSTIC_MINIDUMP_TEMPLATE	0x129
+#define RQST_TMPLT_SIZE				0x0
+#define RQST_TMPLT				0x1
+#define MD_DIRECT_ROM_WINDOW			0x42110030
+#define MD_DIRECT_ROM_READ_BASE			0x42150000
+#define MD_MIU_TEST_AGT_CTRL			0x41000090
+#define MD_MIU_TEST_AGT_ADDR_LO			0x41000094
+#define MD_MIU_TEST_AGT_ADDR_HI			0x41000098
+
+static const int MD_MIU_TEST_AGT_RDDATA[] = { 0x410000A8,
+				0x410000AC, 0x410000B8, 0x410000BC };
 #endif

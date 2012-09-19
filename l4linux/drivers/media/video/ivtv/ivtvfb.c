@@ -58,7 +58,7 @@
 /* card parameters */
 static int ivtvfb_card_id = -1;
 static int ivtvfb_debug = 0;
-static int osd_laced;
+static bool osd_laced;
 static int osd_depth;
 static int osd_upper;
 static int osd_left;
@@ -1293,7 +1293,7 @@ static int __init ivtvfb_init(void)
 
 	drv = driver_find("ivtv", &pci_bus_type);
 	err = driver_for_each_device(drv, NULL, &registered, ivtvfb_callback_init);
-	put_driver(drv);
+	(void)err;	/* suppress compiler warning */
 	if (!registered) {
 		printk(KERN_ERR "ivtvfb:  no cards found\n");
 		return -ENODEV;
@@ -1310,7 +1310,7 @@ static void ivtvfb_cleanup(void)
 
 	drv = driver_find("ivtv", &pci_bus_type);
 	err = driver_for_each_device(drv, NULL, NULL, ivtvfb_callback_cleanup);
-	put_driver(drv);
+	(void)err;	/* suppress compiler warning */
 }
 
 module_init(ivtvfb_init);

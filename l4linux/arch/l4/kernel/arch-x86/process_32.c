@@ -9,7 +9,6 @@
  * This file handles the architecture-dependent parts of process handling..
  */
 
-#include <linux/stackprotector.h>
 #include <linux/cpu.h>
 #include <linux/errno.h>
 #include <linux/sched.h>
@@ -31,7 +30,6 @@
 #include <linux/kallsyms.h>
 #include <linux/ptrace.h>
 #include <linux/personality.h>
-#include <linux/tick.h>
 #include <linux/percpu.h>
 #include <linux/prctl.h>
 #include <linux/ftrace.h>
@@ -40,10 +38,10 @@
 #include <linux/kdebug.h>
 
 #include <asm/pgtable.h>
-#include <asm/system.h>
 #include <asm/ldt.h>
 #include <asm/processor.h>
 #include <asm/i387.h>
+#include <asm/fpu-internal.h>
 #include <asm/desc.h>
 #ifdef CONFIG_MATH_EMULATION
 #include <asm/math_emu.h>
@@ -56,11 +54,11 @@
 #include <asm/idle.h>
 #include <asm/syscalls.h>
 #include <asm/debugreg.h>
+#include <asm/switch_to.h>
 
 #include <asm/api/macros.h>
 
 #include <asm/generic/sched.h>
-#include <asm/generic/dispatch.h>
 #include <asm/generic/upage.h>
 #include <asm/generic/assert.h>
 #include <asm/generic/task.h>
@@ -74,63 +72,6 @@
 unsigned long thread_saved_pc(struct task_struct *tsk)
 {
 	return ((unsigned long *)tsk->thread.sp)[3];
-}
-
-#ifndef CONFIG_SMP
-static inline void play_dead(void)
-{
-	BUG();
-}
-#endif
-
-/*
- * The idle thread. There's no useful work to be
- * done, so just try to conserve power and have a
- * low exit latency (ie sit in a loop waiting for
- * somebody to say that they'd like to reschedule)
- */
-void cpu_idle(void)
-{
-#ifdef CONFIG_L4_VCPU
-	int cpu = smp_processor_id();
-
-	/*
-	 * If we're the non-boot CPU, nothing set the stack canary up
-	 * for us.  CPU0 already has it initialized but no harm in
-	 * doing it again.  This is a good place for updating it, as
-	 * we wont ever return from this function (so the invalid
-	 * canaries already on the stack wont ever trigger).
-	 */
-	boot_init_stack_canary();
-
-	current_thread_info()->status |= TS_POLLING;
-
-	/* endless idle loop with no priority at all */
-	while (1) {
-		tick_nohz_stop_sched_tick(1);
-		while (!need_resched()) {
-
-			check_pgt_cache();
-			rmb();
-
-			if (cpu_is_offline(cpu))
-				play_dead();
-
-			local_irq_disable();
-			/* Don't trace irqs off for idle */
-			stop_critical_timings();
-			pm_idle();
-			start_critical_timings();
-		}
-		tick_nohz_restart_sched_tick();
-		preempt_enable_no_resched();
-		schedule();
-		preempt_disable();
-	}
-#else
-	for (;;)
-		l4x_idle();
-#endif
 }
 
 void __show_regs(struct pt_regs *regs, int all)
@@ -287,8 +228,7 @@ static int l4x_thread_create(struct task_struct *p, unsigned long clone_flags,
 	p->thread.user_thread_id = L4_INVALID_CAP;
 	p->thread.threads_up = 0;
 
-	/* put thread id in stack */
-	l4x_stack_setup(p->stack, l4_utcb(), 0);
+	l4x_stack_set(p->stack, l4_utcb());
 
 	/* if creating a kernel-internal thread, return at this point */
 	if (inkernel) {
@@ -307,15 +247,6 @@ static int l4x_thread_create(struct task_struct *p, unsigned long clone_flags,
 	return 0;
 }
 #endif /* !vcpu */
-
-/*
- * This gets called before we allocate a new thread and copy
- * the current task into it.
- */
-void prepare_to_copy(struct task_struct *tsk)
-{
-	unlazy_fpu(tsk);
-}
 
 int copy_thread(unsigned long clone_flags, unsigned long sp,
 	unsigned long stack_size___used_for_inkernel_process_flag,
@@ -351,6 +282,7 @@ int copy_thread(unsigned long clone_flags, unsigned long sp,
 
 	//task_user_gs(p) = get_user_gs(regs);
 
+	p->fpu_counter = 0;
 	p->thread.io_bitmap_ptr = NULL;
 	tsk = current;
 	err = -ENOMEM;
@@ -384,14 +316,12 @@ int copy_thread(unsigned long clone_flags, unsigned long sp,
 		p->thread.io_bitmap_max = 0;
 	}
 
-#ifdef CONFIG_L4_VCPU
-	if (!err)
-		l4x_stack_setup(p->stack, l4_utcb(),
-		                ((struct thread_info *)p->stack)->cpu);
-#else
+#ifndef CONFIG_L4_VCPU
 	/* create the user task */
-	if (!err)
+	if (!err) {
+		l4x_stack_set(p->stack, l4_utcb());
 		err = l4x_thread_create(p, clone_flags, stack_size___used_for_inkernel_process_flag == COPY_THREAD_STACK_SIZE___FLAG_INKERNEL);
+	}
 #endif
 	return err;
 }

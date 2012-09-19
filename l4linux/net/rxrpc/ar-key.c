@@ -82,7 +82,7 @@ static int rxrpc_vet_description_s(const char *desc)
  * - the caller guarantees we have at least 4 words
  */
 static int rxrpc_instantiate_xdr_rxkad(struct key *key, const __be32 *xdr,
-				       unsigned toklen)
+				       unsigned int toklen)
 {
 	struct rxrpc_key_token *token, **pptoken;
 	size_t plen;
@@ -210,10 +210,10 @@ static void rxrpc_rxk5_free(struct rxk5_key *rxk5)
  */
 static int rxrpc_krb5_decode_principal(struct krb5_principal *princ,
 				       const __be32 **_xdr,
-				       unsigned *_toklen)
+				       unsigned int *_toklen)
 {
 	const __be32 *xdr = *_xdr;
-	unsigned toklen = *_toklen, n_parts, loop, tmp;
+	unsigned int toklen = *_toklen, n_parts, loop, tmp;
 
 	/* there must be at least one name, and at least #names+1 length
 	 * words */
@@ -232,7 +232,7 @@ static int rxrpc_krb5_decode_principal(struct krb5_principal *princ,
 	if (toklen <= (n_parts + 1) * 4)
 		return -EINVAL;
 
-	princ->name_parts = kcalloc(sizeof(char *), n_parts, GFP_KERNEL);
+	princ->name_parts = kcalloc(n_parts, sizeof(char *), GFP_KERNEL);
 	if (!princ->name_parts)
 		return -ENOMEM;
 
@@ -286,10 +286,10 @@ static int rxrpc_krb5_decode_principal(struct krb5_principal *princ,
 static int rxrpc_krb5_decode_tagged_data(struct krb5_tagged_data *td,
 					 size_t max_data_size,
 					 const __be32 **_xdr,
-					 unsigned *_toklen)
+					 unsigned int *_toklen)
 {
 	const __be32 *xdr = *_xdr;
-	unsigned toklen = *_toklen, len;
+	unsigned int toklen = *_toklen, len;
 
 	/* there must be at least one tag and one length word */
 	if (toklen <= 8)
@@ -306,10 +306,9 @@ static int rxrpc_krb5_decode_tagged_data(struct krb5_tagged_data *td,
 	td->data_len = len;
 
 	if (len > 0) {
-		td->data = kmalloc(len, GFP_KERNEL);
+		td->data = kmemdup(xdr, len, GFP_KERNEL);
 		if (!td->data)
 			return -ENOMEM;
-		memcpy(td->data, xdr, len);
 		len = (len + 3) & ~3;
 		toklen -= len;
 		xdr += len >> 2;
@@ -331,11 +330,11 @@ static int rxrpc_krb5_decode_tagged_array(struct krb5_tagged_data **_td,
 					  u8 max_n_elem,
 					  size_t max_elem_size,
 					  const __be32 **_xdr,
-					  unsigned *_toklen)
+					  unsigned int *_toklen)
 {
 	struct krb5_tagged_data *td;
 	const __be32 *xdr = *_xdr;
-	unsigned toklen = *_toklen, n_elem, loop;
+	unsigned int toklen = *_toklen, n_elem, loop;
 	int ret;
 
 	/* there must be at least one count */
@@ -356,7 +355,7 @@ static int rxrpc_krb5_decode_tagged_array(struct krb5_tagged_data **_td,
 
 		_debug("n_elem %d", n_elem);
 
-		td = kcalloc(sizeof(struct krb5_tagged_data), n_elem,
+		td = kcalloc(n_elem, sizeof(struct krb5_tagged_data),
 			     GFP_KERNEL);
 		if (!td)
 			return -ENOMEM;
@@ -381,10 +380,10 @@ static int rxrpc_krb5_decode_tagged_array(struct krb5_tagged_data **_td,
  * extract a krb5 ticket
  */
 static int rxrpc_krb5_decode_ticket(u8 **_ticket, u16 *_tktlen,
-				    const __be32 **_xdr, unsigned *_toklen)
+				    const __be32 **_xdr, unsigned int *_toklen)
 {
 	const __be32 *xdr = *_xdr;
-	unsigned toklen = *_toklen, len;
+	unsigned int toklen = *_toklen, len;
 
 	/* there must be at least one length word */
 	if (toklen <= 4)
@@ -401,10 +400,9 @@ static int rxrpc_krb5_decode_ticket(u8 **_ticket, u16 *_tktlen,
 	_debug("ticket len %u", len);
 
 	if (len > 0) {
-		*_ticket = kmalloc(len, GFP_KERNEL);
+		*_ticket = kmemdup(xdr, len, GFP_KERNEL);
 		if (!*_ticket)
 			return -ENOMEM;
-		memcpy(*_ticket, xdr, len);
 		len = (len + 3) & ~3;
 		toklen -= len;
 		xdr += len >> 2;
@@ -421,7 +419,7 @@ static int rxrpc_krb5_decode_ticket(u8 **_ticket, u16 *_tktlen,
  * - the caller guarantees we have at least 4 words
  */
 static int rxrpc_instantiate_xdr_rxk5(struct key *key, const __be32 *xdr,
-				      unsigned toklen)
+				      unsigned int toklen)
 {
 	struct rxrpc_key_token *token, **pptoken;
 	struct rxk5_key *rxk5;
@@ -551,7 +549,7 @@ static int rxrpc_instantiate_xdr(struct key *key, const void *data, size_t datal
 {
 	const __be32 *xdr = data, *token;
 	const char *cp;
-	unsigned len, tmp, loop, ntoken, toklen, sec_ix;
+	unsigned int len, tmp, loop, ntoken, toklen, sec_ix;
 	int ret;
 
 	_enter(",{%x,%x,%x,%x},%zu",

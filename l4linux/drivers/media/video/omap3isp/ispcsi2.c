@@ -378,21 +378,17 @@ static void csi2_timing_config(struct isp_device *isp,
 static void csi2_irq_ctx_set(struct isp_device *isp,
 			     struct isp_csi2_device *csi2, int enable)
 {
-	u32 reg = ISPCSI2_CTX_IRQSTATUS_FE_IRQ;
 	int i;
 
-	if (csi2->use_fs_irq)
-		reg |= ISPCSI2_CTX_IRQSTATUS_FS_IRQ;
-
 	for (i = 0; i < 8; i++) {
-		isp_reg_writel(isp, reg, csi2->regs1,
+		isp_reg_writel(isp, ISPCSI2_CTX_IRQSTATUS_FE_IRQ, csi2->regs1,
 			       ISPCSI2_CTX_IRQSTATUS(i));
 		if (enable)
 			isp_reg_set(isp, csi2->regs1, ISPCSI2_CTX_IRQENABLE(i),
-				    reg);
+				    ISPCSI2_CTX_IRQSTATUS_FE_IRQ);
 		else
 			isp_reg_clr(isp, csi2->regs1, ISPCSI2_CTX_IRQENABLE(i),
-				    reg);
+				    ISPCSI2_CTX_IRQSTATUS_FE_IRQ);
 	}
 }
 
@@ -667,7 +663,7 @@ static void csi2_isr_buffer(struct isp_csi2_device *csi2)
 
 	csi2_ctx_enable(isp, csi2, 0, 0);
 
-	buffer = omap3isp_video_buffer_next(&csi2->video_out, 0);
+	buffer = omap3isp_video_buffer_next(&csi2->video_out);
 
 	/*
 	 * Let video queue operation restart engine if there is an underrun
@@ -689,14 +685,6 @@ static void csi2_isr_ctx(struct isp_csi2_device *csi2,
 
 	status = isp_reg_readl(isp, csi2->regs1, ISPCSI2_CTX_IRQSTATUS(n));
 	isp_reg_writel(isp, status, csi2->regs1, ISPCSI2_CTX_IRQSTATUS(n));
-
-	/* Propagate frame number */
-	if (status & ISPCSI2_CTX_IRQSTATUS_FS_IRQ) {
-		struct isp_pipeline *pipe =
-				     to_isp_pipeline(&csi2->subdev.entity);
-		if (pipe->do_propagation)
-			atomic_inc(&pipe->frame_number);
-	}
 
 	if (!(status & ISPCSI2_CTX_IRQSTATUS_FE_IRQ))
 		return;
@@ -727,17 +715,15 @@ static void csi2_isr_ctx(struct isp_csi2_device *csi2,
 
 /*
  * omap3isp_csi2_isr - CSI2 interrupt handling.
- *
- * Return -EIO on Transmission error
  */
-int omap3isp_csi2_isr(struct isp_csi2_device *csi2)
+void omap3isp_csi2_isr(struct isp_csi2_device *csi2)
 {
+	struct isp_pipeline *pipe = to_isp_pipeline(&csi2->subdev.entity);
 	u32 csi2_irqstatus, cpxio1_irqstatus;
 	struct isp_device *isp = csi2->isp;
-	int retval = 0;
 
 	if (!csi2->available)
-		return -ENODEV;
+		return;
 
 	csi2_irqstatus = isp_reg_readl(isp, csi2->regs1, ISPCSI2_IRQSTATUS);
 	isp_reg_writel(isp, csi2_irqstatus, csi2->regs1, ISPCSI2_IRQSTATUS);
@@ -750,7 +736,7 @@ int omap3isp_csi2_isr(struct isp_csi2_device *csi2)
 			       csi2->regs1, ISPCSI2_PHY_IRQSTATUS);
 		dev_dbg(isp->dev, "CSI2: ComplexIO Error IRQ "
 			"%x\n", cpxio1_irqstatus);
-		retval = -EIO;
+		pipe->error = true;
 	}
 
 	if (csi2_irqstatus & (ISPCSI2_IRQSTATUS_OCP_ERR_IRQ |
@@ -775,11 +761,11 @@ int omap3isp_csi2_isr(struct isp_csi2_device *csi2)
 			 ISPCSI2_IRQSTATUS_COMPLEXIO2_ERR_IRQ) ? 1 : 0,
 			(csi2_irqstatus &
 			 ISPCSI2_IRQSTATUS_FIFO_OVF_IRQ) ? 1 : 0);
-		retval = -EIO;
+		pipe->error = true;
 	}
 
 	if (omap3isp_module_sync_is_stopping(&csi2->wait, &csi2->stopping))
-		return 0;
+		return;
 
 	/* Successful cases */
 	if (csi2_irqstatus & ISPCSI2_IRQSTATUS_CONTEXT(0))
@@ -787,8 +773,6 @@ int omap3isp_csi2_isr(struct isp_csi2_device *csi2)
 
 	if (csi2_irqstatus & ISPCSI2_IRQSTATUS_ECC_CORRECTION_IRQ)
 		dev_dbg(isp->dev, "CSI2: ECC correction done\n");
-
-	return retval;
 }
 
 /* -----------------------------------------------------------------------------
@@ -1051,14 +1035,12 @@ static int csi2_set_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct isp_csi2_device *csi2 = v4l2_get_subdevdata(sd);
 	struct isp_device *isp = csi2->isp;
-	struct isp_pipeline *pipe = to_isp_pipeline(&csi2->subdev.entity);
 	struct isp_video *video_out = &csi2->video_out;
 
 	switch (enable) {
 	case ISP_PIPELINE_STREAM_CONTINUOUS:
 		if (omap3isp_csiphy_acquire(csi2->phy) < 0)
 			return -ENODEV;
-		csi2->use_fs_irq = pipe->do_propagation;
 		if (csi2->output & CSI2_OUTPUT_MEMORY)
 			omap3isp_sbl_enable(isp, OMAP3_ISP_SBL_CSI2A_WRITE);
 		csi2_configure(csi2);
@@ -1185,7 +1167,39 @@ static int csi2_link_setup(struct media_entity *entity,
 /* media operations */
 static const struct media_entity_operations csi2_media_ops = {
 	.link_setup = csi2_link_setup,
+	.link_validate = v4l2_subdev_link_validate,
 };
+
+void omap3isp_csi2_unregister_entities(struct isp_csi2_device *csi2)
+{
+	v4l2_device_unregister_subdev(&csi2->subdev);
+	omap3isp_video_unregister(&csi2->video_out);
+}
+
+int omap3isp_csi2_register_entities(struct isp_csi2_device *csi2,
+				    struct v4l2_device *vdev)
+{
+	int ret;
+
+	/* Register the subdev and video nodes. */
+	ret = v4l2_device_register_subdev(vdev, &csi2->subdev);
+	if (ret < 0)
+		goto error;
+
+	ret = omap3isp_video_register(&csi2->video_out, vdev);
+	if (ret < 0)
+		goto error;
+
+	return 0;
+
+error:
+	omap3isp_csi2_unregister_entities(csi2);
+	return ret;
+}
+
+/* -----------------------------------------------------------------------------
+ * ISP CSI2 initialisation and cleanup
+ */
 
 /*
  * csi2_init_entities - Initialize subdev and media entity.
@@ -1228,55 +1242,21 @@ static int csi2_init_entities(struct isp_csi2_device *csi2)
 
 	ret = omap3isp_video_init(&csi2->video_out, "CSI2a");
 	if (ret < 0)
-		return ret;
+		goto error_video;
 
 	/* Connect the CSI2 subdev to the video node. */
 	ret = media_entity_create_link(&csi2->subdev.entity, CSI2_PAD_SOURCE,
 				       &csi2->video_out.video.entity, 0, 0);
 	if (ret < 0)
-		return ret;
+		goto error_link;
 
 	return 0;
-}
 
-void omap3isp_csi2_unregister_entities(struct isp_csi2_device *csi2)
-{
+error_link:
+	omap3isp_video_cleanup(&csi2->video_out);
+error_video:
 	media_entity_cleanup(&csi2->subdev.entity);
-
-	v4l2_device_unregister_subdev(&csi2->subdev);
-	omap3isp_video_unregister(&csi2->video_out);
-}
-
-int omap3isp_csi2_register_entities(struct isp_csi2_device *csi2,
-				    struct v4l2_device *vdev)
-{
-	int ret;
-
-	/* Register the subdev and video nodes. */
-	ret = v4l2_device_register_subdev(vdev, &csi2->subdev);
-	if (ret < 0)
-		goto error;
-
-	ret = omap3isp_video_register(&csi2->video_out, vdev);
-	if (ret < 0)
-		goto error;
-
-	return 0;
-
-error:
-	omap3isp_csi2_unregister_entities(csi2);
 	return ret;
-}
-
-/* -----------------------------------------------------------------------------
- * ISP CSI2 initialisation and cleanup
- */
-
-/*
- * omap3isp_csi2_cleanup - Routine for module driver cleanup
- */
-void omap3isp_csi2_cleanup(struct isp_device *isp)
-{
 }
 
 /*
@@ -1298,7 +1278,7 @@ int omap3isp_csi2_init(struct isp_device *isp)
 
 	ret = csi2_init_entities(csi2a);
 	if (ret < 0)
-		goto fail;
+		return ret;
 
 	if (isp->revision == ISP_REVISION_15_0) {
 		csi2c->isp = isp;
@@ -1311,7 +1291,15 @@ int omap3isp_csi2_init(struct isp_device *isp)
 	}
 
 	return 0;
-fail:
-	omap3isp_csi2_cleanup(isp);
-	return ret;
+}
+
+/*
+ * omap3isp_csi2_cleanup - Routine for module driver cleanup
+ */
+void omap3isp_csi2_cleanup(struct isp_device *isp)
+{
+	struct isp_csi2_device *csi2a = &isp->isp_csi2a;
+
+	omap3isp_video_cleanup(&csi2a->video_out);
+	media_entity_cleanup(&csi2a->subdev.entity);
 }

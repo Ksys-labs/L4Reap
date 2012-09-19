@@ -23,6 +23,7 @@
 #include <linux/input.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/pm_qos.h>
 #include <linux/slab.h>
 #include <linux/types.h>
 
@@ -46,6 +47,7 @@ struct st1232_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
 	struct st1232_ts_finger finger[MAX_FINGERS];
+	struct dev_pm_qos_request low_latency_req;
 };
 
 static int st1232_ts_read_data(struct st1232_ts_data *ts)
@@ -118,8 +120,17 @@ static irqreturn_t st1232_ts_irq_handler(int irq, void *dev_id)
 	}
 
 	/* SYN_MT_REPORT only if no contact */
-	if (!count)
+	if (!count) {
 		input_mt_sync(input_dev);
+		if (ts->low_latency_req.dev) {
+			dev_pm_qos_remove_request(&ts->low_latency_req);
+			ts->low_latency_req.dev = NULL;
+		}
+	} else if (!ts->low_latency_req.dev) {
+		/* First contact, request 100 us latency. */
+		dev_pm_qos_add_ancestor_request(&ts->client->dev,
+						&ts->low_latency_req, 100);
+	}
 
 	/* SYN_REPORT */
 	input_sync(input_dev);
@@ -207,7 +218,7 @@ static int __devexit st1232_ts_remove(struct i2c_client *client)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int st1232_ts_suspend(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
@@ -232,17 +243,24 @@ static int st1232_ts_resume(struct device *dev)
 	return 0;
 }
 
-static const struct dev_pm_ops st1232_ts_pm_ops = {
-	.suspend	= st1232_ts_suspend,
-	.resume		= st1232_ts_resume,
-};
 #endif
+
+static SIMPLE_DEV_PM_OPS(st1232_ts_pm_ops,
+			 st1232_ts_suspend, st1232_ts_resume);
 
 static const struct i2c_device_id st1232_ts_id[] = {
 	{ ST1232_TS_NAME, 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, st1232_ts_id);
+
+#ifdef CONFIG_OF
+static const struct of_device_id st1232_ts_dt_ids[] __devinitconst = {
+	{ .compatible = "sitronix,st1232", },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, st1232_ts_dt_ids);
+#endif
 
 static struct i2c_driver st1232_ts_driver = {
 	.probe		= st1232_ts_probe,
@@ -251,23 +269,12 @@ static struct i2c_driver st1232_ts_driver = {
 	.driver = {
 		.name	= ST1232_TS_NAME,
 		.owner	= THIS_MODULE,
-#ifdef CONFIG_PM
+		.of_match_table = of_match_ptr(st1232_ts_dt_ids),
 		.pm	= &st1232_ts_pm_ops,
-#endif
 	},
 };
 
-static int __init st1232_ts_init(void)
-{
-	return i2c_add_driver(&st1232_ts_driver);
-}
-module_init(st1232_ts_init);
-
-static void __exit st1232_ts_exit(void)
-{
-	i2c_del_driver(&st1232_ts_driver);
-}
-module_exit(st1232_ts_exit);
+module_i2c_driver(st1232_ts_driver);
 
 MODULE_AUTHOR("Tony SIM <chinyeow.sim.xt@renesas.com>");
 MODULE_DESCRIPTION("SITRONIX ST1232 Touchscreen Controller Driver");

@@ -15,7 +15,7 @@
 #include <net/netfilter/nf_conntrack_extend.h>
 #include <net/netfilter/nf_conntrack_timestamp.h>
 
-static int nf_ct_tstamp __read_mostly;
+static bool nf_ct_tstamp __read_mostly;
 
 module_param_named(tstamp, nf_ct_tstamp, bool, 0644);
 MODULE_PARM_DESC(tstamp, "Enable connection tracking flow timestamping.");
@@ -51,8 +51,8 @@ static int nf_conntrack_tstamp_init_sysctl(struct net *net)
 
 	table[0].data = &net->ct.sysctl_tstamp;
 
-	net->ct.tstamp_sysctl_header = register_net_sysctl_table(net,
-			nf_net_netfilter_sysctl_path, table);
+	net->ct.tstamp_sysctl_header = register_net_sysctl(net,	"net/netfilter",
+							   table);
 	if (!net->ct.tstamp_sysctl_header) {
 		printk(KERN_ERR "nf_ct_tstamp: can't register to sysctl.\n");
 		goto out_register;

@@ -73,11 +73,15 @@ static inline void local_tick_enable(unsigned long long comp)
 
 typedef unsigned long long cycles_t;
 
-static inline unsigned long long get_clock (void)
+static inline unsigned long long get_clock(void)
 {
 	unsigned long long clk;
 
+#ifdef CONFIG_HAVE_MARCH_Z9_109_FEATURES
+	asm volatile(".insn s,0xb27c0000,%0" : "=Q" (clk) : : "cc");
+#else
 	asm volatile("stck %0" : "=Q" (clk) : : "cc");
+#endif
 	return clk;
 }
 

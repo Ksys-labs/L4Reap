@@ -451,18 +451,42 @@ enum {
 	GPIO_FN_KEYIN5_PU,
 	GPIO_FN_KEYIN6_PU,
 	GPIO_FN_KEYIN7_PU,
+	GPIO_FN_SDHICD0_PU,
+	GPIO_FN_SDHID0_0_PU,
+	GPIO_FN_SDHID0_1_PU,
+	GPIO_FN_SDHID0_2_PU,
+	GPIO_FN_SDHID0_3_PU,
+	GPIO_FN_SDHICMD0_PU,
+	GPIO_FN_SDHIWP0_PU,
 	GPIO_FN_SDHID1_0_PU,
 	GPIO_FN_SDHID1_1_PU,
 	GPIO_FN_SDHID1_2_PU,
 	GPIO_FN_SDHID1_3_PU,
 	GPIO_FN_SDHICMD1_PU,
+	GPIO_FN_SDHID2_0_PU,
+	GPIO_FN_SDHID2_1_PU,
+	GPIO_FN_SDHID2_2_PU,
+	GPIO_FN_SDHID2_3_PU,
+	GPIO_FN_SDHICMD2_PU,
 	GPIO_FN_MMCCMD0_PU,
 	GPIO_FN_MMCCMD1_PU,
+	GPIO_FN_MMCD0_0_PU,
+	GPIO_FN_MMCD0_1_PU,
+	GPIO_FN_MMCD0_2_PU,
+	GPIO_FN_MMCD0_3_PU,
+	GPIO_FN_MMCD0_4_PU,
+	GPIO_FN_MMCD0_5_PU,
+	GPIO_FN_MMCD0_6_PU,
+	GPIO_FN_MMCD0_7_PU,
 	GPIO_FN_FSIACK_PU,
 	GPIO_FN_FSIAILR_PU,
 	GPIO_FN_FSIAIBT_PU,
 	GPIO_FN_FSIAISLD_PU,
+
+	/* end of GPIO */
+	GPIO_NR,
 };
+
 /* DMA slave IDs */
 enum {
 	SHDMA_SLAVE_INVALID,
@@ -493,5 +517,37 @@ enum {
 	SHDMA_SLAVE_MMCIF_TX,
 	SHDMA_SLAVE_MMCIF_RX,
 };
+
+/*
+ *		SH73A0 IRQ LOCATION TABLE
+ *
+ * 416	-----------------------------------------
+ *		IRQ0-IRQ15
+ * 431	-----------------------------------------
+ * ...
+ * 448	-----------------------------------------
+ *		sh73a0-intcs
+ *		sh73a0-intca-irq-pins
+ * 680	-----------------------------------------
+ * ...
+ * 700	-----------------------------------------
+ *		sh73a0-pint0
+ * 731	-----------------------------------------
+ * 732	-----------------------------------------
+ *		sh73a0-pint1
+ * 739	-----------------------------------------
+ * ...
+ * 800	-----------------------------------------
+ *		IRQ16-IRQ31
+ * 815	-----------------------------------------
+ * ...
+ * 928	-----------------------------------------
+ *		sh73a0-intca-irq-pins
+ * 943	-----------------------------------------
+ */
+
+/* PINT interrupts are located at Linux IRQ 700 and up */
+#define SH73A0_PINT0_IRQ(irq) ((irq) + 700)
+#define SH73A0_PINT1_IRQ(irq) ((irq) + 732)
 
 #endif /* __ASM_SH73A0_H__ */

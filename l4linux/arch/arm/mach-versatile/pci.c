@@ -24,7 +24,6 @@
 
 #include <mach/hardware.h>
 #include <asm/irq.h>
-#include <asm/system.h>
 #include <asm/mach/pci.h>
 
 /*
@@ -170,11 +169,18 @@ static struct pci_ops pci_versatile_ops = {
 	.write	= versatile_write_config,
 };
 
+static struct resource io_port = {
+	.name	= "PCI",
+	.start	= 0,
+	.end	= IO_SPACE_LIMIT,
+	.flags	= IORESOURCE_IO,
+};
+
 static struct resource io_mem = {
 	.name	= "PCI I/O space",
 	.start	= VERSATILE_PCI_MEM_BASE0,
 	.end	= VERSATILE_PCI_MEM_BASE0+VERSATILE_PCI_MEM_BASE0_SIZE-1,
-	.flags	= IORESOURCE_IO,
+	.flags	= IORESOURCE_MEM,
 };
 
 static struct resource non_mem = {
@@ -191,7 +197,7 @@ static struct resource pre_mem = {
 	.flags	= IORESOURCE_MEM | IORESOURCE_PREFETCH,
 };
 
-static int __init pci_versatile_setup_resources(struct resource **resource)
+static int __init pci_versatile_setup_resources(struct pci_sys_data *sys)
 {
 	int ret = 0;
 
@@ -199,6 +205,12 @@ static int __init pci_versatile_setup_resources(struct resource **resource)
 	if (ret) {
 		printk(KERN_ERR "PCI: unable to allocate I/O "
 		       "memory region (%d)\n", ret);
+		goto out;
+	}
+	ret = request_resource(&ioport_resource, &io_port);
+	if (ret) {
+		printk(KERN_ERR "PCI: unable to allocate I/O "
+		       "port region (%d)\n", ret);
 		goto out;
 	}
 	ret = request_resource(&iomem_resource, &non_mem);
@@ -215,13 +227,13 @@ static int __init pci_versatile_setup_resources(struct resource **resource)
 	}
 
 	/*
-	 * bus->resource[0] is the IO resource for this bus
-	 * bus->resource[1] is the mem resource for this bus
-	 * bus->resource[2] is the prefetch mem resource for this bus
+	 * the IO resource for this bus
+	 * the mem resource for this bus
+	 * the prefetch mem resource for this bus
 	 */
-	resource[0] = &io_mem;
-	resource[1] = &non_mem;
-	resource[2] = &pre_mem;
+	pci_add_resource_offset(&sys->resources, &io_port, sys->io_offset);
+	pci_add_resource_offset(&sys->resources, &non_mem, sys->mem_offset);
+	pci_add_resource_offset(&sys->resources, &pre_mem, sys->mem_offset);
 
 	goto out;
 
@@ -250,7 +262,8 @@ int __init pci_versatile_setup(int nr, struct pci_sys_data *sys)
 
 	if (nr == 0) {
 		sys->mem_offset = 0;
-		ret = pci_versatile_setup_resources(sys->resource);
+		sys->io_offset = 0;
+		ret = pci_versatile_setup_resources(sys);
 		if (ret < 0) {
 			printk("pci_versatile_setup: resources... oops?\n");
 			goto out;
@@ -304,13 +317,11 @@ int __init pci_versatile_setup(int nr, struct pci_sys_data *sys)
 }
 
 
-struct pci_bus * __init pci_versatile_scan_bus(int nr, struct pci_sys_data *sys)
-{
-	return pci_scan_bus(sys->busnr, &pci_versatile_ops, sys);
-}
-
 void __init pci_versatile_preinit(void)
 {
+	pcibios_min_io = 0x44000000;
+	pcibios_min_mem = 0x50000000;
+
 	__raw_writel(VERSATILE_PCI_MEM_BASE0 >> 28, PCI_IMAP0);
 	__raw_writel(VERSATILE_PCI_MEM_BASE1 >> 28, PCI_IMAP1);
 	__raw_writel(VERSATILE_PCI_MEM_BASE2 >> 28, PCI_IMAP2);
@@ -325,10 +336,9 @@ void __init pci_versatile_preinit(void)
 /*
  * map the specified device/slot/pin to an IRQ.   Different backplanes may need to modify this.
  */
-static int __init versatile_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
+static int __init versatile_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 {
 	int irq;
-	int devslot = PCI_SLOT(dev->devfn);
 
 	/* slot,  pin,	irq
 	 *  24     1     27
@@ -336,19 +346,16 @@ static int __init versatile_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 	 *  26     1     29
 	 *  27     1     30
 	 */
-	irq = 27 + ((slot + pin - 1) & 3);
-
-	printk("PCI map irq: slot %d, pin %d, devslot %d, irq: %d\n",slot,pin,devslot,irq);
+	irq = 27 + ((slot - 24 + pin - 1) & 3);
 
 	return irq;
 }
 
 static struct hw_pci versatile_pci __initdata = {
-	.swizzle		= NULL,
 	.map_irq		= versatile_map_irq,
 	.nr_controllers		= 1,
+	.ops			= &pci_versatile_ops,
 	.setup			= pci_versatile_setup,
-	.scan			= pci_versatile_scan_bus,
 	.preinit		= pci_versatile_preinit,
 };
 

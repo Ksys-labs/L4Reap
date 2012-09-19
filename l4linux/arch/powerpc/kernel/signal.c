@@ -11,9 +11,11 @@
 
 #include <linux/tracehook.h>
 #include <linux/signal.h>
+#include <linux/key.h>
 #include <asm/hw_breakpoint.h>
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
+#include <asm/debug.h>
 
 #include "signal.h"
 
@@ -47,19 +49,6 @@ void __user * get_sigframe(struct k_sigaction *ka, struct pt_regs *regs,
 		return NULL;
 
         return (void __user *)newsp;
-}
-
-
-/*
- * Restore the user process's signal mask
- */
-void restore_sigmask(sigset_t *set)
-{
-	sigdelsetmask(set, ~_BLOCKABLE);
-	spin_lock_irq(&current->sighand->siglock);
-	current->blocked = *set;
-	recalc_sigpending();
-	spin_unlock_irq(&current->sighand->siglock);
 }
 
 static void check_syscall_restart(struct pt_regs *regs, struct k_sigaction *ka,
@@ -113,18 +102,14 @@ static void check_syscall_restart(struct pt_regs *regs, struct k_sigaction *ka,
 	}
 }
 
-static int do_signal_pending(sigset_t *oldset, struct pt_regs *regs)
+static int do_signal(struct pt_regs *regs)
 {
+	sigset_t *oldset = sigmask_to_save();
 	siginfo_t info;
 	int signr;
 	struct k_sigaction ka;
 	int ret;
 	int is32 = is_32bit_task();
-
-	if (current_thread_info()->local_flags & _TLF_RESTORE_SIGMASK)
-		oldset = &current->saved_sigmask;
-	else if (!oldset)
-		oldset = &current->blocked;
 
 	signr = get_signal_to_deliver(&info, &ka, regs, NULL);
 
@@ -132,12 +117,8 @@ static int do_signal_pending(sigset_t *oldset, struct pt_regs *regs)
 	check_syscall_restart(regs, &ka, signr > 0);
 
 	if (signr <= 0) {
-		struct thread_info *ti = current_thread_info();
 		/* No signal to deliver -- put the saved sigmask back */
-		if (ti->local_flags & _TLF_RESTORE_SIGMASK) {
-			ti->local_flags &= ~_TLF_RESTORE_SIGMASK;
-			sigprocmask(SIG_SETMASK, &current->saved_sigmask, NULL);
-		}
+		restore_saved_sigmask();
 		regs->trap = 0;
 		return 0;               /* no signals delivered */
 	}
@@ -167,34 +148,17 @@ static int do_signal_pending(sigset_t *oldset, struct pt_regs *regs)
 
 	regs->trap = 0;
 	if (ret) {
-		spin_lock_irq(&current->sighand->siglock);
-		sigorsets(&current->blocked, &current->blocked,
-			  &ka.sa.sa_mask);
-		if (!(ka.sa.sa_flags & SA_NODEFER))
-			sigaddset(&current->blocked, signr);
-		recalc_sigpending();
-		spin_unlock_irq(&current->sighand->siglock);
-
-		/*
-		 * A signal was successfully delivered; the saved sigmask is in
-		 * its frame, and we can clear the TLF_RESTORE_SIGMASK flag.
-		 */
-		current_thread_info()->local_flags &= ~_TLF_RESTORE_SIGMASK;
-
-		/*
-		 * Let tracing know that we've done the handler setup.
-		 */
-		tracehook_signal_handler(signr, &info, &ka, regs,
+		signal_delivered(signr, &info, &ka, regs,
 					 test_thread_flag(TIF_SINGLESTEP));
 	}
 
 	return ret;
 }
 
-void do_signal(struct pt_regs *regs, unsigned long thread_info_flags)
+void do_notify_resume(struct pt_regs *regs, unsigned long thread_info_flags)
 {
 	if (thread_info_flags & _TIF_SIGPENDING)
-		do_signal_pending(NULL, regs);
+		do_signal(regs);
 
 	if (thread_info_flags & _TIF_NOTIFY_RESUME) {
 		clear_thread_flag(TIF_NOTIFY_RESUME);

@@ -61,10 +61,8 @@ void tipc_msg_init(struct tipc_msg *m, u32 user, u32 type,
 	msg_set_size(m, hsize);
 	msg_set_prevnode(m, tipc_own_addr);
 	msg_set_type(m, type);
-	if (!msg_short(m)) {
-		msg_set_orignode(m, tipc_own_addr);
-		msg_set_destnode(m, destnode);
-	}
+	msg_set_orignode(m, tipc_own_addr);
+	msg_set_destnode(m, destnode);
 }
 
 /**
@@ -74,7 +72,6 @@ void tipc_msg_init(struct tipc_msg *m, u32 user, u32 type,
  *
  * Returns message data size or errno
  */
-
 int tipc_msg_build(struct tipc_msg *hdr, struct iovec const *msg_sect,
 		   u32 num_sect, unsigned int total_len,
 			    int max_size, int usrmem, struct sk_buff **buf)
@@ -108,13 +105,12 @@ int tipc_msg_build(struct tipc_msg *hdr, struct iovec const *msg_sect,
 	if (likely(res))
 		return dsz;
 
-	buf_discard(*buf);
+	kfree_skb(*buf);
 	*buf = NULL;
 	return -EFAULT;
 }
 
 #ifdef CONFIG_TIPC_DEBUG
-
 void tipc_msg_dbg(struct print_buf *buf, struct tipc_msg *msg, const char *str)
 {
 	u32 usr = msg_user(msg);
@@ -335,11 +331,14 @@ void tipc_msg_dbg(struct print_buf *buf, struct tipc_msg *msg, const char *str)
 	}
 
 	if (msg_user(msg) ==  LINK_CONFIG) {
-		u32 *raw = (u32 *)msg;
-		struct tipc_media_addr *orig = (struct tipc_media_addr *)&raw[5];
+		struct tipc_media_addr orig;
+
 		tipc_printf(buf, ":DDOM(%x):", msg_dest_domain(msg));
 		tipc_printf(buf, ":NETID(%u):", msg_bc_netid(msg));
-		tipc_media_addr_printf(buf, orig);
+		memcpy(orig.value, msg_media_addr(msg), sizeof(orig.value));
+		orig.media_id = 0;
+		orig.broadcast = 0;
+		tipc_media_addr_printf(buf, &orig);
 	}
 	if (msg_user(msg) == BCAST_PROTOCOL) {
 		tipc_printf(buf, "BCNACK:AFTER(%u):", msg_bcgap_after(msg));
@@ -351,5 +350,4 @@ void tipc_msg_dbg(struct print_buf *buf, struct tipc_msg *msg, const char *str)
 	if ((usr == MSG_FRAGMENTER) && (msg_type(msg) == FIRST_FRAGMENT))
 		tipc_msg_dbg(buf, msg_get_wrapped(msg), "      /");
 }
-
 #endif

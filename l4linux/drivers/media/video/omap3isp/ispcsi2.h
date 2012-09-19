@@ -145,7 +145,6 @@ struct isp_csi2_device {
 	u32 output; /* output to CCDC, memory or both? */
 	bool dpcm_decompress;
 	unsigned int frame_skip;
-	bool use_fs_irq;
 
 	struct isp_csiphy *phy;
 	struct isp_csi2_ctx_cfg contexts[ISP_CSI2_MAX_CTX_NUM + 1];
@@ -156,7 +155,7 @@ struct isp_csi2_device {
 	atomic_t stopping;
 };
 
-int omap3isp_csi2_isr(struct isp_csi2_device *csi2);
+void omap3isp_csi2_isr(struct isp_csi2_device *csi2);
 int omap3isp_csi2_reset(struct isp_csi2_device *csi2);
 int omap3isp_csi2_init(struct isp_device *isp);
 void omap3isp_csi2_cleanup(struct isp_device *isp);

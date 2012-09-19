@@ -9,31 +9,6 @@
  * driver
  *
  * Please report both successes and troubles to the author at omninet@kroah.com
- *
- * (05/30/2001) gkh
- *	switched from using spinlock to a semaphore, which fixes lots of
- *	problems.
- *
- * (04/08/2001) gb
- *	Identify version on module load.
- *
- * (11/01/2000) Adam J. Richter
- *	usb_device_id table support
- *
- * (10/05/2000) gkh
- *	Fixed bug with urb->dev not being set properly, now that the usb
- *	core needs it.
- *
- * (08/28/2000) gkh
- *	Added locks for SMP safeness.
- *	Fixed MOD_INC and MOD_DEC logic and the ability to open a port more
- *	than once.
- *	Fixed potential race in omninet_write_bulk_callback
- *
- * (07/19/2000) gkh
- *	Added module_init and module_exit functions to handle the fact that this
- *	driver is a loadable module now.
- *
  */
 
 #include <linux/kernel.h>
@@ -44,12 +19,11 @@
 #include <linux/tty_driver.h>
 #include <linux/tty_flip.h>
 #include <linux/module.h>
-#include <linux/spinlock.h>
 #include <linux/uaccess.h>
 #include <linux/usb.h>
 #include <linux/usb/serial.h>
 
-static int debug;
+static bool debug;
 
 /*
  * Version Information
@@ -80,17 +54,7 @@ static const struct usb_device_id id_table[] = {
 	{ USB_DEVICE(ZYXEL_VENDOR_ID, BT_IGNITIONPRO_ID) },
 	{ }						/* Terminating entry */
 };
-
 MODULE_DEVICE_TABLE(usb, id_table);
-
-static struct usb_driver omninet_driver = {
-	.name =		"omninet",
-	.probe =	usb_serial_probe,
-	.disconnect =	usb_serial_disconnect,
-	.id_table =	id_table,
-	.no_dynamic_id = 	1,
-};
-
 
 static struct usb_serial_driver zyxel_omninet_device = {
 	.driver = {
@@ -98,7 +62,6 @@ static struct usb_serial_driver zyxel_omninet_device = {
 		.name =		"omninet",
 	},
 	.description =		"ZyXEL - omni.net lcd plus usb",
-	.usb_driver =		&omninet_driver,
 	.id_table =		id_table,
 	.num_ports =		1,
 	.attach =		omninet_attach,
@@ -110,6 +73,10 @@ static struct usb_serial_driver zyxel_omninet_device = {
 	.write_bulk_callback =	omninet_write_bulk_callback,
 	.disconnect =		omninet_disconnect,
 	.release =		omninet_release,
+};
+
+static struct usb_serial_driver * const serial_drivers[] = {
+	&zyxel_omninet_device, NULL
 };
 
 
@@ -168,18 +135,10 @@ static int omninet_open(struct tty_struct *tty, struct usb_serial_port *port)
 	struct usb_serial_port	*wport;
 	int			result = 0;
 
-	dbg("%s - port %d", __func__, port->number);
-
 	wport = serial->port[1];
 	tty_port_tty_set(&wport->port, tty);
 
 	/* Start reading from the device */
-	usb_fill_bulk_urb(port->read_urb, serial->dev,
-			usb_rcvbulkpipe(serial->dev,
-				port->bulk_in_endpointAddress),
-			port->read_urb->transfer_buffer,
-			port->read_urb->transfer_buffer_length,
-			omninet_read_bulk_callback, port);
 	result = usb_submit_urb(port->read_urb, GFP_KERNEL);
 	if (result)
 		dev_err(&port->dev,
@@ -190,7 +149,6 @@ static int omninet_open(struct tty_struct *tty, struct usb_serial_port *port)
 
 static void omninet_close(struct usb_serial_port *port)
 {
-	dbg("%s - port %d", __func__, port->number);
 	usb_kill_urb(port->read_urb);
 }
 
@@ -207,8 +165,6 @@ static void omninet_read_bulk_callback(struct urb *urb)
 	int status = urb->status;
 	int result;
 	int i;
-
-	dbg("%s - port %d", __func__, port->number);
 
 	if (status) {
 		dbg("%s - nonzero read bulk status received: %d",
@@ -236,11 +192,6 @@ static void omninet_read_bulk_callback(struct urb *urb)
 	}
 
 	/* Continue trying to always read  */
-	usb_fill_bulk_urb(urb, port->serial->dev,
-			usb_rcvbulkpipe(port->serial->dev,
-					port->bulk_in_endpointAddress),
-			urb->transfer_buffer, urb->transfer_buffer_length,
-			omninet_read_bulk_callback, port);
 	result = usb_submit_urb(urb, GFP_ATOMIC);
 	if (result)
 		dev_err(&port->dev,
@@ -260,21 +211,15 @@ static int omninet_write(struct tty_struct *tty, struct usb_serial_port *port,
 
 	int			result;
 
-	dbg("%s - port %d", __func__, port->number);
-
 	if (count == 0) {
 		dbg("%s - write request of 0 bytes", __func__);
 		return 0;
 	}
 
-	spin_lock_bh(&wport->lock);
-	if (wport->write_urb_busy) {
-		spin_unlock_bh(&wport->lock);
+	if (!test_and_clear_bit(0, &port->write_urbs_free)) {
 		dbg("%s - already writing", __func__);
 		return 0;
 	}
-	wport->write_urb_busy = 1;
-	spin_unlock_bh(&wport->lock);
 
 	count = (count > OMNINET_BULKOUTSIZE) ? OMNINET_BULKOUTSIZE : count;
 
@@ -292,11 +237,10 @@ static int omninet_write(struct tty_struct *tty, struct usb_serial_port *port,
 	/* send the data out the bulk port, always 64 bytes */
 	wport->write_urb->transfer_buffer_length = 64;
 
-	wport->write_urb->dev = serial->dev;
 	result = usb_submit_urb(wport->write_urb, GFP_ATOMIC);
 	if (result) {
-		wport->write_urb_busy = 0;
-		dev_err(&port->dev,
+		set_bit(0, &wport->write_urbs_free);
+		dev_err_console(port,
 			"%s - failed submitting write urb, error %d\n",
 			__func__, result);
 	} else
@@ -314,8 +258,7 @@ static int omninet_write_room(struct tty_struct *tty)
 
 	int room = 0; /* Default: no room */
 
-	/* FIXME: no consistent locking for write_urb_busy */
-	if (wport->write_urb_busy)
+	if (test_bit(0, &wport->write_urbs_free))
 		room = wport->bulk_out_size - OMNINET_HEADERLEN;
 
 	dbg("%s - returns %d", __func__, room);
@@ -330,9 +273,7 @@ static void omninet_write_bulk_callback(struct urb *urb)
 	struct usb_serial_port 	*port   =  urb->context;
 	int status = urb->status;
 
-	dbg("%s - port %0x", __func__, port->number);
-
-	port->write_urb_busy = 0;
+	set_bit(0, &port->write_urbs_free);
 	if (status) {
 		dbg("%s - nonzero write bulk status received: %d",
 		    __func__, status);
@@ -347,8 +288,6 @@ static void omninet_disconnect(struct usb_serial *serial)
 {
 	struct usb_serial_port *wport = serial->port[1];
 
-	dbg("%s", __func__);
-
 	usb_kill_urb(wport->write_urb);
 }
 
@@ -357,40 +296,10 @@ static void omninet_release(struct usb_serial *serial)
 {
 	struct usb_serial_port *port = serial->port[0];
 
-	dbg("%s", __func__);
-
 	kfree(usb_get_serial_port_data(port));
 }
 
-
-static int __init omninet_init(void)
-{
-	int retval;
-	retval = usb_serial_register(&zyxel_omninet_device);
-	if (retval)
-		goto failed_usb_serial_register;
-	retval = usb_register(&omninet_driver);
-	if (retval)
-		goto failed_usb_register;
-	printk(KERN_INFO KBUILD_MODNAME ": " DRIVER_VERSION ":"
-	       DRIVER_DESC "\n");
-	return 0;
-failed_usb_register:
-	usb_serial_deregister(&zyxel_omninet_device);
-failed_usb_serial_register:
-	return retval;
-}
-
-
-static void __exit omninet_exit(void)
-{
-	usb_deregister(&omninet_driver);
-	usb_serial_deregister(&zyxel_omninet_device);
-}
-
-
-module_init(omninet_init);
-module_exit(omninet_exit);
+module_usb_serial_driver(serial_drivers, id_table);
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);

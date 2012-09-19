@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2008 Renesas Solutions Corp.
  *
- * Author : Yoshihiro Shimoda <shimoda.yoshihiro@renesas.com>
+ * Author : Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,7 +29,6 @@ static int ohci_sh_start(struct usb_hcd *hcd)
 	ohci_hcd_init(ohci);
 	ohci_init(ohci);
 	ohci_run(ohci);
-	hcd->state = HC_STATE_RUNNING;
 	return 0;
 }
 
@@ -89,29 +88,29 @@ static int ohci_hcd_sh_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
-		err("platform_get_resource error.");
+		dev_err(&pdev->dev, "platform_get_resource error.\n");
 		return -ENODEV;
 	}
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
-		err("platform_get_irq error.");
+		dev_err(&pdev->dev, "platform_get_irq error.\n");
 		return -ENODEV;
 	}
 
 	/* initialize hcd */
 	hcd = usb_create_hcd(&ohci_sh_hc_driver, &pdev->dev, (char *)hcd_name);
 	if (!hcd) {
-		err("Failed to create hcd");
+		dev_err(&pdev->dev, "Failed to create hcd\n");
 		return -ENOMEM;
 	}
 
 	hcd->regs = (void __iomem *)res->start;
 	hcd->rsrc_start = res->start;
 	hcd->rsrc_len = resource_size(res);
-	ret = usb_add_hcd(hcd, irq, IRQF_DISABLED | IRQF_SHARED);
+	ret = usb_add_hcd(hcd, irq, IRQF_SHARED);
 	if (ret != 0) {
-		err("Failed to add hcd");
+		dev_err(&pdev->dev, "Failed to add hcd\n");
 		usb_put_hcd(hcd);
 		return ret;
 	}

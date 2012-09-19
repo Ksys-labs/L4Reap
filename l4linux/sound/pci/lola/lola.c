@@ -20,7 +20,7 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/moduleparam.h>
+#include <linux/module.h>
 #include <linux/dma-mapping.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -35,7 +35,7 @@
 /* Standard options */
 static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX;
 static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;
-static int enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP;
+static bool enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP;
 
 module_param_array(index, int, NULL, 0444);
 MODULE_PARM_DESC(index, "Index value for Digigram Lola driver.");
@@ -648,7 +648,7 @@ static int __devinit lola_create(struct snd_card *card, struct pci_dev *pci,
 		goto errout;
 
 	if (request_irq(pci->irq, lola_interrupt, IRQF_SHARED,
-			DRVNAME, chip)) {
+			KBUILD_MODNAME, chip)) {
 		printk(KERN_ERR SFX "unable to grab IRQ %d\n", pci->irq);
 		err = -EBUSY;
 		goto errout;
@@ -770,22 +770,11 @@ static DEFINE_PCI_DEVICE_TABLE(lola_ids) = {
 MODULE_DEVICE_TABLE(pci, lola_ids);
 
 /* pci_driver definition */
-static struct pci_driver driver = {
-	.name = DRVNAME,
+static struct pci_driver lola_driver = {
+	.name = KBUILD_MODNAME,
 	.id_table = lola_ids,
 	.probe = lola_probe,
 	.remove = __devexit_p(lola_remove),
 };
 
-static int __init alsa_card_lola_init(void)
-{
-	return pci_register_driver(&driver);
-}
-
-static void __exit alsa_card_lola_exit(void)
-{
-	pci_unregister_driver(&driver);
-}
-
-module_init(alsa_card_lola_init)
-module_exit(alsa_card_lola_exit)
+module_pci_driver(lola_driver);

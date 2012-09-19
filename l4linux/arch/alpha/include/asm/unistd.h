@@ -203,6 +203,12 @@
 #define __NR_osf_security	222	/* not implemented */
 #define __NR_osf_kloadcall	223	/* not implemented */
 
+#define __NR_osf_stat		224
+#define __NR_osf_lstat		225
+#define __NR_osf_fstat		226
+#define __NR_osf_statfs64	227
+#define __NR_osf_fstatfs64	228
+
 #define __NR_getpgid		233
 #define __NR_getsid		234
 #define __NR_sigaltstack	235
@@ -457,10 +463,12 @@
 #define __NR_clock_adjtime		499
 #define __NR_syncfs			500
 #define __NR_setns			501
+#define __NR_accept4			502
+#define __NR_sendmmsg			503
 
 #ifdef __KERNEL__
 
-#define NR_SYSCALLS			502
+#define NR_SYSCALLS			504
 
 #define __ARCH_WANT_IPC_PARSE_VERSION
 #define __ARCH_WANT_OLD_READDIR

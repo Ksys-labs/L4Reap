@@ -43,8 +43,6 @@ struct nv20_graph_engine {
 int
 nv20_graph_unload_context(struct drm_device *dev)
 {
-	struct drm_nouveau_private *dev_priv = dev->dev_private;
-	struct nouveau_fifo_engine *pfifo = &dev_priv->engine.fifo;
 	struct nouveau_channel *chan;
 	struct nouveau_gpuobj *grctx;
 	u32 tmp;
@@ -62,7 +60,7 @@ nv20_graph_unload_context(struct drm_device *dev)
 
 	nv_wr32(dev, NV10_PGRAPH_CTX_CONTROL, 0x10000000);
 	tmp  = nv_rd32(dev, NV10_PGRAPH_CTX_USER) & 0x00ffffff;
-	tmp |= (pfifo->channels - 1) << 24;
+	tmp |= 31 << 24;
 	nv_wr32(dev, NV10_PGRAPH_CTX_USER, tmp);
 	return 0;
 }
@@ -454,13 +452,13 @@ nv20_graph_context_del(struct nouveau_channel *chan, int engine)
 	unsigned long flags;
 
 	spin_lock_irqsave(&dev_priv->context_switch_lock, flags);
-	nv04_graph_fifo_access(dev, false);
+	nv_mask(dev, NV04_PGRAPH_FIFO, 0x00000001, 0x00000000);
 
 	/* Unload the context if it's the currently active one */
 	if (nv10_graph_channel(dev) == chan)
 		nv20_graph_unload_context(dev);
 
-	nv04_graph_fifo_access(dev, true);
+	nv_mask(dev, NV04_PGRAPH_FIFO, 0x00000001, 0x00000001);
 	spin_unlock_irqrestore(&dev_priv->context_switch_lock, flags);
 
 	/* Free the context resources */
@@ -654,8 +652,13 @@ nv30_graph_init(struct drm_device *dev, int engine)
 }
 
 int
-nv20_graph_fini(struct drm_device *dev, int engine)
+nv20_graph_fini(struct drm_device *dev, int engine, bool suspend)
 {
+	nv_mask(dev, NV04_PGRAPH_FIFO, 0x00000001, 0x00000000);
+	if (!nv_wait(dev, NV04_PGRAPH_STATUS, ~0, 0) && suspend) {
+		nv_mask(dev, NV04_PGRAPH_FIFO, 0x00000001, 0x00000001);
+		return -EBUSY;
+	}
 	nv20_graph_unload_context(dev);
 	nv_wr32(dev, NV03_PGRAPH_INTR_EN, 0x00000000);
 	return 0;
@@ -753,6 +756,7 @@ nv20_graph_create(struct drm_device *dev)
 			break;
 		default:
 			NV_ERROR(dev, "PGRAPH: unknown chipset\n");
+			kfree(pgraph);
 			return 0;
 		}
 	} else {
@@ -774,6 +778,7 @@ nv20_graph_create(struct drm_device *dev)
 			break;
 		default:
 			NV_ERROR(dev, "PGRAPH: unknown chipset\n");
+			kfree(pgraph);
 			return 0;
 		}
 	}
@@ -788,10 +793,6 @@ nv20_graph_create(struct drm_device *dev)
 
 	NVOBJ_ENGINE_ADD(dev, GR, &pgraph->base);
 	nouveau_irq_register(dev, 12, nv20_graph_isr);
-
-	/* nvsw */
-	NVOBJ_CLASS(dev, 0x506e, SW);
-	NVOBJ_MTHD (dev, 0x506e, 0x0500, nv04_graph_mthd_page_flip);
 
 	NVOBJ_CLASS(dev, 0x0030, GR); /* null */
 	NVOBJ_CLASS(dev, 0x0039, GR); /* m2mf */

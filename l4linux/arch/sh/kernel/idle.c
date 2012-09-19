@@ -16,12 +16,13 @@
 #include <linux/thread_info.h>
 #include <linux/irqflags.h>
 #include <linux/smp.h>
+#include <linux/cpuidle.h>
+#include <linux/atomic.h>
 #include <asm/pgalloc.h>
-#include <asm/system.h>
-#include <asm/atomic.h>
 #include <asm/smp.h>
+#include <asm/bl_bit.h>
 
-void (*pm_idle)(void) = NULL;
+void (*pm_idle)(void);
 
 static int hlt_counter;
 
@@ -88,7 +89,8 @@ void cpu_idle(void)
 
 	/* endless idle loop with no priority at all */
 	while (1) {
-		tick_nohz_stop_sched_tick(1);
+		tick_nohz_idle_enter();
+		rcu_idle_enter();
 
 		while (!need_resched()) {
 			check_pgt_cache();
@@ -100,7 +102,8 @@ void cpu_idle(void)
 			local_irq_disable();
 			/* Don't trace irqs off for idle */
 			stop_critical_timings();
-			pm_idle();
+			if (cpuidle_idle_call())
+				pm_idle();
 			/*
 			 * Sanity check to ensure that pm_idle() returns
 			 * with IRQs enabled
@@ -109,10 +112,9 @@ void cpu_idle(void)
 			start_critical_timings();
 		}
 
-		tick_nohz_restart_sched_tick();
-		preempt_enable_no_resched();
-		schedule();
-		preempt_disable();
+		rcu_idle_exit();
+		tick_nohz_idle_exit();
+		schedule_preempt_disabled();
 	}
 }
 
@@ -130,10 +132,6 @@ void __init select_idle_routine(void)
 		pm_idle = poll_idle;
 }
 
-static void do_nothing(void *unused)
-{
-}
-
 void stop_this_cpu(void *unused)
 {
 	local_irq_disable();
@@ -142,19 +140,3 @@ void stop_this_cpu(void *unused)
 	for (;;)
 		cpu_sleep();
 }
-
-/*
- * cpu_idle_wait - Used to ensure that all the CPUs discard old value of
- * pm_idle and update to new pm_idle value. Required while changing pm_idle
- * handler on SMP systems.
- *
- * Caller must have changed pm_idle to the new value before the call. Old
- * pm_idle value will not be used by any CPU after the return of this function.
- */
-void cpu_idle_wait(void)
-{
-	smp_mb();
-	/* kick all the CPUs so that they exit out of pm_idle */
-	smp_call_function(do_nothing, NULL, 1);
-}
-EXPORT_SYMBOL_GPL(cpu_idle_wait);

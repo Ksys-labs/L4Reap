@@ -102,20 +102,6 @@
  *   nla_put_flag(skb, type)		add flag attribute to skb
  *   nla_put_msecs(skb, type, jiffies)	add msecs attribute to skb
  *
- * Exceptions Based Attribute Construction:
- *   NLA_PUT(skb, type, len, data)	add attribute to skb
- *   NLA_PUT_U8(skb, type, value)	add u8 attribute to skb
- *   NLA_PUT_U16(skb, type, value)	add u16 attribute to skb
- *   NLA_PUT_U32(skb, type, value)	add u32 attribute to skb
- *   NLA_PUT_U64(skb, type, value)	add u64 attribute to skb
- *   NLA_PUT_STRING(skb, type, str)	add string attribute to skb
- *   NLA_PUT_FLAG(skb, type)		add flag attribute to skb
- *   NLA_PUT_MSECS(skb, type, jiffies)	add msecs attribute to skb
- *
- *   The meaning of these functions is equal to their lower case
- *   variants but they jump to the label nla_put_failure in case
- *   of a failure.
- *
  * Nested Attributes Construction:
  *   nla_nest_start(skb, type)		start a nested attribute
  *   nla_nest_end(skb, nla)		finalize a nested attribute
@@ -192,8 +178,15 @@ enum {
  *    NLA_NUL_STRING       Maximum length of string (excluding NUL)
  *    NLA_FLAG             Unused
  *    NLA_BINARY           Maximum length of attribute payload
- *    NLA_NESTED_COMPAT    Exact length of structure payload
- *    All other            Exact length of attribute payload
+ *    NLA_NESTED           Don't use `len' field -- length verification is
+ *                         done by checking len of nested header (or empty)
+ *    NLA_NESTED_COMPAT    Minimum length of structure payload
+ *    NLA_U8, NLA_U16,
+ *    NLA_U32, NLA_U64,
+ *    NLA_MSECS            Leaving the length field zero will verify the
+ *                         given type fits, using it verifies minimum length
+ *                         just like "All other"
+ *    All other            Minimum length of attribute payload
  *
  * Example:
  * static const struct nla_policy my_policy[ATTR_MAX+1] = {
@@ -434,41 +427,6 @@ static inline int nlmsg_report(const struct nlmsghdr *nlh)
 	nla_for_each_attr(pos, nlmsg_attrdata(nlh, hdrlen), \
 			  nlmsg_attrlen(nlh, hdrlen), rem)
 
-#if 0
-/* FIXME: Enable once all users have been converted */
-
-/**
- * __nlmsg_put - Add a new netlink message to an skb
- * @skb: socket buffer to store message in
- * @pid: netlink process id
- * @seq: sequence number of message
- * @type: message type
- * @payload: length of message payload
- * @flags: message flags
- *
- * The caller is responsible to ensure that the skb provides enough
- * tailroom for both the netlink header and payload.
- */
-static inline struct nlmsghdr *__nlmsg_put(struct sk_buff *skb, u32 pid,
-					   u32 seq, int type, int payload,
-					   int flags)
-{
-	struct nlmsghdr *nlh;
-
-	nlh = (struct nlmsghdr *) skb_put(skb, nlmsg_total_size(payload));
-	nlh->nlmsg_type = type;
-	nlh->nlmsg_len = nlmsg_msg_size(payload);
-	nlh->nlmsg_flags = flags;
-	nlh->nlmsg_pid = pid;
-	nlh->nlmsg_seq = seq;
-
-	memset((unsigned char *) nlmsg_data(nlh) + payload, 0,
-	       nlmsg_padlen(payload));
-
-	return nlh;
-}
-#endif
-
 /**
  * nlmsg_put - Add a new netlink message to an skb
  * @skb: socket buffer to store message in
@@ -638,6 +596,30 @@ static inline int nlmsg_unicast(struct sock *sk, struct sk_buff *skb, u32 pid)
 	     nlmsg_ok(pos, rem); \
 	     pos = nlmsg_next(pos, &(rem)))
 
+/**
+ * nl_dump_check_consistent - check if sequence is consistent and advertise if not
+ * @cb: netlink callback structure that stores the sequence number
+ * @nlh: netlink message header to write the flag to
+ *
+ * This function checks if the sequence (generation) number changed during dump
+ * and if it did, advertises it in the netlink message header.
+ *
+ * The correct way to use it is to set cb->seq to the generation counter when
+ * all locks for dumping have been acquired, and then call this function for
+ * each message that is generated.
+ *
+ * Note that due to initialisation concerns, 0 is an invalid sequence number
+ * and must not be used by code that uses this functionality.
+ */
+static inline void
+nl_dump_check_consistent(struct netlink_callback *cb,
+			 struct nlmsghdr *nlh)
+{
+	if (cb->prev_seq && cb->seq != cb->prev_seq)
+		nlh->nlmsg_flags |= NLM_F_DUMP_INTR;
+	cb->prev_seq = cb->seq;
+}
+
 /**************************************************************************
  * Netlink Attributes
  **************************************************************************/
@@ -776,6 +758,39 @@ static inline int nla_put_u16(struct sk_buff *skb, int attrtype, u16 value)
 }
 
 /**
+ * nla_put_be16 - Add a __be16 netlink attribute to a socket buffer
+ * @skb: socket buffer to add attribute to
+ * @attrtype: attribute type
+ * @value: numeric value
+ */
+static inline int nla_put_be16(struct sk_buff *skb, int attrtype, __be16 value)
+{
+	return nla_put(skb, attrtype, sizeof(__be16), &value);
+}
+
+/**
+ * nla_put_net16 - Add 16-bit network byte order netlink attribute to a socket buffer
+ * @skb: socket buffer to add attribute to
+ * @attrtype: attribute type
+ * @value: numeric value
+ */
+static inline int nla_put_net16(struct sk_buff *skb, int attrtype, __be16 value)
+{
+	return nla_put_be16(skb, attrtype | NLA_F_NET_BYTEORDER, value);
+}
+
+/**
+ * nla_put_le16 - Add a __le16 netlink attribute to a socket buffer
+ * @skb: socket buffer to add attribute to
+ * @attrtype: attribute type
+ * @value: numeric value
+ */
+static inline int nla_put_le16(struct sk_buff *skb, int attrtype, __le16 value)
+{
+	return nla_put(skb, attrtype, sizeof(__le16), &value);
+}
+
+/**
  * nla_put_u32 - Add a u32 netlink attribute to a socket buffer
  * @skb: socket buffer to add attribute to
  * @attrtype: attribute type
@@ -787,7 +802,40 @@ static inline int nla_put_u32(struct sk_buff *skb, int attrtype, u32 value)
 }
 
 /**
- * nla_put_64 - Add a u64 netlink attribute to a socket buffer
+ * nla_put_be32 - Add a __be32 netlink attribute to a socket buffer
+ * @skb: socket buffer to add attribute to
+ * @attrtype: attribute type
+ * @value: numeric value
+ */
+static inline int nla_put_be32(struct sk_buff *skb, int attrtype, __be32 value)
+{
+	return nla_put(skb, attrtype, sizeof(__be32), &value);
+}
+
+/**
+ * nla_put_net32 - Add 32-bit network byte order netlink attribute to a socket buffer
+ * @skb: socket buffer to add attribute to
+ * @attrtype: attribute type
+ * @value: numeric value
+ */
+static inline int nla_put_net32(struct sk_buff *skb, int attrtype, __be32 value)
+{
+	return nla_put_be32(skb, attrtype | NLA_F_NET_BYTEORDER, value);
+}
+
+/**
+ * nla_put_le32 - Add a __le32 netlink attribute to a socket buffer
+ * @skb: socket buffer to add attribute to
+ * @attrtype: attribute type
+ * @value: numeric value
+ */
+static inline int nla_put_le32(struct sk_buff *skb, int attrtype, __le32 value)
+{
+	return nla_put(skb, attrtype, sizeof(__le32), &value);
+}
+
+/**
+ * nla_put_u64 - Add a u64 netlink attribute to a socket buffer
  * @skb: socket buffer to add attribute to
  * @attrtype: attribute type
  * @value: numeric value
@@ -795,6 +843,39 @@ static inline int nla_put_u32(struct sk_buff *skb, int attrtype, u32 value)
 static inline int nla_put_u64(struct sk_buff *skb, int attrtype, u64 value)
 {
 	return nla_put(skb, attrtype, sizeof(u64), &value);
+}
+
+/**
+ * nla_put_be64 - Add a __be64 netlink attribute to a socket buffer
+ * @skb: socket buffer to add attribute to
+ * @attrtype: attribute type
+ * @value: numeric value
+ */
+static inline int nla_put_be64(struct sk_buff *skb, int attrtype, __be64 value)
+{
+	return nla_put(skb, attrtype, sizeof(__be64), &value);
+}
+
+/**
+ * nla_put_net64 - Add 64-bit network byte order netlink attribute to a socket buffer
+ * @skb: socket buffer to add attribute to
+ * @attrtype: attribute type
+ * @value: numeric value
+ */
+static inline int nla_put_net64(struct sk_buff *skb, int attrtype, __be64 value)
+{
+	return nla_put_be64(skb, attrtype | NLA_F_NET_BYTEORDER, value);
+}
+
+/**
+ * nla_put_le64 - Add a __le64 netlink attribute to a socket buffer
+ * @skb: socket buffer to add attribute to
+ * @attrtype: attribute type
+ * @value: numeric value
+ */
+static inline int nla_put_le64(struct sk_buff *skb, int attrtype, __le64 value)
+{
+	return nla_put(skb, attrtype, sizeof(__le64), &value);
 }
 
 /**
@@ -831,60 +912,6 @@ static inline int nla_put_msecs(struct sk_buff *skb, int attrtype,
 	u64 tmp = jiffies_to_msecs(jiffies);
 	return nla_put(skb, attrtype, sizeof(u64), &tmp);
 }
-
-#define NLA_PUT(skb, attrtype, attrlen, data) \
-	do { \
-		if (unlikely(nla_put(skb, attrtype, attrlen, data) < 0)) \
-			goto nla_put_failure; \
-	} while(0)
-
-#define NLA_PUT_TYPE(skb, type, attrtype, value) \
-	do { \
-		type __tmp = value; \
-		NLA_PUT(skb, attrtype, sizeof(type), &__tmp); \
-	} while(0)
-
-#define NLA_PUT_U8(skb, attrtype, value) \
-	NLA_PUT_TYPE(skb, u8, attrtype, value)
-
-#define NLA_PUT_U16(skb, attrtype, value) \
-	NLA_PUT_TYPE(skb, u16, attrtype, value)
-
-#define NLA_PUT_LE16(skb, attrtype, value) \
-	NLA_PUT_TYPE(skb, __le16, attrtype, value)
-
-#define NLA_PUT_BE16(skb, attrtype, value) \
-	NLA_PUT_TYPE(skb, __be16, attrtype, value)
-
-#define NLA_PUT_NET16(skb, attrtype, value) \
-	NLA_PUT_BE16(skb, attrtype | NLA_F_NET_BYTEORDER, value)
-
-#define NLA_PUT_U32(skb, attrtype, value) \
-	NLA_PUT_TYPE(skb, u32, attrtype, value)
-
-#define NLA_PUT_BE32(skb, attrtype, value) \
-	NLA_PUT_TYPE(skb, __be32, attrtype, value)
-
-#define NLA_PUT_NET32(skb, attrtype, value) \
-	NLA_PUT_BE32(skb, attrtype | NLA_F_NET_BYTEORDER, value)
-
-#define NLA_PUT_U64(skb, attrtype, value) \
-	NLA_PUT_TYPE(skb, u64, attrtype, value)
-
-#define NLA_PUT_BE64(skb, attrtype, value) \
-	NLA_PUT_TYPE(skb, __be64, attrtype, value)
-
-#define NLA_PUT_NET64(skb, attrtype, value) \
-	NLA_PUT_BE64(skb, attrtype | NLA_F_NET_BYTEORDER, value)
-
-#define NLA_PUT_STRING(skb, attrtype, value) \
-	NLA_PUT(skb, attrtype, strlen(value) + 1, value)
-
-#define NLA_PUT_FLAG(skb, attrtype) \
-	NLA_PUT(skb, attrtype, 0, NULL)
-
-#define NLA_PUT_MSECS(skb, attrtype, jiffies) \
-	NLA_PUT_U64(skb, attrtype, jiffies_to_msecs(jiffies))
 
 /**
  * nla_get_u32 - return payload of u32 attribute

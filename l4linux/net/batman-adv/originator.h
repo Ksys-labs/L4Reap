@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2011 B.A.T.M.A.N. contributors:
+ * Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
  *
  * Marek Lindner, Simon Wunderlich
  *
@@ -28,11 +28,10 @@ int originator_init(struct bat_priv *bat_priv);
 void originator_free(struct bat_priv *bat_priv);
 void purge_orig_ref(struct bat_priv *bat_priv);
 void orig_node_free_ref(struct orig_node *orig_node);
-struct orig_node *get_orig_node(struct bat_priv *bat_priv, uint8_t *addr);
-struct neigh_node *create_neighbor(struct orig_node *orig_node,
-				   struct orig_node *orig_neigh_node,
-				   uint8_t *neigh,
-				   struct hard_iface *if_incoming);
+struct orig_node *get_orig_node(struct bat_priv *bat_priv, const uint8_t *addr);
+struct neigh_node *batadv_neigh_node_new(struct hard_iface *hard_iface,
+					 const uint8_t *neigh_addr,
+					 uint32_t seqno);
 void neigh_node_free_ref(struct neigh_node *neigh_node);
 struct neigh_node *orig_node_get_router(struct orig_node *orig_node);
 int orig_seq_print_text(struct seq_file *seq, void *offset);
@@ -40,19 +39,11 @@ int orig_hash_add_if(struct hard_iface *hard_iface, int max_if_num);
 int orig_hash_del_if(struct hard_iface *hard_iface, int max_if_num);
 
 
-/* returns 1 if they are the same originator */
-static inline int compare_orig(struct hlist_node *node, void *data2)
-{
-	void *data1 = container_of(node, struct orig_node, hash_entry);
-
-	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
-}
-
 /* hashfunction to choose an entry in a hash table of given size */
 /* hash algorithm from http://en.wikipedia.org/wiki/Hash_table */
-static inline int choose_orig(void *data, int32_t size)
+static inline uint32_t choose_orig(const void *data, uint32_t size)
 {
-	unsigned char *key = data;
+	const unsigned char *key = data;
 	uint32_t hash = 0;
 	size_t i;
 
@@ -70,7 +61,7 @@ static inline int choose_orig(void *data, int32_t size)
 }
 
 static inline struct orig_node *orig_hash_find(struct bat_priv *bat_priv,
-					       void *data)
+					       const void *data)
 {
 	struct hashtable_t *hash = bat_priv->orig_hash;
 	struct hlist_head *head;

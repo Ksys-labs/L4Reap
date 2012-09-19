@@ -8,8 +8,9 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/pwm.h>
-#include <linux/mfd/ab8500.h>
 #include <linux/mfd/abx500.h>
+#include <linux/mfd/abx500/ab8500.h>
+#include <linux/module.h>
 
 /*
  * PWM Out generators
@@ -141,10 +142,16 @@ static int __devexit ab8500_pwm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id ab8500_pwm_match[] = {
+	{ .compatible = "stericsson,ab8500-pwm", },
+	{}
+};
+
 static struct platform_driver ab8500_pwm_driver = {
 	.driver = {
 		.name = "ab8500-pwm",
 		.owner = THIS_MODULE,
+		.of_match_table = ab8500_pwm_match,
 	},
 	.probe = ab8500_pwm_probe,
 	.remove = __devexit_p(ab8500_pwm_remove),
@@ -164,5 +171,5 @@ subsys_initcall(ab8500_pwm_init);
 module_exit(ab8500_pwm_exit);
 MODULE_AUTHOR("Arun MURTHY <arun.murthy@stericsson.com>");
 MODULE_DESCRIPTION("AB8500 Pulse Width Modulation Driver");
-MODULE_ALIAS("AB8500 PWM driver");
+MODULE_ALIAS("platform:ab8500-pwm");
 MODULE_LICENSE("GPL v2");

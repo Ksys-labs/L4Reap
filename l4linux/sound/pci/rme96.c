@@ -27,7 +27,7 @@
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/pci.h>
-#include <linux/moduleparam.h>
+#include <linux/module.h>
 
 #include <sound/core.h>
 #include <sound/info.h>
@@ -53,7 +53,7 @@ MODULE_SUPPORTED_DEVICE("{{RME,Digi96},"
 
 static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX;	/* Index 0-MAX */
 static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;	/* ID for this card */
-static int enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP;	/* Enable this card */
+static bool enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP;	/* Enable this card */
 
 module_param_array(index, int, NULL, 0444);
 MODULE_PARM_DESC(index, "Index value for RME Digi96 soundcard.");
@@ -1561,7 +1561,7 @@ snd_rme96_create(struct rme96 *rme96)
 	}
 
 	if (request_irq(pci->irq, snd_rme96_interrupt, IRQF_SHARED,
-			"RME96", rme96)) {
+			KBUILD_MODNAME, rme96)) {
 		snd_printk(KERN_ERR "unable to grab IRQ %d\n", pci->irq);
 		return -EBUSY;
 	}
@@ -2395,22 +2395,11 @@ static void __devexit snd_rme96_remove(struct pci_dev *pci)
 	pci_set_drvdata(pci, NULL);
 }
 
-static struct pci_driver driver = {
-	.name = "RME Digi96",
+static struct pci_driver rme96_driver = {
+	.name = KBUILD_MODNAME,
 	.id_table = snd_rme96_ids,
 	.probe = snd_rme96_probe,
 	.remove = __devexit_p(snd_rme96_remove),
 };
 
-static int __init alsa_card_rme96_init(void)
-{
-	return pci_register_driver(&driver);
-}
-
-static void __exit alsa_card_rme96_exit(void)
-{
-	pci_unregister_driver(&driver);
-}
-
-module_init(alsa_card_rme96_init)
-module_exit(alsa_card_rme96_exit)
+module_pci_driver(rme96_driver);

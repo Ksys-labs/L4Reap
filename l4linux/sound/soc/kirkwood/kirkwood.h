@@ -123,7 +123,7 @@ struct kirkwood_dma_data {
 	void __iomem *io;
 	int irq;
 	int burst;
-	struct mbus_dram_target_info *dram;
+	struct clk *clk;
 };
 
 #endif

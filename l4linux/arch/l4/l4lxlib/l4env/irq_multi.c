@@ -25,8 +25,7 @@
 
 
 #define d_printk(format, args...)  do { printk(format , ## args); } while (0)
-//#define dd_printk(format, args...) do { printk(format , ## args); } while (0)
-#define dd_printk(format, args...) do { } while (0)
+#define dd_printk(format, args...) do { if (0) printk(format , ## args); } while (0)
 
 enum irq_cmds {
 	CMD_IRQ_ENABLE  = 1,
@@ -37,11 +36,7 @@ enum irq_cmds {
 static l4_umword_t irq_state[NR_IRQS];
 static l4lx_thread_t irq_ths[NR_CPUS];
 static l4_cap_idx_t irq_caps[NR_IRQS];
-static unsigned char irq_trigger[NR_IRQS] = { L4_IRQ_F_NONE };
 static l4_umword_t irq_disable_cmd_state[NR_IRQS]; /* Make this a bitmask?! */
-static l4_kernel_clock_t timer_pint;
-static l4_timeout_t      timer_to;
-enum { timer_delta = 10000, };
 
 #ifdef CONFIG_SMP
 static unsigned     irq_cpus[NR_IRQS];
@@ -71,9 +66,6 @@ static inline unsigned get_irq_cpu(unsigned irq) { (void)irq; return 0; }
  */
 int l4lx_irq_prio_get(unsigned int irq)
 {
-	if (irq == 0)
-		return CONFIG_L4_PRIO_IRQ_BASE + 1;
-
 	return CONFIG_L4_PRIO_IRQ_BASE;
 }
 
@@ -81,11 +73,6 @@ int l4lx_irq_prio_get(unsigned int irq)
 static void attach_to_IRQ(unsigned int irq)
 {
 	int ret;
-
-	if (irq == 0) { // timer
-		irq_state[irq] = 1;
-		return;
-	}
 
 	/* Associate INTR */
 	if ((ret = l4_error(l4_irq_attach(irq_caps[irq], irq << 2,
@@ -130,12 +117,6 @@ static void send_msg_to_irq_thread(unsigned int irq, unsigned int cpu,
 	} while (l4_ipc_error(tag, l4_utcb()));
 }
 
-static inline void next_timer(void)
-{
-	timer_pint += timer_delta;
-	l4_rcv_timeout(l4_timeout_abs_u(timer_pint, 8, l4_utcb()), &timer_to);
-}
-
 /*
  * Wait for an interrupt to arrive
  */
@@ -154,13 +135,10 @@ wait_for_irq_message(unsigned cpu, unsigned int irq_to_ack)
 		else if (irq_to_ack)
 			l4_irq_unmask(irq_caps[irq_to_ack]);
 
-		tag = l4_ipc_wait(utcb, &label, timer_to);
+		tag = l4_ipc_wait(utcb, &label, L4_IPC_NEVER);
 		err = l4_ipc_error(tag, utcb);
 
-		if (err == L4_IPC_RETIMEOUT) {
-			next_timer();
-			return 0; // timer-irq
-		} else if (unlikely(err)) {
+		if (unlikely(err)) {
 			LOG_printf("%s: IPC error (0x%x)\n", __func__, err);
 		} else if (likely(label)) {
 			int irq = label >> 2;
@@ -206,14 +184,9 @@ static L4_CV void irq_thread(void *data)
 
 	d_printk("%s: Starting IRQ thread on CPU %d\n", __func__, cpu);
 
-	timer_pint = l4lx_kinfo->clock;
-	next_timer();
-
 	for (;;) {
 		irq = wait_for_irq_message(cpu, irq);
 		l4x_do_IRQ(irq, ctx);
-		if (irq == 0)
-			l4x_smp_broadcast_timer();
 	}
 } /* irq_thread */
 
@@ -228,8 +201,6 @@ void l4lx_irq_init(void)
 	int cpu = smp_processor_id();
 	char thread_name[11];
 
-	l4lx_irq_max = NR_IRQS;
-
 	/* Start IRQ thread */
 	d_printk("%s: creating IRQ thread on cpu %d\n", __func__, cpu);
 
@@ -237,59 +208,25 @@ void l4lx_irq_init(void)
 	thread_name[sizeof(thread_name) - 1] = 0;
 	irq_ths[cpu] = l4lx_thread_create(irq_thread, cpu, NULL,
 	                                  &cpu, sizeof(cpu),
+	                                  l4x_cap_alloc(),
 	                                  l4lx_irq_prio_get(1),
-	                                  0, thread_name);
+	                                  0, thread_name, NULL);
 	if (!l4lx_thread_is_valid(irq_ths[cpu]))
 		enter_kdebug("Error creating IRQ-thread!");
 }
-
-
-int l4lx_irq_set_type(struct irq_data *data, unsigned int type)
-{
-	unsigned irq = data->irq;
-
-	if (unlikely(irq >= NR_IRQS))
-		return -1;
-
-	printk("L4IRQ: set irq type of %u to %x\n", irq, type);
-	switch (type & IRQF_TRIGGER_MASK) {
-		case IRQF_TRIGGER_RISING:
-			irq_trigger[irq] = L4_IRQ_F_POS_EDGE;
-			break;
-		case IRQF_TRIGGER_FALLING:
-			irq_trigger[irq] = L4_IRQ_F_NEG_EDGE;
-			break;
-		case IRQF_TRIGGER_HIGH:
-			irq_trigger[irq] = L4_IRQ_F_LEVEL_HIGH;
-			break;
-		case IRQF_TRIGGER_LOW:
-			irq_trigger[irq] = L4_IRQ_F_LEVEL_LOW;
-			break;
-		default:
-			irq_trigger[irq] = L4_IRQ_F_NONE;
-			break;
-	};
-
-	return 0;
-
-}
-
-
 
 unsigned int l4lx_irq_dev_startup(struct irq_data *data)
 {
 	unsigned irq = data->irq;
 
-	if (irq) { // not the timer
-		irq_caps[irq] = l4x_have_irqcap(irq);
-		if (l4_is_invalid_cap(irq_caps[irq])) {
-			/* No, get IRQ from IO service */
-			irq_caps[irq] = l4x_cap_alloc();
-			if (l4_is_invalid_cap(irq_caps[irq])
-			    || l4io_request_irq(irq, irq_caps[irq])) {
-				LOG_printf("irq-startup: did not get irq %d\n", irq);
-				return 0;
-			}
+	irq_caps[irq] = l4x_have_irqcap(irq);
+	if (l4_is_invalid_cap(irq_caps[irq])) {
+		/* No, get IRQ from IO service */
+		irq_caps[irq] = l4x_cap_alloc();
+		if (l4_is_invalid_cap(irq_caps[irq])
+		    || l4io_request_irq(irq, irq_caps[irq])) {
+			LOG_printf("irq-startup: did not get irq %d\n", irq);
+			return 0;
 		}
 	}
 

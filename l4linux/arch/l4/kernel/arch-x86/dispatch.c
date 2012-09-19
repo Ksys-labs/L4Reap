@@ -13,6 +13,8 @@
 #include <asm/unistd.h>
 #include <asm/i387.h>
 #include <asm/traps.h>
+#include <asm/fpu-internal.h>
+#include <asm/switch_to.h>
 
 #include <l4/sys/ipc.h>
 #include <l4/sys/kdebug.h>
@@ -47,7 +49,7 @@
 #include <asm/l4x/utcb.h>
 #include <asm/l4x/signal.h>
 
-#if 1
+#if 0
 #define TBUF_LOG_IDLE(x)        TBUF_DO_IT(x)
 #define TBUF_LOG_WAKEUP_IDLE(x)	TBUF_DO_IT(x)
 #define TBUF_LOG_USER_PF(x)     TBUF_DO_IT(x)
@@ -94,8 +96,7 @@ struct l4x_arch_cpu_fpu_state *l4x_fpu_get(unsigned cpu)
 
 static inline int l4x_msgtag_fpu(unsigned cpu)
 {
-	return l4x_fpu_get(cpu)->enabled
-	       ?  L4_MSGTAG_TRANSFER_FPU : 0;
+	return l4x_fpu_get(cpu)->enabled ? L4_MSGTAG_TRANSFER_FPU : 0;
 }
 
 static inline int l4x_msgtag_copy_ureg(l4_utcb_t *u)
@@ -206,18 +207,18 @@ static inline void l4x_arch_task_start_setup(struct task_struct *p)
 
 static inline l4_umword_t l4x_l4pfa(struct thread_struct *t)
 {
-	return (t->pfa & ~3) | (t->error_code & 2);
+	return (t->cr2 & ~3) | (t->error_code & 2);
 }
 
 static inline int l4x_ispf(struct thread_struct *t)
 {
-	return t->trap_no == 14;
+	return t->trap_nr == 14;
 }
 
 static inline void l4x_print_regs(struct thread_struct *t, struct pt_regs *r)
 {
 	printk("ip: %08lx sp: %08lx err: %08lx trp: %08lx\n",
-	       r->ip, r->sp, t->error_code, t->trap_no);
+	       r->ip, r->sp, t->error_code, t->trap_nr);
 	printk("ax: %08lx bx: %08lx  cx: %08lx  dx: %08lx\n",
 	       r->ax, r->bx, r->cx, r->dx);
 #ifdef CONFIG_X86_32
@@ -287,12 +288,15 @@ void l4x_setup_user_dispatcher_after_fork(struct task_struct *p)
 
 void l4x_switch_to(struct task_struct *prev, struct task_struct *next)
 {
+	int cpu = smp_processor_id();
+	fpu_switch_t fpu;
+
 #ifdef CONFIG_L4_VCPU
-	l4_vcpu_state_t *vcpu = l4x_vcpu_state(smp_processor_id());
+	l4_vcpu_state_t *vcpu = l4x_vcpu_state(cpu);
 #endif
 #if 0
 	LOG_printf("%s: cpu%d: %s(%d)[%ld] -> %s(%d)[%ld]\n",
-	           __func__, smp_processor_id(),
+	           __func__, cpu,
 	           prev->comm, prev->pid, prev->state,
 	           next->comm, next->pid, next->state);
 #endif
@@ -302,9 +306,10 @@ void l4x_switch_to(struct task_struct *prev, struct task_struct *next)
 	TBUF_LOG_SWITCH(fiasco_tbuf_log_3val("SWITCH", (prev->pid << 16) | TBUF_TID(prev->thread.user_thread_id), (next->pid << 16) | TBUF_TID(next->thread.user_thread_id), 0));
 #endif
 
-	__unlazy_fpu(prev);
+	fpu = switch_fpu_prepare(prev, next, cpu);
+
 #ifndef CONFIG_L4_VCPU
-	per_cpu(l4x_current_ti, smp_processor_id())
+	per_cpu(l4x_current_ti, cpu)
 	  = (struct thread_info *)((unsigned long)next->stack & ~(THREAD_SIZE - 1));
 #endif
 
@@ -312,18 +317,16 @@ void l4x_switch_to(struct task_struct *prev, struct task_struct *next)
 	             task_thread_info(next)->flags & _TIF_WORK_CTXSW_NEXT))
 		__switch_to_xtra(prev, next, NULL);
 
+	arch_end_context_switch(next);
 
-	percpu_write(current_task, next);
+	switch_fpu_finish(next, fpu);
 
-#ifdef CONFIG_SMP
-#ifndef CONFIG_L4_VCPU
-	next->thread.user_thread_id = next->thread.user_thread_ids[smp_processor_id()];
-#else
-	/* Migrated thread? */
-	l4x_stack_struct_get(next->stack)->vcpu = vcpu;
-#endif
-	l4x_stack_struct_get(next->stack)->l4utcb
-	  = l4x_stack_struct_get(prev->stack)->l4utcb;
+	this_cpu_write(current_task, next);
+
+#if defined(CONFIG_SMP) && !defined(CONFIG_L4_VCPU)
+	next->thread.user_thread_id = next->thread.user_thread_ids[cpu];
+	l4x_stack_struct_get(next->stack)->utcb
+		= l4x_stack_struct_get(prev->stack)->utcb;
 #endif
 
 #ifdef CONFIG_L4_VCPU
@@ -352,6 +355,21 @@ static inline void l4x_pte_add_access_mapped_and_dirty(pte_t *ptep)
 	ptep->pte |= (_PAGE_ACCESSED + _PAGE_DIRTY + _PAGE_MAPPED);
 }
 
+static inline
+unsigned long l4x_map_page_attr_to_l4(pte_t pte)
+{
+	switch (pte_val(pte) & _PAGE_CACHE_MASK) {
+	case _PAGE_CACHE_WC: /* _PAGE_PWT */
+		return L4_FPAGE_BUFFERABLE << 4;
+	case _PAGE_CACHE_UC_MINUS: /* _PAGE_PCD */
+	case _PAGE_CACHE_UC: /* _PAGE_PCD | _PAGE_PWT */
+		return L4_FPAGE_UNCACHEABLE << 4;
+	case _PAGE_CACHE_WB: /* 0 */
+	default:
+		return 0; /* same attrs as source */
+	};
+}
+
 #ifdef CONFIG_L4_VCPU
 static inline void vcpu_to_thread_struct(l4_vcpu_state_t *v,
                                          struct thread_struct *t)
@@ -359,9 +377,9 @@ static inline void vcpu_to_thread_struct(l4_vcpu_state_t *v,
 #ifdef CONFIG_X86_32
 	t->gs         = v->r.gs;
 #endif
-	t->trap_no    = v->r.trapno;
+	t->trap_nr    = v->r.trapno;
 	t->error_code = v->r.err;
-	t->pfa        = v->r.pfa;
+	t->cr2        = v->r.pfa;
 }
 
 static inline void thread_struct_to_vcpu(l4_vcpu_state_t *v,
@@ -379,9 +397,9 @@ static inline void utcb_to_thread_struct(l4_utcb_t *utcb,
 	l4_exc_regs_t *exc = l4_utcb_exc_u(utcb);
 	utcb_exc_to_ptregs(exc, L4X_THREAD_REGSP(t));
 	t->gs         = exc->gs;
-	t->trap_no    = exc->trapno;
+	t->trap_nr    = exc->trapno;
 	t->error_code = exc->err;
-	t->pfa        = exc->pfa;
+	t->cr2        = exc->pfa;
 }
 
 static inline void thread_struct_to_utcb(struct thread_struct *t,
@@ -473,7 +491,7 @@ static inline void dispatch_system_call(struct task_struct *p,
 		enter_kdebug("no syscall");
 	}
 	if (likely((is_lx_syscall(syscall))
-		   && ((syscall_fn = sys_call_table[syscall])))) {
+		   && ((syscall_fn = (syscall_t)sys_call_table[syscall])))) {
 		//if (!p->user)
 		//	enter_kdebug("dispatch_system_call: !p->user");
 
@@ -640,7 +658,7 @@ static inline unsigned r_trapno(struct thread_struct *t, l4_vcpu_state_t *v)
 #ifdef CONFIG_L4_VCPU
 	return v->r.trapno;
 #else
-	return t->trap_no;
+	return t->trap_nr;
 #endif
 }
 
@@ -669,7 +687,7 @@ static inline int l4x_dispatch_exception(struct task_struct *p,
 
 	if (0) {
 #ifndef CONFIG_L4_VCPU
-	} else if (t->trap_no == 0xff) {
+	} else if (t->trap_nr == 0xff) {
 		/* we come here for suspend events */
 		TBUF_LOG_SUSPEND(fiasco_tbuf_log_3val("dsp susp", TBUF_TID(t->user_thread_id), regs->ip, 0));
 		l4x_dispatch_suspend(p, t);
@@ -692,7 +710,6 @@ static inline int l4x_dispatch_exception(struct task_struct *p,
 #ifdef CONFIG_L4_VCPU
 		return 0;
 #else
-
 		if (likely(!t->restart))
 			/* fine, go send a reply and return to userland */
 			return 0;
@@ -703,23 +720,16 @@ static inline int l4x_dispatch_exception(struct task_struct *p,
 #endif
 
 	} else if (r_trapno(t, v) == 7) {
-		math_state_restore();
-
-		/* XXX: math emu*/
-		/* if (!cpu_has_fpu) math_emulate(..); */
-
+		do_device_not_available(regs, -1);
 		return 0;
-
 	} else if (unlikely(r_trapno(t, v) == 1)) {
 		/* Singlestep */
 		return 0;
 	} else if (r_trapno(t, v) == 0xd) {
-
 #ifndef CONFIG_L4_VCPU
 		if (l4x_hybrid_begin(p, t))
 			return 0;
 #endif
-
 		/* Fall through otherwise */
 	}
 
@@ -737,7 +747,7 @@ static inline int l4x_dispatch_exception(struct task_struct *p,
 	if (l4x_port_emulation(regs))
 		return 0; /* known and handled */
 
-	TBUF_LOG_EXCP(fiasco_tbuf_log_3val("except ", TBUF_TID(t->user_thread_id), t->trap_no, t->error_code));
+	TBUF_LOG_EXCP(fiasco_tbuf_log_3val("except ", TBUF_TID(t->user_thread_id), t->trap_nr, t->error_code));
 
 	if (l4x_deliver_signal(r_trapno(t, v), r_err(t, v)))
 		return 0; /* handled signal, reply */
@@ -746,14 +756,13 @@ static inline int l4x_dispatch_exception(struct task_struct *p,
 
 	printk("(Unknown) EXCEPTION\n");
 	l4x_print_regs(t, regs);
-	printk("will die...\n");
 
 	enter_kdebug("check");
 
 	/* The task somehow misbehaved, so it has to die */
-	l4x_sig_current_kill();
+	do_exit(SIGKILL);
 
-	return 1; /* no reply */
+	return 1; /* no reply -- no come back */
 }
 
 static inline int l4x_handle_page_fault_with_exception(struct thread_struct *t)

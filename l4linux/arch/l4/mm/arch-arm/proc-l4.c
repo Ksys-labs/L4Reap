@@ -72,7 +72,7 @@ void cpu_proc_init(void) { printk("%s\n", __func__); }
  */
 void cpu_proc_fin(void) { }
 
-void  __attribute__((noreturn)) l4x_cpu_reset(unsigned long addr)
+void  __attribute__((noreturn)) cpu_reset(unsigned long addr)
 {
 	printk("%s called.\n", __func__);
 	l4x_exit_l4linux();
@@ -85,11 +85,11 @@ static inline void __copy_user_highpage(struct page *to, struct page *from,
 {
 	void *kto, *kfrom;
 
-        kfrom = kmap_atomic(from, KM_USER0);
-        kto = kmap_atomic(to, KM_USER1);
+        kfrom = kmap_atomic(from);
+        kto = kmap_atomic(to);
         copy_page(kto, kfrom);
-        kunmap_atomic(kto, KM_USER1);
-        kunmap_atomic(kfrom, KM_USER0);
+        kunmap_atomic(kto);
+        kunmap_atomic(kfrom);
 }
 
 void __glue(_USER, _copy_user_highpage)(struct page *to, struct page *from,
@@ -100,9 +100,9 @@ void __glue(_USER, _copy_user_highpage)(struct page *to, struct page *from,
 
 static inline void __clear_user_highpage(struct page *page, unsigned long vaddr)
 {
-	void *kaddr = kmap_atomic(page, KM_USER0);
+	void *kaddr = kmap_atomic(page);
 	clear_page(kaddr);
-	kunmap_atomic(kaddr, KM_USER0);
+	kunmap_atomic(kaddr);
 }
 
 void __glue(_USER, _clear_user_highpage)(struct page *page, unsigned long vaddr)
@@ -148,15 +148,15 @@ void __glue(_TLB, _flush_kern_tlb_range)(unsigned long start, unsigned long end)
 
 void __glue(_CACHE, _flush_kern_cache_all)(void)
 {
-	printk("%s()\n", __func__);
+	l4_cache_dma_coherent_full();
 }
 
 void __glue(_CACHE, _coherent_kern_range)(unsigned long start, unsigned long end)
 {
-	l4_cache_coherent(start, end - 1);
+	l4_cache_coherent(start, end);
 }
 
-void __glue(_CACHE, _coherent_user_range)(unsigned long start, unsigned long end)
+int __glue(_CACHE, _coherent_user_range)(unsigned long start, unsigned long end)
 {
 	pgd_t *pgd;
 
@@ -166,7 +166,7 @@ void __glue(_CACHE, _coherent_user_range)(unsigned long start, unsigned long end
 		pgd = (pgd_t *)current->active_mm->pgd;
 	else {
 		printk("active_mm: No mm... %lx-%lx\n", start, end);
-		return;
+		return -EINVAL;
 	}
 
 	for (start &= PAGE_MASK; start < end; start += PAGE_SIZE) {
@@ -174,9 +174,11 @@ void __glue(_CACHE, _coherent_user_range)(unsigned long start, unsigned long end
 		if (ptep && pte_present(*ptep) && pte_mapped(*ptep)) {
 			unsigned long k = pte_pfn(*ptep) << PAGE_SHIFT;
 			unsigned long e = k + PAGE_SIZE;
-			l4_cache_clean_data(k, e);
+			l4_cache_coherent(k, e);
 		}
 	}
+
+	return 0;
 }
 
 void __glue(_CACHE, _flush_kern_dcache_area)(void *x, size_t size)
@@ -200,7 +202,6 @@ static void __data_abort(unsigned long pc)
 
 void __glue(_CACHE, _dma_flush_range)(const void *start, const void *stop)
 {
-	printk("%s(%p, %p) called.\n", __func__, start, stop);
 	l4_cache_flush_data((unsigned long)start, (unsigned long)stop);
 }
 
@@ -210,8 +211,8 @@ void __glue(_CACHE, _dma_map_area)(const void *start, size_t sz, int direction)
 		l4_cache_inv_data((unsigned long)start,
 		                  (unsigned long)start + sz);
 	else
-		l4_cache_dma_coherent((unsigned long)start,
-		                      (unsigned long)start + sz);
+		l4_cache_clean_data((unsigned long)start,
+		                    (unsigned long)start + sz);
 }
 
 void __glue(_CACHE, _dma_unmap_area)(const void *start, size_t sz, int direction)
@@ -226,7 +227,7 @@ static struct processor l4_proc_fns = {
 	._data_abort         = __data_abort,
 	._proc_init          = cpu_proc_init,
 	._proc_fin           = cpu_proc_fin,
-	.reset               = l4x_cpu_reset,
+	.reset               = cpu_reset,
 	._do_idle            = cpu_do_idle,
 	.dcache_clean_area   = cpu_dcache_clean_area,
 	.switch_mm           = cpu_do_switch_mm,

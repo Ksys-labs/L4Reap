@@ -2064,11 +2064,10 @@ static int ms_init_l2p_tbl(struct rtsx_chip *chip)
 	RTSX_DEBUGP("ms_card->segment_cnt = %d\n", ms_card->segment_cnt);
 
 	size = ms_card->segment_cnt * sizeof(struct zone_entry);
-	ms_card->segment = (struct zone_entry *)vmalloc(size);
+	ms_card->segment = vzalloc(size);
 	if (ms_card->segment == NULL) {
 		TRACE_RET(chip, STATUS_FAIL);
 	}
-	memset(ms_card->segment, 0, size);
 
 	retval = ms_read_page(chip, ms_card->boot_block, 1);
 	if (retval != STATUS_SUCCESS) {
@@ -3499,7 +3498,8 @@ static int ms_rw_multi_sector(struct scsi_cmnd *srb, struct rtsx_chip *chip, u32
 
 		log_blk++;
 
-		for (seg_no = 0; seg_no < sizeof(ms_start_idx)/2; seg_no++) {
+		for (seg_no = 0; seg_no < ARRAY_SIZE(ms_start_idx) - 1;
+				seg_no++) {
 			if (log_blk < ms_start_idx[seg_no+1])
 				break;
 		}
@@ -4136,7 +4136,7 @@ int mg_set_ICV(struct scsi_cmnd *srb, struct rtsx_chip *chip)
 #else
 	retval = ms_transfer_data(chip, MS_TM_AUTO_WRITE, PRO_WRITE_LONG_DATA,
 				2, WAIT_INT, 0, 0, buf + 4, 1024);
-	if ((retval != STATUS_SUCCESS) || check_ms_err(chip) {
+	if ((retval != STATUS_SUCCESS) || check_ms_err(chip)) {
 		rtsx_clear_ms_error(chip);
 		if (ms_card->mg_auth == 0) {
 			if ((buf[5] & 0xC0) != 0) {

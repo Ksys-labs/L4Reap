@@ -34,7 +34,7 @@ DEFINE_PER_CPU(int, l4x_idle_running);
 static inline l4_umword_t l4x_parse_ptabs(struct task_struct *p,
                                           l4_umword_t address,
                                           l4_umword_t *pferror,
-					  l4_fpage_t *fp)
+					  l4_fpage_t *fp, unsigned long *attr)
 {
 	unsigned fpage_size = L4_LOG2_PAGESIZE;
 	l4_umword_t phy = (l4_umword_t)(-EFAULT);
@@ -55,7 +55,8 @@ static inline l4_umword_t l4x_parse_ptabs(struct task_struct *p,
 			if (phy == 0)
 				phy = PAGE0_PAGE_ADDRESS;
 
-			*fp = l4_fpage(phy, fpage_size, L4_FPAGE_RO);
+			*fp   = l4_fpage(phy, fpage_size, L4_FPAGE_RO);
+			*attr = l4x_map_page_attr_to_l4(*ptep);
 		} else {
 			/* write access */
 			if (pte_write(*ptep)) {
@@ -69,6 +70,7 @@ static inline l4_umword_t l4x_parse_ptabs(struct task_struct *p,
 
 				*fp = l4_fpage(phy, fpage_size,
 				               L4_FPAGE_RW);
+				*attr = l4x_map_page_attr_to_l4(*ptep);
 			} else {
 				/* page present, but not writable
 				 * --> return error */
@@ -145,10 +147,7 @@ static inline void verbose_segfault(struct task_struct *p,
 {
 #ifdef CONFIG_L4_DEBUG_SEGFAULTS
 	if (l4x_dbg_stop_on_segv_pf) {
-#ifdef CONFIG_L4_VCPU
-		local_irq_disable();
-#endif
-		LOG_printf("cpu%d: segfault for %s(%d) [T:%lx] "
+		l4x_printf("cpu%d: segfault for %s(%d) [T:%lx] "
 		           "at %08lx, ip=%08lx, pferror = %lx\n",
 		           smp_processor_id(), p->comm, p->pid,
 		           l4_debugger_global_id(p->mm->context.task),
@@ -178,8 +177,9 @@ static inline int l4x_handle_page_fault(struct task_struct *p,
 		/* Normal page fault with a process' virtual address space
 		 */
 		l4_umword_t phy;
+		unsigned long attr = 0;
 
-		phy = l4x_parse_ptabs(p, pfa, &pferror, &fp);
+		phy = l4x_parse_ptabs(p, pfa, &pferror, &fp, &attr);
 		if (phy == (l4_umword_t)(-EFAULT)) {
 			l4_umword_t pfe_old = pferror;
 #ifdef CONFIG_L4_VCPU
@@ -191,7 +191,7 @@ static inline int l4x_handle_page_fault(struct task_struct *p,
 			}
 
 			pferror = 0;
-			phy = l4x_parse_ptabs(p, pfa, &pferror, &fp);
+			phy = l4x_parse_ptabs(p, pfa, &pferror, &fp, &attr);
 
 			if (phy == (l4_umword_t)(-EFAULT)) {
 				if (!l4x_no_page_found(p, &fp, ip, pfa)) {
@@ -201,14 +201,11 @@ static inline int l4x_handle_page_fault(struct task_struct *p,
 				phy = 0; /* reset phy */
 			} else if (phy > 0xffff0000) {
 				pte_t *ptep = lookup_pte(p->mm->pgd, pfa);
-				printk("%s: phy=%lx pfa=%lx pferror=%lx pte_val=%lx "
-				       "present="
-#ifdef CONFIG_X86
-				       "%d"
-#else
-				       "%ld"
+				printk("%s: phy=%lx pfa=%lx pferror=%lx pte_val=%"
+#ifndef ARCH_arm
+				       "l"
 #endif
-				       "\n    old_pferror=%lx %s(%d)\n",
+				       "x present=%d\n    old_pferror=%lx %s(%d)\n",
 				       __func__, phy, pfa, pferror, pte_val(*ptep),
 				       pte_present(*ptep), pfe_old,
 				       p->comm, p->pid);
@@ -229,11 +226,11 @@ static inline int l4x_handle_page_fault(struct task_struct *p,
 				return 1; /* No region found */
 			}
 
-			*d0 = (*d0 & L4_PAGEMASK) | L4_ITEM_MAP;
+			*d0 = (*d0 & L4_PAGEMASK) | L4_ITEM_MAP | attr;
 			*d1  = l4_fpage(devmem & L4_PAGEMASK,
 			                L4_LOG2_PAGESIZE, L4_FPAGE_RW).fpage;
 		} else {
-			*d0 = (*d0 & L4_PAGEMASK) | L4_ITEM_MAP;
+			*d0 = (*d0 & L4_PAGEMASK) | L4_ITEM_MAP | attr;
 			*d1  = fp.fpage;
 
 			l4_cache_clean_data
@@ -250,7 +247,8 @@ static inline int l4x_handle_page_fault(struct task_struct *p,
 		               L4_FPAGE_RO).fpage;
 		*d0 = (*d0 & PAGE_MASK) | L4_ITEM_MAP;
 	} else {
-		printk("WARN: Page-fault above task size: pfa=%lx pc=%lx\n", pfa, ip);
+		printk("WARN: %s: Page-fault above task size: pfa=%lx pc=%lx\n",
+		        p->comm, pfa, ip);
 #ifdef CONFIG_L4_DEBUG_SEGFAULTS
 		l4x_print_vm_area_maps(p, ip);
 #endif
@@ -262,7 +260,6 @@ static inline int l4x_handle_page_fault(struct task_struct *p,
 }
 
 #ifndef CONFIG_L4_VCPU
-
 static int l4x_hybrid_return(struct thread_info *ti,
                              l4_utcb_t *utcb,
                              l4_msgtag_t tag)
@@ -308,7 +305,7 @@ out_fail:
 	LOG_printf("%s: Currently running user thread: " PRINTF_L4TASK_FORM
 	           "  service: " PRINTF_L4TASK_FORM " pid=%d\n",
 	           __func__, PRINTF_L4TASK_ARG(current->thread.user_thread_id),
-	           PRINTF_L4TASK_ARG(l4x_stack_id_get()), current->pid);
+	           PRINTF_L4TASK_ARG(l4x_cap_current()), current->pid);
 	enter_kdebug("hybrid_return failed");
 	return 0;
 }
@@ -372,7 +369,7 @@ static int l4x_hybrid_begin(struct task_struct *p,
 		ho->ti = current_thread_info();
 
 		tag = l4_factory_create_gate(l4re_env()->factory, hybgate,
-		                             l4x_stack_id_get(),
+		                             l4x_cap_current(),
 		                             (l4_umword_t)ho);
 		if (unlikely(l4_error(tag)))
 			LOG_printf("Error creating hybrid gate\n");
@@ -497,7 +494,7 @@ void l4x_shutdown_cpu(unsigned cpu)
 	// suicide
 	l4x_global_cli();
 	l4lx_thread_shutdown(l4x_cpu_thread_get(cpu),
-	                     l4x_vcpu_state(cpu));
+	                     l4x_vcpu_state(cpu), 0);
 }
 #endif
 
@@ -527,7 +524,7 @@ void l4x_shutdown_cpu(unsigned cpu)
 	l4x_destroy_ugate(cpu);
 
 	// kill idler
-	l4lx_thread_shutdown(idler_thread[cpu], 0);
+	l4lx_thread_shutdown(idler_thread[cpu], NULL, 1);
 
 	// kill ipi thread
 	l4x_cpu_ipi_stop(cpu);
@@ -538,7 +535,7 @@ void l4x_shutdown_cpu(unsigned cpu)
 	asm volatile ("mov %0, %%gs" : : "r" (0x43));
 #endif
 	// suicide
-	l4lx_thread_shutdown(l4x_cpu_thread_get(cpu), 0);
+	l4lx_thread_shutdown(l4x_cpu_thread_get(cpu), NULL, 0);
 }
 #endif
 
@@ -575,7 +572,7 @@ void l4x_idle(void)
 	l4_msgtag_t tag;
 	int cpu = smp_processor_id();
 	l4_utcb_t *utcb = l4_utcb();
-	l4_cap_idx_t me = l4x_stack_id_get();
+	l4_cap_idx_t me = l4x_cap_current();
 	char s[9];
 
 	snprintf(s, sizeof(s), "idler%d", cpu);
@@ -586,7 +583,8 @@ void l4x_idle(void)
 
 	idler_thread[cpu] = l4lx_thread_create(idler_func, cpu,
 	                                       NULL, NULL, 0,
-	                                       CONFIG_L4_PRIO_IDLER, 0, s);
+	                                       l4x_cap_alloc(),
+	                                       CONFIG_L4_PRIO_IDLER, 0, s, NULL);
 	if (!l4lx_thread_is_valid(idler_thread[cpu])) {
 		LOG_printf("Could not create idler thread... exiting\n");
 		l4x_exit_l4linux();
@@ -594,7 +592,8 @@ void l4x_idle(void)
 	l4lx_thread_pager_change(l4lx_thread_get_cap(idler_thread[cpu]), me);
 	idler_up[cpu] = 1;
 
-	tick_nohz_stop_sched_tick(1);
+	tick_nohz_idle_enter();
+	rcu_idle_enter();
 
 	while (1) {
 		l4_umword_t u_err;
@@ -609,11 +608,13 @@ void l4x_idle(void)
 			per_cpu(l4x_idle_running, cpu) = 0;
 			barrier();
 			l4x_dispatch_set_polling_flag();
-			tick_nohz_restart_sched_tick();
+			rcu_idle_exit();
+			tick_nohz_idle_exit();
 			preempt_enable_no_resched();
 			schedule();
 			preempt_disable();
-			tick_nohz_stop_sched_tick(1);
+			tick_nohz_idle_enter();
+			rcu_idle_enter();
 			continue;
 		}
 		check_pgt_cache();
@@ -707,6 +708,19 @@ static void l4x_evict_mem(l4_umword_t d)
 	              L4_FP_OTHER_SPACES);
 }
 
+static void l4x_evict_tasks(struct task_struct *exclude)
+{
+	struct task_struct *p;
+	int cnt = 0;
+	for_each_process(p) {
+		if (p == exclude)
+			continue;
+		cnt += l4x_task_delete(p->mm);
+		if (cnt > 10)
+			break;
+	}
+}
+
 static inline void l4x_dispatch_page_fault(struct task_struct *p,
                                            struct thread_struct *t,
                                            struct pt_regs *regsp,
@@ -789,6 +803,8 @@ static inline void l4x_spawn_cpu_thread(int cpu_change,
 		start_task = 0;
 
 	if (start_task) {
+		int tries = 4;
+
 		if (l4lx_task_get_new_task(L4_INVALID_CAP, // ignore
 					   &p->mm->context.task)
 		    || l4_is_invalid_cap(p->mm->context.task)) {
@@ -796,10 +812,12 @@ static inline void l4x_spawn_cpu_thread(int cpu_change,
 			return;
 		}
 
-		//LOG_printf("%s l4task=%lx tsk=%p pid=%d tskmm=%p\n", __func__, p->mm->context.task, p, p->pid, p->mm);
-		if (l4lx_task_create(p->mm->context.task)) {
-			printk("%s: Failed to create user task\n", __func__);
-			return;
+		while (l4lx_task_create(p->mm->context.task)) {
+			l4x_evict_tasks(p);
+			if (--tries == 0) {
+				printk("%s: Failed to create user task\n", __func__);
+				return;
+			}
 		}
 
 	} else if (!cpu_change) {
@@ -816,14 +834,14 @@ static inline void l4x_spawn_cpu_thread(int cpu_change,
 	tag = l4_task_map(p->mm->context.task,
 	                  L4RE_THIS_TASK_CAP,
 	                  l4_obj_fpage(l4x_user_gate[cpu], 0, L4_FPAGE_RW),
-	                  l4_map_obj_control(l4x_user_pager_cap(cpu), L4_MAP_ITEM_MAP));
+	                  l4_map_obj_control(l4x_user_pager_cap(cpu),
+	                                     L4_MAP_ITEM_MAP));
 	if ((error = l4_error(tag))) {
 		LOG_printf("Error %d(%lx) setting up gate%d (%lx) in task\n",
-		           error, tag.raw,cpu, l4x_user_gate[cpu]);
+		           error, tag.raw, cpu, l4x_user_gate[cpu]);
 		return;
 	}
 
-	//LOG_printf("%s %d thread=%lx task=%lx\n", __func__, __LINE__, t->user_thread_id, p->mm->context.task);
 	if (!l4lx_task_create_thread_in_task(t->user_thread_id,
 	                                     p->mm->context.task,
 	                                     l4x_user_pager_cap(cpu), cpu)) {
@@ -852,15 +870,12 @@ static inline void l4x_spawn_cpu_thread(int cpu_change,
 	}
 #endif
 
-	//LOG_printf("Waiting for thread %lx\n", t->user_thread_id);
 	// now wait that thread comes in
 	error = l4_ipc_error(l4_ipc_receive(t->user_thread_id, l4_utcb(),
 	                                    L4_IPC_SEND_TIMEOUT_0),
 	                     l4_utcb());
 	if (error)
 		LOG_printf("%s: IPC error %x\n", __func__, error);
-
-	//LOG_printf("received startup response from %lx cpu=%d utcb=%p\n", t->user_thread_id, cpu, l4_utcb());
 
 	set_bit(cpu, &t->threads_up);
 
@@ -1053,8 +1068,7 @@ static void l4x_handle_external_event(l4_vcpu_state_t *v,
 {
 	struct l4x_srv_object *o = (struct l4x_srv_object *)(v->i.label & ~3UL);
 	l4_msgtag_t tag = v->i.tag;
-	o->dispatch((struct l4x_srv_object *)v->i.label, v->i.label,
-	             l4_utcb(), &tag);
+	o->dispatch(o, v->i.label, l4_utcb(), &tag);
 }
 
 
@@ -1071,23 +1085,16 @@ void l4x_vcpu_handle_irq(l4_vcpu_state_t *v, struct pt_regs *regs)
 		l4x_vcpu_handle_ipi(regs);
 	else
 #endif
-	if (unlikely(v->i.label > (NR_IRQS << 2)))
+	if (unlikely(irq >= NR_IRQS))
 		l4x_handle_external_event(v, regs);
 	else {
-
 #ifdef CONFIG_X86
 		do_IRQ(irq, regs);
 #else
 		asm_do_IRQ(irq, regs);
 #endif
-
 #ifdef ARCH_arm
-		if (irq != TIMER_IRQ)
-			l4lx_irq_dev_eoi(irq_get_irq_data(irq));
-#endif
-#ifdef CONFIG_SMP
-		if (smp_processor_id() == 0 && irq == TIMER_IRQ)
-			l4x_smp_broadcast_timer();
+		l4lx_irq_dev_eoi(irq_get_irq_data(irq));
 #endif
 	}
 	local_irq_restore(flags);
@@ -1096,6 +1103,8 @@ void l4x_vcpu_handle_irq(l4_vcpu_state_t *v, struct pt_regs *regs)
 static inline
 void l4x_vcpu_create_user_task(struct task_struct *p)
 {
+	int tries = 4;
+
 	if (l4lx_task_get_new_task(L4_INVALID_CAP,
 	                           &p->mm->context.task)
 	    || l4_is_invalid_cap(p->mm->context.task)) {
@@ -1103,9 +1112,12 @@ void l4x_vcpu_create_user_task(struct task_struct *p)
 		return;
 	}
 
-	if (l4lx_task_create(p->mm->context.task)) {
-		printk("%s: Failed to create user task\n", __func__);
-		return;
+	while (l4lx_task_create(p->mm->context.task)) {
+		l4x_evict_tasks(p);
+		if (--tries == 0) {
+			printk("%s: Failed to create user task\n", __func__);
+			return;
+		}
 	}
 
 
@@ -1133,7 +1145,7 @@ void l4x_vcpu_iret(struct task_struct *p,
 
 	local_irq_disable();
 	utcb = l4_utcb();
-	vcpu = l4x_stack_vcpu_state_get();
+	vcpu = l4x_vcpu_state_current();
 
 	if (copy_ptregs)
 		ptregs_to_vcpu(vcpu, regs);
@@ -1187,9 +1199,12 @@ void l4x_vcpu_iret(struct task_struct *p,
 
 		vcpu->state = 0;
 
-		if (l4_ipc_error(tag, utcb) == L4_IPC_SEMAPFAILED)
-			l4x_evict_mem(fp2);
-		else {
+		if (l4_ipc_error(tag, utcb) == L4_IPC_SEMAPFAILED) {
+			if (0)
+				l4x_evict_mem(fp2);
+			else
+				l4x_evict_tasks(p);
+		} else {
 			LOG_printf("l4x: resume returned: %ld [%x, %lx]\n",
 			           l4_error(tag), vcpu->saved_state,
 			           vcpu->user_task);
@@ -1248,10 +1263,9 @@ l4x_vcpu_entry_kern(l4_vcpu_state_t *vcpu)
 		l4x_vcpu_handle_irq(vcpu, regsp);
 		copy_ptregs = 1;
 
-	} else if (0 // this should not happen anymore
-	           && l4vcpu_is_page_fault_entry(vcpu)) {
-		l4x_vcpu_handle_kernel_pf(vcpu->r.pfa, vcpu->r.ip,
-				          l4x_vcpu_is_wr_pf(vcpu));
+	} else if (l4vcpu_is_page_fault_entry(vcpu)) {
+		vcpu_to_ptregs(vcpu, regsp);
+		l4x_do_page_fault(vcpu->r.pfa, regsp, vcpu->r.err);
 	} else {
 		int ret = l4x_vcpu_handle_kernel_exc(&vcpu->r);
 
@@ -1289,6 +1303,7 @@ asm(
 ".global l4x_vcpu_entry \n\t"
 "l4x_vcpu_entry: \n\t"
 "	andq	$~15, %rsp\n\t"
+"	subq	$8, %rsp\n\t"
 "	jmp	l4x_vcpu_entry_c \n\t"
 );
 asmlinkage void l4x_vcpu_entry_c(void)

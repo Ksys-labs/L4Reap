@@ -78,7 +78,7 @@ void __init n2100_map_io(void)
  * N2100 PCI.
  */
 static int __init
-n2100_pci_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
+n2100_pci_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 {
 	int irq;
 
@@ -114,11 +114,10 @@ n2100_pci_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 }
 
 static struct hw_pci n2100_pci __initdata = {
-	.swizzle	= pci_std_swizzle,
 	.nr_controllers = 1,
+	.ops		= &iop3xx_ops,
 	.setup		= iop3xx_pci_setup,
 	.preinit	= iop3xx_pci_preinit,
-	.scan		= iop3xx_pci_scan_bus,
 	.map_irq	= n2100_pci_map_irq,
 };
 
@@ -291,6 +290,14 @@ static void n2100_power_off(void)
 		;
 }
 
+static void n2100_restart(char mode, const char *cmd)
+{
+	gpio_line_set(N2100_HARDWARE_RESET, GPIO_LOW);
+	gpio_line_config(N2100_HARDWARE_RESET, GPIO_OUT);
+	while (1)
+		;
+}
+
 
 static struct timer_list power_button_poll_timer;
 
@@ -327,9 +334,10 @@ static void __init n2100_init_machine(void)
 
 MACHINE_START(N2100, "Thecus N2100")
 	/* Maintainer: Lennert Buytenhek <buytenh@wantstofly.org> */
-	.boot_params	= 0xa0000100,
+	.atag_offset	= 0x100,
 	.map_io		= n2100_map_io,
 	.init_irq	= iop32x_init_irq,
 	.timer		= &n2100_timer,
 	.init_machine	= n2100_init_machine,
+	.restart	= n2100_restart,
 MACHINE_END

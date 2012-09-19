@@ -59,15 +59,17 @@ noop_latter_request(struct request_queue *q, struct request *rq)
 	return list_entry(rq->queuelist.next, struct request, queuelist);
 }
 
-static void *noop_init_queue(struct request_queue *q)
+static int noop_init_queue(struct request_queue *q)
 {
 	struct noop_data *nd;
 
 	nd = kmalloc_node(sizeof(*nd), GFP_KERNEL, q->node);
 	if (!nd)
-		return NULL;
+		return -ENOMEM;
+
 	INIT_LIST_HEAD(&nd->queue);
-	return nd;
+	q->elevator->elevator_data = nd;
+	return 0;
 }
 
 static void noop_exit_queue(struct elevator_queue *e)
@@ -94,9 +96,7 @@ static struct elevator_type elevator_noop = {
 
 static int __init noop_init(void)
 {
-	elv_register(&elevator_noop);
-
-	return 0;
+	return elv_register(&elevator_noop);
 }
 
 static void __exit noop_exit(void)

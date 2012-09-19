@@ -198,7 +198,7 @@ struct cpu_vfs_cap_data {
 /* Allow modification of routing tables */
 /* Allow setting arbitrary process / process group ownership on
    sockets */
-/* Allow binding to any address for transparent proxying */
+/* Allow binding to any address for transparent proxying (also via NET_RAW) */
 /* Allow setting TOS (type of service) */
 /* Allow setting promiscuous mode */
 /* Allow clearing driver statistics */
@@ -210,6 +210,7 @@ struct cpu_vfs_cap_data {
 
 /* Allow use of RAW sockets */
 /* Allow use of PACKET sockets */
+/* Allow binding to any address for transparent proxying (also via NET_ADMIN) */
 
 #define CAP_NET_RAW          13
 
@@ -359,8 +360,11 @@ struct cpu_vfs_cap_data {
 
 #define CAP_WAKE_ALARM            35
 
+/* Allow preventing system suspends */
 
-#define CAP_LAST_CAP         CAP_WAKE_ALARM
+#define CAP_BLOCK_SUSPEND    36
+
+#define CAP_LAST_CAP         CAP_BLOCK_SUSPEND
 
 #define cap_valid(x) ((x) >= 0 && (x) <= CAP_LAST_CAP)
 
@@ -373,13 +377,13 @@ struct cpu_vfs_cap_data {
 
 #ifdef __KERNEL__
 
+struct inode;
 struct dentry;
 struct user_namespace;
 
 struct user_namespace *current_user_ns(void);
 
 extern const kernel_cap_t __cap_empty_set;
-extern const kernel_cap_t __cap_full_set;
 extern const kernel_cap_t __cap_init_eff_set;
 
 /*
@@ -543,10 +547,12 @@ extern bool has_capability(struct task_struct *t, int cap);
 extern bool has_ns_capability(struct task_struct *t,
 			      struct user_namespace *ns, int cap);
 extern bool has_capability_noaudit(struct task_struct *t, int cap);
+extern bool has_ns_capability_noaudit(struct task_struct *t,
+				      struct user_namespace *ns, int cap);
 extern bool capable(int cap);
 extern bool ns_capable(struct user_namespace *ns, int cap);
-extern bool task_ns_capable(struct task_struct *t, int cap);
 extern bool nsown_capable(int cap);
+extern bool inode_capable(const struct inode *inode, int cap);
 
 /* audit system wants to get cap info from files as well */
 extern int get_vfs_caps_from_disk(const struct dentry *dentry, struct cpu_vfs_cap_data *cpu_caps);

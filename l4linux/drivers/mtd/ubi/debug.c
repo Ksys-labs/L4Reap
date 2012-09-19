@@ -18,32 +18,49 @@
  * Author: Artem Bityutskiy (Битюцкий Артём)
  */
 
-/*
- * Here we keep all the UBI debugging stuff which should normally be disabled
- * and compiled-out, but it is extremely helpful when hunting bugs or doing big
- * changes.
- */
-
-#ifdef CONFIG_MTD_UBI_DEBUG
-
 #include "ubi.h"
+#include <linux/debugfs.h>
+#include <linux/uaccess.h>
 #include <linux/module.h>
-#include <linux/moduleparam.h>
 
-unsigned int ubi_chk_flags;
-unsigned int ubi_tst_flags;
-
-module_param_named(debug_chks, ubi_chk_flags, uint, S_IRUGO | S_IWUSR);
-module_param_named(debug_tsts, ubi_chk_flags, uint, S_IRUGO | S_IWUSR);
-
-MODULE_PARM_DESC(debug_chks, "Debug check flags");
-MODULE_PARM_DESC(debug_tsts, "Debug special test flags");
 
 /**
- * ubi_dbg_dump_ec_hdr - dump an erase counter header.
+ * ubi_dump_flash - dump a region of flash.
+ * @ubi: UBI device description object
+ * @pnum: the physical eraseblock number to dump
+ * @offset: the starting offset within the physical eraseblock to dump
+ * @len: the length of the region to dump
+ */
+void ubi_dump_flash(struct ubi_device *ubi, int pnum, int offset, int len)
+{
+	int err;
+	size_t read;
+	void *buf;
+	loff_t addr = (loff_t)pnum * ubi->peb_size + offset;
+
+	buf = vmalloc(len);
+	if (!buf)
+		return;
+	err = mtd_read(ubi->mtd, addr, len, &read, buf);
+	if (err && err != -EUCLEAN) {
+		ubi_err("error %d while reading %d bytes from PEB %d:%d, "
+			"read %zd bytes", err, len, pnum, offset, read);
+		goto out;
+	}
+
+	ubi_msg("dumping %d bytes of data from PEB %d, offset %d",
+		len, pnum, offset);
+	print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET, 32, 1, buf, len, 1);
+out:
+	vfree(buf);
+	return;
+}
+
+/**
+ * ubi_dump_ec_hdr - dump an erase counter header.
  * @ec_hdr: the erase counter header to dump
  */
-void ubi_dbg_dump_ec_hdr(const struct ubi_ec_hdr *ec_hdr)
+void ubi_dump_ec_hdr(const struct ubi_ec_hdr *ec_hdr)
 {
 	printk(KERN_DEBUG "Erase counter header dump:\n");
 	printk(KERN_DEBUG "\tmagic          %#08x\n",
@@ -65,10 +82,10 @@ void ubi_dbg_dump_ec_hdr(const struct ubi_ec_hdr *ec_hdr)
 }
 
 /**
- * ubi_dbg_dump_vid_hdr - dump a volume identifier header.
+ * ubi_dump_vid_hdr - dump a volume identifier header.
  * @vid_hdr: the volume identifier header to dump
  */
-void ubi_dbg_dump_vid_hdr(const struct ubi_vid_hdr *vid_hdr)
+void ubi_dump_vid_hdr(const struct ubi_vid_hdr *vid_hdr)
 {
 	printk(KERN_DEBUG "Volume identifier header dump:\n");
 	printk(KERN_DEBUG "\tmagic     %08x\n", be32_to_cpu(vid_hdr->magic));
@@ -90,10 +107,10 @@ void ubi_dbg_dump_vid_hdr(const struct ubi_vid_hdr *vid_hdr)
 }
 
 /**
- * ubi_dbg_dump_vol_info- dump volume information.
+ * ubi_dump_vol_info - dump volume information.
  * @vol: UBI volume description object
  */
-void ubi_dbg_dump_vol_info(const struct ubi_volume *vol)
+void ubi_dump_vol_info(const struct ubi_volume *vol)
 {
 	printk(KERN_DEBUG "Volume information dump:\n");
 	printk(KERN_DEBUG "\tvol_id          %d\n", vol->vol_id);
@@ -120,11 +137,11 @@ void ubi_dbg_dump_vol_info(const struct ubi_volume *vol)
 }
 
 /**
- * ubi_dbg_dump_vtbl_record - dump a &struct ubi_vtbl_record object.
+ * ubi_dump_vtbl_record - dump a &struct ubi_vtbl_record object.
  * @r: the object to dump
  * @idx: volume table index
  */
-void ubi_dbg_dump_vtbl_record(const struct ubi_vtbl_record *r, int idx)
+void ubi_dump_vtbl_record(const struct ubi_vtbl_record *r, int idx)
 {
 	int name_len = be16_to_cpu(r->name_len);
 
@@ -154,44 +171,44 @@ void ubi_dbg_dump_vtbl_record(const struct ubi_vtbl_record *r, int idx)
 }
 
 /**
- * ubi_dbg_dump_sv - dump a &struct ubi_scan_volume object.
- * @sv: the object to dump
+ * ubi_dump_av - dump a &struct ubi_ainf_volume object.
+ * @av: the object to dump
  */
-void ubi_dbg_dump_sv(const struct ubi_scan_volume *sv)
+void ubi_dump_av(const struct ubi_ainf_volume *av)
 {
-	printk(KERN_DEBUG "Volume scanning information dump:\n");
-	printk(KERN_DEBUG "\tvol_id         %d\n", sv->vol_id);
-	printk(KERN_DEBUG "\thighest_lnum   %d\n", sv->highest_lnum);
-	printk(KERN_DEBUG "\tleb_count      %d\n", sv->leb_count);
-	printk(KERN_DEBUG "\tcompat         %d\n", sv->compat);
-	printk(KERN_DEBUG "\tvol_type       %d\n", sv->vol_type);
-	printk(KERN_DEBUG "\tused_ebs       %d\n", sv->used_ebs);
-	printk(KERN_DEBUG "\tlast_data_size %d\n", sv->last_data_size);
-	printk(KERN_DEBUG "\tdata_pad       %d\n", sv->data_pad);
+	printk(KERN_DEBUG "Volume attaching information dump:\n");
+	printk(KERN_DEBUG "\tvol_id         %d\n", av->vol_id);
+	printk(KERN_DEBUG "\thighest_lnum   %d\n", av->highest_lnum);
+	printk(KERN_DEBUG "\tleb_count      %d\n", av->leb_count);
+	printk(KERN_DEBUG "\tcompat         %d\n", av->compat);
+	printk(KERN_DEBUG "\tvol_type       %d\n", av->vol_type);
+	printk(KERN_DEBUG "\tused_ebs       %d\n", av->used_ebs);
+	printk(KERN_DEBUG "\tlast_data_size %d\n", av->last_data_size);
+	printk(KERN_DEBUG "\tdata_pad       %d\n", av->data_pad);
 }
 
 /**
- * ubi_dbg_dump_seb - dump a &struct ubi_scan_leb object.
- * @seb: the object to dump
+ * ubi_dump_aeb - dump a &struct ubi_ainf_peb object.
+ * @aeb: the object to dump
  * @type: object type: 0 - not corrupted, 1 - corrupted
  */
-void ubi_dbg_dump_seb(const struct ubi_scan_leb *seb, int type)
+void ubi_dump_aeb(const struct ubi_ainf_peb *aeb, int type)
 {
-	printk(KERN_DEBUG "eraseblock scanning information dump:\n");
-	printk(KERN_DEBUG "\tec       %d\n", seb->ec);
-	printk(KERN_DEBUG "\tpnum     %d\n", seb->pnum);
+	printk(KERN_DEBUG "eraseblock attaching information dump:\n");
+	printk(KERN_DEBUG "\tec       %d\n", aeb->ec);
+	printk(KERN_DEBUG "\tpnum     %d\n", aeb->pnum);
 	if (type == 0) {
-		printk(KERN_DEBUG "\tlnum     %d\n", seb->lnum);
-		printk(KERN_DEBUG "\tscrub    %d\n", seb->scrub);
-		printk(KERN_DEBUG "\tsqnum    %llu\n", seb->sqnum);
+		printk(KERN_DEBUG "\tlnum     %d\n", aeb->lnum);
+		printk(KERN_DEBUG "\tscrub    %d\n", aeb->scrub);
+		printk(KERN_DEBUG "\tsqnum    %llu\n", aeb->sqnum);
 	}
 }
 
 /**
- * ubi_dbg_dump_mkvol_req - dump a &struct ubi_mkvol_req object.
+ * ubi_dump_mkvol_req - dump a &struct ubi_mkvol_req object.
  * @req: the object to dump
  */
-void ubi_dbg_dump_mkvol_req(const struct ubi_mkvol_req *req)
+void ubi_dump_mkvol_req(const struct ubi_mkvol_req *req)
 {
 	char nm[17];
 
@@ -208,35 +225,258 @@ void ubi_dbg_dump_mkvol_req(const struct ubi_mkvol_req *req)
 }
 
 /**
- * ubi_dbg_dump_flash - dump a region of flash.
+ * ubi_debugging_init_dev - initialize debugging for an UBI device.
  * @ubi: UBI device description object
- * @pnum: the physical eraseblock number to dump
- * @offset: the starting offset within the physical eraseblock to dump
- * @len: the length of the region to dump
+ *
+ * This function initializes debugging-related data for UBI device @ubi.
+ * Returns zero in case of success and a negative error code in case of
+ * failure.
  */
-void ubi_dbg_dump_flash(struct ubi_device *ubi, int pnum, int offset, int len)
+int ubi_debugging_init_dev(struct ubi_device *ubi)
 {
-	int err;
-	size_t read;
-	void *buf;
-	loff_t addr = (loff_t)pnum * ubi->peb_size + offset;
+	ubi->dbg = kzalloc(sizeof(struct ubi_debug_info), GFP_KERNEL);
+	if (!ubi->dbg)
+		return -ENOMEM;
 
-	buf = vmalloc(len);
-	if (!buf)
-		return;
-	err = ubi->mtd->read(ubi->mtd, addr, len, &read, buf);
-	if (err && err != -EUCLEAN) {
-		ubi_err("error %d while reading %d bytes from PEB %d:%d, "
-			"read %zd bytes", err, len, pnum, offset, read);
+	return 0;
+}
+
+/**
+ * ubi_debugging_exit_dev - free debugging data for an UBI device.
+ * @ubi: UBI device description object
+ */
+void ubi_debugging_exit_dev(struct ubi_device *ubi)
+{
+	kfree(ubi->dbg);
+}
+
+/*
+ * Root directory for UBI stuff in debugfs. Contains sub-directories which
+ * contain the stuff specific to particular UBI devices.
+ */
+static struct dentry *dfs_rootdir;
+
+/**
+ * ubi_debugfs_init - create UBI debugfs directory.
+ *
+ * Create UBI debugfs directory. Returns zero in case of success and a negative
+ * error code in case of failure.
+ */
+int ubi_debugfs_init(void)
+{
+	if (!IS_ENABLED(CONFIG_DEBUG_FS))
+		return 0;
+
+	dfs_rootdir = debugfs_create_dir("ubi", NULL);
+	if (IS_ERR_OR_NULL(dfs_rootdir)) {
+		int err = dfs_rootdir ? -ENODEV : PTR_ERR(dfs_rootdir);
+
+		ubi_err("cannot create \"ubi\" debugfs directory, error %d\n",
+			err);
+		return err;
+	}
+
+	return 0;
+}
+
+/**
+ * ubi_debugfs_exit - remove UBI debugfs directory.
+ */
+void ubi_debugfs_exit(void)
+{
+	if (IS_ENABLED(CONFIG_DEBUG_FS))
+		debugfs_remove(dfs_rootdir);
+}
+
+/* Read an UBI debugfs file */
+static ssize_t dfs_file_read(struct file *file, char __user *user_buf,
+			     size_t count, loff_t *ppos)
+{
+	unsigned long ubi_num = (unsigned long)file->private_data;
+	struct dentry *dent = file->f_path.dentry;
+	struct ubi_device *ubi;
+	struct ubi_debug_info *d;
+	char buf[3];
+	int val;
+
+	ubi = ubi_get_device(ubi_num);
+	if (!ubi)
+		return -ENODEV;
+	d = ubi->dbg;
+
+	if (dent == d->dfs_chk_gen)
+		val = d->chk_gen;
+	else if (dent == d->dfs_chk_io)
+		val = d->chk_io;
+	else if (dent == d->dfs_disable_bgt)
+		val = d->disable_bgt;
+	else if (dent == d->dfs_emulate_bitflips)
+		val = d->emulate_bitflips;
+	else if (dent == d->dfs_emulate_io_failures)
+		val = d->emulate_io_failures;
+	else {
+		count = -EINVAL;
 		goto out;
 	}
 
-	dbg_msg("dumping %d bytes of data from PEB %d, offset %d",
-		len, pnum, offset);
-	print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET, 32, 1, buf, len, 1);
+	if (val)
+		buf[0] = '1';
+	else
+		buf[0] = '0';
+	buf[1] = '\n';
+	buf[2] = 0x00;
+
+	count = simple_read_from_buffer(user_buf, count, ppos, buf, 2);
+
 out:
-	vfree(buf);
-	return;
+	ubi_put_device(ubi);
+	return count;
 }
 
-#endif /* CONFIG_MTD_UBI_DEBUG */
+/* Write an UBI debugfs file */
+static ssize_t dfs_file_write(struct file *file, const char __user *user_buf,
+			      size_t count, loff_t *ppos)
+{
+	unsigned long ubi_num = (unsigned long)file->private_data;
+	struct dentry *dent = file->f_path.dentry;
+	struct ubi_device *ubi;
+	struct ubi_debug_info *d;
+	size_t buf_size;
+	char buf[8];
+	int val;
+
+	ubi = ubi_get_device(ubi_num);
+	if (!ubi)
+		return -ENODEV;
+	d = ubi->dbg;
+
+	buf_size = min_t(size_t, count, (sizeof(buf) - 1));
+	if (copy_from_user(buf, user_buf, buf_size)) {
+		count = -EFAULT;
+		goto out;
+	}
+
+	if (buf[0] == '1')
+		val = 1;
+	else if (buf[0] == '0')
+		val = 0;
+	else {
+		count = -EINVAL;
+		goto out;
+	}
+
+	if (dent == d->dfs_chk_gen)
+		d->chk_gen = val;
+	else if (dent == d->dfs_chk_io)
+		d->chk_io = val;
+	else if (dent == d->dfs_disable_bgt)
+		d->disable_bgt = val;
+	else if (dent == d->dfs_emulate_bitflips)
+		d->emulate_bitflips = val;
+	else if (dent == d->dfs_emulate_io_failures)
+		d->emulate_io_failures = val;
+	else
+		count = -EINVAL;
+
+out:
+	ubi_put_device(ubi);
+	return count;
+}
+
+/* File operations for all UBI debugfs files */
+static const struct file_operations dfs_fops = {
+	.read   = dfs_file_read,
+	.write  = dfs_file_write,
+	.open	= simple_open,
+	.llseek = no_llseek,
+	.owner  = THIS_MODULE,
+};
+
+/**
+ * ubi_debugfs_init_dev - initialize debugfs for an UBI device.
+ * @ubi: UBI device description object
+ *
+ * This function creates all debugfs files for UBI device @ubi. Returns zero in
+ * case of success and a negative error code in case of failure.
+ */
+int ubi_debugfs_init_dev(struct ubi_device *ubi)
+{
+	int err, n;
+	unsigned long ubi_num = ubi->ubi_num;
+	const char *fname;
+	struct dentry *dent;
+	struct ubi_debug_info *d = ubi->dbg;
+
+	if (!IS_ENABLED(CONFIG_DEBUG_FS))
+		return 0;
+
+	n = snprintf(d->dfs_dir_name, UBI_DFS_DIR_LEN + 1, UBI_DFS_DIR_NAME,
+		     ubi->ubi_num);
+	if (n == UBI_DFS_DIR_LEN) {
+		/* The array size is too small */
+		fname = UBI_DFS_DIR_NAME;
+		dent = ERR_PTR(-EINVAL);
+		goto out;
+	}
+
+	fname = d->dfs_dir_name;
+	dent = debugfs_create_dir(fname, dfs_rootdir);
+	if (IS_ERR_OR_NULL(dent))
+		goto out;
+	d->dfs_dir = dent;
+
+	fname = "chk_gen";
+	dent = debugfs_create_file(fname, S_IWUSR, d->dfs_dir, (void *)ubi_num,
+				   &dfs_fops);
+	if (IS_ERR_OR_NULL(dent))
+		goto out_remove;
+	d->dfs_chk_gen = dent;
+
+	fname = "chk_io";
+	dent = debugfs_create_file(fname, S_IWUSR, d->dfs_dir, (void *)ubi_num,
+				   &dfs_fops);
+	if (IS_ERR_OR_NULL(dent))
+		goto out_remove;
+	d->dfs_chk_io = dent;
+
+	fname = "tst_disable_bgt";
+	dent = debugfs_create_file(fname, S_IWUSR, d->dfs_dir, (void *)ubi_num,
+				   &dfs_fops);
+	if (IS_ERR_OR_NULL(dent))
+		goto out_remove;
+	d->dfs_disable_bgt = dent;
+
+	fname = "tst_emulate_bitflips";
+	dent = debugfs_create_file(fname, S_IWUSR, d->dfs_dir, (void *)ubi_num,
+				   &dfs_fops);
+	if (IS_ERR_OR_NULL(dent))
+		goto out_remove;
+	d->dfs_emulate_bitflips = dent;
+
+	fname = "tst_emulate_io_failures";
+	dent = debugfs_create_file(fname, S_IWUSR, d->dfs_dir, (void *)ubi_num,
+				   &dfs_fops);
+	if (IS_ERR_OR_NULL(dent))
+		goto out_remove;
+	d->dfs_emulate_io_failures = dent;
+
+	return 0;
+
+out_remove:
+	debugfs_remove_recursive(d->dfs_dir);
+out:
+	err = dent ? PTR_ERR(dent) : -ENODEV;
+	ubi_err("cannot create \"%s\" debugfs file or directory, error %d\n",
+		fname, err);
+	return err;
+}
+
+/**
+ * dbg_debug_exit_dev - free all debugfs files corresponding to device @ubi
+ * @ubi: UBI device description object
+ */
+void ubi_debugfs_exit_dev(struct ubi_device *ubi)
+{
+	if (IS_ENABLED(CONFIG_DEBUG_FS))
+		debugfs_remove_recursive(ubi->dbg->dfs_dir);
+}

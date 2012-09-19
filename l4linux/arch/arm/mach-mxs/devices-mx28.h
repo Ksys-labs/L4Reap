@@ -11,10 +11,16 @@
 #include <mach/mx28.h>
 #include <mach/devices-common.h>
 #include <mach/mxsfb.h>
+#include <linux/amba/bus.h>
 
-extern const struct amba_device mx28_duart_device __initconst;
-#define mx28_add_duart() \
-	mxs_add_duart(&mx28_duart_device)
+static inline int mx28_add_duart(void)
+{
+	struct amba_device *d;
+
+	d = amba_ahb_device_add(NULL, "duart", MX28_DUART_BASE_ADDR, SZ_8K,
+				MX28_INT_DUART, 0, 0, 0);
+	return IS_ERR(d) ? PTR_ERR(d) : 0;
+}
 
 extern const struct mxs_auart_data mx28_auart_data[] __initconst;
 #define mx28_add_auart(id)	mxs_add_auart(&mx28_auart_data[id])
@@ -34,6 +40,10 @@ extern const struct mxs_flexcan_data mx28_flexcan_data[] __initconst;
 #define mx28_add_flexcan0(pdata)	mx28_add_flexcan(0, pdata)
 #define mx28_add_flexcan1(pdata)	mx28_add_flexcan(1, pdata)
 
+extern const struct mxs_gpmi_nand_data mx28_gpmi_nand_data __initconst;
+#define mx28_add_gpmi_nand(pdata)	\
+	mxs_add_gpmi_nand(pdata, &mx28_gpmi_nand_data)
+
 extern const struct mxs_mxs_i2c_data mx28_mxs_i2c_data[] __initconst;
 #define mx28_add_mxs_i2c(id)		mxs_add_mxs_i2c(&mx28_mxs_i2c_data[id])
 
@@ -45,3 +55,9 @@ extern const struct mxs_mxs_mmc_data mx28_mxs_mmc_data[] __initconst;
 
 struct platform_device *__init mx28_add_mxsfb(
 		const struct mxsfb_platform_data *pdata);
+
+extern const struct mxs_saif_data mx28_saif_data[] __initconst;
+#define mx28_add_saif(id, pdata) \
+	mxs_add_saif(&mx28_saif_data[id], pdata)
+
+struct platform_device *__init mx28_add_rtc_stmp3xxx(void);

@@ -1,6 +1,7 @@
 #ifndef __INCLUDE__ASM_L4__GENERIC__USER_H__
 #define __INCLUDE__ASM_L4__GENERIC__USER_H__
 
+#include <linux/bug.h>
 #include <linux/kernel.h>
 #include <linux/threads.h>
 

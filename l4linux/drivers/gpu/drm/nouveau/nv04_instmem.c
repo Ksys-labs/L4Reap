@@ -1,6 +1,8 @@
 #include "drmP.h"
 #include "drm.h"
+
 #include "nouveau_drv.h"
+#include "nouveau_fifo.h"
 #include "nouveau_ramht.h"
 
 /* returns the size of fifo context */
@@ -10,12 +12,15 @@ nouveau_fifo_ctx_size(struct drm_device *dev)
 	struct drm_nouveau_private *dev_priv = dev->dev_private;
 
 	if (dev_priv->chipset >= 0x40)
-		return 128;
+		return 128 * 32;
 	else
 	if (dev_priv->chipset >= 0x17)
-		return 64;
+		return 64 * 32;
+	else
+	if (dev_priv->chipset >= 0x10)
+		return 32 * 32;
 
-	return 32;
+	return 32 * 16;
 }
 
 int nv04_instmem_init(struct drm_device *dev)
@@ -27,6 +32,27 @@ int nv04_instmem_init(struct drm_device *dev)
 
 	/* RAMIN always available */
 	dev_priv->ramin_available = true;
+
+	/* Reserve space at end of VRAM for PRAMIN */
+	if (dev_priv->card_type >= NV_40) {
+		u32 vs = hweight8((nv_rd32(dev, 0x001540) & 0x0000ff00) >> 8);
+		u32 rsvd;
+
+		/* estimate grctx size, the magics come from nv40_grctx.c */
+		if      (dev_priv->chipset == 0x40) rsvd = 0x6aa0 * vs;
+		else if (dev_priv->chipset  < 0x43) rsvd = 0x4f00 * vs;
+		else if (nv44_graph_class(dev))	    rsvd = 0x4980 * vs;
+		else				    rsvd = 0x4a40 * vs;
+		rsvd += 16 * 1024;
+		rsvd *= 32; /* per-channel */
+
+		rsvd += 512 * 1024; /* pci(e)gart table */
+		rsvd += 512 * 1024; /* object storage */
+
+		dev_priv->ramin_rsvd_vram = round_up(rsvd, 4096);
+	} else {
+		dev_priv->ramin_rsvd_vram = 512 * 1024;
+	}
 
 	/* Setup shared RAMHT */
 	ret = nouveau_gpuobj_new_fake(dev, 0x10000, ~0, 4096,
@@ -46,7 +72,7 @@ int nv04_instmem_init(struct drm_device *dev)
 		return ret;
 
 	/* And RAMFC */
-	length = dev_priv->engine.fifo.channels * nouveau_fifo_ctx_size(dev);
+	length = nouveau_fifo_ctx_size(dev);
 	switch (dev_priv->card_type) {
 	case NV_40:
 		offset = 0x20000;
@@ -112,7 +138,8 @@ nv04_instmem_resume(struct drm_device *dev)
 }
 
 int
-nv04_instmem_get(struct nouveau_gpuobj *gpuobj, u32 size, u32 align)
+nv04_instmem_get(struct nouveau_gpuobj *gpuobj, struct nouveau_channel *chan,
+		 u32 size, u32 align)
 {
 	struct drm_nouveau_private *dev_priv = gpuobj->dev->dev_private;
 	struct drm_mm_node *ramin = NULL;

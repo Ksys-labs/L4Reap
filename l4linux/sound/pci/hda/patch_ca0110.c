@@ -22,9 +22,11 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/pci.h>
+#include <linux/module.h>
 #include <sound/core.h>
 #include "hda_codec.h"
 #include "hda_local.h"
+#include "hda_auto_parser.h"
 
 /*
  */
@@ -40,7 +42,7 @@ struct ca0110_spec {
 	hda_nid_t dig_out;
 	hda_nid_t dig_in;
 	unsigned int num_inputs;
-	const char *input_labels[AUTO_PIN_LAST];
+	char input_labels[AUTO_PIN_LAST][32];
 	struct hda_pcm pcm_rec[2];	/* PCM information */
 };
 
@@ -240,7 +242,8 @@ static int ca0110_build_controls(struct hda_codec *codec)
 	}
 
 	if (spec->dig_out) {
-		err = snd_hda_create_spdif_out_ctls(codec, spec->dig_out);
+		err = snd_hda_create_spdif_out_ctls(codec, spec->dig_out,
+						    spec->dig_out);
 		if (err < 0)
 			return err;
 		err = snd_hda_create_spdif_share_sw(codec, &spec->multiout);
@@ -339,8 +342,7 @@ static int ca0110_build_pcms(struct hda_codec *codec)
 static void init_output(struct hda_codec *codec, hda_nid_t pin, hda_nid_t dac)
 {
 	if (pin) {
-		snd_hda_codec_write(codec, pin, 0,
-				    AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_HP);
+		snd_hda_set_pin_ctl(codec, pin, PIN_HP);
 		if (get_wcaps(codec, pin) & AC_WCAP_OUT_AMP)
 			snd_hda_codec_write(codec, pin, 0,
 					    AC_VERB_SET_AMP_GAIN_MUTE,
@@ -354,8 +356,8 @@ static void init_output(struct hda_codec *codec, hda_nid_t pin, hda_nid_t dac)
 static void init_input(struct hda_codec *codec, hda_nid_t pin, hda_nid_t adc)
 {
 	if (pin) {
-		snd_hda_codec_write(codec, pin, 0,
-				    AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_VREF80);
+		snd_hda_set_pin_ctl(codec, pin, PIN_IN |
+				    snd_hda_get_default_vref(codec, pin));
 		if (get_wcaps(codec, pin) & AC_WCAP_IN_AMP)
 			snd_hda_codec_write(codec, pin, 0,
 					    AC_VERB_SET_AMP_GAIN_MUTE,
@@ -474,7 +476,9 @@ static void parse_input(struct hda_codec *codec)
 		if (j >= cfg->num_inputs)
 			continue;
 		spec->input_pins[n] = pin;
-		spec->input_labels[n] = hda_get_input_pin_label(codec, pin, 1);
+		snd_hda_get_pin_label(codec, pin, cfg,
+				      spec->input_labels[n],
+				      sizeof(spec->input_labels[n]), NULL);
 		spec->adcs[n] = nid;
 		n++;
 	}

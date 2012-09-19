@@ -1,7 +1,6 @@
 #include <linux/mm.h>
 #include <linux/spinlock.h>
 
-#include <asm/system.h>
 #include <asm/segment.h>
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
@@ -194,7 +193,11 @@ void l4x_vmalloc_map_vm_area(unsigned long address, unsigned long end)
 		if (!ptep || !pte_present(*ptep)) {
 			if (0)
 				printk("%s: No (valid) PTE for %08lx?!"
-			               " (ptep: %p, pte: %08lx\n",
+			               " (ptep: %p, pte: %08"
+#ifndef ARCH_arm
+				       "l"
+#endif
+				       "x\n",
 			               __func__, address,
 			               ptep, pte_val(*ptep));
 			continue;

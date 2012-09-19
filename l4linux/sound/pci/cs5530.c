@@ -37,7 +37,7 @@
  */
 
 #include <linux/delay.h>
-#include <linux/moduleparam.h>
+#include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/slab.h>
 #include <sound/core.h>
@@ -50,7 +50,14 @@ MODULE_LICENSE("GPL");
 
 static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX;
 static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;
-static int enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP;
+static bool enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP;
+
+module_param_array(index, int, NULL, 0444);
+MODULE_PARM_DESC(index, "Index value for CS5530 Audio driver.");
+module_param_array(id, charp, NULL, 0444);
+MODULE_PARM_DESC(id, "ID string for CS5530 Audio driver.");
+module_param_array(enable, bool, NULL, 0444);
+MODULE_PARM_DESC(enable, "Enable CS5530 Audio driver.");
 
 struct snd_cs5530 {
 	struct snd_card *card;
@@ -284,23 +291,11 @@ static int __devinit snd_cs5530_probe(struct pci_dev *pci,
 	return 0;
 }
 
-static struct pci_driver driver = {
-	.name = "CS5530_Audio",
+static struct pci_driver cs5530_driver = {
+	.name = KBUILD_MODNAME,
 	.id_table = snd_cs5530_ids,
 	.probe = snd_cs5530_probe,
 	.remove = __devexit_p(snd_cs5530_remove),
 };
 
-static int __init alsa_card_cs5530_init(void)
-{
-	return pci_register_driver(&driver);
-}
-
-static void __exit alsa_card_cs5530_exit(void)
-{
-	pci_unregister_driver(&driver);
-}
-
-module_init(alsa_card_cs5530_init)
-module_exit(alsa_card_cs5530_exit)
-
+module_pci_driver(cs5530_driver);

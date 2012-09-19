@@ -79,20 +79,35 @@ void serio_reconnect(struct serio *serio);
 irqreturn_t serio_interrupt(struct serio *serio, unsigned char data, unsigned int flags);
 
 void __serio_register_port(struct serio *serio, struct module *owner);
-static inline void serio_register_port(struct serio *serio)
-{
-	__serio_register_port(serio, THIS_MODULE);
-}
+
+/* use a define to avoid include chaining to get THIS_MODULE */
+#define serio_register_port(serio) \
+	__serio_register_port(serio, THIS_MODULE)
 
 void serio_unregister_port(struct serio *serio);
 void serio_unregister_child_port(struct serio *serio);
 
-int __serio_register_driver(struct serio_driver *drv, struct module *owner, const char *mod_name);
-static inline int __must_check serio_register_driver(struct serio_driver *drv)
-{
-	return __serio_register_driver(drv, THIS_MODULE, KBUILD_MODNAME);
-}
+int __must_check __serio_register_driver(struct serio_driver *drv,
+				struct module *owner, const char *mod_name);
+
+/* use a define to avoid include chaining to get THIS_MODULE & friends */
+#define serio_register_driver(drv) \
+	__serio_register_driver(drv, THIS_MODULE, KBUILD_MODNAME)
+
 void serio_unregister_driver(struct serio_driver *drv);
+
+/**
+ * module_serio_driver() - Helper macro for registering a serio driver
+ * @__serio_driver: serio_driver struct
+ *
+ * Helper macro for serio drivers which do not do anything special in
+ * module init/exit. This eliminates a lot of boilerplate. Each module
+ * may only use this macro once, and calling it replaces module_init()
+ * and module_exit().
+ */
+#define module_serio_driver(__serio_driver) \
+	module_driver(__serio_driver, serio_register_driver, \
+		       serio_unregister_driver)
 
 static inline int serio_write(struct serio *serio, unsigned char data)
 {
@@ -199,5 +214,6 @@ static inline void serio_continue_rx(struct serio *serio)
 #define SERIO_DYNAPRO	0x3a
 #define SERIO_HAMPSHIRE	0x3b
 #define SERIO_PS2MULT	0x3c
+#define SERIO_TSC40	0x3d
 
 #endif

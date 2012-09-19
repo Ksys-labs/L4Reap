@@ -5,11 +5,11 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 1996, 97, 98, 99, 2000, 01, 03, 04, 05 by Ralf Baechle
+ * Copyright (C) 1996, 97, 98, 99, 2000, 01, 03, 04, 05, 12 by Ralf Baechle
  * Copyright (C) 1999, 2000, 01 Silicon Graphics, Inc.
  */
 #include <linux/interrupt.h>
-#include <linux/module.h>
+#include <linux/export.h>
 #include <asm/checksum.h>
 #include <asm/pgtable.h>
 #include <asm/uaccess.h>
@@ -33,6 +33,12 @@ EXPORT_SYMBOL(memcpy);
 EXPORT_SYMBOL(memmove);
 
 EXPORT_SYMBOL(kernel_thread);
+
+/*
+ * Functions that operate on entire pages.  Mostly used by memory management.
+ */
+EXPORT_SYMBOL(clear_page);
+EXPORT_SYMBOL(copy_page);
 
 /*
  * Userspace access stuff.

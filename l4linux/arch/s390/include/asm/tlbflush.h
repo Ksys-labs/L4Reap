@@ -27,12 +27,12 @@ static inline void __tlb_flush_global(void)
 	register unsigned long reg4 asm("4");
 	long dummy;
 
-#ifndef __s390x__
+#ifndef CONFIG_64BIT
 	if (!MACHINE_HAS_CSP) {
 		smp_ptlb_all();
 		return;
 	}
-#endif /* __s390x__ */
+#endif /* CONFIG_64BIT */
 
 	dummy = 0;
 	reg2 = reg3 = 0;
@@ -59,6 +59,7 @@ static inline void __tlb_flush_full(struct mm_struct *mm)
 }
 #else
 #define __tlb_flush_full(mm)	__tlb_flush_local()
+#define __tlb_flush_global()	__tlb_flush_local()
 #endif
 
 /*
@@ -80,7 +81,7 @@ static inline void __tlb_flush_mm(struct mm_struct * mm)
 	 * on all cpus instead of doing a local flush if the mm
 	 * only ran on the local cpu.
 	 */
-	if (MACHINE_HAS_IDTE)
+	if (MACHINE_HAS_IDTE && list_empty(&mm->context.gmap_list))
 		__tlb_flush_idte((unsigned long) mm->pgd |
 				 mm->context.asce_bits);
 	else

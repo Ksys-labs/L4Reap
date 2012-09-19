@@ -86,12 +86,16 @@ int l4lx_task_create(l4_cap_idx_t task)
 {
 	l4_msgtag_t t;
 	l4_utcb_t *u = l4_utcb();
+	l4_fpage_t fp;
 	L4XV_V(f);
-	L4XV_L(f);
 
-	t = l4_factory_create_task_u(l4re_env()->factory, task,
-	                             l4_fpage(L4X_USER_UTCB_ADDR,
-	                                      L4X_USER_UTCB_SIZE, 0), u);
+	if (l4x_is_vcpu())
+		fp = l4_fpage_invalid();
+	else
+		fp = l4_fpage(L4X_USER_UTCB_ADDR, L4X_USER_UTCB_SIZE, 0);
+
+	L4XV_L(f);
+	t = l4_factory_create_task_u(l4re_env()->factory, task, fp, u);
 	L4XV_U(f);
 	return l4_error_u(t, u);
 }

@@ -69,62 +69,13 @@ int l4lx_irq_prio_get(unsigned int irq)
 	return -1;
 }
 
-int l4lx_irq_set_type(struct irq_data *data, unsigned int type)
-{
-#ifdef ARCH_x86
-	extern struct irq_chip l4x_irq_dev_chip;
-#endif
-	unsigned irq = data->irq;
-	struct l4x_irq_desc_private *p;
-
-	if (unlikely(irq >= NR_IRQS))
-		return -1;
-
-	p = irq_get_chip_data(irq);
-	if (!p)
-		return -1;
-
-	printk("L4IRQ: set irq type of %u to %x\n", irq, type);
-	switch (type & IRQF_TRIGGER_MASK) {
-		case IRQF_TRIGGER_RISING:
-			p->trigger = L4_IRQ_F_POS_EDGE;
-#ifdef ARCH_x86
-			irq_set_chip_and_handler_name(irq, &l4x_irq_dev_chip, handle_edge_irq, "edge");
-#endif
-			break;
-		case IRQF_TRIGGER_FALLING:
-			p->trigger = L4_IRQ_F_NEG_EDGE;
-#ifdef ARCH_x86
-			irq_set_chip_and_handler_name(irq, &l4x_irq_dev_chip, handle_edge_irq, "edge");
-#endif
-			break;
-		case IRQF_TRIGGER_HIGH:
-			p->trigger = L4_IRQ_F_LEVEL_HIGH;
-#ifdef ARCH_x86
-			irq_set_chip_and_handler_name(irq, &l4x_irq_dev_chip, handle_fasteoi_irq, "fasteoi");
-#endif
-			break;
-		case IRQF_TRIGGER_LOW:
-			p->trigger = L4_IRQ_F_LEVEL_LOW;
-#ifdef ARCH_x86
-			irq_set_chip_and_handler_name(irq, &l4x_irq_dev_chip, handle_fasteoi_irq, "fasteoi");
-#endif
-			break;
-		default:
-			p->trigger = L4_IRQ_F_NONE;
-			break;
-	};
-
-	return 0;
-}
-
 static inline int attach_to_irq(struct irq_desc *desc)
 {
 	long ret;
 	struct l4x_irq_desc_private *p = irq_desc_get_chip_data(desc);
 
 	if ((ret  = l4_error(l4_irq_attach(p->irq_cap, irq_desc_get_irq_data(desc)->irq << 2,
-	                                   l4x_stack_id_get()))))
+	                                   l4x_cap_current()))))
 		dd_printk("%s: can't attach to irq %u: %ld\n",
 		          __func__, desc->irq, ret);
 
@@ -284,8 +235,6 @@ static void send_msg(unsigned int irq, enum irq_cmds cmd)
 
 void l4lx_irq_init(void)
 {
-	l4lx_irq_max = NR_IRQS;
-	printk("%s: l4lx_irq_max = %d\n", __func__, l4lx_irq_max);
 }
 
 #ifdef CONFIG_SMP
@@ -363,8 +312,9 @@ unsigned int l4lx_irq_dev_startup(struct irq_data *data)
 		p->irq_thread = l4lx_thread_create(irq_thread,
 		                                   smp_processor_id(),
 		                                   NULL, &irq, sizeof(irq),
+		                                   l4x_cap_alloc(),
 		                                   l4lx_irq_prio_get(irq),
-		                                   0, thread_name);
+		                                   0, thread_name, NULL);
 		if (!l4lx_thread_is_valid(p->irq_thread))
 			enter_kdebug("Error creating IRQ-thread!");
 

@@ -31,11 +31,15 @@
 #include <linux/dma-mapping.h>
 #include <linux/mm.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
 #include <media/v4l2-event.h>
 
 #include "isp.h"
 #include "ispreg.h"
 #include "ispccdc.h"
+
+#define CCDC_MIN_WIDTH		32
+#define CCDC_MIN_HEIGHT		32
 
 static struct v4l2_mbus_framefmt *
 __ccdc_get_format(struct isp_ccdc_device *ccdc, struct v4l2_subdev_fh *fh,
@@ -365,7 +369,7 @@ static void ccdc_lsc_free_request(struct isp_ccdc_device *ccdc,
 		dma_unmap_sg(isp->dev, req->iovm->sgt->sgl,
 			     req->iovm->sgt->nents, DMA_TO_DEVICE);
 	if (req->table)
-		iommu_vfree(isp->iommu, req->table);
+		omap_iommu_vfree(isp->domain, isp->dev, req->table);
 	kfree(req);
 }
 
@@ -437,15 +441,15 @@ static int ccdc_lsc_config(struct isp_ccdc_device *ccdc,
 
 		req->enable = 1;
 
-		req->table = iommu_vmalloc(isp->iommu, 0, req->config.size,
-					   IOMMU_FLAG);
+		req->table = omap_iommu_vmalloc(isp->domain, isp->dev, 0,
+					req->config.size, IOMMU_FLAG);
 		if (IS_ERR_VALUE(req->table)) {
 			req->table = 0;
 			ret = -ENOMEM;
 			goto done;
 		}
 
-		req->iovm = find_iovm_area(isp->iommu, req->table);
+		req->iovm = omap_find_iovm_area(isp->dev, req->table);
 		if (req->iovm == NULL) {
 			ret = -ENOMEM;
 			goto done;
@@ -461,7 +465,7 @@ static int ccdc_lsc_config(struct isp_ccdc_device *ccdc,
 		dma_sync_sg_for_cpu(isp->dev, req->iovm->sgt->sgl,
 				    req->iovm->sgt->nents, DMA_TO_DEVICE);
 
-		table = da_to_va(isp->iommu, req->table);
+		table = omap_da_to_va(isp->dev, req->table);
 		if (copy_from_user(table, config->lsc, req->config.size)) {
 			ret = -EFAULT;
 			goto done;
@@ -730,18 +734,19 @@ static int ccdc_config(struct isp_ccdc_device *ccdc,
 
 			/*
 			 * table_new must be 64-bytes aligned, but it's
-			 * already done by iommu_vmalloc().
+			 * already done by omap_iommu_vmalloc().
 			 */
 			size = ccdc->fpc.fpnum * 4;
-			table_new = iommu_vmalloc(isp->iommu, 0, size,
-						  IOMMU_FLAG);
+			table_new = omap_iommu_vmalloc(isp->domain, isp->dev,
+							0, size, IOMMU_FLAG);
 			if (IS_ERR_VALUE(table_new))
 				return -ENOMEM;
 
-			if (copy_from_user(da_to_va(isp->iommu, table_new),
+			if (copy_from_user(omap_da_to_va(isp->dev, table_new),
 					   (__force void __user *)
 					   ccdc->fpc.fpcaddr, size)) {
-				iommu_vfree(isp->iommu, table_new);
+				omap_iommu_vfree(isp->domain, isp->dev,
+								table_new);
 				return -EFAULT;
 			}
 
@@ -751,7 +756,7 @@ static int ccdc_config(struct isp_ccdc_device *ccdc,
 
 		ccdc_configure_fpc(ccdc);
 		if (table_old != 0)
-			iommu_vfree(isp->iommu, table_old);
+			omap_iommu_vfree(isp->domain, isp->dev, table_old);
 	}
 
 	return ccdc_lsc_config(ccdc, ccdc_struct);
@@ -834,8 +839,8 @@ static void ccdc_config_vp(struct isp_ccdc_device *ccdc)
 
 	if (pipe->input)
 		div = DIV_ROUND_UP(l3_ick, pipe->max_rate);
-	else if (ccdc->vpcfg.pixelclk)
-		div = l3_ick / ccdc->vpcfg.pixelclk;
+	else if (pipe->external_rate)
+		div = l3_ick / pipe->external_rate;
 
 	div = clamp(div, 2U, max_div);
 	fmtcfg_vp |= (div - 2) << ISPCCDC_FMTCFG_VPIF_FRQ_SHIFT;
@@ -1116,6 +1121,7 @@ static void ccdc_configure(struct isp_ccdc_device *ccdc)
 	struct isp_parallel_platform_data *pdata = NULL;
 	struct v4l2_subdev *sensor;
 	struct v4l2_mbus_framefmt *format;
+	const struct v4l2_rect *crop;
 	const struct isp_format_info *fmt_info;
 	struct v4l2_subdev_format fmt_src;
 	unsigned int depth_out;
@@ -1148,6 +1154,8 @@ static void ccdc_configure(struct isp_ccdc_device *ccdc)
 	omap3isp_configure_bridge(isp, ccdc->input, pdata, shift);
 
 	ccdc->syncif.datsz = depth_out;
+	ccdc->syncif.hdpol = pdata ? pdata->hs_pol : 0;
+	ccdc->syncif.vdpol = pdata ? pdata->vs_pol : 0;
 	ccdc_config_sync_if(ccdc, &ccdc->syncif);
 
 	/* CCDC_PAD_SINK */
@@ -1207,14 +1215,14 @@ static void ccdc_configure(struct isp_ccdc_device *ccdc)
 		       OMAP3_ISP_IOMEM_CCDC, ISPCCDC_VDINT);
 
 	/* CCDC_PAD_SOURCE_OF */
-	format = &ccdc->formats[CCDC_PAD_SOURCE_OF];
+	crop = &ccdc->crop;
 
-	isp_reg_writel(isp, (0 << ISPCCDC_HORZ_INFO_SPH_SHIFT) |
-		       ((format->width - 1) << ISPCCDC_HORZ_INFO_NPH_SHIFT),
+	isp_reg_writel(isp, (crop->left << ISPCCDC_HORZ_INFO_SPH_SHIFT) |
+		       ((crop->width - 1) << ISPCCDC_HORZ_INFO_NPH_SHIFT),
 		       OMAP3_ISP_IOMEM_CCDC, ISPCCDC_HORZ_INFO);
-	isp_reg_writel(isp, 0 << ISPCCDC_VERT_START_SLV0_SHIFT,
+	isp_reg_writel(isp, crop->top << ISPCCDC_VERT_START_SLV0_SHIFT,
 		       OMAP3_ISP_IOMEM_CCDC, ISPCCDC_VERT_START);
-	isp_reg_writel(isp, (format->height - 1)
+	isp_reg_writel(isp, (crop->height - 1)
 			<< ISPCCDC_VERT_LINES_NLV_SHIFT,
 		       OMAP3_ISP_IOMEM_CCDC, ISPCCDC_VERT_LINES);
 
@@ -1402,11 +1410,16 @@ static int __ccdc_handle_stopping(struct isp_ccdc_device *ccdc, u32 event)
 
 static void ccdc_hs_vs_isr(struct isp_ccdc_device *ccdc)
 {
-	struct video_device *vdev = &ccdc->subdev.devnode;
+	struct isp_pipeline *pipe = to_isp_pipeline(&ccdc->subdev.entity);
+	struct video_device *vdev = ccdc->subdev.devnode;
 	struct v4l2_event event;
 
+	/* Frame number propagation */
+	atomic_inc(&pipe->frame_number);
+
 	memset(&event, 0, sizeof(event));
-	event.type = V4L2_EVENT_OMAP3ISP_HS_VS;
+	event.type = V4L2_EVENT_FRAME_SYNC;
+	event.u.frame_sync.frame_sequence = atomic_read(&pipe->frame_number);
 
 	v4l2_event_queue(vdev, &event);
 }
@@ -1421,8 +1434,11 @@ static void ccdc_lsc_isr(struct isp_ccdc_device *ccdc, u32 events)
 	unsigned long flags;
 
 	if (events & IRQ0STATUS_CCDC_LSC_PREF_ERR_IRQ) {
+		struct isp_pipeline *pipe =
+			to_isp_pipeline(&ccdc->subdev.entity);
+
 		ccdc_lsc_error_handler(ccdc);
-		ccdc->error = 1;
+		pipe->error = true;
 		dev_dbg(to_device(ccdc), "lsc prefetch error\n");
 	}
 
@@ -1497,7 +1513,7 @@ static int ccdc_isr_buffer(struct isp_ccdc_device *ccdc)
 		goto done;
 	}
 
-	buffer = omap3isp_video_buffer_next(&ccdc->video_out, ccdc->error);
+	buffer = omap3isp_video_buffer_next(&ccdc->video_out);
 	if (buffer != NULL) {
 		ccdc_set_outaddr(ccdc, buffer->isp_addr);
 		restart = 1;
@@ -1511,7 +1527,6 @@ static int ccdc_isr_buffer(struct isp_ccdc_device *ccdc)
 					ISP_PIPELINE_STREAM_SINGLESHOT);
 
 done:
-	ccdc->error = 0;
 	return restart;
 }
 
@@ -1688,10 +1703,14 @@ static long ccdc_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 static int ccdc_subscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
 				struct v4l2_event_subscription *sub)
 {
-	if (sub->type != V4L2_EVENT_OMAP3ISP_HS_VS)
+	if (sub->type != V4L2_EVENT_FRAME_SYNC)
 		return -EINVAL;
 
-	return v4l2_event_subscribe(fh, sub);
+	/* line number is zero at frame start */
+	if (sub->id != 0)
+		return -EINVAL;
+
+	return v4l2_event_subscribe(fh, sub, OMAP3ISP_CCDC_NEVENTS, NULL);
 }
 
 static int ccdc_unsubscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
@@ -1733,7 +1752,6 @@ static int ccdc_set_stream(struct v4l2_subdev *sd, int enable)
 		 */
 		ccdc_config_vp(ccdc);
 		ccdc_enable_vp(ccdc, 1);
-		ccdc->error = 0;
 		ccdc_print_status(ccdc);
 	}
 
@@ -1779,6 +1797,16 @@ __ccdc_get_format(struct isp_ccdc_device *ccdc, struct v4l2_subdev_fh *fh,
 		return &ccdc->formats[pad];
 }
 
+static struct v4l2_rect *
+__ccdc_get_crop(struct isp_ccdc_device *ccdc, struct v4l2_subdev_fh *fh,
+		enum v4l2_subdev_format_whence which)
+{
+	if (which == V4L2_SUBDEV_FORMAT_TRY)
+		return v4l2_subdev_get_try_crop(fh, CCDC_PAD_SOURCE_OF);
+	else
+		return &ccdc->crop;
+}
+
 /*
  * ccdc_try_format - Try video format on a pad
  * @ccdc: ISP CCDC device
@@ -1795,6 +1823,7 @@ ccdc_try_format(struct isp_ccdc_device *ccdc, struct v4l2_subdev_fh *fh,
 	const struct isp_format_info *info;
 	unsigned int width = fmt->width;
 	unsigned int height = fmt->height;
+	struct v4l2_rect *crop;
 	unsigned int i;
 
 	switch (pad) {
@@ -1820,14 +1849,10 @@ ccdc_try_format(struct isp_ccdc_device *ccdc, struct v4l2_subdev_fh *fh,
 		format = __ccdc_get_format(ccdc, fh, CCDC_PAD_SINK, which);
 		memcpy(fmt, format, sizeof(*fmt));
 
-		/* The data formatter truncates the number of horizontal output
-		 * pixels to a multiple of 16. To avoid clipping data, allow
-		 * callers to request an output size bigger than the input size
-		 * up to the nearest multiple of 16.
-		 */
-		fmt->width = clamp_t(u32, width, 32, (fmt->width + 15) & ~15);
-		fmt->width &= ~15;
-		fmt->height = clamp_t(u32, height, 32, fmt->height);
+		/* Hardcode the output size to the crop rectangle size. */
+		crop = __ccdc_get_crop(ccdc, fh, which);
+		fmt->width = crop->width;
+		fmt->height = crop->height;
 		break;
 
 	case CCDC_PAD_SOURCE_VP:
@@ -1852,6 +1877,49 @@ ccdc_try_format(struct isp_ccdc_device *ccdc, struct v4l2_subdev_fh *fh,
 	 */
 	fmt->colorspace = V4L2_COLORSPACE_SRGB;
 	fmt->field = V4L2_FIELD_NONE;
+}
+
+/*
+ * ccdc_try_crop - Validate a crop rectangle
+ * @ccdc: ISP CCDC device
+ * @sink: format on the sink pad
+ * @crop: crop rectangle to be validated
+ */
+static void ccdc_try_crop(struct isp_ccdc_device *ccdc,
+			  const struct v4l2_mbus_framefmt *sink,
+			  struct v4l2_rect *crop)
+{
+	const struct isp_format_info *info;
+	unsigned int max_width;
+
+	/* For Bayer formats, restrict left/top and width/height to even values
+	 * to keep the Bayer pattern.
+	 */
+	info = omap3isp_video_format_info(sink->code);
+	if (info->flavor != V4L2_MBUS_FMT_Y8_1X8) {
+		crop->left &= ~1;
+		crop->top &= ~1;
+	}
+
+	crop->left = clamp_t(u32, crop->left, 0, sink->width - CCDC_MIN_WIDTH);
+	crop->top = clamp_t(u32, crop->top, 0, sink->height - CCDC_MIN_HEIGHT);
+
+	/* The data formatter truncates the number of horizontal output pixels
+	 * to a multiple of 16. To avoid clipping data, allow callers to request
+	 * an output size bigger than the input size up to the nearest multiple
+	 * of 16.
+	 */
+	max_width = (sink->width - crop->left + 15) & ~15;
+	crop->width = clamp_t(u32, crop->width, CCDC_MIN_WIDTH, max_width)
+		    & ~15;
+	crop->height = clamp_t(u32, crop->height, CCDC_MIN_HEIGHT,
+			       sink->height - crop->top);
+
+	/* Odd width/height values don't make sense for Bayer formats. */
+	if (info->flavor != V4L2_MBUS_FMT_Y8_1X8) {
+		crop->width &= ~1;
+		crop->height &= ~1;
+	}
 }
 
 /*
@@ -1926,6 +1994,93 @@ static int ccdc_enum_frame_size(struct v4l2_subdev *sd,
 }
 
 /*
+ * ccdc_get_selection - Retrieve a selection rectangle on a pad
+ * @sd: ISP CCDC V4L2 subdevice
+ * @fh: V4L2 subdev file handle
+ * @sel: Selection rectangle
+ *
+ * The only supported rectangles are the crop rectangles on the output formatter
+ * source pad.
+ *
+ * Return 0 on success or a negative error code otherwise.
+ */
+static int ccdc_get_selection(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
+			      struct v4l2_subdev_selection *sel)
+{
+	struct isp_ccdc_device *ccdc = v4l2_get_subdevdata(sd);
+	struct v4l2_mbus_framefmt *format;
+
+	if (sel->pad != CCDC_PAD_SOURCE_OF)
+		return -EINVAL;
+
+	switch (sel->target) {
+	case V4L2_SUBDEV_SEL_TGT_CROP_BOUNDS:
+		sel->r.left = 0;
+		sel->r.top = 0;
+		sel->r.width = INT_MAX;
+		sel->r.height = INT_MAX;
+
+		format = __ccdc_get_format(ccdc, fh, CCDC_PAD_SINK, sel->which);
+		ccdc_try_crop(ccdc, format, &sel->r);
+		break;
+
+	case V4L2_SUBDEV_SEL_TGT_CROP_ACTUAL:
+		sel->r = *__ccdc_get_crop(ccdc, fh, sel->which);
+		break;
+
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/*
+ * ccdc_set_selection - Set a selection rectangle on a pad
+ * @sd: ISP CCDC V4L2 subdevice
+ * @fh: V4L2 subdev file handle
+ * @sel: Selection rectangle
+ *
+ * The only supported rectangle is the actual crop rectangle on the output
+ * formatter source pad.
+ *
+ * Return 0 on success or a negative error code otherwise.
+ */
+static int ccdc_set_selection(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
+			      struct v4l2_subdev_selection *sel)
+{
+	struct isp_ccdc_device *ccdc = v4l2_get_subdevdata(sd);
+	struct v4l2_mbus_framefmt *format;
+
+	if (sel->target != V4L2_SUBDEV_SEL_TGT_CROP_ACTUAL ||
+	    sel->pad != CCDC_PAD_SOURCE_OF)
+		return -EINVAL;
+
+	/* The crop rectangle can't be changed while streaming. */
+	if (ccdc->state != ISP_PIPELINE_STREAM_STOPPED)
+		return -EBUSY;
+
+	/* Modifying the crop rectangle always changes the format on the source
+	 * pad. If the KEEP_CONFIG flag is set, just return the current crop
+	 * rectangle.
+	 */
+	if (sel->flags & V4L2_SUBDEV_SEL_FLAG_KEEP_CONFIG) {
+		sel->r = *__ccdc_get_crop(ccdc, fh, sel->which);
+		return 0;
+	}
+
+	format = __ccdc_get_format(ccdc, fh, CCDC_PAD_SINK, sel->which);
+	ccdc_try_crop(ccdc, format, &sel->r);
+	*__ccdc_get_crop(ccdc, fh, sel->which) = sel->r;
+
+	/* Update the source format. */
+	format = __ccdc_get_format(ccdc, fh, CCDC_PAD_SOURCE_OF, sel->which);
+	ccdc_try_format(ccdc, fh, CCDC_PAD_SOURCE_OF, format, sel->which);
+
+	return 0;
+}
+
+/*
  * ccdc_get_format - Retrieve the video format on a pad
  * @sd : ISP CCDC V4L2 subdevice
  * @fh : V4L2 subdev file handle
@@ -1962,6 +2117,7 @@ static int ccdc_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 {
 	struct isp_ccdc_device *ccdc = v4l2_get_subdevdata(sd);
 	struct v4l2_mbus_framefmt *format;
+	struct v4l2_rect *crop;
 
 	format = __ccdc_get_format(ccdc, fh, fmt->pad, fmt->which);
 	if (format == NULL)
@@ -1972,6 +2128,16 @@ static int ccdc_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 
 	/* Propagate the format from sink to source */
 	if (fmt->pad == CCDC_PAD_SINK) {
+		/* Reset the crop rectangle. */
+		crop = __ccdc_get_crop(ccdc, fh, fmt->which);
+		crop->left = 0;
+		crop->top = 0;
+		crop->width = fmt->format.width;
+		crop->height = fmt->format.height;
+
+		ccdc_try_crop(ccdc, &fmt->format, crop);
+
+		/* Update the source formats. */
 		format = __ccdc_get_format(ccdc, fh, CCDC_PAD_SOURCE_OF,
 					   fmt->which);
 		*format = fmt->format;
@@ -1984,6 +2150,69 @@ static int ccdc_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 		ccdc_try_format(ccdc, fh, CCDC_PAD_SOURCE_VP, format,
 				fmt->which);
 	}
+
+	return 0;
+}
+
+/*
+ * Decide whether desired output pixel code can be obtained with
+ * the lane shifter by shifting the input pixel code.
+ * @in: input pixelcode to shifter
+ * @out: output pixelcode from shifter
+ * @additional_shift: # of bits the sensor's LSB is offset from CAMEXT[0]
+ *
+ * return true if the combination is possible
+ * return false otherwise
+ */
+static bool ccdc_is_shiftable(enum v4l2_mbus_pixelcode in,
+			      enum v4l2_mbus_pixelcode out,
+			      unsigned int additional_shift)
+{
+	const struct isp_format_info *in_info, *out_info;
+
+	if (in == out)
+		return true;
+
+	in_info = omap3isp_video_format_info(in);
+	out_info = omap3isp_video_format_info(out);
+
+	if ((in_info->flavor == 0) || (out_info->flavor == 0))
+		return false;
+
+	if (in_info->flavor != out_info->flavor)
+		return false;
+
+	return in_info->bpp - out_info->bpp + additional_shift <= 6;
+}
+
+static int ccdc_link_validate(struct v4l2_subdev *sd,
+			      struct media_link *link,
+			      struct v4l2_subdev_format *source_fmt,
+			      struct v4l2_subdev_format *sink_fmt)
+{
+	struct isp_ccdc_device *ccdc = v4l2_get_subdevdata(sd);
+	unsigned long parallel_shift;
+
+	/* Check if the two ends match */
+	if (source_fmt->format.width != sink_fmt->format.width ||
+	    source_fmt->format.height != sink_fmt->format.height)
+		return -EPIPE;
+
+	/* We've got a parallel sensor here. */
+	if (ccdc->input == CCDC_INPUT_PARALLEL) {
+		struct isp_parallel_platform_data *pdata =
+			&((struct isp_v4l2_subdevs_group *)
+			  media_entity_to_v4l2_subdev(link->source->entity)
+			  ->host_priv)->bus.parallel;
+		parallel_shift = pdata->data_lane_shift * 2;
+	} else {
+		parallel_shift = 0;
+	}
+
+	/* Lane shifter may be used to drop bits on CCDC sink pad */
+	if (!ccdc_is_shiftable(source_fmt->format.code,
+			       sink_fmt->format.code, parallel_shift))
+		return -EPIPE;
 
 	return 0;
 }
@@ -2030,6 +2259,9 @@ static const struct v4l2_subdev_pad_ops ccdc_v4l2_pad_ops = {
 	.enum_frame_size = ccdc_enum_frame_size,
 	.get_fmt = ccdc_get_format,
 	.set_fmt = ccdc_set_format,
+	.get_selection = ccdc_get_selection,
+	.set_selection = ccdc_set_selection,
+	.link_validate = ccdc_link_validate,
 };
 
 /* V4L2 subdev operations */
@@ -2139,65 +2371,11 @@ static int ccdc_link_setup(struct media_entity *entity,
 /* media operations */
 static const struct media_entity_operations ccdc_media_ops = {
 	.link_setup = ccdc_link_setup,
+	.link_validate = v4l2_subdev_link_validate,
 };
-
-/*
- * ccdc_init_entities - Initialize V4L2 subdev and media entity
- * @ccdc: ISP CCDC module
- *
- * Return 0 on success and a negative error code on failure.
- */
-static int ccdc_init_entities(struct isp_ccdc_device *ccdc)
-{
-	struct v4l2_subdev *sd = &ccdc->subdev;
-	struct media_pad *pads = ccdc->pads;
-	struct media_entity *me = &sd->entity;
-	int ret;
-
-	ccdc->input = CCDC_INPUT_NONE;
-
-	v4l2_subdev_init(sd, &ccdc_v4l2_ops);
-	sd->internal_ops = &ccdc_v4l2_internal_ops;
-	strlcpy(sd->name, "OMAP3 ISP CCDC", sizeof(sd->name));
-	sd->grp_id = 1 << 16;	/* group ID for isp subdevs */
-	v4l2_set_subdevdata(sd, ccdc);
-	sd->flags |= V4L2_SUBDEV_FL_HAS_EVENTS | V4L2_SUBDEV_FL_HAS_DEVNODE;
-	sd->nevents = OMAP3ISP_CCDC_NEVENTS;
-
-	pads[CCDC_PAD_SINK].flags = MEDIA_PAD_FL_SINK;
-	pads[CCDC_PAD_SOURCE_VP].flags = MEDIA_PAD_FL_SOURCE;
-	pads[CCDC_PAD_SOURCE_OF].flags = MEDIA_PAD_FL_SOURCE;
-
-	me->ops = &ccdc_media_ops;
-	ret = media_entity_init(me, CCDC_PADS_NUM, pads, 0);
-	if (ret < 0)
-		return ret;
-
-	ccdc_init_formats(sd, NULL);
-
-	ccdc->video_out.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	ccdc->video_out.ops = &ccdc_video_ops;
-	ccdc->video_out.isp = to_isp_device(ccdc);
-	ccdc->video_out.capture_mem = PAGE_ALIGN(4096 * 4096) * 3;
-	ccdc->video_out.bpl_alignment = 32;
-
-	ret = omap3isp_video_init(&ccdc->video_out, "CCDC");
-	if (ret < 0)
-		return ret;
-
-	/* Connect the CCDC subdev to the video node. */
-	ret = media_entity_create_link(&ccdc->subdev.entity, CCDC_PAD_SOURCE_OF,
-			&ccdc->video_out.video.entity, 0, 0);
-	if (ret < 0)
-		return ret;
-
-	return 0;
-}
 
 void omap3isp_ccdc_unregister_entities(struct isp_ccdc_device *ccdc)
 {
-	media_entity_cleanup(&ccdc->subdev.entity);
-
 	v4l2_device_unregister_subdev(&ccdc->subdev);
 	omap3isp_video_unregister(&ccdc->video_out);
 }
@@ -2228,6 +2406,64 @@ error:
  */
 
 /*
+ * ccdc_init_entities - Initialize V4L2 subdev and media entity
+ * @ccdc: ISP CCDC module
+ *
+ * Return 0 on success and a negative error code on failure.
+ */
+static int ccdc_init_entities(struct isp_ccdc_device *ccdc)
+{
+	struct v4l2_subdev *sd = &ccdc->subdev;
+	struct media_pad *pads = ccdc->pads;
+	struct media_entity *me = &sd->entity;
+	int ret;
+
+	ccdc->input = CCDC_INPUT_NONE;
+
+	v4l2_subdev_init(sd, &ccdc_v4l2_ops);
+	sd->internal_ops = &ccdc_v4l2_internal_ops;
+	strlcpy(sd->name, "OMAP3 ISP CCDC", sizeof(sd->name));
+	sd->grp_id = 1 << 16;	/* group ID for isp subdevs */
+	v4l2_set_subdevdata(sd, ccdc);
+	sd->flags |= V4L2_SUBDEV_FL_HAS_EVENTS | V4L2_SUBDEV_FL_HAS_DEVNODE;
+
+	pads[CCDC_PAD_SINK].flags = MEDIA_PAD_FL_SINK;
+	pads[CCDC_PAD_SOURCE_VP].flags = MEDIA_PAD_FL_SOURCE;
+	pads[CCDC_PAD_SOURCE_OF].flags = MEDIA_PAD_FL_SOURCE;
+
+	me->ops = &ccdc_media_ops;
+	ret = media_entity_init(me, CCDC_PADS_NUM, pads, 0);
+	if (ret < 0)
+		return ret;
+
+	ccdc_init_formats(sd, NULL);
+
+	ccdc->video_out.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	ccdc->video_out.ops = &ccdc_video_ops;
+	ccdc->video_out.isp = to_isp_device(ccdc);
+	ccdc->video_out.capture_mem = PAGE_ALIGN(4096 * 4096) * 3;
+	ccdc->video_out.bpl_alignment = 32;
+
+	ret = omap3isp_video_init(&ccdc->video_out, "CCDC");
+	if (ret < 0)
+		goto error_video;
+
+	/* Connect the CCDC subdev to the video node. */
+	ret = media_entity_create_link(&ccdc->subdev.entity, CCDC_PAD_SOURCE_OF,
+			&ccdc->video_out.video.entity, 0, 0);
+	if (ret < 0)
+		goto error_link;
+
+	return 0;
+
+error_link:
+	omap3isp_video_cleanup(&ccdc->video_out);
+error_video:
+	media_entity_cleanup(me);
+	return ret;
+}
+
+/*
  * omap3isp_ccdc_init - CCDC module initialization.
  * @dev: Device pointer specific to the OMAP3 ISP.
  *
@@ -2238,6 +2474,7 @@ error:
 int omap3isp_ccdc_init(struct isp_device *isp)
 {
 	struct isp_ccdc_device *ccdc = &isp->isp_ccdc;
+	int ret;
 
 	spin_lock_init(&ccdc->lock);
 	init_waitqueue_head(&ccdc->wait);
@@ -2257,18 +2494,20 @@ int omap3isp_ccdc_init(struct isp_device *isp)
 	ccdc->syncif.fldout = 0;
 	ccdc->syncif.fldpol = 0;
 	ccdc->syncif.fldstat = 0;
-	ccdc->syncif.hdpol = 0;
-	ccdc->syncif.vdpol = 0;
 
 	ccdc->clamp.oblen = 0;
 	ccdc->clamp.dcsubval = 0;
 
-	ccdc->vpcfg.pixelclk = 0;
-
 	ccdc->update = OMAP3ISP_CCDC_BLCLAMP;
 	ccdc_apply_controls(ccdc);
 
-	return ccdc_init_entities(ccdc);
+	ret = ccdc_init_entities(ccdc);
+	if (ret < 0) {
+		mutex_destroy(&ccdc->ioctl_lock);
+		return ret;
+	}
+
+	return 0;
 }
 
 /*
@@ -2279,6 +2518,9 @@ void omap3isp_ccdc_cleanup(struct isp_device *isp)
 {
 	struct isp_ccdc_device *ccdc = &isp->isp_ccdc;
 
+	omap3isp_video_cleanup(&ccdc->video_out);
+	media_entity_cleanup(&ccdc->subdev.entity);
+
 	/* Free LSC requests. As the CCDC is stopped there's no active request,
 	 * so only the pending request and the free queue need to be handled.
 	 */
@@ -2287,5 +2529,7 @@ void omap3isp_ccdc_cleanup(struct isp_device *isp)
 	ccdc_lsc_free_queue(ccdc, &ccdc->lsc.free_queue);
 
 	if (ccdc->fpc.fpcaddr != 0)
-		iommu_vfree(isp->iommu, ccdc->fpc.fpcaddr);
+		omap_iommu_vfree(isp->domain, isp->dev, ccdc->fpc.fpcaddr);
+
+	mutex_destroy(&ccdc->ioctl_lock);
 }

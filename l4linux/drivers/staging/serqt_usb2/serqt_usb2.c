@@ -16,7 +16,7 @@
 #include <linux/usb/serial.h>
 #include <linux/uaccess.h>
 
-static int debug;
+static bool debug;
 
 /* Version Information */
 #define DRIVER_VERSION "v2.14"
@@ -24,7 +24,6 @@ static int debug;
 #define DRIVER_DESC "Quatech USB to Serial Driver"
 
 #define	USB_VENDOR_ID_QUATECH			0x061d	/* Quatech VID */
-#define QUATECH_SSU100	0xC020	/* SSU100 */
 #define QUATECH_SSU200	0xC030	/* SSU200 */
 #define QUATECH_DSU100	0xC040	/* DSU100 */
 #define QUATECH_DSU200	0xC050	/* DSU200 */
@@ -42,13 +41,6 @@ static int debug;
 #define QUATECH_HSU200B	0xC0B1	/* HSU200B */
 #define QUATECH_HSU200C	0xC0B2	/* HSU200C */
 #define QUATECH_HSU200D	0xC0B3	/* HSU200D */
-#define QUATECH_SSU100_2  0xC120	/* SSU100_2 */
-#define QUATECH_DSU100_2  0xC140	/* DSU100_2 */
-#define QUATECH_DSU400_2  0xC150	/* DSU400_2 */
-#define QUATECH_QSU100_2  0xC160	/* QSU100_2 */
-#define QUATECH_QSU400_2  0xC170	/* QSU400_2 */
-#define QUATECH_ESU400_2  0xC180	/* ESU400_2 */
-#define QUATECH_ESU100_2  0xC1A0	/* ESU100_2 */
 
 #define QT_SET_GET_DEVICE           0xc2
 #define QT_OPEN_CLOSE_CHANNEL       0xca
@@ -126,8 +118,7 @@ static int debug;
 #define MODEM_CTRL          0x40
 #define RS232_MODE          0x00
 
-static const struct usb_device_id serqt_id_table[] = {
-	{USB_DEVICE(USB_VENDOR_ID_QUATECH, QUATECH_SSU100)},
+static const struct usb_device_id id_table[] = {
 	{USB_DEVICE(USB_VENDOR_ID_QUATECH, QUATECH_SSU200)},
 	{USB_DEVICE(USB_VENDOR_ID_QUATECH, QUATECH_DSU100)},
 	{USB_DEVICE(USB_VENDOR_ID_QUATECH, QUATECH_DSU200)},
@@ -145,17 +136,9 @@ static const struct usb_device_id serqt_id_table[] = {
 	{USB_DEVICE(USB_VENDOR_ID_QUATECH, QUATECH_HSU200B)},
 	{USB_DEVICE(USB_VENDOR_ID_QUATECH, QUATECH_HSU200C)},
 	{USB_DEVICE(USB_VENDOR_ID_QUATECH, QUATECH_HSU200D)},
-	{USB_DEVICE(USB_VENDOR_ID_QUATECH, QUATECH_SSU100_2)},
-	{USB_DEVICE(USB_VENDOR_ID_QUATECH, QUATECH_DSU100_2)},
-	{USB_DEVICE(USB_VENDOR_ID_QUATECH, QUATECH_DSU400_2)},
-	{USB_DEVICE(USB_VENDOR_ID_QUATECH, QUATECH_QSU100_2)},
-	{USB_DEVICE(USB_VENDOR_ID_QUATECH, QUATECH_QSU400_2)},
-	{USB_DEVICE(USB_VENDOR_ID_QUATECH, QUATECH_ESU400_2)},
-	{USB_DEVICE(USB_VENDOR_ID_QUATECH, QUATECH_ESU100_2)},
 	{}			/* Terminating entry */
 };
-
-MODULE_DEVICE_TABLE(usb, serqt_id_table);
+MODULE_DEVICE_TABLE(usb, id_table);
 
 struct qt_get_device_data {
 	__u8 porta;
@@ -190,19 +173,11 @@ struct quatech_port {
 
 	struct usb_serial_port *port;	/* owner of this object */
 	struct qt_get_device_data DeviceData;
-	spinlock_t lock;
+	struct mutex lock;
 	bool read_urb_busy;
 	int RxHolding;
 	int ReadBulkStopped;
 	char closePending;
-};
-
-static struct usb_driver serqt_usb_driver = {
-	.name = "quatech-usb-serial",
-	.probe = usb_serial_probe,
-	.disconnect = usb_serial_disconnect,
-	.id_table = serqt_id_table,
-	.no_dynamic_id = 1,
 };
 
 static int port_paranoia_check(struct usb_serial_port *port,
@@ -307,8 +282,6 @@ static void qt_write_bulk_callback(struct urb *urb)
 
 	quatech_port = urb->context;
 
-	dbg("%s - port %d\n", __func__, quatech_port->port_num);
-
 	tty = tty_port_tty_get(&quatech_port->port->port);
 
 	if (tty)
@@ -354,7 +327,6 @@ static void qt_read_bulk_callback(struct urb *urb)
 	/* index = MINOR(port->tty->device) - serial->minor; */
 	index = tty->index - serial->minor;
 
-	dbg("%s - port %d\n", __func__, port->number);
 	dbg("%s - port->RxHolding = %d\n", __func__, qt_port->RxHolding);
 
 	if (port_paranoia_check(port, __func__) != 0) {
@@ -729,8 +701,6 @@ static int qt_startup(struct usb_serial *serial)
 	int i;
 	int status;
 
-	dbg("enterting %s", __func__);
-
 	/* Now setup per port private data */
 	for (i = 0; i < serial->num_ports; i++) {
 		port = serial->port[i];
@@ -745,7 +715,7 @@ static int qt_startup(struct usb_serial *serial)
 			}
 			return -ENOMEM;
 		}
-		spin_lock_init(&qt_port->lock);
+		mutex_init(&qt_port->lock);
 
 		usb_set_serial_port_data(port, qt_port);
 
@@ -775,7 +745,6 @@ static int qt_startup(struct usb_serial *serial)
 	}
 
 	switch (serial->dev->descriptor.idProduct) {
-	case QUATECH_SSU100:
 	case QUATECH_DSU100:
 	case QUATECH_QSU100:
 	case QUATECH_ESU100A:
@@ -859,8 +828,6 @@ static void qt_release(struct usb_serial *serial)
 	struct quatech_port *qt_port;
 	int i;
 
-	dbg("enterting %s", __func__);
-
 	for (i = 0; i < serial->num_ports; i++) {
 		port = serial->port[i];
 		if (!port)
@@ -885,8 +852,6 @@ static int qt_open(struct tty_struct *tty,
 
 	if (port_paranoia_check(port, __func__))
 		return -ENODEV;
-
-	dbg("%s - port %d\n", __func__, port->number);
 
 	serial = port->serial;
 
@@ -1010,8 +975,6 @@ static int qt_chars_in_buffer(struct tty_struct *tty)
 
 	serial = get_usb_serial(port, __func__);
 
-	dbg("%s - port %d\n", __func__, port->number);
-
 	if (serial->num_bulk_out) {
 		if (port->write_urb->status == -EINPROGRESS)
 			chars = port->write_urb->transfer_buffer_length;
@@ -1057,8 +1020,6 @@ static void qt_close(struct usb_serial_port *port)
 	int status;
 	unsigned int index;
 	status = 0;
-
-	dbg("%s - port %d\n", __func__, port->number);
 
 	tty = tty_port_tty_get(&port->port);
 	index = tty->index - serial->minor;
@@ -1113,8 +1074,6 @@ static int qt_write(struct tty_struct *tty, struct usb_serial_port *port,
 	if (serial == NULL)
 		return -ENODEV;
 
-	dbg("%s - port %d\n", __func__, port->number);
-
 	if (count == 0) {
 		dbg("%s - write request of 0 bytes\n", __func__);
 		return 0;
@@ -1160,7 +1119,6 @@ static int qt_write_room(struct tty_struct *tty)
 	struct usb_serial_port *port = tty->driver_data;
 	struct usb_serial *serial;
 	struct quatech_port *qt_port;
-	unsigned long flags;
 
 	int retval = -EINVAL;
 
@@ -1176,16 +1134,14 @@ static int qt_write_room(struct tty_struct *tty)
 
 	qt_port = qt_get_port_private(port);
 
-	spin_lock_irqsave(&qt_port->lock, flags);
-
-	dbg("%s - port %d\n", __func__, port->number);
+	mutex_lock(&qt_port->lock);
 
 	if (serial->num_bulk_out) {
 		if (port->write_urb->status != -EINPROGRESS)
 			retval = port->bulk_out_size;
 	}
 
-	spin_unlock_irqrestore(&qt_port->lock, flags);
+	mutex_unlock(&qt_port->lock);
 	return retval;
 
 }
@@ -1245,8 +1201,6 @@ static void qt_set_termios(struct tty_struct *tty,
 	unsigned int index;
 	int baud, divisor, remainder;
 	int status;
-
-	dbg("%s", __func__);
 
 	index = tty->index - port->serial->minor;
 
@@ -1358,7 +1312,6 @@ static void qt_break(struct tty_struct *tty, int break_state)
 	struct quatech_port *qt_port;
 	u16 index, onoff;
 	unsigned int result;
-	unsigned long flags;
 
 	index = tty->index - serial->minor;
 
@@ -1369,15 +1322,13 @@ static void qt_break(struct tty_struct *tty, int break_state)
 	else
 		onoff = 0;
 
-	spin_lock_irqsave(&qt_port->lock, flags);
-
-	dbg("%s - port %d\n", __func__, port->number);
+	mutex_lock(&qt_port->lock);
 
 	result =
 	    usb_control_msg(serial->dev, usb_sndctrlpipe(serial->dev, 0),
 			    QT_BREAK_CONTROL, 0x40, onoff, index, NULL, 0, 300);
 
-	spin_unlock_irqrestore(&qt_port->lock, flags);
+	mutex_unlock(&qt_port->lock);
 }
 
 static inline int qt_real_tiocmget(struct tty_struct *tty,
@@ -1390,8 +1341,6 @@ static inline int qt_real_tiocmget(struct tty_struct *tty,
 	unsigned int result = 0;
 	int status;
 	unsigned int index;
-
-	dbg("%s - port %d, tty =0x%p\n", __func__, port->number, tty);
 
 	index = tty->index - serial->minor;
 	status =
@@ -1432,8 +1381,6 @@ static inline int qt_real_tiocmset(struct tty_struct *tty,
 	int status;
 	unsigned int index;
 
-	dbg("%s - port %d\n", __func__, port->number);
-
 	index = tty->index - serial->minor;
 	status =
 	    BoxGetRegister(port->serial, index, MODEM_CONTROL_REGISTER, &mcr);
@@ -1466,21 +1413,13 @@ static int qt_tiocmget(struct tty_struct *tty)
 	struct usb_serial *serial = get_usb_serial(port, __func__);
 	struct quatech_port *qt_port = qt_get_port_private(port);
 	int retval = -ENODEV;
-	unsigned long flags;
-
-	dbg("In %s\n", __func__);
 
 	if (!serial)
 		return -ENODEV;
 
-	spin_lock_irqsave(&qt_port->lock, flags);
-
-	dbg("%s - port %d\n", __func__, port->number);
-	dbg("%s - port->RxHolding = %d\n", __func__, qt_port->RxHolding);
-
+	mutex_lock(&qt_port->lock);
 	retval = qt_real_tiocmget(tty, port, serial);
-
-	spin_unlock_irqrestore(&qt_port->lock, flags);
+	mutex_unlock(&qt_port->lock);
 	return retval;
 }
 
@@ -1491,22 +1430,14 @@ static int qt_tiocmset(struct tty_struct *tty,
 	struct usb_serial_port *port = tty->driver_data;
 	struct usb_serial *serial = get_usb_serial(port, __func__);
 	struct quatech_port *qt_port = qt_get_port_private(port);
-	unsigned long flags;
 	int retval = -ENODEV;
-
-	dbg("In %s\n", __func__);
 
 	if (!serial)
 		return -ENODEV;
 
-	spin_lock_irqsave(&qt_port->lock, flags);
-
-	dbg("%s - port %d\n", __func__, port->number);
-	dbg("%s - qt_port->RxHolding = %d\n", __func__, qt_port->RxHolding);
-
+	mutex_lock(&qt_port->lock);
 	retval = qt_real_tiocmset(tty, port, serial, set);
-
-	spin_unlock_irqrestore(&qt_port->lock, flags);
+	mutex_unlock(&qt_port->lock);
 	return retval;
 }
 
@@ -1515,22 +1446,18 @@ static void qt_throttle(struct tty_struct *tty)
 	struct usb_serial_port *port = tty->driver_data;
 	struct usb_serial *serial = get_usb_serial(port, __func__);
 	struct quatech_port *qt_port;
-	unsigned long flags;
-
-	dbg("%s - port %d\n", __func__, port->number);
 
 	if (!serial)
 		return;
 
 	qt_port = qt_get_port_private(port);
 
-	spin_lock_irqsave(&qt_port->lock, flags);
+	mutex_lock(&qt_port->lock);
 
 	/* pass on to the driver specific version of this function */
 	qt_port->RxHolding = 1;
-	dbg("%s - port->RxHolding = 1\n", __func__);
 
-	spin_unlock_irqrestore(&qt_port->lock, flags);
+	mutex_unlock(&qt_port->lock);
 	return;
 }
 
@@ -1539,7 +1466,6 @@ static void qt_unthrottle(struct tty_struct *tty)
 	struct usb_serial_port *port = tty->driver_data;
 	struct usb_serial *serial = get_usb_serial(port, __func__);
 	struct quatech_port *qt_port;
-	unsigned long flags;
 	unsigned int result;
 
 	if (!serial)
@@ -1547,9 +1473,7 @@ static void qt_unthrottle(struct tty_struct *tty)
 
 	qt_port = qt_get_port_private(port);
 
-	spin_lock_irqsave(&qt_port->lock, flags);
-
-	dbg("%s - port %d\n", __func__, port->number);
+	mutex_lock(&qt_port->lock);
 
 	if (qt_port->RxHolding == 1) {
 		dbg("%s -qt_port->RxHolding == 1\n", __func__);
@@ -1569,11 +1493,12 @@ static void qt_unthrottle(struct tty_struct *tty)
 					  qt_read_bulk_callback, port);
 			result = usb_submit_urb(port->read_urb, GFP_ATOMIC);
 			if (result)
-				err("%s - failed restarting read urb, error %d",
-				    __func__, result);
+				dev_err(&port->dev,
+					"%s - failed restarting read urb, error %d\n",
+					__func__, result);
 		}
 	}
-	spin_unlock_irqrestore(&qt_port->lock, flags);
+	mutex_unlock(&qt_port->lock);
 	return;
 
 }
@@ -1599,8 +1524,7 @@ static struct usb_serial_driver quatech_device = {
 		   .name = "serqt",
 		   },
 	.description = DRIVER_DESC,
-	.usb_driver = &serqt_usb_driver,
-	.id_table = serqt_id_table,
+	.id_table = id_table,
 	.num_ports = 8,
 	.open = qt_open,
 	.close = qt_close,
@@ -1619,41 +1543,11 @@ static struct usb_serial_driver quatech_device = {
 	.release = qt_release,
 };
 
-static int __init serqt_usb_init(void)
-{
-	int retval;
+static struct usb_serial_driver * const serial_drivers[] = {
+	&quatech_device, NULL
+};
 
-	dbg("%s\n", __func__);
-
-	/* register with usb-serial */
-	retval = usb_serial_register(&quatech_device);
-
-	if (retval)
-		goto failed_usb_serial_register;
-
-	printk(KERN_INFO KBUILD_MODNAME ": " DRIVER_VERSION ":"
-	       DRIVER_DESC "\n");
-
-	/* register with usb */
-
-	retval = usb_register(&serqt_usb_driver);
-	if (retval == 0)
-		return 0;
-
-	/* if we're here, usb_register() failed */
-	usb_serial_deregister(&quatech_device);
-failed_usb_serial_register:
-	return retval;
-}
-
-static void __exit serqt_usb_exit(void)
-{
-	usb_deregister(&serqt_usb_driver);
-	usb_serial_deregister(&quatech_device);
-}
-
-module_init(serqt_usb_init);
-module_exit(serqt_usb_exit);
+module_usb_serial_driver(serial_drivers, id_table);
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);

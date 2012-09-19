@@ -26,8 +26,11 @@
 #include <linux/platform_device.h>
 #include <linux/jiffies.h>
 #include <linux/io.h>
-
-#include <mach/common.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/stmp_device.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_i2c.h>
 
 #define DRIVER_NAME "mxs-i2c"
 
@@ -72,6 +75,7 @@
 
 #define MXS_I2C_QUEUESTAT	(0x70)
 #define MXS_I2C_QUEUESTAT_RD_QUEUE_EMPTY        0x00002000
+#define MXS_I2C_QUEUESTAT_WRITE_QUEUE_CNT_MASK	0x0000001F
 
 #define MXS_I2C_QUEUECMD	(0x80)
 
@@ -110,13 +114,9 @@ struct mxs_i2c_dev {
 	struct i2c_adapter adapter;
 };
 
-/*
- * TODO: check if calls to here are really needed. If not, we could get rid of
- * mxs_reset_block and the mach-dependency. Needs an I2C analyzer, probably.
- */
 static void mxs_i2c_reset(struct mxs_i2c_dev *i2c)
 {
-	mxs_reset_block(i2c->regs);
+	stmp_reset_block(i2c->regs);
 	writel(MXS_I2C_IRQ_MASK << 8, i2c->regs + MXS_I2C_CTRL1_SET);
 	writel(MXS_I2C_QUEUECTRL_PIO_QUEUE_MODE,
 			i2c->regs + MXS_I2C_QUEUECTRL_SET);
@@ -219,13 +219,14 @@ static int mxs_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg,
 	int ret;
 	int flags;
 
-	init_completion(&i2c->cmd_complete);
-
 	dev_dbg(i2c->dev, "addr: 0x%04x, len: %d, flags: 0x%x, stop: %d\n",
 		msg->addr, msg->len, msg->flags, stop);
 
 	if (msg->len == 0)
 		return -EINVAL;
+
+	init_completion(&i2c->cmd_complete);
+	i2c->cmd_err = 0;
 
 	flags = stop ? MXS_I2C_CTRL0_POST_SEND_STOP : 0;
 
@@ -251,6 +252,9 @@ static int mxs_i2c_xfer_msg(struct i2c_adapter *adap, struct i2c_msg *msg,
 
 	if (i2c->cmd_err == -ENXIO)
 		mxs_i2c_reset(i2c);
+	else
+		writel(MXS_I2C_QUEUECTRL_QUEUE_RUN,
+				i2c->regs + MXS_I2C_QUEUECTRL_CLR);
 
 	dev_dbg(i2c->dev, "Done with err=%d\n", i2c->cmd_err);
 
@@ -286,6 +290,7 @@ static irqreturn_t mxs_i2c_isr(int this_irq, void *dev_id)
 {
 	struct mxs_i2c_dev *i2c = dev_id;
 	u32 stat = readl(i2c->regs + MXS_I2C_CTRL1) & MXS_I2C_IRQ_MASK;
+	bool is_last_cmd;
 
 	if (!stat)
 		return IRQ_NONE;
@@ -297,12 +302,15 @@ static irqreturn_t mxs_i2c_isr(int this_irq, void *dev_id)
 		    MXS_I2C_CTRL1_SLAVE_STOP_IRQ | MXS_I2C_CTRL1_SLAVE_IRQ))
 		/* MXS_I2C_CTRL1_OVERSIZE_XFER_TERM_IRQ is only for slaves */
 		i2c->cmd_err = -EIO;
-	else
-		i2c->cmd_err = 0;
 
-	complete(&i2c->cmd_complete);
+	is_last_cmd = (readl(i2c->regs + MXS_I2C_QUEUESTAT) &
+		MXS_I2C_QUEUESTAT_WRITE_QUEUE_CNT_MASK) == 0;
+
+	if (is_last_cmd || i2c->cmd_err)
+		complete(&i2c->cmd_complete);
 
 	writel(stat, i2c->regs + MXS_I2C_CTRL1_CLR);
+
 	return IRQ_HANDLED;
 }
 
@@ -316,9 +324,14 @@ static int __devinit mxs_i2c_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mxs_i2c_dev *i2c;
 	struct i2c_adapter *adap;
+	struct pinctrl *pinctrl;
 	struct resource *res;
 	resource_size_t res_size;
 	int err, irq;
+
+	pinctrl = devm_pinctrl_get_select_default(dev);
+	if (IS_ERR(pinctrl))
+		return PTR_ERR(pinctrl);
 
 	i2c = devm_kzalloc(dev, sizeof(struct mxs_i2c_dev), GFP_KERNEL);
 	if (!i2c)
@@ -356,6 +369,7 @@ static int __devinit mxs_i2c_probe(struct platform_device *pdev)
 	adap->algo = &mxs_i2c_algo;
 	adap->dev.parent = dev;
 	adap->nr = pdev->id;
+	adap->dev.of_node = pdev->dev.of_node;
 	i2c_set_adapdata(adap, i2c);
 	err = i2c_add_numbered_adapter(adap);
 	if (err) {
@@ -364,6 +378,8 @@ static int __devinit mxs_i2c_probe(struct platform_device *pdev)
 				i2c->regs + MXS_I2C_CTRL0_SET);
 		return err;
 	}
+
+	of_i2c_register_devices(adap);
 
 	return 0;
 }
@@ -377,8 +393,6 @@ static int __devexit mxs_i2c_remove(struct platform_device *pdev)
 	if (ret)
 		return -EBUSY;
 
-	writel(MXS_I2C_QUEUECTRL_QUEUE_RUN,
-			i2c->regs + MXS_I2C_QUEUECTRL_CLR);
 	writel(MXS_I2C_CTRL0_SFTRST, i2c->regs + MXS_I2C_CTRL0_SET);
 
 	platform_set_drvdata(pdev, NULL);
@@ -386,10 +400,17 @@ static int __devexit mxs_i2c_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id mxs_i2c_dt_ids[] = {
+	{ .compatible = "fsl,imx28-i2c", },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, mxs_i2c_dt_ids);
+
 static struct platform_driver mxs_i2c_driver = {
 	.driver = {
 		   .name = DRIVER_NAME,
 		   .owner = THIS_MODULE,
+		   .of_match_table = mxs_i2c_dt_ids,
 		   },
 	.remove = __devexit_p(mxs_i2c_remove),
 };

@@ -6,6 +6,8 @@
 #include <linux/usb.h>
 #include <linux/videodev2.h>
 #include <media/v4l2-common.h>
+#include <media/v4l2-ctrls.h>
+#include <media/v4l2-device.h>
 #include <linux/mutex.h>
 
 /* compilation option */
@@ -14,11 +16,12 @@
 #ifdef GSPCA_DEBUG
 /* GSPCA our debug messages */
 extern int gspca_debug;
-#define PDEBUG(level, fmt, args...) \
-	do {\
-		if (gspca_debug & (level)) \
-			printk(KERN_INFO MODULE_NAME ": " fmt "\n", ## args); \
-	} while (0)
+#define PDEBUG(level, fmt, ...)					\
+do {								\
+	if (gspca_debug & (level))				\
+		pr_info(fmt, ##__VA_ARGS__);			\
+} while (0)
+
 #define D_ERR  0x01
 #define D_PROBE 0x02
 #define D_CONF 0x04
@@ -29,17 +32,8 @@ extern int gspca_debug;
 #define D_USBO 0x00
 #define D_V4L2 0x0100
 #else
-#define PDEBUG(level, fmt, args...)
+#define PDEBUG(level, fmt, ...)
 #endif
-#undef err
-#define err(fmt, args...) \
-	printk(KERN_ERR MODULE_NAME ": " fmt "\n", ## args)
-#undef info
-#define info(fmt, args...) \
-	printk(KERN_INFO MODULE_NAME ": " fmt "\n", ## args)
-#undef warn
-#define warn(fmt, args...) \
-	printk(KERN_WARNING MODULE_NAME ": " fmt "\n", ## args)
 
 #define GSPCA_MAX_FRAMES 16	/* maximum number of video frame buffers */
 /* image transfers */
@@ -77,7 +71,9 @@ struct cam {
 	u8 bulk;		/* image transfer by 0:isoc / 1:bulk */
 	u8 npkt;		/* number of packets in an ISOC message
 				 * 0 is the default value: 32 packets */
-	u8 reverse_alts;	/* Alt settings are in high to low order */
+	u8 needs_full_bandwidth;/* Set this flag to notify the bandwidth calc.
+				 * code that the cam fills all image buffers to
+				 * the max, even when using compression. */
 };
 
 struct gspca_dev;
@@ -121,6 +117,7 @@ struct sd_desc {
 /* mandatory operations */
 	cam_cf_op config;	/* called on probe */
 	cam_op init;		/* called on probe and resume */
+	cam_op init_controls;	/* called on probe */
 	cam_op start;		/* called on stream on after URBs creation */
 	cam_pkt_op pkt_scan;
 /* optional operations */
@@ -164,8 +161,10 @@ struct gspca_frame {
 struct gspca_dev {
 	struct video_device vdev;	/* !! must be the first item */
 	struct module *module;		/* subdriver handling the device */
+	struct v4l2_device v4l2_dev;
 	struct usb_device *dev;
 	struct file *capt_file;		/* file doing video capture */
+					/* protected by queue_lock */
 #if defined(CONFIG_INPUT) || defined(CONFIG_INPUT_MODULE)
 	struct input_dev *input_dev;
 	char phys[64];			/* physical device path */
@@ -175,6 +174,16 @@ struct gspca_dev {
 	const struct sd_desc *sd_desc;		/* subdriver description */
 	unsigned ctrl_dis;		/* disabled controls (bit map) */
 	unsigned ctrl_inac;		/* inactive controls (bit map) */
+	struct v4l2_ctrl_handler ctrl_handler;
+
+	/* autogain and exposure or gain control cluster, these are global as
+	   the autogain/exposure functions in autogain_functions.c use them */
+	struct {
+		struct v4l2_ctrl *autogain;
+		struct v4l2_ctrl *exposure;
+		struct v4l2_ctrl *gain;
+		int exp_too_low_cnt, exp_too_high_cnt;
+	};
 
 #define USB_BUF_SZ 64
 	__u8 *usb_buf;				/* buffer for USB exchanges */
@@ -195,7 +204,7 @@ struct gspca_dev {
 	u8 fr_o;				/* next frame to dequeue */
 	__u8 last_packet_type;
 	__s8 empty_packet;		/* if (-1) don't check empty packets */
-	__u8 streaming;
+	__u8 streaming;			/* protected by both mutexes (*) */
 
 	__u8 curr_mode;			/* current camera mode */
 	__u32 pixfmt;			/* current mode parameters */
@@ -216,8 +225,11 @@ struct gspca_dev {
 	char memory;			/* memory type (V4L2_MEMORY_xxx) */
 	__u8 iface;			/* USB interface number */
 	__u8 alt;			/* USB alternate setting */
-	__u8 nbalt;			/* number of USB alternate settings */
 	u8 audio;			/* presence of audio device */
+
+	/* (*) These variables are proteced by both usb_lock and queue_lock,
+	   that is any code setting them is holding *both*, which means that
+	   any code getting them needs to hold at least one of them */
 };
 
 int gspca_dev_probe(struct usb_interface *intf,
@@ -239,6 +251,9 @@ void gspca_frame_add(struct gspca_dev *gspca_dev,
 int gspca_suspend(struct usb_interface *intf, pm_message_t message);
 int gspca_resume(struct usb_interface *intf);
 #endif
-int gspca_auto_gain_n_exposure(struct gspca_dev *gspca_dev, int avg_lum,
+int gspca_expo_autogain(struct gspca_dev *gspca_dev, int avg_lum,
 	int desired_avg_lum, int deadzone, int gain_knee, int exposure_knee);
+int gspca_coarse_grained_expo_autogain(struct gspca_dev *gspca_dev,
+        int avg_lum, int desired_avg_lum, int deadzone);
+
 #endif /* GSPCAV2_H */

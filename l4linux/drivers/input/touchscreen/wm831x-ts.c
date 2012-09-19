@@ -260,15 +260,16 @@ static __devinit int wm831x_ts_probe(struct platform_device *pdev)
 	 * If we have a direct IRQ use it, otherwise use the interrupt
 	 * from the WM831x IRQ controller.
 	 */
+	wm831x_ts->data_irq = wm831x_irq(wm831x,
+					 platform_get_irq_byname(pdev,
+								 "TCHDATA"));
 	if (pdata && pdata->data_irq)
 		wm831x_ts->data_irq = pdata->data_irq;
-	else
-		wm831x_ts->data_irq = platform_get_irq_byname(pdev, "TCHDATA");
 
+	wm831x_ts->pd_irq = wm831x_irq(wm831x,
+				       platform_get_irq_byname(pdev, "TCHPD"));
 	if (pdata && pdata->pd_irq)
 		wm831x_ts->pd_irq = pdata->pd_irq;
-	else
-		wm831x_ts->pd_irq = platform_get_irq_byname(pdev, "TCHPD");
 
 	if (pdata)
 		wm831x_ts->pressure = pdata->pressure;
@@ -401,18 +402,7 @@ static struct platform_driver wm831x_ts_driver = {
 	.probe = wm831x_ts_probe,
 	.remove = __devexit_p(wm831x_ts_remove),
 };
-
-static int __init wm831x_ts_init(void)
-{
-	return platform_driver_register(&wm831x_ts_driver);
-}
-module_init(wm831x_ts_init);
-
-static void __exit wm831x_ts_exit(void)
-{
-	platform_driver_unregister(&wm831x_ts_driver);
-}
-module_exit(wm831x_ts_exit);
+module_platform_driver(wm831x_ts_driver);
 
 /* Module information */
 MODULE_AUTHOR("Mark Brown <broonie@opensource.wolfsonmicro.com>");

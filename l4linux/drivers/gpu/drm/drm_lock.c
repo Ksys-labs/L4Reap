@@ -33,6 +33,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include <linux/export.h>
 #include "drmP.h"
 
 static int drm_notifier(void *priv);
@@ -330,7 +331,7 @@ static int drm_notifier(void *priv)
 
 void drm_idlelock_take(struct drm_lock_data *lock_data)
 {
-	int ret = 0;
+	int ret;
 
 	spin_lock_bh(&lock_data->spinlock);
 	lock_data->kernel_waiters++;
@@ -345,6 +346,7 @@ void drm_idlelock_take(struct drm_lock_data *lock_data)
 	}
 	spin_unlock_bh(&lock_data->spinlock);
 }
+EXPORT_SYMBOL(drm_idlelock_take);
 
 void drm_idlelock_release(struct drm_lock_data *lock_data)
 {
@@ -364,6 +366,7 @@ void drm_idlelock_release(struct drm_lock_data *lock_data)
 	}
 	spin_unlock_bh(&lock_data->spinlock);
 }
+EXPORT_SYMBOL(drm_idlelock_release);
 
 int drm_i_have_hw_lock(struct drm_device *dev, struct drm_file *file_priv)
 {

@@ -2,7 +2,7 @@
  * linux/sound/soc/ep93xx-i2s.c
  * EP93xx I2S driver
  *
- * Copyright (C) 2010 Ryan Mallon <ryan@bluewatersys.com>
+ * Copyright (C) 2010 Ryan Mallon
  *
  * Based on the original driver by:
  *   Copyright (C) 2007 Chase Douglas <chasedouglas@gmail>
@@ -63,18 +63,17 @@ struct ep93xx_i2s_info {
 	struct clk			*sclk;
 	struct clk			*lrclk;
 	struct ep93xx_pcm_dma_params	*dma_params;
-	struct resource			*mem;
 	void __iomem			*regs;
 };
 
 struct ep93xx_pcm_dma_params ep93xx_i2s_dma_params[] = {
 	[SNDRV_PCM_STREAM_PLAYBACK] = {
 		.name		= "i2s-pcm-out",
-		.dma_port	= EP93XX_DMA_M2P_PORT_I2S1,
+		.dma_port	= EP93XX_DMA_I2S1,
 	},
 	[SNDRV_PCM_STREAM_CAPTURE] = {
 		.name		= "i2s-pcm-in",
-		.dma_port	= EP93XX_DMA_M2P_PORT_I2S1,
+		.dma_port	= EP93XX_DMA_I2S1,
 	},
 };
 
@@ -338,7 +337,7 @@ static int ep93xx_i2s_resume(struct snd_soc_dai *dai)
 #define ep93xx_i2s_resume	NULL
 #endif
 
-static struct snd_soc_dai_ops ep93xx_i2s_dai_ops = {
+static const struct snd_soc_dai_ops ep93xx_i2s_dai_ops = {
 	.startup	= ep93xx_i2s_startup,
 	.shutdown	= ep93xx_i2s_shutdown,
 	.hw_params	= ep93xx_i2s_hw_params,
@@ -373,38 +372,22 @@ static int ep93xx_i2s_probe(struct platform_device *pdev)
 	struct resource *res;
 	int err;
 
-	info = kzalloc(sizeof(struct ep93xx_i2s_info), GFP_KERNEL);
-	if (!info) {
-		err = -ENOMEM;
-		goto fail;
-	}
-
-	dev_set_drvdata(&pdev->dev, info);
-	info->dma_params = ep93xx_i2s_dma_params;
+	info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
+	if (!info)
+		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		err = -ENODEV;
-		goto fail;
-	}
+	if (!res)
+		return -ENODEV;
 
-	info->mem = request_mem_region(res->start, resource_size(res),
-				       pdev->name);
-	if (!info->mem) {
-		err = -EBUSY;
-		goto fail;
-	}
-
-	info->regs = ioremap(info->mem->start, resource_size(info->mem));
-	if (!info->regs) {
-		err = -ENXIO;
-		goto fail_release_mem;
-	}
+	info->regs = devm_request_and_ioremap(&pdev->dev, res);
+	if (!info->regs)
+		return -ENXIO;
 
 	info->mclk = clk_get(&pdev->dev, "mclk");
 	if (IS_ERR(info->mclk)) {
 		err = PTR_ERR(info->mclk);
-		goto fail_unmap_mem;
+		goto fail;
 	}
 
 	info->sclk = clk_get(&pdev->dev, "sclk");
@@ -419,6 +402,9 @@ static int ep93xx_i2s_probe(struct platform_device *pdev)
 		goto fail_put_sclk;
 	}
 
+	dev_set_drvdata(&pdev->dev, info);
+	info->dma_params = ep93xx_i2s_dma_params;
+
 	err = snd_soc_register_dai(&pdev->dev, &ep93xx_i2s_dai);
 	if (err)
 		goto fail_put_lrclk;
@@ -426,16 +412,12 @@ static int ep93xx_i2s_probe(struct platform_device *pdev)
 	return 0;
 
 fail_put_lrclk:
+	dev_set_drvdata(&pdev->dev, NULL);
 	clk_put(info->lrclk);
 fail_put_sclk:
 	clk_put(info->sclk);
 fail_put_mclk:
 	clk_put(info->mclk);
-fail_unmap_mem:
-	iounmap(info->regs);
-fail_release_mem:
-	release_mem_region(info->mem->start, resource_size(info->mem));
-	kfree(info);
 fail:
 	return err;
 }
@@ -445,12 +427,10 @@ static int __devexit ep93xx_i2s_remove(struct platform_device *pdev)
 	struct ep93xx_i2s_info *info = dev_get_drvdata(&pdev->dev);
 
 	snd_soc_unregister_dai(&pdev->dev);
+	dev_set_drvdata(&pdev->dev, NULL);
 	clk_put(info->lrclk);
 	clk_put(info->sclk);
 	clk_put(info->mclk);
-	iounmap(info->regs);
-	release_mem_region(info->mem->start, resource_size(info->mem));
-	kfree(info);
 	return 0;
 }
 
@@ -463,20 +443,9 @@ static struct platform_driver ep93xx_i2s_driver = {
 	},
 };
 
-static int __init ep93xx_i2s_init(void)
-{
-	return platform_driver_register(&ep93xx_i2s_driver);
-}
-
-static void __exit ep93xx_i2s_exit(void)
-{
-	platform_driver_unregister(&ep93xx_i2s_driver);
-}
-
-module_init(ep93xx_i2s_init);
-module_exit(ep93xx_i2s_exit);
+module_platform_driver(ep93xx_i2s_driver);
 
 MODULE_ALIAS("platform:ep93xx-i2s");
-MODULE_AUTHOR("Ryan Mallon <ryan@bluewatersys.com>");
+MODULE_AUTHOR("Ryan Mallon");
 MODULE_DESCRIPTION("EP93XX I2S driver");
 MODULE_LICENSE("GPL");

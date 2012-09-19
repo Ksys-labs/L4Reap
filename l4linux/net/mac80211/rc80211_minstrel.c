@@ -334,14 +334,15 @@ minstrel_get_rate(void *priv, struct ieee80211_sta *sta,
 
 
 static void
-calc_rate_durations(struct minstrel_sta_info *mi, struct ieee80211_local *local,
-                    struct minstrel_rate *d, struct ieee80211_rate *rate)
+calc_rate_durations(enum ieee80211_band band,
+		    struct minstrel_rate *d,
+		    struct ieee80211_rate *rate)
 {
 	int erp = !!(rate->flags & IEEE80211_RATE_ERP_G);
 
-	d->perfect_tx_time = ieee80211_frame_duration(local, 1200,
+	d->perfect_tx_time = ieee80211_frame_duration(band, 1200,
 			rate->bitrate, erp, 1);
-	d->ack_time = ieee80211_frame_duration(local, 10,
+	d->ack_time = ieee80211_frame_duration(band, 10,
 			rate->bitrate, erp, 1);
 }
 
@@ -379,14 +380,14 @@ minstrel_rate_init(void *priv, struct ieee80211_supported_band *sband,
 {
 	struct minstrel_sta_info *mi = priv_sta;
 	struct minstrel_priv *mp = priv;
-	struct ieee80211_local *local = hw_to_local(mp->hw);
 	struct ieee80211_rate *ctl_rate;
 	unsigned int i, n = 0;
 	unsigned int t_slot = 9; /* FIXME: get real slot time */
 
 	mi->lowest_rix = rate_lowest_index(sband, sta);
 	ctl_rate = &sband->bitrates[mi->lowest_rix];
-	mi->sp_ack_dur = ieee80211_frame_duration(local, 10, ctl_rate->bitrate,
+	mi->sp_ack_dur = ieee80211_frame_duration(sband->band, 10,
+				ctl_rate->bitrate,
 				!!(ctl_rate->flags & IEEE80211_RATE_ERP_G), 1);
 
 	for (i = 0; i < sband->n_bitrates; i++) {
@@ -402,8 +403,7 @@ minstrel_rate_init(void *priv, struct ieee80211_supported_band *sband,
 
 		mr->rix = i;
 		mr->bitrate = sband->bitrates[i].bitrate / 5;
-		calc_rate_durations(mi, local, mr,
-				&sband->bitrates[i]);
+		calc_rate_durations(sband->band, mr, &sband->bitrates[i]);
 
 		/* calculate maximum number of retransmissions before
 		 * fallback (based on maximum segment size) */
@@ -532,12 +532,21 @@ minstrel_alloc(struct ieee80211_hw *hw, struct dentry *debugfsdir)
 	mp->hw = hw;
 	mp->update_interval = 100;
 
+#ifdef CONFIG_MAC80211_DEBUGFS
+	mp->fixed_rate_idx = (u32) -1;
+	mp->dbg_fixed_rate = debugfs_create_u32("fixed_rate_idx",
+			S_IRUGO | S_IWUGO, debugfsdir, &mp->fixed_rate_idx);
+#endif
+
 	return mp;
 }
 
 static void
 minstrel_free(void *priv)
 {
+#ifdef CONFIG_MAC80211_DEBUGFS
+	debugfs_remove(((struct minstrel_priv *)priv)->dbg_fixed_rate);
+#endif
 	kfree(priv);
 }
 

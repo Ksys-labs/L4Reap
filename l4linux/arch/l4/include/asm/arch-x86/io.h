@@ -40,8 +40,6 @@
 #include <linux/compiler.h>
 #include <asm/page.h>
 
-#include <xen/xen.h>
-
 #ifdef CONFIG_L4
 #include <asm/api/api.h>
 #endif
@@ -352,6 +350,7 @@ extern void fixup_early_ioremap(void);
 extern bool is_early_ioremap_ptep(pte_t *ptep);
 
 #ifdef CONFIG_XEN
+#include <xen/xen.h>
 struct bio_vec;
 
 extern bool xen_biovec_phys_mergeable(const struct bio_vec *vec1,

@@ -1333,19 +1333,14 @@ sisfb_set_base_CRT2(struct sis_video_info *ivideo, unsigned int base)
 }
 
 static int
-sisfb_pan_var(struct sis_video_info *ivideo, struct fb_var_screeninfo *var)
+sisfb_pan_var(struct sis_video_info *ivideo, struct fb_info *info,
+	      struct fb_var_screeninfo *var)
 {
-	if(var->xoffset > (var->xres_virtual - var->xres)) {
-		return -EINVAL;
-	}
-	if(var->yoffset > (var->yres_virtual - var->yres)) {
-		return -EINVAL;
-	}
-
-	ivideo->current_base = (var->yoffset * var->xres_virtual) + var->xoffset;
+	ivideo->current_base = var->yoffset * info->var.xres_virtual
+			     + var->xoffset;
 
 	/* calculate base bpp dep. */
-	switch(var->bits_per_pixel) {
+	switch (info->var.bits_per_pixel) {
 	case 32:
 		break;
 	case 16:
@@ -1635,20 +1630,15 @@ sisfb_pan_display(struct fb_var_screeninfo *var, struct fb_info* info)
 	struct sis_video_info *ivideo = (struct sis_video_info *)info->par;
 	int err;
 
-	if(var->xoffset > (var->xres_virtual - var->xres))
+	if (var->vmode & FB_VMODE_YWRAP)
 		return -EINVAL;
 
-	if(var->yoffset > (var->yres_virtual - var->yres))
+	if (var->xoffset + info->var.xres > info->var.xres_virtual ||
+	    var->yoffset + info->var.yres > info->var.yres_virtual)
 		return -EINVAL;
 
-	if(var->vmode & FB_VMODE_YWRAP)
-		return -EINVAL;
-
-	if(var->xoffset + info->var.xres > info->var.xres_virtual ||
-	   var->yoffset + info->var.yres > info->var.yres_virtual)
-		return -EINVAL;
-
-	if((err = sisfb_pan_var(ivideo, var)) < 0)
+	err = sisfb_pan_var(ivideo, info, var);
+	if (err < 0)
 		return err;
 
 	info->var.xoffset = var->xoffset;
@@ -4232,6 +4222,26 @@ sisfb_post_300_buswidth(struct sis_video_info *ivideo)
 	return 1;			/* 32bit */
 }
 
+static const unsigned short __devinitconst SiS_DRAMType[17][5] = {
+	{0x0C,0x0A,0x02,0x40,0x39},
+	{0x0D,0x0A,0x01,0x40,0x48},
+	{0x0C,0x09,0x02,0x20,0x35},
+	{0x0D,0x09,0x01,0x20,0x44},
+	{0x0C,0x08,0x02,0x10,0x31},
+	{0x0D,0x08,0x01,0x10,0x40},
+	{0x0C,0x0A,0x01,0x20,0x34},
+	{0x0C,0x09,0x01,0x08,0x32},
+	{0x0B,0x08,0x02,0x08,0x21},
+	{0x0C,0x08,0x01,0x08,0x30},
+	{0x0A,0x08,0x02,0x04,0x11},
+	{0x0B,0x0A,0x01,0x10,0x28},
+	{0x09,0x08,0x02,0x02,0x01},
+	{0x0B,0x09,0x01,0x08,0x24},
+	{0x0B,0x08,0x01,0x04,0x20},
+	{0x0A,0x08,0x01,0x02,0x10},
+	{0x09,0x08,0x01,0x01,0x00}
+};
+
 static int __devinit
 sisfb_post_300_rwtest(struct sis_video_info *ivideo, int iteration, int buswidth,
 			int PseudoRankCapacity, int PseudoAdrPinCount,
@@ -4241,27 +4251,8 @@ sisfb_post_300_rwtest(struct sis_video_info *ivideo, int iteration, int buswidth
 	unsigned short sr14;
 	unsigned int k, RankCapacity, PageCapacity, BankNumHigh, BankNumMid;
 	unsigned int PhysicalAdrOtherPage, PhysicalAdrHigh, PhysicalAdrHalfPage;
-	static const unsigned short SiS_DRAMType[17][5] = {
-		{0x0C,0x0A,0x02,0x40,0x39},
-		{0x0D,0x0A,0x01,0x40,0x48},
-		{0x0C,0x09,0x02,0x20,0x35},
-		{0x0D,0x09,0x01,0x20,0x44},
-		{0x0C,0x08,0x02,0x10,0x31},
-		{0x0D,0x08,0x01,0x10,0x40},
-		{0x0C,0x0A,0x01,0x20,0x34},
-		{0x0C,0x09,0x01,0x08,0x32},
-		{0x0B,0x08,0x02,0x08,0x21},
-		{0x0C,0x08,0x01,0x08,0x30},
-		{0x0A,0x08,0x02,0x04,0x11},
-		{0x0B,0x0A,0x01,0x10,0x28},
-		{0x09,0x08,0x02,0x02,0x01},
-		{0x0B,0x09,0x01,0x08,0x24},
-		{0x0B,0x08,0x01,0x04,0x20},
-		{0x0A,0x08,0x01,0x02,0x10},
-		{0x09,0x08,0x01,0x01,0x00}
-	};
 
-	 for(k = 0; k <= 16; k++) {
+	 for(k = 0; k < ARRAY_SIZE(SiS_DRAMType); k++) {
 
 		RankCapacity = buswidth * SiS_DRAMType[k][3];
 

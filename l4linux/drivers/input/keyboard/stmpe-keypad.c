@@ -289,18 +289,16 @@ static int __devinit stmpe_keypad_probe(struct platform_device *pdev)
 	input->id.bustype = BUS_I2C;
 	input->dev.parent = &pdev->dev;
 
-	input_set_capability(input, EV_MSC, MSC_SCAN);
+	ret = matrix_keypad_build_keymap(plat->keymap_data, NULL,
+					 STMPE_KEYPAD_MAX_ROWS,
+					 STMPE_KEYPAD_MAX_COLS,
+					 keypad->keymap, input);
+	if (ret)
+		goto out_freeinput;
 
-	__set_bit(EV_KEY, input->evbit);
+	input_set_capability(input, EV_MSC, MSC_SCAN);
 	if (!plat->no_autorepeat)
 		__set_bit(EV_REP, input->evbit);
-
-	input->keycode = keypad->keymap;
-	input->keycodesize = sizeof(keypad->keymap[0]);
-	input->keycodemax = ARRAY_SIZE(keypad->keymap);
-
-	matrix_keypad_build_keymap(plat->keymap_data, STMPE_KEYPAD_ROW_SHIFT,
-				   input->keycode, input->keybit);
 
 	for (i = 0; i < plat->keymap_data->keymap_size; i++) {
 		unsigned int key = plat->keymap_data->keymap[i];
@@ -368,18 +366,7 @@ static struct platform_driver stmpe_keypad_driver = {
 	.probe		= stmpe_keypad_probe,
 	.remove		= __devexit_p(stmpe_keypad_remove),
 };
-
-static int __init stmpe_keypad_init(void)
-{
-	return platform_driver_register(&stmpe_keypad_driver);
-}
-module_init(stmpe_keypad_init);
-
-static void __exit stmpe_keypad_exit(void)
-{
-	platform_driver_unregister(&stmpe_keypad_driver);
-}
-module_exit(stmpe_keypad_exit);
+module_platform_driver(stmpe_keypad_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("STMPExxxx keypad driver");

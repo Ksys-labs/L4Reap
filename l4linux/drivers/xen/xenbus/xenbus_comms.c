@@ -212,7 +212,9 @@ int xb_init_comms(void)
 		printk(KERN_WARNING "XENBUS response ring is not quiescent "
 		       "(%08x:%08x): fixing up\n",
 		       intf->rsp_cons, intf->rsp_prod);
-		intf->rsp_cons = intf->rsp_prod;
+		/* breaks kdump */
+		if (!reset_devices)
+			intf->rsp_cons = intf->rsp_prod;
 	}
 
 	if (xenbus_irq) {
@@ -231,4 +233,10 @@ int xb_init_comms(void)
 	}
 
 	return 0;
+}
+
+void xb_deinit_comms(void)
+{
+	unbind_from_irqhandler(xenbus_irq, &xb_waitq);
+	xenbus_irq = 0;
 }

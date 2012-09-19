@@ -8,11 +8,13 @@
  */
 
 #include <linux/stringify.h>
+#include <linux/kernel.h>
 
 #define CPUID_ID	0
 #define CPUID_CACHETYPE	1
 #define CPUID_TCM	2
 #define CPUID_TLBTYPE	3
+#define CPUID_MPIDR	5
 
 #define CPUID_EXT_PFR0	"c1, 0"
 #define CPUID_EXT_PFR1	"c1, 1"
@@ -28,6 +30,8 @@
 #define CPUID_EXT_ISAR3	"c2, 3"
 #define CPUID_EXT_ISAR4	"c2, 4"
 #define CPUID_EXT_ISAR5	"c2, 5"
+
+extern unsigned int processor_id;
 
 #ifdef CONFIG_CPU_CP15
 #define read_cpuid(reg)							\
@@ -49,7 +53,6 @@
 		__val;							\
 	})
 #else
-extern unsigned int processor_id;
 #define read_cpuid(reg) (processor_id)
 #define read_cpuid_ext(reg) 0
 #endif
@@ -67,6 +70,16 @@ static inline unsigned int __attribute_const__ read_cpuid_id(void)
 static inline unsigned int __attribute_const__ read_cpuid_cachetype(void)
 {
 	return 0x1c192992; //read_cpuid(CPUID_CACHETYPE);
+}
+
+static inline unsigned int __attribute_const__ read_cpuid_tcmstatus(void)
+{
+	return read_cpuid(CPUID_TCM);
+}
+
+static inline unsigned int __attribute_const__ read_cpuid_mpidr(void)
+{
+	return 0; //l4x: just 0 might not be smart enough... //read_cpuid(CPUID_MPIDR);
 }
 
 /*

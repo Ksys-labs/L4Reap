@@ -4,12 +4,14 @@
 #include <linux/vmalloc.h>
 #include <linux/io.h>
 
+#include <asm/cp15.h>
 #include <asm/cputype.h>
 #include <asm/cacheflush.h>
 #include <asm/mmu_context.h>
 #include <asm/pgalloc.h>
 #include <asm/tlbflush.h>
 #include <asm/sizes.h>
+#include <asm/system_info.h>
 
 #include <asm/mach/map.h>
 #include "mm.h"
@@ -18,7 +20,6 @@
  * Used by ioremap() and iounmap() code to mark (super)section-mapped
  * I/O regions in vm_struct->flags field.
  */
-#define VM_ARM_SECTION_MAPPING	0x80000000
 
 #define __ARCH_IOREMAP_C_INCLUDED__
 #include "../io.c"
@@ -50,3 +51,11 @@ void __iounmap(volatile void __iomem *addr)
 	l4x_iounmap(addr);
 }
 EXPORT_SYMBOL(__iounmap);
+
+void (*arch_iounmap)(volatile void __iomem *) = __iounmap;
+
+void __arm_iounmap(volatile void __iomem *io_addr)
+{
+	arch_iounmap(io_addr);
+}
+EXPORT_SYMBOL(__arm_iounmap);

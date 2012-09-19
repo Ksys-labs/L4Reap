@@ -195,6 +195,11 @@
 
 #define OMAP36XX_DMA_UART4_TX		81	/* S_DMA_80 */
 #define OMAP36XX_DMA_UART4_RX		82	/* S_DMA_81 */
+
+/* Only for AM35xx */
+#define AM35XX_DMA_UART4_TX		54
+#define AM35XX_DMA_UART4_RX		55
+
 /*----------------------------------------------------------------------------*/
 
 #define OMAP1_DMA_TOUT_IRQ		(1 << 0)
@@ -306,6 +311,11 @@
 #define IS_BURST_ONLY4			BIT(0xB)
 #define CLEAR_CSR_ON_READ		BIT(0xC)
 #define IS_WORD_16			BIT(0xD)
+
+/* Defines for DMA Capabilities */
+#define DMA_HAS_TRANSPARENT_CAPS	(0x1 << 18)
+#define DMA_HAS_CONSTANT_FILL_CAPS	(0x1 << 19)
+#define DMA_HAS_DESCRIPTOR_CAPS		(0x3 << 20)
 
 enum omap_reg_offsets {
 
@@ -437,6 +447,7 @@ struct omap_system_dma_plat_info {
 	u32 (*dma_read)(int reg, int lch);
 };
 
+extern void __init omap_init_consistent_dma_size(void);
 extern void omap_set_dma_priority(int lch, int dst_port, int priority);
 extern int omap_request_dma(int dev_id, const char *dev_name,
 			void (*callback)(int lch, u16 ch_status, void *data),

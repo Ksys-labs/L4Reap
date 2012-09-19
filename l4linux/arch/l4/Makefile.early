@@ -1,0 +1,20 @@
+
+ARCH = l4
+
+# Use L4ARCH=xxx to override configured architecture
+ifeq ($(L4ARCH),arm)
+LINSRCARCH := arm
+endif
+ifeq ($(L4ARCH),x86)
+LINSRCARCH := x86
+endif
+
+ifeq ($(LINSRCARCH),)
+ ifneq ($(shell . $$PWD/.config; echo $$CONFIG_L4_ARCH_ARM),)
+   LINSRCARCH := arm
+ else
+   LINSRCARCH := x86
+ endif
+endif
+
+export LINSRCARCH

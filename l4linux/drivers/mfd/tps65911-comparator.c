@@ -26,7 +26,7 @@
 #define COMP1					1
 #define COMP2					2
 
-/* Comparator 1 voltage selection table in milivolts */
+/* Comparator 1 voltage selection table in millivolts */
 static const u16 COMP_VSEL_TABLE[] = {
 	0, 2500, 2500, 2500, 2500, 2550, 2600, 2650,
 	2700, 2750, 2800, 2850, 2900, 2950, 3000, 3050,
@@ -157,6 +157,8 @@ static __devexit int tps65911_comparator_remove(struct platform_device *pdev)
 	struct tps65910 *tps65910;
 
 	tps65910 = dev_get_drvdata(pdev->dev.parent);
+	device_remove_file(&pdev->dev, &dev_attr_comp2_threshold);
+	device_remove_file(&pdev->dev, &dev_attr_comp1_threshold);
 
 	return 0;
 }

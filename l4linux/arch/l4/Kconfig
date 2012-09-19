@@ -21,6 +21,7 @@ config L4_OBJ_TREE
 config L4_STATIC_BUILD
 	bool
 
+
 choice
 	prompt "Target architecture"
 	default L4_ARCH_X86
@@ -30,7 +31,7 @@ choice
 
 	config L4_ARCH_ARM
 		select GENERIC_ALLOCATOR
-		select DMABOUNCE
+		select NEED_MACH_MEMORY_H
 		bool "ARM architecture"
 endchoice
 
@@ -50,6 +51,25 @@ config PHYSICAL_START
 
 config L4_LINK_LIBIO_DIRECT
 	bool
+
+choice
+	prompt "Platform support"
+	default L4_PLATFORM_GENERIC
+	depends on L4_ARCH_ARM
+
+	config L4_PLATFORM_GENERIC
+		bool "Generic"
+		select CLKDEV_LOOKUP
+		select L4_CLK_NOOP
+
+	config L4_PLATFORM_REALVIEW
+		bool "Realview"
+		select CLKDEV_LOOKUP
+		select OUTER_CACHE
+		select L4_CLK_NOOP
+
+endchoice
+
 
 menu "Features"
 
@@ -130,6 +150,16 @@ config L4_CHR_DS_DRV
 	  This driver implements a character device which are backed by
 	  L4Re dataspaces.
 
+config L4_PLATFORM_HAS_GPIO
+	bool
+
+config L4_GPIO_DRV
+	bool "GPIO driver"
+	depends on L4_PLATFORM_HAS_GPIO
+	select ARCH_REQUIRE_GPIOLIB
+	help
+	  GPIO driver using io for GPIO access.
+
 config L4_SERVER_INPUT
 	bool "Input server"
 	depends on L4_SERVER
@@ -138,7 +168,7 @@ config L4_SERVER_INPUT
 	  events.
 
 comment "Enable Linux framebuffer support for framebuffer driver!"
-	depends on !FRAMEBUFFER_CONSOLE
+	depends on !FB
 
 config L4_FB_DRIVER
 	bool "L4Re Framebuffer and Input driver"
@@ -146,7 +176,7 @@ config L4_FB_DRIVER
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
-	depends on FRAMEBUFFER_CONSOLE
+	depends on FB
 	help
 	  Framebuffer and input driver for L4Re.
 
@@ -164,11 +194,10 @@ config L4_FB_DRIVER_XF86IF
 	  This enables the compile of support for the X Window System driver
 	  for the console.
 
-config L4_NET_ANKH_DRV
-	bool "Network driver for Ankh"
-	depends on !L4_VCPU
-	help
-	  Network driver for the Ankh network service.
+#config L4_NET_ANKH_DRV
+#	bool "Network driver for Ankh"
+#	help
+#	  Network driver for the Ankh network service.
 
 config L4_NET_L4SHM
 	bool "l4shm based network driver"
@@ -263,6 +292,12 @@ config L4_VCPU
 	def_bool y
 	bool "Use vCPU execution model"
 
+config L4_DMAPOOL
+	bool "Use separate memory pool for DMA memory"
+	depends on L4_ARCH_ARM
+	select DMABOUNCE
+	help
+	  Choose 'N'.
 
 menu "Priority configuration"
 
@@ -394,7 +429,13 @@ endmenu # l4linux options
 config L4_USE_L4SHMC
 	bool
 
+config L4_CLK_NOOP
+	bool
+
+config LINSRCARCH
+	string
+	option env="LINSRCARCH"
 
 # some delimiter (for .config)
 comment ""
-source "arch/l4/Kconfig.arch"
+source "arch/l4/Kconfig.$LINSRCARCH"

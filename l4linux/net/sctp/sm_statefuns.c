@@ -1129,17 +1129,15 @@ sctp_disposition_t sctp_sf_backbeat_8_3(const struct sctp_endpoint *ep,
 	/* This should never happen, but lets log it if so.  */
 	if (unlikely(!link)) {
 		if (from_addr.sa.sa_family == AF_INET6) {
-			if (net_ratelimit())
-				pr_warn("%s association %p could not find address %pI6\n",
-					__func__,
-					asoc,
-					&from_addr.v6.sin6_addr);
+			net_warn_ratelimited("%s association %p could not find address %pI6\n",
+					     __func__,
+					     asoc,
+					     &from_addr.v6.sin6_addr);
 		} else {
-			if (net_ratelimit())
-				pr_warn("%s association %p could not find address %pI4\n",
-					__func__,
-					asoc,
-					&from_addr.v4.sin_addr.s_addr);
+			net_warn_ratelimited("%s association %p could not find address %pI4\n",
+					     __func__,
+					     asoc,
+					     &from_addr.v4.sin_addr.s_addr);
 		}
 		return SCTP_DISPOSITION_DISCARD;
 	}
@@ -2047,6 +2045,12 @@ sctp_disposition_t sctp_sf_do_5_2_4_dupcook(const struct sctp_endpoint *ep,
 	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_ASOC, SCTP_ASOC(new_asoc));
 	sctp_add_cmd_sf(commands, SCTP_CMD_DELETE_TCB, SCTP_NULL());
 
+	/* Restore association pointer to provide SCTP command interpeter
+	 * with a valid context in case it needs to manipulate
+	 * the queues */
+	sctp_add_cmd_sf(commands, SCTP_CMD_SET_ASOC,
+			 SCTP_ASOC((struct sctp_association *)asoc));
+
 	return retval;
 
 nomem:
@@ -2404,7 +2408,7 @@ static sctp_disposition_t __sctp_sf_do_9_1_abort(const struct sctp_endpoint *ep,
 					sctp_cmd_seq_t *commands)
 {
 	struct sctp_chunk *chunk = arg;
-	unsigned len;
+	unsigned int len;
 	__be16 error = SCTP_ERROR_NO_ERROR;
 
 	/* See if we have an error cause code in the chunk.  */
@@ -2440,7 +2444,7 @@ sctp_disposition_t sctp_sf_cookie_wait_abort(const struct sctp_endpoint *ep,
 				     sctp_cmd_seq_t *commands)
 {
 	struct sctp_chunk *chunk = arg;
-	unsigned len;
+	unsigned int len;
 	__be16 error = SCTP_ERROR_NO_ERROR;
 
 	if (!sctp_vtag_verify_either(chunk, asoc))
@@ -3612,6 +3616,11 @@ sctp_disposition_t sctp_sf_do_asconf(const struct sctp_endpoint *ep,
 	 */
 	asconf_ack->dest = chunk->source;
 	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(asconf_ack));
+	if (asoc->new_transport) {
+	        sctp_sf_heartbeat(ep, asoc, type, asoc->new_transport,
+                    commands);
+		((struct sctp_association *)asoc)->new_transport = NULL;
+	}
 
 	return SCTP_DISPOSITION_CONSUME;
 }
@@ -4008,31 +4017,32 @@ sctp_disposition_t sctp_sf_eat_auth(const struct sctp_endpoint *ep,
 	auth_hdr = (struct sctp_authhdr *)chunk->skb->data;
 	error = sctp_sf_authenticate(ep, asoc, type, chunk);
 	switch (error) {
-		case SCTP_IERROR_AUTH_BAD_HMAC:
-			/* Generate the ERROR chunk and discard the rest
-			 * of the packet
-			 */
-			err_chunk = sctp_make_op_error(asoc, chunk,
-							SCTP_ERROR_UNSUP_HMAC,
-							&auth_hdr->hmac_id,
-							sizeof(__u16), 0);
-			if (err_chunk) {
-				sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
-						SCTP_CHUNK(err_chunk));
-			}
-			/* Fall Through */
-		case SCTP_IERROR_AUTH_BAD_KEYID:
-		case SCTP_IERROR_BAD_SIG:
-			return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-			break;
-		case SCTP_IERROR_PROTO_VIOLATION:
-			return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-							  commands);
-			break;
-		case SCTP_IERROR_NOMEM:
-			return SCTP_DISPOSITION_NOMEM;
-		default:
-			break;
+	case SCTP_IERROR_AUTH_BAD_HMAC:
+		/* Generate the ERROR chunk and discard the rest
+		 * of the packet
+		 */
+		err_chunk = sctp_make_op_error(asoc, chunk,
+					       SCTP_ERROR_UNSUP_HMAC,
+					       &auth_hdr->hmac_id,
+					       sizeof(__u16), 0);
+		if (err_chunk) {
+			sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
+					SCTP_CHUNK(err_chunk));
+		}
+		/* Fall Through */
+	case SCTP_IERROR_AUTH_BAD_KEYID:
+	case SCTP_IERROR_BAD_SIG:
+		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
+
+	case SCTP_IERROR_PROTO_VIOLATION:
+		return sctp_sf_violation_chunklen(ep, asoc, type, arg,
+						  commands);
+
+	case SCTP_IERROR_NOMEM:
+		return SCTP_DISPOSITION_NOMEM;
+
+	default:			/* Prevent gcc warnings */
+		break;
 	}
 
 	if (asoc->active_key_id != ntohs(auth_hdr->shkey_id)) {

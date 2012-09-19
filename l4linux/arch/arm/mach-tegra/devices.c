@@ -22,10 +22,99 @@
 #include <linux/dma-mapping.h>
 #include <linux/fsl_devices.h>
 #include <linux/serial_8250.h>
+#include <linux/i2c-tegra.h>
 #include <asm/pmu.h>
 #include <mach/irqs.h>
 #include <mach/iomap.h>
 #include <mach/dma.h>
+#include <mach/usb_phy.h>
+
+#include "gpio-names.h"
+#include "devices.h"
+
+static struct resource gpio_resource[] = {
+	[0] = {
+		.start	= TEGRA_GPIO_BASE,
+		.end	= TEGRA_GPIO_BASE + TEGRA_GPIO_SIZE-1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= INT_GPIO1,
+		.end	= INT_GPIO1,
+		.flags	= IORESOURCE_IRQ,
+	},
+	[2] = {
+		.start	= INT_GPIO2,
+		.end	= INT_GPIO2,
+		.flags	= IORESOURCE_IRQ,
+	},
+	[3] = {
+		.start	= INT_GPIO3,
+		.end	= INT_GPIO3,
+		.flags	= IORESOURCE_IRQ,
+	},
+	[4] = {
+		.start	= INT_GPIO4,
+		.end	= INT_GPIO4,
+		.flags	= IORESOURCE_IRQ,
+	},
+	[5] = {
+		.start	= INT_GPIO5,
+		.end	= INT_GPIO5,
+		.flags	= IORESOURCE_IRQ,
+	},
+	[6] = {
+		.start	= INT_GPIO6,
+		.end	= INT_GPIO6,
+		.flags	= IORESOURCE_IRQ,
+	},
+	[7] = {
+		.start	= INT_GPIO7,
+		.end	= INT_GPIO7,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device tegra_gpio_device = {
+	.name		= "tegra-gpio",
+	.id		= -1,
+	.resource	= gpio_resource,
+	.num_resources	= ARRAY_SIZE(gpio_resource),
+};
+
+static struct resource pinmux_resource[] = {
+	[0] = {
+		/* Tri-state registers */
+		.start	= TEGRA_APB_MISC_BASE + 0x14,
+		.end	= TEGRA_APB_MISC_BASE + 0x20 + 3,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		/* Mux registers */
+		.start	= TEGRA_APB_MISC_BASE + 0x80,
+		.end	= TEGRA_APB_MISC_BASE + 0x9c + 3,
+		.flags	= IORESOURCE_MEM,
+	},
+	[2] = {
+		/* Pull-up/down registers */
+		.start	= TEGRA_APB_MISC_BASE + 0xa0,
+		.end	= TEGRA_APB_MISC_BASE + 0xb0 + 3,
+		.flags	= IORESOURCE_MEM,
+	},
+	[3] = {
+		/* Pad control registers */
+		.start	= TEGRA_APB_MISC_BASE + 0x868,
+		.end	= TEGRA_APB_MISC_BASE + 0x90c + 3,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device tegra_pinmux_device = {
+	.name		= "tegra20-pinctrl",
+	.id		= -1,
+	.resource	= pinmux_resource,
+	.num_resources	= ARRAY_SIZE(pinmux_resource),
+};
 
 static struct resource i2c_resource1[] = {
 	[0] = {
@@ -79,13 +168,29 @@ static struct resource i2c_resource4[] = {
 	},
 };
 
+static struct tegra_i2c_platform_data tegra_i2c1_platform_data = {
+	.bus_clk_rate   = 400000,
+};
+
+static struct tegra_i2c_platform_data tegra_i2c2_platform_data = {
+	.bus_clk_rate   = 400000,
+};
+
+static struct tegra_i2c_platform_data tegra_i2c3_platform_data = {
+	.bus_clk_rate   = 400000,
+};
+
+static struct tegra_i2c_platform_data tegra_dvc_platform_data = {
+	.bus_clk_rate   = 400000,
+};
+
 struct platform_device tegra_i2c_device1 = {
 	.name		= "tegra-i2c",
 	.id		= 0,
 	.resource	= i2c_resource1,
 	.num_resources	= ARRAY_SIZE(i2c_resource1),
 	.dev = {
-		.platform_data = 0,
+		.platform_data = &tegra_i2c1_platform_data,
 	},
 };
 
@@ -95,7 +200,7 @@ struct platform_device tegra_i2c_device2 = {
 	.resource	= i2c_resource2,
 	.num_resources	= ARRAY_SIZE(i2c_resource2),
 	.dev = {
-		.platform_data = 0,
+		.platform_data = &tegra_i2c2_platform_data,
 	},
 };
 
@@ -105,7 +210,7 @@ struct platform_device tegra_i2c_device3 = {
 	.resource	= i2c_resource3,
 	.num_resources	= ARRAY_SIZE(i2c_resource3),
 	.dev = {
-		.platform_data = 0,
+		.platform_data = &tegra_i2c3_platform_data,
 	},
 };
 
@@ -115,7 +220,7 @@ struct platform_device tegra_i2c_device4 = {
 	.resource	= i2c_resource4,
 	.num_resources	= ARRAY_SIZE(i2c_resource4),
 	.dev = {
-		.platform_data = 0,
+		.platform_data = &tegra_dvc_platform_data,
 	},
 };
 
@@ -334,6 +439,30 @@ static struct resource tegra_usb3_resources[] = {
 	},
 };
 
+struct tegra_ulpi_config tegra_ehci2_ulpi_phy_config = {
+	.reset_gpio = -1,
+	.clk = "cdev2",
+};
+
+struct tegra_ehci_platform_data tegra_ehci1_pdata = {
+	.operating_mode = TEGRA_USB_OTG,
+	.power_down_on_bus_suspend = 1,
+	.vbus_gpio = -1,
+};
+
+struct tegra_ehci_platform_data tegra_ehci2_pdata = {
+	.phy_config = &tegra_ehci2_ulpi_phy_config,
+	.operating_mode = TEGRA_USB_HOST,
+	.power_down_on_bus_suspend = 1,
+	.vbus_gpio = -1,
+};
+
+struct tegra_ehci_platform_data tegra_ehci3_pdata = {
+	.operating_mode = TEGRA_USB_HOST,
+	.power_down_on_bus_suspend = 1,
+	.vbus_gpio = -1,
+};
+
 static u64 tegra_ehci_dmamask = DMA_BIT_MASK(32);
 
 struct platform_device tegra_ehci1_device = {
@@ -342,6 +471,7 @@ struct platform_device tegra_ehci1_device = {
 	.dev	= {
 		.dma_mask	= &tegra_ehci_dmamask,
 		.coherent_dma_mask = DMA_BIT_MASK(32),
+		.platform_data = &tegra_ehci1_pdata,
 	},
 	.resource = tegra_usb1_resources,
 	.num_resources = ARRAY_SIZE(tegra_usb1_resources),
@@ -353,6 +483,7 @@ struct platform_device tegra_ehci2_device = {
 	.dev	= {
 		.dma_mask	= &tegra_ehci_dmamask,
 		.coherent_dma_mask = DMA_BIT_MASK(32),
+		.platform_data = &tegra_ehci2_pdata,
 	},
 	.resource = tegra_usb2_resources,
 	.num_resources = ARRAY_SIZE(tegra_usb2_resources),
@@ -364,6 +495,7 @@ struct platform_device tegra_ehci3_device = {
 	.dev	= {
 		.dma_mask	= &tegra_ehci_dmamask,
 		.coherent_dma_mask = DMA_BIT_MASK(32),
+		.platform_data = &tegra_ehci3_pdata,
 	},
 	.resource = tegra_usb3_resources,
 	.num_resources = ARRAY_SIZE(tegra_usb3_resources),
@@ -541,14 +673,14 @@ static struct resource i2s_resource2[] = {
 };
 
 struct platform_device tegra_i2s_device1 = {
-	.name		= "tegra-i2s",
+	.name		= "tegra20-i2s",
 	.id		= 0,
 	.resource	= i2s_resource1,
 	.num_resources	= ARRAY_SIZE(i2s_resource1),
 };
 
 struct platform_device tegra_i2s_device2 = {
-	.name		= "tegra-i2s",
+	.name		= "tegra20-i2s",
 	.id		= 1,
 	.resource	= i2s_resource2,
 	.num_resources	= ARRAY_SIZE(i2s_resource2),
@@ -563,13 +695,8 @@ static struct resource tegra_das_resources[] = {
 };
 
 struct platform_device tegra_das_device = {
-	.name		= "tegra-das",
+	.name		= "tegra20-das",
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(tegra_das_resources),
 	.resource	= tegra_das_resources,
-};
-
-struct platform_device tegra_pcm_device = {
-	.name = "tegra-pcm-audio",
-	.id = -1,
 };

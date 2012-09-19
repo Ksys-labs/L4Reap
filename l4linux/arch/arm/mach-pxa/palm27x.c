@@ -164,8 +164,8 @@ void __init palm27x_lcd_init(int power, struct pxafb_mode_info *mode)
 /******************************************************************************
  * USB Gadget
  ******************************************************************************/
-#if	defined(CONFIG_USB_GADGET_PXA27X) || \
-	defined(CONFIG_USB_GADGET_PXA27X_MODULE)
+#if	defined(CONFIG_USB_PXA27X) || \
+	defined(CONFIG_USB_PXA27X_MODULE)
 static struct gpio_vbus_mach_info palm27x_udc_info = {
 	.gpio_vbus_inverted	= 1,
 };
@@ -429,9 +429,7 @@ void __init palm27x_power_init(int ac, int usb)
 #if defined(CONFIG_REGULATOR_MAX1586) || \
     defined(CONFIG_REGULATOR_MAX1586_MODULE)
 static struct regulator_consumer_supply palm27x_max1587a_consumers[] = {
-	{
-		.supply	= "vcc_core",
-	}
+	REGULATOR_SUPPLY("vcc_core", NULL),
 };
 
 static struct regulator_init_data palm27x_max1587a_v3_info = {

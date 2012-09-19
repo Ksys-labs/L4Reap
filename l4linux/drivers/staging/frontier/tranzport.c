@@ -199,7 +199,7 @@ static void usb_tranzport_abort_transfers(struct usb_tranzport *dev)
 		struct usb_interface *intf = to_usb_interface(dev);	\
 		struct usb_tranzport *t = usb_get_intfdata(intf);	\
 		unsigned long temp;	\
-		if (strict_strtoul(buf, 10, &temp))	\
+		if (kstrtoul(buf, 10, &temp))	\
 			return -EINVAL;	\
 		t->value = temp;	\
 		return count;	\
@@ -353,7 +353,7 @@ static int usb_tranzport_open(struct inode *inode, struct file *file)
 	interface = usb_find_interface(&usb_tranzport_driver, subminor);
 
 	if (!interface) {
-		err("%s - error, can't find device for minor %d\n",
+		printk(KERN_ERR "%s - error, can't find device for minor %d\n",
 			__func__, subminor);
 		retval = -ENODEV;
 		goto unlock_disconnect_exit;
@@ -471,7 +471,7 @@ exit:
 /**
  *	usb_tranzport_poll
  */
-static unsigned int usb_tranzport_poll(struct file *file, poll_table * wait)
+static unsigned int usb_tranzport_poll(struct file *file, poll_table *wait)
 {
 	struct usb_tranzport *dev;
 	unsigned int mask = 0;
@@ -517,9 +517,11 @@ static ssize_t usb_tranzport_read(struct file *file, char __user *buffer,
 		goto exit;
 	}
 
-	/* verify that the device wasn't unplugged */ if (dev->intf == NULL) {
+	/* verify that the device wasn't unplugged */
+	if (dev->intf == NULL) {
 		retval = -ENODEV;
-		err("No device or device unplugged %d\n", retval);
+		printk(KERN_ERR "%s: No device or device unplugged %d\n",
+			__func__, retval);
 		goto unlock_exit;
 	}
 
@@ -691,7 +693,8 @@ static ssize_t usb_tranzport_write(struct file *file,
 	/* verify that the device wasn't unplugged */
 	if (dev->intf == NULL) {
 		retval = -ENODEV;
-		err("No device or device unplugged %d\n", retval);
+		printk(KERN_ERR "%s: No device or device unplugged %d\n",
+			__func__, retval);
 		goto unlock_exit;
 	}
 
@@ -726,7 +729,7 @@ static ssize_t usb_tranzport_write(struct file *file,
 	}
 
 	if (dev->interrupt_out_endpoint == NULL) {
-		err("Endpoint should not be be null!\n");
+		dev_err(&dev->intf->dev, "Endpoint should not be be null!\n");
 		goto unlock_exit;
 	}
 
@@ -746,7 +749,8 @@ static ssize_t usb_tranzport_write(struct file *file,
 	retval = usb_submit_urb(dev->interrupt_out_urb, GFP_KERNEL);
 	if (retval) {
 		dev->interrupt_out_busy = 0;
-		err("Couldn't submit interrupt_out_urb %d\n", retval);
+		dev_err(&dev->intf->dev,
+			"Couldn't submit interrupt_out_urb %d\n", retval);
 		goto unlock_exit;
 	}
 	retval = bytes_to_write;
@@ -971,29 +975,4 @@ static struct usb_driver usb_tranzport_driver = {
 	.id_table = usb_tranzport_table,
 };
 
-/**
- *	usb_tranzport_init
- */
-static int __init usb_tranzport_init(void)
-{
-	int retval;
-
-	/* register this driver with the USB subsystem */
-	retval = usb_register(&usb_tranzport_driver);
-	if (retval)
-		err("usb_register failed for the " __FILE__
-			" driver. Error number %d\n", retval);
-	return retval;
-}
-/**
- *	usb_tranzport_exit
- */
-
-static void __exit usb_tranzport_exit(void)
-{
-	/* deregister this driver with the USB subsystem */
-	usb_deregister(&usb_tranzport_driver);
-}
-
-module_init(usb_tranzport_init);
-module_exit(usb_tranzport_exit);
+module_usb_driver(usb_tranzport_driver);

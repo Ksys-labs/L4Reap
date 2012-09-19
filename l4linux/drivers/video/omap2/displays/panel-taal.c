@@ -30,31 +30,16 @@
 #include <linux/gpio.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
-#include <linux/regulator/consumer.h>
 #include <linux/mutex.h>
 
 #include <video/omapdss.h>
 #include <video/omap-panel-nokia-dsi.h>
+#include <video/mipi_display.h>
 
 /* DSI Virtual channel. Hardcoded for now. */
 #define TCH 0
 
 #define DCS_READ_NUM_ERRORS	0x05
-#define DCS_READ_POWER_MODE	0x0a
-#define DCS_READ_MADCTL		0x0b
-#define DCS_READ_PIXEL_FORMAT	0x0c
-#define DCS_RDDSDR		0x0f
-#define DCS_SLEEP_IN		0x10
-#define DCS_SLEEP_OUT		0x11
-#define DCS_DISPLAY_OFF		0x28
-#define DCS_DISPLAY_ON		0x29
-#define DCS_COLUMN_ADDR		0x2a
-#define DCS_PAGE_ADDR		0x2b
-#define DCS_MEMORY_WRITE	0x2c
-#define DCS_TEAR_OFF		0x34
-#define DCS_TEAR_ON		0x35
-#define DCS_MEM_ACC_CTRL	0x36
-#define DCS_PIXEL_FORMAT	0x3a
 #define DCS_BRIGHTNESS		0x51
 #define DCS_CTRL_DISPLAY	0x53
 #define DCS_WRITE_CABC		0x55
@@ -68,73 +53,6 @@ static void taal_te_timeout_work_callback(struct work_struct *work);
 static int _taal_enable_te(struct omap_dss_device *dssdev, bool enable);
 
 static int taal_panel_reset(struct omap_dss_device *dssdev);
-
-struct panel_regulator {
-	struct regulator *regulator;
-	const char *name;
-	int min_uV;
-	int max_uV;
-};
-
-static void free_regulators(struct panel_regulator *regulators, int n)
-{
-	int i;
-
-	for (i = 0; i < n; i++) {
-		/* disable/put in reverse order */
-		regulator_disable(regulators[n - i - 1].regulator);
-		regulator_put(regulators[n - i - 1].regulator);
-	}
-}
-
-static int init_regulators(struct omap_dss_device *dssdev,
-			struct panel_regulator *regulators, int n)
-{
-	int r, i, v;
-
-	for (i = 0; i < n; i++) {
-		struct regulator *reg;
-
-		reg = regulator_get(&dssdev->dev, regulators[i].name);
-		if (IS_ERR(reg)) {
-			dev_err(&dssdev->dev, "failed to get regulator %s\n",
-				regulators[i].name);
-			r = PTR_ERR(reg);
-			goto err;
-		}
-
-		/* FIXME: better handling of fixed vs. variable regulators */
-		v = regulator_get_voltage(reg);
-		if (v < regulators[i].min_uV || v > regulators[i].max_uV) {
-			r = regulator_set_voltage(reg, regulators[i].min_uV,
-						regulators[i].max_uV);
-			if (r) {
-				dev_err(&dssdev->dev,
-					"failed to set regulator %s voltage\n",
-					regulators[i].name);
-				regulator_put(reg);
-				goto err;
-			}
-		}
-
-		r = regulator_enable(reg);
-		if (r) {
-			dev_err(&dssdev->dev, "failed to enable regulator %s\n",
-				regulators[i].name);
-			regulator_put(reg);
-			goto err;
-		}
-
-		regulators[i].regulator = reg;
-	}
-
-	return 0;
-
-err:
-	free_regulators(regulators, i);
-
-	return r;
-}
 
 /**
  * struct panel_config - panel configuration
@@ -164,8 +82,6 @@ struct panel_config {
 		unsigned int low;
 	} reset_sequence;
 
-	struct panel_regulator *regulators;
-	int num_regulators;
 };
 
 enum {
@@ -212,17 +128,9 @@ struct taal_data {
 	bool te_enabled;
 
 	atomic_t do_update;
-	struct {
-		u16 x;
-		u16 y;
-		u16 w;
-		u16 h;
-	} update_region;
 	int channel;
 
 	struct delayed_work te_timeout_work;
-
-	bool use_dsi_bl;
 
 	bool cabc_broken;
 	unsigned cabc_mode;
@@ -302,7 +210,7 @@ static int taal_sleep_in(struct taal_data *td)
 
 	hw_guard_wait(td);
 
-	cmd = DCS_SLEEP_IN;
+	cmd = MIPI_DCS_ENTER_SLEEP_MODE;
 	r = dsi_vc_dcs_write_nosync(td->dssdev, td->channel, &cmd, 1);
 	if (r)
 		return r;
@@ -321,7 +229,7 @@ static int taal_sleep_out(struct taal_data *td)
 
 	hw_guard_wait(td);
 
-	r = taal_dcs_write_0(td, DCS_SLEEP_OUT);
+	r = taal_dcs_write_0(td, MIPI_DCS_EXIT_SLEEP_MODE);
 	if (r)
 		return r;
 
@@ -356,7 +264,7 @@ static int taal_set_addr_mode(struct taal_data *td, u8 rotate, bool mirror)
 	u8 mode;
 	int b5, b6, b7;
 
-	r = taal_dcs_read_1(td, DCS_READ_MADCTL, &mode);
+	r = taal_dcs_read_1(td, MIPI_DCS_GET_ADDRESS_MODE, &mode);
 	if (r)
 		return r;
 
@@ -390,7 +298,7 @@ static int taal_set_addr_mode(struct taal_data *td, u8 rotate, bool mirror)
 	mode &= ~((1<<7) | (1<<6) | (1<<5));
 	mode |= (b7 << 7) | (b6 << 6) | (b5 << 5);
 
-	return taal_dcs_write_1(td, DCS_MEM_ACC_CTRL, mode);
+	return taal_dcs_write_1(td, MIPI_DCS_SET_ADDRESS_MODE, mode);
 }
 
 static int taal_set_update_window(struct taal_data *td,
@@ -403,7 +311,7 @@ static int taal_set_update_window(struct taal_data *td,
 	u16 y2 = y + h - 1;
 
 	u8 buf[5];
-	buf[0] = DCS_COLUMN_ADDR;
+	buf[0] = MIPI_DCS_SET_COLUMN_ADDRESS;
 	buf[1] = (x1 >> 8) & 0xff;
 	buf[2] = (x1 >> 0) & 0xff;
 	buf[3] = (x2 >> 8) & 0xff;
@@ -413,7 +321,7 @@ static int taal_set_update_window(struct taal_data *td,
 	if (r)
 		return r;
 
-	buf[0] = DCS_PAGE_ADDR;
+	buf[0] = MIPI_DCS_SET_PAGE_ADDRESS;
 	buf[1] = (y1 >> 8) & 0xff;
 	buf[2] = (y1 >> 0) & 0xff;
 	buf[3] = (y2 >> 8) & 0xff;
@@ -504,14 +412,18 @@ static int taal_exit_ulps(struct omap_dss_device *dssdev)
 		return 0;
 
 	r = omapdss_dsi_display_enable(dssdev);
-	if (r)
-		goto err;
+	if (r) {
+		dev_err(&dssdev->dev, "failed to enable DSI\n");
+		goto err1;
+	}
 
 	omapdss_dsi_vc_enable_hs(dssdev, td->channel, true);
 
 	r = _taal_enable_te(dssdev, true);
-	if (r)
-		goto err;
+	if (r) {
+		dev_err(&dssdev->dev, "failed to re-enable TE");
+		goto err2;
+	}
 
 	enable_irq(gpio_to_irq(panel_data->ext_te_gpio));
 
@@ -521,13 +433,15 @@ static int taal_exit_ulps(struct omap_dss_device *dssdev)
 
 	return 0;
 
-err:
-	dev_err(&dssdev->dev, "exit ULPS failed");
+err2:
+	dev_err(&dssdev->dev, "failed to exit ULPS");
+
 	r = taal_panel_reset(dssdev);
-
-	enable_irq(gpio_to_irq(panel_data->ext_te_gpio));
-	td->ulps_enabled = false;
-
+	if (!r) {
+		enable_irq(gpio_to_irq(panel_data->ext_te_gpio));
+		td->ulps_enabled = false;
+	}
+err1:
 	taal_queue_ulps_work(dssdev);
 
 	return r;
@@ -549,7 +463,6 @@ static int taal_bl_update_status(struct backlight_device *dev)
 {
 	struct omap_dss_device *dssdev = dev_get_drvdata(&dev->dev);
 	struct taal_data *td = dev_get_drvdata(&dssdev->dev);
-	struct nokia_dsi_panel_data *panel_data = get_panel_data(dssdev);
 	int r;
 	int level;
 
@@ -563,23 +476,16 @@ static int taal_bl_update_status(struct backlight_device *dev)
 
 	mutex_lock(&td->lock);
 
-	if (td->use_dsi_bl) {
-		if (td->enabled) {
-			dsi_bus_lock(dssdev);
+	if (td->enabled) {
+		dsi_bus_lock(dssdev);
 
-			r = taal_wake_up(dssdev);
-			if (!r)
-				r = taal_dcs_write_1(td, DCS_BRIGHTNESS, level);
+		r = taal_wake_up(dssdev);
+		if (!r)
+			r = taal_dcs_write_1(td, DCS_BRIGHTNESS, level);
 
-			dsi_bus_unlock(dssdev);
-		} else {
-			r = 0;
-		}
+		dsi_bus_unlock(dssdev);
 	} else {
-		if (!panel_data->set_backlight)
-			r = -EINVAL;
-		else
-			r = panel_data->set_backlight(dssdev, level);
+		r = 0;
 	}
 
 	mutex_unlock(&td->lock);
@@ -601,12 +507,6 @@ static const struct backlight_ops taal_bl_ops = {
 	.update_status  = taal_bl_update_status,
 };
 
-static void taal_get_timings(struct omap_dss_device *dssdev,
-			struct omap_video_timings *timings)
-{
-	*timings = dssdev->panel.timings;
-}
-
 static void taal_get_resolution(struct omap_dss_device *dssdev,
 		u16 *xres, u16 *yres)
 {
@@ -626,7 +526,7 @@ static ssize_t taal_num_errors_show(struct device *dev,
 {
 	struct omap_dss_device *dssdev = to_dss_device(dev);
 	struct taal_data *td = dev_get_drvdata(&dssdev->dev);
-	u8 errors;
+	u8 errors = 0;
 	int r;
 
 	mutex_lock(&td->lock);
@@ -958,7 +858,7 @@ static int taal_probe(struct omap_dss_device *dssdev)
 {
 	struct backlight_properties props;
 	struct taal_data *td;
-	struct backlight_device *bldev;
+	struct backlight_device *bldev = NULL;
 	struct nokia_dsi_panel_data *panel_data = get_panel_data(dssdev);
 	struct panel_config *panel_config = NULL;
 	int r, i;
@@ -984,7 +884,7 @@ static int taal_probe(struct omap_dss_device *dssdev)
 
 	dssdev->panel.config = OMAP_DSS_LCD_TFT;
 	dssdev->panel.timings = panel_config->timings;
-	dssdev->ctrl.pixel_size = 24;
+	dssdev->panel.dsi_pix_fmt = OMAP_DSS_DSI_FMT_RGB888;
 
 	td = kzalloc(sizeof(*td), GFP_KERNEL);
 	if (!td) {
@@ -1001,11 +901,6 @@ static int taal_probe(struct omap_dss_device *dssdev)
 
 	atomic_set(&td->do_update, 0);
 
-	r = init_regulators(dssdev, panel_config->regulators,
-			panel_config->num_regulators);
-	if (r)
-		goto err_reg;
-
 	td->workqueue = create_singlethread_workqueue("taal_esd");
 	if (td->workqueue == NULL) {
 		dev_err(&dssdev->dev, "can't create ESD workqueue\n");
@@ -1017,51 +912,49 @@ static int taal_probe(struct omap_dss_device *dssdev)
 
 	dev_set_drvdata(&dssdev->dev, td);
 
-	taal_hw_reset(dssdev);
-
-	/* if no platform set_backlight() defined, presume DSI backlight
-	 * control */
-	memset(&props, 0, sizeof(struct backlight_properties));
-	if (!panel_data->set_backlight)
-		td->use_dsi_bl = true;
-
-	if (td->use_dsi_bl)
-		props.max_brightness = 255;
-	else
-		props.max_brightness = 127;
-
-	props.type = BACKLIGHT_RAW;
-	bldev = backlight_device_register(dev_name(&dssdev->dev), &dssdev->dev,
-					dssdev, &taal_bl_ops, &props);
-	if (IS_ERR(bldev)) {
-		r = PTR_ERR(bldev);
-		goto err_bl;
+	if (gpio_is_valid(panel_data->reset_gpio)) {
+		r = gpio_request_one(panel_data->reset_gpio, GPIOF_OUT_INIT_LOW,
+				"taal rst");
+		if (r) {
+			dev_err(&dssdev->dev, "failed to request reset gpio\n");
+			goto err_rst_gpio;
+		}
 	}
 
-	td->bldev = bldev;
+	taal_hw_reset(dssdev);
 
-	bldev->props.fb_blank = FB_BLANK_UNBLANK;
-	bldev->props.power = FB_BLANK_UNBLANK;
-	if (td->use_dsi_bl)
+	if (panel_data->use_dsi_backlight) {
+		memset(&props, 0, sizeof(struct backlight_properties));
+		props.max_brightness = 255;
+
+		props.type = BACKLIGHT_RAW;
+		bldev = backlight_device_register(dev_name(&dssdev->dev),
+				&dssdev->dev, dssdev, &taal_bl_ops, &props);
+		if (IS_ERR(bldev)) {
+			r = PTR_ERR(bldev);
+			goto err_bl;
+		}
+
+		td->bldev = bldev;
+
+		bldev->props.fb_blank = FB_BLANK_UNBLANK;
+		bldev->props.power = FB_BLANK_UNBLANK;
 		bldev->props.brightness = 255;
-	else
-		bldev->props.brightness = 127;
 
-	taal_bl_update_status(bldev);
+		taal_bl_update_status(bldev);
+	}
 
 	if (panel_data->use_ext_te) {
 		int gpio = panel_data->ext_te_gpio;
 
-		r = gpio_request(gpio, "taal irq");
+		r = gpio_request_one(gpio, GPIOF_IN, "taal irq");
 		if (r) {
 			dev_err(&dssdev->dev, "GPIO request failed\n");
 			goto err_gpio;
 		}
 
-		gpio_direction_input(gpio);
-
 		r = request_irq(gpio_to_irq(gpio), taal_te_isr,
-				IRQF_DISABLED | IRQF_TRIGGER_RISING,
+				IRQF_TRIGGER_RISING,
 				"taal vsync", dssdev);
 
 		if (r) {
@@ -1105,12 +998,14 @@ err_irq:
 	if (panel_data->use_ext_te)
 		gpio_free(panel_data->ext_te_gpio);
 err_gpio:
-	backlight_device_unregister(bldev);
+	if (bldev != NULL)
+		backlight_device_unregister(bldev);
 err_bl:
+	if (gpio_is_valid(panel_data->reset_gpio))
+		gpio_free(panel_data->reset_gpio);
+err_rst_gpio:
 	destroy_workqueue(td->workqueue);
 err_wq:
-	free_regulators(panel_config->regulators, panel_config->num_regulators);
-err_reg:
 	kfree(td);
 err:
 	return r;
@@ -1134,9 +1029,11 @@ static void __exit taal_remove(struct omap_dss_device *dssdev)
 	}
 
 	bldev = td->bldev;
-	bldev->props.power = FB_BLANK_POWERDOWN;
-	taal_bl_update_status(bldev);
-	backlight_device_unregister(bldev);
+	if (bldev != NULL) {
+		bldev->props.power = FB_BLANK_POWERDOWN;
+		taal_bl_update_status(bldev);
+		backlight_device_unregister(bldev);
+	}
 
 	taal_cancel_ulps_work(dssdev);
 	taal_cancel_esd_work(dssdev);
@@ -1145,8 +1042,8 @@ static void __exit taal_remove(struct omap_dss_device *dssdev)
 	/* reset, to be sure that the panel is in a valid state */
 	taal_hw_reset(dssdev);
 
-	free_regulators(td->panel_config->regulators,
-			td->panel_config->num_regulators);
+	if (gpio_is_valid(panel_data->reset_gpio))
+		gpio_free(panel_data->reset_gpio);
 
 	kfree(td);
 }
@@ -1154,8 +1051,15 @@ static void __exit taal_remove(struct omap_dss_device *dssdev)
 static int taal_power_on(struct omap_dss_device *dssdev)
 {
 	struct taal_data *td = dev_get_drvdata(&dssdev->dev);
+	struct nokia_dsi_panel_data *panel_data = get_panel_data(dssdev);
 	u8 id1, id2, id3;
 	int r;
+
+	r = omapdss_dsi_configure_pins(dssdev, &panel_data->pin_config);
+	if (r) {
+		dev_err(&dssdev->dev, "failed to configure DSI pins\n");
+		goto err0;
+	};
 
 	r = omapdss_dsi_display_enable(dssdev);
 	if (r) {
@@ -1189,7 +1093,8 @@ static int taal_power_on(struct omap_dss_device *dssdev)
 	if (r)
 		goto err;
 
-	r = taal_dcs_write_1(td, DCS_PIXEL_FORMAT, 0x7); /* 24bit/pixel */
+	r = taal_dcs_write_1(td, MIPI_DCS_SET_PIXEL_FORMAT,
+		MIPI_DCS_PIXEL_FMT_24BIT);
 	if (r)
 		goto err;
 
@@ -1203,11 +1108,15 @@ static int taal_power_on(struct omap_dss_device *dssdev)
 			goto err;
 	}
 
-	r = taal_dcs_write_0(td, DCS_DISPLAY_ON);
+	r = taal_dcs_write_0(td, MIPI_DCS_SET_DISPLAY_ON);
 	if (r)
 		goto err;
 
 	r = _taal_enable_te(dssdev, td->te_enabled);
+	if (r)
+		goto err;
+
+	r = dsi_enable_video_output(dssdev, td->channel);
 	if (r)
 		goto err;
 
@@ -1240,12 +1149,11 @@ static void taal_power_off(struct omap_dss_device *dssdev)
 	struct taal_data *td = dev_get_drvdata(&dssdev->dev);
 	int r;
 
-	r = taal_dcs_write_0(td, DCS_DISPLAY_OFF);
-	if (!r) {
+	dsi_disable_video_output(dssdev, td->channel);
+
+	r = taal_dcs_write_0(td, MIPI_DCS_SET_DISPLAY_OFF);
+	if (!r)
 		r = taal_sleep_in(td);
-		/* HACK: wait a bit so that the message goes through */
-		msleep(10);
-	}
 
 	if (r) {
 		dev_err(&dssdev->dev,
@@ -1317,8 +1225,11 @@ static void taal_disable(struct omap_dss_device *dssdev)
 	dsi_bus_lock(dssdev);
 
 	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
-		taal_wake_up(dssdev);
-		taal_power_off(dssdev);
+		int r;
+
+		r = taal_wake_up(dssdev);
+		if (!r)
+			taal_power_off(dssdev);
 	}
 
 	dsi_bus_unlock(dssdev);
@@ -1417,12 +1328,8 @@ static irqreturn_t taal_te_isr(int irq, void *data)
 	if (old) {
 		cancel_delayed_work(&td->te_timeout_work);
 
-		r = omap_dsi_update(dssdev, td->channel,
-				td->update_region.x,
-				td->update_region.y,
-				td->update_region.w,
-				td->update_region.h,
-				taal_framedone_cb, dssdev);
+		r = omap_dsi_update(dssdev, td->channel, taal_framedone_cb,
+				dssdev);
 		if (r)
 			goto err;
 	}
@@ -1467,26 +1374,20 @@ static int taal_update(struct omap_dss_device *dssdev,
 		goto err;
 	}
 
-	r = omap_dsi_prepare_update(dssdev, &x, &y, &w, &h, true);
-	if (r)
-		goto err;
-
-	r = taal_set_update_window(td, x, y, w, h);
+	/* XXX no need to send this every frame, but dsi break if not done */
+	r = taal_set_update_window(td, 0, 0,
+			td->panel_config->timings.x_res,
+			td->panel_config->timings.y_res);
 	if (r)
 		goto err;
 
 	if (td->te_enabled && panel_data->use_ext_te) {
-		td->update_region.x = x;
-		td->update_region.y = y;
-		td->update_region.w = w;
-		td->update_region.h = h;
-		barrier();
 		schedule_delayed_work(&td->te_timeout_work,
 				msecs_to_jiffies(250));
 		atomic_set(&td->do_update, 1);
 	} else {
-		r = omap_dsi_update(dssdev, td->channel, x, y, w, h,
-				taal_framedone_cb, dssdev);
+		r = omap_dsi_update(dssdev, td->channel, taal_framedone_cb,
+				dssdev);
 		if (r)
 			goto err;
 	}
@@ -1523,9 +1424,9 @@ static int _taal_enable_te(struct omap_dss_device *dssdev, bool enable)
 	int r;
 
 	if (enable)
-		r = taal_dcs_write_1(td, DCS_TEAR_ON, 0);
+		r = taal_dcs_write_1(td, MIPI_DCS_SET_TEAR_ON, 0);
 	else
-		r = taal_dcs_write_0(td, DCS_TEAR_OFF);
+		r = taal_dcs_write_0(td, MIPI_DCS_SET_TEAR_OFF);
 
 	if (!panel_data->use_ext_te)
 		omapdss_dsi_enable_te(dssdev, enable);
@@ -1845,7 +1746,7 @@ static void taal_esd_work(struct work_struct *work)
 		goto err;
 	}
 
-	r = taal_dcs_read_1(td, DCS_RDDSDR, &state1);
+	r = taal_dcs_read_1(td, MIPI_DCS_GET_DIAGNOSTIC_RESULT, &state1);
 	if (r) {
 		dev_err(&dssdev->dev, "failed to read Taal status\n");
 		goto err;
@@ -1858,7 +1759,7 @@ static void taal_esd_work(struct work_struct *work)
 		goto err;
 	}
 
-	r = taal_dcs_read_1(td, DCS_RDDSDR, &state2);
+	r = taal_dcs_read_1(td, MIPI_DCS_GET_DIAGNOSTIC_RESULT, &state2);
 	if (r) {
 		dev_err(&dssdev->dev, "failed to read Taal status\n");
 		goto err;
@@ -1874,7 +1775,7 @@ static void taal_esd_work(struct work_struct *work)
 	/* Self-diagnostics result is also shown on TE GPIO line. We need
 	 * to re-enable TE after self diagnostics */
 	if (td->te_enabled && panel_data->use_ext_te) {
-		r = taal_dcs_write_1(td, DCS_TEAR_ON, 0);
+		r = taal_dcs_write_1(td, MIPI_DCS_SET_TEAR_ON, 0);
 		if (r)
 			goto err;
 	}
@@ -1897,20 +1798,6 @@ err:
 	mutex_unlock(&td->lock);
 }
 
-static int taal_set_update_mode(struct omap_dss_device *dssdev,
-		enum omap_dss_update_mode mode)
-{
-	if (mode != OMAP_DSS_UPDATE_MANUAL)
-		return -EINVAL;
-	return 0;
-}
-
-static enum omap_dss_update_mode taal_get_update_mode(
-		struct omap_dss_device *dssdev)
-{
-	return OMAP_DSS_UPDATE_MANUAL;
-}
-
 static struct omap_dss_driver taal_driver = {
 	.probe		= taal_probe,
 	.remove		= __exit_p(taal_remove),
@@ -1919,9 +1806,6 @@ static struct omap_dss_driver taal_driver = {
 	.disable	= taal_disable,
 	.suspend	= taal_suspend,
 	.resume		= taal_resume,
-
-	.set_update_mode = taal_set_update_mode,
-	.get_update_mode = taal_get_update_mode,
 
 	.update		= taal_update,
 	.sync		= taal_sync,
@@ -1938,8 +1822,6 @@ static struct omap_dss_driver taal_driver = {
 	.get_mirror	= taal_get_mirror,
 	.run_test	= taal_run_test,
 	.memory_read	= taal_memory_read,
-
-	.get_timings	= taal_get_timings,
 
 	.driver         = {
 		.name   = "taal",

@@ -98,6 +98,13 @@ nv04_display_early_init(struct drm_device *dev)
 		NVSetOwner(dev, 0);
 	}
 
+	/* ensure vblank interrupts are off, they can't be enabled until
+	 * drm_vblank has been initialised
+	 */
+	NVWriteCRTC(dev, 0, NV_PCRTC_INTR_EN_0, 0);
+	if (nv_two_heads(dev))
+		NVWriteCRTC(dev, 1, NV_PCRTC_INTR_EN_0, 0);
+
 	return 0;
 }
 
@@ -125,27 +132,6 @@ nv04_display_create(struct drm_device *dev)
 	NV_DEBUG_KMS(dev, "\n");
 
 	nouveau_hw_save_vga_fonts(dev, 1);
-
-	drm_mode_config_init(dev);
-	drm_mode_create_scaling_mode_property(dev);
-	drm_mode_create_dithering_property(dev);
-
-	dev->mode_config.funcs = (void *)&nouveau_mode_config_funcs;
-
-	dev->mode_config.min_width = 0;
-	dev->mode_config.min_height = 0;
-	switch (dev_priv->card_type) {
-	case NV_04:
-		dev->mode_config.max_width = 2048;
-		dev->mode_config.max_height = 2048;
-		break;
-	default:
-		dev->mode_config.max_width = 4096;
-		dev->mode_config.max_height = 4096;
-		break;
-	}
-
-	dev->mode_config.fb_base = dev_priv->fb_phys;
 
 	nv04_crtc_create(dev, 0);
 	if (nv_two_heads(dev))
@@ -235,8 +221,6 @@ nv04_display_destroy(struct drm_device *dev)
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
 		crtc->funcs->restore(crtc);
 
-	drm_mode_config_cleanup(dev);
-
 	nouveau_hw_save_vga_fonts(dev, 0);
 }
 
@@ -264,6 +248,15 @@ nv04_display_init(struct drm_device *dev)
 		crtc->funcs->restore(crtc);
 
 	return 0;
+}
+
+void
+nv04_display_fini(struct drm_device *dev)
+{
+	/* disable vblank interrupts */
+	NVWriteCRTC(dev, 0, NV_PCRTC_INTR_EN_0, 0);
+	if (nv_two_heads(dev))
+		NVWriteCRTC(dev, 1, NV_PCRTC_INTR_EN_0, 0);
 }
 
 static void

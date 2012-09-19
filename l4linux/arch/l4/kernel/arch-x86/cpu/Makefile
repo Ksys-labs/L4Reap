@@ -15,6 +15,8 @@ CFLAGS_common.o		:= $(nostackp)
 obj-y			:= intel_cacheinfo.o scattered.o topology.o
 obj-y			+= proc.o capflags.o powerflags.o common.o
 obj-y			+= vmware.o hypervisor.o sched.o mshyperv.o
+obj-y			+= rdrand.o
+obj-y			+= match.o
 
 obj-$(CONFIG_X86_32)	+= bugs.o
 obj-$(CONFIG_X86_64)	+= bugs_64.o
@@ -28,10 +30,15 @@ obj-$(CONFIG_CPU_SUP_UMC_32)		+= umc.o
 
 obj-$(CONFIG_PERF_EVENTS)		+= perf_event.o
 
+ifdef CONFIG_PERF_EVENTS
+obj-$(CONFIG_CPU_SUP_AMD)		+= perf_event_amd.o
+obj-$(CONFIG_CPU_SUP_INTEL)		+= perf_event_p6.o perf_event_p4.o perf_event_intel_lbr.o perf_event_intel_ds.o perf_event_intel.o
+endif
+
 #obj-$(CONFIG_X86_MCE)			+= mcheck/
 #obj-$(CONFIG_MTRR)			+= mtrr/
 
-obj-$(CONFIG_X86_LOCAL_APIC)		+= perfctr-watchdog.o
+obj-$(CONFIG_X86_LOCAL_APIC)		+= perfctr-watchdog.o perf_event_amd_ibs.o
 
 b                      := ../../../../x86/kernel/cpu
 
@@ -58,6 +65,7 @@ proc-y		       := $(b)/proc.o
 bugs-y		       := $(b)/bugs.o
 bugs_64-y	       := $(b)/bugs_64.o
 perfctr-watchdog-y     := $(b)/perfctr-watchdog.o
+perf_event_amd_ibs-y   := $(b)/perf_event_amd_ibs.o
 feature_names-y        := $(b)/feature_names.o
 powerflags-y           := $(b)/powerflags.o
 vmware-y               := $(b)/vmware.o
@@ -66,3 +74,12 @@ sched-y                := $(b)/sched.o
 mshyperv-y             := $(b)/mshyperv.o
 scattered-y            := $(b)/scattered.o
 topology-y             := $(b)/topology.o
+perf_event-y           := $(b)/perf_event.o
+perf_event_p6-y        := $(b)/perf_event_p6.o
+perf_event_p4-y        := $(b)/perf_event_p4.o
+perf_event_intel_ds-y  := $(b)/perf_event_intel_ds.o
+perf_event_intel_lbr-y := $(b)/perf_event_intel_lbr.o
+perf_event_intel-y     := $(b)/perf_event_intel.o
+perf_event_amd-y       := $(b)/perf_event_amd.o
+rdrand-y               := $(b)/rdrand.o
+match-y                := $(b)/match.o

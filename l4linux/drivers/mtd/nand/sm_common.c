@@ -8,6 +8,7 @@
  */
 #include <linux/kernel.h>
 #include <linux/mtd/nand.h>
+#include <linux/module.h>
 #include "sm_common.h"
 
 static struct nand_ecclayout nand_oob_sm = {
@@ -47,14 +48,14 @@ static int sm_block_markbad(struct mtd_info *mtd, loff_t ofs)
 
 	/* As long as this function is called on erase block boundaries
 		it will work correctly for 256 byte nand */
-	ops.mode = MTD_OOB_PLACE;
+	ops.mode = MTD_OPS_PLACE_OOB;
 	ops.ooboffs = 0;
 	ops.ooblen = mtd->oobsize;
 	ops.oobbuf = (void *)&oob;
 	ops.datbuf = NULL;
 
 
-	ret = mtd->write_oob(mtd, ofs, &ops);
+	ret = mtd_write_oob(mtd, ofs, &ops);
 	if (ret < 0 || ops.oobretlen != SM_OOB_SIZE) {
 		printk(KERN_NOTICE
 			"sm_common: can't mark sector at %i as bad\n",
@@ -93,17 +94,16 @@ static struct nand_flash_dev nand_smartmedia_flash_ids[] = {
 	{NULL,}
 };
 
-#define XD_TYPEM       (NAND_NO_AUTOINCR | NAND_BROKEN_XD)
 static struct nand_flash_dev nand_xd_flash_ids[] = {
 
 	{"xD 16MiB 3,3V",    0x73, 512, 16, 0x4000, 0},
 	{"xD 32MiB 3,3V",    0x75, 512, 32, 0x4000, 0},
 	{"xD 64MiB 3,3V",    0x76, 512, 64, 0x4000, 0},
 	{"xD 128MiB 3,3V",   0x79, 512, 128, 0x4000, 0},
-	{"xD 256MiB 3,3V",   0x71, 512, 256, 0x4000, XD_TYPEM},
-	{"xD 512MiB 3,3V",   0xdc, 512, 512, 0x4000, XD_TYPEM},
-	{"xD 1GiB 3,3V",     0xd3, 512, 1024, 0x4000, XD_TYPEM},
-	{"xD 2GiB 3,3V",     0xd5, 512, 2048, 0x4000, XD_TYPEM},
+	{"xD 256MiB 3,3V",   0x71, 512, 256, 0x4000, NAND_BROKEN_XD},
+	{"xD 512MiB 3,3V",   0xdc, 512, 512, 0x4000, NAND_BROKEN_XD},
+	{"xD 1GiB 3,3V",     0xd3, 512, 1024, 0x4000, NAND_BROKEN_XD},
+	{"xD 2GiB 3,3V",     0xd5, 512, 2048, 0x4000, NAND_BROKEN_XD},
 	{NULL,}
 };
 

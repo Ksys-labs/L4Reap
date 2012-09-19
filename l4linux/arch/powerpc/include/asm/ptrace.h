@@ -83,16 +83,31 @@ struct pt_regs {
 
 #ifndef __ASSEMBLY__
 
-#define instruction_pointer(regs) ((regs)->nip)
-#define user_stack_pointer(regs) ((regs)->gpr[1])
-#define kernel_stack_pointer(regs) ((regs)->gpr[1])
-#define regs_return_value(regs) ((regs)->gpr[3])
+#define GET_IP(regs)		((regs)->nip)
+#define GET_USP(regs)		((regs)->gpr[1])
+#define GET_FP(regs)		(0)
+#define SET_FP(regs, val)
 
 #ifdef CONFIG_SMP
 extern unsigned long profile_pc(struct pt_regs *regs);
-#else
-#define profile_pc(regs) instruction_pointer(regs)
+#define profile_pc profile_pc
 #endif
+
+#include <asm-generic/ptrace.h>
+
+#define kernel_stack_pointer(regs) ((regs)->gpr[1])
+static inline int is_syscall_success(struct pt_regs *regs)
+{
+	return !(regs->ccr & 0x10000000);
+}
+
+static inline long regs_return_value(struct pt_regs *regs)
+{
+	if (is_syscall_success(regs))
+		return regs->gpr[3];
+	else
+		return -regs->gpr[3];
+}
 
 #ifdef __powerpc64__
 #define user_mode(regs) ((((regs)->msr) >> MSR_PR_LG) & 0x1)
@@ -338,12 +353,6 @@ static inline unsigned long regs_get_kernel_stack_nth(struct pt_regs *regs,
 #define PTRACE_SETFPREGS          15
 #define PTRACE_GETREGS64	  22
 #define PTRACE_SETREGS64	  23
-
-/* (old) PTRACE requests with inverted arguments */
-#define PPC_PTRACE_GETREGS	0x99	/* Get GPRs 0 - 31 */
-#define PPC_PTRACE_SETREGS	0x98	/* Set GPRs 0 - 31 */
-#define PPC_PTRACE_GETFPREGS	0x97	/* Get FPRs 0 - 31 */
-#define PPC_PTRACE_SETFPREGS	0x96	/* Set FPRs 0 - 31 */
 
 /* Calls to trace a 64bit program from a 32bit program */
 #define PPC_PTRACE_PEEKTEXT_3264 0x95

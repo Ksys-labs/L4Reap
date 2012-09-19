@@ -12,6 +12,7 @@
 
 #include "util/debug.h"
 #include "util/session.h"
+#include "util/tool.h"
 
 #include <sys/types.h>
 #include <sys/prctl.h>
@@ -325,7 +326,7 @@ alloc_failed:
 	die("memory allocation failed\n");
 }
 
-static char			const *input_name = "perf.data";
+static const char *input_name;
 
 struct raw_event_sample {
 	u32			size;
@@ -355,25 +356,25 @@ struct trace_release_event {
 
 struct trace_lock_handler {
 	void (*acquire_event)(struct trace_acquire_event *,
-			      struct event *,
+			      struct event_format *,
 			      int cpu,
 			      u64 timestamp,
 			      struct thread *thread);
 
 	void (*acquired_event)(struct trace_acquired_event *,
-			       struct event *,
+			       struct event_format *,
 			       int cpu,
 			       u64 timestamp,
 			       struct thread *thread);
 
 	void (*contended_event)(struct trace_contended_event *,
-				struct event *,
+				struct event_format *,
 				int cpu,
 				u64 timestamp,
 				struct thread *thread);
 
 	void (*release_event)(struct trace_release_event *,
-			      struct event *,
+			      struct event_format *,
 			      int cpu,
 			      u64 timestamp,
 			      struct thread *thread);
@@ -415,7 +416,7 @@ enum acquire_flags {
 
 static void
 report_lock_acquire_event(struct trace_acquire_event *acquire_event,
-			struct event *__event __used,
+			struct event_format *__event __used,
 			int cpu __used,
 			u64 timestamp __used,
 			struct thread *thread __used)
@@ -479,7 +480,7 @@ end:
 
 static void
 report_lock_acquired_event(struct trace_acquired_event *acquired_event,
-			 struct event *__event __used,
+			 struct event_format *__event __used,
 			 int cpu __used,
 			 u64 timestamp __used,
 			 struct thread *thread __used)
@@ -535,7 +536,7 @@ end:
 
 static void
 report_lock_contended_event(struct trace_contended_event *contended_event,
-			  struct event *__event __used,
+			  struct event_format *__event __used,
 			  int cpu __used,
 			  u64 timestamp __used,
 			  struct thread *thread __used)
@@ -582,7 +583,7 @@ end:
 
 static void
 report_lock_release_event(struct trace_release_event *release_event,
-			struct event *__event __used,
+			struct event_format *__event __used,
 			int cpu __used,
 			u64 timestamp __used,
 			struct thread *thread __used)
@@ -646,7 +647,7 @@ static struct trace_lock_handler *trace_handler;
 
 static void
 process_lock_acquire_event(void *data,
-			   struct event *event __used,
+			   struct event_format *event __used,
 			   int cpu __used,
 			   u64 timestamp __used,
 			   struct thread *thread __used)
@@ -665,7 +666,7 @@ process_lock_acquire_event(void *data,
 
 static void
 process_lock_acquired_event(void *data,
-			    struct event *event __used,
+			    struct event_format *event __used,
 			    int cpu __used,
 			    u64 timestamp __used,
 			    struct thread *thread __used)
@@ -683,7 +684,7 @@ process_lock_acquired_event(void *data,
 
 static void
 process_lock_contended_event(void *data,
-			     struct event *event __used,
+			     struct event_format *event __used,
 			     int cpu __used,
 			     u64 timestamp __used,
 			     struct thread *thread __used)
@@ -701,7 +702,7 @@ process_lock_contended_event(void *data,
 
 static void
 process_lock_release_event(void *data,
-			   struct event *event __used,
+			   struct event_format *event __used,
 			   int cpu __used,
 			   u64 timestamp __used,
 			   struct thread *thread __used)
@@ -720,7 +721,7 @@ process_lock_release_event(void *data,
 static void
 process_raw_event(void *data, int cpu, u64 timestamp, struct thread *thread)
 {
-	struct event *event;
+	struct event_format *event;
 	int type;
 
 	type = trace_parse_common_type(data);
@@ -845,12 +846,13 @@ static void dump_info(void)
 		die("Unknown type of information\n");
 }
 
-static int process_sample_event(union perf_event *event,
+static int process_sample_event(struct perf_tool *tool __used,
+				union perf_event *event,
 				struct perf_sample *sample,
 				struct perf_evsel *evsel __used,
-				struct perf_session *s)
+				struct machine *machine)
 {
-	struct thread *thread = perf_session__findnew(s, sample->tid);
+	struct thread *thread = machine__findnew_thread(machine, sample->tid);
 
 	if (thread == NULL) {
 		pr_debug("problem processing %d event, skipping it.\n",
@@ -863,7 +865,7 @@ static int process_sample_event(union perf_event *event,
 	return 0;
 }
 
-static struct perf_event_ops eops = {
+static struct perf_tool eops = {
 	.sample			= process_sample_event,
 	.comm			= perf_event__process_comm,
 	.ordered_samples	= true,
@@ -920,12 +922,12 @@ static const struct option info_options[] = {
 	OPT_BOOLEAN('t', "threads", &info_threads,
 		    "dump thread list in perf.data"),
 	OPT_BOOLEAN('m', "map", &info_map,
-		    "map of lock instances (name:address table)"),
+		    "map of lock instances (address:name table)"),
 	OPT_END()
 };
 
 static const char * const lock_usage[] = {
-	"perf lock [<options>] {record|trace|report}",
+	"perf lock [<options>] {record|report|script|info}",
 	NULL
 };
 
@@ -942,10 +944,10 @@ static const char *record_args[] = {
 	"-f",
 	"-m", "1024",
 	"-c", "1",
-	"-e", "lock:lock_acquire:r",
-	"-e", "lock:lock_acquired:r",
-	"-e", "lock:lock_contended:r",
-	"-e", "lock:lock_release:r",
+	"-e", "lock:lock_acquire",
+	"-e", "lock:lock_acquired",
+	"-e", "lock:lock_contended",
+	"-e", "lock:lock_release",
 };
 
 static int __cmd_record(int argc, const char **argv)

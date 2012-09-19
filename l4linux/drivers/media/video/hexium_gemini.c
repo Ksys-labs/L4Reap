@@ -21,9 +21,12 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #define DEBUG_VARIABLE debug
 
 #include <media/saa7146_vv.h>
+#include <linux/module.h>
 
 static int debug;
 module_param(debug, int, 0);
@@ -37,15 +40,15 @@ static int hexium_num;
 
 #define HEXIUM_INPUTS	9
 static struct v4l2_input hexium_inputs[HEXIUM_INPUTS] = {
-	{ 0, "CVBS 1",	V4L2_INPUT_TYPE_CAMERA,	2, 0, V4L2_STD_PAL_BG|V4L2_STD_NTSC_M, 0, V4L2_IN_CAP_STD },
-	{ 1, "CVBS 2",	V4L2_INPUT_TYPE_CAMERA,	2, 0, V4L2_STD_PAL_BG|V4L2_STD_NTSC_M, 0, V4L2_IN_CAP_STD },
-	{ 2, "CVBS 3",	V4L2_INPUT_TYPE_CAMERA,	2, 0, V4L2_STD_PAL_BG|V4L2_STD_NTSC_M, 0, V4L2_IN_CAP_STD },
-	{ 3, "CVBS 4",	V4L2_INPUT_TYPE_CAMERA,	2, 0, V4L2_STD_PAL_BG|V4L2_STD_NTSC_M, 0, V4L2_IN_CAP_STD },
-	{ 4, "CVBS 5",	V4L2_INPUT_TYPE_CAMERA,	2, 0, V4L2_STD_PAL_BG|V4L2_STD_NTSC_M, 0, V4L2_IN_CAP_STD },
-	{ 5, "CVBS 6",	V4L2_INPUT_TYPE_CAMERA,	2, 0, V4L2_STD_PAL_BG|V4L2_STD_NTSC_M, 0, V4L2_IN_CAP_STD },
-	{ 6, "Y/C 1",	V4L2_INPUT_TYPE_CAMERA,	2, 0, V4L2_STD_PAL_BG|V4L2_STD_NTSC_M, 0, V4L2_IN_CAP_STD },
-	{ 7, "Y/C 2",	V4L2_INPUT_TYPE_CAMERA,	2, 0, V4L2_STD_PAL_BG|V4L2_STD_NTSC_M, 0, V4L2_IN_CAP_STD },
-	{ 8, "Y/C 3",	V4L2_INPUT_TYPE_CAMERA,	2, 0, V4L2_STD_PAL_BG|V4L2_STD_NTSC_M, 0, V4L2_IN_CAP_STD },
+	{ 0, "CVBS 1",	V4L2_INPUT_TYPE_CAMERA,	0, 0, V4L2_STD_ALL, 0, V4L2_IN_CAP_STD },
+	{ 1, "CVBS 2",	V4L2_INPUT_TYPE_CAMERA,	0, 0, V4L2_STD_ALL, 0, V4L2_IN_CAP_STD },
+	{ 2, "CVBS 3",	V4L2_INPUT_TYPE_CAMERA,	0, 0, V4L2_STD_ALL, 0, V4L2_IN_CAP_STD },
+	{ 3, "CVBS 4",	V4L2_INPUT_TYPE_CAMERA,	0, 0, V4L2_STD_ALL, 0, V4L2_IN_CAP_STD },
+	{ 4, "CVBS 5",	V4L2_INPUT_TYPE_CAMERA,	0, 0, V4L2_STD_ALL, 0, V4L2_IN_CAP_STD },
+	{ 5, "CVBS 6",	V4L2_INPUT_TYPE_CAMERA,	0, 0, V4L2_STD_ALL, 0, V4L2_IN_CAP_STD },
+	{ 6, "Y/C 1",	V4L2_INPUT_TYPE_CAMERA,	0, 0, V4L2_STD_ALL, 0, V4L2_IN_CAP_STD },
+	{ 7, "Y/C 2",	V4L2_INPUT_TYPE_CAMERA,	0, 0, V4L2_STD_ALL, 0, V4L2_IN_CAP_STD },
+	{ 8, "Y/C 3",	V4L2_INPUT_TYPE_CAMERA,	0, 0, V4L2_STD_ALL, 0, V4L2_IN_CAP_STD },
 };
 
 #define HEXIUM_AUDIOS	0
@@ -54,11 +57,6 @@ struct hexium_data
 {
 	s8 adr;
 	u8 byte;
-};
-
-#define HEXIUM_CONTROLS	1
-static struct v4l2_queryctrl hexium_controls[] = {
-	{ V4L2_CID_PRIVATE_BASE, V4L2_CTRL_TYPE_BOOLEAN, "B/W", 0, 1, 1, 0, 0 },
 };
 
 #define HEXIUM_GEMINI_V_1_0		1
@@ -73,7 +71,6 @@ struct hexium
 
 	int 		cur_input;	/* current input */
 	v4l2_std_id 	cur_std;	/* current standard */
-	int		cur_bw;		/* current black/white status */
 };
 
 /* Samsung KS0127B decoder default registers */
@@ -116,15 +113,7 @@ static struct hexium_data hexium_pal[] = {
 	{ 0x01, 0x52 }, { 0x12, 0x64 }, { 0x2D, 0x2C }, { 0x2E, 0x9B }, { -1 , 0xFF }
 };
 
-static struct hexium_data hexium_pal_bw[] = {
-	{ 0x01, 0x52 },	{ 0x12, 0x64 },	{ 0x2D, 0x2C },	{ 0x2E, 0x9B },	{ -1 , 0xFF }
-};
-
 static struct hexium_data hexium_ntsc[] = {
-	{ 0x01, 0x53 }, { 0x12, 0x04 }, { 0x2D, 0x23 }, { 0x2E, 0x81 }, { -1 , 0xFF }
-};
-
-static struct hexium_data hexium_ntsc_bw[] = {
 	{ 0x01, 0x53 }, { 0x12, 0x04 }, { 0x2D, 0x23 }, { 0x2E, 0x81 }, { -1 , 0xFF }
 };
 
@@ -175,13 +164,14 @@ static int hexium_init_done(struct saa7146_dev *dev)
 	union i2c_smbus_data data;
 	int i = 0;
 
-	DEB_D(("hexium_init_done called.\n"));
+	DEB_D("hexium_init_done called\n");
 
 	/* initialize the helper ics to useful values */
 	for (i = 0; i < sizeof(hexium_ks0127b); i++) {
 		data.byte = hexium_ks0127b[i];
 		if (0 != i2c_smbus_xfer(&hexium->i2c_adapter, 0x6c, 0, I2C_SMBUS_WRITE, i, I2C_SMBUS_BYTE_DATA, &data)) {
-			printk("hexium_gemini: hexium_init_done() failed for address 0x%02x\n", i);
+			pr_err("hexium_init_done() failed for address 0x%02x\n",
+			       i);
 		}
 	}
 
@@ -192,7 +182,7 @@ static int hexium_set_input(struct hexium *hexium, int input)
 {
 	union i2c_smbus_data data;
 
-	DEB_D((".\n"));
+	DEB_D("\n");
 
 	data.byte = hexium_input_select[input].byte;
 	if (0 != i2c_smbus_xfer(&hexium->i2c_adapter, 0x6c, 0, I2C_SMBUS_WRITE, hexium_input_select[input].adr, I2C_SMBUS_BYTE_DATA, &data)) {
@@ -207,12 +197,13 @@ static int hexium_set_standard(struct hexium *hexium, struct hexium_data *vdec)
 	union i2c_smbus_data data;
 	int i = 0;
 
-	DEB_D((".\n"));
+	DEB_D("\n");
 
 	while (vdec[i].adr != -1) {
 		data.byte = vdec[i].byte;
 		if (0 != i2c_smbus_xfer(&hexium->i2c_adapter, 0x6c, 0, I2C_SMBUS_WRITE, vdec[i].adr, I2C_SMBUS_BYTE_DATA, &data)) {
-			printk("hexium_init_done: hexium_set_standard() failed for address 0x%02x\n", i);
+			pr_err("hexium_init_done: hexium_set_standard() failed for address 0x%02x\n",
+			       i);
 			return -1;
 		}
 		i++;
@@ -222,14 +213,14 @@ static int hexium_set_standard(struct hexium *hexium, struct hexium_data *vdec)
 
 static int vidioc_enum_input(struct file *file, void *fh, struct v4l2_input *i)
 {
-	DEB_EE(("VIDIOC_ENUMINPUT %d.\n", i->index));
+	DEB_EE("VIDIOC_ENUMINPUT %d\n", i->index);
 
 	if (i->index >= HEXIUM_INPUTS)
 		return -EINVAL;
 
 	memcpy(i, &hexium_inputs[i->index], sizeof(struct v4l2_input));
 
-	DEB_D(("v4l2_ioctl: VIDIOC_ENUMINPUT %d.\n", i->index));
+	DEB_D("v4l2_ioctl: VIDIOC_ENUMINPUT %d\n", i->index);
 	return 0;
 }
 
@@ -240,7 +231,7 @@ static int vidioc_g_input(struct file *file, void *fh, unsigned int *input)
 
 	*input = hexium->cur_input;
 
-	DEB_D(("VIDIOC_G_INPUT: %d\n", *input));
+	DEB_D("VIDIOC_G_INPUT: %d\n", *input);
 	return 0;
 }
 
@@ -249,7 +240,7 @@ static int vidioc_s_input(struct file *file, void *fh, unsigned int input)
 	struct saa7146_dev *dev = ((struct saa7146_fh *)fh)->dev;
 	struct hexium *hexium = (struct hexium *) dev->ext_priv;
 
-	DEB_EE(("VIDIOC_S_INPUT %d.\n", input));
+	DEB_EE("VIDIOC_S_INPUT %d\n", input);
 
 	if (input >= HEXIUM_INPUTS)
 		return -EINVAL;
@@ -259,106 +250,19 @@ static int vidioc_s_input(struct file *file, void *fh, unsigned int input)
 	return 0;
 }
 
-/* the saa7146 provides some controls (brightness, contrast, saturation)
-   which gets registered *after* this function. because of this we have
-   to return with a value != 0 even if the function succeeded.. */
-static int vidioc_queryctrl(struct file *file, void *fh, struct v4l2_queryctrl *qc)
-{
-	struct saa7146_dev *dev = ((struct saa7146_fh *)fh)->dev;
-	int i;
-
-	for (i = HEXIUM_CONTROLS - 1; i >= 0; i--) {
-		if (hexium_controls[i].id == qc->id) {
-			*qc = hexium_controls[i];
-			DEB_D(("VIDIOC_QUERYCTRL %d.\n", qc->id));
-			return 0;
-		}
-	}
-	return dev->ext_vv_data->core_ops->vidioc_queryctrl(file, fh, qc);
-}
-
-static int vidioc_g_ctrl(struct file *file, void *fh, struct v4l2_control *vc)
-{
-	struct saa7146_dev *dev = ((struct saa7146_fh *)fh)->dev;
-	struct hexium *hexium = (struct hexium *) dev->ext_priv;
-	int i;
-
-	for (i = HEXIUM_CONTROLS - 1; i >= 0; i--) {
-		if (hexium_controls[i].id == vc->id)
-			break;
-	}
-
-	if (i < 0)
-		return dev->ext_vv_data->core_ops->vidioc_g_ctrl(file, fh, vc);
-
-	if (vc->id == V4L2_CID_PRIVATE_BASE) {
-		vc->value = hexium->cur_bw;
-		DEB_D(("VIDIOC_G_CTRL BW:%d.\n", vc->value));
-		return 0;
-	}
-	return -EINVAL;
-}
-
-static int vidioc_s_ctrl(struct file *file, void *fh, struct v4l2_control *vc)
-{
-	struct saa7146_dev *dev = ((struct saa7146_fh *)fh)->dev;
-	struct hexium *hexium = (struct hexium *) dev->ext_priv;
-	int i = 0;
-
-	for (i = HEXIUM_CONTROLS - 1; i >= 0; i--) {
-		if (hexium_controls[i].id == vc->id)
-			break;
-	}
-
-	if (i < 0)
-		return dev->ext_vv_data->core_ops->vidioc_s_ctrl(file, fh, vc);
-
-	if (vc->id == V4L2_CID_PRIVATE_BASE)
-		hexium->cur_bw = vc->value;
-
-	DEB_D(("VIDIOC_S_CTRL BW:%d.\n", hexium->cur_bw));
-
-	if (0 == hexium->cur_bw && V4L2_STD_PAL == hexium->cur_std) {
-		hexium_set_standard(hexium, hexium_pal);
-		return 0;
-	}
-	if (0 == hexium->cur_bw && V4L2_STD_NTSC == hexium->cur_std) {
-		hexium_set_standard(hexium, hexium_ntsc);
-		return 0;
-	}
-	if (0 == hexium->cur_bw && V4L2_STD_SECAM == hexium->cur_std) {
-		hexium_set_standard(hexium, hexium_secam);
-		return 0;
-	}
-	if (1 == hexium->cur_bw && V4L2_STD_PAL == hexium->cur_std) {
-		hexium_set_standard(hexium, hexium_pal_bw);
-		return 0;
-	}
-	if (1 == hexium->cur_bw && V4L2_STD_NTSC == hexium->cur_std) {
-		hexium_set_standard(hexium, hexium_ntsc_bw);
-		return 0;
-	}
-	if (1 == hexium->cur_bw && V4L2_STD_SECAM == hexium->cur_std)
-		/* fixme: is there no bw secam mode? */
-		return -EINVAL;
-
-	return -EINVAL;
-}
-
-
 static struct saa7146_ext_vv vv_data;
 
 /* this function only gets called when the probing was successful */
 static int hexium_attach(struct saa7146_dev *dev, struct saa7146_pci_extension_data *info)
 {
-	struct hexium *hexium = (struct hexium *) dev->ext_priv;
+	struct hexium *hexium;
 	int ret;
 
-	DEB_EE((".\n"));
+	DEB_EE("\n");
 
 	hexium = kzalloc(sizeof(struct hexium), GFP_KERNEL);
 	if (NULL == hexium) {
-		printk("hexium_gemini: not enough kernel memory in hexium_attach().\n");
+		pr_err("not enough kernel memory in hexium_attach()\n");
 		return -ENOMEM;
 	}
 	dev->ext_priv = hexium;
@@ -371,7 +275,7 @@ static int hexium_attach(struct saa7146_dev *dev, struct saa7146_pci_extension_d
 	};
 	saa7146_i2c_adapter_prepare(dev, &hexium->i2c_adapter, SAA7146_I2C_BUS_BIT_RATE_480);
 	if (i2c_add_adapter(&hexium->i2c_adapter) < 0) {
-		DEB_S(("cannot register i2c-device. skipping.\n"));
+		DEB_S("cannot register i2c-device. skipping.\n");
 		kfree(hexium);
 		return -EFAULT;
 	}
@@ -394,19 +298,17 @@ static int hexium_attach(struct saa7146_dev *dev, struct saa7146_pci_extension_d
 	hexium->cur_input = 0;
 
 	saa7146_vv_init(dev, &vv_data);
-	vv_data.ops.vidioc_queryctrl = vidioc_queryctrl;
-	vv_data.ops.vidioc_g_ctrl = vidioc_g_ctrl;
-	vv_data.ops.vidioc_s_ctrl = vidioc_s_ctrl;
-	vv_data.ops.vidioc_enum_input = vidioc_enum_input;
-	vv_data.ops.vidioc_g_input = vidioc_g_input;
-	vv_data.ops.vidioc_s_input = vidioc_s_input;
+
+	vv_data.vid_ops.vidioc_enum_input = vidioc_enum_input;
+	vv_data.vid_ops.vidioc_g_input = vidioc_g_input;
+	vv_data.vid_ops.vidioc_s_input = vidioc_s_input;
 	ret = saa7146_register_device(&hexium->video_dev, dev, "hexium gemini", VFL_TYPE_GRABBER);
 	if (ret < 0) {
-		printk("hexium_gemini: cannot register capture v4l2 device. skipping.\n");
+		pr_err("cannot register capture v4l2 device. skipping.\n");
 		return ret;
 	}
 
-	printk("hexium_gemini: found 'hexium gemini' frame grabber-%d.\n", hexium_num);
+	pr_info("found 'hexium gemini' frame grabber-%d\n", hexium_num);
 	hexium_num++;
 
 	return 0;
@@ -416,7 +318,7 @@ static int hexium_detach(struct saa7146_dev *dev)
 {
 	struct hexium *hexium = (struct hexium *) dev->ext_priv;
 
-	DEB_EE(("dev:%p\n", dev));
+	DEB_EE("dev:%p\n", dev);
 
 	saa7146_unregister_device(&hexium->video_dev, dev);
 	saa7146_vv_release(dev);
@@ -508,7 +410,7 @@ static struct saa7146_extension hexium_extension = {
 static int __init hexium_init_module(void)
 {
 	if (0 != saa7146_register_extension(&hexium_extension)) {
-		DEB_S(("failed to register extension.\n"));
+		DEB_S("failed to register extension\n");
 		return -ENODEV;
 	}
 

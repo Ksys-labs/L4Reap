@@ -125,7 +125,7 @@ static inline int route4_hash_wild(void)
 	return 0;						\
 }
 
-static int route4_classify(struct sk_buff *skb, struct tcf_proto *tp,
+static int route4_classify(struct sk_buff *skb, const struct tcf_proto *tp,
 			   struct tcf_result *res)
 {
 	struct route4_head *head = (struct route4_head *)tp->root;
@@ -571,17 +571,21 @@ static int route4_dump(struct tcf_proto *tp, unsigned long fh,
 
 	if (!(f->handle & 0x8000)) {
 		id = f->id & 0xFF;
-		NLA_PUT_U32(skb, TCA_ROUTE4_TO, id);
+		if (nla_put_u32(skb, TCA_ROUTE4_TO, id))
+			goto nla_put_failure;
 	}
 	if (f->handle & 0x80000000) {
-		if ((f->handle >> 16) != 0xFFFF)
-			NLA_PUT_U32(skb, TCA_ROUTE4_IIF, f->iif);
+		if ((f->handle >> 16) != 0xFFFF &&
+		    nla_put_u32(skb, TCA_ROUTE4_IIF, f->iif))
+			goto nla_put_failure;
 	} else {
 		id = f->id >> 16;
-		NLA_PUT_U32(skb, TCA_ROUTE4_FROM, id);
+		if (nla_put_u32(skb, TCA_ROUTE4_FROM, id))
+			goto nla_put_failure;
 	}
-	if (f->res.classid)
-		NLA_PUT_U32(skb, TCA_ROUTE4_CLASSID, f->res.classid);
+	if (f->res.classid &&
+	    nla_put_u32(skb, TCA_ROUTE4_CLASSID, f->res.classid))
+		goto nla_put_failure;
 
 	if (tcf_exts_dump(skb, &f->exts, &route_ext_map) < 0)
 		goto nla_put_failure;

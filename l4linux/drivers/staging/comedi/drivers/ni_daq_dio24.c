@@ -52,12 +52,12 @@ the PCMCIA interface.
 #include <pcmcia/cisreg.h>
 #include <pcmcia/ds.h>
 
-static struct pcmcia_device *pcmcia_cur_dev = NULL;
+static struct pcmcia_device *pcmcia_cur_dev;
 
 #define DIO24_SIZE 4		/*  size of io region used by board */
 
 static int dio24_attach(struct comedi_device *dev, struct comedi_devconfig *it);
-static int dio24_detach(struct comedi_device *dev);
+static void dio24_detach(struct comedi_device *dev);
 
 enum dio24_bustype { pcmcia_bustype };
 
@@ -133,22 +133,19 @@ static int dio24_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 #endif
 		break;
 	default:
-		printk("bug! couldn't determine board type\n");
+		pr_err("bug! couldn't determine board type\n");
 		return -EINVAL;
 		break;
 	}
-	printk("comedi%d: ni_daq_dio24: %s, io 0x%lx", dev->minor,
-	       thisboard->name, iobase);
+	pr_debug("comedi%d: ni_daq_dio24: %s, io 0x%lx", dev->minor,
+		 thisboard->name, iobase);
 #ifdef incomplete
-	if (irq) {
-		printk(", irq %u", irq);
-	}
+	if (irq)
+		pr_debug("irq %u\n", irq);
 #endif
 
-	printk("\n");
-
 	if (iobase == 0) {
-		printk("io base address is zero!\n");
+		pr_err("io base address is zero!\n");
 		return -EINVAL;
 	}
 
@@ -171,19 +168,14 @@ static int dio24_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	return 0;
 };
 
-static int dio24_detach(struct comedi_device *dev)
+static void dio24_detach(struct comedi_device *dev)
 {
-	printk("comedi%d: ni_daq_dio24: remove\n", dev->minor);
-
 	if (dev->subdevices)
 		subdev_8255_cleanup(dev, dev->subdevices + 0);
-
 	if (thisboard->bustype != pcmcia_bustype && dev->iobase)
 		release_region(dev->iobase, DIO24_SIZE);
 	if (dev->irq)
 		free_irq(dev->irq, dev);
-
-	return 0;
 };
 
 static void dio24_config(struct pcmcia_device *link);
@@ -224,18 +216,12 @@ static int dio24_cs_attach(struct pcmcia_device *link)
 
 static void dio24_cs_detach(struct pcmcia_device *link)
 {
-
-	printk(KERN_INFO "ni_daq_dio24: HOLA SOY YO - cs-detach!\n");
-
-	dev_dbg(&link->dev, "dio24_cs_detach\n");
-
 	((struct local_info_t *)link->priv)->stop = 1;
 	dio24_release(link);
 
 	/* This points to the parent local_info_t struct */
 	kfree(link->priv);
-
-}				/* dio24_cs_detach */
+}
 
 static int dio24_pcmcia_config_loop(struct pcmcia_device *p_dev,
 				void *priv_data)

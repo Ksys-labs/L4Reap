@@ -21,6 +21,7 @@ KBUILD_DEFCONFIG := default_defconfig
 
 NM		= sh $(srctree)/arch/parisc/nm
 CHECKFLAGS	+= -D__hppa__=1
+LIBGCC		= $(shell $(CC) $(KBUILD_CFLAGS) -print-libgcc-file-name)
 
 MACHINE		:= $(shell uname -m)
 ifeq ($(MACHINE),parisc*)
@@ -31,7 +32,11 @@ ifdef CONFIG_64BIT
 UTS_MACHINE	:= parisc64
 CHECKFLAGS	+= -D__LP64__=1 -m64
 WIDTH		:= 64
+
+# FIXME: if no default set, should really try to locate dynamically
+ifeq ($(CROSS_COMPILE),)
 CROSS_COMPILE	:= hppa64-linux-gnu-
+endif
 else # 32-bit
 WIDTH		:=
 endif
@@ -71,11 +76,11 @@ head-y			:= arch/parisc/kernel/head.o
 
 KBUILD_CFLAGS	+= $(cflags-y)
 
-kernel-y			:= mm/ kernel/ math-emu/ kernel/init_task.o
+kernel-y			:= mm/ kernel/ math-emu/
 kernel-$(CONFIG_HPUX)		+= hpux/
 
 core-y	+= $(addprefix arch/parisc/, $(kernel-y))
-libs-y	+= arch/parisc/lib/ `$(CC) -print-libgcc-file-name`
+libs-y	+= arch/parisc/lib/ $(LIBGCC)
 
 drivers-$(CONFIG_OPROFILE)		+= arch/parisc/oprofile/
 

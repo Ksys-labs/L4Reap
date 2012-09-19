@@ -23,11 +23,6 @@
 
 #include <linux/list.h>
 
-#if defined(CONFIG_TEGRA_SYSTEM_DMA)
-
-struct tegra_dma_req;
-struct tegra_dma_channel;
-
 #define TEGRA_DMA_REQ_SEL_CNTR			0
 #define TEGRA_DMA_REQ_SEL_I2S_2			1
 #define TEGRA_DMA_REQ_SEL_I2S_1			2
@@ -55,6 +50,9 @@ struct tegra_dma_channel;
 #define TEGRA_DMA_REQ_SEL_DVC_I2C		24
 #define TEGRA_DMA_REQ_SEL_OWR			25
 #define TEGRA_DMA_REQ_SEL_INVALID		31
+
+struct tegra_dma_req;
+struct tegra_dma_channel;
 
 enum tegra_dma_mode {
 	TEGRA_DMA_SHARED = 1,
@@ -149,7 +147,5 @@ struct tegra_dma_channel *tegra_dma_allocate_channel(int mode);
 void tegra_dma_free_channel(struct tegra_dma_channel *ch);
 
 int __init tegra_dma_init(void);
-
-#endif
 
 #endif

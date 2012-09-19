@@ -1761,7 +1761,7 @@ static long vpfe_param_handler(struct file *file, void *priv,
 		}
 		break;
 	default:
-		ret = -EINVAL;
+		ret = -ENOTTY;
 	}
 unlock_out:
 	mutex_unlock(&vpfe_dev->lock);
@@ -2076,20 +2076,4 @@ static struct platform_driver vpfe_driver = {
 	.remove = __devexit_p(vpfe_remove),
 };
 
-static __init int vpfe_init(void)
-{
-	printk(KERN_NOTICE "vpfe_init\n");
-	/* Register driver to the kernel */
-	return platform_driver_register(&vpfe_driver);
-}
-
-/*
- * vpfe_cleanup : This function un-registers device driver
- */
-static void vpfe_cleanup(void)
-{
-	platform_driver_unregister(&vpfe_driver);
-}
-
-module_init(vpfe_init);
-module_exit(vpfe_cleanup);
+module_platform_driver(vpfe_driver);

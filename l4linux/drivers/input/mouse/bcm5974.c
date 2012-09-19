@@ -67,6 +67,22 @@
 #define USB_DEVICE_ID_APPLE_WELLSPRING5_ANSI	0x0245
 #define USB_DEVICE_ID_APPLE_WELLSPRING5_ISO	0x0246
 #define USB_DEVICE_ID_APPLE_WELLSPRING5_JIS	0x0247
+/* MacbookAir4,1 (unibody, July 2011) */
+#define USB_DEVICE_ID_APPLE_WELLSPRING6A_ANSI	0x0249
+#define USB_DEVICE_ID_APPLE_WELLSPRING6A_ISO	0x024a
+#define USB_DEVICE_ID_APPLE_WELLSPRING6A_JIS	0x024b
+/* MacbookAir4,2 (unibody, July 2011) */
+#define USB_DEVICE_ID_APPLE_WELLSPRING6_ANSI	0x024c
+#define USB_DEVICE_ID_APPLE_WELLSPRING6_ISO	0x024d
+#define USB_DEVICE_ID_APPLE_WELLSPRING6_JIS	0x024e
+/* Macbook8,2 (unibody) */
+#define USB_DEVICE_ID_APPLE_WELLSPRING5A_ANSI	0x0252
+#define USB_DEVICE_ID_APPLE_WELLSPRING5A_ISO	0x0253
+#define USB_DEVICE_ID_APPLE_WELLSPRING5A_JIS	0x0254
+/* MacbookPro10,1 (unibody, June 2012) */
+#define USB_DEVICE_ID_APPLE_WELLSPRING7_ANSI	0x0262
+#define USB_DEVICE_ID_APPLE_WELLSPRING7_ISO	0x0263
+#define USB_DEVICE_ID_APPLE_WELLSPRING7_JIS	0x0264
 
 #define BCM5974_DEVICE(prod) {					\
 	.match_flags = (USB_DEVICE_ID_MATCH_DEVICE |		\
@@ -104,6 +120,22 @@ static const struct usb_device_id bcm5974_table[] = {
 	BCM5974_DEVICE(USB_DEVICE_ID_APPLE_WELLSPRING5_ANSI),
 	BCM5974_DEVICE(USB_DEVICE_ID_APPLE_WELLSPRING5_ISO),
 	BCM5974_DEVICE(USB_DEVICE_ID_APPLE_WELLSPRING5_JIS),
+	/* MacbookAir4,1 */
+	BCM5974_DEVICE(USB_DEVICE_ID_APPLE_WELLSPRING6A_ANSI),
+	BCM5974_DEVICE(USB_DEVICE_ID_APPLE_WELLSPRING6A_ISO),
+	BCM5974_DEVICE(USB_DEVICE_ID_APPLE_WELLSPRING6A_JIS),
+	/* MacbookAir4,2 */
+	BCM5974_DEVICE(USB_DEVICE_ID_APPLE_WELLSPRING6_ANSI),
+	BCM5974_DEVICE(USB_DEVICE_ID_APPLE_WELLSPRING6_ISO),
+	BCM5974_DEVICE(USB_DEVICE_ID_APPLE_WELLSPRING6_JIS),
+	/* MacbookPro8,2 */
+	BCM5974_DEVICE(USB_DEVICE_ID_APPLE_WELLSPRING5A_ANSI),
+	BCM5974_DEVICE(USB_DEVICE_ID_APPLE_WELLSPRING5A_ISO),
+	BCM5974_DEVICE(USB_DEVICE_ID_APPLE_WELLSPRING5A_JIS),
+	/* MacbookPro10,1 */
+	BCM5974_DEVICE(USB_DEVICE_ID_APPLE_WELLSPRING7_ANSI),
+	BCM5974_DEVICE(USB_DEVICE_ID_APPLE_WELLSPRING7_ISO),
+	BCM5974_DEVICE(USB_DEVICE_ID_APPLE_WELLSPRING7_JIS),
 	/* Terminating entry */
 	{}
 };
@@ -294,6 +326,54 @@ static const struct bcm5974_config bcm5974_config_table[] = {
 		{ DIM_X, DIM_X / SN_COORD, -4415, 5050 },
 		{ DIM_Y, DIM_Y / SN_COORD, -55, 6680 }
 	},
+	{
+		USB_DEVICE_ID_APPLE_WELLSPRING6_ANSI,
+		USB_DEVICE_ID_APPLE_WELLSPRING6_ISO,
+		USB_DEVICE_ID_APPLE_WELLSPRING6_JIS,
+		HAS_INTEGRATED_BUTTON,
+		0x84, sizeof(struct bt_data),
+		0x81, TYPE2, FINGER_TYPE2, FINGER_TYPE2 + SIZEOF_ALL_FINGERS,
+		{ DIM_PRESSURE, DIM_PRESSURE / SN_PRESSURE, 0, 300 },
+		{ DIM_WIDTH, DIM_WIDTH / SN_WIDTH, 0, 2048 },
+		{ DIM_X, DIM_X / SN_COORD, -4620, 5140 },
+		{ DIM_Y, DIM_Y / SN_COORD, -150, 6600 }
+	},
+	{
+		USB_DEVICE_ID_APPLE_WELLSPRING5A_ANSI,
+		USB_DEVICE_ID_APPLE_WELLSPRING5A_ISO,
+		USB_DEVICE_ID_APPLE_WELLSPRING5A_JIS,
+		HAS_INTEGRATED_BUTTON,
+		0x84, sizeof(struct bt_data),
+		0x81, TYPE2, FINGER_TYPE2, FINGER_TYPE2 + SIZEOF_ALL_FINGERS,
+		{ DIM_PRESSURE, DIM_PRESSURE / SN_PRESSURE, 0, 300 },
+		{ DIM_WIDTH, DIM_WIDTH / SN_WIDTH, 0, 2048 },
+		{ DIM_X, DIM_X / SN_COORD, -4750, 5280 },
+		{ DIM_Y, DIM_Y / SN_COORD, -150, 6730 }
+	},
+	{
+		USB_DEVICE_ID_APPLE_WELLSPRING6A_ANSI,
+		USB_DEVICE_ID_APPLE_WELLSPRING6A_ISO,
+		USB_DEVICE_ID_APPLE_WELLSPRING6A_JIS,
+		HAS_INTEGRATED_BUTTON,
+		0x84, sizeof(struct bt_data),
+		0x81, TYPE2, FINGER_TYPE2, FINGER_TYPE2 + SIZEOF_ALL_FINGERS,
+		{ DIM_PRESSURE, DIM_PRESSURE / SN_PRESSURE, 0, 300 },
+		{ DIM_WIDTH, DIM_WIDTH / SN_WIDTH, 0, 2048 },
+		{ DIM_X, DIM_X / SN_COORD, -4620, 5140 },
+		{ DIM_Y, DIM_Y / SN_COORD, -150, 6600 }
+	},
+	{
+		USB_DEVICE_ID_APPLE_WELLSPRING7_ANSI,
+		USB_DEVICE_ID_APPLE_WELLSPRING7_ISO,
+		USB_DEVICE_ID_APPLE_WELLSPRING7_JIS,
+		HAS_INTEGRATED_BUTTON,
+		0x84, sizeof(struct bt_data),
+		0x81, TYPE2, FINGER_TYPE2, FINGER_TYPE2 + SIZEOF_ALL_FINGERS,
+		{ DIM_PRESSURE, DIM_PRESSURE / SN_PRESSURE, 0, 300 },
+		{ DIM_WIDTH, DIM_WIDTH / SN_WIDTH, 0, 2048 },
+		{ DIM_X, DIM_X / SN_COORD, -4750, 5280 },
+		{ DIM_Y, DIM_Y / SN_COORD, -150, 6730 }
+	},
 	{}
 };
 
@@ -372,6 +452,10 @@ static void setup_events_to_report(struct input_dev *input_dev,
 	__set_bit(BTN_TOOL_TRIPLETAP, input_dev->keybit);
 	__set_bit(BTN_TOOL_QUADTAP, input_dev->keybit);
 	__set_bit(BTN_LEFT, input_dev->keybit);
+
+	__set_bit(INPUT_PROP_POINTER, input_dev->propbit);
+	if (cfg->caps & HAS_INTEGRATED_BUTTON)
+		__set_bit(INPUT_PROP_BUTTONPAD, input_dev->propbit);
 
 	input_set_events_per_packet(input_dev, 60);
 }
@@ -520,7 +604,7 @@ static int bcm5974_wellspring_mode(struct bcm5974 *dev, bool on)
 	int retval = 0, size;
 
 	if (!data) {
-		err("bcm5974: out of memory");
+		dev_err(&dev->intf->dev, "out of memory\n");
 		retval = -ENOMEM;
 		goto out;
 	}
@@ -533,7 +617,7 @@ static int bcm5974_wellspring_mode(struct bcm5974 *dev, bool on)
 			BCM5974_WELLSPRING_MODE_REQUEST_INDEX, data, 8, 5000);
 
 	if (size != 8) {
-		err("bcm5974: could not read from device");
+		dev_err(&dev->intf->dev, "could not read from device\n");
 		retval = -EIO;
 		goto out;
 	}
@@ -551,7 +635,7 @@ static int bcm5974_wellspring_mode(struct bcm5974 *dev, bool on)
 			BCM5974_WELLSPRING_MODE_REQUEST_INDEX, data, 8, 5000);
 
 	if (size != 8) {
-		err("bcm5974: could not write to device");
+		dev_err(&dev->intf->dev, "could not write to device\n");
 		retval = -EIO;
 		goto out;
 	}
@@ -567,6 +651,7 @@ static int bcm5974_wellspring_mode(struct bcm5974 *dev, bool on)
 static void bcm5974_irq_button(struct urb *urb)
 {
 	struct bcm5974 *dev = urb->context;
+	struct usb_interface *intf = dev->intf;
 	int error;
 
 	switch (urb->status) {
@@ -576,10 +661,11 @@ static void bcm5974_irq_button(struct urb *urb)
 	case -ECONNRESET:
 	case -ENOENT:
 	case -ESHUTDOWN:
-		dbg("bcm5974: button urb shutting down: %d", urb->status);
+		dev_dbg(&intf->dev, "button urb shutting down: %d\n",
+			urb->status);
 		return;
 	default:
-		dbg("bcm5974: button urb status: %d", urb->status);
+		dev_dbg(&intf->dev, "button urb status: %d\n", urb->status);
 		goto exit;
 	}
 
@@ -590,12 +676,13 @@ static void bcm5974_irq_button(struct urb *urb)
 exit:
 	error = usb_submit_urb(dev->bt_urb, GFP_ATOMIC);
 	if (error)
-		err("bcm5974: button urb failed: %d", error);
+		dev_err(&intf->dev, "button urb failed: %d\n", error);
 }
 
 static void bcm5974_irq_trackpad(struct urb *urb)
 {
 	struct bcm5974 *dev = urb->context;
+	struct usb_interface *intf = dev->intf;
 	int error;
 
 	switch (urb->status) {
@@ -605,10 +692,11 @@ static void bcm5974_irq_trackpad(struct urb *urb)
 	case -ECONNRESET:
 	case -ENOENT:
 	case -ESHUTDOWN:
-		dbg("bcm5974: trackpad urb shutting down: %d", urb->status);
+		dev_dbg(&intf->dev, "trackpad urb shutting down: %d\n",
+			urb->status);
 		return;
 	default:
-		dbg("bcm5974: trackpad urb status: %d", urb->status);
+		dev_dbg(&intf->dev, "trackpad urb status: %d\n", urb->status);
 		goto exit;
 	}
 
@@ -623,7 +711,7 @@ static void bcm5974_irq_trackpad(struct urb *urb)
 exit:
 	error = usb_submit_urb(dev->tp_urb, GFP_ATOMIC);
 	if (error)
-		err("bcm5974: trackpad urb failed: %d", error);
+		dev_err(&intf->dev, "trackpad urb failed: %d\n", error);
 }
 
 /*
@@ -769,7 +857,7 @@ static int bcm5974_probe(struct usb_interface *iface,
 	dev = kzalloc(sizeof(struct bcm5974), GFP_KERNEL);
 	input_dev = input_allocate_device();
 	if (!dev || !input_dev) {
-		err("bcm5974: out of memory");
+		dev_err(&iface->dev, "out of memory\n");
 		goto err_free_devs;
 	}
 
@@ -880,16 +968,4 @@ static struct usb_driver bcm5974_driver = {
 	.supports_autosuspend	= 1,
 };
 
-static int __init bcm5974_init(void)
-{
-	return usb_register(&bcm5974_driver);
-}
-
-static void __exit bcm5974_exit(void)
-{
-	usb_deregister(&bcm5974_driver);
-}
-
-module_init(bcm5974_init);
-module_exit(bcm5974_exit);
-
+module_usb_driver(bcm5974_driver);

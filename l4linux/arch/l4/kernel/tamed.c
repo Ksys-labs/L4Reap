@@ -20,6 +20,7 @@
 #include <asm/generic/tamed.h>
 #include <asm/generic/smp.h>
 #include <asm/generic/vcpu.h>
+#include <asm/generic/cap_alloc.h>
 #include <asm/api/macros.h>
 
 #ifdef CONFIG_L4_VCPU
@@ -281,10 +282,10 @@ no_reply:
 void l4x_global_cli(void)
 {
 #ifdef CONFIG_L4_VCPU
-	l4vcpu_irq_disable(l4x_stack_vcpu_state_get());
+	l4vcpu_irq_disable(l4x_vcpu_state_current());
 	mb();
 #else
-	l4_cap_idx_t me = l4x_stack_id_get();
+	l4_cap_idx_t me = l4x_cap_current();
 	int nr = get_tamer_nr(current_thread_info()->cpu);
 
 	if (unlikely((me >> L4_CAP_SHIFT) > 9000))
@@ -339,10 +340,10 @@ static void l4x_srv_setup_recv_wrap(l4_utcb_t *utcb)
 void l4x_global_sti(void)
 {
 #ifdef CONFIG_L4_VCPU
-	l4vcpu_irq_enable(l4x_stack_vcpu_state_get(), l4x_stack_utcb_get(),
+	l4vcpu_irq_enable(l4x_vcpu_state_current(), l4x_utcb_current(),
 	                  do_vcpu_irq, l4x_srv_setup_recv_wrap);
 #else
-	l4_cap_idx_t me = l4x_stack_id_get();
+	l4_cap_idx_t me = l4x_cap_current();
 	int nr = get_tamer_nr(current_thread_info()->cpu);
 
 	if (unlikely((me >> L4_CAP_SHIFT) > 9000))
@@ -365,19 +366,69 @@ EXPORT_SYMBOL(l4x_global_sti);
 #ifdef CONFIG_L4_VCPU
 void l4x_global_halt(void)
 {
-	l4vcpu_halt(l4x_stack_vcpu_state_get(), l4x_stack_utcb_get(),
+	l4vcpu_halt(l4x_vcpu_state_current(), l4x_utcb_current(),
 	            do_vcpu_irq, l4x_srv_setup_recv_wrap);
 }
 EXPORT_SYMBOL(l4x_global_halt);
+
+#ifdef CONFIG_PM
+
+static l4_vcpu_state_t buf_vcpu;
+static l4_buf_regs_t buf_utcb_buf_regs;
+static l4_msg_regs_t buf_utcb_msg_regs;
+
+void l4x_global_wait_save(void)
+{
+	l4_vcpu_state_t *vcpu = l4x_vcpu_state_current();
+	l4_utcb_t *utcb = l4x_utcb_current();
+
+	BUG_ON(!irqs_disabled());
+
+	l4x_srv_setup_recv_wrap(utcb);
+	vcpu->i.tag = l4_ipc_wait(utcb, &vcpu->i.label, L4_IPC_NEVER);
+
+	memcpy(&buf_vcpu, vcpu, sizeof(*vcpu));
+	memcpy(&buf_utcb_buf_regs, l4_utcb_br_u(utcb),
+	       L4_UTCB_GENERIC_BUFFERS_SIZE);
+	memcpy(&buf_utcb_msg_regs, l4_utcb_mr_u(utcb),
+	       L4_UTCB_GENERIC_DATA_SIZE);
+}
+
+void l4x_global_saved_event_inject(void)
+{
+	l4_vcpu_state_t *vcpu = l4x_vcpu_state_current();
+	l4_utcb_t *utcb = l4x_utcb_current();
+	unsigned long flags;
+
+	printk("Resume event replay: Wakeup source label=%lx\n",
+	       buf_vcpu.i.label);
+
+	local_irq_save(flags);
+
+	memcpy(vcpu, &buf_vcpu, sizeof(*vcpu));
+	/* Might be called from different CPU than saved, so leave TCR
+	 * intact */
+	memcpy(l4_utcb_br_u(utcb), &buf_utcb_buf_regs,
+	       L4_UTCB_GENERIC_BUFFERS_SIZE);
+	memcpy(l4_utcb_mr_u(utcb), &buf_utcb_msg_regs,
+	       L4_UTCB_GENERIC_DATA_SIZE);
+	vcpu->state |= L4_VCPU_F_IRQ;
+	l4_barrier();
+
+	do_vcpu_irq(vcpu);
+
+	local_irq_restore(flags);
+}
+#endif
 #endif
 
 unsigned long l4x_global_save_flags(void)
 {
 #ifdef CONFIG_L4_VCPU
-	return l4vcpu_state(l4x_stack_vcpu_state_get());
+	return l4vcpu_state(l4x_vcpu_state_current());
 #else
 	return l4_capability_equal(tamed_per_nr(cli_lock, get_tamer_nr(current_thread_info()->cpu)).owner,
-	                           l4x_stack_id_get()) ? L4_IRQ_DISABLED : L4_IRQ_ENABLED;
+	                           l4x_cap_current()) ? L4_IRQ_DISABLED : L4_IRQ_ENABLED;
 #endif
 }
 EXPORT_SYMBOL(l4x_global_save_flags);
@@ -385,8 +436,8 @@ EXPORT_SYMBOL(l4x_global_save_flags);
 void l4x_global_restore_flags(unsigned long flags)
 {
 #ifdef CONFIG_L4_VCPU
-	l4vcpu_irq_restore(l4x_stack_vcpu_state_get(), flags,
-	                   l4x_stack_utcb_get(), do_vcpu_irq,
+	l4vcpu_irq_restore(l4x_vcpu_state_current(), flags,
+	                   l4x_utcb_current(), do_vcpu_irq,
 	                   l4x_srv_setup_recv_wrap);
 #else
 	switch (flags) {
@@ -436,7 +487,8 @@ void l4x_tamed_start(unsigned vcpu)
 	tamed_per_nr(cli_sem_thread_th, nr) =
 	  l4lx_thread_create(cli_sem_thread, vcpu,
 	                     tamed_per_nr(stack_mem, nr) + sizeof(tamed_per_nr(stack_mem, 0)),
-	                     &nr, sizeof(nr), CONFIG_L4_PRIO_TAMER, 0, s);
+	                     &nr, sizeof(nr), l4x_cap_alloc_noctx(),
+	                     CONFIG_L4_PRIO_TAMER, 0, s, NULL);
 	tamed_per_nr(cli_sem_thread_id, nr) =
 		l4lx_thread_get_cap(tamed_per_nr(cli_sem_thread_th, nr));
 
@@ -466,7 +518,7 @@ void l4x_tamed_shutdown(unsigned vcpu)
 
 	if (!found) {
 		// none found, shutdown thread
-		l4lx_thread_shutdown(tamed_per_nr(cli_sem_thread_th, nr), 0);
+		l4lx_thread_shutdown(tamed_per_nr(cli_sem_thread_th, nr), NULL, 1);
 		tamed_per_nr(cli_sem_thread_id, nr) = L4_INVALID_CAP;
 		LOG_printf("Tamer%d was destroyed\n", nr);
 	}

@@ -1,10 +1,11 @@
 /*
  *  Atheros AR71XX/AR724X/AR913X specific setup
  *
+ *  Copyright (C) 2010-2011 Jaiganesh Narayanan <jnarayanan@atheros.com>
  *  Copyright (C) 2008-2011 Gabor Juhos <juhosg@openwrt.org>
  *  Copyright (C) 2008 Imre Kaloz <kaloz@openwrt.org>
  *
- *  Parts of this file are based on Atheros' 2.6.15 BSP
+ *  Parts of this file are based on Atheros' 2.6.15/2.6.31 BSP
  *
  *  This program is free software; you can redistribute it and/or modify it
  *  under the terms of the GNU General Public License version 2 as published
@@ -101,19 +102,19 @@ static void __init ath79_detect_sys_type(void)
 	case REV_ID_MAJOR_AR7240:
 		ath79_soc = ATH79_SOC_AR7240;
 		chip = "7240";
-		rev = (id & AR724X_REV_ID_REVISION_MASK);
+		rev = id & AR724X_REV_ID_REVISION_MASK;
 		break;
 
 	case REV_ID_MAJOR_AR7241:
 		ath79_soc = ATH79_SOC_AR7241;
 		chip = "7241";
-		rev = (id & AR724X_REV_ID_REVISION_MASK);
+		rev = id & AR724X_REV_ID_REVISION_MASK;
 		break;
 
 	case REV_ID_MAJOR_AR7242:
 		ath79_soc = ATH79_SOC_AR7242;
 		chip = "7242";
-		rev = (id & AR724X_REV_ID_REVISION_MASK);
+		rev = id & AR724X_REV_ID_REVISION_MASK;
 		break;
 
 	case REV_ID_MAJOR_AR913X:
@@ -133,9 +134,41 @@ static void __init ath79_detect_sys_type(void)
 		}
 		break;
 
+	case REV_ID_MAJOR_AR9330:
+		ath79_soc = ATH79_SOC_AR9330;
+		chip = "9330";
+		rev = id & AR933X_REV_ID_REVISION_MASK;
+		break;
+
+	case REV_ID_MAJOR_AR9331:
+		ath79_soc = ATH79_SOC_AR9331;
+		chip = "9331";
+		rev = id & AR933X_REV_ID_REVISION_MASK;
+		break;
+
+	case REV_ID_MAJOR_AR9341:
+		ath79_soc = ATH79_SOC_AR9341;
+		chip = "9341";
+		rev = id & AR934X_REV_ID_REVISION_MASK;
+		break;
+
+	case REV_ID_MAJOR_AR9342:
+		ath79_soc = ATH79_SOC_AR9342;
+		chip = "9342";
+		rev = id & AR934X_REV_ID_REVISION_MASK;
+		break;
+
+	case REV_ID_MAJOR_AR9344:
+		ath79_soc = ATH79_SOC_AR9344;
+		chip = "9344";
+		rev = id & AR934X_REV_ID_REVISION_MASK;
+		break;
+
 	default:
-		panic("ath79: unknown SoC, id:0x%08x\n", id);
+		panic("ath79: unknown SoC, id:0x%08x", id);
 	}
+
+	ath79_soc_rev = rev;
 
 	sprintf(ath79_sys_type, "Atheros AR%s rev %u", chip, rev);
 	pr_info("SoC: %s\n", ath79_sys_type);

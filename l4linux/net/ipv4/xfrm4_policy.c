@@ -79,13 +79,13 @@ static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
 	struct rtable *rt = (struct rtable *)xdst->route;
 	const struct flowi4 *fl4 = &fl->u.ip4;
 
-	rt->rt_key_dst = fl4->daddr;
-	rt->rt_key_src = fl4->saddr;
-	rt->rt_key_tos = fl4->flowi4_tos;
-	rt->rt_route_iif = fl4->flowi4_iif;
-	rt->rt_iif = fl4->flowi4_iif;
-	rt->rt_oif = fl4->flowi4_oif;
-	rt->rt_mark = fl4->flowi4_mark;
+	xdst->u.rt.rt_key_dst = fl4->daddr;
+	xdst->u.rt.rt_key_src = fl4->saddr;
+	xdst->u.rt.rt_key_tos = fl4->flowi4_tos;
+	xdst->u.rt.rt_route_iif = fl4->flowi4_iif;
+	xdst->u.rt.rt_iif = fl4->flowi4_iif;
+	xdst->u.rt.rt_oif = fl4->flowi4_oif;
+	xdst->u.rt.rt_mark = fl4->flowi4_mark;
 
 	xdst->u.dst.dev = dev;
 	dev_hold(dev);
@@ -117,7 +117,7 @@ _decode_session4(struct sk_buff *skb, struct flowi *fl, int reverse)
 	memset(fl4, 0, sizeof(struct flowi4));
 	fl4->flowi4_mark = skb->mark;
 
-	if (!(iph->frag_off & htons(IP_MF | IP_OFFSET))) {
+	if (!ip_is_fragment(iph)) {
 		switch (iph->protocol) {
 		case IPPROTO_UDP:
 		case IPPROTO_UDPLITE:
@@ -152,7 +152,7 @@ _decode_session4(struct sk_buff *skb, struct flowi *fl, int reverse)
 
 		case IPPROTO_AH:
 			if (pskb_may_pull(skb, xprth + 8 - skb->data)) {
-				__be32 *ah_hdr = (__be32*)xprth;
+				__be32 *ah_hdr = (__be32 *)xprth;
 
 				fl4->fl4_ipsec_spi = ah_hdr[1];
 			}
@@ -298,8 +298,8 @@ void __init xfrm4_init(int rt_max_size)
 	xfrm4_state_init();
 	xfrm4_policy_init();
 #ifdef CONFIG_SYSCTL
-	sysctl_hdr = register_net_sysctl_table(&init_net, net_ipv4_ctl_path,
-						xfrm4_policy_table);
+	sysctl_hdr = register_net_sysctl(&init_net, "net/ipv4",
+					 xfrm4_policy_table);
 #endif
 }
 

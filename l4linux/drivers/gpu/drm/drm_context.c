@@ -85,11 +85,12 @@ again:
 	mutex_lock(&dev->struct_mutex);
 	ret = idr_get_new_above(&dev->ctx_idr, NULL,
 				DRM_RESERVED_CONTEXTS, &new_id);
-	if (ret == -EAGAIN) {
-		mutex_unlock(&dev->struct_mutex);
-		goto again;
-	}
 	mutex_unlock(&dev->struct_mutex);
+	if (ret == -EAGAIN)
+		goto again;
+	else if (ret)
+		return ret;
+
 	return new_id;
 }
 
@@ -154,8 +155,6 @@ int drm_getsareactx(struct drm_device *dev, void *data,
 		return -EINVAL;
 	}
 
-	mutex_unlock(&dev->struct_mutex);
-
 	request->handle = NULL;
 	list_for_each_entry(_entry, &dev->maplist, head) {
 		if (_entry->map == map) {
@@ -164,6 +163,9 @@ int drm_getsareactx(struct drm_device *dev, void *data,
 			break;
 		}
 	}
+
+	mutex_unlock(&dev->struct_mutex);
+
 	if (request->handle == NULL)
 		return -EINVAL;
 

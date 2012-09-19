@@ -35,6 +35,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/rtc.h>
+#include <linux/sched.h>
 #include <linux/workqueue.h>
 
 /* DryIce Register Definitions */
@@ -404,7 +405,7 @@ static int dryice_rtc_probe(struct platform_device *pdev)
 	imxdi->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(imxdi->clk))
 		return PTR_ERR(imxdi->clk);
-	clk_enable(imxdi->clk);
+	clk_prepare_enable(imxdi->clk);
 
 	/*
 	 * Initialize dryice hardware
@@ -469,7 +470,7 @@ static int dryice_rtc_probe(struct platform_device *pdev)
 	return 0;
 
 err:
-	clk_disable(imxdi->clk);
+	clk_disable_unprepare(imxdi->clk);
 	clk_put(imxdi->clk);
 
 	return rc;
@@ -486,7 +487,7 @@ static int __devexit dryice_rtc_remove(struct platform_device *pdev)
 
 	rtc_device_unregister(imxdi->rtc);
 
-	clk_disable(imxdi->clk);
+	clk_disable_unprepare(imxdi->clk);
 	clk_put(imxdi->clk);
 
 	return 0;

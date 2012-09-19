@@ -53,15 +53,15 @@ nv50_cursor_show(struct nouveau_crtc *nv_crtc, bool update)
 	}
 
 	if (dev_priv->chipset != 0x50) {
-		BEGIN_RING(evo, 0, NV84_EVO_CRTC(nv_crtc->index, CURSOR_DMA), 1);
+		BEGIN_NV04(evo, 0, NV84_EVO_CRTC(nv_crtc->index, CURSOR_DMA), 1);
 		OUT_RING(evo, NvEvoVRAM);
 	}
-	BEGIN_RING(evo, 0, NV50_EVO_CRTC(nv_crtc->index, CURSOR_CTRL), 2);
+	BEGIN_NV04(evo, 0, NV50_EVO_CRTC(nv_crtc->index, CURSOR_CTRL), 2);
 	OUT_RING(evo, NV50_EVO_CRTC_CURSOR_CTRL_SHOW);
 	OUT_RING(evo, nv_crtc->cursor.offset >> 8);
 
 	if (update) {
-		BEGIN_RING(evo, 0, NV50_EVO_UPDATE, 1);
+		BEGIN_NV04(evo, 0, NV50_EVO_UPDATE, 1);
 		OUT_RING(evo, 0);
 		FIRE_RING(evo);
 		nv_crtc->cursor.visible = true;
@@ -86,16 +86,16 @@ nv50_cursor_hide(struct nouveau_crtc *nv_crtc, bool update)
 		NV_ERROR(dev, "no space while hiding cursor\n");
 		return;
 	}
-	BEGIN_RING(evo, 0, NV50_EVO_CRTC(nv_crtc->index, CURSOR_CTRL), 2);
+	BEGIN_NV04(evo, 0, NV50_EVO_CRTC(nv_crtc->index, CURSOR_CTRL), 2);
 	OUT_RING(evo, NV50_EVO_CRTC_CURSOR_CTRL_HIDE);
 	OUT_RING(evo, 0);
 	if (dev_priv->chipset != 0x50) {
-		BEGIN_RING(evo, 0, NV84_EVO_CRTC(nv_crtc->index, CURSOR_DMA), 1);
+		BEGIN_NV04(evo, 0, NV84_EVO_CRTC(nv_crtc->index, CURSOR_DMA), 1);
 		OUT_RING(evo, NV84_EVO_CRTC_CURSOR_DMA_HANDLE_NONE);
 	}
 
 	if (update) {
-		BEGIN_RING(evo, 0, NV50_EVO_UPDATE, 1);
+		BEGIN_NV04(evo, 0, NV50_EVO_UPDATE, 1);
 		OUT_RING(evo, 0);
 		FIRE_RING(evo);
 		nv_crtc->cursor.visible = false;
@@ -137,21 +137,3 @@ nv50_cursor_init(struct nouveau_crtc *nv_crtc)
 	nv_crtc->cursor.show = nv50_cursor_show;
 	return 0;
 }
-
-void
-nv50_cursor_fini(struct nouveau_crtc *nv_crtc)
-{
-	struct drm_device *dev = nv_crtc->base.dev;
-	int idx = nv_crtc->index;
-
-	NV_DEBUG_KMS(dev, "\n");
-
-	nv_wr32(dev, NV50_PDISPLAY_CURSOR_CURSOR_CTRL2(idx), 0);
-	if (!nv_wait(dev, NV50_PDISPLAY_CURSOR_CURSOR_CTRL2(idx),
-		     NV50_PDISPLAY_CURSOR_CURSOR_CTRL2_STATUS, 0)) {
-		NV_ERROR(dev, "timeout: CURSOR_CTRL2_STATUS == 0\n");
-		NV_ERROR(dev, "CURSOR_CTRL2 = 0x%08x\n",
-			 nv_rd32(dev, NV50_PDISPLAY_CURSOR_CURSOR_CTRL2(idx)));
-	}
-}
-

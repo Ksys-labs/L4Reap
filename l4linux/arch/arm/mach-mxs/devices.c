@@ -75,16 +75,13 @@ err:
 	return pdev;
 }
 
-int __init mxs_add_amba_device(const struct amba_device *dev)
+struct device mxs_apbh_bus = {
+	.init_name	= "mxs_apbh",
+	.parent         = &platform_bus,
+};
+
+static int __init mxs_device_init(void)
 {
-	struct amba_device *adev = kmalloc(sizeof(*adev), GFP_KERNEL);
-
-	if (!adev) {
-		pr_err("%s: failed to allocate memory", __func__);
-		return -ENOMEM;
-	}
-
-	*adev = *dev;
-
-	return amba_device_register(adev, &iomem_resource);
+	return device_register(&mxs_apbh_bus);
 }
+core_initcall(mxs_device_init);

@@ -27,6 +27,8 @@
  * and may contain code fragments from it.
  */
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #define MODULE_NAME "sq905c"
 
 #include <linux/workqueue.h>
@@ -95,8 +97,7 @@ static int sq905c_command(struct gspca_dev *gspca_dev, u16 command, u16 index)
 			      command, index, NULL, 0,
 			      SQ905C_CMD_TIMEOUT);
 	if (ret < 0) {
-		err("%s: usb_control_msg failed (%d)",
-			__func__, ret);
+		pr_err("%s: usb_control_msg failed (%d)\n", __func__, ret);
 		return ret;
 	}
 
@@ -115,8 +116,7 @@ static int sq905c_read(struct gspca_dev *gspca_dev, u16 command, u16 index,
 			      command, index, gspca_dev->usb_buf, size,
 			      SQ905C_CMD_TIMEOUT);
 	if (ret < 0) {
-		err("%s: usb_control_msg failed (%d)",
-		       __func__, ret);
+		pr_err("%s: usb_control_msg failed (%d)\n", __func__, ret);
 		return ret;
 	}
 
@@ -146,11 +146,15 @@ static void sq905c_dostream(struct work_struct *work)
 
 	buffer = kmalloc(SQ905C_MAX_TRANSFER, GFP_KERNEL | GFP_DMA);
 	if (!buffer) {
-		err("Couldn't allocate USB buffer");
+		pr_err("Couldn't allocate USB buffer\n");
 		goto quit_stream;
 	}
 
-	while (gspca_dev->present && gspca_dev->streaming) {
+	while (gspca_dev->dev && gspca_dev->streaming) {
+#ifdef CONFIG_PM
+		if (gspca_dev->frozen)
+			break;
+#endif
 		/* Request the header, which tells the size to download */
 		ret = usb_bulk_msg(gspca_dev->dev,
 				usb_rcvbulkpipe(gspca_dev->dev, 0x81),
@@ -169,7 +173,7 @@ static void sq905c_dostream(struct work_struct *work)
 		packet_type = FIRST_PACKET;
 		gspca_frame_add(gspca_dev, packet_type,
 				buffer, FRAME_HEADER_LEN);
-		while (bytes_left > 0 && gspca_dev->present) {
+		while (bytes_left > 0 && gspca_dev->dev) {
 			data_len = bytes_left > SQ905C_MAX_TRANSFER ?
 				SQ905C_MAX_TRANSFER : bytes_left;
 			ret = usb_bulk_msg(gspca_dev->dev,
@@ -191,7 +195,7 @@ static void sq905c_dostream(struct work_struct *work)
 		}
 	}
 quit_stream:
-	if (gspca_dev->present) {
+	if (gspca_dev->dev) {
 		mutex_lock(&gspca_dev->usb_lock);
 		sq905c_command(gspca_dev, SQ905C_CLEAR, 0);
 		mutex_unlock(&gspca_dev->usb_lock);
@@ -339,16 +343,4 @@ static struct usb_driver sd_driver = {
 #endif
 };
 
-/* -- module insert / remove -- */
-static int __init sd_mod_init(void)
-{
-	return usb_register(&sd_driver);
-}
-
-static void __exit sd_mod_exit(void)
-{
-	usb_deregister(&sd_driver);
-}
-
-module_init(sd_mod_init);
-module_exit(sd_mod_exit);
+module_usb_driver(sd_driver);

@@ -132,16 +132,16 @@ static int __init l4bdds_init_one(int nr)
 		                                    &device[nr].dscap,
 		                                    &device[nr].addr,
 		                                    &stat, 1))) {
-			printk("Failed to get file: %s(%d)\n",
-			       l4sys_errtostr(ret), ret);
+			printk(KERN_ERR "l4bdds: Failed to get file %s (rw): %s(%d)\n",
+			       device[nr].name, l4sys_errtostr(ret), ret);
 			return ret;
 		}
 	} else {
 		if ((ret = l4x_query_and_get_ds(device[nr].name, "l4bdds",
 		                                &device[nr].dscap,
 		                                &device[nr].addr, &stat))) {
-			printk("Failed to get file: %s(%d)\n",
-			       l4sys_errtostr(ret), ret);
+			printk(KERN_ERR "l4bdds: Failed to get file %s (ro): %s(%d)\n",
+			       device[nr].name, l4sys_errtostr(ret), ret);
 			return ret;
 		}
 	}
@@ -248,15 +248,17 @@ module_exit(l4bdds_exit);
 
 static int l4bdds_setup(const char *val, struct kernel_param *kp)
 {
-	char *p;
-	unsigned s;
+	const char *p = NULL;
+	unsigned s, l = strlen(val);
 
 	if (devs_pos >= NR_DEVS) {
 		printk("l4bdds: Too many block devices specified\n");
 		return 1;
 	}
-	if ((p = strstr(val, ",rw")))
+	if (l > 3 && !strcmp(val + l - 3, ",rw")) {
 		device[devs_pos].read_write = 1;
+		p = val + l - 3;
+	}
 	s = p ? p - val : (sizeof(device[devs_pos].name) - 1);
 	strlcpy(device[devs_pos].name, val, s + 1);
 	devs_pos++;

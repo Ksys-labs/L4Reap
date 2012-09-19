@@ -21,6 +21,7 @@
 #include "midi.h"
 #include "playback.h"
 #include "pod.h"
+#include "podhd.h"
 #include "revision.h"
 #include "toneport.h"
 #include "usbdefs.h"
@@ -37,6 +38,8 @@ static const struct usb_device_id line6_id_table[] = {
 	{USB_DEVICE(LINE6_VENDOR_ID, LINE6_DEVID_BASSPODXTPRO)},
 	{USB_DEVICE(LINE6_VENDOR_ID, LINE6_DEVID_GUITARPORT)},
 	{USB_DEVICE(LINE6_VENDOR_ID, LINE6_DEVID_POCKETPOD)},
+	{USB_DEVICE(LINE6_VENDOR_ID, LINE6_DEVID_PODHD300)},
+	{USB_DEVICE(LINE6_VENDOR_ID, LINE6_DEVID_PODHD500)},
 	{USB_DEVICE(LINE6_VENDOR_ID, LINE6_DEVID_PODSTUDIO_GX)},
 	{USB_DEVICE(LINE6_VENDOR_ID, LINE6_DEVID_PODSTUDIO_UX1)},
 	{USB_DEVICE(LINE6_VENDOR_ID, LINE6_DEVID_PODSTUDIO_UX2)},
@@ -56,23 +59,25 @@ MODULE_DEVICE_TABLE(usb, line6_id_table);
 
 /* *INDENT-OFF* */
 static struct line6_properties line6_properties_table[] = {
-	{ "BassPODxt",     "BassPODxt",        LINE6_BIT_BASSPODXT,     LINE6_BIT_CONTROL_PCM_HWMON },
-	{ "BassPODxtLive", "BassPODxt Live",   LINE6_BIT_BASSPODXTLIVE, LINE6_BIT_CONTROL_PCM_HWMON },
-	{ "BassPODxtPro",  "BassPODxt Pro",    LINE6_BIT_BASSPODXTPRO,  LINE6_BIT_CONTROL_PCM_HWMON },
-	{ "GuitarPort",    "GuitarPort",       LINE6_BIT_GUITARPORT,    LINE6_BIT_PCM               },
-	{ "PocketPOD",     "Pocket POD",       LINE6_BIT_POCKETPOD,     LINE6_BIT_CONTROL           },
-	{ "PODStudioGX",   "POD Studio GX",    LINE6_BIT_PODSTUDIO_GX,  LINE6_BIT_PCM               },
-	{ "PODStudioUX1",  "POD Studio UX1",   LINE6_BIT_PODSTUDIO_UX1, LINE6_BIT_PCM               },
-	{ "PODStudioUX2",  "POD Studio UX2",   LINE6_BIT_PODSTUDIO_UX2, LINE6_BIT_PCM               },
-	{ "PODX3",         "POD X3",           LINE6_BIT_PODX3,         LINE6_BIT_PCM               },
-	{ "PODX3Live",     "POD X3 Live",      LINE6_BIT_PODX3LIVE,     LINE6_BIT_PCM               },
-	{ "PODxt",         "PODxt",            LINE6_BIT_PODXT,         LINE6_BIT_CONTROL_PCM_HWMON },
-	{ "PODxtLive",     "PODxt Live",       LINE6_BIT_PODXTLIVE,     LINE6_BIT_CONTROL_PCM_HWMON },
-	{ "PODxtPro",      "PODxt Pro",        LINE6_BIT_PODXTPRO,      LINE6_BIT_CONTROL_PCM_HWMON },
-	{ "TonePortGX",    "TonePort GX",      LINE6_BIT_TONEPORT_GX,   LINE6_BIT_PCM               },
-	{ "TonePortUX1",   "TonePort UX1",     LINE6_BIT_TONEPORT_UX1,  LINE6_BIT_PCM               },
-	{ "TonePortUX2",   "TonePort UX2",     LINE6_BIT_TONEPORT_UX2,  LINE6_BIT_PCM               },
-	{ "Variax",        "Variax Workbench", LINE6_BIT_VARIAX,        LINE6_BIT_CONTROL           }
+	{ LINE6_BIT_BASSPODXT,     "BassPODxt",     "BassPODxt",        LINE6_BIT_CONTROL_PCM_HWMON },
+	{ LINE6_BIT_BASSPODXTLIVE, "BassPODxtLive", "BassPODxt Live",   LINE6_BIT_CONTROL_PCM_HWMON },
+	{ LINE6_BIT_BASSPODXTPRO,  "BassPODxtPro",  "BassPODxt Pro",    LINE6_BIT_CONTROL_PCM_HWMON },
+	{ LINE6_BIT_GUITARPORT,    "GuitarPort",    "GuitarPort",       LINE6_BIT_PCM               },
+	{ LINE6_BIT_POCKETPOD,     "PocketPOD",     "Pocket POD",       LINE6_BIT_CONTROL           },
+	{ LINE6_BIT_PODHD300,      "PODHD300",      "POD HD300",        LINE6_BIT_CONTROL_PCM_HWMON },
+	{ LINE6_BIT_PODHD500,      "PODHD500",      "POD HD500",        LINE6_BIT_CONTROL_PCM_HWMON },
+	{ LINE6_BIT_PODSTUDIO_GX,  "PODStudioGX",   "POD Studio GX",    LINE6_BIT_PCM               },
+	{ LINE6_BIT_PODSTUDIO_UX1, "PODStudioUX1",  "POD Studio UX1",   LINE6_BIT_PCM               },
+	{ LINE6_BIT_PODSTUDIO_UX2, "PODStudioUX2",  "POD Studio UX2",   LINE6_BIT_PCM               },
+	{ LINE6_BIT_PODX3,         "PODX3",         "POD X3",           LINE6_BIT_PCM               },
+	{ LINE6_BIT_PODX3LIVE,     "PODX3Live",     "POD X3 Live",      LINE6_BIT_PCM               },
+	{ LINE6_BIT_PODXT,         "PODxt",         "PODxt",            LINE6_BIT_CONTROL_PCM_HWMON },
+	{ LINE6_BIT_PODXTLIVE,     "PODxtLive",     "PODxt Live",       LINE6_BIT_CONTROL_PCM_HWMON },
+	{ LINE6_BIT_PODXTPRO,      "PODxtPro",      "PODxt Pro",        LINE6_BIT_CONTROL_PCM_HWMON },
+	{ LINE6_BIT_TONEPORT_GX,   "TonePortGX",    "TonePort GX",      LINE6_BIT_PCM               },
+	{ LINE6_BIT_TONEPORT_UX1,  "TonePortUX1",   "TonePort UX1",     LINE6_BIT_PCM               },
+	{ LINE6_BIT_TONEPORT_UX2,  "TonePortUX2",   "TonePort UX2",     LINE6_BIT_PCM               },
+	{ LINE6_BIT_VARIAX,        "Variax",        "Variax Workbench", LINE6_BIT_CONTROL           },
 };
 /* *INDENT-ON* */
 
@@ -87,14 +92,9 @@ const unsigned char line6_midi_id[] = {
 	Code to request version of POD, Variax interface
 	(and maybe other devices).
 */
-static const char line6_request_version0[] = {
+static const char line6_request_version[] = {
 	0xf0, 0x7e, 0x7f, 0x06, 0x01, 0xf7
 };
-
-/*
-	Copy of version request code with GFP_KERNEL flag for use in URB.
-*/
-static const char *line6_request_version;
 
 struct usb_line6 *line6_devices[LINE6_MAX_DEVICES];
 
@@ -331,8 +331,21 @@ int line6_send_raw_message_async(struct usb_line6 *line6, const char *buffer,
 */
 int line6_version_request_async(struct usb_line6 *line6)
 {
-	return line6_send_raw_message_async(line6, line6_request_version,
-					    sizeof(line6_request_version0));
+	char *buffer;
+	int retval;
+
+	buffer = kmalloc(sizeof(line6_request_version), GFP_ATOMIC);
+	if (buffer == NULL) {
+		dev_err(line6->ifcdev, "Out of memory");
+		return -ENOMEM;
+	}
+
+	memcpy(buffer, line6_request_version, sizeof(line6_request_version));
+
+	retval = line6_send_raw_message_async(line6, buffer,
+					      sizeof(line6_request_version));
+	kfree(buffer);
+	return retval;
 }
 
 /*
@@ -436,6 +449,10 @@ static void line6_data_received(struct urb *urb)
 			line6_pod_process_message((struct usb_line6_pod *)
 						  line6);
 			break;
+
+		case LINE6_DEVID_PODHD300:
+		case LINE6_DEVID_PODHD500:
+			break; /* let userspace handle MIDI */
 
 		case LINE6_DEVID_PODXTLIVE:
 			switch (line6->interface_number) {
@@ -720,8 +737,8 @@ static int line6_probe(struct usb_interface *interface,
 		       const struct usb_device_id *id)
 {
 	int devtype;
-	struct usb_device *usbdev = NULL;
-	struct usb_line6 *line6 = NULL;
+	struct usb_device *usbdev;
+	struct usb_line6 *line6;
 	const struct line6_properties *properties;
 	int devnum;
 	int interface_number, alternate = 0;
@@ -794,6 +811,7 @@ static int line6_probe(struct usb_interface *interface,
 		}
 		break;
 
+	case LINE6_DEVID_PODHD500:
 	case LINE6_DEVID_PODX3:
 	case LINE6_DEVID_PODX3LIVE:
 		switch (interface_number) {
@@ -812,6 +830,7 @@ static int line6_probe(struct usb_interface *interface,
 	case LINE6_DEVID_BASSPODXTPRO:
 	case LINE6_DEVID_PODXT:
 	case LINE6_DEVID_PODXTPRO:
+	case LINE6_DEVID_PODHD300:
 		alternate = 5;
 		break;
 
@@ -863,6 +882,18 @@ static int line6_probe(struct usb_interface *interface,
 		size = sizeof(struct usb_line6_pod);
 		ep_read = 0x84;
 		ep_write = 0x03;
+		break;
+
+	case LINE6_DEVID_PODHD300:
+		size = sizeof(struct usb_line6_podhd);
+		ep_read = 0x84;
+		ep_write = 0x03;
+		break;
+
+	case LINE6_DEVID_PODHD500:
+		size = sizeof(struct usb_line6_podhd);
+		ep_read = 0x81;
+		ep_write = 0x01;
 		break;
 
 	case LINE6_DEVID_POCKETPOD:
@@ -923,7 +954,7 @@ static int line6_probe(struct usb_interface *interface,
 	}
 
 	if (size == 0) {
-		dev_err(line6->ifcdev,
+		dev_err(&interface->dev,
 			"driver bug: interface data size not set\n");
 		ret = -ENODEV;
 		goto err_put;
@@ -1015,6 +1046,12 @@ static int line6_probe(struct usb_interface *interface,
 	case LINE6_DEVID_PODXT:
 	case LINE6_DEVID_PODXTPRO:
 		ret = line6_pod_init(interface, (struct usb_line6_pod *)line6);
+		break;
+
+	case LINE6_DEVID_PODHD300:
+	case LINE6_DEVID_PODHD500:
+		ret = line6_podhd_init(interface,
+				       (struct usb_line6_podhd *)line6);
 		break;
 
 	case LINE6_DEVID_PODXTLIVE:
@@ -1139,6 +1176,11 @@ static void line6_disconnect(struct usb_interface *interface)
 			line6_pod_disconnect(interface);
 			break;
 
+		case LINE6_DEVID_PODHD300:
+		case LINE6_DEVID_PODHD500:
+			line6_podhd_disconnect(interface);
+			break;
+
 		case LINE6_DEVID_PODXTLIVE:
 			switch (interface_number) {
 			case PODXTLIVE_INTERFACE_POD:
@@ -1258,69 +1300,7 @@ static struct usb_driver line6_driver = {
 	.id_table = line6_id_table,
 };
 
-/*
-	Module initialization.
-*/
-static int __init line6_init(void)
-{
-	int i, retval;
-
-	printk(KERN_INFO "%s driver version %s\n", DRIVER_NAME, DRIVER_VERSION);
-
-	for (i = LINE6_MAX_DEVICES; i--;)
-		line6_devices[i] = NULL;
-
-	retval = usb_register(&line6_driver);
-
-	if (retval) {
-		err("usb_register failed. Error number %d", retval);
-		return retval;
-	}
-
-	line6_request_version = kmalloc(sizeof(line6_request_version0),
-					GFP_KERNEL);
-
-	if (line6_request_version == NULL) {
-		err("Out of memory");
-		return -ENOMEM;
-	}
-
-	memcpy((char *)line6_request_version, line6_request_version0,
-	       sizeof(line6_request_version0));
-
-	return retval;
-}
-
-/*
-	Module cleanup.
-*/
-static void __exit line6_exit(void)
-{
-	int i;
-	struct usb_line6 *line6;
-	struct snd_line6_pcm *line6pcm;
-
-	/* stop all PCM channels */
-	for (i = LINE6_MAX_DEVICES; i--;) {
-		line6 = line6_devices[i];
-
-		if (line6 == NULL)
-			continue;
-
-		line6pcm = line6->line6pcm;
-
-		if (line6pcm == NULL)
-			continue;
-
-		line6_pcm_stop(line6pcm, ~0);
-	}
-
-	usb_deregister(&line6_driver);
-	kfree(line6_request_version);
-}
-
-module_init(line6_init);
-module_exit(line6_exit);
+module_usb_driver(line6_driver);
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);

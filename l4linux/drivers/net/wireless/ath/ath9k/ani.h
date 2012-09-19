@@ -25,11 +25,13 @@
 
 /* units are errors per second */
 #define ATH9K_ANI_OFDM_TRIG_HIGH_OLD      500
-#define ATH9K_ANI_OFDM_TRIG_HIGH_NEW      1000
+#define ATH9K_ANI_OFDM_TRIG_HIGH_NEW      3500
+#define ATH9K_ANI_OFDM_TRIG_HIGH_BELOW_INI 1000
 
 /* units are errors per second */
 #define ATH9K_ANI_OFDM_TRIG_LOW_OLD       200
 #define ATH9K_ANI_OFDM_TRIG_LOW_NEW       400
+#define ATH9K_ANI_OFDM_TRIG_LOW_ABOVE_INI 900
 
 /* units are errors per second */
 #define ATH9K_ANI_CCK_TRIG_HIGH_OLD       200
@@ -53,7 +55,7 @@
 #define ATH9K_ANI_RSSI_THR_LOW            7
 
 #define ATH9K_ANI_PERIOD_OLD              100
-#define ATH9K_ANI_PERIOD_NEW              1000
+#define ATH9K_ANI_PERIOD_NEW              300
 
 /* in ms */
 #define ATH9K_ANI_POLLINTERVAL_OLD        100
@@ -122,6 +124,7 @@ struct ar5416AniState {
 	u8 firstepLevel;
 	u8 ofdmWeakSigDetectOff;
 	u8 cckWeakSigThreshold;
+	bool update_ani;
 	u32 listenTime;
 	int32_t rssiThrLow;
 	int32_t rssiThrHigh;
@@ -148,8 +151,7 @@ struct ar5416Stats {
 	u32 ast_ani_ofdmerrs;
 	u32 ast_ani_cckerrs;
 	u32 ast_ani_reset;
-	u32 ast_ani_lzero;
-	u32 ast_ani_lneg;
+	u32 ast_ani_lneg_or_lzero;
 	u32 avgbrssi;
 	struct ath9k_mib_stats ast_mibstats;
 };
@@ -159,7 +161,5 @@ void ath9k_enable_mib_counters(struct ath_hw *ah);
 void ath9k_hw_disable_mib_counters(struct ath_hw *ah);
 void ath9k_hw_ani_setup(struct ath_hw *ah);
 void ath9k_hw_ani_init(struct ath_hw *ah);
-int ath9k_hw_get_ani_channel_idx(struct ath_hw *ah,
-				 struct ath9k_channel *chan);
 
 #endif /* ANI_H */

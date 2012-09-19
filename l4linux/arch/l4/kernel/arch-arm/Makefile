@@ -5,12 +5,12 @@
 obj-y		:= process.o sys_arm.o time.o traps.o stacktrace.o \
 		   switch_to.o setup.o l4.o signal.o irq.o \
 		   ptrace.o entry.o dispatch.o mach_setup.o io.o elf.o \
-		   return_address.o head.o
+		   return_address.o head.o opcodes.o sched_clock.o
 
 obj-$(CONFIG_DEPRECATED_PARAM_STRUCT) += compat.o
 
+obj-$(CONFIG_CPU_IDLE)				+= cpuidle.o
 obj-$(CONFIG_SMP)				+= smp.o smp_tlb.o platsmp.o
-obj-$(CONFIG_HAVE_SCHED_CLOCK)			+= sched_clock.o
 obj-$(CONFIG_MODULES)				+= armksyms.o module.o
 obj-$(CONFIG_ISA_DMA_API)			+= dma.o
 obj-$(CONFIG_HOTPLUG_CPU)			+= hotplug.o
@@ -19,8 +19,13 @@ obj-$(CONFIG_OABI_COMPAT)                       += sys_oabi-compat.o
 obj-$(CONFIG_CRASH_DUMP)			+= crash_dump.o
 obj-$(CONFIG_OF)				+= devtree.o
 obj-$(CONFIG_SWP_EMULATE)			+= swp_emulate.o
+obj-$(CONFIG_ARM_ARCH_TIMER)			+= arch_timer.o
 CFLAGS_swp_emulate.o				:= -Wa,-march=armv7-a
 
+obj-$(CONFIG_ARM_CPU_TOPOLOGY)			+= topology.o
+obj-$(CONFIG_L4_VPCI)				+= bios32.o
+
+cpuidle-y	:= ../../../arm/kernel/cpuidle.o
 dma-y		:= ../../../arm/kernel/dma.o
 irq-y		:= ../../../arm/kernel/irq.o
 module-y	:= ../../../arm/kernel/module.o
@@ -36,6 +41,8 @@ crash_dump-y    := ../../../arm/kernel/crash_dump.o
 smp_tlb-y       := ../../../arm/kernel/smp_tlb.o
 sched_clock-y   := ../../../arm/kernel/sched_clock.o
 devtree-y       := ../../../arm/kernel/devtree.o
+topology-y      := ../../../arm/kernel/topology.o
+opcodes-y       := ../../../arm/kernel/opcodes.o
 
 KBUILD_CPPFLAGS	+= -I$(srctree)/arch/arm/kernel
 

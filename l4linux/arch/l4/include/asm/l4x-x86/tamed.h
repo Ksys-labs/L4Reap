@@ -43,11 +43,11 @@ static inline void l4x_tamed_sem_down(void)
 
 	   "2:                         \n\t"
 	   : "=c" (dummy1), "=D" (dummy2), "=S" (dummy3)
-	   : "a"  ((l4x_stack_prio_get() << 20) | (1 << 16)),
+	   : "a"  ((l4x_prio_current() << 20) | (1 << 16)),
 	     "b"  (&tamed_per_nr(cli_lock, get_tamer_nr(cpu)).sem),
 	     "D"  (l4_utcb()),
 	     "d"  (tamed_per_nr(cli_sem_thread_id, get_tamer_nr(cpu)) | L4_SYSF_CALL),
-             "S"  (l4x_stack_id_get())
+             "S"  (l4x_cap_current())
 	   : "memory", "cc");
 }
 
@@ -66,12 +66,12 @@ static inline void l4x_tamed_sem_up(void)
 
 	   "2:                         \n\t"
 	   : "=a" (rtag), "=c" (dummy1), "=D" (dummy2), "=S" (dummy3), "=d" (dummy4)
-	   : "a"  ((l4x_stack_prio_get() << 20) | (2 << 16)),
+	   : "a"  ((l4x_prio_current() << 20) | (2 << 16)),
 	     "b"  (&tamed_per_nr(cli_lock, get_tamer_nr(cpu)).sem),
 	     "D"  (l4_utcb()),
 	     "d"  (tamed_per_nr(cli_sem_thread_id, get_tamer_nr(cpu)) | L4_SYSF_CALL),
              "c"  (0),
-	     "S"  (l4x_stack_id_get())
+	     "S"  (l4x_cap_current())
 	   : "memory");
 
 	if (unlikely(l4_ipc_error(rtag, l4_utcb())))

@@ -28,37 +28,9 @@
  * P/N 861040-0000: Sensor ST VV6410       ASIC STV0610   - QuickCam Web
  */
 
-#include "stv06xx_hdcs.h"
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-static const struct ctrl hdcs1x00_ctrl[] = {
-	{
-		{
-			.id		= V4L2_CID_EXPOSURE,
-			.type		= V4L2_CTRL_TYPE_INTEGER,
-			.name		= "exposure",
-			.minimum	= 0x00,
-			.maximum	= 0xff,
-			.step		= 0x1,
-			.default_value	= HDCS_DEFAULT_EXPOSURE,
-			.flags		= V4L2_CTRL_FLAG_SLIDER
-		},
-		.set = hdcs_set_exposure,
-		.get = hdcs_get_exposure
-	}, {
-		{
-			.id		= V4L2_CID_GAIN,
-			.type		= V4L2_CTRL_TYPE_INTEGER,
-			.name		= "gain",
-			.minimum	= 0x00,
-			.maximum	= 0xff,
-			.step		= 0x1,
-			.default_value	= HDCS_DEFAULT_GAIN,
-			.flags		= V4L2_CTRL_FLAG_SLIDER
-		},
-		.set = hdcs_set_gain,
-		.get = hdcs_get_gain
-	}
-};
+#include "stv06xx_hdcs.h"
 
 static struct v4l2_pix_format hdcs1x00_mode[] = {
 	{
@@ -71,36 +43,6 @@ static struct v4l2_pix_format hdcs1x00_mode[] = {
 		.bytesperline = HDCS_1X00_DEF_WIDTH,
 		.colorspace = V4L2_COLORSPACE_SRGB,
 		.priv = 1
-	}
-};
-
-static const struct ctrl hdcs1020_ctrl[] = {
-	{
-		{
-			.id		= V4L2_CID_EXPOSURE,
-			.type		= V4L2_CTRL_TYPE_INTEGER,
-			.name		= "exposure",
-			.minimum	= 0x00,
-			.maximum	= 0xffff,
-			.step		= 0x1,
-			.default_value	= HDCS_DEFAULT_EXPOSURE,
-			.flags		= V4L2_CTRL_FLAG_SLIDER
-		},
-		.set = hdcs_set_exposure,
-		.get = hdcs_get_exposure
-	}, {
-		{
-			.id		= V4L2_CID_GAIN,
-			.type		= V4L2_CTRL_TYPE_INTEGER,
-			.name		= "gain",
-			.minimum	= 0x00,
-			.maximum	= 0xff,
-			.step		= 0x1,
-			.default_value	= HDCS_DEFAULT_GAIN,
-			.flags		= V4L2_CTRL_FLAG_SLIDER
-		},
-		.set = hdcs_set_gain,
-		.get = hdcs_get_gain
 	}
 };
 
@@ -148,7 +90,6 @@ struct hdcs {
 	} exp;
 
 	int psmp;
-	u8 exp_cache, gain_cache;
 };
 
 static int hdcs_reg_write_seq(struct sd *sd, u8 reg, u8 *vals, u8 len)
@@ -230,16 +171,6 @@ static int hdcs_reset(struct sd *sd)
 	return err;
 }
 
-static int hdcs_get_exposure(struct gspca_dev *gspca_dev, __s32 *val)
-{
-	struct sd *sd = (struct sd *) gspca_dev;
-	struct hdcs *hdcs = sd->sensor_priv;
-
-	*val = hdcs->exp_cache;
-
-	return 0;
-}
-
 static int hdcs_set_exposure(struct gspca_dev *gspca_dev, __s32 val)
 {
 	struct sd *sd = (struct sd *) gspca_dev;
@@ -257,9 +188,6 @@ static int hdcs_set_exposure(struct gspca_dev *gspca_dev, __s32 val)
 	int mnct;
 	int cycles, err;
 	u8 exp[14];
-
-	val &= 0xff;
-	hdcs->exp_cache = val;
 
 	cycles = val * HDCS_CLK_FREQ_MHZ * 257;
 
@@ -334,11 +262,8 @@ static int hdcs_set_exposure(struct gspca_dev *gspca_dev, __s32 val)
 
 static int hdcs_set_gains(struct sd *sd, u8 g)
 {
-	struct hdcs *hdcs = sd->sensor_priv;
 	int err;
 	u8 gains[4];
-
-	hdcs->gain_cache = g;
 
 	/* the voltage gain Av = (1 + 19 * val / 127) * (1 + bit7) */
 	if (g > 127)
@@ -350,17 +275,7 @@ static int hdcs_set_gains(struct sd *sd, u8 g)
 	gains[3] = g;
 
 	err = hdcs_reg_write_seq(sd, HDCS_ERECPGA, gains, 4);
-		return err;
-}
-
-static int hdcs_get_gain(struct gspca_dev *gspca_dev, __s32 *val)
-{
-	struct sd *sd = (struct sd *) gspca_dev;
-	struct hdcs *hdcs = sd->sensor_priv;
-
-	*val = hdcs->gain_cache;
-
-	return 0;
+	return err;
 }
 
 static int hdcs_set_gain(struct gspca_dev *gspca_dev, __s32 val)
@@ -418,6 +333,39 @@ static int hdcs_set_size(struct sd *sd,
 	return err;
 }
 
+static int hdcs_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct gspca_dev *gspca_dev =
+		container_of(ctrl->handler, struct gspca_dev, ctrl_handler);
+	int err = -EINVAL;
+
+	switch (ctrl->id) {
+	case V4L2_CID_GAIN:
+		err = hdcs_set_gain(gspca_dev, ctrl->val);
+		break;
+	case V4L2_CID_EXPOSURE:
+		err = hdcs_set_exposure(gspca_dev, ctrl->val);
+		break;
+	}
+	return err;
+}
+
+static const struct v4l2_ctrl_ops hdcs_ctrl_ops = {
+	.s_ctrl = hdcs_s_ctrl,
+};
+
+static int hdcs_init_controls(struct sd *sd)
+{
+	struct v4l2_ctrl_handler *hdl = &sd->gspca_dev.ctrl_handler;
+
+	v4l2_ctrl_handler_init(hdl, 2);
+	v4l2_ctrl_new_std(hdl, &hdcs_ctrl_ops,
+			V4L2_CID_EXPOSURE, 0, 0xff, 1, HDCS_DEFAULT_EXPOSURE);
+	v4l2_ctrl_new_std(hdl, &hdcs_ctrl_ops,
+			V4L2_CID_GAIN, 0, 0xff, 1, HDCS_DEFAULT_GAIN);
+	return hdl->error;
+}
+
 static int hdcs_probe_1x00(struct sd *sd)
 {
 	struct hdcs *hdcs;
@@ -428,12 +376,10 @@ static int hdcs_probe_1x00(struct sd *sd)
 	if (ret < 0 || sensor != 0x08)
 		return -ENODEV;
 
-	info("HDCS-1000/1100 sensor detected");
+	pr_info("HDCS-1000/1100 sensor detected\n");
 
 	sd->gspca_dev.cam.cam_mode = hdcs1x00_mode;
 	sd->gspca_dev.cam.nmodes = ARRAY_SIZE(hdcs1x00_mode);
-	sd->desc.ctrls = hdcs1x00_ctrl;
-	sd->desc.nctrls = ARRAY_SIZE(hdcs1x00_ctrl);
 
 	hdcs = kmalloc(sizeof(struct hdcs), GFP_KERNEL);
 	if (!hdcs)
@@ -487,12 +433,10 @@ static int hdcs_probe_1020(struct sd *sd)
 	if (ret < 0 || sensor != 0x10)
 		return -ENODEV;
 
-	info("HDCS-1020 sensor detected");
+	pr_info("HDCS-1020 sensor detected\n");
 
 	sd->gspca_dev.cam.cam_mode = hdcs1020_mode;
 	sd->gspca_dev.cam.nmodes = ARRAY_SIZE(hdcs1020_mode);
-	sd->desc.ctrls = hdcs1020_ctrl;
-	sd->desc.nctrls = ARRAY_SIZE(hdcs1020_ctrl);
 
 	hdcs = kmalloc(sizeof(struct hdcs), GFP_KERNEL);
 	if (!hdcs)
@@ -533,12 +477,6 @@ static int hdcs_stop(struct sd *sd)
 	PDEBUG(D_STREAM, "Halting stream");
 
 	return hdcs_set_state(sd, HDCS_STATE_SLEEP);
-}
-
-static void hdcs_disconnect(struct sd *sd)
-{
-	PDEBUG(D_PROBE, "Disconnecting the sensor");
-	kfree(sd->sensor_priv);
 }
 
 static int hdcs_init(struct sd *sd)
@@ -585,27 +523,18 @@ static int hdcs_init(struct sd *sd)
 	if (err < 0)
 		return err;
 
-	err = hdcs_set_gains(sd, HDCS_DEFAULT_GAIN);
-	if (err < 0)
-		return err;
-
-	err = hdcs_set_size(sd, hdcs->array.width, hdcs->array.height);
-	if (err < 0)
-		return err;
-
-	err = hdcs_set_exposure(&sd->gspca_dev, HDCS_DEFAULT_EXPOSURE);
-	return err;
+	return hdcs_set_size(sd, hdcs->array.width, hdcs->array.height);
 }
 
 static int hdcs_dump(struct sd *sd)
 {
 	u16 reg, val;
 
-	info("Dumping sensor registers:");
+	pr_info("Dumping sensor registers:\n");
 
 	for (reg = HDCS_IDENT; reg <= HDCS_ROWEXPH; reg++) {
 		stv06xx_read_sensor(sd, reg, &val);
-		info("reg 0x%02x = 0x%02x", reg, val);
+		pr_info("reg 0x%02x = 0x%02x\n", reg, val);
 	}
 	return 0;
 }

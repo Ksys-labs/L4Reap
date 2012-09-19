@@ -73,7 +73,7 @@ static int __devinit wm831x_on_probe(struct platform_device *pdev)
 {
 	struct wm831x *wm831x = dev_get_drvdata(pdev->dev.parent);
 	struct wm831x_on *wm831x_on;
-	int irq = platform_get_irq(pdev, 0);
+	int irq = wm831x_irq(wm831x, platform_get_irq(pdev, 0));
 	int ret;
 
 	wm831x_on = kzalloc(sizeof(struct wm831x_on), GFP_KERNEL);
@@ -145,18 +145,7 @@ static struct platform_driver wm831x_on_driver = {
 		.owner	= THIS_MODULE,
 	},
 };
-
-static int __init wm831x_on_init(void)
-{
-	return platform_driver_register(&wm831x_on_driver);
-}
-module_init(wm831x_on_init);
-
-static void __exit wm831x_on_exit(void)
-{
-	platform_driver_unregister(&wm831x_on_driver);
-}
-module_exit(wm831x_on_exit);
+module_platform_driver(wm831x_on_driver);
 
 MODULE_ALIAS("platform:wm831x-on");
 MODULE_DESCRIPTION("WM831x ON pin");

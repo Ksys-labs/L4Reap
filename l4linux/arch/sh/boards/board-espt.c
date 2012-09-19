@@ -13,9 +13,10 @@
 #include <linux/interrupt.h>
 #include <linux/mtd/physmap.h>
 #include <linux/io.h>
+#include <linux/sh_eth.h>
+#include <linux/sh_intc.h>
 #include <asm/machvec.h>
 #include <asm/sizes.h>
-#include <asm/sh_eth.h>
 
 /* NOR Flash */
 static struct mtd_partition espt_nor_flash_partitions[] = {
@@ -71,7 +72,7 @@ static struct resource sh_eth_resources[] = {
 		.flags  = IORESOURCE_MEM,
 	}, {
 
-		.start  = 57,   /* irq number */
+		.start  = evt2irq(0x920),   /* irq number */
 		.flags  = IORESOURCE_IRQ,
 	},
 };

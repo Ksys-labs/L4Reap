@@ -60,6 +60,7 @@ static inline void native_halt(void)
 #include <asm/paravirt.h>
 #else
 #ifndef __ASSEMBLY__
+#include <linux/types.h>
 
 #if defined(CONFIG_L4_USERPRIV_ONLY) || defined(CONFIG_L4_TAMED) \
     || defined(CONFIG_L4_VCPU)
@@ -77,22 +78,22 @@ extern void l4x_global_restore_flags(unsigned long flags);
 extern void l4x_global_halt(void);
 #endif
 
-static inline unsigned long arch_local_save_flags(void)
+static inline notrace unsigned long arch_local_save_flags(void)
 {
 	return l4x_global_save_flags();
 }
 
-static inline void arch_local_irq_restore(unsigned long flags)
+static inline notrace void arch_local_irq_restore(unsigned long flags)
 {
 	l4x_global_restore_flags(flags);
 }
 
-static inline void arch_local_irq_disable(void)
+static inline notrace void arch_local_irq_disable(void)
 {
 	l4x_global_cli();
 }
 
-static inline void arch_local_irq_enable(void)
+static inline notrace void arch_local_irq_enable(void)
 {
 	l4x_global_sti();
 }
@@ -112,32 +113,22 @@ static inline void halt(void)
 #else
 /* Use cli/sti but not popf, sufficient for Fiasco-UX */
 
-static inline unsigned long arch_local_save_flags(void)
+static inline notrace unsigned long arch_local_save_flags(void)
 {
 	return l4x_local_save_flags();
 }
 
-static inline void arch_local_irq_restore(unsigned long flags)
+static inline notrace void arch_local_irq_restore(unsigned long flags)
 {
 	l4x_local_irq_restore(flags);
 }
 
-static inline void arch_local_irq_disable(void)
-{
-	l4x_local_irq_disable();
-}
-
-static inline void arch_local_irq_enable(void)
-{
-	l4x_local_irq_enable();
-}
-
-static inline void l4x_real_irq_disable(void)
+static inline notrace void arch_local_irq_disable(void)
 {
 	asm volatile("cli" : : : "memory");
 }
 
-static inline void l4x_real_irq_enable(void)
+static inline notrace void arch_local_irq_enable(void)
 {
 	asm volatile("sti" : : : "memory");
 }
@@ -145,22 +136,22 @@ static inline void l4x_real_irq_enable(void)
 #endif /* CONFIG_TAMED */
 #else /* ! L4 */
 
-static inline unsigned long arch_local_save_flags(void)
+static inline notrace unsigned long arch_local_save_flags(void)
 {
 	return native_save_fl();
 }
 
-static inline void arch_local_irq_restore(unsigned long flags)
+static inline notrace void arch_local_irq_restore(unsigned long flags)
 {
 	native_restore_fl(flags);
 }
 
-static inline void arch_local_irq_disable(void)
+static inline notrace void arch_local_irq_disable(void)
 {
 	native_irq_disable();
 }
 
-static inline void arch_local_irq_enable(void)
+static inline notrace void arch_local_irq_enable(void)
 {
 	native_irq_enable();
 }
@@ -190,7 +181,7 @@ static inline void halt(void)
 /*
  * For spinlocks, etc:
  */
-static inline unsigned long arch_local_irq_save(void)
+static inline notrace unsigned long arch_local_irq_save(void)
 {
 	unsigned long flags = arch_local_save_flags();
 	arch_local_irq_disable();

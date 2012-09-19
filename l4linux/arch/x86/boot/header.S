@@ -45,6 +45,11 @@ SYSSEG		= 0x1000		/* historical load address >> 4 */
 
 	.global bootsect_start
 bootsect_start:
+#ifdef CONFIG_EFI_STUB
+	# "MZ", MS-DOS header
+	.byte 0x4d
+	.byte 0x5a
+#endif
 
 	# Normalize the start address
 	ljmp	$BOOTSEG, $start2
@@ -79,14 +84,176 @@ bs_die:
 	# invoke the BIOS reset code...
 	ljmp	$0xf000,$0xfff0
 
+#ifdef CONFIG_EFI_STUB
+	.org	0x3c
+	#
+	# Offset to the PE header.
+	#
+	.long	pe_header
+#endif /* CONFIG_EFI_STUB */
+
 	.section ".bsdata", "a"
 bugger_off_msg:
-	.ascii	"Direct booting from floppy is no longer supported.\r\n"
-	.ascii	"Please use a boot loader program instead.\r\n"
+	.ascii	"Direct floppy boot is not supported. "
+	.ascii	"Use a boot loader program instead.\r\n"
 	.ascii	"\n"
-	.ascii	"Remove disk and press any key to reboot . . .\r\n"
+	.ascii	"Remove disk and press any key to reboot ...\r\n"
 	.byte	0
 
+#ifdef CONFIG_EFI_STUB
+pe_header:
+	.ascii	"PE"
+	.word 	0
+
+coff_header:
+#ifdef CONFIG_X86_32
+	.word	0x14c				# i386
+#else
+	.word	0x8664				# x86-64
+#endif
+	.word	3				# nr_sections
+	.long	0 				# TimeDateStamp
+	.long	0				# PointerToSymbolTable
+	.long	1				# NumberOfSymbols
+	.word	section_table - optional_header	# SizeOfOptionalHeader
+#ifdef CONFIG_X86_32
+	.word	0x306				# Characteristics.
+						# IMAGE_FILE_32BIT_MACHINE |
+						# IMAGE_FILE_DEBUG_STRIPPED |
+						# IMAGE_FILE_EXECUTABLE_IMAGE |
+						# IMAGE_FILE_LINE_NUMS_STRIPPED
+#else
+	.word	0x206				# Characteristics
+						# IMAGE_FILE_DEBUG_STRIPPED |
+						# IMAGE_FILE_EXECUTABLE_IMAGE |
+						# IMAGE_FILE_LINE_NUMS_STRIPPED
+#endif
+
+optional_header:
+#ifdef CONFIG_X86_32
+	.word	0x10b				# PE32 format
+#else
+	.word	0x20b 				# PE32+ format
+#endif
+	.byte	0x02				# MajorLinkerVersion
+	.byte	0x14				# MinorLinkerVersion
+
+	# Filled in by build.c
+	.long	0				# SizeOfCode
+
+	.long	0				# SizeOfInitializedData
+	.long	0				# SizeOfUninitializedData
+
+	# Filled in by build.c
+	.long	0x0000				# AddressOfEntryPoint
+
+	.long	0x0200				# BaseOfCode
+#ifdef CONFIG_X86_32
+	.long	0				# data
+#endif
+
+extra_header_fields:
+#ifdef CONFIG_X86_32
+	.long	0				# ImageBase
+#else
+	.quad	0				# ImageBase
+#endif
+	.long	0x20				# SectionAlignment
+	.long	0x20				# FileAlignment
+	.word	0				# MajorOperatingSystemVersion
+	.word	0				# MinorOperatingSystemVersion
+	.word	0				# MajorImageVersion
+	.word	0				# MinorImageVersion
+	.word	0				# MajorSubsystemVersion
+	.word	0				# MinorSubsystemVersion
+	.long	0				# Win32VersionValue
+
+	#
+	# The size of the bzImage is written in tools/build.c
+	#
+	.long	0				# SizeOfImage
+
+	.long	0x200				# SizeOfHeaders
+	.long	0				# CheckSum
+	.word	0xa				# Subsystem (EFI application)
+	.word	0				# DllCharacteristics
+#ifdef CONFIG_X86_32
+	.long	0				# SizeOfStackReserve
+	.long	0				# SizeOfStackCommit
+	.long	0				# SizeOfHeapReserve
+	.long	0				# SizeOfHeapCommit
+#else
+	.quad	0				# SizeOfStackReserve
+	.quad	0				# SizeOfStackCommit
+	.quad	0				# SizeOfHeapReserve
+	.quad	0				# SizeOfHeapCommit
+#endif
+	.long	0				# LoaderFlags
+	.long	0x6				# NumberOfRvaAndSizes
+
+	.quad	0				# ExportTable
+	.quad	0				# ImportTable
+	.quad	0				# ResourceTable
+	.quad	0				# ExceptionTable
+	.quad	0				# CertificationTable
+	.quad	0				# BaseRelocationTable
+
+	# Section table
+section_table:
+	#
+	# The offset & size fields are filled in by build.c.
+	#
+	.ascii	".setup"
+	.byte	0
+	.byte	0
+	.long	0
+	.long	0x0				# startup_{32,64}
+	.long	0				# Size of initialized data
+						# on disk
+	.long	0x0				# startup_{32,64}
+	.long	0				# PointerToRelocations
+	.long	0				# PointerToLineNumbers
+	.word	0				# NumberOfRelocations
+	.word	0				# NumberOfLineNumbers
+	.long	0x60500020			# Characteristics (section flags)
+
+	#
+	# The EFI application loader requires a relocation section
+	# because EFI applications must be relocatable. The .reloc
+	# offset & size fields are filled in by build.c.
+	#
+	.ascii	".reloc"
+	.byte	0
+	.byte	0
+	.long	0
+	.long	0
+	.long	0				# SizeOfRawData
+	.long	0				# PointerToRawData
+	.long	0				# PointerToRelocations
+	.long	0				# PointerToLineNumbers
+	.word	0				# NumberOfRelocations
+	.word	0				# NumberOfLineNumbers
+	.long	0x42100040			# Characteristics (section flags)
+
+	#
+	# The offset & size fields are filled in by build.c.
+	#
+	.ascii	".text"
+	.byte	0
+	.byte	0
+	.byte	0
+	.long	0
+	.long	0x0				# startup_{32,64}
+	.long	0				# Size of initialized data
+						# on disk
+	.long	0x0				# startup_{32,64}
+	.long	0				# PointerToRelocations
+	.long	0				# PointerToLineNumbers
+	.word	0				# NumberOfRelocations
+	.word	0				# NumberOfLineNumbers
+	.long	0x60500020			# Characteristics (section flags)
+
+#endif /* CONFIG_EFI_STUB */
 
 	# Kernel attributes; used by setup.  This is part 1 of the
 	# header, from the old boot sector.
@@ -129,7 +296,7 @@ start_sys_seg:	.word	SYSSEG		# obsolete and meaningless, but just
 
 type_of_loader:	.byte	0		# 0 means ancient bootloader, newer
 					# bootloaders know to change this.
-					# See Documentation/i386/boot.txt for
+					# See Documentation/x86/boot.txt for
 					# assigned ids
 
 # flags, unused bits must be zero (RFU) bit within loadflags
@@ -318,3 +485,6 @@ die:
 setup_corrupt:
 	.byte	7
 	.string	"No setup signature found...\n"
+
+	.data
+dummy:	.long	0

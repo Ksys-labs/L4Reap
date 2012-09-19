@@ -12,9 +12,4 @@ static inline void arch_idle(void)
 	cpu_do_idle();
 }
 
-static inline void arch_reset(char mode, const char *cmd)
-{
-	local_irq_disable();
-	l4x_exit_l4linux();
-}
 #endif /* ! __ASM_L4__ARCH_ARM__ARCH__SYSTEM_H__ */

@@ -14,6 +14,11 @@ enum chain_mode {
 	CHAIN_GRAPH_REL
 };
 
+enum chain_order {
+	ORDER_CALLER,
+	ORDER_CALLEE
+};
+
 struct callchain_node {
 	struct callchain_node	*parent;
 	struct list_head	siblings;
@@ -41,6 +46,7 @@ struct callchain_param {
 	u32			print_limit;
 	double			min_percent;
 	sort_chain_func_t	sort;
+	enum chain_order	order;
 };
 
 struct callchain_list {
@@ -70,6 +76,8 @@ struct callchain_cursor {
 	struct callchain_cursor_node	*curr;
 };
 
+extern __thread struct callchain_cursor callchain_cursor;
+
 static inline void callchain_init(struct callchain_root *root)
 {
 	INIT_LIST_HEAD(&root->node.siblings);
@@ -94,6 +102,9 @@ int callchain_append(struct callchain_root *root,
 
 int callchain_merge(struct callchain_cursor *cursor,
 		    struct callchain_root *dst, struct callchain_root *src);
+
+struct ip_callchain;
+union perf_event;
 
 bool ip_callchain__valid(struct ip_callchain *chain,
 			 const union perf_event *event);

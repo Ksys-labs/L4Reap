@@ -16,6 +16,7 @@
  */
 
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/if.h>
 #include <linux/skbuff.h>
 #include <linux/slab.h>
@@ -24,6 +25,7 @@
 #include <linux/delay.h>
 #include <linux/crc32.h>
 #include <linux/eeprom_93cx6.h>
+#include <linux/module.h>
 #include <net/mac80211.h>
 
 #include "adm8211.h"
@@ -1248,7 +1250,8 @@ static int adm8211_hw_reset(struct ieee80211_hw *dev)
 	return 0;
 }
 
-static u64 adm8211_get_tsft(struct ieee80211_hw *dev)
+static u64 adm8211_get_tsft(struct ieee80211_hw *dev,
+			    struct ieee80211_vif *vif)
 {
 	struct adm8211_priv *priv = dev->priv;
 	u32 tsftl;
@@ -1988,19 +1991,4 @@ static struct pci_driver adm8211_driver = {
 #endif /* CONFIG_PM */
 };
 
-
-
-static int __init adm8211_init(void)
-{
-	return pci_register_driver(&adm8211_driver);
-}
-
-
-static void __exit adm8211_exit(void)
-{
-	pci_unregister_driver(&adm8211_driver);
-}
-
-
-module_init(adm8211_init);
-module_exit(adm8211_exit);
+module_pci_driver(adm8211_driver);

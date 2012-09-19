@@ -15,6 +15,8 @@
 #include <linux/platform_device.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
+#include <linux/module.h>
+#include <linux/clk.h>
 #include <crypto/internal/hash.h>
 #include <crypto/sha.h>
 
@@ -78,6 +80,7 @@ struct crypto_priv {
 	void __iomem *reg;
 	void __iomem *sram;
 	int irq;
+	struct clk *clk;
 	struct task_struct *queue_th;
 
 	/* the lock protects queue and eng_st */
@@ -342,11 +345,13 @@ static void mv_process_hash_current(int first_block)
 		else
 			op.config |= CFG_MID_FRAG;
 
-		writel(req_ctx->state[0], cpg->reg + DIGEST_INITIAL_VAL_A);
-		writel(req_ctx->state[1], cpg->reg + DIGEST_INITIAL_VAL_B);
-		writel(req_ctx->state[2], cpg->reg + DIGEST_INITIAL_VAL_C);
-		writel(req_ctx->state[3], cpg->reg + DIGEST_INITIAL_VAL_D);
-		writel(req_ctx->state[4], cpg->reg + DIGEST_INITIAL_VAL_E);
+		if (first_block) {
+			writel(req_ctx->state[0], cpg->reg + DIGEST_INITIAL_VAL_A);
+			writel(req_ctx->state[1], cpg->reg + DIGEST_INITIAL_VAL_B);
+			writel(req_ctx->state[2], cpg->reg + DIGEST_INITIAL_VAL_C);
+			writel(req_ctx->state[3], cpg->reg + DIGEST_INITIAL_VAL_D);
+			writel(req_ctx->state[4], cpg->reg + DIGEST_INITIAL_VAL_E);
+		}
 	}
 
 	memcpy(cpg->sram + SRAM_CONFIG, &op, sizeof(struct sec_accel_config));
@@ -711,6 +716,7 @@ static int mv_hash_final(struct ahash_request *req)
 {
 	struct mv_req_hash_ctx *ctx = ahash_request_ctx(req);
 
+	ahash_request_set_crypt(req, NULL, req->result, 0);
 	mv_update_hash_req_ctx(ctx, 1, 0);
 	return mv_handle_req(&req->base);
 }
@@ -895,7 +901,8 @@ struct crypto_alg mv_aes_alg_ecb = {
 	.cra_name		= "ecb(aes)",
 	.cra_driver_name	= "mv-ecb-aes",
 	.cra_priority	= 300,
-	.cra_flags	= CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC,
+	.cra_flags	= CRYPTO_ALG_TYPE_ABLKCIPHER |
+			  CRYPTO_ALG_KERN_DRIVER_ONLY | CRYPTO_ALG_ASYNC,
 	.cra_blocksize	= 16,
 	.cra_ctxsize	= sizeof(struct mv_ctx),
 	.cra_alignmask	= 0,
@@ -917,7 +924,8 @@ struct crypto_alg mv_aes_alg_cbc = {
 	.cra_name		= "cbc(aes)",
 	.cra_driver_name	= "mv-cbc-aes",
 	.cra_priority	= 300,
-	.cra_flags	= CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC,
+	.cra_flags	= CRYPTO_ALG_TYPE_ABLKCIPHER |
+			  CRYPTO_ALG_KERN_DRIVER_ONLY | CRYPTO_ALG_ASYNC,
 	.cra_blocksize	= AES_BLOCK_SIZE,
 	.cra_ctxsize	= sizeof(struct mv_ctx),
 	.cra_alignmask	= 0,
@@ -949,7 +957,8 @@ struct ahash_alg mv_sha1_alg = {
 			  .cra_driver_name = "mv-sha1",
 			  .cra_priority = 300,
 			  .cra_flags =
-			  CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK,
+			  CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY |
+			  CRYPTO_ALG_NEED_FALLBACK,
 			  .cra_blocksize = SHA1_BLOCK_SIZE,
 			  .cra_ctxsize = sizeof(struct mv_tfm_hash_ctx),
 			  .cra_init = mv_cra_hash_sha1_init,
@@ -973,7 +982,8 @@ struct ahash_alg mv_hmac_sha1_alg = {
 			  .cra_driver_name = "mv-hmac-sha1",
 			  .cra_priority = 300,
 			  .cra_flags =
-			  CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK,
+			  CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY |
+			  CRYPTO_ALG_NEED_FALLBACK,
 			  .cra_blocksize = SHA1_BLOCK_SIZE,
 			  .cra_ctxsize = sizeof(struct mv_tfm_hash_ctx),
 			  .cra_init = mv_cra_hash_hmac_sha1_init,
@@ -1045,6 +1055,12 @@ static int mv_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_thread;
 
+	/* Not all platforms can gate the clock, so it is not
+	   an error if the clock does not exists. */
+	cp->clk = clk_get(&pdev->dev, NULL);
+	if (!IS_ERR(cp->clk))
+		clk_prepare_enable(cp->clk);
+
 	writel(SEC_INT_ACCEL0_DONE, cpg->reg + SEC_ACCEL_INT_MASK);
 	writel(SEC_CFG_STOP_DIG_ERR, cpg->reg + SEC_ACCEL_CFG);
 	writel(SRAM_CONFIG, cpg->reg + SEC_ACCEL_DESC_P0);
@@ -1110,6 +1126,12 @@ static int mv_remove(struct platform_device *pdev)
 	memset(cp->sram, 0, cp->sram_size);
 	iounmap(cp->sram);
 	iounmap(cp->reg);
+
+	if (!IS_ERR(cp->clk)) {
+		clk_disable_unprepare(cp->clk);
+		clk_put(cp->clk);
+	}
+
 	kfree(cp);
 	cpg = NULL;
 	return 0;
@@ -1125,17 +1147,7 @@ static struct platform_driver marvell_crypto = {
 };
 MODULE_ALIAS("platform:mv_crypto");
 
-static int __init mv_crypto_init(void)
-{
-	return platform_driver_register(&marvell_crypto);
-}
-module_init(mv_crypto_init);
-
-static void __exit mv_crypto_exit(void)
-{
-	platform_driver_unregister(&marvell_crypto);
-}
-module_exit(mv_crypto_exit);
+module_platform_driver(marvell_crypto);
 
 MODULE_AUTHOR("Sebastian Andrzej Siewior <sebastian@breakpoint.cc>");
 MODULE_DESCRIPTION("Support for Marvell's cryptographic engine");

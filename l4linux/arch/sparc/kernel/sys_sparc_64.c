@@ -23,7 +23,7 @@
 #include <linux/ipc.h>
 #include <linux/personality.h>
 #include <linux/random.h>
-#include <linux/module.h>
+#include <linux/export.h>
 
 #include <asm/uaccess.h>
 #include <asm/utrap.h>
@@ -368,11 +368,11 @@ static unsigned long mmap_rnd(void)
 	if (current->flags & PF_RANDOMIZE) {
 		unsigned long val = get_random_int();
 		if (test_thread_flag(TIF_32BIT))
-			rnd = (val % (1UL << (22UL-PAGE_SHIFT)));
+			rnd = (val % (1UL << (23UL-PAGE_SHIFT)));
 		else
-			rnd = (val % (1UL << (29UL-PAGE_SHIFT)));
+			rnd = (val % (1UL << (30UL-PAGE_SHIFT)));
 	}
-	return (rnd << PAGE_SHIFT) * 2;
+	return rnd << PAGE_SHIFT;
 }
 
 void arch_pick_mmap_layout(struct mm_struct *mm)
@@ -566,15 +566,10 @@ out:
 
 SYSCALL_DEFINE2(64_munmap, unsigned long, addr, size_t, len)
 {
-	long ret;
-
 	if (invalid_64bit_range(addr, len))
 		return -EINVAL;
 
-	down_write(&current->mm->mmap_sem);
-	ret = do_munmap(current->mm, addr, len);
-	up_write(&current->mm->mmap_sem);
-	return ret;
+	return vm_munmap(addr, len);
 }
 
 extern unsigned long do_mremap(unsigned long addr,
@@ -585,16 +580,9 @@ SYSCALL_DEFINE5(64_mremap, unsigned long, addr,	unsigned long, old_len,
 		unsigned long, new_len, unsigned long, flags,
 		unsigned long, new_addr)
 {
-	unsigned long ret = -EINVAL;
-
 	if (test_thread_flag(TIF_32BIT))
-		goto out;
-
-	down_write(&current->mm->mmap_sem);
-	ret = do_mremap(addr, old_len, new_len, flags, new_addr);
-	up_write(&current->mm->mmap_sem);
-out:
-	return ret;       
+		return -EINVAL;
+	return sys_mremap(addr, old_len, new_len, flags, new_addr);
 }
 
 /* we come to here via sys_nis_syscall so it can setup the regs argument */

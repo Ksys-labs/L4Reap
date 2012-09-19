@@ -42,7 +42,6 @@
 #include <linux/notifier.h>
 #include <linux/slab.h>
 #include <asm/uaccess.h>
-#include <asm/system.h>
 #include <net/net_namespace.h>
 #include <net/neighbour.h>
 #include <net/dst.h>
@@ -210,15 +209,7 @@ static void dn_dev_sysctl_register(struct net_device *dev, struct dn_dev_parms *
 	struct dn_dev_sysctl_table *t;
 	int i;
 
-#define DN_CTL_PATH_DEV	3
-
-	struct ctl_path dn_ctl_path[] = {
-		{ .procname = "net",  },
-		{ .procname = "decnet",  },
-		{ .procname = "conf",  },
-		{ /* to be set */ },
-		{ },
-	};
+	char path[sizeof("net/decnet/conf/") + IFNAMSIZ];
 
 	t = kmemdup(&dn_dev_sysctl, sizeof(*t), GFP_KERNEL);
 	if (t == NULL)
@@ -229,15 +220,12 @@ static void dn_dev_sysctl_register(struct net_device *dev, struct dn_dev_parms *
 		t->dn_dev_vars[i].data = ((char *)parms) + offset;
 	}
 
-	if (dev) {
-		dn_ctl_path[DN_CTL_PATH_DEV].procname = dev->name;
-	} else {
-		dn_ctl_path[DN_CTL_PATH_DEV].procname = parms->name;
-	}
+	snprintf(path, sizeof(path), "net/decnet/conf/%s",
+		dev? dev->name : parms->name);
 
 	t->dn_dev_vars[0].extra1 = (void *)dev;
 
-	t->sysctl_header = register_sysctl_paths(dn_ctl_path, t->dn_dev_vars);
+	t->sysctl_header = register_net_sysctl(&init_net, path, t->dn_dev_vars);
 	if (t->sysctl_header == NULL)
 		kfree(t);
 	else
@@ -249,7 +237,7 @@ static void dn_dev_sysctl_unregister(struct dn_dev_parms *parms)
 	if (parms->sysctl) {
 		struct dn_dev_sysctl_table *t = parms->sysctl;
 		parms->sysctl = NULL;
-		unregister_sysctl_table(t->sysctl_header);
+		unregister_net_sysctl_table(t->sysctl_header);
 		kfree(t);
 	}
 }
@@ -437,17 +425,17 @@ int dn_dev_ioctl(unsigned int cmd, void __user *arg)
 
 	dev_load(&init_net, ifr->ifr_name);
 
-	switch(cmd) {
-		case SIOCGIFADDR:
-			break;
-		case SIOCSIFADDR:
-			if (!capable(CAP_NET_ADMIN))
-				return -EACCES;
-			if (sdn->sdn_family != AF_DECnet)
-				return -EINVAL;
-			break;
-		default:
+	switch (cmd) {
+	case SIOCGIFADDR:
+		break;
+	case SIOCSIFADDR:
+		if (!capable(CAP_NET_ADMIN))
+			return -EACCES;
+		if (sdn->sdn_family != AF_DECnet)
 			return -EINVAL;
+		break;
+	default:
+		return -EINVAL;
 	}
 
 	rtnl_lock();
@@ -470,27 +458,27 @@ int dn_dev_ioctl(unsigned int cmd, void __user *arg)
 		goto done;
 	}
 
-	switch(cmd) {
-		case SIOCGIFADDR:
-			*((__le16 *)sdn->sdn_nodeaddr) = ifa->ifa_local;
-			goto rarok;
+	switch (cmd) {
+	case SIOCGIFADDR:
+		*((__le16 *)sdn->sdn_nodeaddr) = ifa->ifa_local;
+		goto rarok;
 
-		case SIOCSIFADDR:
-			if (!ifa) {
-				if ((ifa = dn_dev_alloc_ifa()) == NULL) {
-					ret = -ENOBUFS;
-					break;
-				}
-				memcpy(ifa->ifa_label, dev->name, IFNAMSIZ);
-			} else {
-				if (ifa->ifa_local == dn_saddr2dn(sdn))
-					break;
-				dn_dev_del_ifa(dn_db, ifap, 0);
+	case SIOCSIFADDR:
+		if (!ifa) {
+			if ((ifa = dn_dev_alloc_ifa()) == NULL) {
+				ret = -ENOBUFS;
+				break;
 			}
+			memcpy(ifa->ifa_label, dev->name, IFNAMSIZ);
+		} else {
+			if (ifa->ifa_local == dn_saddr2dn(sdn))
+				break;
+			dn_dev_del_ifa(dn_db, ifap, 0);
+		}
 
-			ifa->ifa_local = ifa->ifa_address = dn_saddr2dn(sdn);
+		ifa->ifa_local = ifa->ifa_address = dn_saddr2dn(sdn);
 
-			ret = dn_dev_set_ifa(dev, ifa);
+		ret = dn_dev_set_ifa(dev, ifa);
 	}
 done:
 	rtnl_unlock();
@@ -695,13 +683,13 @@ static int dn_nl_fill_ifaddr(struct sk_buff *skb, struct dn_ifaddr *ifa,
 	ifm->ifa_scope = ifa->ifa_scope;
 	ifm->ifa_index = ifa->ifa_dev->dev->ifindex;
 
-	if (ifa->ifa_address)
-		NLA_PUT_LE16(skb, IFA_ADDRESS, ifa->ifa_address);
-	if (ifa->ifa_local)
-		NLA_PUT_LE16(skb, IFA_LOCAL, ifa->ifa_local);
-	if (ifa->ifa_label[0])
-		NLA_PUT_STRING(skb, IFA_LABEL, ifa->ifa_label);
-
+	if ((ifa->ifa_address &&
+	     nla_put_le16(skb, IFA_ADDRESS, ifa->ifa_address)) ||
+	    (ifa->ifa_local &&
+	     nla_put_le16(skb, IFA_LOCAL, ifa->ifa_local)) ||
+	    (ifa->ifa_label[0] &&
+	     nla_put_string(skb, IFA_LABEL, ifa->ifa_label)))
+		goto nla_put_failure;
 	return nlmsg_end(skb, nlh);
 
 nla_put_failure:
@@ -1101,7 +1089,7 @@ static struct dn_dev *dn_dev_create(struct net_device *dev, int *err)
 
 	dn_db->neigh_parms = neigh_parms_alloc(dev, &dn_neigh_table);
 	if (!dn_db->neigh_parms) {
-		rcu_assign_pointer(dev->dn_ptr, NULL);
+		RCU_INIT_POINTER(dev->dn_ptr, NULL);
 		kfree(dn_db);
 		return NULL;
 	}
@@ -1313,7 +1301,7 @@ static void *dn_dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
 
 	++*pos;
 
-	dev = (struct net_device *)v;
+	dev = v;
 	if (v == SEQ_START_TOKEN)
 		dev = net_device_entry(&init_net.dev_base_head);
 
@@ -1335,13 +1323,13 @@ static void dn_dev_seq_stop(struct seq_file *seq, void *v)
 
 static char *dn_type2asc(char type)
 {
-	switch(type) {
-		case DN_DEV_BCAST:
-			return "B";
-		case DN_DEV_UCAST:
-			return "U";
-		case DN_DEV_MPOINT:
-			return "M";
+	switch (type) {
+	case DN_DEV_BCAST:
+		return "B";
+	case DN_DEV_UCAST:
+		return "U";
+	case DN_DEV_MPOINT:
+		return "M";
 	}
 
 	return "?";
@@ -1414,9 +1402,9 @@ void __init dn_dev_init(void)
 
 	dn_dev_devices_on();
 
-	rtnl_register(PF_DECnet, RTM_NEWADDR, dn_nl_newaddr, NULL);
-	rtnl_register(PF_DECnet, RTM_DELADDR, dn_nl_deladdr, NULL);
-	rtnl_register(PF_DECnet, RTM_GETADDR, NULL, dn_nl_dump_ifaddr);
+	rtnl_register(PF_DECnet, RTM_NEWADDR, dn_nl_newaddr, NULL, NULL);
+	rtnl_register(PF_DECnet, RTM_DELADDR, dn_nl_deladdr, NULL, NULL);
+	rtnl_register(PF_DECnet, RTM_GETADDR, NULL, dn_nl_dump_ifaddr, NULL);
 
 	proc_net_fops_create(&init_net, "decnet_dev", S_IRUGO, &dn_dev_seq_fops);
 

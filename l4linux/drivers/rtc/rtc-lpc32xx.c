@@ -19,6 +19,7 @@
 #include <linux/rtc.h>
 #include <linux/slab.h>
 #include <linux/io.h>
+#include <linux/of.h>
 
 /*
  * Clock and Power control register offsets
@@ -287,7 +288,7 @@ static int __devinit lpc32xx_rtc_probe(struct platform_device *pdev)
 	if (rtc->irq >= 0) {
 		if (devm_request_irq(&pdev->dev, rtc->irq,
 				     lpc32xx_rtc_alarm_interrupt,
-				     IRQF_DISABLED, pdev->name, rtc) < 0) {
+				     0, pdev->name, rtc) < 0) {
 			dev_warn(&pdev->dev, "Can't request interrupt.\n");
 			rtc->irq = -1;
 		} else {
@@ -386,27 +387,26 @@ static const struct dev_pm_ops lpc32xx_rtc_pm_ops = {
 #define LPC32XX_RTC_PM_OPS NULL
 #endif
 
+#ifdef CONFIG_OF
+static const struct of_device_id lpc32xx_rtc_match[] = {
+	{ .compatible = "nxp,lpc3220-rtc" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, lpc32xx_rtc_match);
+#endif
+
 static struct platform_driver lpc32xx_rtc_driver = {
 	.probe		= lpc32xx_rtc_probe,
 	.remove		= __devexit_p(lpc32xx_rtc_remove),
 	.driver = {
 		.name	= RTC_NAME,
 		.owner	= THIS_MODULE,
-		.pm	= LPC32XX_RTC_PM_OPS
+		.pm	= LPC32XX_RTC_PM_OPS,
+		.of_match_table = of_match_ptr(lpc32xx_rtc_match),
 	},
 };
 
-static int __init lpc32xx_rtc_init(void)
-{
-	return platform_driver_register(&lpc32xx_rtc_driver);
-}
-module_init(lpc32xx_rtc_init);
-
-static void __exit lpc32xx_rtc_exit(void)
-{
-	platform_driver_unregister(&lpc32xx_rtc_driver);
-}
-module_exit(lpc32xx_rtc_exit);
+module_platform_driver(lpc32xx_rtc_driver);
 
 MODULE_AUTHOR("Kevin Wells <wellsk40@gmail.com");
 MODULE_DESCRIPTION("RTC driver for the LPC32xx SoC");

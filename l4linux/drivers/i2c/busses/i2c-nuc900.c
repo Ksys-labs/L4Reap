@@ -502,7 +502,8 @@ static int nuc900_i2c_xfer(struct i2c_adapter *adap,
 /* declare our i2c functionality */
 static u32 nuc900_i2c_func(struct i2c_adapter *adap)
 {
-	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL | I2C_FUNC_PROTOCOL_MANGLING;
+	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL | I2C_FUNC_NOSTART |
+		I2C_FUNC_PROTOCOL_MANGLING;
 }
 
 /* i2c bus registration info */
@@ -593,7 +594,7 @@ static int __devinit nuc900_i2c_probe(struct platform_device *pdev)
 	i2c->adap.algo_data = i2c;
 	i2c->adap.dev.parent = &pdev->dev;
 
-	mfp_set_groupg(&pdev->dev);
+	mfp_set_groupg(&pdev->dev, NULL);
 
 	clk_get_rate(i2c->clk);
 
@@ -610,7 +611,7 @@ static int __devinit nuc900_i2c_probe(struct platform_device *pdev)
 		goto err_iomap;
 	}
 
-	ret = request_irq(i2c->irq, nuc900_i2c_irq, IRQF_DISABLED | IRQF_SHARED,
+	ret = request_irq(i2c->irq, nuc900_i2c_irq, IRQF_SHARED,
 			  dev_name(&pdev->dev), i2c);
 
 	if (ret != 0) {

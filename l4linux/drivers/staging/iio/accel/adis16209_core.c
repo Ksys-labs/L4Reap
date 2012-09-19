@@ -14,13 +14,11 @@
 #include <linux/slab.h>
 #include <linux/sysfs.h>
 #include <linux/list.h>
+#include <linux/module.h>
 
-#include "../iio.h"
-#include "../sysfs.h"
-#include "../ring_generic.h"
-#include "accel.h"
-#include "inclinometer.h"
-#include "../adc/adc.h"
+#include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
+#include <linux/iio/buffer.h>
 
 #include "adis16209.h"
 
@@ -37,7 +35,7 @@ static int adis16209_spi_write_reg_8(struct iio_dev *indio_dev,
 				     u8 val)
 {
 	int ret;
-	struct adis16209_state *st = iio_dev_get_devdata(indio_dev);
+	struct adis16209_state *st = iio_priv(indio_dev);
 
 	mutex_lock(&st->buf_lock);
 	st->tx[0] = ADIS16209_WRITE_REG(reg_address);
@@ -62,7 +60,7 @@ static int adis16209_spi_write_reg_16(struct iio_dev *indio_dev,
 {
 	int ret;
 	struct spi_message msg;
-	struct adis16209_state *st = iio_dev_get_devdata(indio_dev);
+	struct adis16209_state *st = iio_priv(indio_dev);
 	struct spi_transfer xfers[] = {
 		{
 			.tx_buf = st->tx,
@@ -105,7 +103,7 @@ static int adis16209_spi_read_reg_16(struct iio_dev *indio_dev,
 				     u16 *val)
 {
 	struct spi_message msg;
-	struct adis16209_state *st = iio_dev_get_devdata(indio_dev);
+	struct adis16209_state *st = iio_priv(indio_dev);
 	int ret;
 	struct spi_transfer xfers[] = {
 		{
@@ -159,7 +157,7 @@ static ssize_t adis16209_write_reset(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t len)
 {
-	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 
 	if (len < 1)
 		return -EINVAL;
@@ -306,7 +304,7 @@ static int adis16209_write_raw(struct iio_dev *indio_dev,
 	s16 val16;
 	u8 addr;
 	switch (mask) {
-	case (1 << IIO_CHAN_INFO_CALIBBIAS_SEPARATE):
+	case IIO_CHAN_INFO_CALIBBIAS:
 		switch (chan->type) {
 		case IIO_ACCEL:
 		case IIO_INCLI:
@@ -333,17 +331,21 @@ static int adis16209_read_raw(struct iio_dev *indio_dev,
 	s16 val16;
 
 	switch (mask) {
-	case 0:
+	case IIO_CHAN_INFO_RAW:
 		mutex_lock(&indio_dev->mlock);
 		addr = adis16209_addresses[chan->address][0];
 		ret = adis16209_spi_read_reg_16(indio_dev, addr, &val16);
-		if (ret)
+		if (ret) {
+			mutex_unlock(&indio_dev->mlock);
 			return ret;
+		}
 
 		if (val16 & ADIS16209_ERROR_ACTIVE) {
 			ret = adis16209_check_status(indio_dev);
-			if (ret)
+			if (ret) {
+				mutex_unlock(&indio_dev->mlock);
 				return ret;
+			}
 		}
 		val16 = val16 & ((1 << chan->scan_type.realbits) - 1);
 		if (chan->scan_type.sign == 's')
@@ -353,10 +355,9 @@ static int adis16209_read_raw(struct iio_dev *indio_dev,
 		*val = val16;
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
-	case (1 << IIO_CHAN_INFO_SCALE_SEPARATE):
-	case (1 << IIO_CHAN_INFO_SCALE_SHARED):
+	case IIO_CHAN_INFO_SCALE:
 		switch (chan->type) {
-		case IIO_IN:
+		case IIO_VOLTAGE:
 			*val = 0;
 			if (chan->channel == 0)
 				*val2 = 305180;
@@ -379,10 +380,10 @@ static int adis16209_read_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 		break;
-	case (1 << IIO_CHAN_INFO_OFFSET_SEPARATE):
+	case IIO_CHAN_INFO_OFFSET:
 		*val = 25;
 		return IIO_VAL_INT;
-	case (1 << IIO_CHAN_INFO_CALIBBIAS_SEPARATE):
+	case IIO_CHAN_INFO_CALIBBIAS:
 		switch (chan->type) {
 		case IIO_ACCEL:
 			bits = 14;
@@ -407,41 +408,114 @@ static int adis16209_read_raw(struct iio_dev *indio_dev,
 }
 
 static struct iio_chan_spec adis16209_channels[] = {
-	IIO_CHAN(IIO_IN, 0, 1, 0, NULL, 0, 0,
-		 (1 << IIO_CHAN_INFO_SCALE_SEPARATE),
-		 in_supply, ADIS16209_SCAN_SUPPLY,
-		 IIO_ST('u', 14, 16, 0), 0),
-	IIO_CHAN(IIO_TEMP, 0, 1, 0, NULL, 0, 0,
-		 (1 << IIO_CHAN_INFO_SCALE_SEPARATE) |
-		 (1 << IIO_CHAN_INFO_OFFSET_SEPARATE),
-		 temp, ADIS16209_SCAN_TEMP,
-		 IIO_ST('u', 12, 16, 0), 0),
-	IIO_CHAN(IIO_ACCEL, 1, 0, 0, NULL, 0, IIO_MOD_X,
-		 (1 << IIO_CHAN_INFO_SCALE_SHARED) |
-		 (1 << IIO_CHAN_INFO_CALIBBIAS_SEPARATE),
-		 accel_x, ADIS16209_SCAN_ACC_X,
-		 IIO_ST('s', 14, 16, 0), 0),
-	IIO_CHAN(IIO_ACCEL, 1, 0, 0, NULL, 0, IIO_MOD_Y,
-		 (1 << IIO_CHAN_INFO_SCALE_SHARED) |
-		 (1 << IIO_CHAN_INFO_CALIBBIAS_SEPARATE),
-		 accel_y, ADIS16209_SCAN_ACC_Y,
-		 IIO_ST('s', 14, 16, 0), 0),
-	IIO_CHAN(IIO_IN, 0, 1, 0, NULL, 1, 0,
-		 (1 << IIO_CHAN_INFO_SCALE_SEPARATE),
-		 in_aux, ADIS16209_SCAN_AUX_ADC,
-		 IIO_ST('u', 12, 16, 0), 0),
-	IIO_CHAN(IIO_INCLI, 0, 1, 0, NULL, 0, IIO_MOD_X,
-		 (1 << IIO_CHAN_INFO_SCALE_SHARED),
-		 incli_x, ADIS16209_SCAN_INCLI_X,
-		 IIO_ST('s', 14, 16, 0), 0),
-	IIO_CHAN(IIO_INCLI, 0, 1, 0, NULL, 0, IIO_MOD_Y,
-		 (1 << IIO_CHAN_INFO_SCALE_SHARED),
-		 incli_y, ADIS16209_SCAN_INCLI_Y,
-		 IIO_ST('s', 14, 16, 0), 0),
-	IIO_CHAN(IIO_ROT, 0, 1, 0, NULL, 0, IIO_MOD_X,
-		    0,
-		    rot, ADIS16209_SCAN_ROT,
-		    IIO_ST('s', 14, 16, 0), 0),
+	{
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = 0,
+		.extend_name = "supply",
+		.info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT |
+		IIO_CHAN_INFO_SCALE_SEPARATE_BIT,
+		.address = in_supply,
+		.scan_index = ADIS16209_SCAN_SUPPLY,
+		.scan_type = {
+			.sign = 'u',
+			.realbits = 14,
+			.storagebits = 16,
+		},
+	}, {
+		.type = IIO_TEMP,
+		.indexed = 0,
+		.channel = 0,
+		.info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT |
+		IIO_CHAN_INFO_SCALE_SEPARATE_BIT |
+		IIO_CHAN_INFO_OFFSET_SEPARATE_BIT,
+		.address = temp,
+		.scan_index = ADIS16209_SCAN_TEMP,
+		.scan_type = {
+			.sign = 'u',
+			.realbits = 12,
+			.storagebits = 16,
+		},
+	}, {
+		.type = IIO_ACCEL,
+		.modified = 1,
+		.channel2 = IIO_MOD_X,
+		.info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT |
+		IIO_CHAN_INFO_SCALE_SHARED_BIT |
+		IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT,
+		.address = accel_x,
+		.scan_index = ADIS16209_SCAN_ACC_X,
+		.scan_type = {
+			.sign = 's',
+			.realbits = 14,
+			.storagebits = 16,
+		},
+	}, {
+		.type = IIO_ACCEL,
+		.modified = 1,
+		.channel2 = IIO_MOD_Y,
+		.info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT |
+		IIO_CHAN_INFO_SCALE_SHARED_BIT |
+		IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT,
+		.address = accel_y,
+		.scan_index = ADIS16209_SCAN_ACC_Y,
+		.scan_type = {
+			.sign = 's',
+			.realbits = 14,
+			.storagebits = 16,
+		},
+	}, {
+		.type = IIO_VOLTAGE,
+		.indexed = 1,
+		.channel = 1,
+		.info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT |
+		IIO_CHAN_INFO_SCALE_SEPARATE_BIT,
+		.address = in_aux,
+		.scan_index = ADIS16209_SCAN_AUX_ADC,
+		.scan_type = {
+			.sign = 'u',
+			.realbits = 12,
+			.storagebits = 16,
+		},
+	}, {
+		.type = IIO_INCLI,
+		.modified = 1,
+		.channel2 = IIO_MOD_X,
+		.info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT |
+		IIO_CHAN_INFO_SCALE_SHARED_BIT,
+		.address = incli_x,
+		.scan_index = ADIS16209_SCAN_INCLI_X,
+		.scan_type = {
+			.sign = 's',
+			.realbits = 14,
+			.storagebits = 16,
+		},
+	}, {
+		.type = IIO_INCLI,
+		.modified = 1,
+		.channel2 = IIO_MOD_Y,
+		.info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT |
+		IIO_CHAN_INFO_SCALE_SHARED_BIT,
+		.address = incli_y,
+		.scan_index = ADIS16209_SCAN_INCLI_Y,
+		.scan_type = {
+			.sign = 's',
+			.realbits = 14,
+			.storagebits = 16,
+		},
+	}, {
+		.type = IIO_ROT,
+		.modified = 1,
+		.channel2 = IIO_MOD_X,
+		.info_mask = IIO_CHAN_INFO_RAW_SEPARATE_BIT,
+		.address = rot,
+		.scan_index = ADIS16209_SCAN_ROT,
+		.scan_type = {
+			.sign = 's',
+			.realbits = 14,
+			.storagebits = 16,
+		},
+	},
 	IIO_CHAN_SOFT_TIMESTAMP(8)
 };
 
@@ -465,107 +539,80 @@ static const struct iio_info adis16209_info = {
 
 static int __devinit adis16209_probe(struct spi_device *spi)
 {
-	int ret, regdone = 0;
-	struct adis16209_state *st = kzalloc(sizeof *st, GFP_KERNEL);
-	if (!st) {
-		ret =  -ENOMEM;
+	int ret;
+	struct adis16209_state *st;
+	struct iio_dev *indio_dev;
+
+	/* setup the industrialio driver allocated elements */
+	indio_dev = iio_device_alloc(sizeof(*st));
+	if (indio_dev == NULL) {
+		ret = -ENOMEM;
 		goto error_ret;
 	}
+	st = iio_priv(indio_dev);
 	/* this is only used for removal purposes */
-	spi_set_drvdata(spi, st);
-
-	/* Allocate the comms buffers */
-	st->rx = kzalloc(sizeof(*st->rx)*ADIS16209_MAX_RX, GFP_KERNEL);
-	if (st->rx == NULL) {
-		ret = -ENOMEM;
-		goto error_free_st;
-	}
-	st->tx = kzalloc(sizeof(*st->tx)*ADIS16209_MAX_TX, GFP_KERNEL);
-	if (st->tx == NULL) {
-		ret = -ENOMEM;
-		goto error_free_rx;
-	}
+	spi_set_drvdata(spi, indio_dev);
 	st->us = spi;
 	mutex_init(&st->buf_lock);
-	/* setup the industrialio driver allocated elements */
-	st->indio_dev = iio_allocate_device(0);
-	if (st->indio_dev == NULL) {
-		ret = -ENOMEM;
-		goto error_free_tx;
-	}
 
-	st->indio_dev->name = spi->dev.driver->name;
-	st->indio_dev->dev.parent = &spi->dev;
-	st->indio_dev->info = &adis16209_info;
-	st->indio_dev->channels = adis16209_channels;
-	st->indio_dev->num_channels = ARRAY_SIZE(adis16209_channels);
-	st->indio_dev->dev_data = (void *)(st);
-	st->indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->name = spi->dev.driver->name;
+	indio_dev->dev.parent = &spi->dev;
+	indio_dev->info = &adis16209_info;
+	indio_dev->channels = adis16209_channels;
+	indio_dev->num_channels = ARRAY_SIZE(adis16209_channels);
+	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	ret = adis16209_configure_ring(st->indio_dev);
+	ret = adis16209_configure_ring(indio_dev);
 	if (ret)
 		goto error_free_dev;
 
-	ret = iio_device_register(st->indio_dev);
-	if (ret)
-		goto error_unreg_ring_funcs;
-	regdone = 1;
-
-	ret = iio_ring_buffer_register_ex(st->indio_dev->ring, 0,
-					  adis16209_channels,
-					  ARRAY_SIZE(adis16209_channels));
+	ret = iio_buffer_register(indio_dev,
+				  adis16209_channels,
+				  ARRAY_SIZE(adis16209_channels));
 	if (ret) {
 		printk(KERN_ERR "failed to initialize the ring\n");
 		goto error_unreg_ring_funcs;
 	}
 
 	if (spi->irq) {
-		ret = adis16209_probe_trigger(st->indio_dev);
+		ret = adis16209_probe_trigger(indio_dev);
 		if (ret)
 			goto error_uninitialize_ring;
 	}
 
 	/* Get the device into a sane initial state */
-	ret = adis16209_initial_setup(st->indio_dev);
+	ret = adis16209_initial_setup(indio_dev);
 	if (ret)
 		goto error_remove_trigger;
+	ret = iio_device_register(indio_dev);
+	if (ret)
+		goto error_remove_trigger;
+
 	return 0;
 
 error_remove_trigger:
-	adis16209_remove_trigger(st->indio_dev);
+	adis16209_remove_trigger(indio_dev);
 error_uninitialize_ring:
-	iio_ring_buffer_unregister(st->indio_dev->ring);
+	iio_buffer_unregister(indio_dev);
 error_unreg_ring_funcs:
-	adis16209_unconfigure_ring(st->indio_dev);
+	adis16209_unconfigure_ring(indio_dev);
 error_free_dev:
-	if (regdone)
-		iio_device_unregister(st->indio_dev);
-	else
-		iio_free_device(st->indio_dev);
-error_free_tx:
-	kfree(st->tx);
-error_free_rx:
-	kfree(st->rx);
-error_free_st:
-	kfree(st);
+	iio_device_free(indio_dev);
 error_ret:
 	return ret;
 }
 
 static int adis16209_remove(struct spi_device *spi)
 {
-	struct adis16209_state *st = spi_get_drvdata(spi);
-	struct iio_dev *indio_dev = st->indio_dev;
+	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 
 	flush_scheduled_work();
 
-	adis16209_remove_trigger(indio_dev);
-	iio_ring_buffer_unregister(indio_dev->ring);
 	iio_device_unregister(indio_dev);
+	adis16209_remove_trigger(indio_dev);
+	iio_buffer_unregister(indio_dev);
 	adis16209_unconfigure_ring(indio_dev);
-	kfree(st->tx);
-	kfree(st->rx);
-	kfree(st);
+	iio_device_free(indio_dev);
 
 	return 0;
 }
@@ -578,19 +625,9 @@ static struct spi_driver adis16209_driver = {
 	.probe = adis16209_probe,
 	.remove = __devexit_p(adis16209_remove),
 };
-
-static __init int adis16209_init(void)
-{
-	return spi_register_driver(&adis16209_driver);
-}
-module_init(adis16209_init);
-
-static __exit void adis16209_exit(void)
-{
-	spi_unregister_driver(&adis16209_driver);
-}
-module_exit(adis16209_exit);
+module_spi_driver(adis16209_driver);
 
 MODULE_AUTHOR("Barry Song <21cnbao@gmail.com>");
 MODULE_DESCRIPTION("Analog Devices ADIS16209 Digital Vibration Sensor driver");
 MODULE_LICENSE("GPL v2");
+MODULE_ALIAS("spi:adis16209");

@@ -131,12 +131,8 @@ l4ser_shm_rx_chars(struct uart_port *port)
 	}
 	tty_flip_buffer_push(tty);
 
-	if (chhead->writer_blocked) {
-		L4XV_V(f);
-		L4XV_L(f);
-		l4shmc_trigger(&l4port->tx_sig);
-		L4XV_U(f);
-	}
+	if (chhead->writer_blocked)
+		L4XV_FN_v(l4shmc_trigger(&l4port->tx_sig));
 
 	chhead = (struct chunk_head *)l4shmc_chunk_ptr(&l4port->tx_chunk);
 	chhead->writer_blocked = 0;
@@ -221,12 +217,9 @@ static void l4ser_shm_tx_chars(struct uart_port *port)
 
 	if (port->x_char) {
 		if (tx_buf(port, &port->x_char, 1)) {
-			L4XV_V(f);
 			port->icount.tx++;
 			port->x_char = 0;
-			L4XV_L(f);
-			l4shmc_trigger(&l4port->tx_sig);
-			L4XV_U(f);
+			L4XV_FN_v(l4shmc_trigger(&l4port->tx_sig));
 		}
 		return;
 	}
@@ -248,12 +241,8 @@ static void l4ser_shm_tx_chars(struct uart_port *port)
 	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
 		uart_write_wakeup(port);
 
-	if (do_trigger) {
-		L4XV_V(f);
-		L4XV_L(f);
-		l4shmc_trigger(&l4port->tx_sig);
-		L4XV_U(f);
-	}
+	if (do_trigger)
+		L4XV_FN_v(l4shmc_trigger(&l4port->tx_sig));
 }
 
 static void l4ser_shm_start_tx(struct uart_port *port)
@@ -384,14 +373,14 @@ static int __init l4ser_shm_init_port(int num, const char *name)
 	if (shmsize < PAGE_SIZE)
 		shmsize = PAGE_SIZE;
 
-	printk("l4ser_shm: Requesting, role %s, Shmsize %d Kbytes\n",
-	       p->create ? "Creator" : "User", shmsize >> 10);
+	pr_info("l4ser_shm: Requesting, role %s, Shmsize %d Kbytes\n",
+	        p->create ? "Creator" : "User", shmsize >> 10);
 
 	L4XV_L(f);
 	if (p->create) {
 		if (l4shmc_create(name, shmsize)) {
 			L4XV_U(f);
-			printk("l4ser_shm/%s: Failed to create shm\n",
+			pr_err("l4ser_shm/%s: Failed to create shm\n",
 			       p->name);
 			return -ENOMEM;
 		}
@@ -400,7 +389,7 @@ static int __init l4ser_shm_init_port(int num, const char *name)
 	if (l4shmc_attach_to(name, WAIT_TIMEOUT,
 	                     &p->shmcarea)) {
 		L4XV_U(f);
-		printk("l4ser_shm/%s: Failed to attach to shm\n", p->name);
+		pr_err("l4ser_shm/%s: Failed to attach to shm\n", p->name);
 		return -ENOMEM;
 	}
 
@@ -481,7 +470,7 @@ static int __init l4ser_shm_serial_init(void)
 	int ret;
 	int i;
 
-	printk(KERN_INFO "L4 shared mem serial driver\n");
+	pr_info("l4ser_shm: L4 shared mem serial driver\n");
 
 	ret = uart_register_driver(&l4ser_shm_reg);
 	if (ret)
@@ -492,12 +481,11 @@ static int __init l4ser_shm_serial_init(void)
 		if (!*l4ser_shm_port[i].name)
 			continue;
 		if (l4ser_shm_init_port(i, l4ser_shm_port[i].name)) {
-			printk(KERN_WARNING "l4ser_shm: Failed to initialize additional port '%s'.\n",
-			       l4ser_shm_port[i].name);
+			pr_warn("l4ser_shm: Failed to initialize additional port '%s'.\n",
+			        l4ser_shm_port[i].name);
 			continue;
 		}
-		printk(KERN_INFO "l4ser_shm: Adding '%s'\n",
-		       l4ser_shm_port[i].name);
+		pr_info("l4ser_shm: Adding '%s'\n", l4ser_shm_port[i].name);
 		uart_add_one_port(&l4ser_shm_reg, &l4ser_shm_port[i].port);
 		ret = 0;
 	}
@@ -523,7 +511,7 @@ static int l4ser_shm_setup(const char *val, struct kernel_param *kp)
 	int l;
 	char *c;
 	if (ports_to_add_pos >= NR_OF_PORTS) {
-		printk("l4ser_shm: Too many ports specified, max %d\n",
+		pr_err("l4ser_shm: Too many ports specified, max %d\n",
 		       NR_OF_PORTS);
 		return 1;
 	}

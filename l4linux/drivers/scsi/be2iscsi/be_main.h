@@ -34,9 +34,9 @@
 
 #include "be.h"
 #define DRV_NAME		"be2iscsi"
-#define BUILD_STR		"2.103.298.0"
-#define BE_NAME			"ServerEngines BladeEngine2" \
-				"Linux iSCSI Driver version" BUILD_STR
+#define BUILD_STR		"4.2.162.0"
+#define BE_NAME			"Emulex OneConnect" \
+				"Open-iSCSI Driver version" BUILD_STR
 #define DRV_DESC		BE_NAME " " "Driver"
 
 #define BE_VENDOR_ID		0x19A2
@@ -161,6 +161,8 @@ do {							\
 
 #define PAGES_REQUIRED(x) \
 	((x < PAGE_SIZE) ? 1 :  ((x + PAGE_SIZE - 1) / PAGE_SIZE))
+
+#define BEISCSI_MSI_NAME 20 /* size of msi_name string */
 
 enum be_mem_enum {
 	HWI_MEM_ADDN_CONTEXT,
@@ -287,6 +289,7 @@ struct beiscsi_hba {
 	unsigned int num_cpus;
 	unsigned int nxt_cqid;
 	struct msix_entry msix_entries[MAX_CPUS + 1];
+	char *msi_name[MAX_CPUS + 1];
 	bool msix_enabled;
 	struct be_mem_descriptor *init_mem;
 
@@ -313,6 +316,8 @@ struct beiscsi_hba {
 	struct iscsi_endpoint **ep_array;
 	struct iscsi_boot_kset *boot_kset;
 	struct Scsi_Host *shost;
+	struct iscsi_iface *ipv4_iface;
+	struct iscsi_iface *ipv6_iface;
 	struct {
 		/**
 		 * group together since they are used most frequently
@@ -342,7 +347,7 @@ struct beiscsi_hba {
 	struct work_struct work_cqs;	/* The work being queued */
 	struct be_ctrl_info ctrl;
 	unsigned int generation;
-	unsigned int read_mac_address;
+	unsigned int interface_handle;
 	struct mgmt_session_info boot_sess;
 	struct invalidate_command_table inv_tbl[128];
 
@@ -397,7 +402,7 @@ struct amap_pdu_data_out {
 };
 
 struct be_cmd_bhs {
-	struct iscsi_cmd iscsi_hdr;
+	struct iscsi_scsi_req iscsi_hdr;
 	unsigned char pad1[16];
 	struct pdu_data_out iscsi_data_pdu;
 	unsigned char pad2[BE_SENSE_INFO_SIZE -
@@ -428,7 +433,7 @@ struct be_nonio_bhs {
 };
 
 struct be_status_bhs {
-	struct iscsi_cmd iscsi_hdr;
+	struct iscsi_scsi_req iscsi_hdr;
 	unsigned char pad1[16];
 	/**
 	 * The plus 2 below is to hold the sense info length that gets
@@ -522,8 +527,6 @@ struct hwi_async_pdu_context {
 
 		unsigned int free_entries;
 		unsigned int busy_entries;
-		unsigned int buffer_size;
-		unsigned int num_entries;
 
 		struct list_head free_list;
 	} async_header;
@@ -540,10 +543,11 @@ struct hwi_async_pdu_context {
 
 		unsigned int free_entries;
 		unsigned int busy_entries;
-		unsigned int buffer_size;
 		struct list_head free_list;
-		unsigned int num_entries;
 	} async_data;
+
+	unsigned int buffer_size;
+	unsigned int num_entries;
 
 	/**
 	 * This is a varying size list! Do not add anything

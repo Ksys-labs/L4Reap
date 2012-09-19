@@ -66,7 +66,7 @@ static int dsa_slave_open(struct net_device *dev)
 	if (!(master->flags & IFF_UP))
 		return -ENETDOWN;
 
-	if (compare_ether_addr(dev->dev_addr, master->dev_addr)) {
+	if (!ether_addr_equal(dev->dev_addr, master->dev_addr)) {
 		err = dev_uc_add(master, dev->dev_addr);
 		if (err < 0)
 			goto out;
@@ -89,7 +89,7 @@ clear_allmulti:
 	if (dev->flags & IFF_ALLMULTI)
 		dev_set_allmulti(master, -1);
 del_unicast:
-	if (compare_ether_addr(dev->dev_addr, master->dev_addr))
+	if (!ether_addr_equal(dev->dev_addr, master->dev_addr))
 		dev_uc_del(master, dev->dev_addr);
 out:
 	return err;
@@ -107,7 +107,7 @@ static int dsa_slave_close(struct net_device *dev)
 	if (dev->flags & IFF_PROMISC)
 		dev_set_promiscuity(master, -1);
 
-	if (compare_ether_addr(dev->dev_addr, master->dev_addr))
+	if (!ether_addr_equal(dev->dev_addr, master->dev_addr))
 		dev_uc_del(master, dev->dev_addr);
 
 	return 0;
@@ -146,13 +146,13 @@ static int dsa_slave_set_mac_address(struct net_device *dev, void *a)
 	if (!(dev->flags & IFF_UP))
 		goto out;
 
-	if (compare_ether_addr(addr->sa_data, master->dev_addr)) {
+	if (!ether_addr_equal(addr->sa_data, master->dev_addr)) {
 		err = dev_uc_add(master, addr->sa_data);
 		if (err < 0)
 			return err;
 	}
 
-	if (compare_ether_addr(dev->dev_addr, master->dev_addr))
+	if (!ether_addr_equal(dev->dev_addr, master->dev_addr))
 		dev_uc_del(master, dev->dev_addr);
 
 out:
@@ -301,7 +301,6 @@ static const struct net_device_ops dsa_netdev_ops = {
 	.ndo_start_xmit		= dsa_xmit,
 	.ndo_change_rx_flags	= dsa_slave_change_rx_flags,
 	.ndo_set_rx_mode	= dsa_slave_set_rx_mode,
-	.ndo_set_multicast_list = dsa_slave_set_rx_mode,
 	.ndo_set_mac_address	= dsa_slave_set_mac_address,
 	.ndo_do_ioctl		= dsa_slave_ioctl,
 };
@@ -314,7 +313,6 @@ static const struct net_device_ops edsa_netdev_ops = {
 	.ndo_start_xmit		= edsa_xmit,
 	.ndo_change_rx_flags	= dsa_slave_change_rx_flags,
 	.ndo_set_rx_mode	= dsa_slave_set_rx_mode,
-	.ndo_set_multicast_list = dsa_slave_set_rx_mode,
 	.ndo_set_mac_address	= dsa_slave_set_mac_address,
 	.ndo_do_ioctl		= dsa_slave_ioctl,
 };
@@ -327,7 +325,6 @@ static const struct net_device_ops trailer_netdev_ops = {
 	.ndo_start_xmit		= trailer_xmit,
 	.ndo_change_rx_flags	= dsa_slave_change_rx_flags,
 	.ndo_set_rx_mode	= dsa_slave_set_rx_mode,
-	.ndo_set_multicast_list = dsa_slave_set_rx_mode,
 	.ndo_set_mac_address	= dsa_slave_set_mac_address,
 	.ndo_do_ioctl		= dsa_slave_ioctl,
 };

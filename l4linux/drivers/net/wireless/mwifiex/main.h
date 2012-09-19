@@ -37,32 +37,16 @@
 #include "ioctl.h"
 #include "util.h"
 #include "fw.h"
+#include "pcie.h"
 
 extern const char driver_version[];
-extern struct mwifiex_adapter *g_adapter;
 
 enum {
 	MWIFIEX_ASYNC_CMD,
 	MWIFIEX_SYNC_CMD
 };
 
-#define DRV_MODE_STA       0x1
-
-#define SD8787_W0   0x30
-#define SD8787_W1   0x31
-#define SD8787_A0   0x40
-#define SD8787_A1   0x41
-
-#define DEFAULT_FW_NAME "mrvl/sd8787_uapsta.bin"
-#define SD8787_W1_FW_NAME "mrvl/sd8787_uapsta_w1.bin"
-#define SD8787_AX_FW_NAME "mrvl/sd8787_uapsta.bin"
-
-struct mwifiex_drv_mode {
-	u16 drv_mode;
-	u16 intf_num;
-	struct mwifiex_bss_attr *bss_attr;
-};
-
+#define MWIFIEX_MAX_AP				64
 
 #define MWIFIEX_DEFAULT_WATCHDOG_TIMEOUT	(5 * HZ)
 
@@ -108,9 +92,16 @@ struct mwifiex_drv_mode {
 #define MWIFIEX_OUI_NOT_PRESENT			0
 #define MWIFIEX_OUI_PRESENT				1
 
+/*
+ * Do not check for data_received for USB, as data_received
+ * is handled in mwifiex_usb_recv for USB
+ */
 #define IS_CARD_RX_RCVD(adapter) (adapter->cmd_resp_received || \
-					adapter->event_received || \
-					adapter->data_received)
+				adapter->event_received || \
+				((adapter->iface_type != MWIFIEX_USB) && \
+				adapter->data_received) || \
+				((adapter->iface_type == MWIFIEX_USB) && \
+				!skb_queue_empty(&adapter->usb_rx_data_q)))
 
 #define MWIFIEX_TYPE_CMD				1
 #define MWIFIEX_TYPE_DATA				0
@@ -123,6 +114,14 @@ struct mwifiex_drv_mode {
 #define MAX_CHANNEL_BAND_BG     14
 
 #define MAX_FREQUENCY_BAND_BG   2484
+
+#define MWIFIEX_EVENT_HEADER_LEN           4
+#define MWIFIEX_UAP_EVENT_EXTRA_HEADER	   2
+
+#define MWIFIEX_TYPE_LEN			4
+#define MWIFIEX_USB_TYPE_CMD			0xF00DFACE
+#define MWIFIEX_USB_TYPE_DATA			0xBEADC0DE
+#define MWIFIEX_USB_TYPE_EVENT			0xBEEFFACE
 
 struct mwifiex_dbg {
 	u32 num_cmd_host_to_card_failure;
@@ -173,6 +172,12 @@ enum MWIFIEX_PS_STATE {
 	PS_STATE_SLEEP
 };
 
+enum mwifiex_iface_type {
+	MWIFIEX_SDIO,
+	MWIFIEX_PCIE,
+	MWIFIEX_USB
+};
+
 struct mwifiex_add_ba_param {
 	u32 tx_win_size;
 	u32 rx_win_size;
@@ -210,10 +215,10 @@ struct mwifiex_wmm_desc {
 	u32 packets_out[MAX_NUM_TID];
 	/* spin lock to protect ra_list */
 	spinlock_t ra_list_spinlock;
-	struct mwifiex_wmm_ac_status ac_status[IEEE80211_MAX_QUEUES];
-	enum mwifiex_wmm_ac_e ac_down_graded_vals[IEEE80211_MAX_QUEUES];
+	struct mwifiex_wmm_ac_status ac_status[IEEE80211_NUM_ACS];
+	enum mwifiex_wmm_ac_e ac_down_graded_vals[IEEE80211_NUM_ACS];
 	u32 drv_pkt_delay_max;
-	u8 queue_priority[IEEE80211_MAX_QUEUES];
+	u8 queue_priority[IEEE80211_NUM_ACS];
 	u32 user_pri_pkt_tx_ctrl[WMM_HIGHEST_PRIORITY + 1];	/* UP: 0 to 7 */
 	/* Number of transmit packets queued */
 	atomic_t tx_pkts_queued;
@@ -226,8 +231,9 @@ struct mwifiex_802_11_security {
 	u8 wpa2_enabled;
 	u8 wapi_enabled;
 	u8 wapi_key_on;
-	enum MWIFIEX_802_11_WEP_STATUS wep_status;
+	u8 wep_enabled;
 	u32 authentication_mode;
+	u8 is_authtype_auto;
 	u32 encryption_mode;
 };
 
@@ -236,26 +242,9 @@ struct ieee_types_header {
 	u8 len;
 } __packed;
 
-struct ieee_obss_scan_param {
-	u16 obss_scan_passive_dwell;
-	u16 obss_scan_active_dwell;
-	u16 bss_chan_width_trigger_scan_int;
-	u16 obss_scan_passive_total;
-	u16 obss_scan_active_total;
-	u16 bss_width_chan_trans_delay;
-	u16 obss_scan_active_threshold;
-} __packed;
-
-struct ieee_types_obss_scan_param {
-	struct ieee_types_header ieee_hdr;
-	struct ieee_obss_scan_param obss_scan;
-} __packed;
-
 #define MWIFIEX_SUPPORTED_RATES                 14
 
 #define MWIFIEX_SUPPORTED_RATES_EXT             32
-
-#define IEEE_MAX_IE_SIZE			256
 
 struct ieee_types_vendor_specific {
 	struct ieee_types_vendor_header vend_hdr;
@@ -269,7 +258,7 @@ struct ieee_types_generic {
 
 struct mwifiex_bssdescriptor {
 	u8 mac_address[ETH_ALEN];
-	struct mwifiex_802_11_ssid ssid;
+	struct cfg80211_ssid ssid;
 	u32 privacy;
 	s32 rssi;
 	u32 channel;
@@ -285,8 +274,8 @@ struct mwifiex_bssdescriptor {
 	 * BAND_A(0X04): 'a' band
 	 */
 	u16 bss_band;
-	u64 network_tsf;
-	u8 time_stamp[8];
+	u64 fw_tsf;
+	u64 timestamp;
 	union ieee_types_phy_param_set phy_param_set;
 	union ieee_types_ss_param_set ss_param_set;
 	u16 cap_info_bitmap;
@@ -294,14 +283,12 @@ struct mwifiex_bssdescriptor {
 	u8  disable_11n;
 	struct ieee80211_ht_cap *bcn_ht_cap;
 	u16 ht_cap_offset;
-	struct ieee80211_ht_info *bcn_ht_info;
+	struct ieee80211_ht_operation *bcn_ht_oper;
 	u16 ht_info_offset;
 	u8 *bcn_bss_co_2040;
 	u16 bss_co_2040_offset;
 	u8 *bcn_ext_cap;
 	u16 ext_cap_offset;
-	struct ieee_types_obss_scan_param *bcn_obss_scan;
-	u16 overlap_bss_offset;
 	struct ieee_types_vendor_specific *bcn_wpa_ie;
 	u16 wpa_offset;
 	struct ieee_types_generic *bcn_rsn_ie;
@@ -310,8 +297,6 @@ struct mwifiex_bssdescriptor {
 	u16 wapi_offset;
 	u8 *beacon_buf;
 	u32 beacon_buf_size;
-	u32 beacon_buf_size_max;
-
 };
 
 struct mwifiex_current_bss_params {
@@ -382,11 +367,11 @@ struct mwifiex_private;
 
 struct mwifiex_private {
 	struct mwifiex_adapter *adapter;
-	u8 bss_index;
 	u8 bss_type;
 	u8 bss_role;
 	u8 bss_priority;
 	u8 bss_num;
+	u8 bss_started;
 	u8 frame_type;
 	u8 curr_addr[ETH_ALEN];
 	u8 media_connected;
@@ -418,10 +403,11 @@ struct mwifiex_private {
 	s16 bcn_rssi_avg;
 	s16 bcn_nf_avg;
 	struct mwifiex_bssdescriptor *attempted_bss_desc;
-	struct mwifiex_802_11_ssid prev_ssid;
+	struct cfg80211_ssid prev_ssid;
 	u8 prev_bssid[ETH_ALEN];
 	struct mwifiex_current_bss_params curr_bss_params;
 	u16 beacon_period;
+	u8 dtim_period;
 	u16 listen_interval;
 	u16 atim_window;
 	u8 adhoc_channel;
@@ -436,6 +422,8 @@ struct mwifiex_private {
 	struct host_cmd_ds_802_11_key_material aes_key;
 	u8 wapi_ie[256];
 	u8 wapi_ie_len;
+	u8 *wps_ie;
+	u8 wps_ie_len;
 	u8 wmm_required;
 	u8 wmm_enabled;
 	u8 wmm_qosinfo;
@@ -477,30 +465,29 @@ struct mwifiex_private {
 	struct dentry *dfs_dev_dir;
 #endif
 	u8 nick_name[16];
-	struct iw_statistics w_stats;
 	u16 current_key_index;
 	struct semaphore async_sem;
 	u8 scan_pending_on_block;
 	u8 report_scan_result;
 	struct cfg80211_scan_request *scan_request;
-	int scan_result_status;
-	int assoc_request;
-	u16 assoc_result;
-	int ibss_join_request;
-	u16 ibss_join_result;
-	bool disconnect;
+	struct mwifiex_user_scan_cfg *user_scan_cfg;
 	u8 cfg_bssid[6];
-	struct workqueue_struct *workqueue;
-	struct work_struct cfg_workqueue;
-	u8 country_code[IEEE80211_COUNTRY_STRING_LEN];
 	struct wps wps;
 	u8 scan_block;
+	s32 cqm_rssi_thold;
+	u32 cqm_rssi_hyst;
+	u8 subsc_evt_rssi_state;
+	struct mwifiex_ie mgmt_ie[MAX_MGMT_IE_INDEX];
+	u16 beacon_idx;
+	u16 proberesp_idx;
+	u16 assocresp_idx;
+	u16 rsn_idx;
 };
 
 enum mwifiex_ba_status {
-	BA_STREAM_NOT_SETUP = 0,
-	BA_STREAM_SETUP_INPROGRESS,
-	BA_STREAM_SETUP_COMPLETE
+	BA_SETUP_NONE = 0,
+	BA_SETUP_INPROGRESS,
+	BA_SETUP_COMPLETE
 };
 
 struct mwifiex_tx_ba_stream_tbl {
@@ -550,36 +537,49 @@ struct cmd_ctrl_node {
 	void *data_buf;
 	u32 wait_q_enabled;
 	struct sk_buff *skb;
+	u8 *condition;
+	u8 cmd_wait_q_woken;
+};
+
+struct mwifiex_bss_priv {
+	u8 band;
+	u64 fw_tsf;
 };
 
 struct mwifiex_if_ops {
 	int (*init_if) (struct mwifiex_adapter *);
 	void (*cleanup_if) (struct mwifiex_adapter *);
-	int (*check_fw_status) (struct mwifiex_adapter *, u32, int *);
+	int (*check_fw_status) (struct mwifiex_adapter *, u32);
 	int (*prog_fw) (struct mwifiex_adapter *, struct mwifiex_fw_image *);
 	int (*register_dev) (struct mwifiex_adapter *);
 	void (*unregister_dev) (struct mwifiex_adapter *);
 	int (*enable_int) (struct mwifiex_adapter *);
 	int (*process_int_status) (struct mwifiex_adapter *);
-	int (*host_to_card) (struct mwifiex_adapter *, u8,
-			     u8 *payload, u32 pkt_len,
+	int (*host_to_card) (struct mwifiex_adapter *, u8, struct sk_buff *,
 			     struct mwifiex_tx_param *);
 	int (*wakeup) (struct mwifiex_adapter *);
 	int (*wakeup_complete) (struct mwifiex_adapter *);
 
+	/* Interface specific functions */
 	void (*update_mp_end_port) (struct mwifiex_adapter *, u16);
 	void (*cleanup_mpa_buf) (struct mwifiex_adapter *);
+	int (*cmdrsp_complete) (struct mwifiex_adapter *, struct sk_buff *);
+	int (*event_complete) (struct mwifiex_adapter *, struct sk_buff *);
+	int (*data_complete) (struct mwifiex_adapter *, struct sk_buff *);
+	int (*dnld_fw) (struct mwifiex_adapter *, struct mwifiex_fw_image *);
 };
 
 struct mwifiex_adapter {
+	u8 iface_type;
 	struct mwifiex_private *priv[MWIFIEX_MAX_BSS_NUM];
 	u8 priv_num;
-	struct mwifiex_drv_mode *drv_mode;
 	const struct firmware *firmware;
+	char fw_name[32];
+	int winner;
 	struct device *dev;
+	struct wiphy *wiphy;
 	bool surprise_removed;
 	u32 fw_release_number;
-	u32 revision_id;
 	u16 init_wait_q_woken;
 	wait_queue_head_t init_wait_q;
 	void *card;
@@ -630,18 +630,15 @@ struct mwifiex_adapter {
 	struct list_head scan_pending_q;
 	/* spin lock for scan_pending_q */
 	spinlock_t scan_pending_q_lock;
+	struct sk_buff_head usb_rx_data_q;
 	u32 scan_processing;
 	u16 region_code;
 	struct mwifiex_802_11d_domain_reg domain_reg;
-	struct mwifiex_bssdescriptor *scan_table;
-	u32 num_in_scan_table;
 	u16 scan_probes;
 	u32 scan_mode;
 	u16 specific_scan_time;
 	u16 active_scan_time;
 	u16 passive_scan_time;
-	u8 bcn_buf[MAX_SCAN_BEACON_BUFFER];
-	u8 *bcn_buf_end;
 	u8 fw_bands;
 	u8 adhoc_start_band;
 	u8 config_bands;
@@ -676,16 +673,30 @@ struct mwifiex_adapter {
 	u32 hw_dot_11n_dev_cap;
 	u8 hw_dev_mcs_support;
 	u8 adhoc_11n_enabled;
-	u8 chan_offset;
+	u8 sec_chan_offset;
+	enum nl80211_channel_type channel_type;
 	struct mwifiex_dbg dbg;
 	u8 arp_filter[ARP_FILTER_MAX_BUF_SIZE];
 	u32 arp_filter_size;
 	u16 cmd_wait_q_required;
 	struct mwifiex_wait_queue cmd_wait_q;
+	u8 scan_wait_q_woken;
+	struct cmd_ctrl_node *cmd_queued;
+	spinlock_t queue_lock;		/* lock for tx queues */
+	struct completion fw_load;
+	u8 country_code[IEEE80211_COUNTRY_STRING_LEN];
+	u16 max_mgmt_ie_index;
 };
 
 int mwifiex_init_lock_list(struct mwifiex_adapter *adapter);
-void mwifiex_free_lock_list(struct mwifiex_adapter *adapter);
+
+void mwifiex_set_trans_start(struct net_device *dev);
+
+void mwifiex_stop_net_dev_queue(struct net_device *netdev,
+		struct mwifiex_adapter *adapter);
+
+void mwifiex_wake_up_net_dev_queue(struct net_device *netdev,
+		struct mwifiex_adapter *adapter);
 
 int mwifiex_init_fw(struct mwifiex_adapter *adapter);
 
@@ -701,7 +712,8 @@ int mwifiex_recv_packet(struct mwifiex_adapter *, struct sk_buff *skb);
 
 int mwifiex_process_event(struct mwifiex_adapter *adapter);
 
-int mwifiex_complete_cmd(struct mwifiex_adapter *adapter);
+int mwifiex_complete_cmd(struct mwifiex_adapter *adapter,
+			 struct cmd_ctrl_node *cmd_node);
 
 int mwifiex_send_cmd_async(struct mwifiex_private *priv, uint16_t cmd_no,
 			   u16 cmd_action, u32 cmd_oid, void *data_buf);
@@ -735,8 +747,6 @@ int mwifiex_process_tx(struct mwifiex_private *priv, struct sk_buff *skb,
 int mwifiex_send_null_packet(struct mwifiex_private *priv, u8 flags);
 int mwifiex_write_data_complete(struct mwifiex_adapter *adapter,
 				struct sk_buff *skb, int status);
-int mwifiex_recv_packet_complete(struct mwifiex_adapter *,
-				 struct sk_buff *skb, int status);
 void mwifiex_clean_txrx(struct mwifiex_private *priv);
 u8 mwifiex_check_last_packet_indication(struct mwifiex_private *priv);
 void mwifiex_check_ps_cond(struct mwifiex_adapter *adapter);
@@ -745,10 +755,10 @@ void mwifiex_process_sleep_confirm_resp(struct mwifiex_adapter *, u8 *,
 int mwifiex_cmd_enh_power_mode(struct mwifiex_private *priv,
 			       struct host_cmd_ds_command *cmd,
 			       u16 cmd_action, uint16_t ps_bitmap,
-			       void *data_buf);
+			       struct mwifiex_ds_auto_ds *auto_ds);
 int mwifiex_ret_enh_power_mode(struct mwifiex_private *priv,
 			       struct host_cmd_ds_command *resp,
-			       void *data_buf);
+			       struct mwifiex_ds_pm_cfg *pm_cfg);
 void mwifiex_process_hs_config(struct mwifiex_adapter *adapter);
 void mwifiex_hs_activated_event(struct mwifiex_private *priv,
 					u8 activated);
@@ -759,62 +769,50 @@ int mwifiex_process_rx_packet(struct mwifiex_adapter *adapter,
 int mwifiex_sta_prepare_cmd(struct mwifiex_private *, uint16_t cmd_no,
 			    u16 cmd_action, u32 cmd_oid,
 			    void *data_buf, void *cmd_buf);
+int mwifiex_uap_prepare_cmd(struct mwifiex_private *priv, uint16_t cmd_no,
+			    u16 cmd_action, u32 cmd_oid,
+			    void *data_buf, void *cmd_buf);
 int mwifiex_process_sta_cmdresp(struct mwifiex_private *, u16 cmdresp_no,
-				void *cmd_buf);
+				struct host_cmd_ds_command *resp);
 int mwifiex_process_sta_rx_packet(struct mwifiex_adapter *,
 				  struct sk_buff *skb);
 int mwifiex_process_sta_event(struct mwifiex_private *);
 void *mwifiex_process_sta_txpd(struct mwifiex_private *, struct sk_buff *skb);
 int mwifiex_sta_init_cmd(struct mwifiex_private *, u8 first_sta);
-int mwifiex_scan_networks(struct mwifiex_private *priv,
-			  const struct mwifiex_user_scan_cfg *user_scan_in);
 int mwifiex_cmd_802_11_scan(struct host_cmd_ds_command *cmd,
-			    void *data_buf);
+			    struct mwifiex_scan_cmd_config *scan_cfg);
 void mwifiex_queue_scan_cmd(struct mwifiex_private *priv,
 			    struct cmd_ctrl_node *cmd_node);
 int mwifiex_ret_802_11_scan(struct mwifiex_private *priv,
 			    struct host_cmd_ds_command *resp);
-s32 mwifiex_find_ssid_in_list(struct mwifiex_private *priv,
-				struct mwifiex_802_11_ssid *ssid, u8 *bssid,
-				u32 mode);
-s32 mwifiex_find_bssid_in_list(struct mwifiex_private *priv, u8 *bssid,
-				 u32 mode);
-int mwifiex_find_best_network(struct mwifiex_private *priv,
-			      struct mwifiex_ssid_bssid *req_ssid_bssid);
-s32 mwifiex_ssid_cmp(struct mwifiex_802_11_ssid *ssid1,
-		       struct mwifiex_802_11_ssid *ssid2);
+s32 mwifiex_ssid_cmp(struct cfg80211_ssid *ssid1, struct cfg80211_ssid *ssid2);
 int mwifiex_associate(struct mwifiex_private *priv,
 		      struct mwifiex_bssdescriptor *bss_desc);
 int mwifiex_cmd_802_11_associate(struct mwifiex_private *priv,
-				 struct host_cmd_ds_command
-				 *cmd, void *data_buf);
+				 struct host_cmd_ds_command *cmd,
+				 struct mwifiex_bssdescriptor *bss_desc);
 int mwifiex_ret_802_11_associate(struct mwifiex_private *priv,
 				 struct host_cmd_ds_command *resp);
 void mwifiex_reset_connect_state(struct mwifiex_private *priv);
-void mwifiex_2040_coex_event(struct mwifiex_private *priv);
 u8 mwifiex_band_to_radio_type(u8 band);
 int mwifiex_deauthenticate(struct mwifiex_private *priv, u8 *mac);
 int mwifiex_adhoc_start(struct mwifiex_private *priv,
-			struct mwifiex_802_11_ssid *adhoc_ssid);
+			struct cfg80211_ssid *adhoc_ssid);
 int mwifiex_adhoc_join(struct mwifiex_private *priv,
 		       struct mwifiex_bssdescriptor *bss_desc);
 int mwifiex_cmd_802_11_ad_hoc_start(struct mwifiex_private *priv,
 				    struct host_cmd_ds_command *cmd,
-				    void *data_buf);
+				    struct cfg80211_ssid *req_ssid);
 int mwifiex_cmd_802_11_ad_hoc_join(struct mwifiex_private *priv,
 				   struct host_cmd_ds_command *cmd,
-				   void *data_buf);
+				   struct mwifiex_bssdescriptor *bss_desc);
 int mwifiex_ret_802_11_ad_hoc(struct mwifiex_private *priv,
 			      struct host_cmd_ds_command *resp);
 int mwifiex_cmd_802_11_bg_scan_query(struct host_cmd_ds_command *cmd);
-struct mwifiex_chan_freq_power *
-			mwifiex_get_cfp_by_band_and_channel_from_cfg80211(
-						struct mwifiex_private *priv,
-						u8 band, u16 channel);
-struct mwifiex_chan_freq_power *mwifiex_get_cfp_by_band_and_freq_from_cfg80211(
-						struct mwifiex_private *priv,
-						u8 band, u32 freq);
-u32 mwifiex_index_to_data_rate(u8 index, u8 ht_info);
+struct mwifiex_chan_freq_power *mwifiex_get_cfp(struct mwifiex_private *priv,
+						u8 band, u16 channel, u32 freq);
+u32 mwifiex_index_to_data_rate(struct mwifiex_private *priv, u8 index,
+							u8 ht_info);
 u32 mwifiex_find_freq_from_band_chan(u8, u8);
 int mwifiex_cmd_append_vsie_tlv(struct mwifiex_private *priv, u16 vsie_mask,
 				u8 **buffer);
@@ -832,6 +830,11 @@ int mwifiex_cmd_get_hw_spec(struct mwifiex_private *priv,
 int mwifiex_ret_get_hw_spec(struct mwifiex_private *priv,
 			    struct host_cmd_ds_command *resp);
 int is_command_pending(struct mwifiex_adapter *adapter);
+void mwifiex_init_priv_params(struct mwifiex_private *priv,
+						struct net_device *dev);
+int mwifiex_set_secure_params(struct mwifiex_private *priv,
+			      struct mwifiex_uap_bss_param *bss_config,
+			      struct cfg80211_ap_settings *params);
 
 /*
  * This function checks if the queuing is RA based or not.
@@ -879,8 +882,8 @@ mwifiex_get_priv_by_id(struct mwifiex_adapter *adapter,
 
 	for (i = 0; i < adapter->priv_num; i++) {
 		if (adapter->priv[i]) {
-			if ((adapter->priv[i]->bss_num == bss_num)
-			    && (adapter->priv[i]->bss_type == bss_type))
+			if ((adapter->priv[i]->bss_num == bss_num) &&
+			    (adapter->priv[i]->bss_type == bss_type))
 				break;
 		}
 	}
@@ -917,11 +920,9 @@ mwifiex_netdev_get_priv(struct net_device *dev)
 	return (struct mwifiex_private *) (*(unsigned long *) netdev_priv(dev));
 }
 
-struct mwifiex_private *mwifiex_bss_index_to_priv(struct mwifiex_adapter
-						*adapter, u8 bss_index);
 int mwifiex_init_shutdown_fw(struct mwifiex_private *priv,
 			     u32 func_init_shutdown);
-int mwifiex_add_card(void *, struct semaphore *, struct mwifiex_if_ops *);
+int mwifiex_add_card(void *, struct semaphore *, struct mwifiex_if_ops *, u8);
 int mwifiex_remove_card(struct mwifiex_adapter *, struct semaphore *);
 
 void mwifiex_get_version(struct mwifiex_adapter *adapter, char *version,
@@ -931,30 +932,24 @@ int mwifiex_request_set_multicast_list(struct mwifiex_private *priv,
 int mwifiex_copy_mcast_addr(struct mwifiex_multicast_list *mlist,
 			    struct net_device *dev);
 int mwifiex_wait_queue_complete(struct mwifiex_adapter *adapter);
-int mwifiex_bss_start(struct mwifiex_private *priv,
-		      struct mwifiex_ssid_bssid *ssid_bssid);
-int mwifiex_set_hs_params(struct mwifiex_private *priv,
-			      u16 action, int cmd_type,
-			      struct mwifiex_ds_hs_cfg *hscfg);
+int mwifiex_bss_start(struct mwifiex_private *priv, struct cfg80211_bss *bss,
+		      struct cfg80211_ssid *req_ssid);
 int mwifiex_cancel_hs(struct mwifiex_private *priv, int cmd_type);
 int mwifiex_enable_hs(struct mwifiex_adapter *adapter);
-int mwifiex_get_signal_info(struct mwifiex_private *priv,
-			    struct mwifiex_ds_get_signal *signal);
+int mwifiex_disable_auto_ds(struct mwifiex_private *priv);
 int mwifiex_drv_get_data_rate(struct mwifiex_private *priv,
 			      struct mwifiex_rate_cfg *rate);
-int mwifiex_find_best_bss(struct mwifiex_private *priv,
-			  struct mwifiex_ssid_bssid *ssid_bssid);
 int mwifiex_request_scan(struct mwifiex_private *priv,
-			 struct mwifiex_802_11_ssid *req_ssid);
+			 struct cfg80211_ssid *req_ssid);
 int mwifiex_set_user_scan_ioctl(struct mwifiex_private *priv,
 				struct mwifiex_user_scan_cfg *scan_req);
-int mwifiex_change_adhoc_chan(struct mwifiex_private *priv, int channel);
 int mwifiex_set_radio(struct mwifiex_private *priv, u8 option);
 
-int mwifiex_drv_change_adhoc_chan(struct mwifiex_private *priv, int channel);
+int mwifiex_drv_change_adhoc_chan(struct mwifiex_private *priv, u16 channel);
 
 int mwifiex_set_encode(struct mwifiex_private *priv, const u8 *key,
-		       int key_len, u8 key_index, int disable);
+		       int key_len, u8 key_index, const u8 *mac_addr,
+		       int disable);
 
 int mwifiex_set_gen_ie(struct mwifiex_private *priv, u8 *ie, int ie_len);
 
@@ -990,14 +985,30 @@ int mwifiex_set_tx_power(struct mwifiex_private *priv,
 
 int mwifiex_main_process(struct mwifiex_adapter *);
 
+int mwifiex_uap_set_channel(struct mwifiex_private *priv, int channel);
 int mwifiex_bss_set_channel(struct mwifiex_private *,
 			    struct mwifiex_chan_freq_power *cfp);
-int mwifiex_bss_ioctl_find_bss(struct mwifiex_private *,
-			       struct mwifiex_ssid_bssid *);
-int mwifiex_set_radio_band_cfg(struct mwifiex_private *,
-			 struct mwifiex_ds_band_cfg *);
 int mwifiex_get_bss_info(struct mwifiex_private *,
 			 struct mwifiex_bss_info *);
+int mwifiex_fill_new_bss_desc(struct mwifiex_private *priv,
+			      struct cfg80211_bss *bss,
+			      struct mwifiex_bssdescriptor *bss_desc);
+int mwifiex_update_bss_desc_with_ie(struct mwifiex_adapter *adapter,
+				    struct mwifiex_bssdescriptor *bss_entry);
+int mwifiex_check_network_compatibility(struct mwifiex_private *priv,
+					struct mwifiex_bssdescriptor *bss_desc);
+
+struct net_device *mwifiex_add_virtual_intf(struct wiphy *wiphy,
+					char *name, enum nl80211_iftype type,
+					u32 *flags, struct vif_params *params);
+int mwifiex_del_virtual_intf(struct wiphy *wiphy, struct net_device *dev);
+
+void mwifiex_set_sys_config_invalid_data(struct mwifiex_uap_bss_param *config);
+
+int mwifiex_set_mgmt_ies(struct mwifiex_private *priv,
+			 struct cfg80211_ap_settings *params);
+int mwifiex_del_mgmt_ies(struct mwifiex_private *priv);
+u8 *mwifiex_11d_code_2_region(u8 code);
 
 #ifdef CONFIG_DEBUG_FS
 void mwifiex_debugfs_init(void);

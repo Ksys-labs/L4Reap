@@ -23,6 +23,7 @@
 
 #include <linux/slab.h>
 #include <linux/kfifo.h>
+#include <linux/module.h>
 #include <media/cx25840.h>
 #include <media/rc-core.h>
 
@@ -315,9 +316,7 @@ static u64 ns_to_pulse_clocks(u32 ns)
 
 static u16 pulse_clocks_to_clock_divider(u64 count)
 {
-	u32 rem;
-
-	rem = do_div(count, (FIFO_RXTX << 2) | 0x3);
+	do_div(count, (FIFO_RXTX << 2) | 0x3);
 
 	/* net result needs to be rounded down and decremented by 1 */
 	if (count > RXCLK_RCD + 1)
@@ -668,7 +667,7 @@ static int cx25840_ir_rx_read(struct v4l2_subdev *sd, u8 *buf, size_t count,
 	u16 divider;
 	unsigned int i, n;
 	union cx25840_ir_fifo_rec *p;
-	unsigned u, v;
+	unsigned u, v, w;
 
 	if (ir_state == NULL)
 		return -ENODEV;
@@ -694,11 +693,12 @@ static int cx25840_ir_rx_read(struct v4l2_subdev *sd, u8 *buf, size_t count,
 		if ((p->hw_fifo_data & FIFO_RXTX_RTO) == FIFO_RXTX_RTO) {
 			/* Assume RTO was because of no IR light input */
 			u = 0;
-			v4l2_dbg(2, ir_debug, sd, "rx read: end of rx\n");
+			w = 1;
 		} else {
 			u = (p->hw_fifo_data & FIFO_RXTX_LVL) ? 1 : 0;
 			if (invert)
 				u = u ? 0 : 1;
+			w = 0;
 		}
 
 		v = (unsigned) pulse_width_count_to_ns(
@@ -709,9 +709,12 @@ static int cx25840_ir_rx_read(struct v4l2_subdev *sd, u8 *buf, size_t count,
 		init_ir_raw_event(&p->ir_core_data);
 		p->ir_core_data.pulse = u;
 		p->ir_core_data.duration = v;
+		p->ir_core_data.timeout = w;
 
-		v4l2_dbg(2, ir_debug, sd, "rx read: %10u ns  %s\n",
-			 v, u ? "mark" : "space");
+		v4l2_dbg(2, ir_debug, sd, "rx read: %10u ns  %s  %s\n",
+			 v, u ? "mark" : "space", w ? "(timed out)" : "");
+		if (w)
+			v4l2_dbg(2, ir_debug, sd, "rx read: end of rx\n");
 	}
 	return 0;
 }
@@ -855,12 +858,10 @@ static int cx25840_ir_tx_write(struct v4l2_subdev *sd, u8 *buf, size_t count,
 			       ssize_t *num)
 {
 	struct cx25840_ir_state *ir_state = to_ir_state(sd);
-	struct i2c_client *c;
 
 	if (ir_state == NULL)
 		return -ENODEV;
 
-	c = ir_state->c;
 #if 0
 	/*
 	 * FIXME - the code below is an incomplete and untested sketch of what

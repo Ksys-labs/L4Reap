@@ -2,9 +2,7 @@
  * Functions implementing the API defined in asm/l4lxapi/thread.h
  */
 
-#include <l4/sys/kdebug.h>
 #include <l4/sys/err.h>
-
 #include <l4/sys/thread.h>
 #include <l4/sys/scheduler.h>
 #include <l4/sys/factory.h>
@@ -32,8 +30,13 @@
 
 L4_EXTERNAL_FUNC(l4re_util_kumem_alloc);
 
+struct free_block_t {
+	l4_umword_t pad[L4_UTCB_GENERIC_DATA_SIZE - 1];
+	struct free_block_t *next_free;
+};
+
 struct free_list_t {
-	unsigned long *head;
+	struct free_block_t *head;
 	unsigned blk_sz;
 };
 static struct free_list_t ku_free_small = {
@@ -45,16 +48,19 @@ static struct free_list_t ku_free_big = {
 };
 #endif
 
-static void add_to_free_list(l4_addr_t start, l4_addr_t end,
-                             unsigned sz, unsigned long **head)
+static void enqueue_to_ku_mem_list(void *k, struct free_list_t *fl)
+{
+	struct free_block_t *f = k;
+	f->next_free = fl->head;
+	fl->head = f;
+}
+
+static void add_mem_to_free_list(l4_addr_t start, l4_addr_t end,
+                                 unsigned sz, struct free_list_t *fl)
 {
 	l4_addr_t n = start;
-	unsigned long **last_free = head;
 	while (n + sz <= end) {
-		unsigned long *u = (unsigned long *)n;
-		*u = 0;
-		*last_free = u;
-		last_free = (unsigned long **)u;
+		enqueue_to_ku_mem_list((void *)n, fl);
 		n += sz;
 	}
 }
@@ -65,38 +71,39 @@ void l4lx_thread_utcb_alloc_init(void)
 	l4_addr_t free_utcb = l4re_env()->first_free_utcb;
 	l4_addr_t end       = ((l4_addr_t)l4_fpage_page(utcb_area) << 12UL)
 	                      + (1UL << (l4_addr_t)l4_fpage_size(utcb_area));
-	add_to_free_list(free_utcb, end, L4_UTCB_OFFSET,
-	                 &ku_free_small.head);
+	add_mem_to_free_list(free_utcb, end, L4_UTCB_OFFSET,
+	                     &ku_free_small);
 
 	/* Used up all initial slots... */
 	l4re_env()->first_free_utcb = ~0UL;
 }
 
 static int get_more_kumem(unsigned order_pages, unsigned blk_sz,
-                          unsigned long **head)
+                          struct free_list_t *fl)
 {
 	l4_addr_t kumem;
 	if (l4re_util_kumem_alloc(&kumem, order_pages,
 	                          L4_BASE_TASK_CAP, l4re_env()->rm))
 		return 1;
 
-	add_to_free_list(kumem, kumem + (1 << order_pages) * L4_PAGESIZE,
-	                 blk_sz, head);
+	add_mem_to_free_list(kumem, kumem + (1 << order_pages) * L4_PAGESIZE,
+	                     blk_sz, fl);
 	return 0;
 }
 
-static void *l4lx_thread_ku_alloc_alloc(struct free_list_t *head)
+static void *l4lx_thread_ku_alloc_alloc(struct free_list_t *fl)
 {
-	unsigned long *n = head->head;
+	struct free_block_t *n = fl->head;
 	if (!n) {
-		if (get_more_kumem(0, head->blk_sz, &head->head))
+		if (get_more_kumem(0, fl->blk_sz, fl))
 			return 0;
 
-		n = head->head;
+		n = fl->head;
 	}
 
-	head->head = (unsigned long *)(*n);
-	return (void *)n;
+	fl->head = n->next_free;
+	memset(n, 0, fl->blk_sz);
+	return n;
 }
 
 static void *l4lx_thread_ku_alloc_alloc_u(void)
@@ -116,25 +123,27 @@ static void *l4lx_thread_ku_alloc_alloc_v(void)
 #endif
 
 
-static void l4lx_thread_ku_alloc_free(void *k, unsigned long **head)
-{
-	*(unsigned long *)k = (unsigned long)(*head);
-	*head = (unsigned long *)k;
-}
-
 static void l4lx_thread_ku_alloc_free_u(void *k)
 {
-	return l4lx_thread_ku_alloc_free(k, &ku_free_small.head);
+	return enqueue_to_ku_mem_list(k, &ku_free_small);
 }
 
 static void l4lx_thread_ku_alloc_free_v(void *k)
 {
 #ifdef CONFIG_KVM
-	return l4lx_thread_ku_alloc_free(k, &ku_free_big.head);
+	return enqueue_to_ku_mem_list(k, &ku_free_big);
 #else
-	return l4lx_thread_ku_alloc_free(k, &ku_free_small.head);
+	return enqueue_to_ku_mem_list(k, &ku_free_small);
 #endif
 }
+
+int l4lx_thread_start(struct l4lx_thread_start_info_t *s)
+{
+	l4_msgtag_t res = l4_thread_ex_regs(s->l4cap, s->ip, s->sp, 0);
+	return l4_error(res);
+}
+EXPORT_SYMBOL(l4lx_thread_start);
+
 
 #ifdef ARCH_arm
 void __thread_launch(void);
@@ -160,13 +169,14 @@ l4lx_thread_t l4lx_thread_create(L4_CV void (*thread_func)(void *data),
                                  unsigned vcpu,
                                  void *stack_pointer,
                                  void *stack_data, unsigned stack_data_size,
-                                 int prio,
+                                 l4_cap_idx_t l4cap, int prio,
                                  l4_vcpu_state_t **vcpu_state,
-                                 const char *name)
+                                 const char *name,
+                                 struct l4lx_thread_start_info_t *deferstart)
 {
-	l4_cap_idx_t l4cap;
 	l4_sched_param_t schedp;
 	l4_msgtag_t res;
+	struct l4lx_thread_start_info_t si_buf, *si;
 	char l4lx_name[20] = "l4lx.";
 	l4_utcb_t *utcb;
 	l4_umword_t *sp, *sp_data;
@@ -176,7 +186,6 @@ l4lx_thread_t l4lx_thread_create(L4_CV void (*thread_func)(void *data),
 	        sizeof(l4lx_name) - strlen(l4lx_name));
 	l4lx_name[sizeof(l4lx_name) - 1] = 0;
 
-	l4cap = l4x_cap_alloc();
 	if (l4_is_invalid_cap(l4cap))
 		return 0;
 
@@ -252,7 +261,7 @@ l4lx_thread_t l4lx_thread_create(L4_CV void (*thread_func)(void *data),
 	schedp = l4_sched_param(prio, 0);
 	schedp.affinity = l4_sched_cpu_set(l4x_cpu_physmap_get_id(vcpu), 0, 1);
 
-	res = l4_scheduler_run_thread (l4re_env()->scheduler, l4cap, &schedp);
+	res = l4_scheduler_run_thread(l4re_env()->scheduler, l4cap, &schedp);
 	if (l4_error(res)) {
 		LOG_printf("%s: Failed to set cpu%d of thread '%s': %ld.\n",
 		           __func__, vcpu, name, l4_error(res));
@@ -272,18 +281,21 @@ l4lx_thread_t l4lx_thread_create(L4_CV void (*thread_func)(void *data),
 #endif
 	           (l4_umword_t)sp);
 
-
-#if defined(ARCH_arm) || defined(ARCH_amd64)
-	res = l4_thread_ex_regs(l4cap, (l4_umword_t)__thread_launch,
-	                        (l4_umword_t)sp, 0);
-#else
-	res = l4_thread_ex_regs(l4cap, (l4_umword_t)thread_func,
-	                        (l4_umword_t)sp, 0);
-#endif
-	if (l4_error(res))
-		goto out_free_vcpu;
-
 	l4lx_thread_name_set(l4cap, name);
+
+	si = deferstart ? deferstart : &si_buf;;
+
+	si->l4cap = l4cap;
+	si->sp    = (l4_umword_t)sp;
+#if defined(ARCH_arm) || defined(ARCH_amd64)
+	si->ip    = (l4_umword_t)__thread_launch;
+#else
+	si->ip    = (l4_umword_t)thread_func;
+#endif
+
+	if (!deferstart)
+		if (l4lx_thread_start(si))
+			goto out_free_vcpu;
 
 	return utcb;
 
@@ -329,19 +341,20 @@ void l4lx_thread_set_kernel_pager(l4_cap_idx_t thread)
 /*
  * l4lx_thread_shutdown
  */
-void l4lx_thread_shutdown(l4lx_thread_t u, void *v)
+void l4lx_thread_shutdown(l4lx_thread_t u, void *v, int do_cap_free)
 {
-	l4_cap_idx_t thread = l4lx_thread_get_cap(u);
+	l4_cap_idx_t threadcap = l4lx_thread_get_cap(u);
 
 	/* free "stack memory" used for data if there's some */
-	l4lx_thread_stack_return(thread);
-	l4lx_thread_name_delete(thread);
+	l4lx_thread_stack_return(threadcap);
+	l4lx_thread_name_delete(threadcap);
 
 	l4lx_thread_ku_alloc_free_u(u);
 	if (v)
-		l4lx_thread_ku_alloc_free_v((l4_utcb_t *)v);
+		l4lx_thread_ku_alloc_free_v((l4_vcpu_state_t *)v);
 
-	l4re_util_cap_release(thread);
-	l4x_cap_free(thread);
+	l4re_util_cap_release(threadcap);
+	if (do_cap_free)
+		l4x_cap_free(threadcap);
 }
 EXPORT_SYMBOL(l4lx_thread_shutdown);

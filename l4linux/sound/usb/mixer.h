@@ -3,6 +3,7 @@
 
 struct usb_mixer_interface {
 	struct snd_usb_audio *chip;
+	struct usb_host_interface *hostif;
 	struct list_head list;
 	unsigned int ignore_ctl_error;
 	struct urb *urb;
@@ -66,5 +67,8 @@ int snd_usb_mixer_activate(struct usb_mixer_interface *mixer);
 
 int snd_usb_mixer_add_control(struct usb_mixer_interface *mixer,
 			      struct snd_kcontrol *kctl);
+
+int snd_usb_mixer_vol_tlv(struct snd_kcontrol *kcontrol, int op_flag,
+			  unsigned int size, unsigned int __user *_tlv);
 
 #endif /* __USBMIXER_H */

@@ -372,7 +372,7 @@ static const char *get_err_from_table(const char *table[], int size, int pos)
 static void i7300_process_error_global(struct mem_ctl_info *mci)
 {
 	struct i7300_pvt *pvt;
-	u32 errnum, value;
+	u32 errnum, error_reg;
 	unsigned long errors;
 	const char *specific;
 	bool is_fatal;
@@ -381,9 +381,9 @@ static void i7300_process_error_global(struct mem_ctl_info *mci)
 
 	/* read in the 1st FATAL error register */
 	pci_read_config_dword(pvt->pci_dev_16_2_fsb_err_regs,
-			      FERR_GLOBAL_HI, &value);
-	if (unlikely(value)) {
-		errors = value;
+			      FERR_GLOBAL_HI, &error_reg);
+	if (unlikely(error_reg)) {
+		errors = error_reg;
 		errnum = find_first_bit(&errors,
 					ARRAY_SIZE(ferr_global_hi_name));
 		specific = GET_ERR_FROM_TABLE(ferr_global_hi_name, errnum);
@@ -391,15 +391,15 @@ static void i7300_process_error_global(struct mem_ctl_info *mci)
 
 		/* Clear the error bit */
 		pci_write_config_dword(pvt->pci_dev_16_2_fsb_err_regs,
-				       FERR_GLOBAL_HI, value);
+				       FERR_GLOBAL_HI, error_reg);
 
 		goto error_global;
 	}
 
 	pci_read_config_dword(pvt->pci_dev_16_2_fsb_err_regs,
-			      FERR_GLOBAL_LO, &value);
-	if (unlikely(value)) {
-		errors = value;
+			      FERR_GLOBAL_LO, &error_reg);
+	if (unlikely(error_reg)) {
+		errors = error_reg;
 		errnum = find_first_bit(&errors,
 					ARRAY_SIZE(ferr_global_lo_name));
 		specific = GET_ERR_FROM_TABLE(ferr_global_lo_name, errnum);
@@ -407,7 +407,7 @@ static void i7300_process_error_global(struct mem_ctl_info *mci)
 
 		/* Clear the error bit */
 		pci_write_config_dword(pvt->pci_dev_16_2_fsb_err_regs,
-				       FERR_GLOBAL_LO, value);
+				       FERR_GLOBAL_LO, error_reg);
 
 		goto error_global;
 	}
@@ -427,7 +427,7 @@ error_global:
 static void i7300_process_fbd_error(struct mem_ctl_info *mci)
 {
 	struct i7300_pvt *pvt;
-	u32 errnum, value;
+	u32 errnum, value, error_reg;
 	u16 val16;
 	unsigned branch, channel, bank, rank, cas, ras;
 	u32 syndrome;
@@ -440,14 +440,14 @@ static void i7300_process_fbd_error(struct mem_ctl_info *mci)
 
 	/* read in the 1st FATAL error register */
 	pci_read_config_dword(pvt->pci_dev_16_1_fsb_addr_map,
-			      FERR_FAT_FBD, &value);
-	if (unlikely(value & FERR_FAT_FBD_ERR_MASK)) {
-		errors = value & FERR_FAT_FBD_ERR_MASK ;
+			      FERR_FAT_FBD, &error_reg);
+	if (unlikely(error_reg & FERR_FAT_FBD_ERR_MASK)) {
+		errors = error_reg & FERR_FAT_FBD_ERR_MASK ;
 		errnum = find_first_bit(&errors,
 					ARRAY_SIZE(ferr_fat_fbd_name));
 		specific = GET_ERR_FROM_TABLE(ferr_fat_fbd_name, errnum);
+		branch = (GET_FBD_FAT_IDX(error_reg) == 2) ? 1 : 0;
 
-		branch = (GET_FBD_FAT_IDX(value) == 2) ? 1 : 0;
 		pci_read_config_word(pvt->pci_dev_16_1_fsb_addr_map,
 				     NRECMEMA, &val16);
 		bank = NRECMEMA_BANK(val16);
@@ -455,42 +455,38 @@ static void i7300_process_fbd_error(struct mem_ctl_info *mci)
 
 		pci_read_config_dword(pvt->pci_dev_16_1_fsb_addr_map,
 				NRECMEMB, &value);
-
 		is_wr = NRECMEMB_IS_WR(value);
 		cas = NRECMEMB_CAS(value);
 		ras = NRECMEMB_RAS(value);
 
-		snprintf(pvt->tmp_prt_buffer, PAGE_SIZE,
-			"FATAL (Branch=%d DRAM-Bank=%d %s "
-			"RAS=%d CAS=%d Err=0x%lx (%s))",
-			branch, bank,
-			is_wr ? "RDWR" : "RD",
-			ras, cas,
-			errors, specific);
+		/* Clean the error register */
+		pci_write_config_dword(pvt->pci_dev_16_1_fsb_addr_map,
+				FERR_FAT_FBD, error_reg);
 
-		/* Call the helper to output message */
-		edac_mc_handle_fbd_ue(mci, rank, branch << 1,
-				      (branch << 1) + 1,
-				      pvt->tmp_prt_buffer);
+		snprintf(pvt->tmp_prt_buffer, PAGE_SIZE,
+			 "Bank=%d RAS=%d CAS=%d Err=0x%lx (%s))",
+			 bank, ras, cas, errors, specific);
+
+		edac_mc_handle_error(HW_EVENT_ERR_FATAL, mci, 0, 0, 0,
+				     branch, -1, rank,
+				     is_wr ? "Write error" : "Read error",
+				     pvt->tmp_prt_buffer, NULL);
+
 	}
 
 	/* read in the 1st NON-FATAL error register */
 	pci_read_config_dword(pvt->pci_dev_16_1_fsb_addr_map,
-			      FERR_NF_FBD, &value);
-	if (unlikely(value & FERR_NF_FBD_ERR_MASK)) {
-		errors = value & FERR_NF_FBD_ERR_MASK;
+			      FERR_NF_FBD, &error_reg);
+	if (unlikely(error_reg & FERR_NF_FBD_ERR_MASK)) {
+		errors = error_reg & FERR_NF_FBD_ERR_MASK;
 		errnum = find_first_bit(&errors,
 					ARRAY_SIZE(ferr_nf_fbd_name));
 		specific = GET_ERR_FROM_TABLE(ferr_nf_fbd_name, errnum);
-
-		/* Clear the error bit */
-		pci_write_config_dword(pvt->pci_dev_16_2_fsb_err_regs,
-				       FERR_GLOBAL_LO, value);
+		branch = (GET_FBD_FAT_IDX(error_reg) == 2) ? 1 : 0;
 
 		pci_read_config_dword(pvt->pci_dev_16_1_fsb_addr_map,
 			REDMEMA, &syndrome);
 
-		branch = (GET_FBD_FAT_IDX(value) == 2) ? 1 : 0;
 		pci_read_config_word(pvt->pci_dev_16_1_fsb_addr_map,
 				     RECMEMA, &val16);
 		bank = RECMEMA_BANK(val16);
@@ -498,37 +494,30 @@ static void i7300_process_fbd_error(struct mem_ctl_info *mci)
 
 		pci_read_config_dword(pvt->pci_dev_16_1_fsb_addr_map,
 				RECMEMB, &value);
-
 		is_wr = RECMEMB_IS_WR(value);
 		cas = RECMEMB_CAS(value);
 		ras = RECMEMB_RAS(value);
 
 		pci_read_config_dword(pvt->pci_dev_16_1_fsb_addr_map,
 				     REDMEMB, &value);
-
 		channel = (branch << 1);
 		if (IS_SECOND_CH(value))
 			channel++;
 
+		/* Clear the error bit */
+		pci_write_config_dword(pvt->pci_dev_16_1_fsb_addr_map,
+				FERR_NF_FBD, error_reg);
+
 		/* Form out message */
 		snprintf(pvt->tmp_prt_buffer, PAGE_SIZE,
-			"Corrected error (Branch=%d, Channel %d), "
-			" DRAM-Bank=%d %s "
-			"RAS=%d CAS=%d, CE Err=0x%lx, Syndrome=0x%08x(%s))",
-			branch, channel,
-			bank,
-			is_wr ? "RDWR" : "RD",
-			ras, cas,
-			errors, syndrome, specific);
+			 "DRAM-Bank=%d RAS=%d CAS=%d, Err=0x%lx (%s))",
+			 bank, ras, cas, errors, specific);
 
-		/*
-		 * Call the helper to output message
-		 * NOTE: Errors are reported per-branch, and not per-channel
-		 *	 Currently, we don't know how to identify the right
-		 *	 channel.
-		 */
-		edac_mc_handle_fbd_ce(mci, rank, channel,
-				      pvt->tmp_prt_buffer);
+		edac_mc_handle_error(HW_EVENT_ERR_CORRECTED, mci, 0, 0,
+				     syndrome,
+				     branch >> 1, channel % 2, rank,
+				     is_wr ? "Write error" : "Read error",
+				     pvt->tmp_prt_buffer, NULL);
 	}
 	return;
 }
@@ -616,8 +605,7 @@ static void i7300_enable_error_reporting(struct mem_ctl_info *mci)
 static int decode_mtr(struct i7300_pvt *pvt,
 		      int slot, int ch, int branch,
 		      struct i7300_dimm_info *dinfo,
-		      struct csrow_info *p_csrow,
-		      u32 *nr_pages)
+		      struct dimm_info *dimm)
 {
 	int mtr, ans, addrBits, channel;
 
@@ -649,7 +637,6 @@ static int decode_mtr(struct i7300_pvt *pvt,
 	addrBits -= 3;	/* 8 bits per bytes */
 
 	dinfo->megabytes = 1 << addrBits;
-	*nr_pages = dinfo->megabytes << 8;
 
 	debugf2("\t\tWIDTH: x%d\n", MTR_DRAM_WIDTH(mtr));
 
@@ -662,11 +649,6 @@ static int decode_mtr(struct i7300_pvt *pvt,
 	debugf2("\t\tNUMCOL: %s\n", numcol_toString[MTR_DIMM_COLS(mtr)]);
 	debugf2("\t\tSIZE: %d MB\n", dinfo->megabytes);
 
-	p_csrow->grain = 8;
-	p_csrow->mtype = MEM_FB_DDR2;
-	p_csrow->csrow_idx = slot;
-	p_csrow->page_mask = 0;
-
 	/*
 	 * The type of error detection actually depends of the
 	 * mode of operation. When it is just one single memory chip, at
@@ -676,15 +658,18 @@ static int decode_mtr(struct i7300_pvt *pvt,
 	 * See datasheet Sections 7.3.6 to 7.3.8
 	 */
 
+	dimm->nr_pages = MiB_TO_PAGES(dinfo->megabytes);
+	dimm->grain = 8;
+	dimm->mtype = MEM_FB_DDR2;
 	if (IS_SINGLE_MODE(pvt->mc_settings_a)) {
-		p_csrow->edac_mode = EDAC_SECDED;
+		dimm->edac_mode = EDAC_SECDED;
 		debugf2("\t\tECC code is 8-byte-over-32-byte SECDED+ code\n");
 	} else {
 		debugf2("\t\tECC code is on Lockstep mode\n");
 		if (MTR_DRAM_WIDTH(mtr) == 8)
-			p_csrow->edac_mode = EDAC_S8ECD8ED;
+			dimm->edac_mode = EDAC_S8ECD8ED;
 		else
-			p_csrow->edac_mode = EDAC_S4ECD4ED;
+			dimm->edac_mode = EDAC_S4ECD4ED;
 	}
 
 	/* ask what device type on this row */
@@ -693,9 +678,9 @@ static int decode_mtr(struct i7300_pvt *pvt,
 			IS_SCRBALGO_ENHANCED(pvt->mc_settings) ?
 					    "enhanced" : "normal");
 
-		p_csrow->dtype = DEV_X8;
+		dimm->dtype = DEV_X8;
 	} else
-		p_csrow->dtype = DEV_X4;
+		dimm->dtype = DEV_X4;
 
 	return mtr;
 }
@@ -773,11 +758,10 @@ static int i7300_init_csrows(struct mem_ctl_info *mci)
 {
 	struct i7300_pvt *pvt;
 	struct i7300_dimm_info *dinfo;
-	struct csrow_info *p_csrow;
 	int rc = -ENODEV;
 	int mtr;
 	int ch, branch, slot, channel;
-	u32 last_page = 0, nr_pages;
+	struct dimm_info *dimm;
 
 	pvt = mci->pvt_info;
 
@@ -808,25 +792,23 @@ static int i7300_init_csrows(struct mem_ctl_info *mci)
 			pci_read_config_word(pvt->pci_dev_2x_0_fbd_branch[branch],
 					where,
 					&pvt->mtr[slot][branch]);
-			for (ch = 0; ch < MAX_BRANCHES; ch++) {
+			for (ch = 0; ch < MAX_CH_PER_BRANCH; ch++) {
 				int channel = to_channel(ch, branch);
 
+				dimm = EDAC_DIMM_PTR(mci->layers, mci->dimms,
+					       mci->n_layers, branch, ch, slot);
+
 				dinfo = &pvt->dimm_info[slot][channel];
-				p_csrow = &mci->csrows[slot];
 
 				mtr = decode_mtr(pvt, slot, ch, branch,
-						 dinfo, p_csrow, &nr_pages);
+						 dinfo, dimm);
+
 				/* if no DIMMS on this row, continue */
 				if (!MTR_DIMMS_PRESENT(mtr))
 					continue;
 
-				/* Update per_csrow memory count */
-				p_csrow->nr_pages += nr_pages;
-				p_csrow->first_page = last_page;
-				last_page += nr_pages;
-				p_csrow->last_page = last_page;
-
 				rc = 0;
+
 			}
 		}
 	}
@@ -1041,10 +1023,8 @@ static int __devinit i7300_init_one(struct pci_dev *pdev,
 				    const struct pci_device_id *id)
 {
 	struct mem_ctl_info *mci;
+	struct edac_mc_layer layers[3];
 	struct i7300_pvt *pvt;
-	int num_channels;
-	int num_dimms_per_channel;
-	int num_csrows;
 	int rc;
 
 	/* wake up device */
@@ -1061,23 +1041,17 @@ static int __devinit i7300_init_one(struct pci_dev *pdev,
 	if (PCI_FUNC(pdev->devfn) != 0)
 		return -ENODEV;
 
-	/* As we don't have a motherboard identification routine to determine
-	 * actual number of slots/dimms per channel, we thus utilize the
-	 * resource as specified by the chipset. Thus, we might have
-	 * have more DIMMs per channel than actually on the mobo, but this
-	 * allows the driver to support up to the chipset max, without
-	 * some fancy mobo determination.
-	 */
-	num_dimms_per_channel = MAX_SLOTS;
-	num_channels = MAX_CHANNELS;
-	num_csrows = MAX_SLOTS * MAX_CHANNELS;
-
-	debugf0("MC: %s(): Number of - Channels= %d  DIMMS= %d  CSROWS= %d\n",
-		__func__, num_channels, num_dimms_per_channel, num_csrows);
-
 	/* allocate a new MC control structure */
-	mci = edac_mc_alloc(sizeof(*pvt), num_csrows, num_channels, 0);
-
+	layers[0].type = EDAC_MC_LAYER_BRANCH;
+	layers[0].size = MAX_BRANCHES;
+	layers[0].is_virt_csrow = false;
+	layers[1].type = EDAC_MC_LAYER_CHANNEL;
+	layers[1].size = MAX_CH_PER_BRANCH;
+	layers[1].is_virt_csrow = true;
+	layers[2].type = EDAC_MC_LAYER_SLOT;
+	layers[2].size = MAX_SLOTS;
+	layers[2].is_virt_csrow = true;
+	mci = edac_mc_alloc(0, ARRAY_SIZE(layers), layers, sizeof(*pvt));
 	if (mci == NULL)
 		return -ENOMEM;
 
@@ -1191,7 +1165,7 @@ static void __devexit i7300_remove_one(struct pci_dev *pdev)
  *
  * Has only 8086:360c PCI ID
  */
-static const struct pci_device_id i7300_pci_tbl[] __devinitdata = {
+static DEFINE_PCI_DEVICE_TABLE(i7300_pci_tbl) = {
 	{PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_I7300_MCH_ERR)},
 	{0,}			/* 0 terminated list. */
 };

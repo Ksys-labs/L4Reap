@@ -10,7 +10,9 @@
 
 #include <asm/generic/devs.h>
 
+#ifdef CONFIG_L4_DMAPOOL
 #include <asm/l4x/dma.h>
+#endif
 
 
 static int dev_init_done;
@@ -33,7 +35,8 @@ l4x_register_plat_dev_cb_e(const char *name, l4x_dev_cb_func_type cb)
 		return ERR_PTR(-ENOMEM);
 
 	e->cb   = cb;
-	e->name = name;
+	strncpy(e->name, name, sizeof(e->name));
+	e->name[sizeof(e->name) - 1] = 0;
 	list_add(&e->list, &platform_callbacks_head);
 
 	return e;
@@ -132,6 +135,7 @@ static L4X_DEVICE_CB(default_copy_and_add_platform_device)
 	copy_platform_device(dh, rh, dev, id, NULL);
 }
 
+#ifdef CONFIG_L4_PLATFORM_REALVIEW
 /* Any additional platform_data information goes here */
 static struct pata_platform_info pata_platform_data = {
 	.ioport_shift           = 1,
@@ -189,7 +193,9 @@ static L4X_DEVICE_CB(aaci_cb)
 	printk("Adding AACI as AMBA device\n");
 	amba_device_register(&aacidev, &iomem_resource);
 }
+#endif
 
+#ifdef CONFIG_L4_DMAPOOL
 static L4X_DEVICE_CB(dmamem_cb)
 {
 	l4io_resource_t res;
@@ -218,16 +224,22 @@ static L4X_DEVICE_CB(dmamem_cb)
 	printk("DMA mem phys at %08lx - %08lx\n", res.start, res.end);
 	printk("DMA mem virt at %08lx - %08lx\n", v, v + s - 1);
 
-	if (l4x_dma_mem_add(v, res.start, s))
+	if (l4x_dmapool_mem_add(v, res.start, s))
 		printk("Adding DMA memory to DMA allocator failed!\n");
 }
+#endif
 
 static void register_platform_callbacks(void)
 {
+#ifdef CONFIG_L4_DMAPOOL
+	l4x_register_platform_device_callback("dmamem",       dmamem_cb);
+#endif
+
+#ifdef CONFIG_L4_PLATFORM_REALVIEW
 	l4x_register_platform_device_callback("compactflash", realview_device_cb_pata);
 	l4x_register_platform_device_callback("smsc911x",     realview_device_cb_smsc);
 	l4x_register_platform_device_callback("aaci",         aaci_cb);
-	l4x_register_platform_device_callback("dmamem",       dmamem_cb);
+#endif
 }
 
 static void
@@ -268,9 +280,8 @@ void __init l4x_arm_devices_init(void)
 		if (*dev.name == '\0')
 			strlcpy(dev.name, "unnamed", sizeof(dev.name));
 
-		if (&e->list == &platform_callbacks_head) {
+		if (&e->list == &platform_callbacks_head)
 			add_and_call_default_cb(&dev, dh, rh);
-		}
 		L4XV_L(f);
 	}
 	L4XV_U(f);

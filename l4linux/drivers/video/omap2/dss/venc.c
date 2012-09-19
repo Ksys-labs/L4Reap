@@ -33,11 +33,13 @@
 #include <linux/seq_file.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pm_runtime.h>
 
 #include <video/omapdss.h>
 #include <plat/cpu.h>
 
 #include "dss.h"
+#include "dss_features.h"
 
 /* Venc registers */
 #define VENC_REV_ID				0x00
@@ -292,6 +294,8 @@ static struct {
 	struct mutex venc_lock;
 	u32 wss_data;
 	struct regulator *vdda_dac_reg;
+
+	struct clk	*tv_dac_clk;
 } venc;
 
 static inline void venc_write_reg(int idx, u32 val)
@@ -380,14 +384,25 @@ static void venc_reset(void)
 #endif
 }
 
-static void venc_enable_clocks(int enable)
+static int venc_runtime_get(void)
 {
-	if (enable)
-		dss_clk_enable(DSS_CLK_ICK | DSS_CLK_FCK | DSS_CLK_TVFCK |
-				DSS_CLK_VIDFCK);
-	else
-		dss_clk_disable(DSS_CLK_ICK | DSS_CLK_FCK | DSS_CLK_TVFCK |
-				DSS_CLK_VIDFCK);
+	int r;
+
+	DSSDBG("venc_runtime_get\n");
+
+	r = pm_runtime_get_sync(&venc.pdev->dev);
+	WARN_ON(r < 0);
+	return r < 0 ? r : 0;
+}
+
+static void venc_runtime_put(void)
+{
+	int r;
+
+	DSSDBG("venc_runtime_put\n");
+
+	r = pm_runtime_put_sync(&venc.pdev->dev);
+	WARN_ON(r < 0 && r != -ENOSYS);
 }
 
 static const struct venc_config *venc_timings_to_config(
@@ -400,13 +415,13 @@ static const struct venc_config *venc_timings_to_config(
 		return &venc_config_ntsc_trm;
 
 	BUG();
+	return NULL;
 }
 
-static void venc_power_on(struct omap_dss_device *dssdev)
+static int venc_power_on(struct omap_dss_device *dssdev)
 {
 	u32 l;
-
-	venc_enable_clocks(1);
+	int r;
 
 	venc_reset();
 	venc_write_config(venc_timings_to_config(&dssdev->panel.timings));
@@ -426,15 +441,31 @@ static void venc_power_on(struct omap_dss_device *dssdev)
 
 	venc_write_reg(VENC_OUTPUT_CONTROL, l);
 
-	dispc_set_digit_size(dssdev->panel.timings.x_res,
-			dssdev->panel.timings.y_res/2);
+	dss_mgr_set_timings(dssdev->manager, &dssdev->panel.timings);
 
-	regulator_enable(venc.vdda_dac_reg);
+	r = regulator_enable(venc.vdda_dac_reg);
+	if (r)
+		goto err;
 
 	if (dssdev->platform_enable)
 		dssdev->platform_enable(dssdev);
 
-	dssdev->manager->enable(dssdev->manager);
+	r = dss_mgr_enable(dssdev->manager);
+	if (r)
+		goto err;
+
+	return 0;
+
+err:
+	venc_write_reg(VENC_OUTPUT_CONTROL, 0);
+	dss_set_dac_pwrdn_bgz(0);
+
+	if (dssdev->platform_disable)
+		dssdev->platform_disable(dssdev);
+
+	regulator_disable(venc.vdda_dac_reg);
+
+	return r;
 }
 
 static void venc_power_off(struct omap_dss_device *dssdev)
@@ -442,30 +473,82 @@ static void venc_power_off(struct omap_dss_device *dssdev)
 	venc_write_reg(VENC_OUTPUT_CONTROL, 0);
 	dss_set_dac_pwrdn_bgz(0);
 
-	dssdev->manager->disable(dssdev->manager);
+	dss_mgr_disable(dssdev->manager);
 
 	if (dssdev->platform_disable)
 		dssdev->platform_disable(dssdev);
 
 	regulator_disable(venc.vdda_dac_reg);
-
-	venc_enable_clocks(0);
 }
 
+unsigned long venc_get_pixel_clock(void)
+{
+	/* VENC Pixel Clock in Mhz */
+	return 13500000;
+}
 
+static ssize_t display_output_type_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct omap_dss_device *dssdev = to_dss_device(dev);
+	const char *ret;
 
+	switch (dssdev->phy.venc.type) {
+	case OMAP_DSS_VENC_TYPE_COMPOSITE:
+		ret = "composite";
+		break;
+	case OMAP_DSS_VENC_TYPE_SVIDEO:
+		ret = "svideo";
+		break;
+	default:
+		return -EINVAL;
+	}
 
+	return snprintf(buf, PAGE_SIZE, "%s\n", ret);
+}
+
+static ssize_t display_output_type_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct omap_dss_device *dssdev = to_dss_device(dev);
+	enum omap_dss_venc_type new_type;
+
+	if (sysfs_streq("composite", buf))
+		new_type = OMAP_DSS_VENC_TYPE_COMPOSITE;
+	else if (sysfs_streq("svideo", buf))
+		new_type = OMAP_DSS_VENC_TYPE_SVIDEO;
+	else
+		return -EINVAL;
+
+	mutex_lock(&venc.venc_lock);
+
+	if (dssdev->phy.venc.type != new_type) {
+		dssdev->phy.venc.type = new_type;
+		if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
+			venc_power_off(dssdev);
+			venc_power_on(dssdev);
+		}
+	}
+
+	mutex_unlock(&venc.venc_lock);
+
+	return size;
+}
+
+static DEVICE_ATTR(output_type, S_IRUGO | S_IWUSR,
+		display_output_type_show, display_output_type_store);
 
 /* driver */
 static int venc_panel_probe(struct omap_dss_device *dssdev)
 {
 	dssdev->panel.timings = omap_dss_pal_timings;
 
-	return 0;
+	return device_create_file(&dssdev->dev, &dev_attr_output_type);
 }
 
 static void venc_panel_remove(struct omap_dss_device *dssdev)
 {
+	device_remove_file(&dssdev->dev, &dev_attr_output_type);
 }
 
 static int venc_panel_enable(struct omap_dss_device *dssdev)
@@ -487,7 +570,13 @@ static int venc_panel_enable(struct omap_dss_device *dssdev)
 		goto err1;
 	}
 
-	venc_power_on(dssdev);
+	r = venc_runtime_get();
+	if (r)
+		goto err1;
+
+	r = venc_power_on(dssdev);
+	if (r)
+		goto err2;
 
 	venc.wss_data = 0;
 
@@ -495,6 +584,8 @@ static int venc_panel_enable(struct omap_dss_device *dssdev)
 
 	mutex_unlock(&venc.venc_lock);
 	return 0;
+err2:
+	venc_runtime_put();
 err1:
 	omap_dss_stop_device(dssdev);
 err0:
@@ -520,6 +611,8 @@ static void venc_panel_disable(struct omap_dss_device *dssdev)
 
 	venc_power_off(dssdev);
 
+	venc_runtime_put();
+
 	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
 
 	omap_dss_stop_device(dssdev);
@@ -538,26 +631,6 @@ static int venc_panel_resume(struct omap_dss_device *dssdev)
 	return venc_panel_enable(dssdev);
 }
 
-static enum omap_dss_update_mode venc_get_update_mode(
-		struct omap_dss_device *dssdev)
-{
-	return OMAP_DSS_UPDATE_AUTO;
-}
-
-static int venc_set_update_mode(struct omap_dss_device *dssdev,
-		enum omap_dss_update_mode mode)
-{
-	if (mode != OMAP_DSS_UPDATE_AUTO)
-		return -EINVAL;
-	return 0;
-}
-
-static void venc_get_timings(struct omap_dss_device *dssdev,
-			struct omap_video_timings *timings)
-{
-	*timings = dssdev->panel.timings;
-}
-
 static void venc_set_timings(struct omap_dss_device *dssdev,
 			struct omap_video_timings *timings)
 {
@@ -572,6 +645,8 @@ static void venc_set_timings(struct omap_dss_device *dssdev,
 		/* turn the venc off and on to get new timings to use */
 		venc_panel_disable(dssdev);
 		venc_panel_enable(dssdev);
+	} else {
+		dss_mgr_set_timings(dssdev->manager, timings);
 	}
 }
 
@@ -598,6 +673,7 @@ static u32 venc_get_wss(struct omap_dss_device *dssdev)
 static int venc_set_wss(struct omap_dss_device *dssdev,	u32 wss)
 {
 	const struct venc_config *config;
+	int r;
 
 	DSSDBG("venc_set_wss\n");
 
@@ -608,16 +684,19 @@ static int venc_set_wss(struct omap_dss_device *dssdev,	u32 wss)
 	/* Invert due to VENC_L21_WC_CTL:INV=1 */
 	venc.wss_data = (wss ^ 0xfffff) << 8;
 
-	venc_enable_clocks(1);
+	r = venc_runtime_get();
+	if (r)
+		goto err;
 
 	venc_write_reg(VENC_BSTAMP_WSS_DATA, config->bstamp_wss_data |
 			venc.wss_data);
 
-	venc_enable_clocks(0);
+	venc_runtime_put();
 
+err:
 	mutex_unlock(&venc.venc_lock);
 
-	return 0;
+	return r;
 }
 
 static struct omap_dss_driver venc_driver = {
@@ -632,10 +711,6 @@ static struct omap_dss_driver venc_driver = {
 	.get_resolution	= omapdss_default_get_resolution,
 	.get_recommended_bpp = omapdss_default_get_recommended_bpp,
 
-	.set_update_mode = venc_set_update_mode,
-	.get_update_mode = venc_get_update_mode,
-
-	.get_timings	= venc_get_timings,
 	.set_timings	= venc_set_timings,
 	.check_timings	= venc_check_timings,
 
@@ -649,7 +724,7 @@ static struct omap_dss_driver venc_driver = {
 };
 /* driver end */
 
-int venc_init_display(struct omap_dss_device *dssdev)
+static int __init venc_init_display(struct omap_dss_device *dssdev)
 {
 	DSSDBG("init_display\n");
 
@@ -669,11 +744,17 @@ int venc_init_display(struct omap_dss_device *dssdev)
 	return 0;
 }
 
-void venc_dump_regs(struct seq_file *s)
+static void venc_dump_regs(struct seq_file *s)
 {
 #define DUMPREG(r) seq_printf(s, "%-35s %08x\n", #r, venc_read_reg(r))
 
-	venc_enable_clocks(1);
+	if (cpu_is_omap44xx()) {
+		seq_printf(s, "VENC currently disabled on OMAP44xx\n");
+		return;
+	}
+
+	if (venc_runtime_get())
+		return;
 
 	DUMPREG(VENC_F_CONTROL);
 	DUMPREG(VENC_VIDOUT_CTRL);
@@ -717,16 +798,66 @@ void venc_dump_regs(struct seq_file *s)
 	DUMPREG(VENC_OUTPUT_CONTROL);
 	DUMPREG(VENC_OUTPUT_TEST);
 
-	venc_enable_clocks(0);
+	venc_runtime_put();
 
 #undef DUMPREG
 }
 
+static int venc_get_clocks(struct platform_device *pdev)
+{
+	struct clk *clk;
+
+	if (dss_has_feature(FEAT_VENC_REQUIRES_TV_DAC_CLK)) {
+		clk = clk_get(&pdev->dev, "tv_dac_clk");
+		if (IS_ERR(clk)) {
+			DSSERR("can't get tv_dac_clk\n");
+			return PTR_ERR(clk);
+		}
+	} else {
+		clk = NULL;
+	}
+
+	venc.tv_dac_clk = clk;
+
+	return 0;
+}
+
+static void venc_put_clocks(void)
+{
+	if (venc.tv_dac_clk)
+		clk_put(venc.tv_dac_clk);
+}
+
+static void __init venc_probe_pdata(struct platform_device *pdev)
+{
+	struct omap_dss_board_info *pdata = pdev->dev.platform_data;
+	int r, i;
+
+	for (i = 0; i < pdata->num_devices; ++i) {
+		struct omap_dss_device *dssdev = pdata->devices[i];
+
+		if (dssdev->type != OMAP_DISPLAY_TYPE_VENC)
+			continue;
+
+		r = venc_init_display(dssdev);
+		if (r) {
+			DSSERR("device %s init failed: %d\n", dssdev->name, r);
+			continue;
+		}
+
+		r = omap_dss_register_device(dssdev, &pdev->dev, i);
+		if (r)
+			DSSERR("device %s register failed: %d\n",
+					dssdev->name, r);
+	}
+}
+
 /* VENC HW IP initialisation */
-static int omap_venchw_probe(struct platform_device *pdev)
+static int __init omap_venchw_probe(struct platform_device *pdev)
 {
 	u8 rev_id;
 	struct resource *venc_mem;
+	int r;
 
 	venc.pdev = pdev;
 
@@ -739,55 +870,113 @@ static int omap_venchw_probe(struct platform_device *pdev)
 		DSSERR("can't get IORESOURCE_MEM VENC\n");
 		return -EINVAL;
 	}
-	venc.base = ioremap(venc_mem->start, resource_size(venc_mem));
+
+	venc.base = devm_ioremap(&pdev->dev, venc_mem->start,
+				 resource_size(venc_mem));
 	if (!venc.base) {
 		DSSERR("can't ioremap VENC\n");
 		return -ENOMEM;
 	}
 
-	venc_enable_clocks(1);
+	r = venc_get_clocks(pdev);
+	if (r)
+		return r;
+
+	pm_runtime_enable(&pdev->dev);
+
+	r = venc_runtime_get();
+	if (r)
+		goto err_runtime_get;
 
 	rev_id = (u8)(venc_read_reg(VENC_REV_ID) & 0xff);
 	dev_dbg(&pdev->dev, "OMAP VENC rev %d\n", rev_id);
 
-	venc_enable_clocks(0);
+	venc_runtime_put();
 
-	return omap_dss_register_driver(&venc_driver);
+	r = omap_dss_register_driver(&venc_driver);
+	if (r)
+		goto err_reg_panel_driver;
+
+	dss_debugfs_create_file("venc", venc_dump_regs);
+
+	venc_probe_pdata(pdev);
+
+	return 0;
+
+err_reg_panel_driver:
+err_runtime_get:
+	pm_runtime_disable(&pdev->dev);
+	venc_put_clocks();
+	return r;
 }
 
-static int omap_venchw_remove(struct platform_device *pdev)
+static int __exit omap_venchw_remove(struct platform_device *pdev)
 {
+	omap_dss_unregister_child_devices(&pdev->dev);
+
 	if (venc.vdda_dac_reg != NULL) {
 		regulator_put(venc.vdda_dac_reg);
 		venc.vdda_dac_reg = NULL;
 	}
+
 	omap_dss_unregister_driver(&venc_driver);
 
-	iounmap(venc.base);
+	pm_runtime_disable(&pdev->dev);
+	venc_put_clocks();
+
 	return 0;
 }
 
+static int venc_runtime_suspend(struct device *dev)
+{
+	if (venc.tv_dac_clk)
+		clk_disable(venc.tv_dac_clk);
+
+	dispc_runtime_put();
+
+	return 0;
+}
+
+static int venc_runtime_resume(struct device *dev)
+{
+	int r;
+
+	r = dispc_runtime_get();
+	if (r < 0)
+		return r;
+
+	if (venc.tv_dac_clk)
+		clk_enable(venc.tv_dac_clk);
+
+	return 0;
+}
+
+static const struct dev_pm_ops venc_pm_ops = {
+	.runtime_suspend = venc_runtime_suspend,
+	.runtime_resume = venc_runtime_resume,
+};
+
 static struct platform_driver omap_venchw_driver = {
-	.probe          = omap_venchw_probe,
-	.remove         = omap_venchw_remove,
+	.remove         = __exit_p(omap_venchw_remove),
 	.driver         = {
 		.name   = "omapdss_venc",
 		.owner  = THIS_MODULE,
+		.pm	= &venc_pm_ops,
 	},
 };
 
-int venc_init_platform_driver(void)
+int __init venc_init_platform_driver(void)
 {
 	if (cpu_is_omap44xx())
 		return 0;
 
-	return platform_driver_register(&omap_venchw_driver);
+	return platform_driver_probe(&omap_venchw_driver, omap_venchw_probe);
 }
 
-void venc_uninit_platform_driver(void)
+void __exit venc_uninit_platform_driver(void)
 {
 	if (cpu_is_omap44xx())
 		return;
 
-	return platform_driver_unregister(&omap_venchw_driver);
+	platform_driver_unregister(&omap_venchw_driver);
 }

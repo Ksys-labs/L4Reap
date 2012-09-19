@@ -36,7 +36,6 @@
 #include "dir.h"
 #include "buffer_head_io.h"
 #include "sysfile.h"
-#include "suballoc.h"
 #include "refcounttree.h"
 #include "move_extents.h"
 
@@ -746,7 +745,7 @@ static int ocfs2_move_extent(struct ocfs2_move_extents_context *context,
 	 */
 	ocfs2_probe_alloc_group(inode, gd_bh, &goal_bit, len, move_max_hop,
 				new_phys_cpos);
-	if (!new_phys_cpos) {
+	if (!*new_phys_cpos) {
 		ret = -ENOSPC;
 		goto out_commit;
 	}
@@ -1060,7 +1059,7 @@ int ocfs2_ioctl_move_extents(struct file *filp, void __user *argp)
 	struct ocfs2_move_extents range;
 	struct ocfs2_move_extents_context *context = NULL;
 
-	status = mnt_want_write(filp->f_path.mnt);
+	status = mnt_want_write_file(filp);
 	if (status)
 		return status;
 
@@ -1083,8 +1082,7 @@ int ocfs2_ioctl_move_extents(struct file *filp, void __user *argp)
 	context->file = filp;
 
 	if (argp) {
-		if (copy_from_user(&range, (struct ocfs2_move_extents *)argp,
-				   sizeof(range))) {
+		if (copy_from_user(&range, argp, sizeof(range))) {
 			status = -EFAULT;
 			goto out;
 		}
@@ -1139,14 +1137,13 @@ out:
 	 * length and new_offset even if failure happens somewhere.
 	 */
 	if (argp) {
-		if (copy_to_user((struct ocfs2_move_extents *)argp, &range,
-				sizeof(range)))
+		if (copy_to_user(argp, &range, sizeof(range)))
 			status = -EFAULT;
 	}
 
 	kfree(context);
 
-	mnt_drop_write(filp->f_path.mnt);
+	mnt_drop_write_file(filp);
 
 	return status;
 }

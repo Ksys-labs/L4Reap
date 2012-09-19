@@ -104,7 +104,6 @@ struct ad799x_chip_info {
 struct ad799x_state {
 	struct i2c_client		*client;
 	const struct ad799x_chip_info	*chip_info;
-	size_t				d_size;
 	struct iio_trigger		*trig;
 	struct regulator		*reg;
 	u16				int_vref_mv;
@@ -124,15 +123,9 @@ struct ad799x_platform_data {
 int ad7997_8_set_scan_mode(struct ad799x_state *st, unsigned mask);
 
 #ifdef CONFIG_AD799X_RING_BUFFER
-int ad799x_single_channel_from_ring(struct ad799x_state *st, long mask);
 int ad799x_register_ring_funcs_and_init(struct iio_dev *indio_dev);
 void ad799x_ring_cleanup(struct iio_dev *indio_dev);
 #else /* CONFIG_AD799X_RING_BUFFER */
-int ad799x_single_channel_from_ring(struct ad799x_state *st, long mask)
-{
-	return -EINVAL;
-}
-
 
 static inline int
 ad799x_register_ring_funcs_and_init(struct iio_dev *indio_dev)

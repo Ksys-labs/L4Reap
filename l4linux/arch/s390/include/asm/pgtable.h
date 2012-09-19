@@ -74,15 +74,15 @@ static inline int is_zero_pfn(unsigned long pfn)
  * table can map
  * PGDIR_SHIFT determines what a third-level page table entry can map
  */
-#ifndef __s390x__
+#ifndef CONFIG_64BIT
 # define PMD_SHIFT	20
 # define PUD_SHIFT	20
 # define PGDIR_SHIFT	20
-#else /* __s390x__ */
+#else /* CONFIG_64BIT */
 # define PMD_SHIFT	20
 # define PUD_SHIFT	31
 # define PGDIR_SHIFT	42
-#endif /* __s390x__ */
+#endif /* CONFIG_64BIT */
 
 #define PMD_SIZE        (1UL << PMD_SHIFT)
 #define PMD_MASK        (~(PMD_SIZE-1))
@@ -98,13 +98,13 @@ static inline int is_zero_pfn(unsigned long pfn)
  * that leads to 1024 pte per pgd
  */
 #define PTRS_PER_PTE	256
-#ifndef __s390x__
+#ifndef CONFIG_64BIT
 #define PTRS_PER_PMD	1
 #define PTRS_PER_PUD	1
-#else /* __s390x__ */
+#else /* CONFIG_64BIT */
 #define PTRS_PER_PMD	2048
 #define PTRS_PER_PUD	2048
-#endif /* __s390x__ */
+#endif /* CONFIG_64BIT */
 #define PTRS_PER_PGD	2048
 
 #define FIRST_USER_ADDRESS  0
@@ -128,28 +128,11 @@ static inline int is_zero_pfn(unsigned long pfn)
  * effect, this also makes sure that 64 bit module code cannot be used
  * as system call address.
  */
-
 extern unsigned long VMALLOC_START;
+extern unsigned long VMALLOC_END;
+extern struct page *vmemmap;
 
-#ifndef __s390x__
-#define VMALLOC_SIZE	(96UL << 20)
-#define VMALLOC_END	0x7e000000UL
-#define VMEM_MAP_END	0x80000000UL
-#else /* __s390x__ */
-#define VMALLOC_SIZE	(128UL << 30)
-#define VMALLOC_END	0x3e000000000UL
-#define VMEM_MAP_END	0x40000000000UL
-#endif /* __s390x__ */
-
-/*
- * VMEM_MAX_PHYS is the highest physical address that can be added to the 1:1
- * mapping. This needs to be calculated at compile time since the size of the
- * VMEM_MAP is static but the size of struct page can change.
- */
-#define VMEM_MAX_PAGES	((VMEM_MAP_END - VMALLOC_END) / sizeof(struct page))
-#define VMEM_MAX_PFN	min(VMALLOC_START >> PAGE_SHIFT, VMEM_MAX_PAGES)
-#define VMEM_MAX_PHYS	((VMEM_MAX_PFN << PAGE_SHIFT) & ~((16 << 20) - 1))
-#define vmemmap		((struct page *) VMALLOC_END)
+#define VMEM_MAX_PHYS ((unsigned long) vmemmap)
 
 /*
  * A 31 bit pagetable entry of S390 has following format:
@@ -293,7 +276,7 @@ extern unsigned long VMALLOC_START;
  * swap pte is 1011 and 0001, 0011, 0101, 0111 are invalid.
  */
 
-#ifndef __s390x__
+#ifndef CONFIG_64BIT
 
 /* Bits in the segment table address-space-control-element */
 #define _ASCE_SPACE_SWITCH	0x80000000UL	/* space switch event	    */
@@ -325,7 +308,7 @@ extern unsigned long VMALLOC_START;
 #define KVM_UR_BIT	0x00008000UL
 #define KVM_UC_BIT	0x00004000UL
 
-#else /* __s390x__ */
+#else /* CONFIG_64BIT */
 
 /* Bits in the segment/region table address-space-control-element */
 #define _ASCE_ORIGIN		~0xfffUL/* segment table origin		    */
@@ -380,7 +363,7 @@ extern unsigned long VMALLOC_START;
 #define KVM_UR_BIT	0x0000800000000000UL
 #define KVM_UC_BIT	0x0000400000000000UL
 
-#endif /* __s390x__ */
+#endif /* CONFIG_64BIT */
 
 /*
  * A user page table pointer has the space-switch-event bit, the
@@ -441,7 +424,7 @@ static inline int mm_has_pgste(struct mm_struct *mm)
 /*
  * pgd/pmd/pte query functions
  */
-#ifndef __s390x__
+#ifndef CONFIG_64BIT
 
 static inline int pgd_present(pgd_t pgd) { return 1; }
 static inline int pgd_none(pgd_t pgd)    { return 0; }
@@ -451,7 +434,7 @@ static inline int pud_present(pud_t pud) { return 1; }
 static inline int pud_none(pud_t pud)	 { return 0; }
 static inline int pud_bad(pud_t pud)	 { return 0; }
 
-#else /* __s390x__ */
+#else /* CONFIG_64BIT */
 
 static inline int pgd_present(pgd_t pgd)
 {
@@ -507,7 +490,7 @@ static inline int pud_bad(pud_t pud)
 	return (pud_val(pud) & mask) != 0;
 }
 
-#endif /* __s390x__ */
+#endif /* CONFIG_64BIT */
 
 static inline int pmd_present(pmd_t pmd)
 {
@@ -593,14 +576,16 @@ static inline pgste_t pgste_update_all(pte_t *ptep, pgste_t pgste)
 	unsigned long address, bits;
 	unsigned char skey;
 
+	if (!pte_present(*ptep))
+		return pgste;
 	address = pte_val(*ptep) & PAGE_MASK;
 	skey = page_get_storage_key(address);
 	bits = skey & (_PAGE_CHANGED | _PAGE_REFERENCED);
 	/* Clear page changed & referenced bit in the storage key */
-	if (bits) {
-		skey ^= bits;
-		page_set_storage_key(address, skey, 1);
-	}
+	if (bits & _PAGE_CHANGED)
+		page_set_storage_key(address, skey ^ bits, 1);
+	else if (bits)
+		page_reset_referenced(address);
 	/* Transfer page changed & referenced bit to guest bits in pgste */
 	pgste_val(pgste) |= bits << 48;		/* RCP_GR_BIT & RCP_GC_BIT */
 	/* Get host changed & referenced bits from pgste */
@@ -625,6 +610,8 @@ static inline pgste_t pgste_update_young(pte_t *ptep, pgste_t pgste)
 #ifdef CONFIG_PGSTE
 	int young;
 
+	if (!pte_present(*ptep))
+		return pgste;
 	young = page_reset_referenced(pte_val(*ptep) & PAGE_MASK);
 	/* Transfer page referenced bit to pte software bit (host view) */
 	if (young || (pgste_val(pgste) & RCP_HR_BIT))
@@ -638,13 +625,15 @@ static inline pgste_t pgste_update_young(pte_t *ptep, pgste_t pgste)
 
 }
 
-static inline void pgste_set_pte(pte_t *ptep, pgste_t pgste)
+static inline void pgste_set_pte(pte_t *ptep, pgste_t pgste, pte_t entry)
 {
 #ifdef CONFIG_PGSTE
 	unsigned long address;
 	unsigned long okey, nkey;
 
-	address = pte_val(*ptep) & PAGE_MASK;
+	if (!pte_present(entry))
+		return;
+	address = pte_val(entry) & PAGE_MASK;
 	okey = nkey = page_get_storage_key(address);
 	nkey &= ~(_PAGE_ACC_BITS | _PAGE_FP_BIT);
 	/* Set page access key and fetch protection bit from pgste */
@@ -653,6 +642,52 @@ static inline void pgste_set_pte(pte_t *ptep, pgste_t pgste)
 		page_set_storage_key(address, nkey, 1);
 #endif
 }
+
+/**
+ * struct gmap_struct - guest address space
+ * @mm: pointer to the parent mm_struct
+ * @table: pointer to the page directory
+ * @asce: address space control element for gmap page table
+ * @crst_list: list of all crst tables used in the guest address space
+ */
+struct gmap {
+	struct list_head list;
+	struct mm_struct *mm;
+	unsigned long *table;
+	unsigned long asce;
+	struct list_head crst_list;
+};
+
+/**
+ * struct gmap_rmap - reverse mapping for segment table entries
+ * @next: pointer to the next gmap_rmap structure in the list
+ * @entry: pointer to a segment table entry
+ */
+struct gmap_rmap {
+	struct list_head list;
+	unsigned long *entry;
+};
+
+/**
+ * struct gmap_pgtable - gmap information attached to a page table
+ * @vmaddr: address of the 1MB segment in the process virtual memory
+ * @mapper: list of segment table entries maping a page table
+ */
+struct gmap_pgtable {
+	unsigned long vmaddr;
+	struct list_head mapper;
+};
+
+struct gmap *gmap_alloc(struct mm_struct *mm);
+void gmap_free(struct gmap *gmap);
+void gmap_enable(struct gmap *gmap);
+void gmap_disable(struct gmap *gmap);
+int gmap_map_segment(struct gmap *gmap, unsigned long from,
+		     unsigned long to, unsigned long length);
+int gmap_unmap_segment(struct gmap *gmap, unsigned long to, unsigned long len);
+unsigned long __gmap_fault(unsigned long address, struct gmap *);
+unsigned long gmap_fault(unsigned long address, struct gmap *);
+void gmap_discard(unsigned long from, unsigned long to, struct gmap *);
 
 /*
  * Certain architectures need to do special things when PTEs
@@ -666,7 +701,7 @@ static inline void set_pte_at(struct mm_struct *mm, unsigned long addr,
 
 	if (mm_has_pgste(mm)) {
 		pgste = pgste_get_lock(ptep);
-		pgste_set_pte(ptep, pgste);
+		pgste_set_pte(ptep, pgste, entry);
 		*ptep = entry;
 		pgste_set_unlock(ptep, pgste);
 	} else
@@ -706,7 +741,7 @@ static inline int pte_young(pte_t pte)
 
 static inline void pgd_clear(pgd_t *pgd)
 {
-#ifdef __s390x__
+#ifdef CONFIG_64BIT
 	if ((pgd_val(*pgd) & _REGION_ENTRY_TYPE_MASK) == _REGION_ENTRY_TYPE_R2)
 		pgd_val(*pgd) = _REGION2_ENTRY_EMPTY;
 #endif
@@ -714,7 +749,7 @@ static inline void pgd_clear(pgd_t *pgd)
 
 static inline void pud_clear(pud_t *pud)
 {
-#ifdef __s390x__
+#ifdef CONFIG_64BIT
 	if ((pud_val(*pud) & _REGION_ENTRY_TYPE_MASK) == _REGION_ENTRY_TYPE_R3)
 		pud_val(*pud) = _REGION3_ENTRY_EMPTY;
 #endif
@@ -886,7 +921,7 @@ static inline int ptep_clear_flush_young(struct vm_area_struct *vma,
 static inline void __ptep_ipte(unsigned long address, pte_t *ptep)
 {
 	if (!(pte_val(*ptep) & _PAGE_INVALID)) {
-#ifndef __s390x__
+#ifndef CONFIG_64BIT
 		/* pto must point to the start of the segment table */
 		pte_t *pto = (pte_t *) (((unsigned long) ptep) & 0x7ffffc00);
 #else
@@ -1081,7 +1116,7 @@ static inline pte_t mk_pte(struct page *page, pgprot_t pgprot)
 #define pgd_offset(mm, address) ((mm)->pgd + pgd_index(address))
 #define pgd_offset_k(address) pgd_offset(&init_mm, address)
 
-#ifndef __s390x__
+#ifndef CONFIG_64BIT
 
 #define pmd_deref(pmd) (pmd_val(pmd) & _SEGMENT_ENTRY_ORIGIN)
 #define pud_deref(pmd) ({ BUG(); 0UL; })
@@ -1090,7 +1125,7 @@ static inline pte_t mk_pte(struct page *page, pgprot_t pgprot)
 #define pud_offset(pgd, address) ((pud_t *) pgd)
 #define pmd_offset(pud, address) ((pmd_t *) pud + pmd_index(address))
 
-#else /* __s390x__ */
+#else /* CONFIG_64BIT */
 
 #define pmd_deref(pmd) (pmd_val(pmd) & _SEGMENT_ENTRY_ORIGIN)
 #define pud_deref(pud) (pud_val(pud) & _REGION_ENTRY_ORIGIN)
@@ -1112,7 +1147,7 @@ static inline pmd_t *pmd_offset(pud_t *pud, unsigned long address)
 	return pmd + pmd_index(address);
 }
 
-#endif /* __s390x__ */
+#endif /* CONFIG_64BIT */
 
 #define pfn_pte(pfn,pgprot) mk_pte_phys(__pa((pfn) << PAGE_SHIFT),(pgprot))
 #define pte_pfn(x) (pte_val(x) >> PAGE_SHIFT)
@@ -1161,7 +1196,7 @@ static inline pmd_t *pmd_offset(pud_t *pud, unsigned long address)
  *  0000000000111111111122222222223333333333444444444455 5555 5 55566 66
  *  0123456789012345678901234567890123456789012345678901 2345 6 78901 23
  */
-#ifndef __s390x__
+#ifndef CONFIG_64BIT
 #define __SWP_OFFSET_MASK (~0UL >> 12)
 #else
 #define __SWP_OFFSET_MASK (~0UL >> 11)
@@ -1182,11 +1217,11 @@ static inline pte_t mk_swap_pte(unsigned long type, unsigned long offset)
 #define __pte_to_swp_entry(pte)	((swp_entry_t) { pte_val(pte) })
 #define __swp_entry_to_pte(x)	((pte_t) { (x).val })
 
-#ifndef __s390x__
+#ifndef CONFIG_64BIT
 # define PTE_FILE_MAX_BITS	26
-#else /* __s390x__ */
+#else /* CONFIG_64BIT */
 # define PTE_FILE_MAX_BITS	59
-#endif /* __s390x__ */
+#endif /* CONFIG_64BIT */
 
 #define pte_to_pgoff(__pte) \
 	((((__pte).pte >> 12) << 7) + (((__pte).pte >> 1) & 0x7f))

@@ -26,6 +26,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #define MODULE_NAME "vicam"
 #define HEADER_SIZE 64
 
@@ -35,9 +37,12 @@
 #include <linux/ihex.h>
 #include "gspca.h"
 
+#define VICAM_FIRMWARE "vicam/firmware.fw"
+
 MODULE_AUTHOR("Hans de Goede <hdegoede@redhat.com>");
 MODULE_DESCRIPTION("GSPCA ViCam USB Camera Driver");
 MODULE_LICENSE("GPL");
+MODULE_FIRMWARE(VICAM_FIRMWARE);
 
 enum e_ctrl {
 	GAIN,
@@ -117,7 +122,7 @@ static int vicam_control_msg(struct gspca_dev *gspca_dev, u8 request,
 			      USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
 			      value, index, data, len, 1000);
 	if (ret < 0)
-		err("control msg req %02X error %d", request, ret);
+		pr_err("control msg req %02X error %d\n", request, ret);
 
 	return ret;
 }
@@ -189,8 +194,8 @@ static int vicam_read_frame(struct gspca_dev *gspca_dev, u8 *data, int size)
 			   data, size, &act_len, 10000);
 	/* successful, it returns 0, otherwise  negative */
 	if (ret < 0 || act_len != size) {
-		err("bulk read fail (%d) len %d/%d",
-			ret, act_len, size);
+		pr_err("bulk read fail (%d) len %d/%d\n",
+		       ret, act_len, size);
 		return -EIO;
 	}
 	return 0;
@@ -216,11 +221,15 @@ static void vicam_dostream(struct work_struct *work)
 		   HEADER_SIZE;
 	buffer = kmalloc(frame_sz, GFP_KERNEL | GFP_DMA);
 	if (!buffer) {
-		err("Couldn't allocate USB buffer");
+		pr_err("Couldn't allocate USB buffer\n");
 		goto exit;
 	}
 
-	while (gspca_dev->present && gspca_dev->streaming) {
+	while (gspca_dev->dev && gspca_dev->streaming) {
+#ifdef CONFIG_PM
+		if (gspca_dev->frozen)
+			break;
+#endif
 		ret = vicam_read_frame(gspca_dev, buffer, frame_sz);
 		if (ret < 0)
 			break;
@@ -266,10 +275,10 @@ static int sd_init(struct gspca_dev *gspca_dev)
 	const struct firmware *uninitialized_var(fw);
 	u8 *firmware_buf;
 
-	ret = request_ihex_firmware(&fw, "vicam/firmware.fw",
+	ret = request_ihex_firmware(&fw, VICAM_FIRMWARE,
 				    &gspca_dev->dev->dev);
 	if (ret) {
-		err("Failed to load \"vicam/firmware.fw\": %d\n", ret);
+		pr_err("Failed to load \"vicam/firmware.fw\": %d\n", ret);
 		return ret;
 	}
 
@@ -322,7 +331,8 @@ static void sd_stop0(struct gspca_dev *gspca_dev)
 	dev->work_thread = NULL;
 	mutex_lock(&gspca_dev->usb_lock);
 
-	vicam_set_camera_power(gspca_dev, 0);
+	if (gspca_dev->dev)
+		vicam_set_camera_power(gspca_dev, 0);
 }
 
 /* Table of supported USB devices */
@@ -366,16 +376,4 @@ static struct usb_driver sd_driver = {
 #endif
 };
 
-/* -- module insert / remove -- */
-static int __init sd_mod_init(void)
-{
-	return usb_register(&sd_driver);
-}
-
-static void __exit sd_mod_exit(void)
-{
-	usb_deregister(&sd_driver);
-}
-
-module_init(sd_mod_init);
-module_exit(sd_mod_exit);
+module_usb_driver(sd_driver);

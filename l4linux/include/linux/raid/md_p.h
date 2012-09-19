@@ -233,7 +233,10 @@ struct mdp_superblock_1 {
 	__le32	delta_disks;	/* change in number of raid_disks		*/
 	__le32	new_layout;	/* new layout					*/
 	__le32	new_chunk;	/* new chunk size (512byte sectors)		*/
-	__u8	pad1[128-124];	/* set to 0 when written */
+	__le32  new_offset;	/* signed number to add to data_offset in new
+				 * layout.  0 == no-change.  This can be
+				 * different on each device in the array.
+				 */
 
 	/* constant this-device information - 64 bytes */
 	__le64	data_offset;	/* sector start of data, often 0 */
@@ -245,10 +248,16 @@ struct mdp_superblock_1 {
 	__u8	device_uuid[16]; /* user-space setable, ignored by kernel */
 	__u8	devflags;	/* per-device flags.  Only one defined...*/
 #define	WriteMostly1	1	/* mask for writemostly flag in above */
-	__u8	pad2[64-57];	/* set to 0 when writing */
+	/* Bad block log.  If there are any bad blocks the feature flag is set.
+	 * If offset and size are non-zero, that space is reserved and available
+	 */
+	__u8	bblog_shift;	/* shift from sectors to block size */
+	__le16	bblog_size;	/* number of sectors reserved for list */
+	__le32	bblog_offset;	/* sector offset from superblock to bblog,
+				 * signed - not unsigned */
 
 	/* array state information - 64 bytes */
-	__le64	utime;		/* 40 bits second, 24 btes microseconds */
+	__le64	utime;		/* 40 bits second, 24 bits microseconds */
 	__le64	events;		/* incremented when superblock updated */
 	__le64	resync_offset;	/* data before this offset (from data_offset) known to be in sync */
 	__le32	sb_csum;	/* checksum up to devs[max_dev] */
@@ -270,8 +279,23 @@ struct mdp_superblock_1 {
 					   * must be honoured
 					   */
 #define	MD_FEATURE_RESHAPE_ACTIVE	4
-
-#define	MD_FEATURE_ALL			(1|2|4)
+#define	MD_FEATURE_BAD_BLOCKS		8 /* badblock list is not empty */
+#define	MD_FEATURE_REPLACEMENT		16 /* This device is replacing an
+					    * active device with same 'role'.
+					    * 'recovery_offset' is also set.
+					    */
+#define	MD_FEATURE_RESHAPE_BACKWARDS	32 /* Reshape doesn't change number
+					    * of devices, but is going
+					    * backwards anyway.
+					    */
+#define	MD_FEATURE_NEW_OFFSET		64 /* new_offset must be honoured */
+#define	MD_FEATURE_ALL			(MD_FEATURE_BITMAP_OFFSET	\
+					|MD_FEATURE_RECOVERY_OFFSET	\
+					|MD_FEATURE_RESHAPE_ACTIVE	\
+					|MD_FEATURE_BAD_BLOCKS		\
+					|MD_FEATURE_REPLACEMENT		\
+					|MD_FEATURE_RESHAPE_BACKWARDS	\
+					|MD_FEATURE_NEW_OFFSET		\
+					)
 
 #endif 
-

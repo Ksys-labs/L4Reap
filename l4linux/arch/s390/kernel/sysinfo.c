@@ -393,27 +393,6 @@ static __init int create_proc_service_level(void)
 subsys_initcall(create_proc_service_level);
 
 /*
- * Bogomips calculation based on cpu capability.
- */
-int get_cpu_capability(unsigned int *capability)
-{
-	struct sysinfo_1_2_2 *info;
-	int rc;
-
-	info = (void *) get_zeroed_page(GFP_KERNEL);
-	if (!info)
-		return -ENOMEM;
-	rc = stsi(info, 1, 2, 2);
-	if (rc == -ENOSYS)
-		goto out;
-	rc = 0;
-	*capability = info->capability;
-out:
-	free_page((unsigned long) info);
-	return rc;
-}
-
-/*
  * CPU capability might have changed. Therefore recalculate loops_per_jiffy.
  */
 void s390_adjust_jiffies(void)
@@ -442,7 +421,7 @@ void s390_adjust_jiffies(void)
 		 */
 		FP_UNPACK_SP(SA, &fmil);
 		if ((info->capability >> 23) == 0)
-			FP_FROM_INT_S(SB, info->capability, 32, int);
+			FP_FROM_INT_S(SB, (long) info->capability, 64, long);
 		else
 			FP_UNPACK_SP(SB, &info->capability);
 		FP_DIV_S(SR, SA, SB);

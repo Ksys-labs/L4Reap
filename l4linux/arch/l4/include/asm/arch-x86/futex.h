@@ -9,7 +9,6 @@
 #include <asm/asm.h>
 #include <asm/errno.h>
 #include <asm/processor.h>
-#include <asm/system.h>
 
 #ifdef CONFIG_L4
 #include <asm/generic/futex-helper.h>

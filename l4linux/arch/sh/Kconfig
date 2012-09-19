@@ -4,6 +4,8 @@ config SUPERH
 	select CLKDEV_LOOKUP
 	select HAVE_IDE if HAS_IOPORT
 	select HAVE_MEMBLOCK
+	select HAVE_MEMBLOCK_NODE_MAP
+	select ARCH_DISCARD_MEMBLOCK
 	select HAVE_OPROFILE
 	select HAVE_GENERIC_DMA_COHERENT
 	select HAVE_ARCH_TRACEHOOK
@@ -11,6 +13,8 @@ config SUPERH
 	select HAVE_DMA_ATTRS
 	select HAVE_IRQ_WORK
 	select HAVE_PERF_EVENTS
+	select ARCH_HAVE_CUSTOM_GPIO_H
+	select ARCH_HAVE_NMI_SAFE_CMPXCHG if (GUSA_RB || CPU_SH4A)
 	select PERF_USE_VMALLOC
 	select HAVE_KERNEL_GZIP
 	select HAVE_KERNEL_BZIP2
@@ -20,11 +24,16 @@ config SUPERH
 	select HAVE_SYSCALL_TRACEPOINTS
 	select HAVE_REGS_AND_STACK_ACCESS_API
 	select HAVE_GENERIC_HARDIRQS
-	select HAVE_SPARSE_IRQ
+	select MAY_HAVE_SPARSE_IRQ
 	select IRQ_FORCED_THREADING
 	select RTC_LIB
 	select GENERIC_ATOMIC64
 	select GENERIC_IRQ_SHOW
+	select GENERIC_SMP_IDLE_THREAD
+	select GENERIC_CLOCKEVENTS
+	select GENERIC_CMOS_UPDATE if SH_SH03 || SH_DREAMCAST
+	select GENERIC_STRNCPY_FROM_USER
+	select GENERIC_STRNLEN_USER
 	help
 	  The SuperH is a RISC processor targeted for use in embedded systems
 	  and consumer electronics; it was also used in the Sega Dreamcast
@@ -83,26 +92,9 @@ config GENERIC_GPIO
 config GENERIC_CALIBRATE_DELAY
 	bool
 
-config GENERIC_IOMAP
-	bool
-
-config GENERIC_CLOCKEVENTS
-	def_bool y
-
-config GENERIC_CLOCKEVENTS_BROADCAST
-	bool
-
-config GENERIC_CMOS_UPDATE
-	def_bool y
-	depends on SH_SH03 || SH_DREAMCAST
-
 config GENERIC_LOCKBREAK
 	def_bool y
 	depends on SMP && PREEMPT
-
-config SYS_SUPPORTS_PM
-	bool
-	depends on !SMP
 
 config ARCH_SUSPEND_POSSIBLE
 	def_bool n
@@ -156,14 +148,15 @@ config ARCH_NO_VIRT_TO_BUS
 config ARCH_HAS_DEFAULT_IDLE
 	def_bool y
 
-config ARCH_HAS_CPU_IDLE_WAIT
-	def_bool y
-
 config NO_IOPORT
 	def_bool !PCI
-	depends on !SH_CAYMAN && !SH_SH4202_MICRODEV && !SH_SHMIN
+	depends on !SH_CAYMAN && !SH_SH4202_MICRODEV && !SH_SHMIN && \
+		   !SH_HP6XX && !SH_SOLUTION_ENGINE
 
 config IO_TRAPPED
+	bool
+
+config SWAP_IO_SPACE
 	bool
 
 config DMA_COHERENT
@@ -284,6 +277,20 @@ config CPU_SUBTYPE_SH7206
 
 config CPU_SUBTYPE_SH7263
 	bool "Support SH7263 processor"
+	select CPU_SH2A
+	select CPU_HAS_FPU
+	select SYS_SUPPORTS_CMT
+	select SYS_SUPPORTS_MTU2
+
+config CPU_SUBTYPE_SH7264
+	bool "Support SH7264 processor"
+	select CPU_SH2A
+	select CPU_HAS_FPU
+	select SYS_SUPPORTS_CMT
+	select SYS_SUPPORTS_MTU2
+
+config CPU_SUBTYPE_SH7269
+	bool "Support SH7269 processor"
 	select CPU_SH2A
 	select CPU_HAS_FPU
 	select SYS_SUPPORTS_CMT
@@ -427,6 +434,16 @@ config CPU_SUBTYPE_SH7724
 	select ARCH_WANT_OPTIONAL_GPIOLIB
 	help
 	  Select SH7724 if you have an SH-MobileR2R CPU.
+
+config CPU_SUBTYPE_SH7734
+	bool "Support SH7734 processor"
+	select CPU_SH4A
+	select CPU_SHX2
+	select ARCH_WANT_OPTIONAL_GPIOLIB
+	select USB_ARCH_HAS_OHCI
+	select USB_ARCH_HAS_EHCI
+	help
+	  Select SH7734 if you have a SH4A SH7734 CPU.
 
 config CPU_SUBTYPE_SH7757
 	bool "Support SH7757 processor"
@@ -585,9 +602,9 @@ config SH_CLK_CPG
 config SH_CLK_CPG_LEGACY
 	depends on SH_CLK_CPG
 	def_bool y if !CPU_SUBTYPE_SH7785 && !ARCH_SHMOBILE && \
-		      !CPU_SHX3 && !CPU_SUBTYPE_SH7757
-
-source "kernel/time/Kconfig"
+		      !CPU_SHX3 && !CPU_SUBTYPE_SH7757 && \
+		      !CPU_SUBTYPE_SH7734 && !CPU_SUBTYPE_SH7264 && \
+		      !CPU_SUBTYPE_SH7269
 
 endmenu
 
@@ -648,7 +665,7 @@ config CRASH_DUMP
 	  a specially reserved region and then later executed after
 	  a crash by kdump/kexec. The crash dump kernel must be compiled
 	  to a memory address not used by the main kernel using
-	  MEMORY_START.
+	  PHYSICAL_START.
 
 	  For more details see Documentation/kdump/kdump.txt
 
@@ -658,6 +675,17 @@ config KEXEC_JUMP
 	help
 	  Jump between original kernel and kexeced kernel and invoke
 	  code via KEXEC
+
+config PHYSICAL_START
+	hex "Physical address where the kernel is loaded" if (EXPERT || CRASH_DUMP)
+	default MEMORY_START
+	---help---
+	  This gives the physical address where the kernel is loaded
+	  and is ordinarily the same as MEMORY_START.
+
+	  Different values are primarily used in the case of kexec on panic
+	  where the fail safe kernel needs to run at a different address
+	  than the panic-ed kernel.
 
 config SECCOMP
 	bool "Enable seccomp to safely compute untrusted bytecode"
@@ -674,6 +702,20 @@ config SECCOMP
 	  mode.
 
 	  If unsure, say N.
+
+config CC_STACKPROTECTOR
+	bool "Enable -fstack-protector buffer overflow detection (EXPERIMENTAL)"
+	depends on SUPERH32 && EXPERIMENTAL
+	help
+	  This option turns on the -fstack-protector GCC feature. This
+	  feature puts, at the beginning of functions, a canary value on
+	  the stack just before the return address, and validates
+	  the value just before actually returning.  Stack based buffer
+	  overflows (that need to overwrite this return address) now also
+	  overwrite the canary, which gets detected and the attack is then
+	  neutralized via a kernel panic.
+
+	  This feature requires gcc version 4.2 or above.
 
 config SMP
 	bool "Symmetric multi-processing support"
@@ -852,6 +894,8 @@ config PCI
 	bool "PCI support"
 	depends on SYS_SUPPORTS_PCI
 	select PCI_DOMAINS
+	select GENERIC_PCI_IOMAP
+	select NO_GENERIC_PCI_IOPORT_MAP
 	help
 	  Find out whether you have a PCI motherboard. PCI is the name of a
 	  bus system, i.e. the way the CPU talks to the other stuff inside
@@ -896,21 +940,5 @@ source "arch/sh/Kconfig.debug"
 source "security/Kconfig"
 
 source "crypto/Kconfig"
-
-menuconfig VIRTUALIZATION
-	bool "Virtualization"
-	default n
-	---help---
-	  Say Y here to get to see options for using your Linux host to run other
-	  operating systems inside virtual machines (guests).
-	  This option alone does not add any kernel code.
-
-	  If you say N, all options in this submenu will be skipped and disabled.
-
-if VIRTUALIZATION
-
-source drivers/virtio/Kconfig
-
-endif # VIRTUALIZATION
 
 source "lib/Kconfig"

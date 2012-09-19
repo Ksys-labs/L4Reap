@@ -6,6 +6,7 @@
  *	      Martin Schwidefsky <schwidefsky@de.ibm.com>
  *	      Ralph Wuerthner <rwuerthn@de.ibm.com>
  *	      Felix Beck <felix.beck@de.ibm.com>
+ *	      Holger Dengler <hd@linux.vnet.ibm.com>
  *
  * Adjunct processor bus header file.
  *
@@ -72,7 +73,26 @@ struct ap_queue_status {
 	unsigned int int_enabled	: 1;
 	unsigned int response_code	: 8;
 	unsigned int pad2		: 16;
-};
+} __packed;
+
+#define AP_QUEUE_STATUS_INVALID \
+		{ 1, 1, 1, 0xF, 1, 0xFF, 0xFFFF }
+
+static inline
+int ap_queue_status_invalid_test(struct ap_queue_status *status)
+{
+	struct ap_queue_status invalid = AP_QUEUE_STATUS_INVALID;
+	return !(memcmp(status, &invalid, sizeof(struct ap_queue_status)));
+}
+
+#define MAX_AP_FACILITY 31
+
+static inline int test_ap_facility(unsigned int function, unsigned int nr)
+{
+	if (nr > MAX_AP_FACILITY)
+		return 0;
+	return function & (unsigned int)(0x80000000 >> nr);
+}
 
 #define AP_RESPONSE_NORMAL		0x00
 #define AP_RESPONSE_Q_NOT_AVAIL		0x01
@@ -116,9 +136,6 @@ struct ap_driver {
 
 	int (*probe)(struct ap_device *);
 	void (*remove)(struct ap_device *);
-	/* receive is called from tasklet context */
-	void (*receive)(struct ap_device *, struct ap_message *,
-			struct ap_message *);
 	int request_timeout;		/* request timeout in jiffies */
 };
 
@@ -163,6 +180,9 @@ struct ap_message {
 
 	void *private;			/* ap driver private pointer. */
 	unsigned int special:1;		/* Used for special commands. */
+	/* receive is called from tasklet context */
+	void (*receive)(struct ap_device *, struct ap_message *,
+			struct ap_message *);
 };
 
 #define AP_DEVICE(dt)					\
@@ -179,6 +199,7 @@ static inline void ap_init_message(struct ap_message *ap_msg)
 	ap_msg->psmid = 0;
 	ap_msg->length = 0;
 	ap_msg->special = 0;
+	ap_msg->receive = NULL;
 }
 
 /*

@@ -35,6 +35,7 @@ static void l4x_input_fill_info(struct evdev *d, l4re_event_stream_info_t *info)
 	info->id.version = dev->id.version;
 #define COPY_BITS(n) memcpy(info->n ##s, dev->n, min(sizeof(info->n ##s), sizeof(dev->n)))
 
+	COPY_BITS(propbit);
 	COPY_BITS(evbit);
 	COPY_BITS(keybit);
 	COPY_BITS(relbit);

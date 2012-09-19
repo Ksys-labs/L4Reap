@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
+#include <linux/version.h>
 
 #include <linux/videodev2.h>
 
@@ -181,86 +182,117 @@ static const char *v4l2_memory_names[] = {
 
 /* ------------------------------------------------------------------ */
 /* debug help functions                                               */
-static const char *v4l2_ioctls[] = {
-	[_IOC_NR(VIDIOC_QUERYCAP)]         = "VIDIOC_QUERYCAP",
-	[_IOC_NR(VIDIOC_RESERVED)]         = "VIDIOC_RESERVED",
-	[_IOC_NR(VIDIOC_ENUM_FMT)]         = "VIDIOC_ENUM_FMT",
-	[_IOC_NR(VIDIOC_G_FMT)]            = "VIDIOC_G_FMT",
-	[_IOC_NR(VIDIOC_S_FMT)]            = "VIDIOC_S_FMT",
-	[_IOC_NR(VIDIOC_REQBUFS)]          = "VIDIOC_REQBUFS",
-	[_IOC_NR(VIDIOC_QUERYBUF)]         = "VIDIOC_QUERYBUF",
-	[_IOC_NR(VIDIOC_G_FBUF)]           = "VIDIOC_G_FBUF",
-	[_IOC_NR(VIDIOC_S_FBUF)]           = "VIDIOC_S_FBUF",
-	[_IOC_NR(VIDIOC_OVERLAY)]          = "VIDIOC_OVERLAY",
-	[_IOC_NR(VIDIOC_QBUF)]             = "VIDIOC_QBUF",
-	[_IOC_NR(VIDIOC_DQBUF)]            = "VIDIOC_DQBUF",
-	[_IOC_NR(VIDIOC_STREAMON)]         = "VIDIOC_STREAMON",
-	[_IOC_NR(VIDIOC_STREAMOFF)]        = "VIDIOC_STREAMOFF",
-	[_IOC_NR(VIDIOC_G_PARM)]           = "VIDIOC_G_PARM",
-	[_IOC_NR(VIDIOC_S_PARM)]           = "VIDIOC_S_PARM",
-	[_IOC_NR(VIDIOC_G_STD)]            = "VIDIOC_G_STD",
-	[_IOC_NR(VIDIOC_S_STD)]            = "VIDIOC_S_STD",
-	[_IOC_NR(VIDIOC_ENUMSTD)]          = "VIDIOC_ENUMSTD",
-	[_IOC_NR(VIDIOC_ENUMINPUT)]        = "VIDIOC_ENUMINPUT",
-	[_IOC_NR(VIDIOC_G_CTRL)]           = "VIDIOC_G_CTRL",
-	[_IOC_NR(VIDIOC_S_CTRL)]           = "VIDIOC_S_CTRL",
-	[_IOC_NR(VIDIOC_G_TUNER)]          = "VIDIOC_G_TUNER",
-	[_IOC_NR(VIDIOC_S_TUNER)]          = "VIDIOC_S_TUNER",
-	[_IOC_NR(VIDIOC_G_AUDIO)]          = "VIDIOC_G_AUDIO",
-	[_IOC_NR(VIDIOC_S_AUDIO)]          = "VIDIOC_S_AUDIO",
-	[_IOC_NR(VIDIOC_QUERYCTRL)]        = "VIDIOC_QUERYCTRL",
-	[_IOC_NR(VIDIOC_QUERYMENU)]        = "VIDIOC_QUERYMENU",
-	[_IOC_NR(VIDIOC_G_INPUT)]          = "VIDIOC_G_INPUT",
-	[_IOC_NR(VIDIOC_S_INPUT)]          = "VIDIOC_S_INPUT",
-	[_IOC_NR(VIDIOC_G_OUTPUT)]         = "VIDIOC_G_OUTPUT",
-	[_IOC_NR(VIDIOC_S_OUTPUT)]         = "VIDIOC_S_OUTPUT",
-	[_IOC_NR(VIDIOC_ENUMOUTPUT)]       = "VIDIOC_ENUMOUTPUT",
-	[_IOC_NR(VIDIOC_G_AUDOUT)]         = "VIDIOC_G_AUDOUT",
-	[_IOC_NR(VIDIOC_S_AUDOUT)]         = "VIDIOC_S_AUDOUT",
-	[_IOC_NR(VIDIOC_G_MODULATOR)]      = "VIDIOC_G_MODULATOR",
-	[_IOC_NR(VIDIOC_S_MODULATOR)]      = "VIDIOC_S_MODULATOR",
-	[_IOC_NR(VIDIOC_G_FREQUENCY)]      = "VIDIOC_G_FREQUENCY",
-	[_IOC_NR(VIDIOC_S_FREQUENCY)]      = "VIDIOC_S_FREQUENCY",
-	[_IOC_NR(VIDIOC_CROPCAP)]          = "VIDIOC_CROPCAP",
-	[_IOC_NR(VIDIOC_G_CROP)]           = "VIDIOC_G_CROP",
-	[_IOC_NR(VIDIOC_S_CROP)]           = "VIDIOC_S_CROP",
-	[_IOC_NR(VIDIOC_G_JPEGCOMP)]       = "VIDIOC_G_JPEGCOMP",
-	[_IOC_NR(VIDIOC_S_JPEGCOMP)]       = "VIDIOC_S_JPEGCOMP",
-	[_IOC_NR(VIDIOC_QUERYSTD)]         = "VIDIOC_QUERYSTD",
-	[_IOC_NR(VIDIOC_TRY_FMT)]          = "VIDIOC_TRY_FMT",
-	[_IOC_NR(VIDIOC_ENUMAUDIO)]        = "VIDIOC_ENUMAUDIO",
-	[_IOC_NR(VIDIOC_ENUMAUDOUT)]       = "VIDIOC_ENUMAUDOUT",
-	[_IOC_NR(VIDIOC_G_PRIORITY)]       = "VIDIOC_G_PRIORITY",
-	[_IOC_NR(VIDIOC_S_PRIORITY)]       = "VIDIOC_S_PRIORITY",
-	[_IOC_NR(VIDIOC_G_SLICED_VBI_CAP)] = "VIDIOC_G_SLICED_VBI_CAP",
-	[_IOC_NR(VIDIOC_LOG_STATUS)]       = "VIDIOC_LOG_STATUS",
-	[_IOC_NR(VIDIOC_G_EXT_CTRLS)]      = "VIDIOC_G_EXT_CTRLS",
-	[_IOC_NR(VIDIOC_S_EXT_CTRLS)]      = "VIDIOC_S_EXT_CTRLS",
-	[_IOC_NR(VIDIOC_TRY_EXT_CTRLS)]    = "VIDIOC_TRY_EXT_CTRLS",
-#if 1
-	[_IOC_NR(VIDIOC_ENUM_FRAMESIZES)]  = "VIDIOC_ENUM_FRAMESIZES",
-	[_IOC_NR(VIDIOC_ENUM_FRAMEINTERVALS)] = "VIDIOC_ENUM_FRAMEINTERVALS",
-	[_IOC_NR(VIDIOC_G_ENC_INDEX)] 	   = "VIDIOC_G_ENC_INDEX",
-	[_IOC_NR(VIDIOC_ENCODER_CMD)] 	   = "VIDIOC_ENCODER_CMD",
-	[_IOC_NR(VIDIOC_TRY_ENCODER_CMD)]  = "VIDIOC_TRY_ENCODER_CMD",
 
-	[_IOC_NR(VIDIOC_DBG_S_REGISTER)]   = "VIDIOC_DBG_S_REGISTER",
-	[_IOC_NR(VIDIOC_DBG_G_REGISTER)]   = "VIDIOC_DBG_G_REGISTER",
+struct v4l2_ioctl_info {
+	unsigned int ioctl;
+	u16 flags;
+	const char * const name;
+};
 
-	[_IOC_NR(VIDIOC_DBG_G_CHIP_IDENT)] = "VIDIOC_DBG_G_CHIP_IDENT",
-	[_IOC_NR(VIDIOC_S_HW_FREQ_SEEK)]   = "VIDIOC_S_HW_FREQ_SEEK",
+/* This control needs a priority check */
+#define INFO_FL_PRIO	(1 << 0)
+/* This control can be valid if the filehandle passes a control handler. */
+#define INFO_FL_CTRL	(1 << 1)
+
+#define IOCTL_INFO(_ioctl, _flags) [_IOC_NR(_ioctl)] = {	\
+	.ioctl = _ioctl,					\
+	.flags = _flags,					\
+	.name = #_ioctl,					\
+}
+
+static struct v4l2_ioctl_info v4l2_ioctls[] = {
+	IOCTL_INFO(VIDIOC_QUERYCAP, 0),
+	IOCTL_INFO(VIDIOC_ENUM_FMT, 0),
+	IOCTL_INFO(VIDIOC_G_FMT, 0),
+	IOCTL_INFO(VIDIOC_S_FMT, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_REQBUFS, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_QUERYBUF, 0),
+	IOCTL_INFO(VIDIOC_G_FBUF, 0),
+	IOCTL_INFO(VIDIOC_S_FBUF, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_OVERLAY, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_QBUF, 0),
+	IOCTL_INFO(VIDIOC_DQBUF, 0),
+	IOCTL_INFO(VIDIOC_STREAMON, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_STREAMOFF, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_G_PARM, 0),
+	IOCTL_INFO(VIDIOC_S_PARM, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_G_STD, 0),
+	IOCTL_INFO(VIDIOC_S_STD, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_ENUMSTD, 0),
+	IOCTL_INFO(VIDIOC_ENUMINPUT, 0),
+	IOCTL_INFO(VIDIOC_G_CTRL, INFO_FL_CTRL),
+	IOCTL_INFO(VIDIOC_S_CTRL, INFO_FL_PRIO | INFO_FL_CTRL),
+	IOCTL_INFO(VIDIOC_G_TUNER, 0),
+	IOCTL_INFO(VIDIOC_S_TUNER, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_G_AUDIO, 0),
+	IOCTL_INFO(VIDIOC_S_AUDIO, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_QUERYCTRL, INFO_FL_CTRL),
+	IOCTL_INFO(VIDIOC_QUERYMENU, INFO_FL_CTRL),
+	IOCTL_INFO(VIDIOC_G_INPUT, 0),
+	IOCTL_INFO(VIDIOC_S_INPUT, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_G_OUTPUT, 0),
+	IOCTL_INFO(VIDIOC_S_OUTPUT, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_ENUMOUTPUT, 0),
+	IOCTL_INFO(VIDIOC_G_AUDOUT, 0),
+	IOCTL_INFO(VIDIOC_S_AUDOUT, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_G_MODULATOR, 0),
+	IOCTL_INFO(VIDIOC_S_MODULATOR, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_G_FREQUENCY, 0),
+	IOCTL_INFO(VIDIOC_S_FREQUENCY, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_CROPCAP, 0),
+	IOCTL_INFO(VIDIOC_G_CROP, 0),
+	IOCTL_INFO(VIDIOC_S_CROP, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_G_SELECTION, 0),
+	IOCTL_INFO(VIDIOC_S_SELECTION, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_G_JPEGCOMP, 0),
+	IOCTL_INFO(VIDIOC_S_JPEGCOMP, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_QUERYSTD, 0),
+	IOCTL_INFO(VIDIOC_TRY_FMT, 0),
+	IOCTL_INFO(VIDIOC_ENUMAUDIO, 0),
+	IOCTL_INFO(VIDIOC_ENUMAUDOUT, 0),
+	IOCTL_INFO(VIDIOC_G_PRIORITY, 0),
+	IOCTL_INFO(VIDIOC_S_PRIORITY, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_G_SLICED_VBI_CAP, 0),
+	IOCTL_INFO(VIDIOC_LOG_STATUS, 0),
+	IOCTL_INFO(VIDIOC_G_EXT_CTRLS, INFO_FL_CTRL),
+	IOCTL_INFO(VIDIOC_S_EXT_CTRLS, INFO_FL_PRIO | INFO_FL_CTRL),
+	IOCTL_INFO(VIDIOC_TRY_EXT_CTRLS, 0),
+	IOCTL_INFO(VIDIOC_ENUM_FRAMESIZES, 0),
+	IOCTL_INFO(VIDIOC_ENUM_FRAMEINTERVALS, 0),
+	IOCTL_INFO(VIDIOC_G_ENC_INDEX, 0),
+	IOCTL_INFO(VIDIOC_ENCODER_CMD, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_TRY_ENCODER_CMD, 0),
+	IOCTL_INFO(VIDIOC_DECODER_CMD, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_TRY_DECODER_CMD, 0),
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+	IOCTL_INFO(VIDIOC_DBG_S_REGISTER, 0),
+	IOCTL_INFO(VIDIOC_DBG_G_REGISTER, 0),
 #endif
-	[_IOC_NR(VIDIOC_ENUM_DV_PRESETS)]  = "VIDIOC_ENUM_DV_PRESETS",
-	[_IOC_NR(VIDIOC_S_DV_PRESET)]	   = "VIDIOC_S_DV_PRESET",
-	[_IOC_NR(VIDIOC_G_DV_PRESET)]	   = "VIDIOC_G_DV_PRESET",
-	[_IOC_NR(VIDIOC_QUERY_DV_PRESET)]  = "VIDIOC_QUERY_DV_PRESET",
-	[_IOC_NR(VIDIOC_S_DV_TIMINGS)]     = "VIDIOC_S_DV_TIMINGS",
-	[_IOC_NR(VIDIOC_G_DV_TIMINGS)]     = "VIDIOC_G_DV_TIMINGS",
-	[_IOC_NR(VIDIOC_DQEVENT)]	   = "VIDIOC_DQEVENT",
-	[_IOC_NR(VIDIOC_SUBSCRIBE_EVENT)]  = "VIDIOC_SUBSCRIBE_EVENT",
-	[_IOC_NR(VIDIOC_UNSUBSCRIBE_EVENT)] = "VIDIOC_UNSUBSCRIBE_EVENT",
+	IOCTL_INFO(VIDIOC_DBG_G_CHIP_IDENT, 0),
+	IOCTL_INFO(VIDIOC_S_HW_FREQ_SEEK, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_ENUM_DV_PRESETS, 0),
+	IOCTL_INFO(VIDIOC_S_DV_PRESET, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_G_DV_PRESET, 0),
+	IOCTL_INFO(VIDIOC_QUERY_DV_PRESET, 0),
+	IOCTL_INFO(VIDIOC_S_DV_TIMINGS, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_G_DV_TIMINGS, 0),
+	IOCTL_INFO(VIDIOC_DQEVENT, 0),
+	IOCTL_INFO(VIDIOC_SUBSCRIBE_EVENT, 0),
+	IOCTL_INFO(VIDIOC_UNSUBSCRIBE_EVENT, 0),
+	IOCTL_INFO(VIDIOC_CREATE_BUFS, INFO_FL_PRIO),
+	IOCTL_INFO(VIDIOC_PREPARE_BUF, 0),
+	IOCTL_INFO(VIDIOC_ENUM_DV_TIMINGS, 0),
+	IOCTL_INFO(VIDIOC_QUERY_DV_TIMINGS, 0),
+	IOCTL_INFO(VIDIOC_DV_TIMINGS_CAP, 0),
 };
 #define V4L2_IOCTLS ARRAY_SIZE(v4l2_ioctls)
+
+bool v4l2_is_known_ioctl(unsigned int cmd)
+{
+	if (_IOC_NR(cmd) >= V4L2_IOCTLS)
+		return false;
+	return v4l2_ioctls[_IOC_NR(cmd)].ioctl == cmd;
+}
 
 /* Common ioctl debug function. This function can be used by
    external ioctl messages as well as internal V4L ioctl */
@@ -277,7 +309,7 @@ void v4l_printk_ioctl(unsigned int cmd)
 			type = "v4l2";
 			break;
 		}
-		printk("%s", v4l2_ioctls[_IOC_NR(cmd)]);
+		printk("%s", v4l2_ioctls[_IOC_NR(cmd)].name);
 		return;
 	default:
 		type = "unknown";
@@ -338,6 +370,34 @@ static inline void dbgrect(struct video_device *vfd, char *s,
 	dbgarg2("%sRect start at %dx%d, size=%dx%d\n", s, r->left, r->top,
 						r->width, r->height);
 };
+
+static void dbgtimings(struct video_device *vfd,
+			const struct v4l2_dv_timings *p)
+{
+	switch (p->type) {
+	case V4L2_DV_BT_656_1120:
+		dbgarg2("bt-656/1120:interlaced=%d,"
+				" pixelclock=%lld,"
+				" width=%d, height=%d, polarities=%x,"
+				" hfrontporch=%d, hsync=%d,"
+				" hbackporch=%d, vfrontporch=%d,"
+				" vsync=%d, vbackporch=%d,"
+				" il_vfrontporch=%d, il_vsync=%d,"
+				" il_vbackporch=%d, standards=%x, flags=%x\n",
+				p->bt.interlaced, p->bt.pixelclock,
+				p->bt.width, p->bt.height,
+				p->bt.polarities, p->bt.hfrontporch,
+				p->bt.hsync, p->bt.hbackporch,
+				p->bt.vfrontporch, p->bt.vsync,
+				p->bt.vbackporch, p->bt.il_vfrontporch,
+				p->bt.il_vsync, p->bt.il_vbackporch,
+				p->bt.standards, p->bt.flags);
+		break;
+	default:
+		dbgarg2("Unknown type %d!\n", p->type);
+		break;
+	}
+}
 
 static inline void v4l_print_pix_fmt(struct video_device *vfd,
 						struct v4l2_pix_format *fmt)
@@ -476,63 +536,6 @@ static int check_fmt(const struct v4l2_ioctl_ops *ops, enum v4l2_buf_type type)
 	return -EINVAL;
 }
 
-/**
- * fmt_sp_to_mp() - Convert a single-plane format to its multi-planar 1-plane
- * equivalent
- */
-static int fmt_sp_to_mp(const struct v4l2_format *f_sp,
-			struct v4l2_format *f_mp)
-{
-	struct v4l2_pix_format_mplane *pix_mp = &f_mp->fmt.pix_mp;
-	const struct v4l2_pix_format *pix = &f_sp->fmt.pix;
-
-	if (f_sp->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
-		f_mp->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-	else if (f_sp->type == V4L2_BUF_TYPE_VIDEO_OUTPUT)
-		f_mp->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-	else
-		return -EINVAL;
-
-	pix_mp->width = pix->width;
-	pix_mp->height = pix->height;
-	pix_mp->pixelformat = pix->pixelformat;
-	pix_mp->field = pix->field;
-	pix_mp->colorspace = pix->colorspace;
-	pix_mp->num_planes = 1;
-	pix_mp->plane_fmt[0].sizeimage = pix->sizeimage;
-	pix_mp->plane_fmt[0].bytesperline = pix->bytesperline;
-
-	return 0;
-}
-
-/**
- * fmt_mp_to_sp() - Convert a multi-planar 1-plane format to its single-planar
- * equivalent
- */
-static int fmt_mp_to_sp(const struct v4l2_format *f_mp,
-			struct v4l2_format *f_sp)
-{
-	const struct v4l2_pix_format_mplane *pix_mp = &f_mp->fmt.pix_mp;
-	struct v4l2_pix_format *pix = &f_sp->fmt.pix;
-
-	if (f_mp->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-		f_sp->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	else if (f_mp->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-		f_sp->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-	else
-		return -EINVAL;
-
-	pix->width = pix_mp->width;
-	pix->height = pix_mp->height;
-	pix->pixelformat = pix_mp->pixelformat;
-	pix->field = pix_mp->field;
-	pix->colorspace = pix_mp->colorspace;
-	pix->sizeimage = pix_mp->plane_fmt[0].sizeimage;
-	pix->bytesperline = pix_mp->plane_fmt[0].bytesperline;
-
-	return 0;
-}
-
 static long __video_do_ioctl(struct file *file,
 		unsigned int cmd, void *arg)
 {
@@ -540,20 +543,13 @@ static long __video_do_ioctl(struct file *file,
 	const struct v4l2_ioctl_ops *ops = vfd->ioctl_ops;
 	void *fh = file->private_data;
 	struct v4l2_fh *vfh = NULL;
-	struct v4l2_format f_copy;
 	int use_fh_prio = 0;
-	long ret = -EINVAL;
+	long ret = -ENOTTY;
 
 	if (ops == NULL) {
 		printk(KERN_WARNING "videodev: \"%s\" has no ioctl_ops.\n",
 				vfd->name);
-		return -EINVAL;
-	}
-
-	if ((vfd->debug & V4L2_DEBUG_IOCTL) &&
-				!(vfd->debug & V4L2_DEBUG_IOCTL_ARG)) {
-		v4l_print_ioctl(vfd->name, cmd);
-		printk(KERN_CONT "\n");
+		return ret;
 	}
 
 	if (test_bit(V4L2_FL_USES_V4L2_FH, &vfd->flags)) {
@@ -561,38 +557,24 @@ static long __video_do_ioctl(struct file *file,
 		use_fh_prio = test_bit(V4L2_FL_USE_FH_PRIO, &vfd->flags);
 	}
 
-	if (use_fh_prio) {
-		switch (cmd) {
-		case VIDIOC_S_CTRL:
-		case VIDIOC_S_STD:
-		case VIDIOC_S_INPUT:
-		case VIDIOC_S_OUTPUT:
-		case VIDIOC_S_TUNER:
-		case VIDIOC_S_FREQUENCY:
-		case VIDIOC_S_FMT:
-		case VIDIOC_S_CROP:
-		case VIDIOC_S_AUDIO:
-		case VIDIOC_S_AUDOUT:
-		case VIDIOC_S_EXT_CTRLS:
-		case VIDIOC_S_FBUF:
-		case VIDIOC_S_PRIORITY:
-		case VIDIOC_S_DV_PRESET:
-		case VIDIOC_S_DV_TIMINGS:
-		case VIDIOC_S_JPEGCOMP:
-		case VIDIOC_S_MODULATOR:
-		case VIDIOC_S_PARM:
-		case VIDIOC_S_HW_FREQ_SEEK:
-		case VIDIOC_ENCODER_CMD:
-		case VIDIOC_OVERLAY:
-		case VIDIOC_REQBUFS:
-		case VIDIOC_STREAMON:
-		case VIDIOC_STREAMOFF:
+	if (v4l2_is_known_ioctl(cmd)) {
+		struct v4l2_ioctl_info *info = &v4l2_ioctls[_IOC_NR(cmd)];
+
+	        if (!test_bit(_IOC_NR(cmd), vfd->valid_ioctls) &&
+		    !((info->flags & INFO_FL_CTRL) && vfh && vfh->ctrl_handler))
+			return -ENOTTY;
+
+		if (use_fh_prio && (info->flags & INFO_FL_PRIO)) {
 			ret = v4l2_prio_check(vfd->prio, vfh->prio);
 			if (ret)
-				goto exit_prio;
-			ret = -EINVAL;
-			break;
+				return ret;
 		}
+	}
+
+	if ((vfd->debug & V4L2_DEBUG_IOCTL) &&
+				!(vfd->debug & V4L2_DEBUG_IOCTL_ARG)) {
+		v4l_print_ioctl(vfd->name, cmd);
+		printk(KERN_CONT "\n");
 	}
 
 	switch (cmd) {
@@ -602,17 +584,17 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_capability *cap = (struct v4l2_capability *)arg;
 
-		if (!ops->vidioc_querycap)
-			break;
-
+		cap->version = LINUX_VERSION_CODE;
 		ret = ops->vidioc_querycap(file, fh, cap);
 		if (!ret)
 			dbgarg(cmd, "driver=%s, card=%s, bus=%s, "
 					"version=0x%08x, "
-					"capabilities=0x%08x\n",
+					"capabilities=0x%08x, "
+					"device_caps=0x%08x\n",
 					cap->driver, cap->card, cap->bus_info,
 					cap->version,
-					cap->capabilities);
+					cap->capabilities,
+					cap->device_caps);
 		break;
 	}
 
@@ -635,13 +617,12 @@ static long __video_do_ioctl(struct file *file,
 	{
 		enum v4l2_priority *p = arg;
 
-		if (!ops->vidioc_s_priority && !use_fh_prio)
-				break;
 		dbgarg(cmd, "setting priority to %d\n", *p);
 		if (ops->vidioc_s_priority)
 			ret = ops->vidioc_s_priority(file, fh, *p);
 		else
-			ret = v4l2_prio_change(&vfd->v4l2_dev->prio, &vfh->prio, *p);
+			ret = v4l2_prio_change(&vfd->v4l2_dev->prio,
+							&vfh->prio, *p);
 		break;
 	}
 
@@ -650,39 +631,40 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_fmtdesc *f = arg;
 
+		ret = -EINVAL;
 		switch (f->type) {
 		case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-			if (ops->vidioc_enum_fmt_vid_cap)
+			if (likely(ops->vidioc_enum_fmt_vid_cap))
 				ret = ops->vidioc_enum_fmt_vid_cap(file, fh, f);
 			break;
 		case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-			if (ops->vidioc_enum_fmt_vid_cap_mplane)
+			if (likely(ops->vidioc_enum_fmt_vid_cap_mplane))
 				ret = ops->vidioc_enum_fmt_vid_cap_mplane(file,
 									fh, f);
 			break;
 		case V4L2_BUF_TYPE_VIDEO_OVERLAY:
-			if (ops->vidioc_enum_fmt_vid_overlay)
+			if (likely(ops->vidioc_enum_fmt_vid_overlay))
 				ret = ops->vidioc_enum_fmt_vid_overlay(file,
 					fh, f);
 			break;
 		case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-			if (ops->vidioc_enum_fmt_vid_out)
+			if (likely(ops->vidioc_enum_fmt_vid_out))
 				ret = ops->vidioc_enum_fmt_vid_out(file, fh, f);
 			break;
 		case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-			if (ops->vidioc_enum_fmt_vid_out_mplane)
+			if (likely(ops->vidioc_enum_fmt_vid_out_mplane))
 				ret = ops->vidioc_enum_fmt_vid_out_mplane(file,
 									fh, f);
 			break;
 		case V4L2_BUF_TYPE_PRIVATE:
-			if (ops->vidioc_enum_fmt_type_private)
+			if (likely(ops->vidioc_enum_fmt_type_private))
 				ret = ops->vidioc_enum_fmt_type_private(file,
 								fh, f);
 			break;
 		default:
 			break;
 		}
-		if (!ret)
+		if (likely(!ret))
 			dbgarg(cmd, "index=%d, type=%d, flags=%d, "
 				"pixelformat=%c%c%c%c, description='%s'\n",
 				f->index, f->type, f->flags,
@@ -700,127 +682,75 @@ static long __video_do_ioctl(struct file *file,
 		/* FIXME: Should be one dump per type */
 		dbgarg(cmd, "type=%s\n", prt_names(f->type, v4l2_type_names));
 
+		ret = -EINVAL;
 		switch (f->type) {
 		case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-			if (ops->vidioc_g_fmt_vid_cap) {
+			if (ops->vidioc_g_fmt_vid_cap)
 				ret = ops->vidioc_g_fmt_vid_cap(file, fh, f);
-			} else if (ops->vidioc_g_fmt_vid_cap_mplane) {
-				if (fmt_sp_to_mp(f, &f_copy))
-					break;
-				ret = ops->vidioc_g_fmt_vid_cap_mplane(file, fh,
-								       &f_copy);
-				if (ret)
-					break;
-
-				/* Driver is currently in multi-planar format,
-				 * we can't return it in single-planar API*/
-				if (f_copy.fmt.pix_mp.num_planes > 1) {
-					ret = -EBUSY;
-					break;
-				}
-
-				ret = fmt_mp_to_sp(&f_copy, f);
-			}
 			if (!ret)
 				v4l_print_pix_fmt(vfd, &f->fmt.pix);
 			break;
 		case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-			if (ops->vidioc_g_fmt_vid_cap_mplane) {
+			if (ops->vidioc_g_fmt_vid_cap_mplane)
 				ret = ops->vidioc_g_fmt_vid_cap_mplane(file,
 									fh, f);
-			} else if (ops->vidioc_g_fmt_vid_cap) {
-				if (fmt_mp_to_sp(f, &f_copy))
-					break;
-				ret = ops->vidioc_g_fmt_vid_cap(file,
-								fh, &f_copy);
-				if (ret)
-					break;
-
-				ret = fmt_sp_to_mp(&f_copy, f);
-			}
 			if (!ret)
 				v4l_print_pix_fmt_mplane(vfd, &f->fmt.pix_mp);
 			break;
 		case V4L2_BUF_TYPE_VIDEO_OVERLAY:
-			if (ops->vidioc_g_fmt_vid_overlay)
+			if (likely(ops->vidioc_g_fmt_vid_overlay))
 				ret = ops->vidioc_g_fmt_vid_overlay(file,
 								    fh, f);
 			break;
 		case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-			if (ops->vidioc_g_fmt_vid_out) {
+			if (ops->vidioc_g_fmt_vid_out)
 				ret = ops->vidioc_g_fmt_vid_out(file, fh, f);
-			} else if (ops->vidioc_g_fmt_vid_out_mplane) {
-				if (fmt_sp_to_mp(f, &f_copy))
-					break;
-				ret = ops->vidioc_g_fmt_vid_out_mplane(file, fh,
-									&f_copy);
-				if (ret)
-					break;
-
-				/* Driver is currently in multi-planar format,
-				 * we can't return it in single-planar API*/
-				if (f_copy.fmt.pix_mp.num_planes > 1) {
-					ret = -EBUSY;
-					break;
-				}
-
-				ret = fmt_mp_to_sp(&f_copy, f);
-			}
 			if (!ret)
 				v4l_print_pix_fmt(vfd, &f->fmt.pix);
 			break;
 		case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-			if (ops->vidioc_g_fmt_vid_out_mplane) {
+			if (ops->vidioc_g_fmt_vid_out_mplane)
 				ret = ops->vidioc_g_fmt_vid_out_mplane(file,
 									fh, f);
-			} else if (ops->vidioc_g_fmt_vid_out) {
-				if (fmt_mp_to_sp(f, &f_copy))
-					break;
-				ret = ops->vidioc_g_fmt_vid_out(file,
-								fh, &f_copy);
-				if (ret)
-					break;
-
-				ret = fmt_sp_to_mp(&f_copy, f);
-			}
 			if (!ret)
 				v4l_print_pix_fmt_mplane(vfd, &f->fmt.pix_mp);
 			break;
 		case V4L2_BUF_TYPE_VIDEO_OUTPUT_OVERLAY:
-			if (ops->vidioc_g_fmt_vid_out_overlay)
+			if (likely(ops->vidioc_g_fmt_vid_out_overlay))
 				ret = ops->vidioc_g_fmt_vid_out_overlay(file,
 				       fh, f);
 			break;
 		case V4L2_BUF_TYPE_VBI_CAPTURE:
-			if (ops->vidioc_g_fmt_vbi_cap)
+			if (likely(ops->vidioc_g_fmt_vbi_cap))
 				ret = ops->vidioc_g_fmt_vbi_cap(file, fh, f);
 			break;
 		case V4L2_BUF_TYPE_VBI_OUTPUT:
-			if (ops->vidioc_g_fmt_vbi_out)
+			if (likely(ops->vidioc_g_fmt_vbi_out))
 				ret = ops->vidioc_g_fmt_vbi_out(file, fh, f);
 			break;
 		case V4L2_BUF_TYPE_SLICED_VBI_CAPTURE:
-			if (ops->vidioc_g_fmt_sliced_vbi_cap)
+			if (likely(ops->vidioc_g_fmt_sliced_vbi_cap))
 				ret = ops->vidioc_g_fmt_sliced_vbi_cap(file,
 									fh, f);
 			break;
 		case V4L2_BUF_TYPE_SLICED_VBI_OUTPUT:
-			if (ops->vidioc_g_fmt_sliced_vbi_out)
+			if (likely(ops->vidioc_g_fmt_sliced_vbi_out))
 				ret = ops->vidioc_g_fmt_sliced_vbi_out(file,
 									fh, f);
 			break;
 		case V4L2_BUF_TYPE_PRIVATE:
-			if (ops->vidioc_g_fmt_type_private)
+			if (likely(ops->vidioc_g_fmt_type_private))
 				ret = ops->vidioc_g_fmt_type_private(file,
 								fh, f);
 			break;
 		}
-
 		break;
 	}
 	case VIDIOC_S_FMT:
 	{
 		struct v4l2_format *f = (struct v4l2_format *)arg;
+
+		ret = -EINVAL;
 
 		/* FIXME: Should be one dump per type */
 		dbgarg(cmd, "type=%s\n", prt_names(f->type, v4l2_type_names));
@@ -829,44 +759,15 @@ static long __video_do_ioctl(struct file *file,
 		case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 			CLEAR_AFTER_FIELD(f, fmt.pix);
 			v4l_print_pix_fmt(vfd, &f->fmt.pix);
-			if (ops->vidioc_s_fmt_vid_cap) {
+			if (ops->vidioc_s_fmt_vid_cap)
 				ret = ops->vidioc_s_fmt_vid_cap(file, fh, f);
-			} else if (ops->vidioc_s_fmt_vid_cap_mplane) {
-				if (fmt_sp_to_mp(f, &f_copy))
-					break;
-				ret = ops->vidioc_s_fmt_vid_cap_mplane(file, fh,
-									&f_copy);
-				if (ret)
-					break;
-
-				if (f_copy.fmt.pix_mp.num_planes > 1) {
-					/* Drivers shouldn't adjust from 1-plane
-					 * to more than 1-plane formats */
-					ret = -EBUSY;
-					WARN_ON(1);
-					break;
-				}
-
-				ret = fmt_mp_to_sp(&f_copy, f);
-			}
 			break;
 		case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 			CLEAR_AFTER_FIELD(f, fmt.pix_mp);
 			v4l_print_pix_fmt_mplane(vfd, &f->fmt.pix_mp);
-			if (ops->vidioc_s_fmt_vid_cap_mplane) {
+			if (ops->vidioc_s_fmt_vid_cap_mplane)
 				ret = ops->vidioc_s_fmt_vid_cap_mplane(file,
 									fh, f);
-			} else if (ops->vidioc_s_fmt_vid_cap &&
-					f->fmt.pix_mp.num_planes == 1) {
-				if (fmt_mp_to_sp(f, &f_copy))
-					break;
-				ret = ops->vidioc_s_fmt_vid_cap(file,
-								fh, &f_copy);
-				if (ret)
-					break;
-
-				ret = fmt_sp_to_mp(&f_copy, f);
-			}
 			break;
 		case V4L2_BUF_TYPE_VIDEO_OVERLAY:
 			CLEAR_AFTER_FIELD(f, fmt.win);
@@ -877,44 +778,15 @@ static long __video_do_ioctl(struct file *file,
 		case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 			CLEAR_AFTER_FIELD(f, fmt.pix);
 			v4l_print_pix_fmt(vfd, &f->fmt.pix);
-			if (ops->vidioc_s_fmt_vid_out) {
+			if (ops->vidioc_s_fmt_vid_out)
 				ret = ops->vidioc_s_fmt_vid_out(file, fh, f);
-			} else if (ops->vidioc_s_fmt_vid_out_mplane) {
-				if (fmt_sp_to_mp(f, &f_copy))
-					break;
-				ret = ops->vidioc_s_fmt_vid_out_mplane(file, fh,
-									&f_copy);
-				if (ret)
-					break;
-
-				if (f_copy.fmt.pix_mp.num_planes > 1) {
-					/* Drivers shouldn't adjust from 1-plane
-					 * to more than 1-plane formats */
-					ret = -EBUSY;
-					WARN_ON(1);
-					break;
-				}
-
-				ret = fmt_mp_to_sp(&f_copy, f);
-			}
 			break;
 		case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 			CLEAR_AFTER_FIELD(f, fmt.pix_mp);
 			v4l_print_pix_fmt_mplane(vfd, &f->fmt.pix_mp);
-			if (ops->vidioc_s_fmt_vid_out_mplane) {
+			if (ops->vidioc_s_fmt_vid_out_mplane)
 				ret = ops->vidioc_s_fmt_vid_out_mplane(file,
 									fh, f);
-			} else if (ops->vidioc_s_fmt_vid_out &&
-					f->fmt.pix_mp.num_planes == 1) {
-				if (fmt_mp_to_sp(f, &f_copy))
-					break;
-				ret = ops->vidioc_s_fmt_vid_out(file,
-								fh, &f_copy);
-				if (ret)
-					break;
-
-				ret = fmt_mp_to_sp(&f_copy, f);
-			}
 			break;
 		case V4L2_BUF_TYPE_VIDEO_OUTPUT_OVERLAY:
 			CLEAR_AFTER_FIELD(f, fmt.win);
@@ -924,29 +796,30 @@ static long __video_do_ioctl(struct file *file,
 			break;
 		case V4L2_BUF_TYPE_VBI_CAPTURE:
 			CLEAR_AFTER_FIELD(f, fmt.vbi);
-			if (ops->vidioc_s_fmt_vbi_cap)
+			if (likely(ops->vidioc_s_fmt_vbi_cap))
 				ret = ops->vidioc_s_fmt_vbi_cap(file, fh, f);
 			break;
 		case V4L2_BUF_TYPE_VBI_OUTPUT:
 			CLEAR_AFTER_FIELD(f, fmt.vbi);
-			if (ops->vidioc_s_fmt_vbi_out)
+			if (likely(ops->vidioc_s_fmt_vbi_out))
 				ret = ops->vidioc_s_fmt_vbi_out(file, fh, f);
 			break;
 		case V4L2_BUF_TYPE_SLICED_VBI_CAPTURE:
 			CLEAR_AFTER_FIELD(f, fmt.sliced);
-			if (ops->vidioc_s_fmt_sliced_vbi_cap)
+			if (likely(ops->vidioc_s_fmt_sliced_vbi_cap))
 				ret = ops->vidioc_s_fmt_sliced_vbi_cap(file,
 									fh, f);
 			break;
 		case V4L2_BUF_TYPE_SLICED_VBI_OUTPUT:
 			CLEAR_AFTER_FIELD(f, fmt.sliced);
-			if (ops->vidioc_s_fmt_sliced_vbi_out)
+			if (likely(ops->vidioc_s_fmt_sliced_vbi_out))
 				ret = ops->vidioc_s_fmt_sliced_vbi_out(file,
 									fh, f);
+
 			break;
 		case V4L2_BUF_TYPE_PRIVATE:
 			/* CLEAR_AFTER_FIELD(f, fmt.raw_data); <- does nothing */
-			if (ops->vidioc_s_fmt_type_private)
+			if (likely(ops->vidioc_s_fmt_type_private))
 				ret = ops->vidioc_s_fmt_type_private(file,
 								fh, f);
 			break;
@@ -960,135 +833,79 @@ static long __video_do_ioctl(struct file *file,
 		/* FIXME: Should be one dump per type */
 		dbgarg(cmd, "type=%s\n", prt_names(f->type,
 						v4l2_type_names));
+		ret = -EINVAL;
 		switch (f->type) {
 		case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 			CLEAR_AFTER_FIELD(f, fmt.pix);
-			if (ops->vidioc_try_fmt_vid_cap) {
+			if (ops->vidioc_try_fmt_vid_cap)
 				ret = ops->vidioc_try_fmt_vid_cap(file, fh, f);
-			} else if (ops->vidioc_try_fmt_vid_cap_mplane) {
-				if (fmt_sp_to_mp(f, &f_copy))
-					break;
-				ret = ops->vidioc_try_fmt_vid_cap_mplane(file,
-								fh, &f_copy);
-				if (ret)
-					break;
-
-				if (f_copy.fmt.pix_mp.num_planes > 1) {
-					/* Drivers shouldn't adjust from 1-plane
-					 * to more than 1-plane formats */
-					ret = -EBUSY;
-					WARN_ON(1);
-					break;
-				}
-				ret = fmt_mp_to_sp(&f_copy, f);
-			}
 			if (!ret)
 				v4l_print_pix_fmt(vfd, &f->fmt.pix);
 			break;
 		case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 			CLEAR_AFTER_FIELD(f, fmt.pix_mp);
-			if (ops->vidioc_try_fmt_vid_cap_mplane) {
+			if (ops->vidioc_try_fmt_vid_cap_mplane)
 				ret = ops->vidioc_try_fmt_vid_cap_mplane(file,
 									 fh, f);
-			} else if (ops->vidioc_try_fmt_vid_cap &&
-					f->fmt.pix_mp.num_planes == 1) {
-				if (fmt_mp_to_sp(f, &f_copy))
-					break;
-				ret = ops->vidioc_try_fmt_vid_cap(file,
-								  fh, &f_copy);
-				if (ret)
-					break;
-
-				ret = fmt_sp_to_mp(&f_copy, f);
-			}
 			if (!ret)
 				v4l_print_pix_fmt_mplane(vfd, &f->fmt.pix_mp);
 			break;
 		case V4L2_BUF_TYPE_VIDEO_OVERLAY:
 			CLEAR_AFTER_FIELD(f, fmt.win);
-			if (ops->vidioc_try_fmt_vid_overlay)
+			if (likely(ops->vidioc_try_fmt_vid_overlay))
 				ret = ops->vidioc_try_fmt_vid_overlay(file,
 					fh, f);
 			break;
 		case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 			CLEAR_AFTER_FIELD(f, fmt.pix);
-			if (ops->vidioc_try_fmt_vid_out) {
+			if (ops->vidioc_try_fmt_vid_out)
 				ret = ops->vidioc_try_fmt_vid_out(file, fh, f);
-			} else if (ops->vidioc_try_fmt_vid_out_mplane) {
-				if (fmt_sp_to_mp(f, &f_copy))
-					break;
-				ret = ops->vidioc_try_fmt_vid_out_mplane(file,
-								fh, &f_copy);
-				if (ret)
-					break;
-
-				if (f_copy.fmt.pix_mp.num_planes > 1) {
-					/* Drivers shouldn't adjust from 1-plane
-					 * to more than 1-plane formats */
-					ret = -EBUSY;
-					WARN_ON(1);
-					break;
-				}
-				ret = fmt_mp_to_sp(&f_copy, f);
-			}
 			if (!ret)
 				v4l_print_pix_fmt(vfd, &f->fmt.pix);
 			break;
 		case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 			CLEAR_AFTER_FIELD(f, fmt.pix_mp);
-			if (ops->vidioc_try_fmt_vid_out_mplane) {
+			if (ops->vidioc_try_fmt_vid_out_mplane)
 				ret = ops->vidioc_try_fmt_vid_out_mplane(file,
 									 fh, f);
-			} else if (ops->vidioc_try_fmt_vid_out &&
-					f->fmt.pix_mp.num_planes == 1) {
-				if (fmt_mp_to_sp(f, &f_copy))
-					break;
-				ret = ops->vidioc_try_fmt_vid_out(file,
-								  fh, &f_copy);
-				if (ret)
-					break;
-
-				ret = fmt_sp_to_mp(&f_copy, f);
-			}
 			if (!ret)
 				v4l_print_pix_fmt_mplane(vfd, &f->fmt.pix_mp);
 			break;
 		case V4L2_BUF_TYPE_VIDEO_OUTPUT_OVERLAY:
 			CLEAR_AFTER_FIELD(f, fmt.win);
-			if (ops->vidioc_try_fmt_vid_out_overlay)
+			if (likely(ops->vidioc_try_fmt_vid_out_overlay))
 				ret = ops->vidioc_try_fmt_vid_out_overlay(file,
 				       fh, f);
 			break;
 		case V4L2_BUF_TYPE_VBI_CAPTURE:
 			CLEAR_AFTER_FIELD(f, fmt.vbi);
-			if (ops->vidioc_try_fmt_vbi_cap)
+			if (likely(ops->vidioc_try_fmt_vbi_cap))
 				ret = ops->vidioc_try_fmt_vbi_cap(file, fh, f);
 			break;
 		case V4L2_BUF_TYPE_VBI_OUTPUT:
 			CLEAR_AFTER_FIELD(f, fmt.vbi);
-			if (ops->vidioc_try_fmt_vbi_out)
+			if (likely(ops->vidioc_try_fmt_vbi_out))
 				ret = ops->vidioc_try_fmt_vbi_out(file, fh, f);
 			break;
 		case V4L2_BUF_TYPE_SLICED_VBI_CAPTURE:
 			CLEAR_AFTER_FIELD(f, fmt.sliced);
-			if (ops->vidioc_try_fmt_sliced_vbi_cap)
+			if (likely(ops->vidioc_try_fmt_sliced_vbi_cap))
 				ret = ops->vidioc_try_fmt_sliced_vbi_cap(file,
 								fh, f);
 			break;
 		case V4L2_BUF_TYPE_SLICED_VBI_OUTPUT:
 			CLEAR_AFTER_FIELD(f, fmt.sliced);
-			if (ops->vidioc_try_fmt_sliced_vbi_out)
+			if (likely(ops->vidioc_try_fmt_sliced_vbi_out))
 				ret = ops->vidioc_try_fmt_sliced_vbi_out(file,
 								fh, f);
 			break;
 		case V4L2_BUF_TYPE_PRIVATE:
 			/* CLEAR_AFTER_FIELD(f, fmt.raw_data); <- does nothing */
-			if (ops->vidioc_try_fmt_type_private)
+			if (likely(ops->vidioc_try_fmt_type_private))
 				ret = ops->vidioc_try_fmt_type_private(file,
 								fh, f);
 			break;
 		}
-
 		break;
 	}
 	/* FIXME: Those buf reqs could be handled here,
@@ -1099,8 +916,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_requestbuffers *p = arg;
 
-		if (!ops->vidioc_reqbufs)
-			break;
 		ret = check_fmt(ops, p->type);
 		if (ret)
 			break;
@@ -1119,8 +934,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_buffer *p = arg;
 
-		if (!ops->vidioc_querybuf)
-			break;
 		ret = check_fmt(ops, p->type);
 		if (ret)
 			break;
@@ -1134,8 +947,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_buffer *p = arg;
 
-		if (!ops->vidioc_qbuf)
-			break;
 		ret = check_fmt(ops, p->type);
 		if (ret)
 			break;
@@ -1149,8 +960,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_buffer *p = arg;
 
-		if (!ops->vidioc_dqbuf)
-			break;
 		ret = check_fmt(ops, p->type);
 		if (ret)
 			break;
@@ -1164,8 +973,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		int *i = arg;
 
-		if (!ops->vidioc_overlay)
-			break;
 		dbgarg(cmd, "value=%d\n", *i);
 		ret = ops->vidioc_overlay(file, fh, *i);
 		break;
@@ -1174,8 +981,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_framebuffer *p = arg;
 
-		if (!ops->vidioc_g_fbuf)
-			break;
 		ret = ops->vidioc_g_fbuf(file, fh, arg);
 		if (!ret) {
 			dbgarg(cmd, "capability=0x%x, flags=%d, base=0x%08lx\n",
@@ -1189,8 +994,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_framebuffer *p = arg;
 
-		if (!ops->vidioc_s_fbuf)
-			break;
 		dbgarg(cmd, "capability=0x%x, flags=%d, base=0x%08lx\n",
 			p->capability, p->flags, (unsigned long)p->base);
 		v4l_print_pix_fmt(vfd, &p->fmt);
@@ -1201,8 +1004,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		enum v4l2_buf_type i = *(int *)arg;
 
-		if (!ops->vidioc_streamon)
-			break;
 		dbgarg(cmd, "type=%s\n", prt_names(i, v4l2_type_names));
 		ret = ops->vidioc_streamon(file, fh, i);
 		break;
@@ -1211,8 +1012,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		enum v4l2_buf_type i = *(int *)arg;
 
-		if (!ops->vidioc_streamoff)
-			break;
 		dbgarg(cmd, "type=%s\n", prt_names(i, v4l2_type_names));
 		ret = ops->vidioc_streamoff(file, fh, i);
 		break;
@@ -1224,6 +1023,10 @@ static long __video_do_ioctl(struct file *file,
 		v4l2_std_id id = vfd->tvnorms, curr_id = 0;
 		unsigned int index = p->index, i, j = 0;
 		const char *descr = "";
+
+		if (id == 0)
+			break;
+		ret = -EINVAL;
 
 		/* Return norm array in a canonical way */
 		for (i = 0; i <= index && id; i++) {
@@ -1260,16 +1063,15 @@ static long __video_do_ioctl(struct file *file,
 	{
 		v4l2_std_id *id = arg;
 
-		ret = 0;
 		/* Calls the specific handler */
 		if (ops->vidioc_g_std)
 			ret = ops->vidioc_g_std(file, fh, id);
-		else if (vfd->current_norm)
+		else if (vfd->current_norm) {
+			ret = 0;
 			*id = vfd->current_norm;
-		else
-			ret = -EINVAL;
+		}
 
-		if (!ret)
+		if (likely(!ret))
 			dbgarg(cmd, "std=0x%08Lx\n", (long long unsigned)*id);
 		break;
 	}
@@ -1279,15 +1081,13 @@ static long __video_do_ioctl(struct file *file,
 
 		dbgarg(cmd, "std=%08Lx\n", (long long unsigned)*id);
 
+		ret = -EINVAL;
 		norm = (*id) & vfd->tvnorms;
 		if (vfd->tvnorms && !norm)	/* Check if std is supported */
 			break;
 
 		/* Calls the specific handler */
-		if (ops->vidioc_s_std)
-			ret = ops->vidioc_s_std(file, fh, &norm);
-		else
-			ret = -EINVAL;
+		ret = ops->vidioc_s_std(file, fh, &norm);
 
 		/* Updates standard information */
 		if (ret >= 0)
@@ -1298,8 +1098,14 @@ static long __video_do_ioctl(struct file *file,
 	{
 		v4l2_std_id *p = arg;
 
-		if (!ops->vidioc_querystd)
-			break;
+		/*
+		 * If nothing detected, it should return all supported
+		 * Drivers just need to mask the std argument, in order
+		 * to remove the standards that don't apply from the mask.
+		 * This means that tuners, audio and video decoders can join
+		 * their efforts to improve the standards detection
+		 */
+		*p = vfd->tvnorms;
 		ret = ops->vidioc_querystd(file, fh, arg);
 		if (!ret)
 			dbgarg(cmd, "detected std=%08Lx\n",
@@ -1325,9 +1131,6 @@ static long __video_do_ioctl(struct file *file,
 		if (ops->vidioc_s_dv_timings)
 			p->capabilities |= V4L2_IN_CAP_CUSTOM_TIMINGS;
 
-		if (!ops->vidioc_enum_input)
-			break;
-
 		ret = ops->vidioc_enum_input(file, fh, p);
 		if (!ret)
 			dbgarg(cmd, "index=%d, name=%s, type=%d, "
@@ -1343,8 +1146,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		unsigned int *i = arg;
 
-		if (!ops->vidioc_g_input)
-			break;
 		ret = ops->vidioc_g_input(file, fh, i);
 		if (!ret)
 			dbgarg(cmd, "value=%d\n", *i);
@@ -1354,8 +1155,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		unsigned int *i = arg;
 
-		if (!ops->vidioc_s_input)
-			break;
 		dbgarg(cmd, "value=%d\n", *i);
 		ret = ops->vidioc_s_input(file, fh, *i);
 		break;
@@ -1365,9 +1164,6 @@ static long __video_do_ioctl(struct file *file,
 	case VIDIOC_ENUMOUTPUT:
 	{
 		struct v4l2_output *p = arg;
-
-		if (!ops->vidioc_enum_output)
-			break;
 
 		/*
 		 * We set the flags for CAP_PRESETS, CAP_CUSTOM_TIMINGS &
@@ -1395,8 +1191,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		unsigned int *i = arg;
 
-		if (!ops->vidioc_g_output)
-			break;
 		ret = ops->vidioc_g_output(file, fh, i);
 		if (!ret)
 			dbgarg(cmd, "value=%d\n", *i);
@@ -1406,8 +1200,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		unsigned int *i = arg;
 
-		if (!ops->vidioc_s_output)
-			break;
 		dbgarg(cmd, "value=%d\n", *i);
 		ret = ops->vidioc_s_output(file, fh, *i);
 		break;
@@ -1418,7 +1210,9 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_queryctrl *p = arg;
 
-		if (vfd->ctrl_handler)
+		if (vfh && vfh->ctrl_handler)
+			ret = v4l2_queryctrl(vfh->ctrl_handler, p);
+		else if (vfd->ctrl_handler)
 			ret = v4l2_queryctrl(vfd->ctrl_handler, p);
 		else if (ops->vidioc_queryctrl)
 			ret = ops->vidioc_queryctrl(file, fh, p);
@@ -1438,7 +1232,9 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_control *p = arg;
 
-		if (vfd->ctrl_handler)
+		if (vfh && vfh->ctrl_handler)
+			ret = v4l2_g_ctrl(vfh->ctrl_handler, p);
+		else if (vfd->ctrl_handler)
 			ret = v4l2_g_ctrl(vfd->ctrl_handler, p);
 		else if (ops->vidioc_g_ctrl)
 			ret = ops->vidioc_g_ctrl(file, fh, p);
@@ -1470,14 +1266,18 @@ static long __video_do_ioctl(struct file *file,
 		struct v4l2_ext_controls ctrls;
 		struct v4l2_ext_control ctrl;
 
-		if (!vfd->ctrl_handler &&
+		if (!(vfh && vfh->ctrl_handler) && !vfd->ctrl_handler &&
 			!ops->vidioc_s_ctrl && !ops->vidioc_s_ext_ctrls)
 			break;
 
 		dbgarg(cmd, "id=0x%x, value=%d\n", p->id, p->value);
 
+		if (vfh && vfh->ctrl_handler) {
+			ret = v4l2_s_ctrl(vfh, vfh->ctrl_handler, p);
+			break;
+		}
 		if (vfd->ctrl_handler) {
-			ret = v4l2_s_ctrl(vfd->ctrl_handler, p);
+			ret = v4l2_s_ctrl(NULL, vfd->ctrl_handler, p);
 			break;
 		}
 		if (ops->vidioc_s_ctrl) {
@@ -1494,6 +1294,8 @@ static long __video_do_ioctl(struct file *file,
 		ctrl.value = p->value;
 		if (check_ext_ctrls(&ctrls, 1))
 			ret = ops->vidioc_s_ext_ctrls(file, fh, &ctrls);
+		else
+			ret = -EINVAL;
 		break;
 	}
 	case VIDIOC_G_EXT_CTRLS:
@@ -1501,10 +1303,14 @@ static long __video_do_ioctl(struct file *file,
 		struct v4l2_ext_controls *p = arg;
 
 		p->error_idx = p->count;
-		if (vfd->ctrl_handler)
+		if (vfh && vfh->ctrl_handler)
+			ret = v4l2_g_ext_ctrls(vfh->ctrl_handler, p);
+		else if (vfd->ctrl_handler)
 			ret = v4l2_g_ext_ctrls(vfd->ctrl_handler, p);
-		else if (ops->vidioc_g_ext_ctrls && check_ext_ctrls(p, 0))
-			ret = ops->vidioc_g_ext_ctrls(file, fh, p);
+		else if (ops->vidioc_g_ext_ctrls)
+			ret = check_ext_ctrls(p, 0) ?
+				ops->vidioc_g_ext_ctrls(file, fh, p) :
+				-EINVAL;
 		else
 			break;
 		v4l_print_ext_ctrls(cmd, vfd, p, !ret);
@@ -1515,13 +1321,18 @@ static long __video_do_ioctl(struct file *file,
 		struct v4l2_ext_controls *p = arg;
 
 		p->error_idx = p->count;
-		if (!vfd->ctrl_handler && !ops->vidioc_s_ext_ctrls)
+		if (!(vfh && vfh->ctrl_handler) && !vfd->ctrl_handler &&
+				!ops->vidioc_s_ext_ctrls)
 			break;
 		v4l_print_ext_ctrls(cmd, vfd, p, 1);
-		if (vfd->ctrl_handler)
-			ret = v4l2_s_ext_ctrls(vfd->ctrl_handler, p);
+		if (vfh && vfh->ctrl_handler)
+			ret = v4l2_s_ext_ctrls(vfh, vfh->ctrl_handler, p);
+		else if (vfd->ctrl_handler)
+			ret = v4l2_s_ext_ctrls(NULL, vfd->ctrl_handler, p);
 		else if (check_ext_ctrls(p, 0))
 			ret = ops->vidioc_s_ext_ctrls(file, fh, p);
+		else
+			ret = -EINVAL;
 		break;
 	}
 	case VIDIOC_TRY_EXT_CTRLS:
@@ -1529,20 +1340,27 @@ static long __video_do_ioctl(struct file *file,
 		struct v4l2_ext_controls *p = arg;
 
 		p->error_idx = p->count;
-		if (!vfd->ctrl_handler && !ops->vidioc_try_ext_ctrls)
+		if (!(vfh && vfh->ctrl_handler) && !vfd->ctrl_handler &&
+				!ops->vidioc_try_ext_ctrls)
 			break;
 		v4l_print_ext_ctrls(cmd, vfd, p, 1);
-		if (vfd->ctrl_handler)
+		if (vfh && vfh->ctrl_handler)
+			ret = v4l2_try_ext_ctrls(vfh->ctrl_handler, p);
+		else if (vfd->ctrl_handler)
 			ret = v4l2_try_ext_ctrls(vfd->ctrl_handler, p);
 		else if (check_ext_ctrls(p, 0))
 			ret = ops->vidioc_try_ext_ctrls(file, fh, p);
+		else
+			ret = -EINVAL;
 		break;
 	}
 	case VIDIOC_QUERYMENU:
 	{
 		struct v4l2_querymenu *p = arg;
 
-		if (vfd->ctrl_handler)
+		if (vfh && vfh->ctrl_handler)
+			ret = v4l2_querymenu(vfh->ctrl_handler, p);
+		else if (vfd->ctrl_handler)
 			ret = v4l2_querymenu(vfd->ctrl_handler, p);
 		else if (ops->vidioc_querymenu)
 			ret = ops->vidioc_querymenu(file, fh, p);
@@ -1561,8 +1379,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_audio *p = arg;
 
-		if (!ops->vidioc_enumaudio)
-			break;
 		ret = ops->vidioc_enumaudio(file, fh, p);
 		if (!ret)
 			dbgarg(cmd, "index=%d, name=%s, capability=0x%x, "
@@ -1575,9 +1391,6 @@ static long __video_do_ioctl(struct file *file,
 	case VIDIOC_G_AUDIO:
 	{
 		struct v4l2_audio *p = arg;
-
-		if (!ops->vidioc_g_audio)
-			break;
 
 		ret = ops->vidioc_g_audio(file, fh, p);
 		if (!ret)
@@ -1592,8 +1405,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_audio *p = arg;
 
-		if (!ops->vidioc_s_audio)
-			break;
 		dbgarg(cmd, "index=%d, name=%s, capability=0x%x, "
 					"mode=0x%x\n", p->index, p->name,
 					p->capability, p->mode);
@@ -1604,8 +1415,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_audioout *p = arg;
 
-		if (!ops->vidioc_enumaudout)
-			break;
 		dbgarg(cmd, "Enum for index=%d\n", p->index);
 		ret = ops->vidioc_enumaudout(file, fh, p);
 		if (!ret)
@@ -1618,9 +1427,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_audioout *p = arg;
 
-		if (!ops->vidioc_g_audout)
-			break;
-
 		ret = ops->vidioc_g_audout(file, fh, p);
 		if (!ret)
 			dbgarg2("index=%d, name=%s, capability=%d, "
@@ -1632,8 +1438,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_audioout *p = arg;
 
-		if (!ops->vidioc_s_audout)
-			break;
 		dbgarg(cmd, "index=%d, name=%s, capability=%d, "
 					"mode=%d\n", p->index, p->name,
 					p->capability, p->mode);
@@ -1645,8 +1449,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_modulator *p = arg;
 
-		if (!ops->vidioc_g_modulator)
-			break;
 		ret = ops->vidioc_g_modulator(file, fh, p);
 		if (!ret)
 			dbgarg(cmd, "index=%d, name=%s, "
@@ -1661,8 +1463,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_modulator *p = arg;
 
-		if (!ops->vidioc_s_modulator)
-			break;
 		dbgarg(cmd, "index=%d, name=%s, capability=%d, "
 				"rangelow=%d, rangehigh=%d, txsubchans=%d\n",
 				p->index, p->name, p->capability, p->rangelow,
@@ -1674,11 +1474,29 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_crop *p = arg;
 
-		if (!ops->vidioc_g_crop)
-			break;
-
 		dbgarg(cmd, "type=%s\n", prt_names(p->type, v4l2_type_names));
-		ret = ops->vidioc_g_crop(file, fh, p);
+
+		if (ops->vidioc_g_crop) {
+			ret = ops->vidioc_g_crop(file, fh, p);
+		} else {
+			/* simulate capture crop using selection api */
+			struct v4l2_selection s = {
+				.type = p->type,
+			};
+
+			/* crop means compose for output devices */
+			if (V4L2_TYPE_IS_OUTPUT(p->type))
+				s.target = V4L2_SEL_TGT_COMPOSE_ACTIVE;
+			else
+				s.target = V4L2_SEL_TGT_CROP_ACTIVE;
+
+			ret = ops->vidioc_g_selection(file, fh, &s);
+
+			/* copying results to old structure on success */
+			if (!ret)
+				p->c = s.r;
+		}
+
 		if (!ret)
 			dbgrect(vfd, "", &p->c);
 		break;
@@ -1687,11 +1505,48 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_crop *p = arg;
 
-		if (!ops->vidioc_s_crop)
-			break;
 		dbgarg(cmd, "type=%s\n", prt_names(p->type, v4l2_type_names));
 		dbgrect(vfd, "", &p->c);
-		ret = ops->vidioc_s_crop(file, fh, p);
+
+		if (ops->vidioc_s_crop) {
+			ret = ops->vidioc_s_crop(file, fh, p);
+		} else {
+			/* simulate capture crop using selection api */
+			struct v4l2_selection s = {
+				.type = p->type,
+				.r = p->c,
+			};
+
+			/* crop means compose for output devices */
+			if (V4L2_TYPE_IS_OUTPUT(p->type))
+				s.target = V4L2_SEL_TGT_COMPOSE_ACTIVE;
+			else
+				s.target = V4L2_SEL_TGT_CROP_ACTIVE;
+
+			ret = ops->vidioc_s_selection(file, fh, &s);
+		}
+		break;
+	}
+	case VIDIOC_G_SELECTION:
+	{
+		struct v4l2_selection *p = arg;
+
+		dbgarg(cmd, "type=%s\n", prt_names(p->type, v4l2_type_names));
+
+		ret = ops->vidioc_g_selection(file, fh, p);
+		if (!ret)
+			dbgrect(vfd, "", &p->r);
+		break;
+	}
+	case VIDIOC_S_SELECTION:
+	{
+		struct v4l2_selection *p = arg;
+
+
+		dbgarg(cmd, "type=%s\n", prt_names(p->type, v4l2_type_names));
+		dbgrect(vfd, "", &p->r);
+
+		ret = ops->vidioc_s_selection(file, fh, p);
 		break;
 	}
 	case VIDIOC_CROPCAP:
@@ -1699,11 +1554,39 @@ static long __video_do_ioctl(struct file *file,
 		struct v4l2_cropcap *p = arg;
 
 		/*FIXME: Should also show v4l2_fract pixelaspect */
-		if (!ops->vidioc_cropcap)
-			break;
-
 		dbgarg(cmd, "type=%s\n", prt_names(p->type, v4l2_type_names));
-		ret = ops->vidioc_cropcap(file, fh, p);
+		if (ops->vidioc_cropcap) {
+			ret = ops->vidioc_cropcap(file, fh, p);
+		} else {
+			struct v4l2_selection s = { .type = p->type };
+
+			/* obtaining bounds */
+			if (V4L2_TYPE_IS_OUTPUT(p->type))
+				s.target = V4L2_SEL_TGT_COMPOSE_BOUNDS;
+			else
+				s.target = V4L2_SEL_TGT_CROP_BOUNDS;
+
+			ret = ops->vidioc_g_selection(file, fh, &s);
+			if (ret)
+				break;
+			p->bounds = s.r;
+
+			/* obtaining defrect */
+			if (V4L2_TYPE_IS_OUTPUT(p->type))
+				s.target = V4L2_SEL_TGT_COMPOSE_DEFAULT;
+			else
+				s.target = V4L2_SEL_TGT_CROP_DEFAULT;
+
+			ret = ops->vidioc_g_selection(file, fh, &s);
+			if (ret)
+				break;
+			p->defrect = s.r;
+
+			/* setting trivial pixelaspect */
+			p->pixelaspect.numerator = 1;
+			p->pixelaspect.denominator = 1;
+		}
+
 		if (!ret) {
 			dbgrect(vfd, "bounds ", &p->bounds);
 			dbgrect(vfd, "defrect ", &p->defrect);
@@ -1713,9 +1596,6 @@ static long __video_do_ioctl(struct file *file,
 	case VIDIOC_G_JPEGCOMP:
 	{
 		struct v4l2_jpegcompression *p = arg;
-
-		if (!ops->vidioc_g_jpegcomp)
-			break;
 
 		ret = ops->vidioc_g_jpegcomp(file, fh, p);
 		if (!ret)
@@ -1730,21 +1610,17 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_jpegcompression *p = arg;
 
-		if (!ops->vidioc_g_jpegcomp)
-			break;
 		dbgarg(cmd, "quality=%d, APPn=%d, APP_len=%d, "
 					"COM_len=%d, jpeg_markers=%d\n",
 					p->quality, p->APPn, p->APP_len,
 					p->COM_len, p->jpeg_markers);
-			ret = ops->vidioc_s_jpegcomp(file, fh, p);
+		ret = ops->vidioc_s_jpegcomp(file, fh, p);
 		break;
 	}
 	case VIDIOC_G_ENC_INDEX:
 	{
 		struct v4l2_enc_idx *p = arg;
 
-		if (!ops->vidioc_g_enc_index)
-			break;
 		ret = ops->vidioc_g_enc_index(file, fh, p);
 		if (!ret)
 			dbgarg(cmd, "entries=%d, entries_cap=%d\n",
@@ -1755,8 +1631,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_encoder_cmd *p = arg;
 
-		if (!ops->vidioc_encoder_cmd)
-			break;
 		ret = ops->vidioc_encoder_cmd(file, fh, p);
 		if (!ret)
 			dbgarg(cmd, "cmd=%d, flags=%x\n", p->cmd, p->flags);
@@ -1766,9 +1640,25 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_encoder_cmd *p = arg;
 
-		if (!ops->vidioc_try_encoder_cmd)
-			break;
 		ret = ops->vidioc_try_encoder_cmd(file, fh, p);
+		if (!ret)
+			dbgarg(cmd, "cmd=%d, flags=%x\n", p->cmd, p->flags);
+		break;
+	}
+	case VIDIOC_DECODER_CMD:
+	{
+		struct v4l2_decoder_cmd *p = arg;
+
+		ret = ops->vidioc_decoder_cmd(file, fh, p);
+		if (!ret)
+			dbgarg(cmd, "cmd=%d, flags=%x\n", p->cmd, p->flags);
+		break;
+	}
+	case VIDIOC_TRY_DECODER_CMD:
+	{
+		struct v4l2_decoder_cmd *p = arg;
+
+		ret = ops->vidioc_try_decoder_cmd(file, fh, p);
 		if (!ret)
 			dbgarg(cmd, "cmd=%d, flags=%x\n", p->cmd, p->flags);
 		break;
@@ -1785,14 +1675,14 @@ static long __video_do_ioctl(struct file *file,
 		} else {
 			v4l2_std_id std = vfd->current_norm;
 
+			ret = -EINVAL;
 			if (p->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 				break;
 
 			ret = 0;
+			p->parm.capture.readbuffers = 2;
 			if (ops->vidioc_g_std)
 				ret = ops->vidioc_g_std(file, fh, &std);
-			else if (std == 0)
-				ret = -EINVAL;
 			if (ret == 0)
 				v4l2_video_std_frame_period(std,
 						    &p->parm.capture.timeperframe);
@@ -1805,8 +1695,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_streamparm *p = arg;
 
-		if (!ops->vidioc_s_parm)
-			break;
 		ret = check_fmt(ops, p->type);
 		if (ret)
 			break;
@@ -1818,9 +1706,6 @@ static long __video_do_ioctl(struct file *file,
 	case VIDIOC_G_TUNER:
 	{
 		struct v4l2_tuner *p = arg;
-
-		if (!ops->vidioc_g_tuner)
-			break;
 
 		p->type = (vfd->vfl_type == VFL_TYPE_RADIO) ?
 			V4L2_TUNER_RADIO : V4L2_TUNER_ANALOG_TV;
@@ -1840,8 +1725,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_tuner *p = arg;
 
-		if (!ops->vidioc_s_tuner)
-			break;
 		p->type = (vfd->vfl_type == VFL_TYPE_RADIO) ?
 			V4L2_TUNER_RADIO : V4L2_TUNER_ANALOG_TV;
 		dbgarg(cmd, "index=%d, name=%s, type=%d, "
@@ -1859,9 +1742,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_frequency *p = arg;
 
-		if (!ops->vidioc_g_frequency)
-			break;
-
 		p->type = (vfd->vfl_type == VFL_TYPE_RADIO) ?
 			V4L2_TUNER_RADIO : V4L2_TUNER_ANALOG_TV;
 		ret = ops->vidioc_g_frequency(file, fh, p);
@@ -1873,20 +1753,21 @@ static long __video_do_ioctl(struct file *file,
 	case VIDIOC_S_FREQUENCY:
 	{
 		struct v4l2_frequency *p = arg;
+		enum v4l2_tuner_type type;
 
-		if (!ops->vidioc_s_frequency)
-			break;
+		type = (vfd->vfl_type == VFL_TYPE_RADIO) ?
+			V4L2_TUNER_RADIO : V4L2_TUNER_ANALOG_TV;
 		dbgarg(cmd, "tuner=%d, type=%d, frequency=%d\n",
 				p->tuner, p->type, p->frequency);
-		ret = ops->vidioc_s_frequency(file, fh, p);
+		if (p->type != type)
+			ret = -EINVAL;
+		else
+			ret = ops->vidioc_s_frequency(file, fh, p);
 		break;
 	}
 	case VIDIOC_G_SLICED_VBI_CAP:
 	{
 		struct v4l2_sliced_vbi_cap *p = arg;
-
-		if (!ops->vidioc_g_sliced_vbi_cap)
-			break;
 
 		/* Clear up to type, everything after type is zerod already */
 		memset(p, 0, offsetof(struct v4l2_sliced_vbi_cap, type));
@@ -1899,43 +1780,43 @@ static long __video_do_ioctl(struct file *file,
 	}
 	case VIDIOC_LOG_STATUS:
 	{
-		if (!ops->vidioc_log_status)
-			break;
+		if (vfd->v4l2_dev)
+			pr_info("%s: =================  START STATUS  =================\n",
+				vfd->v4l2_dev->name);
 		ret = ops->vidioc_log_status(file, fh);
+		if (vfd->v4l2_dev)
+			pr_info("%s: ==================  END STATUS  ==================\n",
+				vfd->v4l2_dev->name);
 		break;
 	}
-#ifdef CONFIG_VIDEO_ADV_DEBUG
 	case VIDIOC_DBG_G_REGISTER:
 	{
+#ifdef CONFIG_VIDEO_ADV_DEBUG
 		struct v4l2_dbg_register *p = arg;
 
-		if (ops->vidioc_g_register) {
-			if (!capable(CAP_SYS_ADMIN))
-				ret = -EPERM;
-			else
-				ret = ops->vidioc_g_register(file, fh, p);
-		}
+		if (!capable(CAP_SYS_ADMIN))
+			ret = -EPERM;
+		else
+			ret = ops->vidioc_g_register(file, fh, p);
+#endif
 		break;
 	}
 	case VIDIOC_DBG_S_REGISTER:
 	{
+#ifdef CONFIG_VIDEO_ADV_DEBUG
 		struct v4l2_dbg_register *p = arg;
 
-		if (ops->vidioc_s_register) {
-			if (!capable(CAP_SYS_ADMIN))
-				ret = -EPERM;
-			else
-				ret = ops->vidioc_s_register(file, fh, p);
-		}
+		if (!capable(CAP_SYS_ADMIN))
+			ret = -EPERM;
+		else
+			ret = ops->vidioc_s_register(file, fh, p);
+#endif
 		break;
 	}
-#endif
 	case VIDIOC_DBG_G_CHIP_IDENT:
 	{
 		struct v4l2_dbg_chip_ident *p = arg;
 
-		if (!ops->vidioc_g_chip_ident)
-			break;
 		p->ident = V4L2_IDENT_NONE;
 		p->revision = 0;
 		ret = ops->vidioc_g_chip_ident(file, fh, p);
@@ -1948,8 +1829,6 @@ static long __video_do_ioctl(struct file *file,
 		struct v4l2_hw_freq_seek *p = arg;
 		enum v4l2_tuner_type type;
 
-		if (!ops->vidioc_s_hw_freq_seek)
-			break;
 		type = (vfd->vfl_type == VFL_TYPE_RADIO) ?
 			V4L2_TUNER_RADIO : V4L2_TUNER_ANALOG_TV;
 		dbgarg(cmd,
@@ -1964,9 +1843,6 @@ static long __video_do_ioctl(struct file *file,
 	case VIDIOC_ENUM_FRAMESIZES:
 	{
 		struct v4l2_frmsizeenum *p = arg;
-
-		if (!ops->vidioc_enum_framesizes)
-			break;
 
 		ret = ops->vidioc_enum_framesizes(file, fh, p);
 		dbgarg(cmd,
@@ -2001,9 +1877,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_frmivalenum *p = arg;
 
-		if (!ops->vidioc_enum_frameintervals)
-			break;
-
 		ret = ops->vidioc_enum_frameintervals(file, fh, p);
 		dbgarg(cmd,
 			"index=%d, pixelformat=%d, width=%d, height=%d, type=%d ",
@@ -2036,9 +1909,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_dv_enum_preset *p = arg;
 
-		if (!ops->vidioc_enum_dv_presets)
-			break;
-
 		ret = ops->vidioc_enum_dv_presets(file, fh, p);
 		if (!ret)
 			dbgarg(cmd,
@@ -2052,9 +1922,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_dv_preset *p = arg;
 
-		if (!ops->vidioc_s_dv_preset)
-			break;
-
 		dbgarg(cmd, "preset=%d\n", p->preset);
 		ret = ops->vidioc_s_dv_preset(file, fh, p);
 		break;
@@ -2062,9 +1929,6 @@ static long __video_do_ioctl(struct file *file,
 	case VIDIOC_G_DV_PRESET:
 	{
 		struct v4l2_dv_preset *p = arg;
-
-		if (!ops->vidioc_g_dv_preset)
-			break;
 
 		ret = ops->vidioc_g_dv_preset(file, fh, p);
 		if (!ret)
@@ -2075,9 +1939,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_dv_preset *p = arg;
 
-		if (!ops->vidioc_query_dv_preset)
-			break;
-
 		ret = ops->vidioc_query_dv_preset(file, fh, p);
 		if (!ret)
 			dbgarg(cmd, "preset=%d\n", p->preset);
@@ -2087,28 +1948,13 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_dv_timings *p = arg;
 
-		if (!ops->vidioc_s_dv_timings)
-			break;
-
+		dbgtimings(vfd, p);
 		switch (p->type) {
 		case V4L2_DV_BT_656_1120:
-			dbgarg2("bt-656/1120:interlaced=%d, pixelclock=%lld,"
-				" width=%d, height=%d, polarities=%x,"
-				" hfrontporch=%d, hsync=%d, hbackporch=%d,"
-				" vfrontporch=%d, vsync=%d, vbackporch=%d,"
-				" il_vfrontporch=%d, il_vsync=%d,"
-				" il_vbackporch=%d\n",
-				p->bt.interlaced, p->bt.pixelclock,
-				p->bt.width, p->bt.height, p->bt.polarities,
-				p->bt.hfrontporch, p->bt.hsync,
-				p->bt.hbackporch, p->bt.vfrontporch,
-				p->bt.vsync, p->bt.vbackporch,
-				p->bt.il_vfrontporch, p->bt.il_vsync,
-				p->bt.il_vbackporch);
 			ret = ops->vidioc_s_dv_timings(file, fh, p);
 			break;
 		default:
-			dbgarg2("Unknown type %d!\n", p->type);
+			ret = -EINVAL;
 			break;
 		}
 		break;
@@ -2117,42 +1963,67 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_dv_timings *p = arg;
 
-		if (!ops->vidioc_g_dv_timings)
+		ret = ops->vidioc_g_dv_timings(file, fh, p);
+		if (!ret)
+			dbgtimings(vfd, p);
+		break;
+	}
+	case VIDIOC_ENUM_DV_TIMINGS:
+	{
+		struct v4l2_enum_dv_timings *p = arg;
+
+		if (!ops->vidioc_enum_dv_timings)
 			break;
 
-		ret = ops->vidioc_g_dv_timings(file, fh, p);
+		ret = ops->vidioc_enum_dv_timings(file, fh, p);
 		if (!ret) {
-			switch (p->type) {
-			case V4L2_DV_BT_656_1120:
-				dbgarg2("bt-656/1120:interlaced=%d,"
-					" pixelclock=%lld,"
-					" width=%d, height=%d, polarities=%x,"
-					" hfrontporch=%d, hsync=%d,"
-					" hbackporch=%d, vfrontporch=%d,"
-					" vsync=%d, vbackporch=%d,"
-					" il_vfrontporch=%d, il_vsync=%d,"
-					" il_vbackporch=%d\n",
-					p->bt.interlaced, p->bt.pixelclock,
-					p->bt.width, p->bt.height,
-					p->bt.polarities, p->bt.hfrontporch,
-					p->bt.hsync, p->bt.hbackporch,
-					p->bt.vfrontporch, p->bt.vsync,
-					p->bt.vbackporch, p->bt.il_vfrontporch,
-					p->bt.il_vsync, p->bt.il_vbackporch);
-				break;
-			default:
-				dbgarg2("Unknown type %d!\n", p->type);
-				break;
-			}
+			dbgarg(cmd, "index=%d: ", p->index);
+			dbgtimings(vfd, &p->timings);
+		}
+		break;
+	}
+	case VIDIOC_QUERY_DV_TIMINGS:
+	{
+		struct v4l2_dv_timings *p = arg;
+
+		if (!ops->vidioc_query_dv_timings)
+			break;
+
+		ret = ops->vidioc_query_dv_timings(file, fh, p);
+		if (!ret)
+			dbgtimings(vfd, p);
+		break;
+	}
+	case VIDIOC_DV_TIMINGS_CAP:
+	{
+		struct v4l2_dv_timings_cap *p = arg;
+
+		if (!ops->vidioc_dv_timings_cap)
+			break;
+
+		ret = ops->vidioc_dv_timings_cap(file, fh, p);
+		if (ret)
+			break;
+		switch (p->type) {
+		case V4L2_DV_BT_656_1120:
+			dbgarg(cmd,
+			       "type=%d, width=%u-%u, height=%u-%u, "
+			       "pixelclock=%llu-%llu, standards=%x, capabilities=%x ",
+			       p->type,
+			       p->bt.min_width, p->bt.max_width,
+			       p->bt.min_height, p->bt.max_height,
+			       p->bt.min_pixelclock, p->bt.max_pixelclock,
+			       p->bt.standards, p->bt.capabilities);
+			break;
+		default:
+			dbgarg(cmd, "unknown type ");
+			break;
 		}
 		break;
 	}
 	case VIDIOC_DQEVENT:
 	{
 		struct v4l2_event *ev = arg;
-
-		if (!ops->vidioc_subscribe_event)
-			break;
 
 		ret = v4l2_event_dequeue(fh, ev, file->f_flags & O_NONBLOCK);
 		if (ret < 0) {
@@ -2170,9 +2041,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_event_subscription *sub = arg;
 
-		if (!ops->vidioc_subscribe_event)
-			break;
-
 		ret = ops->vidioc_subscribe_event(fh, sub);
 		if (ret < 0) {
 			dbgarg(cmd, "failed, ret=%ld", ret);
@@ -2185,9 +2053,6 @@ static long __video_do_ioctl(struct file *file,
 	{
 		struct v4l2_event_subscription *sub = arg;
 
-		if (!ops->vidioc_unsubscribe_event)
-			break;
-
 		ret = ops->vidioc_unsubscribe_event(fh, sub);
 		if (ret < 0) {
 			dbgarg(cmd, "failed, ret=%ld", ret);
@@ -2196,20 +2061,41 @@ static long __video_do_ioctl(struct file *file,
 		dbgarg(cmd, "type=0x%8.8x", sub->type);
 		break;
 	}
-	default:
+	case VIDIOC_CREATE_BUFS:
 	{
-		bool valid_prio = true;
+		struct v4l2_create_buffers *create = arg;
 
-		if (!ops->vidioc_default)
+		ret = check_fmt(ops, create->format.type);
+		if (ret)
 			break;
-		if (use_fh_prio)
-			valid_prio = v4l2_prio_check(vfd->prio, vfh->prio) >= 0;
-		ret = ops->vidioc_default(file, fh, valid_prio, cmd, arg);
+
+		ret = ops->vidioc_create_bufs(file, fh, create);
+
+		dbgarg(cmd, "count=%d @ %d\n", create->count, create->index);
 		break;
 	}
+	case VIDIOC_PREPARE_BUF:
+	{
+		struct v4l2_buffer *b = arg;
+
+		ret = check_fmt(ops, b->type);
+		if (ret)
+			break;
+
+		ret = ops->vidioc_prepare_buf(file, fh, b);
+
+		dbgarg(cmd, "index=%d", b->index);
+		break;
+	}
+	default:
+		if (!ops->vidioc_default)
+			break;
+		ret = ops->vidioc_default(file, fh, use_fh_prio ?
+				v4l2_prio_check(vfd->prio, vfh->prio) >= 0 : 0,
+				cmd, arg);
+		break;
 	} /* switch */
 
-exit_prio:
 	if (vfd->debug & V4L2_DEBUG_IOCTL_ARG) {
 		if (ret < 0) {
 			v4l_print_ioctl(vfd->name, cmd);
@@ -2276,7 +2162,7 @@ static int check_array_args(unsigned int cmd, void *parg, size_t *array_size,
 				break;
 			}
 			*user_ptr = (void __user *)buf->m.planes;
-			*kernel_ptr = (void **)&buf->m.planes;
+			*kernel_ptr = (void *)&buf->m.planes;
 			*array_size = sizeof(struct v4l2_plane) * buf->length;
 			ret = 1;
 		}
@@ -2289,8 +2175,12 @@ static int check_array_args(unsigned int cmd, void *parg, size_t *array_size,
 		struct v4l2_ext_controls *ctrls = parg;
 
 		if (ctrls->count != 0) {
+			if (ctrls->count > V4L2_CID_MAX_CTRLS) {
+				ret = -EINVAL;
+				break;
+			}
 			*user_ptr = (void __user *)ctrls->controls;
-			*kernel_ptr = (void **)&ctrls->controls;
+			*kernel_ptr = (void *)&ctrls->controls;
 			*array_size = sizeof(struct v4l2_ext_control)
 				    * ctrls->count;
 			ret = 1;
@@ -2368,7 +2258,7 @@ video_usercopy(struct file *file, unsigned int cmd, unsigned long arg,
 	/* Handles IOCTL */
 	err = func(file, cmd, parg);
 	if (err == -ENOIOCTLCMD)
-		err = -EINVAL;
+		err = -ENOTTY;
 
 	if (has_array_args) {
 		*kernel_ptr = user_ptr;
@@ -2376,7 +2266,9 @@ video_usercopy(struct file *file, unsigned int cmd, unsigned long arg,
 			err = -EFAULT;
 		goto out_array_args;
 	}
-	if (err < 0)
+	/* VIDIOC_QUERY_DV_TIMINGS can return an error, but still have valid
+	   results that must be returned. */
+	if (err < 0 && cmd != VIDIOC_QUERY_DV_TIMINGS)
 		goto out;
 
 out_array_args:

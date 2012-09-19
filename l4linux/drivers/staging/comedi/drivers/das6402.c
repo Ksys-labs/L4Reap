@@ -99,29 +99,6 @@ This driver has suffered bitrot.
 #define	C2 0x80
 #define	RWLH 0x30
 
-static int das6402_attach(struct comedi_device *dev,
-			  struct comedi_devconfig *it);
-static int das6402_detach(struct comedi_device *dev);
-static struct comedi_driver driver_das6402 = {
-	.driver_name = "das6402",
-	.module = THIS_MODULE,
-	.attach = das6402_attach,
-	.detach = das6402_detach,
-};
-
-static int __init driver_das6402_init_module(void)
-{
-	return comedi_driver_register(&driver_das6402);
-}
-
-static void __exit driver_das6402_cleanup_module(void)
-{
-	comedi_driver_unregister(&driver_das6402);
-}
-
-module_init(driver_das6402_init_module);
-module_exit(driver_das6402_cleanup_module);
-
 struct das6402_private {
 	int ai_bytes_to_read;
 
@@ -130,7 +107,14 @@ struct das6402_private {
 #define devpriv ((struct das6402_private *)dev->private)
 
 static void das6402_ai_fifo_dregs(struct comedi_device *dev,
-				  struct comedi_subdevice *s);
+				  struct comedi_subdevice *s)
+{
+	while (1) {
+		if (!(inb(dev->iobase + 8) & 0x01))
+			return;
+		comedi_buf_put(s->async, inw(dev->iobase));
+	}
+}
 
 static void das6402_setcounter(struct comedi_device *dev)
 {
@@ -171,7 +155,7 @@ static irqreturn_t intr_handler(int irq, void *d)
 	struct comedi_subdevice *s = dev->subdevices;
 
 	if (!dev->attached || devpriv->das6402_ignoreirq) {
-		printk("das6402: BUG: spurious interrupt\n");
+		dev_warn(dev->hw_dev, "BUG: spurious interrupt\n");
 		return IRQ_HANDLED;
 	}
 #ifdef DEBUG
@@ -209,16 +193,6 @@ static void das6402_ai_fifo_read(struct comedi_device *dev, short *data, int n)
 }
 #endif
 
-static void das6402_ai_fifo_dregs(struct comedi_device *dev,
-				  struct comedi_subdevice *s)
-{
-	while (1) {
-		if (!(inb(dev->iobase + 8) & 0x01))
-			return;
-		comedi_buf_put(s->async, inw(dev->iobase));
-	}
-}
-
 static int das6402_ai_cancel(struct comedi_device *dev,
 			     struct comedi_subdevice *s)
 {
@@ -228,9 +202,7 @@ static int das6402_ai_cancel(struct comedi_device *dev,
 	 */
 
 	devpriv->das6402_ignoreirq = 1;
-#ifdef DEBUG
-	printk("das6402: Stopping acquisition\n");
-#endif
+	dev_dbg(dev->hw_dev, "Stopping acquisition\n");
 	devpriv->das6402_ignoreirq = 1;
 	outb_p(0x02, dev->iobase + 10);	/* disable external trigging */
 	outw_p(SCANL, dev->iobase + 2);	/* resets the card fifo */
@@ -246,10 +218,7 @@ static int das6402_ai_mode2(struct comedi_device *dev,
 			    struct comedi_subdevice *s, comedi_trig * it)
 {
 	devpriv->das6402_ignoreirq = 1;
-
-#ifdef DEBUG
-	printk("das6402: Starting acquisition\n");
-#endif
+	dev_dbg(dev->hw_dev, "Starting acquisition\n");
 	outb_p(0x03, dev->iobase + 10);	/* enable external trigging */
 	outw_p(SCANL, dev->iobase + 2);	/* resets the card fifo */
 	outb_p(IRQ | CONVSRC | BURSTEN | INTE, dev->iobase + 9);
@@ -305,16 +274,6 @@ static int board_init(struct comedi_device *dev)
 	return 0;
 }
 
-static int das6402_detach(struct comedi_device *dev)
-{
-	if (dev->irq)
-		free_irq(dev->irq, dev);
-	if (dev->iobase)
-		release_region(dev->iobase, DAS6402_SIZE);
-
-	return 0;
-}
-
 static int das6402_attach(struct comedi_device *dev,
 			  struct comedi_devconfig *it)
 {
@@ -329,10 +288,8 @@ static int das6402_attach(struct comedi_device *dev,
 	if (iobase == 0)
 		iobase = 0x300;
 
-	printk("comedi%d: das6402: 0x%04lx", dev->minor, iobase);
-
 	if (!request_region(iobase, DAS6402_SIZE, "das6402")) {
-		printk(" I/O port conflict\n");
+		dev_err(dev->hw_dev, "I/O port conflict\n");
 		return -EIO;
 	}
 	dev->iobase = iobase;
@@ -340,14 +297,12 @@ static int das6402_attach(struct comedi_device *dev,
 	/* should do a probe here */
 
 	irq = it->options[0];
-	printk(" ( irq = %u )", irq);
+	dev_dbg(dev->hw_dev, "( irq = %u )\n", irq);
 	ret = request_irq(irq, intr_handler, 0, "das6402", dev);
-	if (ret < 0) {
-		printk("irq conflict\n");
+	if (ret < 0)
 		return ret;
-	}
-	dev->irq = irq;
 
+	dev->irq = irq;
 	ret = alloc_private(dev, sizeof(struct das6402_private));
 	if (ret < 0)
 		return ret;
@@ -371,6 +326,22 @@ static int das6402_attach(struct comedi_device *dev,
 
 	return 0;
 }
+
+static void das6402_detach(struct comedi_device *dev)
+{
+	if (dev->irq)
+		free_irq(dev->irq, dev);
+	if (dev->iobase)
+		release_region(dev->iobase, DAS6402_SIZE);
+}
+
+static struct comedi_driver das6402_driver = {
+	.driver_name	= "das6402",
+	.module		= THIS_MODULE,
+	.attach		= das6402_attach,
+	.detach		= das6402_detach,
+};
+module_comedi_driver(das6402_driver)
 
 MODULE_AUTHOR("Comedi http://www.comedi.org");
 MODULE_DESCRIPTION("Comedi low-level driver");

@@ -35,7 +35,7 @@ int arch_prepare_hugepage(struct page *page)
 	if (MACHINE_HAS_HPAGE)
 		return 0;
 
-	ptep = (pte_t *) pte_alloc_one(&init_mm, address);
+	ptep = (pte_t *) pte_alloc_one(&init_mm, addr);
 	if (!ptep)
 		return -ENOMEM;
 
@@ -58,6 +58,8 @@ void arch_release_hugepage(struct page *page)
 	ptep = (pte_t *) page[1].index;
 	if (!ptep)
 		return;
+	clear_table((unsigned long *) ptep, _PAGE_TYPE_EMPTY,
+		    PTRS_PER_PTE * sizeof(pte_t));
 	page_table_free(&init_mm, (unsigned long *) ptep);
 	page[1].index = 0;
 }

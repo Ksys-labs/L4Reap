@@ -31,6 +31,9 @@ DEFINE_PER_CPU(struct pt_regs *, irq_regs);
 EXPORT_PER_CPU_SYMBOL(irq_regs);
 
 #ifdef CONFIG_DEBUG_STACKOVERFLOW
+
+int sysctl_panic_on_stackoverflow __read_mostly;
+
 /* Debugging check for stack overflow: is there less than 1KB free? */
 static int check_stack_overflow(void)
 {
@@ -46,6 +49,8 @@ static void print_stack_overflow(void)
 {
 	printk(KERN_WARNING "low stack detected by irq handler\n");
 	dump_stack();
+	if (sysctl_panic_on_stackoverflow)
+		panic("low stack detected by irq handler - check messages\n");
 }
 
 #else
@@ -98,13 +103,8 @@ execute_on_irq_stack(int overflow, struct irq_desc *desc, int irq)
 	irqctx->tinfo.task = curctx->tinfo.task;
 	irqctx->tinfo.previous_esp = current_stack_pointer;
 
-	/*
-	 * Copy the softirq bits in preempt_count so that the
-	 * softirq checks work in the hardirq context.
-	 */
-	irqctx->tinfo.preempt_count =
-		(irqctx->tinfo.preempt_count & ~SOFTIRQ_MASK) |
-		(curctx->tinfo.preempt_count & SOFTIRQ_MASK);
+	/* Copy the preempt_count so that the [soft]irq checks work. */
+	irqctx->tinfo.preempt_count = curctx->tinfo.preempt_count;
 
 	if (unlikely(overflow))
 		call_on_stack(print_stack_overflow, isp);
@@ -130,25 +130,25 @@ void __cpuinit irq_ctx_init(int cpu)
 		return;
 
 	irqctx = page_address(alloc_pages_node(cpu_to_node(cpu),
-					       THREAD_FLAGS,
-					       THREAD_ORDER));
+					       THREADINFO_GFP,
+					       THREAD_SIZE_ORDER));
 	memset(&irqctx->tinfo, 0, sizeof(struct thread_info));
 	irqctx->tinfo.cpu		= cpu;
 	irqctx->tinfo.preempt_count	= HARDIRQ_OFFSET;
 	irqctx->tinfo.addr_limit	= MAKE_MM_SEG(0);
 
-	l4x_stack_setup(&irqctx->tinfo, l4x_cpu_thread_get(cpu), cpu);
+	l4x_stack_set(&irqctx->tinfo, l4x_cpu_thread_get(cpu));
 
 	per_cpu(hardirq_ctx, cpu) = irqctx;
 
 	irqctx = page_address(alloc_pages_node(cpu_to_node(cpu),
-					       THREAD_FLAGS,
-					       THREAD_ORDER));
+					       THREADINFO_GFP,
+					       THREAD_SIZE_ORDER));
 	memset(&irqctx->tinfo, 0, sizeof(struct thread_info));
 	irqctx->tinfo.cpu		= cpu;
 	irqctx->tinfo.addr_limit	= MAKE_MM_SEG(0);
 
-	l4x_stack_setup(&irqctx->tinfo, l4x_cpu_thread_get(cpu), cpu);
+	l4x_stack_set(&irqctx->tinfo, l4x_cpu_thread_get(cpu));
 
 	per_cpu(softirq_ctx, cpu) = irqctx;
 
@@ -178,7 +178,7 @@ asmlinkage void do_softirq(void)
 		isp = (u32 *) ((char *)irqctx + sizeof(*irqctx));
 
 		if (!l4x_is_vcpu()) {
-			l4x_stack_setup(&irqctx->tinfo, l4_utcb(), smp_processor_id());
+			l4x_stack_set(&irqctx->tinfo, l4_utcb());
 			per_cpu(l4x_current_ti, smp_processor_id()) = &irqctx->tinfo;
 		}
 
@@ -186,7 +186,7 @@ asmlinkage void do_softirq(void)
 
 		if (!l4x_is_vcpu()) {
 			per_cpu(l4x_current_ti, smp_processor_id()) = curctx;
-			l4x_stack_setup(curctx, l4_utcb(), smp_processor_id());
+			l4x_stack_set(curctx, l4_utcb());
 		}
 
 		/*
@@ -210,7 +210,7 @@ bool handle_irq(unsigned irq, struct pt_regs *regs)
 		return false;
 
 	if (!l4x_is_vcpu() ||
-	    !execute_on_irq_stack(overflow, desc, irq)) {
+	    (user_mode_vm(regs) || !execute_on_irq_stack(overflow, desc, irq))) {
 		if (unlikely(overflow))
 			print_stack_overflow();
 		desc->handle_irq(irq, desc);
@@ -218,21 +218,3 @@ bool handle_irq(unsigned irq, struct pt_regs *regs)
 
 	return true;
 }
-
-#ifdef CONFIG_SMP
-/* XXX probably the wrong place */
-void l4x_smp_timer_interrupt(struct pt_regs *regs)
-{
-	struct pt_regs *oldregs;
-	unsigned long flags;
-	oldregs = set_irq_regs(regs);
-
-	local_irq_save(flags);
-	irq_enter();
-	profile_tick(CPU_PROFILING);
-	update_process_times(user_mode_vm(get_irq_regs()));
-	irq_exit();
-	local_irq_restore(flags);
-	set_irq_regs(oldregs);
-}
-#endif

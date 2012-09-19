@@ -33,11 +33,11 @@ static inline void l4x_tamed_sem_down(void)
 #ifdef CONFIG_L4_DEBUG_TAMED_COUNT_INTERRUPT_DISABLE
 		cli_taken++;
 #endif
-		t = l4_msgtag((l4x_stack_prio_get() << 4) | 1, 0, 0, 0);
+		t = l4_msgtag((l4x_prio_current() << 4) | 1, 0, 0, 0);
 		t = l4_ipc(tamed_per_nr(cli_sem_thread_id,
 		                        get_tamer_nr(cpu)),
 		           l4_utcb(),
-		           L4_SYSF_CALL, l4x_stack_id_get(),
+		           L4_SYSF_CALL, l4x_cap_current(),
 		           t, &l, L4_IPC_NEVER);
 		if (unlikely(l4_ipc_error(t, l4_utcb())))
 			outstring("l4x_tamed_sem_down ipc failed\n");
@@ -59,8 +59,8 @@ static inline void l4x_tamed_sem_up(void)
 		if (l4_ipc_error(l4_ipc(tamed_per_nr(cli_sem_thread_id,
 		                                     get_tamer_nr(cpu)),
 		                        l4_utcb(),
-		                        L4_SYSF_CALL, l4x_stack_id_get(),
-		                        l4_msgtag((l4x_stack_prio_get() << 4) | 2, 0, 0, 0),
+		                        L4_SYSF_CALL, l4x_cap_current(),
+		                        l4_msgtag((l4x_prio_current() << 4) | 2, 0, 0, 0),
 		                        &l, L4_IPC_NEVER),
 		                 l4_utcb()))
 			outstring("l4x_tamed_sem_up ipc failed\n");

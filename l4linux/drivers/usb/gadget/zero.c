@@ -8,15 +8,6 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 
@@ -81,7 +72,7 @@
 
 static const char longname[] = "Gadget Zero";
 
-unsigned buflen = 4096;
+unsigned buflen = 4096;		/* only used for bulk endpoints */
 module_param(buflen, uint, 0);
 
 /*
@@ -90,7 +81,7 @@ module_param(buflen, uint, 0);
  * work better with hosts where config changes are problematic or
  * controllers (like original superh) that only support one config.
  */
-static int loopdefault = 0;
+static bool loopdefault = 0;
 module_param(loopdefault, bool, S_IRUGO|S_IWUSR);
 
 /*-------------------------------------------------------------------------*/
@@ -179,14 +170,17 @@ static struct usb_gadget_strings *dev_strings[] = {
 
 /*-------------------------------------------------------------------------*/
 
-struct usb_request *alloc_ep_req(struct usb_ep *ep)
+struct usb_request *alloc_ep_req(struct usb_ep *ep, int len)
 {
 	struct usb_request	*req;
 
 	req = usb_ep_alloc_request(ep, GFP_ATOMIC);
 	if (req) {
-		req->length = buflen;
-		req->buf = kmalloc(buflen, GFP_ATOMIC);
+		if (len)
+			req->length = len;
+		else
+			req->length = buflen;
+		req->buf = kmalloc(req->length, GFP_ATOMIC);
 		if (!req->buf) {
 			usb_ep_free_request(ep, req);
 			req = NULL;
@@ -215,10 +209,15 @@ static void disable_ep(struct usb_composite_dev *cdev, struct usb_ep *ep)
 }
 
 void disable_endpoints(struct usb_composite_dev *cdev,
-		struct usb_ep *in, struct usb_ep *out)
+		struct usb_ep *in, struct usb_ep *out,
+		struct usb_ep *iso_in, struct usb_ep *iso_out)
 {
 	disable_ep(cdev, in);
 	disable_ep(cdev, out);
+	if (iso_in)
+		disable_ep(cdev, iso_in);
+	if (iso_out)
+		disable_ep(cdev, iso_out);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -320,7 +319,6 @@ static int __init zero_bind(struct usb_composite_dev *cdev)
 		device_desc.bcdDevice = cpu_to_le16(0x9999);
 	}
 
-
 	INFO(cdev, "%s, version: " DRIVER_VERSION "\n", longname);
 
 	snprintf(manufacturer, sizeof manufacturer, "%s %s with %s",
@@ -340,6 +338,7 @@ static struct usb_composite_driver zero_driver = {
 	.name		= "zero",
 	.dev		= &device_desc,
 	.strings	= dev_strings,
+	.max_speed	= USB_SPEED_SUPER,
 	.unbind		= zero_unbind,
 	.suspend	= zero_suspend,
 	.resume		= zero_resume,

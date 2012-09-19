@@ -82,27 +82,6 @@ static unsigned char parport_sunbpp_read_data(struct parport *p)
 	return sbus_readb(&regs->p_dr);
 }
 
-#if 0
-static void control_pc_to_sunbpp(struct parport *p, unsigned char status)
-{
-	struct bpp_regs __iomem *regs = (struct bpp_regs __iomem *)p->base;
-	unsigned char value_tcr = sbus_readb(&regs->p_tcr);
-	unsigned char value_or = sbus_readb(&regs->p_or);
-
-	if (status & PARPORT_CONTROL_STROBE) 
-		value_tcr |= P_TCR_DS;
-	if (status & PARPORT_CONTROL_AUTOFD) 
-		value_or |= P_OR_AFXN;
-	if (status & PARPORT_CONTROL_INIT) 
-		value_or |= P_OR_INIT;
-	if (status & PARPORT_CONTROL_SELECT) 
-		value_or |= P_OR_SLCT_IN;
-
-	sbus_writeb(value_or, &regs->p_or);
-	sbus_writeb(value_tcr, &regs->p_tcr);
-}
-#endif
-
 static unsigned char status_sunbpp_to_pc(struct parport *p)
 {
 	struct bpp_regs __iomem *regs = (struct bpp_regs __iomem *)p->base;
@@ -391,21 +370,10 @@ static struct platform_driver bpp_sbus_driver = {
 	.remove		= __devexit_p(bpp_remove),
 };
 
-static int __init parport_sunbpp_init(void)
-{
-	return platform_driver_register(&bpp_sbus_driver);
-}
-
-static void __exit parport_sunbpp_exit(void)
-{
-	platform_driver_unregister(&bpp_sbus_driver);
-}
+module_platform_driver(bpp_sbus_driver);
 
 MODULE_AUTHOR("Derrick J Brashear");
 MODULE_DESCRIPTION("Parport Driver for Sparc bidirectional Port");
 MODULE_SUPPORTED_DEVICE("Sparc Bidirectional Parallel Port");
 MODULE_VERSION("2.0");
 MODULE_LICENSE("GPL");
-
-module_init(parport_sunbpp_init)
-module_exit(parport_sunbpp_exit)

@@ -54,4 +54,17 @@
 
 #endif
 
+#define __arch_pfn_to_dma(dev, pfn) \
+	((dma_addr_t)l4x_virt_to_phys((void *)((phys_addr_t)(pfn) << PAGE_SHIFT)))
+
+#define __arch_dma_to_pfn(dev, addr) \
+	(((unsigned long)l4x_phys_to_virt(addr)) >> PAGE_SHIFT)
+
+#define __arch_dma_to_virt(dev, addr) \
+	l4x_phys_to_virt(addr)
+
+#define __arch_virt_to_dma(dev, addr) \
+	((dma_addr_t)l4x_virt_to_phys(addr))
+
+
 #endif /* ! __ASM_L4__ARCH_ARM__ARCH__MEMORY_H__ */

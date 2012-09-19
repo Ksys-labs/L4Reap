@@ -1,7 +1,7 @@
 include arch/arm/vfp/Makefile
 
 # for vfp.h
-ccflags-y += -I$(srctree)/arch/arm/vfp
+KBUILD_CPPFLAGS := -I$(srctree)/arch/arm/vfp $(KBUILD_CPPFLAGS)
 
 # we copied the .c and .S files so that they take the modified vfpinstr.h
 # file from this directory, for no other reason

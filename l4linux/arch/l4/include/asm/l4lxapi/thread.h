@@ -15,6 +15,14 @@
  * \ingroup l4lxapi
  */
 
+/**
+ * \internal
+ * \ingroup thread
+ */
+struct l4lx_thread_start_info_t {
+	l4_cap_idx_t l4cap;
+	l4_umword_t ip, sp;
+};
 
 /**
  * \brief Initialize thread handling.
@@ -41,10 +49,15 @@ void l4lx_thread_init(void);
  *			thread.
  * \param stack_data_size Size of your data pointed to by the stack_data
  *			pointer.
+ * \param l4cap		Capability slot to be used for new thread.
  * \param prio		Priority of the thread. If set to -1 the default
  *			priority will be choosen (i.e. no prio will be set).
  * \param name		String describing the thread. Only used for
  *			debugging purposes.
+ * \param deferstart    If non-null will store start info into deferstart
+ *                      and not start the thread. The thread must be started
+ *                      with l4lx_thread_start then. If NULL, the thread
+ *                      will be started by l4lx_thread_create.
  *
  * \return Thread ID of the new thread, 0 if an error occured.
  *
@@ -69,9 +82,21 @@ l4lx_thread_t l4lx_thread_create(L4_CV void (*thread_func)(void *data),
                                  unsigned cpu_nr,
                                  void *stack_pointer,
                                  void *stack_data, unsigned stack_data_size,
-                                 int prio,
+                                 l4_cap_idx_t l4cap, int prio,
                                  l4_vcpu_state_t **vcpu_state,
-                                 const char *name);
+                                 const char *name,
+                                 struct l4lx_thread_start_info_t *deferstart);
+
+/**
+ * \brief Start thread.
+ * \ingroup thread
+ *
+ * \param startinfo  Structure filled out by l4lx_thread_create.
+ *
+ * \return 0 for success, error code otherwise.
+ */
+
+int l4lx_thread_start(struct l4lx_thread_start_info_t *startinfo);
 
 /**
  * \brief Check whether a thread is valid.
@@ -112,10 +137,14 @@ void l4lx_thread_set_kernel_pager(l4_cap_idx_t thread);
  * \brief Shutdown a thread.
  * \ingroup thread
  *
- * \param u Thread to kill
- * \param v Optional vcpu state
+ * \param u           Thread to kill
+ * \param v           Optional vcpu state
+ * \param do_cap_free Free the thread capability at the allocator.
+ *
+ * Note that the thread capability will not be freed if a thread shuts down
+ * itself.
  */
-void l4lx_thread_shutdown(l4lx_thread_t u, void *v);
+void l4lx_thread_shutdown(l4lx_thread_t u, void *v, int do_cap_free);
 
 /**
  * \brief Check if two thread ids are equal. Do not use with different

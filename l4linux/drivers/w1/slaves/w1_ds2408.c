@@ -332,7 +332,6 @@ static struct bin_attribute w1_f29_sysfs_bin_files[NB_SYSFS_BIN_FILES] = {
 		},
 		.size = 1,
 		.read = w1_f29_read_cond_search_mask,
-		.write = 0,
 	},
 	{
 		.attr =	{
@@ -341,7 +340,6 @@ static struct bin_attribute w1_f29_sysfs_bin_files[NB_SYSFS_BIN_FILES] = {
 		},
 		.size = 1,
 		.read = w1_f29_read_cond_search_polarity,
-		.write = 0,
 	},
 	{
 		.attr =	{
@@ -373,7 +371,7 @@ static int w1_f29_add_slave(struct w1_slave *sl)
 static void w1_f29_remove_slave(struct w1_slave *sl)
 {
 	int i;
-	for (i = NB_SYSFS_BIN_FILES; i <= 0; --i)
+	for (i = NB_SYSFS_BIN_FILES - 1; i >= 0; --i)
 		sysfs_remove_bin_file(&sl->dev.kobj,
 			&(w1_f29_sysfs_bin_files[i]));
 }

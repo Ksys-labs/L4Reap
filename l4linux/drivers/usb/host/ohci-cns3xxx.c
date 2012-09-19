@@ -41,7 +41,8 @@ cns3xxx_ohci_start(struct usb_hcd *hcd)
 
 	ret = ohci_run(ohci);
 	if (ret < 0) {
-		err("can't start %s", hcd->self.bus_name);
+		dev_err(hcd->self.controller, "can't start %s\n",
+			hcd->self.bus_name);
 		ohci_stop(hcd);
 		return ret;
 	}
@@ -100,7 +101,7 @@ static int cns3xxx_ohci_probe(struct platform_device *pdev)
 		goto err1;
 	}
 	hcd->rsrc_start = res->start;
-	hcd->rsrc_len = res->end - res->start + 1;
+	hcd->rsrc_len = resource_size(res);
 
 	if (!request_mem_region(hcd->rsrc_start, hcd->rsrc_len,
 			driver->description)) {

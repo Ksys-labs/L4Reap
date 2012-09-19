@@ -11,6 +11,8 @@
 #include <linux/init.h>
 #include <linux/amba/bus.h>
 
+extern struct device mxs_apbh_bus;
+
 struct platform_device *mxs_add_platform_device_dmamask(
 		const char *name, int id,
 		const struct resource *res, unsigned int num_resources,
@@ -24,11 +26,6 @@ static inline struct platform_device *mxs_add_platform_device(
 	return mxs_add_platform_device_dmamask(
 			name, id, res, num_resources, data, size_data, 0);
 }
-
-int __init mxs_add_amba_device(const struct amba_device *dev);
-
-/* duart */
-int __init mxs_add_duart(const struct amba_device *dev);
 
 /* auart */
 struct mxs_auart_data {
@@ -64,6 +61,16 @@ struct platform_device *__init mxs_add_flexcan(
 		const struct mxs_flexcan_data *data,
 		const struct flexcan_platform_data *pdata);
 
+/* gpmi-nand */
+#include <linux/mtd/gpmi-nand.h>
+struct mxs_gpmi_nand_data {
+	const char *devid;
+	const struct resource res[GPMI_NAND_RES_SIZE];
+};
+struct platform_device *__init
+mxs_add_gpmi_nand(const struct gpmi_nand_platform_data *pdata,
+		const struct mxs_gpmi_nand_data *data);
+
 /* i2c */
 struct mxs_mxs_i2c_data {
 	int id;
@@ -75,8 +82,9 @@ struct platform_device * __init mxs_add_mxs_i2c(
 		const struct mxs_mxs_i2c_data *data);
 
 /* mmc */
-#include <mach/mmc.h>
+#include <linux/mmc/mxs-mmc.h>
 struct mxs_mxs_mmc_data {
+	const char *devid;
 	int id;
 	resource_size_t iobase;
 	resource_size_t dma;
@@ -90,3 +98,17 @@ struct platform_device *__init mxs_add_mxs_mmc(
 /* pwm */
 struct platform_device *__init mxs_add_mxs_pwm(
 		resource_size_t iobase, int id);
+
+/* saif */
+#include <sound/saif.h>
+struct mxs_saif_data {
+	int id;
+	resource_size_t iobase;
+	resource_size_t irq;
+	resource_size_t dma;
+	resource_size_t dmairq;
+};
+
+struct platform_device *__init mxs_add_saif(
+		const struct mxs_saif_data *data,
+		const struct mxs_saif_platform_data *pdata);

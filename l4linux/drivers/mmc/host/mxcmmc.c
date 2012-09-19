@@ -33,6 +33,7 @@
 #include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
 #include <linux/dmaengine.h>
+#include <linux/types.h>
 
 #include <asm/dma.h>
 #include <asm/irq.h>
@@ -40,6 +41,7 @@
 #include <mach/mmc.h>
 
 #include <mach/dma.h>
+#include <mach/hardware.h>
 
 #define DRIVER_NAME "mxc-mmc"
 
@@ -134,7 +136,8 @@ struct mxcmci_host {
 	u16			rev_no;
 	unsigned int		cmdat;
 
-	struct clk		*clk;
+	struct clk		*clk_ipg;
+	struct clk		*clk_per;
 
 	int			clock;
 
@@ -217,6 +220,7 @@ static int mxcmci_setup_data(struct mxcmci_host *host, struct mmc_data *data)
 	unsigned int blksz = data->blksz;
 	unsigned int datasize = nob * blksz;
 	struct scatterlist *sg;
+	enum dma_transfer_direction slave_dirn;
 	int i, nents;
 
 	if (data->flags & MMC_DATA_STREAM)
@@ -239,18 +243,21 @@ static int mxcmci_setup_data(struct mxcmci_host *host, struct mmc_data *data)
 		}
 	}
 
-	if (data->flags & MMC_DATA_READ)
+	if (data->flags & MMC_DATA_READ) {
 		host->dma_dir = DMA_FROM_DEVICE;
-	else
+		slave_dirn = DMA_DEV_TO_MEM;
+	} else {
 		host->dma_dir = DMA_TO_DEVICE;
+		slave_dirn = DMA_MEM_TO_DEV;
+	}
 
 	nents = dma_map_sg(host->dma->device->dev, data->sg,
 				     data->sg_len,  host->dma_dir);
 	if (nents != data->sg_len)
 		return -EINVAL;
 
-	host->desc = host->dma->device->device_prep_slave_sg(host->dma,
-		data->sg, data->sg_len, host->dma_dir,
+	host->desc = dmaengine_prep_slave_sg(host->dma,
+		data->sg, data->sg_len, slave_dirn,
 		DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 
 	if (!host->desc) {
@@ -262,6 +269,7 @@ static int mxcmci_setup_data(struct mxcmci_host *host, struct mmc_data *data)
 	wmb();
 
 	dmaengine_submit(host->desc);
+	dma_async_issue_pending(host->dma);
 
 	return 0;
 }
@@ -665,7 +673,7 @@ static void mxcmci_set_clk_rate(struct mxcmci_host *host, unsigned int clk_ios)
 {
 	unsigned int divider;
 	int prescaler = 0;
-	unsigned int clk_in = clk_get_rate(host->clk);
+	unsigned int clk_in = clk_get_rate(host->clk_per);
 
 	while (prescaler <= 0x800) {
 		for (divider = 1; divider <= 0xF; divider++) {
@@ -705,6 +713,7 @@ static int mxcmci_setup_dma(struct mmc_host *mmc)
 	config->src_addr_width = 4;
 	config->dst_maxburst = host->burstlen;
 	config->src_maxburst = host->burstlen;
+	config->device_fc = false;
 
 	return dmaengine_slave_config(host->dma, config);
 }
@@ -715,13 +724,13 @@ static void mxcmci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	int burstlen, ret;
 
 	/*
-	 * use burstlen of 64 in 4 bit mode (--> reg value  0)
-	 * use burstlen of 16 in 1 bit mode (--> reg value 16)
+	 * use burstlen of 64 (16 words) in 4 bit mode (--> reg value  0)
+	 * use burstlen of 16 (4 words) in 1 bit mode (--> reg value 16)
 	 */
 	if (ios->bus_width == MMC_BUS_WIDTH_4)
-		burstlen = 64;
-	else
 		burstlen = 16;
+	else
+		burstlen = 4;
 
 	if (mxcmci_use_dma(host) && burstlen != host->burstlen) {
 		host->burstlen = burstlen;
@@ -731,6 +740,7 @@ static void mxcmci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 				"failed to config DMA channel. Falling back to PIO\n");
 			dma_release_channel(host->dma);
 			host->do_dma = 0;
+			host->dma = NULL;
 		}
 	}
 
@@ -842,7 +852,7 @@ static int mxcmci_probe(struct platform_device *pdev)
 	int ret = 0, irq;
 	dma_cap_mask_t mask;
 
-	printk(KERN_INFO "i.MX SDHC driver\n");
+	pr_info("i.MX SDHC driver\n");
 
 	iores = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	irq = platform_get_irq(pdev, 0);
@@ -891,12 +901,20 @@ static int mxcmci_probe(struct platform_device *pdev)
 	host->res = r;
 	host->irq = irq;
 
-	host->clk = clk_get(&pdev->dev, NULL);
-	if (IS_ERR(host->clk)) {
-		ret = PTR_ERR(host->clk);
+	host->clk_ipg = devm_clk_get(&pdev->dev, "ipg");
+	if (IS_ERR(host->clk_ipg)) {
+		ret = PTR_ERR(host->clk_ipg);
 		goto out_iounmap;
 	}
-	clk_enable(host->clk);
+
+	host->clk_per = devm_clk_get(&pdev->dev, "per");
+	if (IS_ERR(host->clk_per)) {
+		ret = PTR_ERR(host->clk_per);
+		goto out_iounmap;
+	}
+
+	clk_prepare_enable(host->clk_per);
+	clk_prepare_enable(host->clk_ipg);
 
 	mxcmci_softreset(host);
 
@@ -908,8 +926,8 @@ static int mxcmci_probe(struct platform_device *pdev)
 		goto out_clk_put;
 	}
 
-	mmc->f_min = clk_get_rate(host->clk) >> 16;
-	mmc->f_max = clk_get_rate(host->clk) >> 1;
+	mmc->f_min = clk_get_rate(host->clk_per) >> 16;
+	mmc->f_max = clk_get_rate(host->clk_per) >> 1;
 
 	/* recommended in data sheet */
 	writew(0x2db4, host->base + MMC_REG_READ_TO);
@@ -958,8 +976,8 @@ out_free_dma:
 	if (host->dma)
 		dma_release_channel(host->dma);
 out_clk_put:
-	clk_disable(host->clk);
-	clk_put(host->clk);
+	clk_disable_unprepare(host->clk_per);
+	clk_disable_unprepare(host->clk_ipg);
 out_iounmap:
 	iounmap(host->base);
 out_free:
@@ -990,8 +1008,8 @@ static int mxcmci_remove(struct platform_device *pdev)
 	if (host->dma)
 		dma_release_channel(host->dma);
 
-	clk_disable(host->clk);
-	clk_put(host->clk);
+	clk_disable_unprepare(host->clk_per);
+	clk_disable_unprepare(host->clk_ipg);
 
 	release_mem_region(host->res->start, resource_size(host->res));
 
@@ -1009,7 +1027,8 @@ static int mxcmci_suspend(struct device *dev)
 
 	if (mmc)
 		ret = mmc_suspend_host(mmc);
-	clk_disable(host->clk);
+	clk_disable_unprepare(host->clk_per);
+	clk_disable_unprepare(host->clk_ipg);
 
 	return ret;
 }
@@ -1020,7 +1039,8 @@ static int mxcmci_resume(struct device *dev)
 	struct mxcmci_host *host = mmc_priv(mmc);
 	int ret = 0;
 
-	clk_enable(host->clk);
+	clk_prepare_enable(host->clk_per);
+	clk_prepare_enable(host->clk_ipg);
 	if (mmc)
 		ret = mmc_resume_host(mmc);
 
@@ -1045,18 +1065,7 @@ static struct platform_driver mxcmci_driver = {
 	}
 };
 
-static int __init mxcmci_init(void)
-{
-	return platform_driver_register(&mxcmci_driver);
-}
-
-static void __exit mxcmci_exit(void)
-{
-	platform_driver_unregister(&mxcmci_driver);
-}
-
-module_init(mxcmci_init);
-module_exit(mxcmci_exit);
+module_platform_driver(mxcmci_driver);
 
 MODULE_DESCRIPTION("i.MX Multimedia Card Interface Driver");
 MODULE_AUTHOR("Sascha Hauer, Pengutronix");

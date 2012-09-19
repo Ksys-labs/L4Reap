@@ -169,7 +169,7 @@ void jfs_evict_inode(struct inode *inode)
 	} else {
 		truncate_inode_pages(&inode->i_data, 0);
 	}
-	end_writeback(inode);
+	clear_inode(inode);
 	dquot_drop(inode);
 }
 
@@ -329,8 +329,8 @@ static ssize_t jfs_direct_IO(int rw, struct kiocb *iocb,
 	struct inode *inode = file->f_mapping->host;
 	ssize_t ret;
 
-	ret = blockdev_direct_IO(rw, iocb, inode, inode->i_sb->s_bdev, iov,
-				offset, nr_segs, jfs_get_block, NULL);
+	ret = blockdev_direct_IO(rw, iocb, inode, iov, offset, nr_segs,
+				 jfs_get_block);
 
 	/*
 	 * In case of error extending write may have instantiated a few

@@ -27,7 +27,10 @@
 
 #include "../../perf.h"
 #include "../util.h"
+#include "../thread.h"
+#include "../event.h"
 #include "../trace-event.h"
+#include "../evsel.h"
 
 #include <EXTERN.h>
 #include <perl.h>
@@ -53,7 +56,7 @@ INTERP my_perl;
 #define FTRACE_MAX_EVENT				\
 	((1 << (sizeof(unsigned short) * 8)) - 1)
 
-struct event *events[FTRACE_MAX_EVENT];
+struct event_format *events[FTRACE_MAX_EVENT];
 
 extern struct scripting_context *scripting_context;
 
@@ -178,7 +181,7 @@ static void define_flag_field(const char *ev_name,
 	LEAVE;
 }
 
-static void define_event_symbols(struct event *event,
+static void define_event_symbols(struct event_format *event,
 				 const char *ev_name,
 				 struct print_arg *args)
 {
@@ -206,6 +209,8 @@ static void define_event_symbols(struct event *event,
 		define_symbolic_values(args->symbol.symbols, ev_name,
 				       cur_field_name);
 		break;
+	case PRINT_BSTRING:
+	case PRINT_DYNAMIC_ARRAY:
 	case PRINT_STRING:
 		break;
 	case PRINT_TYPE:
@@ -217,7 +222,9 @@ static void define_event_symbols(struct event *event,
 		define_event_symbols(event, ev_name, args->op.left);
 		define_event_symbols(event, ev_name, args->op.right);
 		break;
+	case PRINT_FUNC:
 	default:
+		pr_err("Unsupported print arg type\n");
 		/* we should warn... */
 		return;
 	}
@@ -226,10 +233,10 @@ static void define_event_symbols(struct event *event,
 		define_event_symbols(event, ev_name, args->next);
 }
 
-static inline struct event *find_cache_event(int type)
+static inline struct event_format *find_cache_event(int type)
 {
 	static char ev_name[256];
-	struct event *event;
+	struct event_format *event;
 
 	if (events[type])
 		return events[type];
@@ -245,17 +252,17 @@ static inline struct event *find_cache_event(int type)
 	return event;
 }
 
-static void perl_process_event(union perf_event *pevent __unused,
-			       struct perf_sample *sample,
-			       struct perf_evsel *evsel,
-			       struct perf_session *session __unused,
-			       struct thread *thread)
+static void perl_process_tracepoint(union perf_event *pevent __unused,
+				    struct perf_sample *sample,
+				    struct perf_evsel *evsel,
+				    struct machine *machine __unused,
+				    struct thread *thread)
 {
 	struct format_field *field;
 	static char handler[256];
 	unsigned long long val;
 	unsigned long s, ns;
-	struct event *event;
+	struct event_format *event;
 	int type;
 	int pid;
 	int cpu = sample->cpu;
@@ -264,6 +271,9 @@ static void perl_process_event(union perf_event *pevent __unused,
 	char *comm = thread->comm;
 
 	dSP;
+
+	if (evsel->attr.type != PERF_TYPE_TRACEPOINT)
+		return;
 
 	type = trace_parse_common_type(data);
 
@@ -330,6 +340,42 @@ static void perl_process_event(union perf_event *pevent __unused,
 	PUTBACK;
 	FREETMPS;
 	LEAVE;
+}
+
+static void perl_process_event_generic(union perf_event *pevent __unused,
+				       struct perf_sample *sample,
+				       struct perf_evsel *evsel __unused,
+				       struct machine *machine __unused,
+				       struct thread *thread __unused)
+{
+	dSP;
+
+	if (!get_cv("process_event", 0))
+		return;
+
+	ENTER;
+	SAVETMPS;
+	PUSHMARK(SP);
+	XPUSHs(sv_2mortal(newSVpvn((const char *)pevent, pevent->header.size)));
+	XPUSHs(sv_2mortal(newSVpvn((const char *)&evsel->attr, sizeof(evsel->attr))));
+	XPUSHs(sv_2mortal(newSVpvn((const char *)sample, sizeof(*sample))));
+	XPUSHs(sv_2mortal(newSVpvn((const char *)sample->raw_data, sample->raw_size)));
+	PUTBACK;
+	call_pv("process_event", G_SCALAR);
+	SPAGAIN;
+	PUTBACK;
+	FREETMPS;
+	LEAVE;
+}
+
+static void perl_process_event(union perf_event *pevent,
+			       struct perf_sample *sample,
+			       struct perf_evsel *evsel,
+			       struct machine *machine,
+			       struct thread *thread)
+{
+	perl_process_tracepoint(pevent, sample, evsel, machine, thread);
+	perl_process_event_generic(pevent, sample, evsel, machine, thread);
 }
 
 static void run_start_sub(void)
@@ -404,7 +450,7 @@ static int perl_stop_script(void)
 
 static int perl_generate_script(const char *outfile)
 {
-	struct event *event = NULL;
+	struct event_format *event = NULL;
 	struct format_field *f;
 	char fname[PATH_MAX];
 	int not_first, count;
@@ -553,7 +599,28 @@ static int perl_generate_script(const char *outfile)
 	fprintf(ofp, "sub print_header\n{\n"
 		"\tmy ($event_name, $cpu, $secs, $nsecs, $pid, $comm) = @_;\n\n"
 		"\tprintf(\"%%-20s %%5u %%05u.%%09u %%8u %%-20s \",\n\t       "
-		"$event_name, $cpu, $secs, $nsecs, $pid, $comm);\n}");
+		"$event_name, $cpu, $secs, $nsecs, $pid, $comm);\n}\n");
+
+	fprintf(ofp,
+		"\n# Packed byte string args of process_event():\n"
+		"#\n"
+		"# $event:\tunion perf_event\tutil/event.h\n"
+		"# $attr:\tstruct perf_event_attr\tlinux/perf_event.h\n"
+		"# $sample:\tstruct perf_sample\tutil/event.h\n"
+		"# $raw_data:\tperf_sample->raw_data\tutil/event.h\n"
+		"\n"
+		"sub process_event\n"
+		"{\n"
+		"\tmy ($event, $attr, $sample, $raw_data) = @_;\n"
+		"\n"
+		"\tmy @event\t= unpack(\"LSS\", $event);\n"
+		"\tmy @attr\t= unpack(\"LLQQQQQLLQQ\", $attr);\n"
+		"\tmy @sample\t= unpack(\"QLLQQQQQLL\", $sample);\n"
+		"\tmy @raw_data\t= unpack(\"C*\", $raw_data);\n"
+		"\n"
+		"\tuse Data::Dumper;\n"
+		"\tprint Dumper \\@event, \\@attr, \\@sample, \\@raw_data;\n"
+		"}\n");
 
 	fclose(ofp);
 

@@ -21,7 +21,7 @@ public:
 	int get_axis_info(l4_umword_t id, unsigned naxes, unsigned *axis,
 	                  L4Re::Event_absinfo *i);
 
-	int dispatch(l4_umword_t obj, L4::Ipc_iostream &ios);
+	int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
 	void add(struct l4x_input_event const *);
 	void trigger() const { _irq.trigger(); }
 	L4::Cap<L4::Kobject> rcv_cap() { return l4x_srv_rcv_cap(); }
@@ -85,7 +85,7 @@ Input::get_axis_info(l4_umword_t id, unsigned naxes, unsigned *axis,
 }
 
 int
-Input::dispatch(l4_umword_t obj, L4::Ipc_iostream &ios)
+Input::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 {
 	l4_msgtag_t tag;
 	ios >> tag;

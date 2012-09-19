@@ -32,18 +32,17 @@ unsigned l4x_utcb_get_orig_segment(void);
 #endif
 #endif
 
-#ifdef ARCH_x86
+#ifdef CONFIG_X86
 void l4x_load_percpu_gdt_descriptor(struct desc_struct *gdt);
 #endif
 
 #ifdef ARCH_arm
 void l4x_raise_softirq(const struct cpumask *mask, unsigned ipi);
+void l4x_arm_secondary_start_kernel(void);
 #endif
 
 #else
 /* UP Systems */
-
-//#include <asm/generic/kthreads.h>
 
 static inline int l4x_IPI_pending_tac(int cpu)
 {

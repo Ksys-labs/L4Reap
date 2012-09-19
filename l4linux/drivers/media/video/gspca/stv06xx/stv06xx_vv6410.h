@@ -178,18 +178,14 @@
 static int vv6410_probe(struct sd *sd);
 static int vv6410_start(struct sd *sd);
 static int vv6410_init(struct sd *sd);
+static int vv6410_init_controls(struct sd *sd);
 static int vv6410_stop(struct sd *sd);
 static int vv6410_dump(struct sd *sd);
-static void vv6410_disconnect(struct sd *sd);
 
 /* V4L2 controls supported by the driver */
-static int vv6410_get_hflip(struct gspca_dev *gspca_dev, __s32 *val);
 static int vv6410_set_hflip(struct gspca_dev *gspca_dev, __s32 val);
-static int vv6410_get_vflip(struct gspca_dev *gspca_dev, __s32 *val);
 static int vv6410_set_vflip(struct gspca_dev *gspca_dev, __s32 val);
-static int vv6410_get_analog_gain(struct gspca_dev *gspca_dev, __s32 *val);
 static int vv6410_set_analog_gain(struct gspca_dev *gspca_dev, __s32 val);
-static int vv6410_get_exposure(struct gspca_dev *gspca_dev, __s32 *val);
 static int vv6410_set_exposure(struct gspca_dev *gspca_dev, __s32 val);
 
 const struct stv06xx_sensor stv06xx_sensor_vv6410 = {
@@ -202,58 +198,58 @@ const struct stv06xx_sensor stv06xx_sensor_vv6410 = {
 	.min_packet_size = { 1023 },
 	.max_packet_size = { 1023 },
 	.init = vv6410_init,
+	.init_controls = vv6410_init_controls,
 	.probe = vv6410_probe,
 	.start = vv6410_start,
 	.stop = vv6410_stop,
 	.dump = vv6410_dump,
-	.disconnect = vv6410_disconnect,
 };
 
 /* If NULL, only single value to write, stored in len */
 struct stv_init {
-	const u8 *data;
-	u16 start;
-	u8 len;
-};
-
-static const u8 x1500[] = {	/* 0x1500 - 0x150f */
-	0x0b, 0xa7, 0xb7, 0x00, 0x00
-};
-
-static const u8 x1536[] = {	/* 0x1536 - 0x153b */
-	0x02, 0x00, 0x60, 0x01, 0x20, 0x01
+	u16 addr;
+	u8 data;
 };
 
 static const struct stv_init stv_bridge_init[] = {
 	/* This reg is written twice. Some kind of reset? */
-	{NULL,  0x1620, 0x80},
-	{NULL,  0x1620, 0x00},
-	{NULL,  0x1443, 0x00},
-	{NULL,  0x1423, 0x04},
-	{x1500, 0x1500, ARRAY_SIZE(x1500)},
-	{x1536, 0x1536, ARRAY_SIZE(x1536)},
+	{STV_RESET, 0x80},
+	{STV_RESET, 0x00},
+	{STV_SCAN_RATE, 0x00},
+	{STV_I2C_FLUSH, 0x04},
+	{STV_REG00, 0x0b},
+	{STV_REG01, 0xa7},
+	{STV_REG02, 0xb7},
+	{STV_REG03, 0x00},
+	{STV_REG04, 0x00},
+	{0x1536, 0x02},
+	{0x1537, 0x00},
+	{0x1538, 0x60},
+	{0x1539, 0x01},
+	{0x153a, 0x20},
+	{0x153b, 0x01},
 };
 
 static const u8 vv6410_sensor_init[][2] = {
 	/* Setup registers */
-	{VV6410_SETUP0,		VV6410_SOFT_RESET},
-	{VV6410_SETUP0,		VV6410_LOW_POWER_MODE},
+	{VV6410_SETUP0,	VV6410_SOFT_RESET},
+	{VV6410_SETUP0,	VV6410_LOW_POWER_MODE},
 	/* Use shuffled read-out mode */
-	{VV6410_SETUP1,		BIT(6)},
-	/* All modes to 1 */
-	{VV6410_FGMODES,	BIT(6) | BIT(4) | BIT(2) | BIT(0)},
-	{VV6410_PINMAPPING,	0x00},
+	{VV6410_SETUP1,	BIT(6)},
+	/* All modes to 1, FST, Fast QCK, Free running QCK, Free running LST, FST will qualify visible pixels */
+	{VV6410_FGMODES, BIT(6) | BIT(4) | BIT(2) | BIT(0)},
+	{VV6410_PINMAPPING, 0x00},
 	/* Pre-clock generator divide off */
-	{VV6410_DATAFORMAT,	BIT(7) | BIT(0)},
+	{VV6410_DATAFORMAT, BIT(7) | BIT(0)},
 
-	{VV6410_CLKDIV,		VV6410_CLK_DIV_2},
+	{VV6410_CLKDIV,	VV6410_CLK_DIV_2},
 
 	/* System registers */
 	/* Enable voltage doubler */
-	{VV6410_AS0,		BIT(6) | BIT(4) | BIT(3) | BIT(2) | BIT(1)},
-	{VV6410_AT0,		0x00},
+	{VV6410_AS0, BIT(6) | BIT(4) | BIT(3) | BIT(2) | BIT(1)},
+	{VV6410_AT0, 0x00},
 	/* Power up audio, differential */
-	{VV6410_AT1,		BIT(4)|BIT(0)},
+	{VV6410_AT1, BIT(4) | BIT(0)},
 };
 
 #endif

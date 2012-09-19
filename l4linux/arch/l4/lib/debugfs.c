@@ -3,7 +3,15 @@
 
 struct dentry *l4x_debugfs_dir;
 
-u32 l4x_dbg_stop_on_segv_pf = 3;
+u32 l4x_dbg_stop_on_segv_pf;
+
+static int __init dbg_setup(char *s)
+{
+	l4x_dbg_stop_on_segv_pf = simple_strtoul(s, NULL, 0);
+	return 1;
+}
+
+__setup("l4x_dbg_stop_on_segv_pf=", dbg_setup);
 
 #ifdef CONFIG_L4_DEBUG_STATS
 extern struct l4x_debug_stats l4x_debug_stats_data;

@@ -21,6 +21,7 @@
 
 #include <net/inet_connection_sock.h>
 #include <net/inet_hashtables.h>
+#include <net/secure_seq.h>
 #include <net/ip.h>
 
 /*
@@ -216,7 +217,7 @@ begin:
 }
 EXPORT_SYMBOL_GPL(__inet_lookup_listener);
 
-struct sock * __inet_lookup_established(struct net *net,
+struct sock *__inet_lookup_established(struct net *net,
 				  struct inet_hashinfo *hashinfo,
 				  const __be32 saddr, const __be16 sport,
 				  const __be32 daddr, const u16 hnum,

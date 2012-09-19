@@ -7,7 +7,7 @@
  * under the terms of the GNU General Public License version 2 as published by
  * the Free Software Foundation.
  *
- * Currently this is more of a functioning proof of concept that a fully
+ * Currently this is more of a functioning proof of concept than a full
  * fledged trigger driver.
  *
  * TODO:
@@ -22,8 +22,8 @@
 #include <linux/gpio.h>
 #include <linux/slab.h>
 
-#include "../iio.h"
-#include "../trigger.h"
+#include <linux/iio/iio.h>
+#include <linux/iio/trigger.h>
 
 static LIST_HEAD(iio_gpio_trigger_list);
 static DEFINE_MUTEX(iio_gpio_trigger_list_lock);
@@ -47,6 +47,10 @@ static irqreturn_t iio_gpio_trigger_poll(int irq, void *private)
 	return IRQ_HANDLED;
 }
 
+static const struct iio_trigger_ops iio_gpio_trigger_ops = {
+	.owner = THIS_MODULE,
+};
+
 static int iio_gpio_trigger_probe(struct platform_device *pdev)
 {
 	struct iio_gpio_trigger_info *trig_info;
@@ -68,7 +72,7 @@ static int iio_gpio_trigger_probe(struct platform_device *pdev)
 
 		for (irq = irq_res->start; irq <= irq_res->end; irq++) {
 
-			trig = iio_allocate_trigger("irqtrig%d", irq);
+			trig = iio_trigger_alloc("irqtrig%d", irq);
 			if (!trig) {
 				ret = -ENOMEM;
 				goto error_free_completed_registrations;
@@ -81,7 +85,7 @@ static int iio_gpio_trigger_probe(struct platform_device *pdev)
 			}
 			trig->private_data = trig_info;
 			trig_info->irq = irq;
-			trig->owner = THIS_MODULE;
+			trig->ops = &iio_gpio_trigger_ops;
 			ret = request_irq(irq, iio_gpio_trigger_poll,
 					  irqflags, trig->name, trig);
 			if (ret) {
@@ -110,7 +114,7 @@ error_release_irq:
 error_free_trig_info:
 	kfree(trig_info);
 error_put_trigger:
-	iio_put_trigger(trig);
+	iio_trigger_put(trig);
 error_free_completed_registrations:
 	/* The rest should have been added to the iio_gpio_trigger_list */
 	list_for_each_entry_safe(trig,
@@ -140,7 +144,7 @@ static int iio_gpio_trigger_remove(struct platform_device *pdev)
 		iio_trigger_unregister(trig);
 		free_irq(trig_info->irq, trig);
 		kfree(trig_info);
-		iio_put_trigger(trig);
+		iio_trigger_put(trig);
 	}
 	mutex_unlock(&iio_gpio_trigger_list_lock);
 
@@ -156,17 +160,7 @@ static struct platform_driver iio_gpio_trigger_driver = {
 	},
 };
 
-static int __init iio_gpio_trig_init(void)
-{
-	return platform_driver_register(&iio_gpio_trigger_driver);
-}
-module_init(iio_gpio_trig_init);
-
-static void __exit iio_gpio_trig_exit(void)
-{
-	platform_driver_unregister(&iio_gpio_trigger_driver);
-}
-module_exit(iio_gpio_trig_exit);
+module_platform_driver(iio_gpio_trigger_driver);
 
 MODULE_AUTHOR("Jonathan Cameron <jic23@cam.ac.uk>");
 MODULE_DESCRIPTION("Example gpio trigger for the iio subsystem");

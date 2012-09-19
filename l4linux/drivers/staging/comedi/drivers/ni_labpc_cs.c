@@ -145,7 +145,7 @@ static int labpc_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 		irq = link->irq;
 		break;
 	default:
-		printk("bug! couldn't determine board type\n");
+		pr_err("bug! couldn't determine board type\n");
 		return -EINVAL;
 		break;
 	}
@@ -188,21 +188,13 @@ static int labpc_cs_attach(struct pcmcia_device *link)
 
 static void labpc_cs_detach(struct pcmcia_device *link)
 {
-	dev_dbg(&link->dev, "labpc_cs_detach\n");
-
-	/*
-	   If the device is currently configured and active, we won't
-	   actually delete it yet.  Instead, it is marked so that when
-	   the release() function is called, that will trigger a proper
-	   detach().
-	 */
 	((struct local_info_t *)link->priv)->stop = 1;
 	labpc_release(link);
 
 	/* This points to the parent local_info_t struct (may be null) */
 	kfree(link->priv);
 
-}				/* labpc_cs_detach */
+}
 
 static int labpc_pcmcia_config_loop(struct pcmcia_device *p_dev,
 				void *priv_data)

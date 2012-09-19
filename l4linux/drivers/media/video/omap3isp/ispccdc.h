@@ -80,14 +80,6 @@ struct ispccdc_syncif {
 	u8 bt_r656_en;
 };
 
-/*
- * struct ispccdc_vp - Structure for Video Port parameters
- * @pixelclk: Input pixel clock in Hz
- */
-struct ispccdc_vp {
-	unsigned int pixelclk;
-};
-
 enum ispccdc_lsc_state {
 	LSC_STATE_STOPPED = 0,
 	LSC_STATE_STOPPING = 1,
@@ -147,10 +139,10 @@ struct ispccdc_lsc {
  * @subdev: V4L2 subdevice
  * @pads: Sink and source media entity pads
  * @formats: Active video formats
+ * @crop: Active crop rectangle on the OF source pad
  * @input: Active input
  * @output: Active outputs
  * @video_out: Output video node
- * @error: A hardware error occurred during capture
  * @alaw: A-law compression enabled (1) or disabled (0)
  * @lpf: Low pass filter enabled (1) or disabled (0)
  * @obclamp: Optical-black clamp enabled (1) or disabled (0)
@@ -162,7 +154,6 @@ struct ispccdc_lsc {
  * @update: Bitmask of controls to update during the next interrupt
  * @shadow_update: Controls update in progress by userspace
  * @syncif: Interface synchronization configuration
- * @vpcfg: Video port configuration
  * @underrun: A buffer underrun occurred and a new buffer has been queued
  * @state: Streaming state
  * @lock: Serializes shadow_update with interrupt handler
@@ -174,11 +165,11 @@ struct isp_ccdc_device {
 	struct v4l2_subdev subdev;
 	struct media_pad pads[CCDC_PADS_NUM];
 	struct v4l2_mbus_framefmt formats[CCDC_PADS_NUM];
+	struct v4l2_rect crop;
 
 	enum ccdc_input_entity input;
 	unsigned int output;
 	struct isp_video video_out;
-	unsigned int error;
 
 	unsigned int alaw:1,
 		     lpf:1,
@@ -192,7 +183,6 @@ struct isp_ccdc_device {
 	unsigned int shadow_update;
 
 	struct ispccdc_syncif syncif;
-	struct ispccdc_vp vpcfg;
 
 	unsigned int underrun:1;
 	enum isp_pipeline_stream_state state;

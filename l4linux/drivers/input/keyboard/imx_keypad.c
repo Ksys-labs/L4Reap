@@ -481,7 +481,7 @@ static int __devinit imx_keypad_probe(struct platform_device *pdev)
 	}
 
 	if (keypad->rows_en_mask > ((1 << MAX_MATRIX_KEY_ROWS) - 1) ||
-	   keypad->cols_en_mask > ((1 << MAX_MATRIX_KEY_COLS) - 1)) {
+	    keypad->cols_en_mask > ((1 << MAX_MATRIX_KEY_COLS) - 1)) {
 		dev_err(&pdev->dev,
 			"invalid key data (too many rows or colums)\n");
 		error = -EINVAL;
@@ -496,21 +496,24 @@ static int __devinit imx_keypad_probe(struct platform_device *pdev)
 	input_dev->dev.parent = &pdev->dev;
 	input_dev->open = imx_keypad_open;
 	input_dev->close = imx_keypad_close;
-	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_REP);
-	input_dev->keycode = keypad->keycodes;
-	input_dev->keycodesize = sizeof(keypad->keycodes[0]);
-	input_dev->keycodemax = ARRAY_SIZE(keypad->keycodes);
 
-	matrix_keypad_build_keymap(keymap_data, MATRIX_ROW_SHIFT,
-				keypad->keycodes, input_dev->keybit);
+	error = matrix_keypad_build_keymap(keymap_data, NULL,
+					   MAX_MATRIX_KEY_ROWS,
+					   MAX_MATRIX_KEY_COLS,
+					   keypad->keycodes, input_dev);
+	if (error) {
+		dev_err(&pdev->dev, "failed to build keymap\n");
+		goto failed_clock_put;
+	}
 
+	__set_bit(EV_REP, input_dev->evbit);
 	input_set_capability(input_dev, EV_MSC, MSC_SCAN);
 	input_set_drvdata(input_dev, keypad);
 
 	/* Ensure that the keypad will stay dormant until opened */
 	imx_keypad_inhibit(keypad);
 
-	error = request_irq(irq, imx_keypad_irq_handler, IRQF_DISABLED,
+	error = request_irq(irq, imx_keypad_irq_handler, 0,
 			    pdev->name, keypad);
 	if (error) {
 		dev_err(&pdev->dev, "failed to request IRQ\n");
@@ -567,27 +570,59 @@ static int __devexit imx_keypad_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int imx_kbd_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct imx_keypad *kbd = platform_get_drvdata(pdev);
+	struct input_dev *input_dev = kbd->input_dev;
+
+	/* imx kbd can wake up system even clock is disabled */
+	mutex_lock(&input_dev->mutex);
+
+	if (input_dev->users)
+		clk_disable(kbd->clk);
+
+	mutex_unlock(&input_dev->mutex);
+
+	if (device_may_wakeup(&pdev->dev))
+		enable_irq_wake(kbd->irq);
+
+	return 0;
+}
+
+static int imx_kbd_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct imx_keypad *kbd = platform_get_drvdata(pdev);
+	struct input_dev *input_dev = kbd->input_dev;
+
+	if (device_may_wakeup(&pdev->dev))
+		disable_irq_wake(kbd->irq);
+
+	mutex_lock(&input_dev->mutex);
+
+	if (input_dev->users)
+		clk_enable(kbd->clk);
+
+	mutex_unlock(&input_dev->mutex);
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(imx_kbd_pm_ops, imx_kbd_suspend, imx_kbd_resume);
+
 static struct platform_driver imx_keypad_driver = {
 	.driver		= {
 		.name	= "imx-keypad",
 		.owner	= THIS_MODULE,
+		.pm	= &imx_kbd_pm_ops,
 	},
 	.probe		= imx_keypad_probe,
 	.remove		= __devexit_p(imx_keypad_remove),
 };
-
-static int __init imx_keypad_init(void)
-{
-	return platform_driver_register(&imx_keypad_driver);
-}
-
-static void __exit imx_keypad_exit(void)
-{
-	platform_driver_unregister(&imx_keypad_driver);
-}
-
-module_init(imx_keypad_init);
-module_exit(imx_keypad_exit);
+module_platform_driver(imx_keypad_driver);
 
 MODULE_AUTHOR("Alberto Panizzo <maramaopercheseimorto@gmail.com>");
 MODULE_DESCRIPTION("IMX Keypad Port Driver");

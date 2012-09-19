@@ -17,13 +17,13 @@
 #include <l4/sys/ipc.h>
 #include <l4/sys/task.h>
 
-static void l4x_task_delete(struct mm_struct *mm)
+int l4x_task_delete(struct mm_struct *mm)
 {
 	l4_cap_idx_t task_id;
 
 	if (!mm || !mm->context.task ||
 	    l4_is_invalid_cap(task_id = mm->context.task))
-		return;
+		return 0;
 
 	if (!l4lx_task_delete_task(task_id, 0))
 		do_exit(9);
@@ -31,6 +31,8 @@ static void l4x_task_delete(struct mm_struct *mm)
 	mm->context.task = L4_INVALID_CAP;
 
 	l4lx_task_number_free(task_id);
+
+	return 1;
 }
 
 void destroy_context(struct mm_struct *mm)

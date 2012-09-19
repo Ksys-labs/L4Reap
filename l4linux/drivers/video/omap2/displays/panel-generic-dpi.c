@@ -58,30 +58,6 @@ struct panel_config {
 
 /* Panel configurations */
 static struct panel_config generic_dpi_panels[] = {
-	/* Generic Panel */
-	{
-		{
-			.x_res		= 640,
-			.y_res		= 480,
-
-			.pixel_clock	= 23500,
-
-			.hfp		= 48,
-			.hsw		= 32,
-			.hbp		= 80,
-
-			.vfp		= 3,
-			.vsw		= 4,
-			.vbp		= 7,
-		},
-		.acbi			= 0x0,
-		.acb			= 0x0,
-		.config			= OMAP_DSS_LCD_TFT,
-		.power_on_delay		= 0,
-		.power_off_delay	= 0,
-		.name			= "generic",
-	},
-
 	/* Sharp LQ043T1DG01 */
 	{
 		{
@@ -231,6 +207,284 @@ static struct panel_config generic_dpi_panels[] = {
 		.power_on_delay		= 0,
 		.power_off_delay	= 0,
 		.name			= "powertip_ph480272t",
+	},
+
+	/* Innolux AT070TN83 */
+	{
+		{
+			.x_res		= 800,
+			.y_res		= 480,
+
+			.pixel_clock	= 40000,
+
+			.hsw		= 48,
+			.hfp		= 1,
+			.hbp		= 1,
+
+			.vsw		= 3,
+			.vfp		= 12,
+			.vbp		= 25,
+		},
+		.acbi			= 0x0,
+		.acb			= 0x28,
+		.config			= OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_IVS |
+					  OMAP_DSS_LCD_IHS,
+		.power_on_delay		= 0,
+		.power_off_delay	= 0,
+		.name			= "innolux_at070tn83",
+	},
+
+	/* NEC NL2432DR22-11B */
+	{
+		{
+			.x_res		= 240,
+			.y_res		= 320,
+
+			.pixel_clock	= 5400,
+
+			.hsw		= 3,
+			.hfp		= 3,
+			.hbp		= 39,
+
+			.vsw		= 1,
+			.vfp		= 2,
+			.vbp		= 7,
+		},
+		.config			= OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_IVS |
+						OMAP_DSS_LCD_IHS,
+		.name			= "nec_nl2432dr22-11b",
+	},
+
+	/* Unknown panel used in OMAP H4 */
+	{
+		{
+			.x_res		= 240,
+			.y_res		= 320,
+
+			.pixel_clock	= 6250,
+
+			.hsw		= 15,
+			.hfp		= 15,
+			.hbp		= 60,
+
+			.vsw		= 1,
+			.vfp		= 1,
+			.vbp		= 1,
+		},
+		.config			= OMAP_DSS_LCD_TFT,
+
+		.name			= "h4",
+	},
+
+	/* Unknown panel used in Samsung OMAP2 Apollon */
+	{
+		{
+			.x_res		= 480,
+			.y_res		= 272,
+
+			.pixel_clock	= 6250,
+
+			.hsw		= 41,
+			.hfp		= 2,
+			.hbp		= 2,
+
+			.vsw		= 10,
+			.vfp		= 2,
+			.vbp		= 2,
+		},
+		.config			= OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_IVS |
+						OMAP_DSS_LCD_IHS,
+
+		.name			= "apollon",
+	},
+	/* FocalTech ETM070003DH6 */
+	{
+		{
+			.x_res		= 800,
+			.y_res		= 480,
+
+			.pixel_clock	= 28000,
+
+			.hsw		= 48,
+			.hfp		= 40,
+			.hbp		= 40,
+
+			.vsw		= 3,
+			.vfp		= 13,
+			.vbp		= 29,
+		},
+		.config			= OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_IVS |
+					  OMAP_DSS_LCD_IHS,
+		.name			= "focaltech_etm070003dh6",
+	},
+
+	/* Microtips Technologies - UMSH-8173MD */
+	{
+		{
+			.x_res		= 800,
+			.y_res		= 480,
+
+			.pixel_clock	= 34560,
+
+			.hsw		= 13,
+			.hfp		= 101,
+			.hbp		= 101,
+
+			.vsw		= 23,
+			.vfp		= 1,
+			.vbp		= 1,
+		},
+		.acbi			= 0x0,
+		.acb			= 0x0,
+		.config			= OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_IVS |
+					  OMAP_DSS_LCD_IHS | OMAP_DSS_LCD_IPC,
+		.power_on_delay		= 0,
+		.power_off_delay	= 0,
+		.name			= "microtips_umsh_8173md",
+	},
+
+	/* OrtusTech COM43H4M10XTC */
+	{
+		{
+			.x_res		= 480,
+			.y_res		= 272,
+
+			.pixel_clock	= 8000,
+
+			.hsw		= 41,
+			.hfp		= 8,
+			.hbp		= 4,
+
+			.vsw		= 10,
+			.vfp		= 4,
+			.vbp		= 2,
+		},
+		.config			= OMAP_DSS_LCD_TFT,
+
+		.name			= "ortustech_com43h4m10xtc",
+	},
+
+	/* Innolux AT080TN52 */
+	{
+		{
+			.x_res = 800,
+			.y_res = 600,
+
+			.pixel_clock	= 41142,
+
+			.hsw		= 20,
+			.hfp		= 210,
+			.hbp		= 46,
+
+			.vsw		= 10,
+			.vfp		= 12,
+			.vbp		= 23,
+		},
+		.acb			= 0x0,
+		.config			= OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_IVS |
+					  OMAP_DSS_LCD_IHS | OMAP_DSS_LCD_IEO,
+
+		.name			= "innolux_at080tn52",
+	},
+
+	/* Mitsubishi AA084SB01 */
+	{
+		{
+			.x_res		= 800,
+			.y_res		= 600,
+			.pixel_clock	= 40000,
+
+			.hsw		= 1,
+			.hfp		= 254,
+			.hbp		= 1,
+
+			.vsw		= 1,
+			.vfp		= 26,
+			.vbp		= 1,
+		},
+		.config			= OMAP_DSS_LCD_TFT,
+		.name			= "mitsubishi_aa084sb01",
+	},
+	/* EDT ET0500G0DH6 */
+	{
+		{
+			.x_res		= 800,
+			.y_res		= 480,
+			.pixel_clock	= 33260,
+
+			.hsw		= 128,
+			.hfp		= 216,
+			.hbp		= 40,
+
+			.vsw		= 2,
+			.vfp		= 35,
+			.vbp		= 10,
+		},
+		.config			= OMAP_DSS_LCD_TFT,
+		.name			= "edt_et0500g0dh6",
+	},
+
+	/* Prime-View PD050VL1 */
+	{
+		{
+			.x_res		= 640,
+			.y_res		= 480,
+
+			.pixel_clock	= 25000,
+
+			.hsw		= 96,
+			.hfp		= 18,
+			.hbp		= 46,
+
+			.vsw		= 2,
+			.vfp		= 10,
+			.vbp		= 33,
+		},
+		.config			= OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_IVS |
+					  OMAP_DSS_LCD_IHS | OMAP_DSS_LCD_IPC,
+		.name			= "primeview_pd050vl1",
+	},
+
+	/* Prime-View PM070WL4 */
+	{
+		{
+			.x_res		= 800,
+			.y_res		= 480,
+
+			.pixel_clock	= 32000,
+
+			.hsw		= 128,
+			.hfp		= 42,
+			.hbp		= 86,
+
+			.vsw		= 2,
+			.vfp		= 10,
+			.vbp		= 33,
+		},
+		.config			= OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_IVS |
+					  OMAP_DSS_LCD_IHS | OMAP_DSS_LCD_IPC,
+		.name			= "primeview_pm070wl4",
+	},
+
+	/* Prime-View PD104SLF */
+	{
+		{
+			.x_res		= 800,
+			.y_res		= 600,
+
+			.pixel_clock	= 40000,
+
+			.hsw		= 128,
+			.hfp		= 42,
+			.hbp		= 86,
+
+			.vsw		= 4,
+			.vfp		= 1,
+			.vbp		= 23,
+		},
+		.config			= OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_IVS |
+					  OMAP_DSS_LCD_IHS | OMAP_DSS_LCD_IPC,
+		.name			= "primeview_pd104slf",
 	},
 };
 
@@ -395,12 +649,6 @@ static void generic_dpi_panel_set_timings(struct omap_dss_device *dssdev,
 	dpi_set_timings(dssdev, timings);
 }
 
-static void generic_dpi_panel_get_timings(struct omap_dss_device *dssdev,
-		struct omap_video_timings *timings)
-{
-	*timings = dssdev->panel.timings;
-}
-
 static int generic_dpi_panel_check_timings(struct omap_dss_device *dssdev,
 		struct omap_video_timings *timings)
 {
@@ -417,7 +665,6 @@ static struct omap_dss_driver dpi_driver = {
 	.resume		= generic_dpi_panel_resume,
 
 	.set_timings	= generic_dpi_panel_set_timings,
-	.get_timings	= generic_dpi_panel_get_timings,
 	.check_timings	= generic_dpi_panel_check_timings,
 
 	.driver         = {

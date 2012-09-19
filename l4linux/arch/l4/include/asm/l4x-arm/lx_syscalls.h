@@ -1,5 +1,5 @@
-#ifndef __ASM_L4__L4X__I386__LX_SYSCALLS_H__
-#define __ASM_L4__L4X__I386__LX_SYSCALLS_H__
+#ifndef __ASM_L4__L4X__ARM__LX_SYSCALLS_H__
+#define __ASM_L4__L4X__ARM__LX_SYSCALLS_H__
 
 typedef asmlinkage int (*syscall_t)(long a0,...);
 extern syscall_t sys_call_table[];
@@ -11,4 +11,4 @@ static inline int is_lx_syscall(int nr)
 	return nr < (unsigned long)NR_syscalls;
 }
 
-#endif /* ! __ASM_L4__L4X__I386__LX_SYSCALLS_H__ */
+#endif /* ! __ASM_L4__L4X__ARM__LX_SYSCALLS_H__ */

@@ -23,11 +23,13 @@ L4_EXTERNAL_FUNC(l4vbus_get_device_by_hid);
 static l4_cap_idx_t vbus;
 static l4vbus_device_handle_t root_bridge;
 
+#ifdef CONFIG_X86
 unsigned int pci_probe;
 unsigned int pci_early_dump_regs;
 int noioapicquirk;
 int noioapicreroute = 0;
 int pci_routeirq;
+#endif
 
 /*
  * l4vpci_pci_irq_enable
@@ -35,14 +37,13 @@ int pci_routeirq;
  * failure: return < 0
  */
 
-int l4vpci_irq_enable(struct pci_dev *dev)
+static int l4vpci_irq_enable(struct pci_dev *dev)
 {
 	unsigned char trigger, polarity;
 	int irq;
 	u8 pin = 0;
 	unsigned flags;
 	l4_uint32_t devfn;
-	L4XV_V(f);
 
 	if (!dev)
 		return -EINVAL;
@@ -62,16 +63,14 @@ int l4vpci_irq_enable(struct pci_dev *dev)
 		return -ENODEV;
 	}
 
-	L4XV_L(f);
-
 	devfn = (PCI_SLOT(dev->devfn) << 16) | PCI_FUNC(dev->devfn);
-	irq = l4vbus_pci_irq_enable(vbus, root_bridge, dev->bus->number, devfn, pin, &trigger, &polarity);
+	irq = L4XV_FN_i(l4vbus_pci_irq_enable(vbus, root_bridge, dev->bus->number,
+	                                      devfn, pin, &trigger, &polarity));
 	if (irq < 0) {
 		dev_warn(&dev->dev, "PCI INT %c: no GSI", 'A' + pin);
 		/* Interrupt Line values above 0xF are forbidden */
 		return 0;
 	}
-	L4XV_U(f);
 
 	switch ((!!trigger) | ((!!polarity) << 1)) {
 		case 0: flags = IRQF_TRIGGER_HIGH; break;
@@ -107,24 +106,16 @@ static int pci_conf1_read(unsigned int seg, unsigned int bus,
                          unsigned int devfn, int reg, int len, u32 *value)
 {
 	l4_uint32_t df = (PCI_SLOT(devfn) << 16) | PCI_FUNC(devfn);
-	int r;
-	L4XV_V(f);
-	L4XV_L(f);
-	r = l4vbus_pci_cfg_read(vbus, root_bridge, bus, df, reg, value, len * 8);
-	L4XV_U(f);
-	return r;
+	return L4XV_FN_i(l4vbus_pci_cfg_read(vbus, root_bridge,
+	                                     bus, df, reg, value, len * 8));
 }
 
 static int pci_conf1_write(unsigned int seg, unsigned int bus,
                            unsigned int devfn, int reg, int len, u32 value)
 {
 	l4_uint32_t df = (PCI_SLOT(devfn) << 16) | PCI_FUNC(devfn);
-	int r;
-	L4XV_V(f);
-	L4XV_L(f);
-	r = l4vbus_pci_cfg_write(vbus, root_bridge, bus, df, reg, value, len * 8);
-	L4XV_U(f);
-	return r;
+	return L4XV_FN_i(l4vbus_pci_cfg_write(vbus, root_bridge,
+	                                      bus, df, reg, value, len * 8));
 }
 
 static int pci_read(struct pci_bus *bus, unsigned int devfn, int where, int size, u32 *value)
@@ -144,51 +135,68 @@ static struct pci_ops l4vpci_ops = {
 	.write = pci_write,
 };
 
-static int __init l4vpci_init(void)
+
+#ifdef CONFIG_ARM
+static int __init l4vpci_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
+{
+	(void)slot;
+	(void)pin;
+	printk("l4vpci_map_irq: %d/%d\n", slot, pin);
+        //l4vpci_irq_enable(dev);
+	return dev->irq;
+}
+
+int __init l4vpci_setup(int nr, struct pci_sys_data *sys)
+{
+	(void)sys;
+	pcibios_setup("firmware");
+	return nr == 0 ? 1 : 0;
+}
+
+struct pci_bus * __init l4vpci_scan_bus(int nr, struct pci_sys_data *sys)
+{
+	struct pci_bus *b;
+	struct pci_dev *dev = NULL;
+	b = pci_scan_root_bus(NULL, sys->busnr, &l4vpci_ops, sys,
+	                      &sys->resources);
+	for_each_pci_dev(dev)
+		l4vpci_irq_enable(dev);
+	return b;
+}
+
+static struct hw_pci l4vpci_pci __initdata = {
+	.map_irq                = l4vpci_map_irq,
+	.nr_controllers         = 1,
+	.setup                  = l4vpci_setup,
+	.scan                   = l4vpci_scan_bus,
+};
+#endif
+
+#ifdef CONFIG_X86
+static int __init l4vpci_x86_init(void)
 {
 	struct pci_dev *dev = NULL;
-#ifdef CONFIG_ARM
-	struct pci_sys_data *sd;
-#else
-	struct pci_sysdata *sd;
-#endif
-	int err;
-	L4XV_V(f);
-
-	vbus = l4re_get_env_cap("vbus");
-	if (l4_is_invalid_cap(vbus))
-		return -ENOENT;
-
-	L4XV_L(f);
-
-	err = l4vbus_get_device_by_hid(vbus, 0, &root_bridge, "PNP0A03", 0, 0);
-	if (err < 0) {
-		printk(KERN_INFO "PCI: no root bridge found, no PCI\n");
-		L4XV_U(f);
-		return err;
-	}
-
-	L4XV_U(f);
-
-	printk(KERN_INFO "PCI: L4 root bridge is device %lx\n", root_bridge);
-
-	sd = kzalloc(sizeof(*sd), GFP_KERNEL);
+	struct pci_sysdata *sd = kzalloc(sizeof(*sd), GFP_KERNEL);
 	if (!sd)
 		return -ENOMEM;
 
 	pci_scan_bus(0, &l4vpci_ops, sd);
 
-	printk(KERN_INFO "PCI: Using L4-IO for IRQ routing\n");
+	printk(KERN_INFO "l4vPCI: Using L4-IO for IRQ routing\n");
 
 	for_each_pci_dev(dev)
 		l4vpci_irq_enable(dev);
 
-#ifdef CONFIG_X86
 	pcibios_resource_survey();
-#endif
 
 	return 0;
 }
+
+unsigned int pcibios_assign_all_busses(void)
+{
+	return 1;
+}
+#endif
 
 int pcibios_enable_device(struct pci_dev *dev, int mask)
 {
@@ -199,48 +207,6 @@ int pcibios_enable_device(struct pci_dev *dev, int mask)
 
 	return l4vpci_irq_enable(dev);
 }
-
-#ifdef CONFIG_X86
-unsigned int pcibios_assign_all_busses(void)
-{
-	return 1;
-}
-#endif
-
-#ifdef CONFIG_ARM
-int pci_mmap_page_range(struct pci_dev *dev, struct vm_area_struct *vma,
-                        enum pci_mmap_state mmap_state, int write_combine)
-{
-	printk("%s %d\n", __func__, __LINE__);
-	return -ENOENT;
-}
-
-void
-pcibios_resource_to_bus(struct pci_dev *dev, struct pci_bus_region *region,
-                        struct resource *res)
-{
-	printk("%s %d\n", __func__, __LINE__);
-}
-
-void __devinit
-pcibios_bus_to_resource(struct pci_dev *dev, struct resource *res,
-                        struct pci_bus_region *region)
-{
-	printk("%s %d\n", __func__, __LINE__);
-}
-
-resource_size_t pcibios_align_resource(void *data, const struct resource *res,
-                                       resource_size_t size, resource_size_t align)
-{
-	printk("%s %d\n", __func__, __LINE__);
-	return 0;
-}
-
-void __devinit pcibios_update_irq(struct pci_dev *dev, int irq)
-{
-	printk("%s %d\n", __func__, __LINE__);
-}
-#endif
 
 int early_pci_allowed(void)
 {
@@ -254,33 +220,49 @@ void early_dump_pci_devices(void)
 
 u32 read_pci_config(u8 bus, u8 slot, u8 func, u8 offset)
 {
-	printk("%s: unimplemented\n", __func__);
-	return 0;
+	u32 val;
+	if (L4XV_FN_i(l4vbus_pci_cfg_read(vbus, root_bridge,
+	                                  bus, (slot << 16) | func,
+	                                  offset, &val, 32)))
+		return 0;
+	return val;
 }
 
 u8 read_pci_config_byte(u8 bus, u8 slot, u8 func, u8 offset)
 {
-	printk("%s: unimplemented\n", __func__);
-	return 0;
+	u32 val;
+	if (L4XV_FN_i(l4vbus_pci_cfg_read(vbus, root_bridge,
+	                                  bus, (slot << 16) | func,
+	                                  offset, &val, 8)))
+		return 0;
+	return val;
 }
 
 u16 read_pci_config_16(u8 bus, u8 slot, u8 func, u8 offset)
 {
-	printk("%s: unimplemented\n", __func__);
-	return 0;
+	u32 val;
+	if (L4XV_FN_i(l4vbus_pci_cfg_read(vbus, root_bridge,
+	                                  bus, (slot << 16) | func,
+	                                  offset, &val, 16)))
+		return 0;
+	return val;
 }
 
 void write_pci_config(u8 bus, u8 slot, u8 func, u8 offset, u32 val)
 {
-	printk("%s: unimplemented\n", __func__);
+	L4XV_FN_v(l4vbus_pci_cfg_write(vbus, root_bridge,
+	                               bus, (slot << 16) | func,
+	                               offset, val, 32));
 }
 
+#ifdef CONFIG_X86
 char * __devinit  pcibios_setup(char *str)
 {
 	return str;
 }
+#endif
 
-void pcibios_disable_device (struct pci_dev *dev)
+void pcibios_disable_device(struct pci_dev *dev)
 {
 	l4vpci_irq_disable(dev);
 }
@@ -305,6 +287,33 @@ void __init pcibios_irq_init(void)
 
 void __init pcibios_fixup_irqs(void)
 {
+}
+
+static int __init l4vpci_init(void)
+{
+	int err;
+
+	vbus = l4re_env_get_cap("vbus");
+	if (l4_is_invalid_cap(vbus))
+		return -ENOENT;
+
+	err = L4XV_FN_i(l4vbus_get_device_by_hid(vbus, 0, &root_bridge,
+	                                         "PNP0A03", 0, 0));
+	if (err < 0) {
+		printk(KERN_INFO "l4vPCI: no root bridge found, no PCI\n");
+		return err;
+	}
+
+	printk(KERN_INFO "l4vPCI: L4 root bridge is device %lx\n", root_bridge);
+
+#ifdef CONFIG_X86
+	return l4vpci_x86_init();
+#endif
+
+#ifdef CONFIG_ARM
+	pci_common_init(&l4vpci_pci);
+	return 0;
+#endif
 }
 
 subsys_initcall(l4vpci_init);

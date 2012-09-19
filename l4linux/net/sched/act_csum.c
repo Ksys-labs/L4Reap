@@ -397,7 +397,7 @@ static int tcf_csum_ipv6_hopopts(struct ipv6_opt_hdr *ip6xh,
 
 	while (len > 1) {
 		switch (xh[off]) {
-		case IPV6_TLV_PAD0:
+		case IPV6_TLV_PAD1:
 			optlen = 1;
 			break;
 		case IPV6_TLV_JUMBO:
@@ -500,7 +500,7 @@ fail:
 }
 
 static int tcf_csum(struct sk_buff *skb,
-		    struct tc_action *a, struct tcf_result *res)
+		    const struct tc_action *a, struct tcf_result *res)
 {
 	struct tcf_csum *p = a->priv;
 	int action;
@@ -550,11 +550,13 @@ static int tcf_csum_dump(struct sk_buff *skb,
 	};
 	struct tcf_t t;
 
-	NLA_PUT(skb, TCA_CSUM_PARMS, sizeof(opt), &opt);
+	if (nla_put(skb, TCA_CSUM_PARMS, sizeof(opt), &opt))
+		goto nla_put_failure;
 	t.install = jiffies_to_clock_t(jiffies - p->tcf_tm.install);
 	t.lastuse = jiffies_to_clock_t(jiffies - p->tcf_tm.lastuse);
 	t.expires = jiffies_to_clock_t(p->tcf_tm.expires);
-	NLA_PUT(skb, TCA_CSUM_TM, sizeof(t), &t);
+	if (nla_put(skb, TCA_CSUM_TM, sizeof(t), &t))
+		goto nla_put_failure;
 
 	return skb->len;
 

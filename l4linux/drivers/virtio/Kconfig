@@ -7,6 +7,8 @@ config VIRTIO_RING
 	tristate
 	depends on VIRTIO
 
+menu "Virtio drivers"
+
 config VIRTIO_PCI
 	tristate "PCI driver for virtio devices (EXPERIMENTAL)"
 	depends on PCI && EXPERIMENTAL
@@ -33,3 +35,26 @@ config VIRTIO_BALLOON
 
 	 If unsure, say M.
 
+ config VIRTIO_MMIO
+ 	tristate "Platform bus driver for memory mapped virtio devices (EXPERIMENTAL)"
+ 	depends on HAS_IOMEM && EXPERIMENTAL
+ 	select VIRTIO
+ 	select VIRTIO_RING
+ 	---help---
+ 	 This drivers provides support for memory mapped virtio
+	 platform device driver.
+
+ 	 If unsure, say N.
+
+config VIRTIO_MMIO_CMDLINE_DEVICES
+	bool "Memory mapped virtio devices parameter parsing"
+	depends on VIRTIO_MMIO
+	---help---
+	 Allow virtio-mmio devices instantiation via the kernel command line
+	 or module parameters. Be aware that using incorrect parameters (base
+	 address in particular) can crash your system - you have been warned.
+	 See Documentation/kernel-parameters.txt for details.
+
+	 If unsure, say 'N'.
+
+endmenu

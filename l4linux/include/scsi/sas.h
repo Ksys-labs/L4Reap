@@ -89,8 +89,7 @@ enum sas_oob_mode {
 	SAS_OOB_MODE
 };
 
-/* See sas_discover.c if you plan on changing these.
- */
+/* See sas_discover.c if you plan on changing these */
 enum sas_dev_type {
 	NO_DEVICE   = 0,	  /* protocol */
 	SAS_END_DEV = 1,	  /* protocol */
@@ -100,14 +99,17 @@ enum sas_dev_type {
 	SATA_DEV    = 5,
 	SATA_PM     = 7,
 	SATA_PM_PORT= 8,
+	SATA_PENDING  = 9,
 };
 
 enum sas_protocol {
+	SAS_PROTOCOL_NONE		= 0,
 	SAS_PROTOCOL_SATA		= 0x01,
 	SAS_PROTOCOL_SMP		= 0x02,
 	SAS_PROTOCOL_STP		= 0x04,
 	SAS_PROTOCOL_SSP		= 0x08,
 	SAS_PROTOCOL_ALL		= 0x0E,
+	SAS_PROTOCOL_STP_ALL		= SAS_PROTOCOL_STP|SAS_PROTOCOL_SATA,
 };
 
 /* From the spec; local phys only */
@@ -121,6 +123,7 @@ enum phy_func {
 	PHY_FUNC_TX_SATA_PS_SIGNAL,
 	PHY_FUNC_RELEASE_SPINUP_HOLD = 0x10, /* LOCAL PORT ONLY! */
 	PHY_FUNC_SET_LINK_RATE,
+	PHY_FUNC_GET_EVENTS,
 };
 
 /* SAS LLDD would need to report only _very_few_ of those, like BROADCAST.
@@ -193,6 +196,14 @@ enum sas_open_rej_reason {
 	SAS_OREJ_RSVD_STOP0 = 16,
 	SAS_OREJ_RSVD_STOP1 = 17,
 	SAS_OREJ_RSVD_RETRY = 18,
+};
+
+enum sas_gpio_reg_type {
+	SAS_GPIO_REG_CFG   = 0,
+	SAS_GPIO_REG_RX    = 1,
+	SAS_GPIO_REG_RX_GP = 2,
+	SAS_GPIO_REG_TX    = 3,
+	SAS_GPIO_REG_TX_GP = 4,
 };
 
 struct  dev_to_host_fis {
@@ -341,7 +352,12 @@ struct report_general_resp {
 
 	u8      conf_route_table:1;
 	u8      configuring:1;
-	u8      _r_b:6;
+	u8	config_others:1;
+	u8	orej_retry_supp:1;
+	u8	stp_cont_awt:1;
+	u8	self_config:1;
+	u8	zone_config:1;
+	u8	t2t_supp:1;
 
 	u8      _r_c;
 
@@ -528,7 +544,12 @@ struct report_general_resp {
 	u8      _r_a;
 	u8      num_phys;
 
-	u8      _r_b:6;
+	u8	t2t_supp:1;
+	u8	zone_config:1;
+	u8	self_config:1;
+	u8	stp_cont_awt:1;
+	u8	orej_retry_supp:1;
+	u8	config_others:1;
 	u8      configuring:1;
 	u8      conf_route_table:1;
 

@@ -17,13 +17,7 @@
 #define ERROR_APIC_VECTOR    21
 
 
-.section .rodata,"a"
-#include "syscall_table_32.S"
-
-
-syscall_table_size=(.-sys_call_table)
-.globl nr_syscalls
-nr_syscalls=(.-sys_call_table)/4
+	.section .entry.text, "ax"
 
 .macro RING0_INT_FRAME
 	CFI_STARTPROC simple
@@ -1364,6 +1358,7 @@ ENTRY(\sym)
 END(\sym)
 .endm
 
+#ifdef NOT_FOR_L4
 #ifdef CONFIG_SMP
 apicinterrupt IRQ_MOVE_CLEANUP_VECTOR \
 	irq_move_cleanup_interrupt smp_irq_move_cleanup_interrupt
@@ -1375,7 +1370,6 @@ apicinterrupt REBOOT_VECTOR \
 apicinterrupt UV_BAU_MESSAGE \
 	uv_bau_message_intr1 uv_bau_message_interrupt
 #endif
-#ifdef NOT_FOR_L4
 apicinterrupt LOCAL_TIMER_VECTOR \
 	apic_timer_interrupt smp_apic_timer_interrupt
 apicinterrupt X86_PLATFORM_IPI_VECTOR \

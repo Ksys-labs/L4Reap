@@ -24,6 +24,9 @@ lib-y := $(b)/delay.o
 
 lib-y += ../memcpy_user.o ../uaccess.o ../pte.o
 lib-y += $(b)/memcpy_$(BITS).o
+lib-y += $(b)/usercopy.o
+lib-$(CONFIG_SMP) += $(b)/rwlock.o
+lib-$(CONFIG_RWSEM_XCHGADD_ALGORITHM) += $(b)/rwsem.o
 lib-$(CONFIG_INSTRUCTION_DECODER) += $(b)/insn.o $(b)/inat.o
 
 obj-y += msr.o msr-reg.o msr-reg-export.o
@@ -33,7 +36,7 @@ ifeq ($(CONFIG_X86_32),y)
         lib-y += $(b)/atomic64_cx8_32.o
 	lib-y += checksum.o
         lib-y += $(b)/strstr_32.o
-        lib-y += $(b)/semaphore_32.o $(b)/string_32.o
+        lib-y += $(b)/string_32.o
 	lib-y += $(b)/cmpxchg.o
 ifneq ($(CONFIG_X86_CMPXCHG64),y)
         lib-y += cmpxchg8b_emu.o $(b)/atomic64_386_32.o
@@ -44,8 +47,7 @@ else
         lib-y += $(b)/csum-partial_64.o $(b)/csum-copy_64.o $(b)/csum-wrappers_64.o
         lib-y += $(b)/thunk_64.o $(b)/clear_page_64.o $(b)/copy_page_64.o
         lib-y += $(b)/memmove_64.o $(b)/memset_64.o
-        #lib-y += copy_user_64.o rwlock_64.o copy_user_nocache_64.o
-	lib-$(CONFIG_RWSEM_XCHGADD_ALGORITHM) += $(b)/rwsem_64.o
+        #lib-y += copy_user_64.o copy_user_nocache_64.o
 	lib-y += $(b)/cmpxchg16b_emu.o
 endif
 
@@ -61,6 +63,8 @@ atomic64_32-y          := $(b)/atomic64_32.o
 cache-smp-y            := $(b)/cache-smp.o
 iomap_copy_64-y        := $(b)/iomap_copy_64.o
 cmpxchg16b_emu-y       := $(b)/cmpxchg16b_emu.o
+
+CFLAGS_usercopy.o      += -Dstrncpy_from_user=strncpy_from_user_orig
 
 create_dir:
 	$(Q)mkdir -p $(obj)/../../../x86/lib

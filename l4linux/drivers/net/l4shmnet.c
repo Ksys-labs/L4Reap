@@ -4,6 +4,7 @@
 
 #include <linux/module.h>
 #include <linux/etherdevice.h>
+#include <linux/interrupt.h>
 
 #include <asm/l4lxapi/misc.h>
 #include <asm/l4lxapi/thread.h>
@@ -13,6 +14,7 @@
 #include <asm/generic/do_irq.h>
 
 #include <l4/shmc/shmc.h>
+#include <l4/shmc/shmbuf.h>
 
 MODULE_AUTHOR("Adam Lackorzynski <adam@os.inf.tu-dresden.de>");
 MODULE_DESCRIPTION("L4shmnet driver");
@@ -25,7 +27,6 @@ enum {
 
 static int shmsize = 1 << 20;
 
-static char devs_create[NR_OF_DEVS];
 static char devs_to_add_name[NR_OF_DEVS][20];
 static char devs_to_add_macpart[NR_OF_DEVS];
 static int  devs_to_add_pos;
@@ -41,10 +42,10 @@ struct l4x_l4shmc_priv {
 	l4shmc_chunk_t             tx_chunk;
 	l4shmc_chunk_t             rx_chunk;
 
-	char                      *tx_ring_start;
-	char                      *rx_ring_start;
-	unsigned long              tx_ring_size;
-	unsigned long              rx_ring_size;
+	struct l4shm_buf           sb;
+	unsigned int               num:8;
+	unsigned int               remote_attached:1;
+	unsigned int               link_up:1;
 };
 
 struct l4x_l4shmc_netdev {
@@ -62,68 +63,170 @@ struct ring_chunk_head {
 	unsigned long size; // 0 == not used,  >= 0 valid chunk
 };
 
+/****************************************************************************
+ * Protocol for attaching:
+ *
+ *   1. Both parties will try to create the shm segment. The first one wins.
+ *   2. Both parties create a chunk and sig named after their MAC address
+ *      and use it as their rx side. They will set the chunk state to "clear"
+ *      which means "link down".
+ *   3. Both parties will look for another chunk. If there is one, they will
+ *      connect it as their tx side and trigger that signal.
+ *   4. The first one won't yet find the other's chunk but he will be alerted
+ *      by the second's signal and then try again. He will then connect the
+ *      chunk and sig as his tx side, and trigger the signal.
+ *   Due to the signal, there is no need to actively poll for the arrival of
+ *   the second partner.
+ *   If one partner wants to set the interface up, he sets the state of his
+ *   rx chunk to "ready" and triggers the tx signal. If both chunks are
+ *   "ready" the link state is defined to be "up".
+ *   The interface state can be set down again in the same way.
+ *   The MAC addresses of both parties must be different.
+ ****************************************************************************/
+
 static inline int chunk_size(l4shmc_area_t *s)
 {
-	return (l4shmc_area_size(s) / 2) - 52;
+	return (l4shmc_area_size(s) - l4shmc_area_overhead()) / 2 -
+	       l4shmc_chunk_overhead();
+}
+
+static int init_dev_self(struct net_device *dev)
+{
+	struct l4x_l4shmc_priv *priv = netdev_priv(dev);
+	int ret;
+	char myname[15];
+
+	snprintf(myname, sizeof(myname), "%pm", dev->dev_addr);
+
+	if ((ret = l4shmc_add_chunk(&priv->shmcarea, myname,
+	                            chunk_size(&priv->shmcarea),
+	                            &priv->rx_chunk))) {
+		if (ret != -L4_EEXIST) {
+			dev_warn(&dev->dev, "l4shmnet: Can't create chunk: %d", ret);
+			return ret;
+		}
+		if ((ret = l4shmc_get_chunk(&priv->shmcarea, myname,
+		                            &priv->rx_chunk))) {
+			dev_warn(&dev->dev, "l4shmnet: Can't attach to existing chunk '%s': %d",
+			         myname, ret);
+			return ret;
+		}
+	}
+
+	/*
+	 * The chunk ready / chunk cleared flag is abused as ifup/ifdown flag:
+	 * cleared == consumed  -> if down
+	 * ready                -> if up
+	 */
+	l4shmc_chunk_consumed(&priv->rx_chunk);
+
+	if ((ret = l4shmc_add_signal(&priv->shmcarea, myname, &priv->rx_sig)))
+		return ret;
+
+	if ((ret = l4shmc_connect_chunk_signal(&priv->rx_chunk, &priv->rx_sig)))
+		return ret;
+
+	return 0;
+}
+
+static int init_dev_other(struct net_device *dev)
+{
+	struct l4x_l4shmc_priv *priv = netdev_priv(dev);
+	char myname[15];
+	char othername[15];
+	const char *ptr;
+	long offs = 0;
+	int ret;
+	L4XV_V(f);
+
+	othername[0] = '\0';
+	snprintf(myname, sizeof(myname), "%pm", dev->dev_addr);
+	L4XV_L(f);
+	while ((offs = l4shmc_iterate_chunk(&priv->shmcarea, &ptr, offs)) > 0) {
+		if (strncmp(ptr, myname, sizeof(myname)) != 0) {
+			strncpy(othername, ptr, sizeof(othername));
+			if (othername[sizeof(othername)-1] != '\0') {
+				/* name too long or invalid */
+				L4XV_U(f);
+				return -L4_EIO;
+			}
+		}
+	}
+	if (offs < 0) {
+		L4XV_U(f);
+		return offs;
+	}
+	if (!othername[0]) {
+		L4XV_U(f);
+		return -L4_EAGAIN;
+	}
+
+	if ((ret = l4shmc_get_chunk(&priv->shmcarea, othername,
+				    &priv->tx_chunk))) {
+		L4XV_U(f);
+		return ret;
+	}
+
+	if ((ret = l4shmc_get_signal_to(&priv->shmcarea, othername,
+					WAIT_TIMEOUT, &priv->tx_sig))) {
+		L4XV_U(f);
+		return ret;
+	}
+
+	l4shm_buf_init(&priv->sb, l4shmc_chunk_ptr(&priv->rx_chunk),
+				l4shmc_chunk_capacity(&priv->rx_chunk),
+				l4shmc_chunk_ptr(&priv->tx_chunk),
+				l4shmc_chunk_capacity(&priv->tx_chunk));
+
+	priv->remote_attached = 1;
+	l4shmc_trigger(&priv->tx_sig);
+	L4XV_U(f);
+	dev_info(&dev->dev, "%s: L4ShmNet established, with %pM, IRQ %d\n",
+	         dev->name, dev->dev_addr, dev->irq);
+	return 0;
+}
+
+static void update_carrier(struct net_device *dev)
+{
+	struct l4x_l4shmc_priv *priv = netdev_priv(dev);
+	int link_up = 0;
+
+	if (priv->remote_attached &&
+	    l4shmc_is_chunk_ready(&priv->tx_chunk) &&
+	    l4shmc_is_chunk_ready(&priv->rx_chunk))
+		link_up = 1;
+	if (priv->link_up == link_up)
+		return;
+	priv->link_up = link_up;
+	if (link_up) {
+		netif_carrier_on(dev);
+		netif_wake_queue(dev);
+	}
+	else {
+		netif_carrier_off(dev);
+		netif_stop_queue(dev);
+	}
 }
 
 static int l4x_l4shmc_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
 {
 	struct l4x_l4shmc_priv *priv = netdev_priv(netdev);
-	short length = skb->len;
-	struct chunk_head *chhead;
-	struct ring_chunk_head *rph;
-	unsigned long l, offs, nextoffs, r;
+	int ret;
 	L4XV_V(f);
 
-	if (length == 0)
-		return 0;
-
-	// copy chunk into the ring
-	chhead = (struct chunk_head *)l4shmc_chunk_ptr(&priv->tx_chunk);
-
-	offs = chhead->next_offs_to_write;
-
-	rph = (struct ring_chunk_head *)(priv->tx_ring_start + offs);
-
-	BUILD_BUG_ON(sizeof(struct ring_chunk_head) & (sizeof(struct ring_chunk_head) - 1));
-
-	nextoffs = (offs + length + sizeof(struct ring_chunk_head) + sizeof(struct ring_chunk_head) - 1)
-	           & ~(sizeof(struct ring_chunk_head) - 1);
-
-	r = chhead->next_offs_to_read;
-	if (r <= offs)
-		r += priv->tx_ring_size;
-	if (nextoffs >= r) {
-		chhead->writer_blocked = 1;
+	ret = l4shm_buf_tx(&priv->sb, skb->data, skb->len);
+	if (ret == -L4_EAGAIN) {
 		netif_stop_queue(netdev);
 		return 1;
 	}
+	/* XXX: handle other l4shm_buf_tx errors */
 
-	nextoffs %= priv->tx_ring_size;
-
-	offs += sizeof(struct ring_chunk_head);
-	offs %= priv->tx_ring_size;
-
-	if (offs + length > priv->tx_ring_size)
-		l = priv->tx_ring_size - offs;
-	else
-		l = length;
-
-	memcpy(priv->tx_ring_start + offs, (char *)skb->data, l);
-	if (l != length)
-		memcpy(priv->tx_ring_start, (char *)skb->data + l, length - l);
-
-	// now write to shm
-	rph->size = length;
-	rph = (struct ring_chunk_head *)(priv->tx_ring_start + nextoffs);
-	rph->size = 0;
-	chhead->next_offs_to_write = nextoffs;
 	wmb();
 
 	L4XV_L(f);
 	l4shmc_trigger(&priv->tx_sig);
 	L4XV_U(f);
+
 
 	netdev->trans_start = jiffies;
 	priv->net_stats.tx_packets++;
@@ -149,8 +252,14 @@ static irqreturn_t l4x_l4shmc_interrupt(int irq, void *dev_id)
 	struct l4x_l4shmc_priv *priv = netdev_priv(netdev);
 	struct sk_buff *skb;
 	struct chunk_head *chhead;
-	struct ring_chunk_head *rph;
-	unsigned long offs;
+	unsigned long len;
+	int ret;
+
+	if (!priv->remote_attached)
+		init_dev_other(netdev);
+
+	update_carrier(netdev);
+	/* XXX: return if link down? */
 
 	chhead = (struct chunk_head *)l4shmc_chunk_ptr(&priv->tx_chunk);
 	if (chhead->writer_blocked) {
@@ -159,47 +268,26 @@ static irqreturn_t l4x_l4shmc_interrupt(int irq, void *dev_id)
 	}
 
 	chhead = (struct chunk_head *)l4shmc_chunk_ptr(&priv->rx_chunk);
-	offs = chhead->next_offs_to_read;
-	while (1) {
-		unsigned long l;
+
+	while ((len = l4shm_buf_rx_len(&priv->sb)) > 0) {
 		char *p;
 
-		rph = (struct ring_chunk_head *)(priv->rx_ring_start + offs);
-
-		if (!rph->size)
-			break;
-
-		skb = dev_alloc_skb(rph->size);
+		/* NET_IP_ALIGN is non-zero on some architectures */
+		skb = dev_alloc_skb(len + NET_IP_ALIGN);
 
 		if (unlikely(!skb)) {
-			printk(KERN_WARNING "%s: dropping packet (%ld).\n",
-			       netdev->name, rph->size);
+			dev_warn(&netdev->dev, "%s: dropping packet (%ld).\n",
+			         netdev->name, len);
 			priv->net_stats.rx_dropped++;
 			break;
 		}
 
 		skb->dev = netdev;
 
-		offs += sizeof(struct ring_chunk_head);
-		offs %= priv->rx_ring_size;
-
-		if (offs + rph->size > priv->rx_ring_size)
-			l = priv->rx_ring_size - offs;
-		else
-			l = rph->size;
-
 		skb_reserve(skb, NET_IP_ALIGN);
-		p = skb_put(skb, rph->size);
-		memcpy(p, priv->rx_ring_start + offs, l);
-		if (l != rph->size)
-			memcpy(p + l, priv->rx_ring_start, rph->size - l);
-
-	        offs = (offs + rph->size + sizeof(struct ring_chunk_head) - 1)
-	               & ~(sizeof(struct ring_chunk_head) - 1);
-		offs %= priv->rx_ring_size;
-		chhead->next_offs_to_read = offs;
-		rph->size = 0;
-
+		p = skb_put(skb, len);
+		ret = l4shm_buf_rx(&priv->sb, p, len);
+		/* XXX: check errors */
 		skb->protocol = eth_type_trans(skb, netdev);
 		netif_rx(skb);
 
@@ -208,42 +296,55 @@ static irqreturn_t l4x_l4shmc_interrupt(int irq, void *dev_id)
 		priv->net_stats.rx_packets++;
 	}
 
-	if (chhead->writer_blocked) {
+	if (len == -L4_EAGAIN) {
 		L4XV_V(f);
 		L4XV_L(f);
 		l4shmc_trigger(&priv->tx_sig);
 		L4XV_U(f);
 	}
+	/* XXX: handle other errors */
 
 	return IRQ_HANDLED;
 }
 
 static int l4x_l4shmc_open(struct net_device *netdev)
 {
+	struct l4x_l4shmc_priv *priv = netdev_priv(netdev);
 	int err;
+	L4XV_V(f);
 
 	netif_carrier_off(netdev);
 
 	if ((err = request_irq(netdev->irq, l4x_l4shmc_interrupt,
 	                       IRQF_SAMPLE_RANDOM | IRQF_SHARED,
 	                       netdev->name, netdev))) {
-		printk("%s: request_irq(%d, ...) failed: %d\n",
-		       netdev->name, netdev->irq, err);
+		dev_err(&netdev->dev, "%s: request_irq(%d, ...) failed: %d\n",
+		        netdev->name, netdev->irq, err);
 		return err;
 	}
 
-
-	netif_carrier_on(netdev);
-	netif_wake_queue(netdev);
+	l4shmc_chunk_ready(&priv->rx_chunk, 0);
+	L4XV_L(f);
+	l4shmc_trigger(&priv->tx_sig);
+	L4XV_U(f);
+	if (!priv->remote_attached)
+		init_dev_other(netdev);
+	update_carrier(netdev);
 
 	return 0;
 }
 
 static int l4x_l4shmc_close(struct net_device *netdev)
 {
+	struct l4x_l4shmc_priv *priv = netdev_priv(netdev);
+	L4XV_V(f);
+
 	free_irq(netdev->irq, netdev);
-	netif_stop_queue(netdev);
-	netif_carrier_off(netdev);
+	l4shmc_chunk_consumed(&priv->rx_chunk);
+	L4XV_L(f);
+	l4shmc_trigger(&priv->tx_sig);
+	L4XV_U(f);
+	update_carrier(netdev);
 
 	return 0;
 }
@@ -251,8 +352,10 @@ static int l4x_l4shmc_close(struct net_device *netdev)
 static int l4x_l4shmc_change_mtu(struct net_device *netdev, int new_mtu)
 {
 	struct l4x_l4shmc_priv *priv = netdev_priv(netdev);
+	int max_mtu = min(l4shmc_chunk_capacity(&priv->rx_chunk),
+			  l4shmc_chunk_capacity(&priv->tx_chunk)) - 100;
 
-	if (new_mtu > chunk_size(&priv->shmcarea) - 100)
+	if (new_mtu > max_mtu)
 		return -EINVAL;
 
 	netdev->mtu = new_mtu;
@@ -268,13 +371,13 @@ static const struct net_device_ops l4shmnet_netdev_ops = {
 
 };
 
-static int __init l4x_l4shmnet_init_dev(int num, const char *name)
+static int __init l4x_l4shmnet_init_dev(int num)
 {
 	struct l4x_l4shmc_priv *priv;
 	struct net_device *dev = NULL;
 	struct l4x_l4shmc_netdev *nd = NULL;
-	struct chunk_head *ch;
-	int err;
+	const char *name = devs_to_add_name[num];
+	int err, ret;
 	L4XV_V(f);
 
 	if (shmsize < PAGE_SIZE)
@@ -284,65 +387,6 @@ static int __init l4x_l4shmnet_init_dev(int num, const char *name)
 		return -ENOMEM;
 
 	dev->netdev_ops = &l4shmnet_netdev_ops,
-	priv = netdev_priv(dev);
-
-	printk("%s: Requesting, role %s, Shmsize %d Kbytes\n",
-	       name,
-               devs_create[num] ? "Creator" : "User", shmsize >> 10);
-
-	L4XV_L(f);
-	err = -ENOMEM;
-	if (devs_create[num]) {
-		if (l4shmc_create(name, shmsize))
-			goto err_out_free_dev_unlock;
-	}
-
-	// we block very long here, don't do that
-	if (l4shmc_attach_to(name, WAIT_TIMEOUT, &priv->shmcarea))
-		goto err_out_free_dev_unlock;
-
-	if (l4shmc_add_chunk(&priv->shmcarea, devs_create[num] ? "joe" : "bob",
-	                     chunk_size(&priv->shmcarea), &priv->tx_chunk))
-		goto err_out_free_dev_unlock;
-
-	if (l4shmc_add_signal(&priv->shmcarea, devs_create[num] ? "joe" : "bob",
-	                      &priv->tx_sig))
-		goto err_out_free_dev_unlock;
-
-	if (l4shmc_connect_chunk_signal(&priv->tx_chunk, &priv->tx_sig))
-		goto err_out_free_dev_unlock;
-
-	/* Now get the receiving side */
-	if (l4shmc_get_chunk_to(&priv->shmcarea, devs_create[num] ? "bob" : "joe",
-	                        WAIT_TIMEOUT, &priv->rx_chunk)) {
-		printk("%s: Did not find other side\n", name);
-		goto err_out_free_dev_unlock;
-	}
-
-	if (l4shmc_get_signal_to(&priv->shmcarea, devs_create[num] ? "bob" : "joe",
-	                         WAIT_TIMEOUT, &priv->rx_sig)) {
-		printk("%s: Could not get signal\n", name);
-		goto err_out_free_dev_unlock;
-	}
-	if (l4shmc_connect_chunk_signal(&priv->rx_chunk, &priv->rx_sig))
-		goto err_out_free_dev_unlock;
-	L4XV_U(f);
-
-	ch = (struct chunk_head *)l4shmc_chunk_ptr(&priv->tx_chunk);
-	ch->next_offs_to_write = 0;
-	ch->next_offs_to_read  = 0;
-	ch->writer_blocked     = 0;
-
-	priv->tx_ring_size = l4shmc_chunk_capacity(&priv->tx_chunk)
-	                       - sizeof(struct chunk_head);
-	priv->rx_ring_size = l4shmc_chunk_capacity(&priv->rx_chunk)
-	                       - sizeof(struct chunk_head);
-
-	priv->tx_ring_start = (char *)l4shmc_chunk_ptr(&priv->tx_chunk)
-	                       + sizeof(struct chunk_head);
-	priv->rx_ring_start = (char *)l4shmc_chunk_ptr(&priv->rx_chunk)
-	                       + sizeof(struct chunk_head);
-
 	dev->dev_addr[0] = 0x52;
 	dev->dev_addr[1] = 0x54;
 	dev->dev_addr[2] = 0x00;
@@ -350,8 +394,34 @@ static int __init l4x_l4shmnet_init_dev(int num, const char *name)
 	dev->dev_addr[4] = 0xcf;
 	dev->dev_addr[5] = devs_to_add_macpart[num];
 
+	priv = netdev_priv(dev);
+	priv->num = num;
+	priv->link_up = 0;
+	priv->remote_attached = 0;
+
+	pr_info("%s: Requesting, Shmsize %d Kbytes\n", name, shmsize >> 10);
+
+	L4XV_L(f);
+	err = -ENOMEM;
+	if ((ret = l4shmc_create(name, shmsize)) < 0) {
+		if (ret != -L4_EEXIST)
+			goto err_out_free_dev_unlock;
+	}
+
+	// we block very long here, don't do that
+	if (l4shmc_attach_to(name, WAIT_TIMEOUT, &priv->shmcarea))
+		goto err_out_free_dev_unlock;
+
+	ret = init_dev_self(dev);
+	if (ret < 0) {
+		/* XXX: convert error code */
+		goto err_out_free_dev_unlock;
+	}
+
+	L4XV_U(f);
+
 	if ((dev->irq = l4x_register_irq(l4shmc_signal_cap(&priv->rx_sig))) < 0) {
-		printk("Failed to get virq\n");
+		pr_err("l4shmnet: Failed to get virq\n");
 		goto err_out_free_dev;
 	}
 
@@ -359,27 +429,30 @@ static int __init l4x_l4shmnet_init_dev(int num, const char *name)
 
 	err = -ENODEV;
 	if ((err = register_netdev(dev))) {
-		printk("l4ore: Cannot register net device, aborting.\n");
+		pr_err("l4shmnet: Cannot register net device, aborting.\n");
 		goto err_out_free_dev;
 	}
 
 	nd = kmalloc(sizeof(struct l4x_l4shmc_netdev), GFP_KERNEL);
 	if (!nd) {
-		printk("Out of memory.\n");
+		pr_err("l4shmnet: Out of memory.\n");
 		goto err_out_free_dev;
 	}
 	nd->dev = dev;
 	list_add(&nd->list, &l4x_l4shmnet_netdevices);
 
-	printk(KERN_INFO "%s: L4ShmNet established, with %pM, IRQ %d\n",
-	                 dev->name, dev->dev_addr, dev->irq);
+	ret = init_dev_other(dev);
+	if (ret < 0 && ret != -L4_EAGAIN) {
+		/* XXX: convert error code */
+		goto err_out_free_dev;
+	}
 
 	return 0;
 
 err_out_free_dev_unlock:
 	L4XV_U(f);
 err_out_free_dev:
-	printk(KERN_INFO "%s: Failed to establish communication\n", name);
+	pr_info("%s: Failed to establish communication\n", name);
 	free_netdev(dev);
 
 	return err;
@@ -391,7 +464,7 @@ static int __init l4x_l4shmnet_init(void)
 
 	for (i = 0; i < devs_to_add_pos; ++i)
 		if (*devs_to_add_name[i]
-		    && !l4x_l4shmnet_init_dev(i, devs_to_add_name[i]))
+		    && !l4x_l4shmnet_init_dev(i))
 			ret = 0;
 	return ret;
 }
@@ -422,7 +495,7 @@ static int l4x_l4shmnet_setup(const char *val, struct kernel_param *kp)
 	int l;
 	char *c;
 	if (devs_to_add_pos >= NR_OF_DEVS) {
-		printk("l4shmnet: Too many devices specified, max %d\n",
+		pr_err("l4shmnet: Too many devices specified, max %d\n",
 		       NR_OF_DEVS);
 		return 1;
 	}
@@ -433,13 +506,17 @@ static int l4x_l4shmnet_setup(const char *val, struct kernel_param *kp)
 	if (c) {
 		l = c - val + 1;
 		do {
-			if (!strncmp(c + 1, "create", 6))
-				devs_create[devs_to_add_pos] = 1;
-			else if (!strncmp(c + 1, "macpart=", 8)) {
+			c++;
+			if (!strncmp(c, "macpart=", 8)) {
 				devs_to_add_macpart[devs_to_add_pos]
-				  = simple_strtoul(c + 9, NULL, 0);
+				  = simple_strtoul(c + 8, NULL, 0);
 			}
-		} while ((c = strchr(c + 1, ',')));
+			else {
+				char *end = strchr(c, ',');
+				pr_err("l4shmnet: unknown argument: %*s",
+					end ? end - c : strlen(c), c);
+			}
+		} while ((c = strchr(c, ',')));
 	}
 	strlcpy(devs_to_add_name[devs_to_add_pos], val, l);
 	devs_to_add_pos++;
@@ -447,7 +524,7 @@ static int l4x_l4shmnet_setup(const char *val, struct kernel_param *kp)
 }
 
 module_param_call(add, l4x_l4shmnet_setup, NULL, NULL, 0200);
-MODULE_PARM_DESC(add, "Use l4shmnet.add=name,macpart[,create] to add a device, name queried in namespace");
+MODULE_PARM_DESC(add, "Use l4shmnet.add=name,macpart=xx to add a device, name queried in namespace");
 
 module_param(shmsize, int, 0);
 MODULE_PARM_DESC(shmsize, "Size of the shared memory area");

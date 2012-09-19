@@ -101,7 +101,7 @@ int ubifs_scan_a_node(const struct ubifs_info *c, void *buf, int len, int lnum,
 			if (!quiet) {
 				ubifs_err("bad pad node at LEB %d:%d",
 					  lnum, offs);
-				dbg_dump_node(c, pad);
+				ubifs_dump_node(c, pad);
 			}
 			return SCANNED_A_BAD_PAD_NODE;
 		}
@@ -109,8 +109,8 @@ int ubifs_scan_a_node(const struct ubifs_info *c, void *buf, int len, int lnum,
 		/* Make the node pads to 8-byte boundary */
 		if ((node_len + pad_len) & 7) {
 			if (!quiet)
-				dbg_err("bad padding length %d - %d",
-					offs, offs + node_len + pad_len);
+				ubifs_err("bad padding length %d - %d",
+					  offs, offs + node_len + pad_len);
 			return SCANNED_A_BAD_PAD_NODE;
 		}
 
@@ -148,7 +148,7 @@ struct ubifs_scan_leb *ubifs_start_scan(const struct ubifs_info *c, int lnum,
 	INIT_LIST_HEAD(&sleb->nodes);
 	sleb->buf = sbuf;
 
-	err = ubi_read(c->ubi, lnum, sbuf + offs, offs, c->leb_size - offs);
+	err = ubifs_leb_read(c, lnum, sbuf + offs, offs, c->leb_size - offs, 0);
 	if (err && err != -EBADMSG) {
 		ubifs_err("cannot read %d bytes from LEB %d:%d,"
 			  " error %d", c->leb_size - offs, lnum, offs, err);
@@ -240,12 +240,12 @@ void ubifs_scanned_corruption(const struct ubifs_info *c, int lnum, int offs,
 	int len;
 
 	ubifs_err("corruption at LEB %d:%d", lnum, offs);
-	if (dbg_failure_mode)
+	if (dbg_is_tst_rcvry(c))
 		return;
 	len = c->leb_size - offs;
 	if (len > 8192)
 		len = 8192;
-	dbg_err("first %d bytes from LEB %d:%d", len, lnum, offs);
+	ubifs_err("first %d bytes from LEB %d:%d", len, lnum, offs);
 	print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET, 32, 4, buf, len, 1);
 }
 
@@ -300,16 +300,16 @@ struct ubifs_scan_leb *ubifs_scan(const struct ubifs_info *c, int lnum,
 
 		switch (ret) {
 		case SCANNED_GARBAGE:
-			dbg_err("garbage");
+			ubifs_err("garbage");
 			goto corrupted;
 		case SCANNED_A_NODE:
 			break;
 		case SCANNED_A_CORRUPT_NODE:
 		case SCANNED_A_BAD_PAD_NODE:
-			dbg_err("bad node");
+			ubifs_err("bad node");
 			goto corrupted;
 		default:
-			dbg_err("unknown");
+			ubifs_err("unknown");
 			err = -EINVAL;
 			goto error;
 		}

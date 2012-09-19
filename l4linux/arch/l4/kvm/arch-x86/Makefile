@@ -1,6 +1,7 @@
 b := ../../../x86/kvm
 
-ccflags-y += -Ivirt/kvm -Iarch/l4/kvm/arch-x86 -Iarch/x86/kvm
+KBUILD_CPPFLAGS := -I$(srctree)/arch/x86/kvm $(KBUILD_CPPFLAGS)
+ccflags-y += -Ivirt/kvm -Iarch/x86/kvm
 
 CFLAGS_x86.o := -I.
 CFLAGS_svm.o := -I.
@@ -13,7 +14,7 @@ kvm-$(CONFIG_IOMMU_API)	+= $(addprefix ../../../../virt/kvm/, iommu.o)
 kvm-$(CONFIG_KVM_ASYNC_PF)	+= $(addprefix ../../../../virt/kvm/, async_pf.o)
 
 kvm-y			+= x86.o mmu.o $(b)/emulate.o $(b)/i8259.o $(b)/irq.o $(b)/lapic.o \
-			   $(b)/i8254.o $(b)/timer.o
+			   $(b)/i8254.o $(b)/timer.o $(b)/cpuid.o $(b)/pmu.o
 kvm-y			+= kvm-l4.o kvm_main.o
 kvm-intel-y		+= vmx.o
 kvm-amd-y		+= svm.o

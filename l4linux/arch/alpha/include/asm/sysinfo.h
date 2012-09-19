@@ -15,6 +15,7 @@
 #define GSI_GET_HWRPB			101
 
 #define SSI_NVPAIRS			1
+#define SSI_LMF				7
 #define SSI_IEEE_FP_CONTROL		14
 #define SSI_IEEE_STATE_AT_SIGNAL	15
 #define SSI_IEEE_IGNORE_STATE_AT_SIGNAL	16
@@ -26,14 +27,5 @@
 #define UAC_NOPRINT			1
 #define UAC_NOFIX			2
 #define UAC_SIGBUS			4
-
-
-#ifdef __KERNEL__
-
-/* This is the shift that is applied to the UAC bits as stored in the
-   per-thread flags.  See thread_info.h.  */
-#define UAC_SHIFT			6
-
-#endif
 
 #endif /* __ASM_ALPHA_SYSINFO_H */

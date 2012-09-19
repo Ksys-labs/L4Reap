@@ -396,14 +396,14 @@ static int h3600ts_connect(struct serio *serio, struct serio_driver *drv)
 	set_GPIO_IRQ_edge(GPIO_BITSY_NPOWER_BUTTON, GPIO_RISING_EDGE);
 
 	if (request_irq(IRQ_GPIO_BITSY_ACTION_BUTTON, action_button_handler,
-			IRQF_SHARED | IRQF_DISABLED, "h3600_action", ts->dev)) {
+			IRQF_SHARED, "h3600_action", ts->dev)) {
 		printk(KERN_ERR "h3600ts.c: Could not allocate Action Button IRQ!\n");
 		err = -EBUSY;
 		goto fail1;
 	}
 
 	if (request_irq(IRQ_GPIO_BITSY_NPOWER_BUTTON, npower_button_handler,
-			IRQF_SHARED | IRQF_DISABLED, "h3600_suspend", ts->dev)) {
+			IRQF_SHARED, "h3600_suspend", ts->dev)) {
 		printk(KERN_ERR "h3600ts.c: Could not allocate Power Button IRQ!\n");
 		err = -EBUSY;
 		goto fail2;
@@ -476,19 +476,4 @@ static struct serio_driver h3600ts_drv = {
 	.disconnect	= h3600ts_disconnect,
 };
 
-/*
- * The functions for inserting/removing us as a module.
- */
-
-static int __init h3600ts_init(void)
-{
-	return serio_register_driver(&h3600ts_drv);
-}
-
-static void __exit h3600ts_exit(void)
-{
-	serio_unregister_driver(&h3600ts_drv);
-}
-
-module_init(h3600ts_init);
-module_exit(h3600ts_exit);
+module_serio_driver(h3600ts_drv);

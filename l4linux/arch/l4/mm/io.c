@@ -253,7 +253,6 @@ __l4x_ioremap(unsigned long phys_addr, size_t size, unsigned long flags)
 	unsigned long last_addr;
 	unsigned long offset;
 	int i;
-	L4XV_V(f);
 
 	/*
 	 * Don't allow wraparound or zero size
@@ -271,8 +270,9 @@ __l4x_ioremap(unsigned long phys_addr, size_t size, unsigned long flags)
 	 * pages. That's why we first request the size of the region and
 	 * then request the whole region at once.
 	 */
-	//printk("%s: Requested region at %08lx [0x%x Bytes]\n",
-	//       __func__, phys_addr, size);
+	if (0)
+		printk("%s: Requested region at %08lx [0x%zx Bytes]\n",
+		       __func__, phys_addr, size);
 
 	if ((i = __lookup_ioremap_entry_phys(phys_addr)) != -1) {
 		/* Found already existing entry */
@@ -283,30 +283,25 @@ __l4x_ioremap(unsigned long phys_addr, size_t size, unsigned long flags)
 				(get_iotable_entry_ioremap_addr(i) + offset);
 	}
 
-	L4XV_L(f);
-
-	if (!l4io_has_resource(L4IO_RESOURCE_MEM, phys_addr,
-	                       phys_addr + size - 1)) {
+	if (!L4XV_FN_i(l4io_has_resource(L4IO_RESOURCE_MEM, phys_addr,
+	                                 phys_addr + size - 1))) {
 		printk("ERROR: IO-memory (%lx+%zx) not available\n",
 		       phys_addr, size);
-		L4XV_U(f);
 		return NULL;
 	}
 
-	if ((i = l4io_search_iomem_region(phys_addr, size, &reg_start, &reg_len))) {
+	if ((i = L4XV_FN_i(l4io_search_iomem_region(phys_addr, size,
+	                                            &reg_start, &reg_len)))) {
 		printk("ioremap: No region found for %lx: %d\n", phys_addr, i);
-		L4XV_U(f);
 		return NULL;
 	}
 
-	if ((i = l4io_request_iomem(reg_start, reg_len,
-	                            0, (l4_addr_t *)&addr))) {
+	if ((i = L4XV_FN_i(l4io_request_iomem(reg_start, reg_len,
+	                                      0, (l4_addr_t *)&addr)))) {
 		printk("ERROR: l4io_request_iomem error(%lx+%lx): %d\n",
 		       reg_start, reg_len, i);
-		L4XV_U(f);
 		return NULL;
 	}
-	L4XV_U(f);
 	offset = 0;
 
 	/* Save whole region */
@@ -330,7 +325,6 @@ l4x_iounmap(volatile void __iomem *addr)
 {
 	unsigned long size;
 	unsigned long phys_addr;
-	L4XV_V(f);
 
 	if (addr <= high_memory)
 		return;
@@ -343,8 +337,6 @@ l4x_iounmap(volatile void __iomem *addr)
 	if (remove_ioremap_entry_phys(phys_addr) == -1)
 		printk("%s: could not find address to unmap\n", __func__);
 
-	L4XV_L(f);
-	if (l4io_release_iomem((l4_addr_t)addr, size))
+	if (L4XV_FN_i(l4io_release_iomem((l4_addr_t)addr, size)))
 		printk("iounmap: error calling l4io_release_mem_region, not freed");
-	L4XV_U(f);
 }

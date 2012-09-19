@@ -34,12 +34,35 @@ static inline void l4x_vcpu_init(l4_vcpu_state_t *v)
 	v->user_task = L4_INVALID_CAP;
 }
 
+static inline
+int l4x_is_vcpu(void)
+{
+	return 1;
+}
+
 #else
+
+static inline
+int l4x_is_vcpu(void)
+{
+	return 0;
+}
 
 #define  L4XV_V(n)
 #define  L4XV_L(n) do {} while (0)
 #define  L4XV_U(n) do {} while (0)
 
 #endif
+
+#define  L4XV_FN(rettype, fn) \
+	 ({ rettype r; L4XV_V(f); L4XV_L(f); r = fn; L4XV_U(f); r; })
+
+#define  L4XV_FN_i(fn) L4XV_FN(int, fn)
+#define  L4XV_FN_l(fn) L4XV_FN(long, fn)
+#define  L4XV_FN_ui(fn) L4XV_FN(unsigned int, fn)
+#define  L4XV_FN_ul(fn) L4XV_FN(unsigned long, fn)
+
+#define  L4XV_FN_v(fn) \
+	 ({ L4XV_V(f); L4XV_L(f); fn; L4XV_U(f); })
 
 #endif /* ! __ASM_L4__GENERIC__VCPU_H__ */

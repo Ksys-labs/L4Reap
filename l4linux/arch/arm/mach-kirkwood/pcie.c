@@ -11,13 +11,32 @@
 #include <linux/kernel.h>
 #include <linux/pci.h>
 #include <linux/slab.h>
-#include <linux/mbus.h>
+#include <linux/clk.h>
+#include <video/vga.h>
 #include <asm/irq.h>
 #include <asm/mach/pci.h>
 #include <plat/pcie.h>
 #include <mach/bridge-regs.h>
+#include <plat/addr-map.h>
 #include "common.h"
 
+static void kirkwood_enable_pcie_clk(const char *port)
+{
+	struct clk *clk;
+
+	clk = clk_get_sys("pcie", port);
+	if (IS_ERR(clk)) {
+		printk(KERN_ERR "PCIE clock %s missing\n", port);
+		return;
+	}
+	clk_prepare_enable(clk);
+	clk_put(clk);
+}
+
+/* This function is called very early in the boot when probing the
+   hardware to determine what we actually are, and what rate tclk is
+   ticking at. Hence calling kirkwood_enable_pcie_clk() is not
+   possible since the clk tree has not been created yet. */
 void kirkwood_enable_pcie(void)
 {
 	u32 curr = readl(CLOCK_GATING_CTRL);
@@ -25,7 +44,7 @@ void kirkwood_enable_pcie(void)
 		writel(curr | CGC_PEX0, CLOCK_GATING_CTRL);
 }
 
-void __init kirkwood_pcie_id(u32 *dev, u32 *rev)
+void kirkwood_pcie_id(u32 *dev, u32 *rev)
 {
 	kirkwood_enable_pcie();
 	*dev = orion_pcie_dev_id((void __iomem *)PCIE_VIRT_BASE);
@@ -42,12 +61,6 @@ struct pcie_port {
 
 static int pcie_port_map[2];
 static int num_pcie_ports;
-
-static inline struct pcie_port *bus_to_port(struct pci_bus *bus)
-{
-	struct pci_sys_data *sys = bus->sysdata;
-	return sys->private_data;
-}
 
 static int pcie_valid_config(struct pcie_port *pp, int bus, int dev)
 {
@@ -78,7 +91,8 @@ static int pcie_valid_config(struct pcie_port *pp, int bus, int dev)
 static int pcie_rd_conf(struct pci_bus *bus, u32 devfn, int where,
 			int size, u32 *val)
 {
-	struct pcie_port *pp = bus_to_port(bus);
+	struct pci_sys_data *sys = bus->sysdata;
+	struct pcie_port *pp = sys->private_data;
 	unsigned long flags;
 	int ret;
 
@@ -97,7 +111,8 @@ static int pcie_rd_conf(struct pci_bus *bus, u32 devfn, int where,
 static int pcie_wr_conf(struct pci_bus *bus, u32 devfn,
 			int where, int size, u32 val)
 {
-	struct pcie_port *pp = bus_to_port(bus);
+	struct pci_sys_data *sys = bus->sysdata;
+	struct pcie_port *pp = sys->private_data;
 	unsigned long flags;
 	int ret;
 
@@ -162,7 +177,6 @@ static void __init pcie1_ioresources_init(struct pcie_port *pp)
 
 static int __init kirkwood_pcie_setup(int nr, struct pci_sys_data *sys)
 {
-	extern unsigned int kirkwood_clk_ctrl;
 	struct pcie_port *pp;
 	int index;
 
@@ -181,11 +195,11 @@ static int __init kirkwood_pcie_setup(int nr, struct pci_sys_data *sys)
 
 	switch (index) {
 	case 0:
-		kirkwood_clk_ctrl |= CGC_PEX0;
+		kirkwood_enable_pcie_clk("0");
 		pcie0_ioresources_init(pp);
 		break;
 	case 1:
-		kirkwood_clk_ctrl |= CGC_PEX1;
+		kirkwood_enable_pcie_clk("1");
 		pcie1_ioresources_init(pp);
 		break;
 	default:
@@ -197,17 +211,16 @@ static int __init kirkwood_pcie_setup(int nr, struct pci_sys_data *sys)
 	if (request_resource(&iomem_resource, &pp->res[1]))
 		panic("Request PCIe%d Memory resource failed\n", index);
 
-	sys->resource[0] = &pp->res[0];
-	sys->resource[1] = &pp->res[1];
-	sys->resource[2] = NULL;
 	sys->io_offset = 0;
+	pci_add_resource_offset(&sys->resources, &pp->res[0], sys->io_offset);
+	pci_add_resource_offset(&sys->resources, &pp->res[1], sys->mem_offset);
 
 	/*
 	 * Generic PCIe unit setup.
 	 */
 	orion_pcie_set_local_bus_nr(pp->base, sys->busnr);
 
-	orion_pcie_setup(pp->base, &kirkwood_mbus_dram_info);
+	orion_pcie_setup(pp->base);
 
 	return 1;
 }
@@ -235,7 +248,8 @@ kirkwood_pcie_scan_bus(int nr, struct pci_sys_data *sys)
 	struct pci_bus *bus;
 
 	if (nr < num_pcie_ports) {
-		bus = pci_scan_bus(sys->busnr, &pcie_ops, sys);
+		bus = pci_scan_root_bus(NULL, sys->busnr, &pcie_ops, sys,
+					&sys->resources);
 	} else {
 		bus = NULL;
 		BUG();
@@ -244,15 +258,16 @@ kirkwood_pcie_scan_bus(int nr, struct pci_sys_data *sys)
 	return bus;
 }
 
-static int __init kirkwood_pcie_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
+static int __init kirkwood_pcie_map_irq(const struct pci_dev *dev, u8 slot,
+	u8 pin)
 {
-	struct pcie_port *pp = bus_to_port(dev->bus);
+	struct pci_sys_data *sys = dev->sysdata;
+	struct pcie_port *pp = sys->private_data;
 
 	return pp->irq;
 }
 
 static struct hw_pci kirkwood_pci __initdata = {
-	.swizzle	= pci_std_swizzle,
 	.setup		= kirkwood_pcie_setup,
 	.scan		= kirkwood_pcie_scan_bus,
 	.map_irq	= kirkwood_pcie_map_irq,
@@ -271,6 +286,8 @@ static void __init add_pcie_port(int index, unsigned long base)
 
 void __init kirkwood_pcie_init(unsigned int portmask)
 {
+	vga_base = KIRKWOOD_PCIE_MEM_PHYS_BASE;
+
 	if (portmask & KW_PCIE0)
 		add_pcie_port(0, PCIE_VIRT_BASE);
 

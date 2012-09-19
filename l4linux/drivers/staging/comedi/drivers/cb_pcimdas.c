@@ -123,15 +123,6 @@ static const struct cb_pcimdas_board cb_pcimdas_boards[] = {
 	 },
 };
 
-/* This is used by modprobe to translate PCI IDs to drivers.  Should
- * only be used for PCI and ISA-PnP devices */
-static DEFINE_PCI_DEVICE_TABLE(cb_pcimdas_pci_table) = {
-	{ PCI_DEVICE(PCI_VENDOR_ID_COMPUTERBOARDS, 0x0056) },
-	{ 0 }
-};
-
-MODULE_DEVICE_TABLE(pci, cb_pcimdas_pci_table);
-
 #define N_BOARDS 1		/*  Max number of boards supported */
 
 /*
@@ -139,9 +130,12 @@ MODULE_DEVICE_TABLE(pci, cb_pcimdas_pci_table);
  */
 #define thisboard ((const struct cb_pcimdas_board *)dev->board_ptr)
 
-/* this structure is for data unique to this hardware driver.  If
-   several hardware drivers keep similar information in this structure,
-   feel free to suggest moving the variable to the struct comedi_device struct.  */
+/*
+ * this structure is for data unique to this hardware driver.  If
+ * several hardware drivers keep similar information in this structure,
+ * feel free to suggest moving the variable to the struct comedi_device
+ * struct.
+ */
 struct cb_pcimdas_private {
 	int data;
 
@@ -172,22 +166,6 @@ struct cb_pcimdas_private {
  */
 #define devpriv ((struct cb_pcimdas_private *)dev->private)
 
-/*
- * The struct comedi_driver structure tells the Comedi core module
- * which functions to call to configure/deconfigure (attach/detach)
- * the board, and also about the kernel module that contains
- * the device code.
- */
-static int cb_pcimdas_attach(struct comedi_device *dev,
-			     struct comedi_devconfig *it);
-static int cb_pcimdas_detach(struct comedi_device *dev);
-static struct comedi_driver driver_cb_pcimdas = {
-	.driver_name = "cb_pcimdas",
-	.module = THIS_MODULE,
-	.attach = cb_pcimdas_attach,
-	.detach = cb_pcimdas_detach,
-};
-
 static int cb_pcimdas_ai_rinsn(struct comedi_device *dev,
 			       struct comedi_subdevice *s,
 			       struct comedi_insn *insn, unsigned int *data);
@@ -212,8 +190,6 @@ static int cb_pcimdas_attach(struct comedi_device *dev,
 	int index;
 	/* int i; */
 
-	printk("comedi%d: cb_pcimdas: ", dev->minor);
-
 /*
  * Allocate the private structure area.
  */
@@ -223,7 +199,6 @@ static int cb_pcimdas_attach(struct comedi_device *dev,
 /*
  * Probe the device to determine what device in the series it is.
  */
-	printk("\n");
 
 	for_each_pci_dev(pcidev) {
 		/*  is it not a computer boards card? */
@@ -248,26 +223,26 @@ static int cb_pcimdas_attach(struct comedi_device *dev,
 		}
 	}
 
-	printk("No supported ComputerBoards/MeasurementComputing card found on "
-	       "requested position\n");
+	dev_err(dev->hw_dev, "No supported ComputerBoards/MeasurementComputing card found on requested position\n");
 	return -EIO;
 
 found:
 
-	printk("Found %s on bus %i, slot %i\n", cb_pcimdas_boards[index].name,
-	       pcidev->bus->number, PCI_SLOT(pcidev->devfn));
+	dev_dbg(dev->hw_dev, "Found %s on bus %i, slot %i\n",
+		cb_pcimdas_boards[index].name, pcidev->bus->number,
+		PCI_SLOT(pcidev->devfn));
 
 	/*  Warn about non-tested features */
 	switch (thisboard->device_id) {
 	case 0x56:
 		break;
 	default:
-		printk("THIS CARD IS UNSUPPORTED.\n"
-		       "PLEASE REPORT USAGE TO <mocelet@sucs.org>\n");
+		dev_dbg(dev->hw_dev, "THIS CARD IS UNSUPPORTED.\n"
+			"PLEASE REPORT USAGE TO <mocelet@sucs.org>\n");
 	}
 
 	if (comedi_pci_enable(pcidev, "cb_pcimdas")) {
-		printk(" Failed to enable PCI device and request regions\n");
+		dev_err(dev->hw_dev, "Failed to enable PCI device and request regions\n");
 		return -EIO;
 	}
 
@@ -277,13 +252,11 @@ found:
 	devpriv->BADR3 = pci_resource_start(devpriv->pci_dev, 3);
 	devpriv->BADR4 = pci_resource_start(devpriv->pci_dev, 4);
 
-#ifdef CBPCIMDAS_DEBUG
-	printk("devpriv->BADR0 = 0x%lx\n", devpriv->BADR0);
-	printk("devpriv->BADR1 = 0x%lx\n", devpriv->BADR1);
-	printk("devpriv->BADR2 = 0x%lx\n", devpriv->BADR2);
-	printk("devpriv->BADR3 = 0x%lx\n", devpriv->BADR3);
-	printk("devpriv->BADR4 = 0x%lx\n", devpriv->BADR4);
-#endif
+	dev_dbg(dev->hw_dev, "devpriv->BADR0 = 0x%lx\n", devpriv->BADR0);
+	dev_dbg(dev->hw_dev, "devpriv->BADR1 = 0x%lx\n", devpriv->BADR1);
+	dev_dbg(dev->hw_dev, "devpriv->BADR2 = 0x%lx\n", devpriv->BADR2);
+	dev_dbg(dev->hw_dev, "devpriv->BADR3 = 0x%lx\n", devpriv->BADR3);
+	dev_dbg(dev->hw_dev, "devpriv->BADR4 = 0x%lx\n", devpriv->BADR4);
 
 /* Dont support IRQ yet */
 /*  get irq */
@@ -322,7 +295,8 @@ found:
 	s->subdev_flags = SDF_WRITABLE;
 	s->n_chan = thisboard->ao_nchan;
 	s->maxdata = 1 << thisboard->ao_bits;
-	s->range_table = &range_unknown;	/* ranges are hardware settable, but not software readable. */
+	/* ranges are hardware settable, but not software readable. */
+	s->range_table = &range_unknown;
 	s->insn_write = &cb_pcimdas_ao_winsn;
 	s->insn_read = &cb_pcimdas_ao_rinsn;
 
@@ -333,31 +307,11 @@ found:
 	else
 		s->type = COMEDI_SUBD_UNUSED;
 
-	printk("attached\n");
-
 	return 1;
 }
 
-/*
- * _detach is called to deconfigure a device.  It should deallocate
- * resources.
- * This function is also called when _attach() fails, so it should be
- * careful not to release resources that were not necessarily
- * allocated by _attach().  dev->private and dev->subdevices are
- * deallocated automatically by the core.
- */
-static int cb_pcimdas_detach(struct comedi_device *dev)
+static void cb_pcimdas_detach(struct comedi_device *dev)
 {
-#ifdef CBPCIMDAS_DEBUG
-	if (devpriv) {
-		printk("devpriv->BADR0 = 0x%lx\n", devpriv->BADR0);
-		printk("devpriv->BADR1 = 0x%lx\n", devpriv->BADR1);
-		printk("devpriv->BADR2 = 0x%lx\n", devpriv->BADR2);
-		printk("devpriv->BADR3 = 0x%lx\n", devpriv->BADR3);
-		printk("devpriv->BADR4 = 0x%lx\n", devpriv->BADR4);
-	}
-#endif
-	printk("comedi%d: cb_pcimdas: remove\n", dev->minor);
 	if (dev->irq)
 		free_irq(dev->irq, dev);
 	if (devpriv) {
@@ -367,8 +321,6 @@ static int cb_pcimdas_detach(struct comedi_device *dev)
 			pci_dev_put(devpriv->pci_dev);
 		}
 	}
-
-	return 0;
 }
 
 /*
@@ -406,7 +358,10 @@ static int cb_pcimdas_ai_rinsn(struct comedi_device *dev,
 	outb(0x01, devpriv->BADR3 + 6);	/* set bursting off, conversions on */
 	outb(0x00, devpriv->BADR3 + 7);	/* set range to 10V. UP/BP is controlled by a switch on the board */
 
-	/*  write channel limits to multiplexer, set Low (bits 0-3) and High (bits 4-7) channels to chan. */
+	/*
+	 * write channel limits to multiplexer, set Low (bits 0-3) and
+	 * High (bits 4-7) channels to chan.
+	 */
 	chanlims = chan | (chan << 4);
 	outb(chanlims, devpriv->BADR3 + 0);
 
@@ -483,49 +438,37 @@ static int cb_pcimdas_ao_rinsn(struct comedi_device *dev,
 	return i;
 }
 
-/*
- * A convenient macro that defines init_module() and cleanup_module(),
- * as necessary.
- */
-static int __devinit driver_cb_pcimdas_pci_probe(struct pci_dev *dev,
-						 const struct pci_device_id
-						 *ent)
+static struct comedi_driver cb_pcimdas_driver = {
+	.driver_name	= "cb_pcimdas",
+	.module		= THIS_MODULE,
+	.attach		= cb_pcimdas_attach,
+	.detach		= cb_pcimdas_detach,
+};
+
+static int __devinit cb_pcimdas_pci_probe(struct pci_dev *dev,
+					  const struct pci_device_id *ent)
 {
-	return comedi_pci_auto_config(dev, driver_cb_pcimdas.driver_name);
+	return comedi_pci_auto_config(dev, &cb_pcimdas_driver);
 }
 
-static void __devexit driver_cb_pcimdas_pci_remove(struct pci_dev *dev)
+static void __devexit cb_pcimdas_pci_remove(struct pci_dev *dev)
 {
 	comedi_pci_auto_unconfig(dev);
 }
 
-static struct pci_driver driver_cb_pcimdas_pci_driver = {
-	.id_table = cb_pcimdas_pci_table,
-	.probe = &driver_cb_pcimdas_pci_probe,
-	.remove = __devexit_p(&driver_cb_pcimdas_pci_remove)
+static DEFINE_PCI_DEVICE_TABLE(cb_pcimdas_pci_table) = {
+	{ PCI_DEVICE(PCI_VENDOR_ID_COMPUTERBOARDS, 0x0056) },
+	{ 0 }
 };
+MODULE_DEVICE_TABLE(pci, cb_pcimdas_pci_table);
 
-static int __init driver_cb_pcimdas_init_module(void)
-{
-	int retval;
-
-	retval = comedi_driver_register(&driver_cb_pcimdas);
-	if (retval < 0)
-		return retval;
-
-	driver_cb_pcimdas_pci_driver.name =
-	    (char *)driver_cb_pcimdas.driver_name;
-	return pci_register_driver(&driver_cb_pcimdas_pci_driver);
-}
-
-static void __exit driver_cb_pcimdas_cleanup_module(void)
-{
-	pci_unregister_driver(&driver_cb_pcimdas_pci_driver);
-	comedi_driver_unregister(&driver_cb_pcimdas);
-}
-
-module_init(driver_cb_pcimdas_init_module);
-module_exit(driver_cb_pcimdas_cleanup_module);
+static struct pci_driver cb_pcimdas_pci_driver = {
+	.name		= "cb_pcimdas",
+	.id_table	= cb_pcimdas_pci_table,
+	.probe		= cb_pcimdas_pci_probe,
+	.remove		= __devexit_p(cb_pcimdas_pci_remove),
+};
+module_comedi_pci_driver(cb_pcimdas_driver, cb_pcimdas_pci_driver);
 
 MODULE_AUTHOR("Comedi http://www.comedi.org");
 MODULE_DESCRIPTION("Comedi low-level driver");

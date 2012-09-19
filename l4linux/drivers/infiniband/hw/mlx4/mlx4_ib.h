@@ -44,6 +44,14 @@
 #include <linux/mlx4/device.h>
 #include <linux/mlx4/doorbell.h>
 
+enum {
+	MLX4_IB_SQ_MIN_WQE_SHIFT = 6,
+	MLX4_IB_MAX_HEADROOM	 = 2048
+};
+
+#define MLX4_IB_SQ_HEADROOM(shift)	((MLX4_IB_MAX_HEADROOM >> (shift)) + 1)
+#define MLX4_IB_SQ_MAX_SPARE		(MLX4_IB_SQ_HEADROOM(MLX4_IB_SQ_MIN_WQE_SHIFT))
+
 struct mlx4_ib_ucontext {
 	struct ib_ucontext	ibucontext;
 	struct mlx4_uar		uar;
@@ -54,6 +62,13 @@ struct mlx4_ib_ucontext {
 struct mlx4_ib_pd {
 	struct ib_pd		ibpd;
 	u32			pdn;
+};
+
+struct mlx4_ib_xrcd {
+	struct ib_xrcd		ibxrcd;
+	u32			xrcdn;
+	struct ib_pd	       *pd;
+	struct ib_cq	       *cq;
 };
 
 struct mlx4_ib_cq_buf {
@@ -138,6 +153,7 @@ struct mlx4_ib_qp {
 	struct mlx4_mtt		mtt;
 	int			buf_size;
 	struct mutex		mutex;
+	u16			xrcdn;
 	u32			flags;
 	u8			port;
 	u8			alt_port;
@@ -193,6 +209,9 @@ struct mlx4_ib_dev {
 	struct mutex		cap_mask_mutex;
 	bool			ib_active;
 	struct mlx4_ib_iboe	iboe;
+	int			counters[MLX4_MAX_PORTS];
+	int		       *eq_table;
+	int			eq_added;
 };
 
 static inline struct mlx4_ib_dev *to_mdev(struct ib_device *ibdev)
@@ -208,6 +227,11 @@ static inline struct mlx4_ib_ucontext *to_mucontext(struct ib_ucontext *ibuconte
 static inline struct mlx4_ib_pd *to_mpd(struct ib_pd *ibpd)
 {
 	return container_of(ibpd, struct mlx4_ib_pd, ibpd);
+}
+
+static inline struct mlx4_ib_xrcd *to_mxrcd(struct ib_xrcd *ibxrcd)
+{
+	return container_of(ibxrcd, struct mlx4_ib_xrcd, ibxrcd);
 }
 
 static inline struct mlx4_ib_cq *to_mcq(struct ib_cq *ibcq)

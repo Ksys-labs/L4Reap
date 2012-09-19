@@ -48,14 +48,26 @@ struct drxd_config {
 	u8 disable_i2c_gate_ctrl;
 
 	u32 IF;
-	int (*pll_set) (void *priv, void *priv_params,
-			u8 pll_addr, u8 demoda_addr, s32 *off);
 	 s16(*osc_deviation) (void *priv, s16 dev, int flag);
 };
 
+#if defined(CONFIG_DVB_DRXD) || \
+			(defined(CONFIG_DVB_DRXD_MODULE) && defined(MODULE))
 extern
 struct dvb_frontend *drxd_attach(const struct drxd_config *config,
 				 void *priv, struct i2c_adapter *i2c,
 				 struct device *dev);
+#else
+static inline
+struct dvb_frontend *drxd_attach(const struct drxd_config *config,
+				 void *priv, struct i2c_adapter *i2c,
+				 struct device *dev)
+{
+	printk(KERN_INFO "%s: not probed - driver disabled by Kconfig\n",
+	       __func__);
+	return NULL;
+}
+#endif
+
 extern int drxd_config_i2c(struct dvb_frontend *, int);
 #endif

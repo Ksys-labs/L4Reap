@@ -17,6 +17,7 @@
 
 #include <linux/spi/spi.h>
 #include <linux/spi/lms283gf05.h>
+#include <linux/module.h>
 
 struct lms283gf05_state {
 	struct spi_device	*spi;
@@ -167,7 +168,8 @@ static int __devinit lms283gf05_probe(struct spi_device *spi)
 			goto err;
 	}
 
-	st = kzalloc(sizeof(struct lms283gf05_state), GFP_KERNEL);
+	st = devm_kzalloc(&spi->dev, sizeof(struct lms283gf05_state),
+				GFP_KERNEL);
 	if (st == NULL) {
 		dev_err(&spi->dev, "No memory for device state\n");
 		ret = -ENOMEM;
@@ -177,7 +179,7 @@ static int __devinit lms283gf05_probe(struct spi_device *spi)
 	ld = lcd_device_register("lms283gf05", &spi->dev, st, &lms_ops);
 	if (IS_ERR(ld)) {
 		ret = PTR_ERR(ld);
-		goto err2;
+		goto err;
 	}
 
 	st->spi = spi;
@@ -192,8 +194,6 @@ static int __devinit lms283gf05_probe(struct spi_device *spi)
 
 	return 0;
 
-err2:
-	kfree(st);
 err:
 	if (pdata != NULL)
 		gpio_free(pdata->reset_gpio);
@@ -211,8 +211,6 @@ static int __devexit lms283gf05_remove(struct spi_device *spi)
 	if (pdata != NULL)
 		gpio_free(pdata->reset_gpio);
 
-	kfree(st);
-
 	return 0;
 }
 
@@ -225,18 +223,7 @@ static struct spi_driver lms283gf05_driver = {
 	.remove		= __devexit_p(lms283gf05_remove),
 };
 
-static __init int lms283gf05_init(void)
-{
-	return spi_register_driver(&lms283gf05_driver);
-}
-
-static __exit void lms283gf05_exit(void)
-{
-	spi_unregister_driver(&lms283gf05_driver);
-}
-
-module_init(lms283gf05_init);
-module_exit(lms283gf05_exit);
+module_spi_driver(lms283gf05_driver);
 
 MODULE_AUTHOR("Marek Vasut <marek.vasut@gmail.com>");
 MODULE_DESCRIPTION("LCD283GF05 LCD");

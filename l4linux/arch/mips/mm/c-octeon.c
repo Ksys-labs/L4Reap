@@ -21,7 +21,7 @@
 #include <asm/page.h>
 #include <asm/pgtable.h>
 #include <asm/r4kcache.h>
-#include <asm/system.h>
+#include <asm/traps.h>
 #include <asm/mmu_context.h>
 #include <asm/war.h>
 
@@ -81,9 +81,9 @@ static void octeon_flush_icache_all_cores(struct vm_area_struct *vma)
 	if (vma)
 		mask = *mm_cpumask(vma->vm_mm);
 	else
-		mask = cpu_online_map;
-	cpu_clear(cpu, mask);
-	for_each_cpu_mask(cpu, mask)
+		mask = *cpu_online_mask;
+	cpumask_clear_cpu(cpu, &mask);
+	for_each_cpu(cpu, &mask)
 		octeon_send_ipi_single(cpu, SMP_ICACHE_FLUSH);
 
 	preempt_enable();
@@ -169,6 +169,10 @@ static void octeon_flush_cache_page(struct vm_area_struct *vma,
 		octeon_flush_icache_all_cores(vma);
 }
 
+static void octeon_flush_kernel_vmap_range(unsigned long vaddr, int size)
+{
+	BUG();
+}
 
 /**
  * Probe Octeon's caches
@@ -219,7 +223,7 @@ static void __cpuinit probe_octeon(void)
 		break;
 
 	default:
-		panic("Unsupported Cavium Networks CPU type\n");
+		panic("Unsupported Cavium Networks CPU type");
 		break;
 	}
 
@@ -245,6 +249,11 @@ static void __cpuinit probe_octeon(void)
 	}
 }
 
+static void  __cpuinit octeon_cache_error_setup(void)
+{
+	extern char except_vec2_octeon;
+	set_handler(0x100, &except_vec2_octeon, 0x80);
+}
 
 /**
  * Setup the Octeon cache flush routines
@@ -252,12 +261,6 @@ static void __cpuinit probe_octeon(void)
  */
 void __cpuinit octeon_cache_init(void)
 {
-	extern unsigned long ebase;
-	extern char except_vec2_octeon;
-
-	memcpy((void *)(ebase + 0x100), &except_vec2_octeon, 0x80);
-	octeon_flush_cache_sigtramp(ebase + 0x100);
-
 	probe_octeon();
 
 	shm_align_mask = PAGE_SIZE - 1;
@@ -273,8 +276,12 @@ void __cpuinit octeon_cache_init(void)
 	flush_icache_range		= octeon_flush_icache_range;
 	local_flush_icache_range	= local_octeon_flush_icache_range;
 
+	__flush_kernel_vmap_range	= octeon_flush_kernel_vmap_range;
+
 	build_clear_page();
 	build_copy_page();
+
+	board_cache_error_setup = octeon_cache_error_setup;
 }
 
 /**

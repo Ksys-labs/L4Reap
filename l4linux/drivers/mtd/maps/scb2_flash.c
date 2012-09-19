@@ -204,8 +204,7 @@ scb2_flash_remove(struct pci_dev *dev)
 		return;
 
 	/* disable flash writes */
-	if (scb2_mtd->lock)
-		scb2_mtd->lock(scb2_mtd, 0, scb2_mtd->size);
+	mtd_lock(scb2_mtd, 0, scb2_mtd->size);
 
 	mtd_device_unregister(scb2_mtd);
 	map_destroy(scb2_mtd);
@@ -235,20 +234,7 @@ static struct pci_driver scb2_flash_driver = {
 	.remove =   __devexit_p(scb2_flash_remove),
 };
 
-static int __init
-scb2_flash_init(void)
-{
-	return pci_register_driver(&scb2_flash_driver);
-}
-
-static void __exit
-scb2_flash_exit(void)
-{
-	pci_unregister_driver(&scb2_flash_driver);
-}
-
-module_init(scb2_flash_init);
-module_exit(scb2_flash_exit);
+module_pci_driver(scb2_flash_driver);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tim Hockin <thockin@sun.com>");

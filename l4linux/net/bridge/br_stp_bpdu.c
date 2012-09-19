@@ -167,7 +167,7 @@ void br_stp_rcv(const struct stp_proto *proto, struct sk_buff *skb,
 	if (p->state == BR_STATE_DISABLED)
 		goto out;
 
-	if (compare_ether_addr(dest, br->group_addr) != 0)
+	if (!ether_addr_equal(dest, br->group_addr))
 		goto out;
 
 	buf = skb_pull(skb, 3);
@@ -210,10 +210,19 @@ void br_stp_rcv(const struct stp_proto *proto, struct sk_buff *skb,
 		bpdu.hello_time = br_get_ticks(buf+28);
 		bpdu.forward_delay = br_get_ticks(buf+30);
 
-		br_received_config_bpdu(p, &bpdu);
-	}
+		if (bpdu.message_age > bpdu.max_age) {
+			if (net_ratelimit())
+				br_notice(p->br,
+					  "port %u config from %pM"
+					  " (message_age %ul > max_age %ul)\n",
+					  p->port_no,
+					  eth_hdr(skb)->h_source,
+					  bpdu.message_age, bpdu.max_age);
+			goto out;
+		}
 
-	else if (buf[0] == BPDU_TYPE_TCN) {
+		br_received_config_bpdu(p, &bpdu);
+	} else if (buf[0] == BPDU_TYPE_TCN) {
 		br_received_tcn_bpdu(p);
 	}
  out:

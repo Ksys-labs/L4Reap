@@ -16,6 +16,7 @@
 #include <linux/bitops.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
+#include <linux/leds.h>
 
 /*
  * GPIO unit register offsets.
@@ -289,11 +290,33 @@ void orion_gpio_set_blink(unsigned pin, int blink)
 		return;
 
 	spin_lock_irqsave(&ochip->lock, flags);
-	__set_level(ochip, pin, 0);
-	__set_blinking(ochip, pin, blink);
+	__set_level(ochip, pin & 31, 0);
+	__set_blinking(ochip, pin & 31, blink);
 	spin_unlock_irqrestore(&ochip->lock, flags);
 }
 EXPORT_SYMBOL(orion_gpio_set_blink);
+
+#define ORION_BLINK_HALF_PERIOD 100 /* ms */
+
+int orion_gpio_led_blink_set(unsigned gpio, int state,
+	unsigned long *delay_on, unsigned long *delay_off)
+{
+
+	if (delay_on && delay_off && !*delay_on && !*delay_off)
+		*delay_on = *delay_off = ORION_BLINK_HALF_PERIOD;
+
+	switch (state) {
+	case GPIO_LED_NO_BLINK_LOW:
+	case GPIO_LED_NO_BLINK_HIGH:
+		orion_gpio_set_blink(gpio, 0);
+		gpio_set_value(gpio, state);
+		break;
+	case GPIO_LED_BLINK:
+		orion_gpio_set_blink(gpio, 1);
+	}
+	return 0;
+}
+EXPORT_SYMBOL_GPL(orion_gpio_led_blink_set);
 
 
 /*****************************************************************************
@@ -384,12 +407,16 @@ void __init orion_gpio_init(int gpio_base, int ngpio,
 	struct orion_gpio_chip *ochip;
 	struct irq_chip_generic *gc;
 	struct irq_chip_type *ct;
+	char gc_label[16];
 
 	if (orion_gpio_chip_count == ARRAY_SIZE(orion_gpio_chips))
 		return;
 
+	snprintf(gc_label, sizeof(gc_label), "orion_gpio%d",
+		orion_gpio_chip_count);
+
 	ochip = orion_gpio_chips + orion_gpio_chip_count;
-	ochip->chip.label = "orion_gpio";
+	ochip->chip.label = kstrdup(gc_label, GFP_KERNEL);
 	ochip->chip.request = orion_gpio_request;
 	ochip->chip.direction_input = orion_gpio_direction_input;
 	ochip->chip.get = orion_gpio_get;

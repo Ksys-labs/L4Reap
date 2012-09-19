@@ -136,6 +136,13 @@ struct pci_dev *vga_default_device(void)
 {
 	return vga_default;
 }
+
+EXPORT_SYMBOL_GPL(vga_default_device);
+
+void vga_set_default_device(struct pci_dev *pdev)
+{
+	vga_default = pdev;
+}
 #endif
 
 static inline void vga_irq_set_state(struct vga_device *vgadev, bool state)
@@ -465,31 +472,29 @@ static void vga_arbiter_check_bridge_sharing(struct vga_device *vgadev)
 	while (new_bus) {
 		new_bridge = new_bus->self;
 
-		if (new_bridge) {
-			/* go through list of devices already registered */
-			list_for_each_entry(same_bridge_vgadev, &vga_list, list) {
-				bus = same_bridge_vgadev->pdev->bus;
+		/* go through list of devices already registered */
+		list_for_each_entry(same_bridge_vgadev, &vga_list, list) {
+			bus = same_bridge_vgadev->pdev->bus;
+			bridge = bus->self;
+
+			/* see if the share a bridge with this device */
+			if (new_bridge == bridge) {
+				/* if their direct parent bridge is the same
+				   as any bridge of this device then it can't be used
+				   for that device */
+				same_bridge_vgadev->bridge_has_one_vga = false;
+			}
+
+			/* now iterate the previous devices bridge hierarchy */
+			/* if the new devices parent bridge is in the other devices
+			   hierarchy then we can't use it to control this device */
+			while (bus) {
 				bridge = bus->self;
-
-				/* see if the share a bridge with this device */
-				if (new_bridge == bridge) {
-					/* if their direct parent bridge is the same
-					   as any bridge of this device then it can't be used
-					   for that device */
-					same_bridge_vgadev->bridge_has_one_vga = false;
+				if (bridge) {
+					if (bridge == vgadev->pdev->bus->self)
+						vgadev->bridge_has_one_vga = false;
 				}
-
-				/* now iterate the previous devices bridge hierarchy */
-				/* if the new devices parent bridge is in the other devices
-				   hierarchy then we can't use it to control this device */
-				while (bus) {
-					bridge = bus->self;
-					if (bridge) {
-						if (bridge == vgadev->pdev->bus->self)
-							vgadev->bridge_has_one_vga = false;
-					}
-					bus = bus->parent;
-				}
+				bus = bus->parent;
 			}
 		}
 		new_bus = new_bus->parent;
@@ -607,10 +612,12 @@ static bool vga_arbiter_del_pci_device(struct pci_dev *pdev)
 		goto bail;
 	}
 
+#ifndef __ARCH_HAS_VGA_DEFAULT_DEVICE
 	if (vga_default == pdev) {
 		pci_dev_put(vga_default);
 		vga_default = NULL;
 	}
+#endif
 
 	if (vgadev->decodes & (VGA_RSRC_LEGACY_IO | VGA_RSRC_LEGACY_MEM))
 		vga_decode_count--;
@@ -993,14 +1000,20 @@ static ssize_t vga_arb_write(struct file *file, const char __user * buf,
 				uc = &priv->cards[i];
 		}
 
-		if (!uc)
-			return -EINVAL;
+		if (!uc) {
+			ret_val = -EINVAL;
+			goto done;
+		}
 
-		if (io_state & VGA_RSRC_LEGACY_IO && uc->io_cnt == 0)
-			return -EINVAL;
+		if (io_state & VGA_RSRC_LEGACY_IO && uc->io_cnt == 0) {
+			ret_val = -EINVAL;
+			goto done;
+		}
 
-		if (io_state & VGA_RSRC_LEGACY_MEM && uc->mem_cnt == 0)
-			return -EINVAL;
+		if (io_state & VGA_RSRC_LEGACY_MEM && uc->mem_cnt == 0) {
+			ret_val = -EINVAL;
+			goto done;
+		}
 
 		vga_put(pdev, io_state);
 
@@ -1171,10 +1184,9 @@ static int vga_arb_open(struct inode *inode, struct file *file)
 
 	pr_debug("%s\n", __func__);
 
-	priv = kmalloc(sizeof(struct vga_arb_private), GFP_KERNEL);
+	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (priv == NULL)
 		return -ENOMEM;
-	memset(priv, 0, sizeof(*priv));
 	spin_lock_init(&priv->lock);
 	file->private_data = priv;
 

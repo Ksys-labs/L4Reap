@@ -4,7 +4,9 @@
  * (c) 2010 Matthias Lange <mlange@sec.t-labs.tu-berlin.de>
  */
 
+#include <linux/module.h>
 #include <linux/etherdevice.h>
+#include <linux/interrupt.h>
 #include <linux/kthread.h>
 
 #include <asm/l4lxapi/misc.h>
@@ -48,10 +50,10 @@ L4_EXTERNAL_FUNC(l4ankh_prepare_recv);
 
 struct l4x_net_priv {
 	struct net_device_stats    net_stats;
-	l4_cap_idx_t               rx_sig;
 	unsigned char              *pkt_buffer;
 	unsigned long              pkt_size;
-	l4lx_thread_t              irq_thread;
+	l4lx_thread_t              rcv_thread;
+	l4_cap_idx_t               rx_irq;
 };
 
 struct l4x_net_netdev {
@@ -63,7 +65,7 @@ static int l4x_net_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
 {
 	struct l4x_net_priv *priv = netdev_priv(netdev);
 
-//	printk(KERN_INFO "[L4Ankh] %s, %dbytes\n", __func__, skb->len);
+//	pr_info("[L4Ankh] %s, %dbytes\n", __func__, skb->len);
 
 	l4ankh_send(skb->data, skb->len, 1);
 
@@ -84,7 +86,7 @@ static struct net_device_stats *l4x_net_get_stats(struct net_device *netdev)
 
 static void l4x_net_tx_timeout(struct net_device *netdev)
 {
-	printk("L4net: %s\n", __func__);
+	dev_warn(&netdev->dev, "%s\n", __func__);
 }
 
 /*
@@ -110,58 +112,32 @@ static irqreturn_t l4x_net_interrupt(int irq, void *dev_id)
 		priv->net_stats.rx_bytes += skb->len;
 		priv->net_stats.rx_packets++;
 	} else {
-		printk(KERN_WARNING "%s: dropping packet.\n", netdev->name);
+		dev_warn(&netdev->dev, "dropping packet.\n");
 		priv->net_stats.rx_dropped++;
 	}
 
 	return IRQ_HANDLED;
 }
 
-static unsigned int l4x_net_irq_startup(struct irq_data *data)
-{
-	printk("L4net: %s\n", __func__);
-	return 1;
-}
-
-static void l4x_net_irq_dummy_void(struct irq_data *data)
-{
-}
-
-struct irq_chip l4x_net_irq_type = {
-	.name		= "L4net IRQ",
-	.irq_startup	= l4x_net_irq_startup,
-	.irq_shutdown	= l4x_net_irq_dummy_void,
-	.irq_enable	= l4x_net_irq_dummy_void,
-	.irq_disable	= l4x_net_irq_dummy_void,
-	.irq_mask	= l4x_net_irq_dummy_void,
-	.irq_unmask	= l4x_net_irq_dummy_void,
-	.irq_ack	= l4x_net_irq_dummy_void,
-};
-
-static L4_CV void l4x_ankh_irq_thread(void *data)
+static L4_CV void l4x_ankh_rcv_thread(void *data)
 {
 	struct net_device *netdev = *(struct net_device **)data;
-	struct thread_info *ctx = current_thread_info();
 	struct l4x_net_priv *priv = netdev_priv(netdev);
 	int size;
 	int res;
 
 	// LOG_printf("[L4Ankh] l4x_ankh_irq_thread, irq=%d\n", netdev->irq);
 
-	l4x_prepare_irq_thread(ctx, 0);
-
 	res = l4ankh_prepare_recv(L4RE_THIS_TASK_CAP);
 	if (res)
-		printk("l4ankh_prepare_recv failed with %d\n", res);
+		dev_err(&netdev->dev, "l4ankh_prepare_recv failed with %d\n", res);
 
 	while (1) {
 		size = 16384;
 		l4ankh_recv_blocking(_recv_buf, &size);
-		//LOG_printf("[L4Ankh] Received %d bytes from ankh\n", size);
-
 		priv->pkt_size = size;
 
-		l4x_do_IRQ(netdev->irq, ctx);
+		l4_irq_trigger(priv->rx_irq);
 	}
 }
 
@@ -173,39 +149,39 @@ static int l4x_net_open(struct net_device *netdev)
 	netif_carrier_off(netdev);
 
 	if (netdev->irq > NR_IRQS) {
-		printk(KERN_WARNING "[L4Ankh] %s: irq(%d) > NR_IRQS(%d), failing\n",
-		       netdev->name, netdev->irq, NR_IRQS);
+		dev_err(&netdev->dev, "irq(%d) > NR_IRQS(%d), failing\n",
+		        netdev->irq, NR_IRQS);
 		goto err_out_close;
 	}
 
 	priv->pkt_buffer = kmalloc(ETH_HLEN + netdev->mtu, GFP_KERNEL);
 
 	if (!priv->pkt_buffer) {
-		printk(KERN_WARNING "[L4Ankh] %s kmalloc error\n",
-		       netdev->name);
+		dev_err(&netdev->dev, "kmalloc error\n");
 		goto err_out_close;
 	}
 
 	if ((err = request_irq(netdev->irq, l4x_net_interrupt,
 	                       IRQF_SAMPLE_RANDOM | IRQF_SHARED,
 	                       netdev->name, netdev))) {
-		printk("[L4Ankh] %s: request_irq(%d, ...) failed: %d\n",
-		       netdev->name, netdev->irq, err);
+		dev_err(&netdev->dev, "request_irq(%d, ...) failed: %d\n",
+		        netdev->irq, err);
 		goto err_out_kfree;
 	}
 
-	priv->irq_thread = l4lx_thread_create(l4x_ankh_irq_thread,
+	priv->rcv_thread = l4lx_thread_create(l4x_ankh_rcv_thread,
 	                                      0, NULL, &netdev, sizeof(netdev),
+	                                      l4x_cap_alloc(),
 	                                      CONFIG_L4_PRIO_L4ANKH,
-	                                      0, "L4AnkhRcv");
+	                                      0, "L4AnkhRcv", NULL);
 
-	if (!l4lx_thread_is_valid(priv->irq_thread))
+	if (!l4lx_thread_is_valid(priv->rcv_thread))
 		goto err_out_free_irq;
 
 	netif_carrier_on(netdev);
 	netif_wake_queue(netdev);
 
-	printk("[L4Ankh] %s interface up.\n", netdev->name);
+	dev_info(&netdev->dev, "l4ankh: interface up.\n");
 
 	return 0;
 
@@ -227,7 +203,7 @@ static int l4x_net_close(struct net_device *netdev)
 	netif_stop_queue(netdev);
 	netif_carrier_off(netdev);
 	kfree(priv->pkt_buffer);
-	l4lx_thread_shutdown(priv->irq_thread, 0);
+	l4lx_thread_shutdown(priv->rcv_thread, NULL, 1);
 	return 0;
 }
 
@@ -268,7 +244,7 @@ static int __init l4x_net_init_device(char *oreinst, char *devname)
 	int err;
 	struct AnkhSessionDescriptor *session;
 
-	printk(KERN_INFO "[L4Ankh] %s, ankh_shm=%s\n", __func__, ankh_shm);
+	pr_info("l4ankh: ankh_shm=%s\n", ankh_shm);
 
 	if (l4ankh_init())
 		return -ENODEV;
@@ -279,14 +255,14 @@ static int __init l4x_net_init_device(char *oreinst, char *devname)
 
 	session = l4ankh_get_info();
 
-	printk(KERN_INFO "[L4Ankh] after l4ankh_get_info()\n");
+	pr_info("l4ankh: after l4ankh_get_info()\n");
 
 	err = l4ankh_prepare_send(L4RE_THIS_TASK_CAP);
 	if (err < 0)
 		return -ENODEV;
 
 	if (!(dev = alloc_etherdev(sizeof(struct l4x_net_priv)))) {
-		printk("[L4Ankh] alloc_etherdev failed\n");
+		pr_err("l4ankh: alloc_etherdev failed\n");
 		return -ENOMEM;
 	}
 
@@ -298,33 +274,31 @@ static int __init l4x_net_init_device(char *oreinst, char *devname)
 	dev->netdev_ops = &l4xnet_netdev_ops;
 	priv = netdev_priv(dev);
 
-	priv->rx_sig = L4_INVALID_CAP;
+	if (l4_is_invalid_cap(priv->rx_irq = l4x_cap_alloc()))
+		goto err_out_free_dev;
 
-	if (l4_is_invalid_cap(priv->rx_sig = l4x_cap_alloc()))
-		return -1;
-
-	if ((dev->irq = l4x_register_irq(priv->rx_sig)) < 0) {
-		printk(KERN_INFO "[L4Ankh] Failed to get signal irq\n");
+	if ((dev->irq = l4x_register_irq(priv->rx_irq)) < 0) {
+		dev_err(&dev->dev, "l4ankh: Failed to get signal irq\n");
 		goto err_out_free_dev;
 	}
 
 	if ((err = register_netdev(dev))) {
-		printk("[L4Ankh] Cannot register net device, aborting.\n");
+		dev_err(&dev->dev, "l4ankh: Cannot register net device, aborting.\n");
 		goto err_out_free_dev;
 	}
 
 	nd = kmalloc(sizeof(struct l4x_net_netdev), GFP_KERNEL);
 	if (!nd) {
-		printk("Out of memory.\n");
+		dev_err(&dev->dev, "l4ankh: Out of memory.\n");
 		err = -ENOMEM;
 		goto err_out_free_dev;
 	}
 	nd->dev = dev;
 	list_add(&nd->list, &l4x_net_netdevices);
 
-	printk(KERN_INFO "[L4Ankh] %s Ankh card found  IRQ %d\n",
-	                 dev->name, //print_mac(macstring, dev->dev_addr),
-	                 dev->irq);
+	dev_info(&dev->dev, "l4ankh: Ankh card found  IRQ %d\n",
+	         //print_mac(macstring, dev->dev_addr),
+	         dev->irq);
 
 	return 0;
 
@@ -344,21 +318,22 @@ static int __init l4x_net_init(void)
 	if (*ankh_shm == 0)
 		return -ENODEV;
 
-	printk("[L4Ankh] Initializing, creating %d Ankh device(s).\n", l4x_net_numdevs);
+	pr_info("l4ankh: Initializing, creating %d Ankh device(s).\n",
+	        l4x_net_numdevs);
 
 	for (i = 0; i < l4x_net_numdevs; i++) {
 		char instbuf[16], devbuf[16];
 		int ret = l4x_net_parse_instance(i, instbuf, sizeof(instbuf),
 		                                    devbuf, sizeof(devbuf));
 		if (!ret) {
-			printk("[L4Ankh] Opening device %s at Ankh instance %s\n",
-			       devbuf, instbuf);
+			pr_info("l4ankh: Opening device %s at Ankh instance %s\n",
+			        devbuf, instbuf);
 			ret = l4x_net_init_device(instbuf, devbuf);
 			if (!ret)
 				num_init++;
 		}
 		else
-			printk("L4net: Invalid device string: %s\n",
+			pr_err("l4ankh: Invalid device string: %s\n",
 			       l4x_net_instances[i]);
 	}
 

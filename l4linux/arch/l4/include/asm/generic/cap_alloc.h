@@ -23,5 +23,21 @@ static inline void l4x_cap_free(l4_cap_idx_t c)
 	spin_unlock(&l4x_cap_lock);
 }
 
+static inline l4_cap_idx_t l4x_cap_alloc_noctx(void)
+{
+	l4_cap_idx_t c;
+	arch_spin_lock(&l4x_cap_lock.rlock.raw_lock);
+	c = l4re_util_cap_alloc();
+	arch_spin_unlock(&l4x_cap_lock.rlock.raw_lock);
+	return c;
+}
+
+static inline void l4x_cap_free_noctx(l4_cap_idx_t c)
+{
+	arch_spin_lock(&l4x_cap_lock.rlock.raw_lock);
+	l4re_util_cap_free(c);
+	arch_spin_unlock(&l4x_cap_lock.rlock.raw_lock);
+}
+
 
 #endif /* ! __ASM_L4__GENERIC__CAP_ALLOC_H__ */

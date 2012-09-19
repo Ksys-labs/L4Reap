@@ -2,9 +2,10 @@
 #define S390_DEVICE_H
 
 #include <asm/ccwdev.h>
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 #include <linux/wait.h>
 #include <linux/notifier.h>
+#include <linux/kernel_stat.h>
 #include "io_sch.h"
 
 /*
@@ -56,7 +57,17 @@ extern fsm_func_t *dev_jumptable[NR_DEV_STATES][NR_DEV_EVENTS];
 static inline void
 dev_fsm_event(struct ccw_device *cdev, enum dev_event dev_event)
 {
-	dev_jumptable[cdev->private->state][dev_event](cdev, dev_event);
+	int state = cdev->private->state;
+
+	if (dev_event == DEV_EVENT_INTERRUPT) {
+		if (state == DEV_STATE_ONLINE)
+			kstat_cpu(smp_processor_id()).
+				irqs[cdev->private->int_class]++;
+		else if (state != DEV_STATE_CMFCHANGE &&
+			 state != DEV_STATE_CMFUPDATE)
+			kstat_cpu(smp_processor_id()).irqs[IOINT_CIO]++;
+	}
+	dev_jumptable[state][dev_event](cdev, dev_event);
 }
 
 /*
@@ -90,6 +101,7 @@ int ccw_device_test_sense_data(struct ccw_device *);
 void ccw_device_schedule_sch_unregister(struct ccw_device *);
 int ccw_purge_blacklisted(void);
 void ccw_device_sched_todo(struct ccw_device *cdev, enum cdev_todo todo);
+struct ccw_device *get_ccwdev_by_dev_id(struct ccw_dev_id *dev_id);
 
 /* Function prototypes for device status and basic sense stuff. */
 void ccw_device_accumulate_irb(struct ccw_device *, struct irb *);

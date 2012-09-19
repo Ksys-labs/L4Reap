@@ -74,17 +74,19 @@ L4::Cap<L4::Kobject> l4x_srv_rcv_cap()
 }
 
 C_FUNC void
-l4x_srv_init(void)
-{
-	_rcv_cap = L4Re::Util::cap_alloc.alloc<L4::Kobject>();
-	if (!_rcv_cap)
-		LOG_printf("l4x_srv: rcv-cap alloc failed\n");
-}
-
-C_FUNC void
 l4x_srv_setup_recv(l4_utcb_t *u)
 {
 	l4_utcb_br_u(u)->br[0] = _rcv_cap.cap() | L4_RCV_ITEM_SINGLE_CAP
 	                         | L4_RCV_ITEM_LOCAL_ID;
 	l4_utcb_br_u(u)->bdr = 0;
 }
+
+C_FUNC void
+l4x_srv_init(void)
+{
+	_rcv_cap = L4Re::Util::cap_alloc.alloc<L4::Kobject>();
+	if (!_rcv_cap)
+		LOG_printf("l4x_srv: rcv-cap alloc failed\n");
+	l4x_srv_setup_recv(l4_utcb());
+}
+

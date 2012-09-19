@@ -18,7 +18,15 @@ OPTIONS
 -------
 -i::
 --input=::
-        Input file name. (default: perf.data)
+        Input file name. (default: perf.data unless stdin is a fifo)
+
+-F::
+--freq=::
+	Show just the sample frequency used for each event.
+
+-v::
+--verbose=::
+	Show all fields.
 
 SEE ALSO
 --------

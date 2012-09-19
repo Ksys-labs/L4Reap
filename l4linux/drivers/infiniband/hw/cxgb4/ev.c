@@ -42,6 +42,7 @@ static void post_qp_event(struct c4iw_dev *dev, struct c4iw_cq *chp,
 {
 	struct ib_event event;
 	struct c4iw_qp_attributes attrs;
+	unsigned long flag;
 
 	if ((qhp->attr.state == C4IW_QP_STATE_ERROR) ||
 	    (qhp->attr.state == C4IW_QP_STATE_TERMINATE)) {
@@ -72,7 +73,9 @@ static void post_qp_event(struct c4iw_dev *dev, struct c4iw_cq *chp,
 	if (qhp->ibqp.event_handler)
 		(*qhp->ibqp.event_handler)(&event, qhp->ibqp.qp_context);
 
+	spin_lock_irqsave(&chp->comp_handler_lock, flag);
 	(*chp->ibcq.comp_handler)(&chp->ibcq, chp->ibcq.cq_context);
+	spin_unlock_irqrestore(&chp->comp_handler_lock, flag);
 }
 
 void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe)
@@ -81,7 +84,7 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe)
 	struct c4iw_qp *qhp;
 	u32 cqid;
 
-	spin_lock(&dev->lock);
+	spin_lock_irq(&dev->lock);
 	qhp = get_qhp(dev, CQE_QPID(err_cqe));
 	if (!qhp) {
 		printk(KERN_ERR MOD "BAD AE qpid 0x%x opcode %d "
@@ -90,7 +93,7 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe)
 		       CQE_OPCODE(err_cqe), CQE_STATUS(err_cqe),
 		       CQE_TYPE(err_cqe), CQE_WRID_HI(err_cqe),
 		       CQE_WRID_LOW(err_cqe));
-		spin_unlock(&dev->lock);
+		spin_unlock_irq(&dev->lock);
 		goto out;
 	}
 
@@ -106,13 +109,13 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe)
 		       CQE_OPCODE(err_cqe), CQE_STATUS(err_cqe),
 		       CQE_TYPE(err_cqe), CQE_WRID_HI(err_cqe),
 		       CQE_WRID_LOW(err_cqe));
-		spin_unlock(&dev->lock);
+		spin_unlock_irq(&dev->lock);
 		goto out;
 	}
 
 	c4iw_qp_add_ref(&qhp->ibqp);
 	atomic_inc(&chp->refcnt);
-	spin_unlock(&dev->lock);
+	spin_unlock_irq(&dev->lock);
 
 	/* Bad incoming write */
 	if (RQ_TYPE(err_cqe) &&
@@ -183,11 +186,14 @@ out:
 int c4iw_ev_handler(struct c4iw_dev *dev, u32 qid)
 {
 	struct c4iw_cq *chp;
+	unsigned long flag;
 
 	chp = get_chp(dev, qid);
-	if (chp)
+	if (chp) {
+		spin_lock_irqsave(&chp->comp_handler_lock, flag);
 		(*chp->ibcq.comp_handler)(&chp->ibcq, chp->ibcq.cq_context);
-	else
+		spin_unlock_irqrestore(&chp->comp_handler_lock, flag);
+	} else
 		PDBG("%s unknown cqid 0x%x\n", __func__, qid);
 	return 0;
 }

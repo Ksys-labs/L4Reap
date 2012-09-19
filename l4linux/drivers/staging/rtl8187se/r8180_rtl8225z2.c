@@ -190,7 +190,7 @@ static void rtl8225_SetTXPowerLevel(struct net_device *dev, short ch)
 		write_phy_cck(dev, 0x44 + i, power);
 	}
 
-	/* FIXME Is this delay really needeed ? */
+	/* FIXME Is this delay really needed ? */
 	force_pci_posting(dev);
 	mdelay(1);
 
@@ -479,7 +479,7 @@ s8 DbmToTxPwrIdx(struct r8180_priv *priv, WIRELESS_MODE WirelessMode,
 
 	/*
 	 * TRUE if we want to use a default implementation.
-	 * We shall set it to FALSE when we have exact translation formular
+	 * We shall set it to FALSE when we have exact translation formula
 	 * for target IC. 070622, by rcnjko.
 	 */
 	if (bUseDefault) {
@@ -596,7 +596,7 @@ static void rtl8225_rf_set_chan(struct net_device *dev, short ch)
 {
 	struct r8180_priv *priv = ieee80211_priv(dev);
 	short gset = (priv->ieee80211->state == IEEE80211_LINKED &&
-		ieee80211_is_54g(priv->ieee80211->current_network)) ||
+		ieee80211_is_54g(&priv->ieee80211->current_network)) ||
 		priv->ieee80211->iw_mode == IW_MODE_MONITOR;
 
 	rtl8225_SetTXPowerLevel(dev, ch);
@@ -615,7 +615,7 @@ static void rtl8225_rf_set_chan(struct net_device *dev, short ch)
 	}
 
 	if (priv->ieee80211->state == IEEE80211_LINKED &&
-	    ieee80211_is_shortslot(priv->ieee80211->current_network))
+	    ieee80211_is_shortslot(&priv->ieee80211->current_network))
 		write_nic_byte(dev, SLOT, 0x9);
 	else
 		write_nic_byte(dev, SLOT, 0x14);

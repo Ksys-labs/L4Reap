@@ -23,6 +23,7 @@
 
 #include <linux/mmc/sdio_ids.h>
 #include <linux/mmc/sdio_func.h>
+#include <linux/module.h>
 
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
@@ -64,7 +65,7 @@ static const struct btmrvl_sdio_card_reg btmrvl_reg_8688 = {
 	.io_port_1 = 0x01,
 	.io_port_2 = 0x02,
 };
-static const struct btmrvl_sdio_card_reg btmrvl_reg_8787 = {
+static const struct btmrvl_sdio_card_reg btmrvl_reg_87xx = {
 	.cfg = 0x00,
 	.host_int_mask = 0x02,
 	.host_intstatus = 0x03,
@@ -81,7 +82,7 @@ static const struct btmrvl_sdio_card_reg btmrvl_reg_8787 = {
 	.io_port_2 = 0x7a,
 };
 
-static const struct btmrvl_sdio_device btmrvl_sdio_sd6888 = {
+static const struct btmrvl_sdio_device btmrvl_sdio_sd8688 = {
 	.helper		= "sd8688_helper.bin",
 	.firmware	= "sd8688.bin",
 	.reg		= &btmrvl_reg_8688,
@@ -91,17 +92,27 @@ static const struct btmrvl_sdio_device btmrvl_sdio_sd6888 = {
 static const struct btmrvl_sdio_device btmrvl_sdio_sd8787 = {
 	.helper		= NULL,
 	.firmware	= "mrvl/sd8787_uapsta.bin",
-	.reg		= &btmrvl_reg_8787,
+	.reg		= &btmrvl_reg_87xx,
+	.sd_blksz_fw_dl	= 256,
+};
+
+static const struct btmrvl_sdio_device btmrvl_sdio_sd8797 = {
+	.helper		= NULL,
+	.firmware	= "mrvl/sd8797_uapsta.bin",
+	.reg		= &btmrvl_reg_87xx,
 	.sd_blksz_fw_dl	= 256,
 };
 
 static const struct sdio_device_id btmrvl_sdio_ids[] = {
 	/* Marvell SD8688 Bluetooth device */
 	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x9105),
-			.driver_data = (unsigned long) &btmrvl_sdio_sd6888 },
+			.driver_data = (unsigned long) &btmrvl_sdio_sd8688 },
 	/* Marvell SD8787 Bluetooth device */
 	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x911A),
 			.driver_data = (unsigned long) &btmrvl_sdio_sd8787 },
+	/* Marvell SD8797 Bluetooth device */
+	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, 0x912A),
+			.driver_data = (unsigned long) &btmrvl_sdio_sd8797 },
 
 	{ }	/* Terminating entry */
 };
@@ -328,9 +339,7 @@ static int btmrvl_sdio_download_helper(struct btmrvl_sdio_card *card)
 
 done:
 	kfree(tmphlprbuf);
-	if (fw_helper)
-		release_firmware(fw_helper);
-
+	release_firmware(fw_helper);
 	return ret;
 }
 
@@ -473,10 +482,7 @@ static int btmrvl_sdio_download_fw_w_helper(struct btmrvl_sdio_card *card)
 
 done:
 	kfree(tmpfwbuf);
-
-	if (fw_firmware)
-		release_firmware(fw_firmware);
-
+	release_firmware(fw_firmware);
 	return ret;
 }
 
@@ -556,10 +562,12 @@ static int btmrvl_sdio_card_to_host(struct btmrvl_private *priv)
 		skb_put(skb, buf_len);
 		skb_pull(skb, SDIO_HEADER_LEN);
 
-		if (type == HCI_EVENT_PKT)
-			btmrvl_check_evtpkt(priv, skb);
+		if (type == HCI_EVENT_PKT) {
+			if (btmrvl_check_evtpkt(priv, skb))
+				hci_recv_frame(skb);
+		} else
+			hci_recv_frame(skb);
 
-		hci_recv_frame(skb);
 		hdev->stat.byte_rx += buf_len;
 		break;
 
@@ -1002,6 +1010,9 @@ static int btmrvl_sdio_probe(struct sdio_func *func,
 	priv->btmrvl_dev.psmode = 1;
 	btmrvl_enable_ps(priv);
 
+	priv->btmrvl_dev.gpio_gap = 0xffff;
+	btmrvl_send_hscfg_cmd(priv);
+
 	return 0;
 
 disable_host_int:
@@ -1037,11 +1048,111 @@ static void btmrvl_sdio_remove(struct sdio_func *func)
 	}
 }
 
+static int btmrvl_sdio_suspend(struct device *dev)
+{
+	struct sdio_func *func = dev_to_sdio_func(dev);
+	struct btmrvl_sdio_card *card;
+	struct btmrvl_private *priv;
+	mmc_pm_flag_t pm_flags;
+	struct hci_dev *hcidev;
+
+	if (func) {
+		pm_flags = sdio_get_host_pm_caps(func);
+		BT_DBG("%s: suspend: PM flags = 0x%x", sdio_func_id(func),
+		       pm_flags);
+		if (!(pm_flags & MMC_PM_KEEP_POWER)) {
+			BT_ERR("%s: cannot remain alive while suspended",
+			       sdio_func_id(func));
+			return -ENOSYS;
+		}
+		card = sdio_get_drvdata(func);
+		if (!card || !card->priv) {
+			BT_ERR("card or priv structure is not valid");
+			return 0;
+		}
+	} else {
+		BT_ERR("sdio_func is not specified");
+		return 0;
+	}
+
+	priv = card->priv;
+
+	if (priv->adapter->hs_state != HS_ACTIVATED) {
+		if (btmrvl_enable_hs(priv)) {
+			BT_ERR("HS not actived, suspend failed!");
+			return -EBUSY;
+		}
+	}
+	hcidev = priv->btmrvl_dev.hcidev;
+	BT_DBG("%s: SDIO suspend", hcidev->name);
+	hci_suspend_dev(hcidev);
+	skb_queue_purge(&priv->adapter->tx_queue);
+
+	priv->adapter->is_suspended = true;
+
+	/* We will keep the power when hs enabled successfully */
+	if (priv->adapter->hs_state == HS_ACTIVATED) {
+		BT_DBG("suspend with MMC_PM_KEEP_POWER");
+		return sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
+	} else {
+		BT_DBG("suspend without MMC_PM_KEEP_POWER");
+		return 0;
+	}
+}
+
+static int btmrvl_sdio_resume(struct device *dev)
+{
+	struct sdio_func *func = dev_to_sdio_func(dev);
+	struct btmrvl_sdio_card *card;
+	struct btmrvl_private *priv;
+	mmc_pm_flag_t pm_flags;
+	struct hci_dev *hcidev;
+
+	if (func) {
+		pm_flags = sdio_get_host_pm_caps(func);
+		BT_DBG("%s: resume: PM flags = 0x%x", sdio_func_id(func),
+		       pm_flags);
+		card = sdio_get_drvdata(func);
+		if (!card || !card->priv) {
+			BT_ERR("card or priv structure is not valid");
+			return 0;
+		}
+	} else {
+		BT_ERR("sdio_func is not specified");
+		return 0;
+	}
+	priv = card->priv;
+
+	if (!priv->adapter->is_suspended) {
+		BT_DBG("device already resumed");
+		return 0;
+	}
+
+	priv->adapter->is_suspended = false;
+	hcidev = priv->btmrvl_dev.hcidev;
+	BT_DBG("%s: SDIO resume", hcidev->name);
+	hci_resume_dev(hcidev);
+	priv->hw_wakeup_firmware(priv);
+	priv->adapter->hs_state = HS_DEACTIVATED;
+	BT_DBG("%s: HS DEACTIVATED in resume!", hcidev->name);
+
+	return 0;
+}
+
+static const struct dev_pm_ops btmrvl_sdio_pm_ops = {
+	.suspend	= btmrvl_sdio_suspend,
+	.resume		= btmrvl_sdio_resume,
+};
+
 static struct sdio_driver bt_mrvl_sdio = {
 	.name		= "btmrvl_sdio",
 	.id_table	= btmrvl_sdio_ids,
 	.probe		= btmrvl_sdio_probe,
 	.remove		= btmrvl_sdio_remove,
+	.drv = {
+		.owner = THIS_MODULE,
+		.pm = &btmrvl_sdio_pm_ops,
+	}
 };
 
 static int __init btmrvl_sdio_init_module(void)
@@ -1075,3 +1186,4 @@ MODULE_LICENSE("GPL v2");
 MODULE_FIRMWARE("sd8688_helper.bin");
 MODULE_FIRMWARE("sd8688.bin");
 MODULE_FIRMWARE("mrvl/sd8787_uapsta.bin");
+MODULE_FIRMWARE("mrvl/sd8797_uapsta.bin");

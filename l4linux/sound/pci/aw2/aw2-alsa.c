@@ -27,6 +27,7 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/module.h>
 #include <sound/core.h>
 #include <sound/initval.h>
 #include <sound/pcm.h>
@@ -111,8 +112,6 @@ struct aw2 {
 /*********************************
  * FUNCTION DECLARATIONS
  ********************************/
-static int __init alsa_card_aw2_init(void);
-static void __exit alsa_card_aw2_exit(void);
 static int snd_aw2_dev_free(struct snd_device *device);
 static int __devinit snd_aw2_create(struct snd_card *card,
 				    struct pci_dev *pci, struct aw2 **rchip);
@@ -152,7 +151,7 @@ static int snd_aw2_control_switch_capture_put(struct snd_kcontrol *kcontrol,
  ********************************/
 static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX;
 static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;
-static int enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP;
+static bool enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP;
 
 module_param_array(index, int, NULL, 0444);
 MODULE_PARM_DESC(index, "Index value for Audiowerk2 soundcard.");
@@ -170,12 +169,14 @@ static DEFINE_PCI_DEVICE_TABLE(snd_aw2_ids) = {
 MODULE_DEVICE_TABLE(pci, snd_aw2_ids);
 
 /* pci_driver definition */
-static struct pci_driver driver = {
-	.name = "Emagic Audiowerk 2",
+static struct pci_driver aw2_driver = {
+	.name = KBUILD_MODNAME,
 	.id_table = snd_aw2_ids,
 	.probe = snd_aw2_probe,
 	.remove = __devexit_p(snd_aw2_remove),
 };
+
+module_pci_driver(aw2_driver);
 
 /* operators for playback PCM alsa interface */
 static struct snd_pcm_ops snd_aw2_playback_ops = {
@@ -215,23 +216,6 @@ static struct snd_kcontrol_new aw2_control __devinitdata = {
 /*********************************
  * FUNCTION IMPLEMENTATIONS
  ********************************/
-
-/* initialization of the module */
-static int __init alsa_card_aw2_init(void)
-{
-	snd_printdd(KERN_DEBUG "aw2: Load aw2 module\n");
-	return pci_register_driver(&driver);
-}
-
-/* clean up the module */
-static void __exit alsa_card_aw2_exit(void)
-{
-	snd_printdd(KERN_DEBUG "aw2: Unload aw2 module\n");
-	pci_unregister_driver(&driver);
-}
-
-module_init(alsa_card_aw2_init);
-module_exit(alsa_card_aw2_exit);
 
 /* component-destructor */
 static int snd_aw2_dev_free(struct snd_device *device)
@@ -317,7 +301,7 @@ static int __devinit snd_aw2_create(struct snd_card *card,
 	snd_aw2_saa7146_setup(&chip->saa7146, chip->iobase_virt);
 
 	if (request_irq(pci->irq, snd_aw2_saa7146_interrupt,
-			IRQF_SHARED, "Audiowerk2", chip)) {
+			IRQF_SHARED, KBUILD_MODNAME, chip)) {
 		printk(KERN_ERR "aw2: Cannot grab irq %d\n", pci->irq);
 
 		iounmap(chip->iobase_virt);

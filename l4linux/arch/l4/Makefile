@@ -1,6 +1,4 @@
 #
-# l4/Makefile
-#
 # Makefile for the L4 architecture.
 #
 
@@ -10,16 +8,10 @@
 BITS := 32
 export BITS
 
-# Set this to really switch to ARM when coming from another arch
-ifeq ($(L4ARCH),arm)
-CONFIG_L4_ARCH_ARM := y
-endif
-
-ifneq ($(CONFIG_L4_ARCH_ARM),)
+ifeq ($(LINSRCARCH),arm)
 # arm selection
 L4API		:= f
 BASEARCH	:= arm
-LINSRCARCH      := arm
 
 CHECKFLAGS	:= -D__arm__
 
@@ -31,7 +23,6 @@ else
 # x86 selection
 L4API		:= f
 BASEARCH	:= x86
-LINSRCARCH      := x86
 
 ifneq ($(CONFIG_X86_32),)
 L4_MK_ARCH	:= x86
@@ -43,6 +34,10 @@ endif
 
 endif
 
+PLATFORMNAME-$(CONFIG_L4_PLATFORM_GENERIC)  = generic
+PLATFORMNAME-$(CONFIG_L4_PLATFORM_REALVIEW) = realview
+PLATFORMNAME                                = $(PLATFORMNAME-y)
+
 ifeq ($(ARCH),x86)
 	KBUILD_DEFCONFIG := x86-native_defconfig
 else
@@ -52,10 +47,6 @@ endif
 VMLINUZ_SUFFIX = $(patsubst "%",%,$(CONFIG_L4_VMLINUZ_SUFFIX))
 
 export BASEARCH L4_MK_ARCH L4_MK_API OBJCOPYARCH VMLINUZ_SUFFIX
-
-# crude hack
-TRASH := $(shell cd $(srctree)/arch/l4 \
-                 && ln -fs Kconfig.$(LINSRCARCH) Kconfig.arch)
 
 #HAS_BIARCH	:= $(call cc-option-yn, -m32)
 #ifeq ($(HAS_BIARCH),y)
@@ -155,9 +146,10 @@ cfi-sections := $(call as-instr,.cfi_sections .debug_frame,-DCONFIG_AS_CFI_SECTI
 
 # does binutils support specific instructions?
 asinstr := $(call as-instr,fxsaveq (%rax),-DCONFIG_AS_FXSAVEQ=1)
+avx_instr := $(call as-instr,vxorps %ymm0$(comma)%ymm1$(comma)%ymm2,-DCONFIG_AS_AVX=1)
 
-KBUILD_AFLAGS += $(cfi) $(cfi-sigframe) $(cfi-sections) $(asinstr)
-KBUILD_CFLAGS += $(cfi) $(cfi-sigframe) $(cfi-sections) $(asinstr)
+KBUILD_AFLAGS += $(cfi) $(cfi-sigframe) $(cfi-sections) $(asinstr) $(avx_instr)
+KBUILD_CFLAGS += $(cfi) $(cfi-sigframe) $(cfi-sections) $(asinstr) $(avx_instr)
 
 LDFLAGS := -m elf_$(UTS_MACHINE)
 
@@ -169,6 +161,7 @@ KBUILD_CFLAGS += -Wno-sign-compare
 KBUILD_CFLAGS += -fno-asynchronous-unwind-tables
 # prevent gcc from generating any FP code by mistake
 KBUILD_CFLAGS += $(call cc-option,-mno-sse -mno-mmx -mno-sse2 -mno-3dnow,)
+KBUILD_CFLAGS += $(call cc-option,-mno-avx,)
 
 endif
 
@@ -193,8 +186,6 @@ arch-$(CONFIG_CPU_32v4)		:=-D__LINUX_ARM_ARCH__=4 -march=armv4
 arch-$(CONFIG_CPU_32v3)		:=-D__LINUX_ARM_ARCH__=3 -march=armv3
 
 # This selects how we optimise for the processor.
-tune-$(CONFIG_CPU_ARM610)	:=-mtune=arm610
-tune-$(CONFIG_CPU_ARM710)	:=-mtune=arm710
 tune-$(CONFIG_CPU_ARM7TDMI)	:=-mtune=arm7tdmi
 tune-$(CONFIG_CPU_ARM720T)	:=-mtune=arm7tdmi
 tune-$(CONFIG_CPU_ARM740T)	:=-mtune=arm7tdmi
@@ -279,7 +270,7 @@ L4INC		= -I$(L4OBJ)/include/$(L4_MK_ARCH)/$(L4_MK_API) \
 		  -I$(L4OBJ)/include/$(L4_MK_API) \
 		  -I$(L4OBJ)/include
 
-head-y := arch/l4/kernel/head.o arch/l4/kernel/init_task.o
+head-y := arch/l4/kernel/head.o
 
 libs-y				+= arch/l4/lib/arch-$(BASEARCH)/	\
 				   arch/l4/l4lxlib/generic/		\
@@ -295,6 +286,7 @@ endif
 
 ifeq ($(BASEARCH),arm)
 core-y				+= arch/l4/common/arch-arm/
+core-y				+= arch/arm/net/
 endif
 
 core-y += arch/l4/
@@ -315,7 +307,7 @@ $(info  L4_REQUIRED_MODS: $(L4_REQUIRED_MODS))
 $(error Aborting.)
 endif
 
-libs-y				+= -Bstatic $(L4_LIBDIRS) -ll4sys -ll4sys-direct
+libs-y				+= -Bstatic $(L4_LIBDIRS) -ll4sys -ll4sys-direct -lgcc-l4
 export L4INC L4_REQUIRED_MODS
 
 LDFLAGS_vmlinux  =  \
@@ -324,8 +316,11 @@ LDFLAGS_vmlinux  =  \
   --defsym __l4sys_debugger_direct=$(L4_BID_KIP_ADDR)+$(L4_BID_KIP_OFFS_SYS_DEBUGGER)
 
 KBUILD_CPPFLAGS	+= -Iarch/l4/include/asm/l4-arch \
+		   -Iarch/$(LINSRCARCH)/include/generated \
+		   $(if $(PLATFORMNAME),-I$(src)/arch/l4/include/asm/mach-$(LINSRCARCH)/$(PLATFORMNAME)) \
+		   $(if $(PLATFORMNAME),-I$(src)/arch/l4/include/asm/plat-$(LINSRCARCH)/$(PLATFORMNAME)) \
 		   -I$(src)/arch/$(LINSRCARCH)/include \
-		   -Iarch/l4/include/asm/$(LINSRCARCH)-arch \
+		   -Iarch/l4/include/asm/arch-$(LINSRCARCH) \
 		   -Iarch/l4/include/asm/orig-arch \
                    -Iarch/l4/include \
                    $(L4INC) $(L4_EXT_CFLAGS) \
@@ -339,7 +334,7 @@ KBUILD_CPPFLAGS	+= -DL4API_$(L4_MK_API)
 KBUILD_CPPFLAGS += -DL4SYS_USE_UTCB_WRAP=1
 
 ifneq ($(CONFIG_L4_ARCH_ARM),)
-KBUILD_CPPFLAGS += -DTEXT_OFFSET=0x0100000
+KBUILD_CPPFLAGS += -DTEXT_OFFSET=0x01000000
 endif
 
 all: lImage
@@ -364,11 +359,6 @@ PHONY += server check_for_l4defs
 mtags:
 	(cd $(srctree) && $(MAKE) tags > /dev/null 2>&1; \
 	sort tags > .tags.sorting && mv .tags.sorting tags )
-
-arch/l4/include/asm/$(LINSRCARCH)-arch/mach:
-	@echo '  Creating asm-l4/$(LINSRCARCH)-arch/mach symlink'
-	$(Q)mkdir -p $(@D)
-	$(Q)ln -s $(src)/arch/l4/include/asm/arch-$(LINSRCARCH)/mach $@
 
 arch/l4/include/asm/l4-arch/asm:
 	@echo '  Creating asm-l4/l4-arch/asm symlink'
@@ -406,8 +396,7 @@ include/generated/mach-types.h: $(srctree)/arch/arm/tools/gen-mach-types $(srctr
 	$(Q)$(AWK) -f $< arch/l4/include/asm/mach-types.list > $@ || { rm -f $@; /bin/false; }
 	$(Q)rm -f arch/l4/include/asm/mach-types.list
 
-symlink_files_arm  = include/generated/mach-types.h \
-		     arch/l4/include/asm/$(LINSRCARCH)-arch/mach
+symlink_files_arm  = include/generated/mach-types.h
 
 symlink_files      = arch/l4/include/asm/api \
                      arch/l4/include/asm/l4lxapi/impl \
@@ -437,6 +426,17 @@ endif # config-targets == 1
 # ----
 
 archclean:
+	$(Q)rm -rf $(objtree)/arch/i386
+	$(Q)rm -rf $(objtree)/arch/x86_64
+	$(Q)rm -rf $(objtree)/arch/arm
+	$(Q)rm -rf $(objtree)/arch/l4
+
+ifeq ($(BASEARCH),x86)
+# Syscall table generation
+
+archheaders:
+	$(Q)$(MAKE) $(build)=arch/x86/syscalls all
+endif
 
 chkl4conf:
 	@if [ -d $(L4OBJ)/pkg/l4sys ]; then                                  \
@@ -450,10 +450,11 @@ chkl4conf:
 #          this should probably be fixed
 
 DIS_OPTS-x86-32 := HPET_TIMER
+DIS_OPTS-arm-32 := PERF_EVENTS ARM_PATCH_PHYS_VIRT HIGHMEM X86_X32
 DIS_OPTS := HIGHMEM4G HIGHMEM64G PCI_GOANY PCI_GOBIOS \
             X86_MCE X86_MCE MTRR PARAVIRT KEXEC MCA SOFTWARE_SUSPEND APM \
 	    CPU_FREQ VM86 X86_DS X86_PTRACE_BTS HT_IRQ DMI \
-	    TRANSPARENT_HUGEPAGE COMPACTION X86_PAE \
+	    TRANSPARENT_HUGEPAGE COMPACTION X86_PAE ACPI \
 	    $(DIS_OPTS-$(BASEARCH)-$(BITS))
 ENA_OPTS := $(ENA_OPTS-$(BASEARCH))
 

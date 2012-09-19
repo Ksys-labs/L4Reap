@@ -154,8 +154,7 @@ static int set_bud_lprops(struct ubifs_info *c, struct bud_entry *b)
 
 	/* Make sure the journal head points to the latest bud */
 	err = ubifs_wbuf_seek_nolock(&c->jheads[b->bud->jhead].wbuf,
-				     b->bud->lnum, c->leb_size - b->free,
-				     UBI_SHORTTERM);
+				     b->bud->lnum, c->leb_size - b->free);
 
 out:
 	ubifs_release_lprops(c);
@@ -221,8 +220,8 @@ static int apply_replay_entry(struct ubifs_info *c, struct replay_entry *r)
 {
 	int err;
 
-	dbg_mnt("LEB %d:%d len %d deletion %d sqnum %llu %s", r->lnum,
-		r->offs, r->len, r->deletion, r->sqnum, DBGKEY(&r->key));
+	dbg_mntk(&r->key, "LEB %d:%d len %d deletion %d sqnum %llu key ",
+		 r->lnum, r->offs, r->len, r->deletion, r->sqnum);
 
 	/* Set c->replay_sqnum to help deal with dangling branches. */
 	c->replay_sqnum = r->sqnum;
@@ -361,7 +360,7 @@ static int insert_node(struct ubifs_info *c, int lnum, int offs, int len,
 {
 	struct replay_entry *r;
 
-	dbg_mnt("add LEB %d:%d, key %s", lnum, offs, DBGKEY(key));
+	dbg_mntk(key, "add LEB %d:%d, key ", lnum, offs);
 
 	if (key_inum(c, key) >= c->highest_inum)
 		c->highest_inum = key_inum(c, key);
@@ -409,7 +408,7 @@ static int insert_dent(struct ubifs_info *c, int lnum, int offs, int len,
 	struct replay_entry *r;
 	char *nbuf;
 
-	dbg_mnt("add LEB %d:%d, key %s", lnum, offs, DBGKEY(key));
+	dbg_mntk(key, "add LEB %d:%d, key ", lnum, offs);
 	if (key_inum(c, key) >= c->highest_inum)
 		c->highest_inum = key_inum(c, key);
 
@@ -523,8 +522,7 @@ static int is_last_bud(struct ubifs_info *c, struct ubifs_bud *bud)
 	if (!list_is_last(&next->list, &jh->buds_list))
 		return 0;
 
-	err = ubi_read(c->ubi, next->lnum, (char *)&data,
-		       next->start, 4);
+	err = ubifs_leb_read(c, next->lnum, (char *)&data, next->start, 4, 1);
 	if (err)
 		return 0;
 
@@ -687,7 +685,7 @@ out:
 
 out_dump:
 	ubifs_err("bad node is at LEB %d:%d", lnum, snod->offs);
-	dbg_dump_node(c, snod->node);
+	ubifs_dump_node(c, snod->node);
 	ubifs_scan_destroy(sleb);
 	return -EINVAL;
 }
@@ -862,16 +860,16 @@ static int replay_log_leb(struct ubifs_info *c, int lnum, int offs, void *sbuf)
 		 * numbers.
 		 */
 		if (snod->type != UBIFS_CS_NODE) {
-			dbg_err("first log node at LEB %d:%d is not CS node",
-				lnum, offs);
+			ubifs_err("first log node at LEB %d:%d is not CS node",
+				  lnum, offs);
 			goto out_dump;
 		}
 		if (le64_to_cpu(node->cmt_no) != c->cmt_no) {
-			dbg_err("first CS node at LEB %d:%d has wrong "
-				"commit number %llu expected %llu",
-				lnum, offs,
-				(unsigned long long)le64_to_cpu(node->cmt_no),
-				c->cmt_no);
+			ubifs_err("first CS node at LEB %d:%d has wrong "
+				  "commit number %llu expected %llu",
+				  lnum, offs,
+				  (unsigned long long)le64_to_cpu(node->cmt_no),
+				  c->cmt_no);
 			goto out_dump;
 		}
 
@@ -893,7 +891,7 @@ static int replay_log_leb(struct ubifs_info *c, int lnum, int offs, void *sbuf)
 
 	/* Make sure the first node sits at offset zero of the LEB */
 	if (snod->offs != 0) {
-		dbg_err("first node is not at zero offset");
+		ubifs_err("first node is not at zero offset");
 		goto out_dump;
 	}
 
@@ -906,8 +904,8 @@ static int replay_log_leb(struct ubifs_info *c, int lnum, int offs, void *sbuf)
 		}
 
 		if (snod->sqnum < c->cs_sqnum) {
-			dbg_err("bad sqnum %llu, commit sqnum %llu",
-				snod->sqnum, c->cs_sqnum);
+			ubifs_err("bad sqnum %llu, commit sqnum %llu",
+				  snod->sqnum, c->cs_sqnum);
 			goto out_dump;
 		}
 
@@ -959,7 +957,7 @@ out:
 out_dump:
 	ubifs_err("log error detected while replaying the log at LEB %d:%d",
 		  lnum, offs + snod->offs);
-	dbg_dump_node(c, snod->node);
+	ubifs_dump_node(c, snod->node);
 	ubifs_scan_destroy(sleb);
 	return -EINVAL;
 }

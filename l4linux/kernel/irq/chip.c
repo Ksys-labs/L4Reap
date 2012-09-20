@@ -20,6 +20,8 @@
 
 #include "internals.h"
 
+#define DIRTY_HACK 1
+
 /**
  *	irq_set_chip - set the irq chip for an irq
  *	@irq:	irq number
@@ -38,12 +40,15 @@ int irq_set_chip(unsigned int irq, struct irq_chip *chip)
 
 	desc->irq_data.chip = chip;
 	irq_put_desc_unlock(desc, flags);
+
+#if !DIRTY_HACK
 	/*
 	 * For !CONFIG_SPARSE_IRQ make the irq show up in
 	 * allocated_irqs. For the CONFIG_SPARSE_IRQ case, it is
 	 * already marked, and this call is harmless.
 	 */
 	irq_reserve_irq(irq);
+#endif
 	return 0;
 }
 EXPORT_SYMBOL(irq_set_chip);

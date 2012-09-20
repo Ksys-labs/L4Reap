@@ -2,6 +2,10 @@
 obj-y				+= kernel/			\
 				   kernel/arch-$(BASEARCH)/	\
 				   mm/arch-$(BASEARCH)/
+
+obj-$(CONFIG_L4_PLAT_OVERO)	+= kernel/arch-arm/plat-omap/
+obj-$(CONFIG_L4_PLAT_OVERO)	+= kernel/arch-arm/mach-omap2/
+
 obj-$(CONFIG_L4_ARCH_X86)	+= ../x86/crypto/
 obj-$(CONFIG_L4_ARCH_X86)	+= ../x86/vdso/
 obj-$(CONFIG_L4_ARCH_X86)	+= ../x86/platform/

@@ -231,7 +231,7 @@ config MMC_SDHCI_S3C_DMA
 
 config MMC_OMAP
 	tristate "TI OMAP Multimedia Card Interface support"
-	depends on ARCH_OMAP
+	depends on ARCH_OMAP || ARCH_OMAP3
 	select TPS65010 if MACH_OMAP_H2
 	help
 	  This selects the TI OMAP Multimedia card Interface.

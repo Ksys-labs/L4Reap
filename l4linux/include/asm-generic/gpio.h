@@ -214,6 +214,7 @@ static inline int gpio_cansleep(unsigned gpio)
 	return 0;
 }
 
+#if 0
 static inline int gpio_get_value_cansleep(unsigned gpio)
 {
 	might_sleep();
@@ -225,6 +226,7 @@ static inline void gpio_set_value_cansleep(unsigned gpio, int value)
 	might_sleep();
 	__gpio_set_value(gpio, value);
 }
+#endif
 
 #endif /* !CONFIG_GPIOLIB */
 

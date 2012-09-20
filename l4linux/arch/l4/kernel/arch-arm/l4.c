@@ -54,6 +54,7 @@ static void __init l4x_mach_init_irq(void)
 }
 
 #ifdef CONFIG_L4_CLK_NOOP
+#if 0
 int clk_enable(struct clk *clk)
 {
 	printk("%s %d\n", __func__, __LINE__);
@@ -66,6 +67,7 @@ void clk_disable(struct clk *clk)
 	printk("%s %d\n", __func__, __LINE__);
 }
 EXPORT_SYMBOL(clk_disable);
+#endif
 #endif
 
 int dma_needs_bounce(struct device *d, dma_addr_t a, size_t s)
@@ -129,6 +131,7 @@ static void __init l4x_mach_init(void)
 #endif
 
 
+	l4x_arm_devices_early_init();
 	l4x_arm_devices_init();
 }
 

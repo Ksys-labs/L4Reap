@@ -10,7 +10,11 @@
 #ifndef __MUSB_OMAP243X_H__
 #define __MUSB_OMAP243X_H__
 
+#ifdef CONFIG_L4_PLAT_OVERO
+#include <../kernel/arch-arm/plat-omap/include/plat/usb.h>
+#else
 #include <plat/usb.h>
+#endif
 
 /*
  * OMAP2430-specific definitions

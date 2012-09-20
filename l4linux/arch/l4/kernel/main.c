@@ -159,6 +159,15 @@ L4_EXTERNAL_FUNC(l4x_srv_register_c);
 L4_EXTERNAL_FUNC(l4rtc_get_seconds_since_1970);
 #endif
 
+void logprint_ptr(const char *name, void *ptr)
+{
+	LOG_printf("%s = 0x%08x\n", name, ptr);
+}
+void logprint_int(const char *name, int x)
+{
+	LOG_printf("%s = %d (0x%08x)\n", name, x, x);
+}
+
 unsigned long upage_addr;
 l4_vcpu_state_t *l4x_vcpu_states[NR_CPUS];
 EXPORT_SYMBOL(l4x_vcpu_states);

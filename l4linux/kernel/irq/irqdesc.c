@@ -377,9 +377,10 @@ __irq_alloc_descs(int irq, unsigned int from, unsigned int cnt, int node,
 		if (ret)
 			goto err;
 	}
-
+	
 	bitmap_set(allocated_irqs, start, cnt);
 	mutex_unlock(&sparse_irq_lock);
+	
 	return alloc_descs(start, cnt, node, owner);
 
 err:

@@ -17,6 +17,7 @@
 #include <asm/l4lxapi/memory.h>
 
 #include <l4/sys/irq.h>
+#include <mach/irqs.h>
 
 static LIST_HEAD(wakeup_srcs);
 

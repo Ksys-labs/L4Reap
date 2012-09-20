@@ -9,6 +9,7 @@
 #include <asm/l4lxapi/irq.h>
 
 #include <l4/sys/types.h>
+#include <mach/irqs.h>
 
 enum {
 	NR_REQUESTABLE = NR_IRQS - NR_IRQS_HW,

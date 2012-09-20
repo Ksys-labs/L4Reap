@@ -1131,13 +1131,14 @@ void __init vm_area_add_early(struct vm_struct *vm)
 {
 	struct vm_struct *tmp, **p;
 
-	BUG_ON(vmap_initialized);
+//	BUG_ON(vmap_initialized);
 	for (p = &vmlist; (tmp = *p) != NULL; p = &tmp->next) {
 		if (tmp->addr >= vm->addr) {
 			BUG_ON(tmp->addr < vm->addr + vm->size);
 			break;
-		} else
+		} else {
 			BUG_ON(tmp->addr + tmp->size > vm->addr);
+		}
 	}
 	vm->next = *p;
 	*p = vm;

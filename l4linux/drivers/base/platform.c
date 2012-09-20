@@ -303,7 +303,7 @@ int platform_device_add(struct platform_device *pdev)
 
 	pr_debug("Registering platform device '%s'. Parent at %s\n",
 		 dev_name(&pdev->dev), dev_name(pdev->dev.parent));
-
+	
 	ret = device_add(&pdev->dev);
 	if (ret == 0)
 		return ret;
@@ -469,6 +469,7 @@ static void platform_drv_shutdown(struct device *_dev)
  */
 int platform_driver_register(struct platform_driver *drv)
 {
+
 	drv->driver.bus = &platform_bus_type;
 	if (drv->probe)
 		drv->driver.probe = platform_drv_probe;
@@ -530,6 +531,7 @@ int __init_or_module platform_driver_probe(struct platform_driver *drv,
 	drv->probe = NULL;
 	if (code == 0 && list_empty(&drv->driver.p->klist_devices.k_list))
 		retval = -ENODEV;
+
 	drv->driver.probe = platform_drv_probe_fail;
 	spin_unlock(&drv->driver.bus->p->klist_drivers.k_lock);
 

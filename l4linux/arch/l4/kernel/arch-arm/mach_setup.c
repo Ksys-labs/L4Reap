@@ -288,4 +288,17 @@ void __init l4x_arm_devices_init(void)
 
 	dev_init_done = 1;
 	free_platform_callback_elems();
+
+#ifdef CONFIG_L4_PLAT_OVERO
+	extern void overo_init(void);
+	overo_init();
+#endif
+}
+
+void __init l4x_arm_devices_early_init(void)
+{
+#ifdef CONFIG_L4_PLAT_OVERO
+	extern void overo_init_early(void);
+	overo_init_early();
+#endif
 }

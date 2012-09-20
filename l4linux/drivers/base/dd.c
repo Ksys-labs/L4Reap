@@ -356,7 +356,7 @@ int driver_probe_device(struct device_driver *drv, struct device *dev)
 		return -ENODEV;
 
 	pr_debug("bus: '%s': %s: matched device %s with driver %s\n",
-		 drv->bus->name, __func__, dev_name(dev), drv->name);
+		drv->bus->name, __func__, dev_name(dev), drv->name);
 
 	pm_runtime_get_noresume(dev);
 	pm_runtime_barrier(dev);

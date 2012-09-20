@@ -28,6 +28,7 @@ struct l4x_platform_callback_elem {
 
 
 void l4x_arm_devices_init(void);
+void l4x_arm_devices_early_init(void);
 
 int
 l4x_register_platform_device_callback(const char *name,

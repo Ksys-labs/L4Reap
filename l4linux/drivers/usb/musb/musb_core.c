@@ -1499,7 +1499,7 @@ static int __devinit musb_core_init(u16 musb_type, struct musb *musb)
 /*-------------------------------------------------------------------------*/
 
 #if defined(CONFIG_SOC_OMAP2430) || defined(CONFIG_SOC_OMAP3430) || \
-	defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_ARCH_U8500)
+	defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_ARCH_U8500) || defined(CONFIG_L4_PLAT_OVERO)
 
 static irqreturn_t generic_interrupt(int irq, void *__hci)
 {
@@ -2039,7 +2039,6 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	status = musb_init_debugfs(musb);
 	if (status < 0)
 		goto fail4;
-
 #ifdef CONFIG_SYSFS
 	status = sysfs_create_group(&musb->controller->kobj, &musb_attr_group);
 	if (status)
@@ -2123,6 +2122,7 @@ static int __devinit musb_probe(struct platform_device *pdev)
 	/* clobbered by use_dma=n */
 	orig_dma_mask = dev->dma_mask;
 #endif
+
 	status = musb_init_controller(dev, irq, base);
 	if (status < 0)
 		iounmap(base);

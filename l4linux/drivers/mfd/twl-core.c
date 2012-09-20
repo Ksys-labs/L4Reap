@@ -46,6 +46,10 @@
 #include <linux/i2c.h>
 #include <linux/i2c/twl.h>
 
+#ifdef CONFIG_L4_PLAT_OVERO
+#include <../kernel/arch-arm/plat-omap/include/plat/cpu.h>
+#endif
+
 #include "twl-core.h"
 
 /*

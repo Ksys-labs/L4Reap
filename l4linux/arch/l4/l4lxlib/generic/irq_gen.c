@@ -7,6 +7,7 @@
 #include <l4/io/io.h>
 
 #include <asm/l4lxapi/generic/irq_gen.h>
+#include <mach/irqs.h>
 
 int l4x_alloc_irq_desc_data(int irq)
 {

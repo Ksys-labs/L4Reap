@@ -286,6 +286,7 @@ static struct device *next_device(struct klist_iter *i)
  * to retain this data, it should do so, and increment the reference
  * count in the supplied callback.
  */
+#include <linux/platform_device.h>
 int bus_for_each_dev(struct bus_type *bus, struct device *start,
 		     void *data, int (*fn)(struct device *, void *))
 {
@@ -300,6 +301,7 @@ int bus_for_each_dev(struct bus_type *bus, struct device *start,
 			     (start ? &start->p->knode_bus : NULL));
 	while ((dev = next_device(&i)) && !error)
 		error = fn(dev, data);
+
 	klist_iter_exit(&i);
 	return error;
 }
@@ -512,6 +514,7 @@ int bus_add_device(struct device *dev)
 			goto out_subsys;
 		klist_add_tail(&dev->p->knode_bus, &bus->p->klist_devices);
 	}
+
 	return 0;
 
 out_subsys:
@@ -705,6 +708,7 @@ int bus_add_driver(struct device_driver *drv)
 		error = -ENOMEM;
 		goto out_put_bus;
 	}
+
 	klist_init(&priv->klist_devices, NULL, NULL);
 	priv->driver = drv;
 	drv->p = priv;
@@ -713,7 +717,7 @@ int bus_add_driver(struct device_driver *drv)
 				     "%s", drv->name);
 	if (error)
 		goto out_unregister;
-
+	
 	if (drv->bus->p->drivers_autoprobe) {
 		error = driver_attach(drv);
 		if (error)

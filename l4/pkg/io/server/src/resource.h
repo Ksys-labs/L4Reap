@@ -12,7 +12,7 @@
 #include <l4/sys/icu>
 
 #include <l4/vbus/vbus_types.h>
-#include <list>
+#include <vector>
 
 #include <l4/re/dataspace>
 #include <l4/re/util/cap_alloc>
@@ -23,96 +23,8 @@
 class Resource;
 class Device;
 
-template< typename T >
-class List;
 
-class __List
-{
-protected:
-  struct I
-  {
-    void *r;
-    I *n;
-  };
-
-  I *_f;
-
-public:
-
-  template< typename T >
-  class iterator
-  {
-  private:
-    friend class List<T>;
-    I *_c;
-    explicit iterator(I *c = 0) : _c(c) {}
-
-  public:
-    T *operator * () const { return (T*)(_c->r); }
-    T *operator -> () const { return (T*)(_c->r); }
-
-    iterator operator ++ () { _c = _c->n; return *this; }
-    iterator operator ++ (int) { iterator u = *this; _c = _c->n; return u; }
-
-    bool operator == (iterator o) const { return _c == o._c; }
-    bool operator != (iterator o) const { return _c != o._c; }
-  };
-
-  __List() : _f(0) {}
-
-
-  unsigned size() const
-  {
-    unsigned n = 0;
-    for (I *x = _f; x; x = x->n)
-      ++n;
-
-    return n;
-  }
-
-  void *elem(unsigned idx) const
-  {
-    for (I *x = _f; x; x = x->n, --idx)
-      if (!idx)
-	return x->r;
-
-    return 0;
-  }
-
-  void insert(void *r)
-  {
-    I *n = new I;
-    n->r = r;
-    n->n = _f;
-    _f = n;
-  }
-
-};
-
-template< typename T >
-class List : private __List
-{
-public:
-
-  using __List::size;
-
-  typedef __List::iterator<T> iterator;
-  
-  iterator begin() const { return iterator(_f); }
-  iterator end() const { return iterator(0); }
-  T *operator [] (unsigned idx) const
-  { return (T*)__List::elem(idx); }
-
-  T *elem(unsigned idx) const
-  { return (T*)__List::elem(idx); }
-
-  void insert(T *r)
-  { __List::insert(r); }
-
-};
-
-typedef List<Resource> Resource_list;
-
+typedef std::vector<Resource *> Resource_list;
 
 class Resource_space
 {
@@ -131,6 +43,9 @@ private:
   Resource *_p;
 
 public:
+  typedef l4_uint64_t Addr;
+  typedef l4_int64_t Size;
+
   enum Type
   {
     Invalid_res = L4VBUS_RESOURCE_INVALID,
@@ -154,7 +69,6 @@ public:
 
     F_width_64bit   = 0x010000,
     F_relative      = 0x040000,
-    Mmio_data_space = 0x080000,
 
     Irq_info_base   = 0x100000,
     Irq_info_factor = Irq_info_base / 2,
@@ -166,7 +80,11 @@ public:
   };
 
   explicit Resource(unsigned long flags = 0)
-  : _f(flags | F_fixed_size), _p(0) {}
+  : _f(flags | F_fixed_size), _p(0), _s(0), _e(0), _a(0) {}
+
+  Resource(unsigned long flags, Addr start, Addr end)
+  : _f(flags | F_fixed_size), _p(0), _s(start), _e(end), _a(end - start)
+  {}
 
   unsigned long flags() const { return _f; }
   void add_flags(unsigned long flags) { _f |= flags; }
@@ -180,6 +98,8 @@ public:
   bool relative() const { return _f & F_relative; }
   unsigned type() const { return _f & F_type_mask; }
 
+public:
+//private:
   void set_empty(bool empty)
   {
     if (empty)
@@ -188,13 +108,15 @@ public:
       _f &= ~F_empty;
   }
 
+public:
   void disable() { _f |= F_disabled; }
   void enable()  { _f &= ~F_disabled; }
 
   virtual Resource_space *provided() const { return 0; }
-  virtual l4_addr_t alignment() const { return 0; }
 
-  virtual void dump(int indent = 0) const = 0;
+  void dump(char const *type, int indent) const;
+  virtual void dump(int indent = 0) const;
+
   virtual bool compatible(Resource *consumer, bool pref = true) const
   {
     if (type() != consumer->type())
@@ -206,67 +128,23 @@ public:
   Resource *parent() const { return _p; }
   void parent(Resource *p) { _p = p; }
 
-  virtual l4_addr_t map_iomem() const { return 0; }
-
   virtual ~Resource() {}
-};
-
-
-class Adr_resource : public Resource
-{
-public:
-  typedef l4_addr_t Addr;
-  typedef l4_int64_t Size;
-  class Data
-  {
-  private:
-    Addr _s, _e, _a;
-
-  public:
-    Data() {}
-    Data(Addr s, Addr e, Addr a) : _s(s), _e(e), _a(a) {}
-
-    Addr start() const { return _s; }
-    Addr end() const { return _e; }
-    Size size() const { return (Size)_e + 1 - _s; }
-    Addr alignment() const { return _a; }
-
-    void start_end(Addr s, Addr e) { _s = s; _e = e; }
-    void start(Addr start) { _e = start + (_e - _s); _s = start; }
-    void end(Addr end) { _e = end; }
-    void alignment(Addr a) { _a = a; }
-  };
-
-  enum
-  {
-    Max_addr = ~Addr(0)
-  };
-
 
 private:
-  Data _d;
+  Addr _s, _e;
+  l4_umword_t _a;
+
+  void _start_end(Addr s, Addr e) { _s = s; _e = e; }
 
 public:
-
-  explicit Adr_resource(unsigned long flags = 0)
-  : Resource(flags), _d(0, 0, 0)
-  {}
-
-  Adr_resource(unsigned long flags, Addr start, Addr end)
-  : Resource(flags),
-    _d(start, end, end - start)
-  {}
-
-  void set_empty() { _d.start_end(0, 0); Resource::set_empty(true); }
-
-  void dump(char const *type, int indent) const;
-  void dump(int indent = 0) const;
-
+  void set_empty() { _s = _e = 0; set_empty(true); }
   void alignment(Size a)
   {
-    _d.alignment(a);
+    _a = a;
     del_flags(F_size_aligned);
   }
+
+  bool valid() const { return flags() && _s <= _e; }
 
   void validate()
   {
@@ -274,73 +152,64 @@ public:
       disable();
   }
 
-  Data data() const { return _d; }
-  Data const &_data() const { return _d; }
+  Addr start() const { return _s; }
+  Addr end() const { return _e; }
+  Size size() const { return (Size)_e + 1 - _s; }
 
-  Addr start() const { return _d.start(); }
-  Addr end() const { return _d.end(); }
-  Size size() const { return _d.size(); }
-
-  bool contains(Adr_resource const &o) const
+  bool contains(Resource const &o) const
   { return start() <= o.start() && end() >= o.end(); }
 
-  bool valid() const { return flags() && _d.start() <= _d.end(); }
-
-  void start(Addr start) { _d.start(start); }
+  void start(Addr start) { _e = start + (_e - _s); _s = start; }
   void end(Addr end)
   {
-    _d.end(end);
-    Resource::set_empty(false);
+    _e = end;
+    set_empty(false);
   }
 
-  virtual void size(Size size)
+  void size(Size size)
   {
-    _d.end(_d.start() - 1 + size);
-    Resource::set_empty(false);
-  }
-
-  void start_size(Addr start, Size s)
-  {
-    _d.start_end(start, start - 1 + s);
-    Resource::set_empty(false);
+    _e = _s - 1 + size;
+    set_empty(false);
   }
 
   void start_end(Addr start, Addr end)
   {
-    _d.start_end(start, end);
-    Resource::set_empty(false);
+    _start_end(start, end);
+    set_empty(false);
+  }
+
+  void start_size(Addr start, Size s)
+  {
+    _start_end(start, start - 1 + s);
+    set_empty(false);
   }
 
   bool is_64bit() const { return flags() & F_width_64bit; }
-  l4_addr_t alignment() const
+
+  l4_umword_t alignment() const
   {
-    return  flags() & F_size_aligned ? (_d.end() - _d.start()) : _d.alignment();
+    return  flags() & F_size_aligned ? (_e - _s) : _a;
   }
 
-
-  l4_addr_t map_iomem() const
+  virtual l4_addr_t map_iomem() const
   {
     if (type() != Mmio_res)
       return 0;
     return res_map_iomem(start(), size());
   }
 
-  virtual ~Adr_resource() {}
+
 };
 
-
-
-class Adr_resource_provider : public Adr_resource
+class Resource_provider : public Resource
 {
 private:
   class _RS : public Resource_space
   {
   private:
-    typedef Adr_resource::Addr Addr;
-    typedef Adr_resource::Size Size;
-    typedef std::list<Adr_resource*> Rl;
-
-    Rl _rl;
+    typedef Resource::Addr Addr;
+    typedef Resource::Size Size;
+    Resource_list _rl;
 
   public:
     bool request(Resource *parent, Device *pdev, Resource *child, Device *cdev);
@@ -353,16 +222,16 @@ private:
   mutable _RS _rs;
 
 public:
-  explicit Adr_resource_provider(unsigned long flags)
-  : Adr_resource(flags), _rs() {}
+  explicit Resource_provider(unsigned long flags)
+  : Resource(flags), _rs() {}
 
-  Adr_resource_provider(unsigned long flags, Addr s, Addr e)
-  : Adr_resource(flags, s, e), _rs() {}
+  Resource_provider(unsigned long flags, Addr s, Addr e)
+  : Resource(flags, s, e), _rs() {}
 
   Resource_space *provided() const
   { return &_rs; }
 
-  ~Adr_resource_provider() {}
+  ~Resource_provider() {}
 
 };
 
@@ -382,7 +251,7 @@ public:
 };
 
 
-class Mmio_data_space : public Adr_resource
+class Mmio_data_space : public Resource
 {
 private:
   L4Re::Util::Auto_cap<L4Re::Dataspace>::Cap _ds_ram;
@@ -391,7 +260,7 @@ public:
   L4Re::Rm::Auto_region<l4_addr_t> _r;
 
   Mmio_data_space(Size size, unsigned long alloc_flags = 0)
-  : Adr_resource(Mmio_res, 0, size - 1)
+  : Resource(Mmio_res, 0, size - 1)
   {
     alloc_ram(size, alloc_flags);
   }

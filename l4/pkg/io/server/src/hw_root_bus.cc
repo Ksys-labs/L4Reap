@@ -68,10 +68,7 @@ bool
 Root_mmio_rs::request(Resource *parent, Device *, Resource *child, Device *)
 {
   //printf("request resource at root level: "); child->dump();
-  Adr_resource *x = dynamic_cast<Adr_resource*>(child);
-
-  if (x
-      && Phys_space::space.alloc(Phys_space::Phys_region(x->start(), x->end())))
+  if (Phys_space::space.alloc(Phys_space::Phys_region(child->start(), child->end())))
     {
       child->parent(parent);
       return true;
@@ -89,31 +86,25 @@ bool
 Root_mmio_rs::alloc(Resource *parent, Device *, Resource *child, Device *,
                     bool /*resize*/)
 {
-
-  Adr_resource *cld = dynamic_cast<Adr_resource *>(child);
-
-  if (!cld)
-    return false;
-
-  Adr_resource::Size align = cxx::max<Adr_resource::Size>(cld->alignment(),  L4_PAGESIZE - 1);
-  Phys_space::Phys_region phys = Phys_space::space.alloc(cld->size(), align);
+  Resource::Size align = cxx::max<Resource::Size>(child->alignment(),  L4_PAGESIZE - 1);
+  Phys_space::Phys_region phys = Phys_space::space.alloc(child->size(), align);
   if (!phys.valid())
     {
 #if 0
       printf("ERROR: could not reserve physical space for resource\n");
       r->dump();
 #endif
-      cld->disable();
+      child->disable();
       return false;
     }
 
-  cld->start(phys.start());
+  child->start(phys.start());
   child->parent(parent);
 
   if (dlevel(DBG_DEBUG))
     {
       printf("allocated resource: ");
-      cld->dump();
+      child->dump();
     }
   return true;
 }
@@ -133,12 +124,12 @@ Root_bus::Root_bus(char const *name)
   Resource_space *rs_mmio = new Root_mmio_rs();
   // add root resource for non-prefetchable MMIO resources
   r = new Root_resource(Resource::Mmio_res, rs_mmio);
-  r->add_flags(Adr_resource::F_width_64bit);
+  r->add_flags(Resource::F_width_64bit);
   add_resource(r);
 
   // add root resource for prefetchable MMIO resources
   r = new Root_resource(Resource::Mmio_res | Resource::F_prefetchable, rs_mmio);
-  r->add_flags(Adr_resource::F_width_64bit);
+  r->add_flags(Resource::F_width_64bit);
   add_resource(r);
 
   // add root resource for IO ports

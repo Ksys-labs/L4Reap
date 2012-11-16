@@ -24,7 +24,7 @@ using namespace L4Re::Vfs;
 class in_ops : public Be_file_stream
 {
 private:
-  Event::Event  _event;
+  Event::Event_cap _event;
   L4::Cap<L4::Vcon> _s;
 
 public:

@@ -1,5 +1,18 @@
 #pragma once
 
+/*
+ * observer.h --
+ *
+ *    Fault observer interface
+ *
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ *     economic rights: Technische Universität Dresden (Germany)
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+
+
 #include "../fault_observers"
 #include "debugging.h" // Breakpoint
 #if 0
@@ -76,32 +89,18 @@ namespace Romain
 	{
 		DECLARE_OBSERVER("syscalls");
 
+		SyscallObserver()
+			: _replica_thread_groups()
+		{ }
+
 		protected:
 
-		/*
-		 * Store UTCB from orig to backup.
-		 */
-		void store_utcb(char *orig, char *backup) { memcpy(backup, orig, L4_UTCB_OFFSET); }
-
-		/*******************************************
-		 * Perform system call redirection.
-		 *******************************************/
-		void do_proxy_syscall(Romain::App_instance*, Romain::App_thread*, Romain::App_model*);
-
-		/*******************************************
-		 * Memory-management-related system calls.
-		 *******************************************/
-		void handle_rm(Romain::App_instance*, Romain::App_thread*, Romain::App_model*);
+		std::map<unsigned, Romain::Thread_group*> _replica_thread_groups;
 
 		/*******************************************
 		 * Thread-related system calls
 		 *******************************************/
-		void handle_thread(Romain::App_instance*, Romain::App_thread*, Romain::App_model*);
 		void handle_task(Romain::App_instance*, Romain::App_thread*, Romain::App_model*);
-		/*
-		 * gdt setup system calls
-		 */
-		void handle_thread_gdt(Romain::App_thread*, l4_utcb_t *u);
 	};
 
 
@@ -143,5 +142,12 @@ namespace Romain
 	{
 		public:
 		static SWIFIObserver* Create();
+	};
+
+
+	class PThreadLockObserver : public Observer
+	{
+		public:
+		static PThreadLockObserver* Create();
 	};
 }

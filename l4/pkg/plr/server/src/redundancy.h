@@ -1,6 +1,19 @@
 #pragma once
 
+/*
+ * redundancy.h --
+ *
+ *  Interface for handling redundancy comparisons
+ *
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ *     economic rights: Technische Universität Dresden (Germany)
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+
 #include "app"
+#include "thread_group.h"
 #include <pthread-l4.h>
 
 namespace Romain {
@@ -71,56 +84,70 @@ namespace Romain {
 			 *
 			 * Determines if the handler needs to be executed.
 			 */
-			virtual EnterReturnVal enter(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a) = 0;
+			virtual EnterReturnVal enter(Romain::App_instance *i, Romain::App_thread *t,
+			                             Romain::App_model *a) = 0;
 
 			/*
 			 * Function for the master replica to notify subsequent ones to
 			 * not execute a handler, but use the master's return state (UTCB, vCPU)
 			 * instead.
 			 */
-			virtual void leader_replicate(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a) = 0;
+			virtual void leader_replicate(Romain::App_instance *i, Romain::App_thread *t,
+			                              Romain::App_model *a) = 0;
 
 			/*
 			 * Master telling the replicas to run the fault handler
 			 * themselves.
 			 */
-			virtual void leader_repeat(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a) = 0;
+			virtual void leader_repeat(Romain::App_instance *i, Romain::App_thread *t,
+			                           Romain::App_model *a) = 0;
 
 			/*
 			 * Function called by each replica before resuming execution
 			 * or handling of the next pending fault.
 			 */
-			virtual void resume(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a) = 0;
+			virtual void resume(Romain::App_instance *i, Romain::App_thread *t,
+			                    Romain::App_model *a) = 0;
 
 			/*
 			 * Block this replica until explicitly woken up.
 			 */
-			virtual void wait(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a) = 0;
+			virtual void wait(Romain::App_instance *i, Romain::App_thread *t,
+			                  Romain::App_model *a) = 0;
 
 			/*
 			 * Wait until all other replicas got into wait state.
 			 */
-			virtual void silence(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a) = 0;
+			virtual void silence(Romain::App_instance *i, Romain::App_thread *t,
+			                     Romain::App_model *a) = 0;
 
 			/*
 			 * Wake up all other replicas.
 			 */
-			virtual void wakeup(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a) = 0;
+			virtual void wakeup(Romain::App_instance *i, Romain::App_thread *t,
+			                    Romain::App_model *a) = 0;
 	};
 
 
 	class NoRed : public Romain::RedundancyCallback
 	{
 		public:
-			virtual EnterReturnVal enter(Romain::App_instance *, Romain::App_thread *, Romain::App_model *)
+			virtual EnterReturnVal enter(Romain::App_instance *, Romain::App_thread *,
+			                             Romain::App_model *)
 			{ return Romain::RedundancyCallback::First_syscall; }
-			virtual void leader_replicate(Romain::App_instance *, Romain::App_thread *, Romain::App_model *) {}
-			virtual void leader_repeat(Romain::App_instance *, Romain::App_thread *, Romain::App_model *) {}
-			virtual void resume(Romain::App_instance *, Romain::App_thread *, Romain::App_model *) {}
-			virtual void wait(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a)
+			virtual void leader_replicate(Romain::App_instance *, Romain::App_thread *,
+			                              Romain::App_model *) {}
+			virtual void leader_repeat(Romain::App_instance *, Romain::App_thread *,
+			                           Romain::App_model *) {}
+			virtual void resume(Romain::App_instance *, Romain::App_thread *,
+			                    Romain::App_model *) {}
+			virtual void wait(Romain::App_instance *i, Romain::App_thread *t,
+			                  Romain::App_model *a)
 			{ enter_kdebug("single instances should never wait."); }
-			virtual void silence(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a) {}
-			virtual void wakeup(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a)  {}
+			virtual void silence(Romain::App_instance *i, Romain::App_thread *t,
+			                     Romain::App_model *a) {}
+			virtual void wakeup(Romain::App_instance *i, Romain::App_thread *t,
+			                    Romain::App_model *a)  {}
 	};
 
 
@@ -180,12 +207,19 @@ namespace Romain {
 
 			DMR(unsigned instances);
 
-			virtual EnterReturnVal enter(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a);
-			virtual void leader_replicate(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a);
-			virtual void leader_repeat(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a);
-			virtual void resume(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a);
-			virtual void wait(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a);
-			virtual void silence(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a);
-			virtual void wakeup(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a);
+			virtual EnterReturnVal enter(Romain::App_instance *i, Romain::App_thread *t,
+			                             Romain::App_model *a);
+			virtual void leader_replicate(Romain::App_instance *i, Romain::App_thread *t,
+			                              Romain::App_model *a);
+			virtual void leader_repeat(Romain::App_instance *i, Romain::App_thread *t,
+			                           Romain::App_model *a);
+			virtual void resume(Romain::App_instance *i, Romain::App_thread *t,
+			                    Romain::App_model *a);
+			virtual void wait(Romain::App_instance *i, Romain::App_thread *t,
+			                  Romain::App_model *a);
+			virtual void silence(Romain::App_instance *i, Romain::App_thread *t,
+			                     Romain::App_model *a);
+			virtual void wakeup(Romain::App_instance *i, Romain::App_thread *t,
+			                    Romain::App_model *a);
 	};
 }

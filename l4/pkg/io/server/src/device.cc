@@ -17,24 +17,24 @@ bool
 Generic_device::alloc_child_resource(Resource *r, Device *cld)
 {
   bool found_as = false;
-  for (Resource_list::iterator br = resources()->begin();
+  for (Resource_list::const_iterator br = resources()->begin();
        br != resources()->end(); ++br)
     {
       if (!*br)
         continue;
 
-      if (br->disabled())
+      if ((*br)->disabled())
 	continue;
 
-      if (!br->provided())
+      if (!(*br)->provided())
 	continue;
 
-      if (!br->compatible(r, true))
+      if (!(*br)->compatible(r, true))
 	continue;
 
       found_as = true;
 
-      if (br->provided()->alloc(*br, this, r, cld, parent() && !parent()->resource_allocated(*br)))
+      if ((*br)->provided()->alloc(*br, this, r, cld, parent() && !parent()->resource_allocated(*br)))
 	{
 	  d_printf(DBG_ALL, "allocated resource: ");
 	  if (dlevel(DBG_ALL))
@@ -93,7 +93,7 @@ Device::request_resources()
   if (!parent())
     return;
 
-  for (Resource_list::iterator r = rl->begin();
+  for (Resource_list::const_iterator r = rl->begin();
       r != rl->end(); ++r)
     if (*r)
       request_resource(*r);
@@ -145,16 +145,16 @@ Device::allocate_pending_resources()
 
   UAD to_allocate(res_cmp);
 
-  for (Resource_list::iterator r = resources()->begin();
+  for (Resource_list::const_iterator r = resources()->begin();
       r != resources()->end(); ++r)
     {
       if (!*r)
         continue;
 
-      if (r->fixed_addr())
+      if ((*r)->fixed_addr())
 	continue;
 
-      if (r->empty())
+      if ((*r)->empty())
 	continue;
 
       if (p->resource_allocated(*r))
@@ -179,16 +179,16 @@ Device::allocate_pending_child_resources()
     {
       dev->allocate_pending_child_resources();
 
-      for (Resource_list::iterator r = dev->resources()->begin();
+      for (Resource_list::const_iterator r = dev->resources()->begin();
 	   r != dev->resources()->end(); ++r)
 	{
           if (!*r)
             continue;
 
-	  if (r->fixed_addr())
+	  if ((*r)->fixed_addr())
 	    continue;
 
-	  if (r->empty())
+	  if ((*r)->empty())
 	    continue;
 
 	  if (resource_allocated(*r))
@@ -222,24 +222,24 @@ Generic_device::request_child_resource(Resource *r, Device *cld)
     {
       // scan through all our resources and try to find a
       // provided resource that is consumed by resource 'r'
-      for (Resource_list::iterator br = resources()->begin();
+      for (Resource_list::const_iterator br = resources()->begin();
 	   br != resources()->end(); ++br)
 	{
           if (!*br)
             continue;
 
-	  if (br->disabled())
+	  if ((*br)->disabled())
 	    continue;
 
-	  if (!br->provided())
+	  if (!(*br)->provided())
 	    continue;
 
-	  if (!br->compatible(r, exact))
+	  if (!(*br)->compatible(r, exact))
 	    continue;
 
 	  found_as = true;
 
-	  if (br->provided()->request(*br, this, r, cld))
+	  if ((*br)->provided()->request(*br, this, r, cld))
 	    return true;
 	}
 

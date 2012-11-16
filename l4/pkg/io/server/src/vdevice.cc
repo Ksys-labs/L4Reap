@@ -167,15 +167,13 @@ Device::vdevice_dispatch(l4_umword_t obj, l4_uint32_t func, L4::Ipc::Iostream &i
 	    {
 	      int res_idx;
 	      ios >> res_idx;
-	      Adr_resource *r = dynamic_cast<Adr_resource*>(resources()->elem(res_idx));
-
-	      if (!r)
+              if (res_idx < 0 || (unsigned)res_idx >= resources()->size())
 		return -L4_ENOENT;
 
+	      Resource *r = resources()->at(res_idx);
 	      l4vbus_resource_t res;
-	      Adr_resource::Data d = r->data();
-	      res.start = d.start();
-	      res.end = d.end();
+	      res.start = r->start();
+	      res.end = r->end();
 	      res.type = r->type();
 	      res.flags = 0;
 	      ios.put(res);

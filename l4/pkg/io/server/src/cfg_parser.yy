@@ -46,6 +46,7 @@
 %parse-param { Vi::Dev_factory *_vbus_factory }
 %parse-param { Vi::Device *&_glbl_vbus }
 %parse-param { Hw::Device *_hw_root }
+%parse-param { int &_errors }
 
 %error-verbose
 
@@ -111,6 +112,34 @@ void wrap(Device *h, Vi::Device **first, Tagged_parameter *filter)
   Hw::Device *hd = dynamic_cast<Hw::Device *>(h);
 
   Vi::Device *vd = Vi::Dev_factory::create(hd, filter);
+  for (Tagged_parameter *c = filter; c; c = c->next())
+    for (Expression *x = c->val(); x; x = x->next())
+      {
+        Value v = x->eval();
+        int r;
+        switch (v.type)
+          {
+          case Value::String:
+            r = vd->add_filter(c->tag(), cxx::String(v.val.str.s, v.val.str.e));
+            break;
+          case Value::Num:
+            r = vd->add_filter(c->tag(), v.val.num);
+            break;
+          case Value::Range:
+            r = vd->add_filter(c->tag(), v.val.range.s, v.val.range.e);
+            break;
+          default:
+            d_printf(DBG_ERR, "ERROR: Filters expressions must be of type string, number, or range.\n");
+            r = -ENODEV;
+            break;
+          }
+
+        if (r >= 0)
+          c->mark_used();
+        if (r == -EINVAL)
+          d_printf(DBG_ERR, "ERROR: filter '%*.s' has unsupoorted value\n", c->tag().len(), c->tag().start());
+      }
+
   if (vd)
     {
       vd->add_sibling(*first);
@@ -285,13 +314,13 @@ create_resource(cfg::Parser::location_type const &l, cxx::String const &type,
   Value a;
 
   if (type == "Io")
-    flags = Adr_resource::Io_res;
+    flags = Resource::Io_res;
   else if (type == "Irq")
-    flags = Adr_resource::Irq_res;
+    flags = Resource::Irq_res;
   else if (type == "Mmio")
-    flags = Adr_resource::Mmio_res;
+    flags = Resource::Mmio_res;
   else if (type == "Mmio_ram")
-    flags = Adr_resource::Mmio_res | Adr_resource::Mmio_data_space;
+    flags = Resource::Mmio_res | 0x80000;
   else
     {
       std::cerr << l << ": unknown resource type '" << type << "', expected Io, Irq, Mmio, or Mmio_ram" << std::endl;
@@ -308,9 +337,9 @@ create_resource(cfg::Parser::location_type const &l, cxx::String const &type,
   l4_uint64_t s, e;
   switch (flags)
     {
-    case Adr_resource::Io_res:
-    case Adr_resource::Irq_res:
-    case Adr_resource::Mmio_res:
+    case Resource::Io_res:
+    case Resource::Irq_res:
+    case Resource::Mmio_res:
       if (!args)
         {
 	  std::cerr << l << ": too few arguments to constructor of resource '" << type << "'" << std::endl;
@@ -367,9 +396,9 @@ create_resource(cfg::Parser::location_type const &l, cxx::String const &type,
 	  Expression::del_all(args);
 	}
 
-      return new Expression(new Adr_resource(flags, s , e));
+      return new Expression(new Resource(flags, s , e));
 
-    case (Adr_resource::Mmio_res |  Adr_resource::Mmio_data_space):
+    case (Resource::Mmio_res |  0x80000):
       if (!args)
         {
 	  std::cerr << l << ": too few arguments to constructor of resource '" << type << "'" << std::endl;
@@ -454,7 +483,7 @@ Vi::Device *check_dev_expr(cfg::location const &l, Expression *e)
 }
 
 static
-Adr_resource *check_resource_expr(cfg::location const &l, Expression *e)
+Resource *check_resource_expr(cfg::location const &l, Expression *e)
 {
   if (!e)
     return 0;
@@ -638,6 +667,7 @@ start	: top_level_list { _glbl_vbus = $1; }
 void cfg::Parser::error(const Parser::location_type& l,
 			    const std::string& m)
 {
+  ++_errors;
   std::cerr << l << ": " << m << std::endl;
 }
 

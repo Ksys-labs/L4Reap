@@ -32,7 +32,7 @@
 class in_ops : public l4file_ops
 {
 private:
-  Event::Event  _event;
+  Event::Event_cap  _event;
 
 public:
   in_ops() : l4file_ops(1, "IN ops"), _event(this) {}

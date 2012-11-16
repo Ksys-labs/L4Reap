@@ -1,9 +1,9 @@
 /*
- * romain_pagefault.cc --
+ * pagefault.cc --
  *
  *     Implementation of page fault handling.
  *
- * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -29,7 +29,9 @@ extern l4_addr_t __libc_l4_gettime;
 static int pf_write  = 0; // statistical counter
 static int pf_mapped = 0; // statistical counter
 static int pf_kip    = 0; // statistical counter
+
 #define MSG() DEBUGf(Romain::Log::Memory) << "[" << i->id() << "] "
+#define MSGt(t) DEBUGf(Romain::Log::Faults) << "[" << t->vcpu() << "] "
 
 /*****************************************************************
  *                  Page Fault Handling                          *
@@ -43,7 +45,8 @@ void Romain::PageFaultObserver::status() const
 }
 
 Romain::Observer::ObserverReturnVal
-Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a)
+Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t,
+                                  Romain::Thread_group* tg, Romain::App_model *a)
 {
 	if (!t->vcpu()->is_page_fault_entry())
 		return Romain::Observer::Ignored;
@@ -57,28 +60,31 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 	bool write_pf = vcpu->r()->err & 0x2;
 	l4_addr_t pfa = vcpu->r()->pfa;
 
-	MSG() << (write_pf ? "\033[31mwrite\033[0m" : "\033[34;1mread\033[0m")
+	MSGt(t) << (write_pf ? "\033[31mwrite\033[0m" : "\033[34;1mread\033[0m")
 	      << " page fault @ 0x" << std::hex << pfa;
 
 	Romain::Region_map::Base::Node n = a->rm()->find(pfa);
-	MSG() << "rm_find(" << std::hex << pfa << ") = " << n;
+	MSGt(t) << "rm_find(" << std::hex << pfa << ") = " << n;
 	if (n) {
 		a->rm()->lazy_map_region(n, i->id());
 
 		/*
 		 * Lazily establish region handlers for replicas
 		 */
-		MSG() << "[" << std::hex
+		MSGt(t) << "[" << std::hex
 		        << n->second.local_region(i->id()).start() << " - "
 		        << n->second.local_region(i->id()).end() << "] ==> "
 		        << "[" << n->first.start() << " - "
 		        << n->first.end() << "]";
-		MSG() << "   DS " << std::hex <<  n->second.memory(i->id()).cap();
+		MSGt(t) << "   DS " << std::hex <<  n->second.memory(i->id()).cap();
 
 		if (write_pf && (always_readonly() ||
 		                (n->second.writable() == Romain::Region_handler::Read_only_emulate_write))) {
 			++pf_write;
-			Romain::WriteEmulator(vcpu, Romain::AppModelAddressTranslator(a, i)).emulate();
+			/* XXX: can we use a static object here instead? */
+			AppModelAddressTranslator *aat = new AppModelAddressTranslator(a, i);
+			Romain::WriteEmulator(vcpu, aat).emulate();
+			delete aat;
 			// writes are emulated, no need to map here at all
 			// -> XXX actually, we could also map() here, because if the client
 			//        writes to memory, it's most probably going to read this
@@ -95,7 +101,7 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 			++pf_mapped;
 
 			l4_addr_t offset_in_region = l4_trunc_page(pfa - n->first.start());
-			MSG() << "offs in region: " << std::hex << offset_in_region;
+			MSGt(t) << "offs in region: " << std::hex << offset_in_region;
 			
 			// set flags properly, only check ro(), because else we'd already ended
 			// up in the emulation branch above
@@ -119,9 +125,9 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 
 	} else if ((a->prog_info()->kip <= pfa) && (pfa < a->prog_info()->kip + L4_PAGESIZE)) {
 	    ++pf_kip;
-	    MSG() << "KIP access ";
+	    MSGt(t) << "KIP access ";
 	    /* XXX ??? */
-		MSG() << std::hex << __libc_l4_gettime << " " <<  *(l4_addr_t*)__libc_l4_gettime;
+		MSGt(t) << std::hex << __libc_l4_gettime << " " <<  *(l4_addr_t*)__libc_l4_gettime;
 	    t->set_unhandled_pf();
 	} else {
 		ERROR() << "Unhandled page fault @ address 0x" << std::hex << pfa
@@ -134,14 +140,15 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 	 *      independently. In fact, we could however also handle all faults upon first
 	 *      occurrence and return Replicatable here.
 	 */
-	MSG() << "Page faults so far: mapped " << pf_mapped << " write emu " << pf_write << " kip " << pf_kip;
+	MSGt(t) << "Page faults so far: mapped " << pf_mapped << " write emu " << pf_write << " kip " << pf_kip;
+
 	return Romain::Observer::Finished;
 }
 
 
 Romain::PageFaultObserver::PageFaultObserver()
 {
-	char const *ro = ConfigStringValue("general:page_fault_handling"); 
+	char const *ro = ConfigStringValue("general:page_fault_handling");
 
 	if (ro && (strcmp(ro, "ro") == 0)) {
 		_readonly = true;

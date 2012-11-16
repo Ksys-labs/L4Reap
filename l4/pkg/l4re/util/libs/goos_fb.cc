@@ -74,7 +74,7 @@ Goos_fb::init()
       vi.height = gi.height;
 
       chksys(_view.set_info(vi), "setting up dynamic view");
-      chksys(_view.push_top(), "bringiong view to top");
+      chksys(_view.push_top(), "bringing view to top");
     }
 }
 

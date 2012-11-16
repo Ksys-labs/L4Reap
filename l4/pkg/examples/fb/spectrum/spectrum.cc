@@ -90,9 +90,15 @@ static inline unsigned color_val(unsigned w, unsigned peak_point, unsigned val)
 }
 
 #ifndef DO_C
-static void ev_hdl_func(void *data)
+namespace {
+struct Ev_loop : public Event::Event_loop
 {
-  (void)data;
+  Ev_loop(L4::Cap<L4::Irq> irq, int prio) : Event::Event_loop(irq, prio) {}
+  void handle();
+};
+
+void Ev_loop::handle()
+{
   while (L4Re::Event_buffer::Event *e = event.buffer().next())
     {
       int k;
@@ -104,6 +110,7 @@ static void ev_hdl_func(void *data)
       // proper mouse and keyboard handling code comes here
       e->free();
     }
+}
 }
 #endif
 
@@ -122,9 +129,10 @@ int main(void)
    if (event.init(L4::cap_dynamic_cast<L4Re::Event>(gfb.goos())))
      return 4;
 
-   Event::Event event_hdl(event.irq(), ev_hdl_func, NULL, 4);
+   Ev_loop event_hdl(event.irq(), 4);
    if (!event_hdl.attached())
      return 5;
+   event_hdl.start();
 #else
   if (l4re_util_video_goos_fb_setup_name(&gfb, "fb"))
     return 1;
@@ -139,7 +147,7 @@ int main(void)
 #endif
 
   printf("x:%ld y:%ld bit/pixel:%d bytes/line:%ld\n",
-         fbi.width, fbi.width, bpp, fbi.bytes_per_line);
+         fbi.width, fbi.height, bpp, fbi.bytes_per_line);
 
   // now some fancy stuff
   unsigned w = fbi.width;

@@ -3,7 +3,7 @@
  *
  * Here's where the real stuff is going on
  *
- * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -26,13 +26,20 @@
 
 #define MSG() DEBUGf(Romain::Log::Faults)
 #define MSGi(inst) MSG() << "[" << (inst)->id() << "] "
+#define MSGit(inst,tg) MSG() << "[" << (inst)->id() << "] \033[34;1m{" << tg->name << "}\033[0m "
 
 EXTERN_C void *pthread_fn(void *data);
 EXTERN_C void *pthread_fn(void *data)
 {
 	Romain::App_thread *t = (Romain::App_thread*)data;
 
-	/* 
+	l4_cap_idx_t cap = (l4_cap_idx_t)pthread_getl4cap(pthread_self());
+	t->vcpu_cap(L4::Cap<L4::Thread>(cap));
+
+	DEBUG() << "vcpu @ " << (void*)t->vcpu();
+	DEBUG() << "thread entry: " << (void*)t->thread_entry();
+
+	/*
 	 * Thread creation, copied from the example again.
 	 */
 	L4::Thread::Attr attr;
@@ -70,11 +77,12 @@ struct SplitInfo {
 	Romain::InstanceManager *m;
 	Romain::App_instance    *i;
 	Romain::App_thread      *t;
+	Romain::Thread_group    *tg;
 	Romain::App_model       *a;
 	l4_cap_idx_t             cap;
 
 	SplitInfo()
-		: m(0), i(0), t(0), a(0), cap(L4_INVALID_CAP)
+		: m(0), i(0), t(0), tg(0), a(0), cap(L4_INVALID_CAP)
 	{ }
 
 };
@@ -97,7 +105,6 @@ class SplitHandler
 			l4_msgtag_t t      = l4_ipc_wait(l4_utcb(), &label, L4_IPC_NEVER);
 			//MSG() << "Split handler notified: " << std::hex << t.label();
 			_psi[cnt]          = (SplitInfo*)l4_utcb_mr()->mr[0];
-			_checksums[cnt]    = _psi[cnt]->t->csum_state();
 #else
 			MSG() << (void*)&_psi[cnt] << " " << _psi[cnt];
 
@@ -108,6 +115,7 @@ class SplitHandler
 
 			MSG() << (void*)&_psi[cnt] << " " << _psi[cnt] << "  Split handler notified";
 #endif
+			_checksums[cnt]    = _psi[cnt]->t->csum_state();
 		}
 
 	}
@@ -117,13 +125,14 @@ class SplitHandler
 	{
 		for (unsigned cnt = 1; cnt < _im->instance_count(); ++cnt) {
 			if (_checksums[cnt] != _checksums[cnt-1]) {
+				ERROR() << std::hex << _checksums[cnt] << " != " << _checksums[cnt-1];
 				ERROR() << "State mismatch detected!";
 				ERROR() << "=== vCPU states ===";
 				
 				for (unsigned i = 0; i < _im->instance_count(); ++i) {
 					ERROR() << "Instance " << _psi[i]->i->id() << " "
 					        << "csum " << std::hex << _psi[i]->t->csum_state();
-					_psi[i]->t->vcpu()->print_state();
+					_psi[i]->t->print_vcpu_state();
 				}
 
 				return false;
@@ -143,13 +152,13 @@ class SplitHandler
 			                 << " @ 0x" << vcpu->r()->ip << "\033[0m";
 
 			Romain::Observer::ObserverReturnVal v 
-				= _im->fault_notify(_psi[0]->i, _psi[0]->t, _psi[0]->a);
+				= _im->fault_notify(_psi[0]->i, _psi[0]->t, _psi[0]->tg, _psi[0]->a);
 
 			switch(v) {
 				case Romain::Observer::Finished:
 					{
 						for (unsigned c = 1; c < _im->instance_count(); ++c) {
-							_im->fault_notify(_psi[c]->i, _psi[c]->t, _psi[c]->a);
+							_im->fault_notify(_psi[c]->i, _psi[c]->t, _psi[c]->tg, _psi[c]->a);
 						}
 					}
 					break;
@@ -176,7 +185,6 @@ class SplitHandler
 	{
 		for (unsigned c = 0; c < _im->instance_count(); ++c) {
 			MSGi(_psi[c]->i) << "Resuming instance @ " << std::hex << _psi[c]->t->vcpu()->r()->ip;
-			_psi[c]->t->commit_client_gdt();
 #if SYNC_IPC
 			l4_ipc_send(_psi[c]->cap, l4_utcb(), l4_msgtag(0,0,0,0), L4_IPC_NEVER);
 #else
@@ -198,6 +206,7 @@ class SplitHandler
 
 		void notify(Romain::App_instance* i,
 		            Romain::App_thread* t,
+					Romain::Thread_group* tg,
 		            Romain::App_model* a)
 		{
 #if SYNC_IPC
@@ -208,6 +217,7 @@ class SplitHandler
 			//si.m   = _im;
 			si.i   = i;
 			si.t   = t;
+			si.tg  = tg;
 			si.a   = a;
 			si.cap = t->vcpu_cap().cap();
 
@@ -219,6 +229,7 @@ class SplitHandler
 			SplitInfo si;
 			si.i = i;
 			si.t = t;
+			si.tg = tg;
 			si.a = a;
 			psi(i->id(), &si);
 			MSG() << (void*)&_psi[i->id()] << " " << (void*)&si;
@@ -255,8 +266,8 @@ class SplitHandler
 			while (true) {
 				wait_for_instances();
 
-				DEBUG() << "received faults from " << _im->instance_count()
-						<< " instances...";
+			DEBUG() << "received faults from " << _im->instance_count()
+			        << " instances...";
 
 				if (!validate_instances())
 					enter_kdebug("recover");
@@ -294,12 +305,23 @@ EXTERN_C void *split_handler_fn(void* data)
 void __attribute__((noreturn)) Romain::InstanceManager::VCPU_startup(Romain::InstanceManager *,
                                                                      Romain::App_instance *i,
                                                                      Romain::App_thread *t,
+                                                                     Romain::Thread_group *tg,
                                                                      Romain::App_model*am)
 {
 	L4vcpu::Vcpu *vcpu = t->vcpu();
 	vcpu->task(i->vcpu_task());
-	vcpu->r()->sp = (l4_umword_t)am->stack()->relocate(am->stack()->ptr());
-	vcpu->print_state();
+
+	tg->ready();
+	
+	t->commit_client_gdt();
+	//t->print_vcpu_state();
+
+	char namebuf[16];
+	snprintf(namebuf, 16, "%s.%d", tg->name.c_str(), i->id());
+	l4_debugger_set_object_name(t->vcpu_cap().cap(), namebuf);
+	DEBUG() << std::hex << (unsigned)t->vcpu_cap().cap() << " = "
+	        << l4_debugger_global_id(t->vcpu_cap().cap())
+	        << " ->" << namebuf;
 
 	struct timeval tv;
 	gettimeofday(&tv, 0);
@@ -308,11 +330,9 @@ void __attribute__((noreturn)) Romain::InstanceManager::VCPU_startup(Romain::Ins
 	else
 		INFO() << "\033[33;1mStarting\033[0m";
 
-	MSGi(i) << "Resuming instance ...";
+	MSGit(i,tg) << "Resuming instance @ " << (void*)vcpu->r()->ip << " ...";
 
 	L4::Cap<L4::Thread> cap = t->vcpu_cap();
-
-	t->commit_client_gdt();
 
 	cap->vcpu_resume_commit(cap->vcpu_resume_start());
 
@@ -324,6 +344,7 @@ void __attribute__((noreturn)) Romain::InstanceManager::VCPU_startup(Romain::Ins
 static void local_vCPU_handling(Romain::InstanceManager *m,
                                 Romain::App_instance *i,
                                 Romain::App_thread *t,
+                                Romain::Thread_group *tg,
                                 Romain::App_model *a)
 {
 	// XXX: At this point we might want to reset the GDT to the view that is
@@ -340,8 +361,21 @@ static void local_vCPU_handling(Romain::InstanceManager *m,
 	 * a new exception in such circumstances.
 	 */
 	while (trap) {
-		MSGi(i) << "\033[33;1mTRAP 0x" << std::hex << vcpu->r()->trapno
+		MSGit(i,tg) << "\033[33;1mTRAP 0x" << std::hex << vcpu->r()->trapno
 		        << " @ 0x" << vcpu->r()->ip << "\033[0m";
+
+		/*
+		 * HACK: In case we are using lock-internal determinism, there's a special
+		 *       entry address in which a single replica will signal us if we need
+		 *       to wake up another thread waiting for a replica. If we encounter
+		 *       this address, we skip redundancy handling and directly notify the
+		 *       fault handler(s).
+		 */
+		if (vcpu->r()->ip == 0xA041) {
+			// shortcut for unlock()
+			m->fault_notify(i,t,tg,a);
+			break;
+		}
 
 		Romain::Observer::ObserverReturnVal v         = Romain::Observer::Invalid;
 
@@ -349,25 +383,25 @@ static void local_vCPU_handling(Romain::InstanceManager *m,
 		 * Enter redundancy mode. May cause vCPU to block until leader vCPU executed
 		 * its handlers.
 		 */
-		Romain::RedundancyCallback::EnterReturnVal rv = m->redundancy()->enter(i,t,a);
+		Romain::RedundancyCallback::EnterReturnVal rv = tg->redundancyCB->enter(i,t,a);
 		//MSGi(i) << "red::enter: " << rv;
 
 		/*
 		 * Case 1: we are the first to exec this system call.
 		 */
 		if (rv == Romain::RedundancyCallback::First_syscall) {
-			v = m->fault_notify(i,t,a);
-			MSGi(i) << "fault_notify: " << v;
+			v = m->fault_notify(i,t,tg,a);
+			MSGit(i,tg) << "fault_notify: " << v;
 			switch(v) {
 				case Romain::Observer::Finished:
 				case Romain::Observer::Finished_wait:
 				case Romain::Observer::Finished_step:
 				case Romain::Observer::Finished_wakeup:
 					//MSGi(i) << "leader_repeat()";
-					m->redundancy()->leader_repeat(i,t,a);
+					tg->redundancyCB->leader_repeat(i,t,a);
 					break;
 				case Romain::Observer::Replicatable:
-					m->redundancy()->leader_replicate(i,t,a);
+					tg->redundancyCB->leader_replicate(i,t,a);
 					break;
 				default:
 					//enter_kdebug("fault was not finished/replicatable");
@@ -378,8 +412,8 @@ static void local_vCPU_handling(Romain::InstanceManager *m,
 		 * Case 2: leader told us to do the syscall ourselves
 		 */
 		else if (rv == Romain::RedundancyCallback::Repeat_syscall) {
-			v = m->fault_notify(i,t,a);
-			MSGi(i) << "fault_notify: " << v;
+			v = m->fault_notify(i,t,tg,a);
+			MSGit(i,tg) << "fault_notify: " << v;
 		}
 
 		/*
@@ -389,17 +423,17 @@ static void local_vCPU_handling(Romain::InstanceManager *m,
 		switch(v) {
 			case Romain::Observer::Finished_wait:
 				// go to sleep until woken up
-				m->redundancy()->wait(i,t,a);
+				tg->redundancyCB->wait(i,t,a);
 				break;
 			case Romain::Observer::Finished_wakeup:
 				// wakeup -> first needs to ensure that all other
 				// vCPUs are actually waiting
-				m->redundancy()->silence(i,t,a);
-				m->redundancy()->wakeup(i,t,a);
+				tg->redundancyCB->silence(i,t,a);
+				tg->redundancyCB->wakeup(i,t,a);
 				break;
 			case Romain::Observer::Finished_step:
 				// let other vCPUs step until they go to sleep
-				m->redundancy()->silence(i,t,a);
+				tg->redundancyCB->silence(i,t,a);
 				break;
 			default:
 				break;
@@ -408,12 +442,12 @@ static void local_vCPU_handling(Romain::InstanceManager *m,
 		if ((trap = t->get_pending_trap()) != 0)
 			t->vcpu()->r()->trapno = trap;
 
-		m->redundancy()->resume(i, t, a);
+		tg->redundancyCB->resume(i, t, a);
 	}
 
-	//vcpu->print_state();
-    MSGi(i) << "Resuming instance @ " << std::hex << t->vcpu()->r()->ip;
-	t->commit_client_gdt();
+	//print_vcpu_state();
+    MSGit(i, tg) << "Resuming instance @ " << std::hex << t->vcpu()->r()->ip;
+	//t->print_vcpu_state();
 }
 
 
@@ -421,11 +455,11 @@ static void local_vCPU_handling(Romain::InstanceManager *m,
 static void split_vCPU_handling(Romain::InstanceManager *m,
                                 Romain::App_instance *i,
                                 Romain::App_thread *t,
+                                Romain::Thread_group *tg,
                                 Romain::App_model *a)
 {
 	MSG() << "here";
 	SplitHandler::get(0)->notify(i,t,a);
-	t->commit_client_gdt();
 }
 #endif // SPLIT_HANDLING
 
@@ -434,22 +468,22 @@ static void split_vCPU_handling(Romain::InstanceManager *m,
 static void migrated_vCPU_handling(Romain::InstanceManager *m,
                                    Romain::App_instance *i,
                                    Romain::App_thread *t,
+                                   Romain::Thread_group *tg,
                                    Romain::App_model *a)
 {
 	l4_sched_param_t sp = l4_sched_param(2);
 	sp.affinity = l4_sched_cpu_set(0, 0);
 	chksys(L4Re::Env::env()->scheduler()->run_thread(t->vcpu_cap(),
-													 sp));
+	                                                 sp));
 
 	local_vCPU_handling(m, i, t, a);
 
 	sp = l4_sched_param(2);
 	sp.affinity = l4_sched_cpu_set(t->cpu(), 0);
 	chksys(L4Re::Env::env()->scheduler()->run_thread(t->vcpu_cap(),
-													 sp));
+	                                                 sp));
 }
 #endif // MIGRATE_VCPU
-
 
 /*
  * VCPU fault entry point.
@@ -460,6 +494,7 @@ static void migrated_vCPU_handling(Romain::InstanceManager *m,
 void __attribute__((noreturn)) Romain::InstanceManager::VCPU_handler(Romain::InstanceManager *m,
                                                                      Romain::App_instance *i,
                                                                      Romain::App_thread *t,
+                                                                     Romain::Thread_group *tg,
                                                                      Romain::App_model *a)
 {
 	L4vcpu::Vcpu *vcpu = t->vcpu();
@@ -467,14 +502,15 @@ void __attribute__((noreturn)) Romain::InstanceManager::VCPU_handler(Romain::Ins
 	handler_prolog(t);
 
 #if MIGRATE_VCPU
-	migrated_vCPU_handling(m, i, t, a);
+	migrated_vCPU_handling(m, i, t, tg, a);
 #elif SPLIT_HANDLING
-	split_vCPU_handling(m, i, t, a);
+	split_vCPU_handling(m, i, t, tg, a);
 #elif LOCAL_HANDLING
-	local_vCPU_handling(m, i, t, a);
+	local_vCPU_handling(m, i, t, tg, a);
 #else
 #error No vCPU handling method selected!
 #endif
+
 	L4::Cap<L4::Thread> self;
 	self->vcpu_resume_commit(self->vcpu_resume_start());
 

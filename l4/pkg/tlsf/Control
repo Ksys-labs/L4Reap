@@ -1,3 +1,3 @@
 provides: libtlsf
-requires: libpthread libc_support_misc
+requires: libpthread
 maintainer: adam@os.inf.tu-dresden.de

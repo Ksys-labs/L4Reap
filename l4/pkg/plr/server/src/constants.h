@@ -1,6 +1,18 @@
 #pragma once
 
 /*
+ * constants.h --
+ *
+ * Globally used constants
+ *
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ *     economic rights: Technische Universität Dresden (Germany)
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+
+/*
  * Traditional vCPU handling method: every replica raises a fault
  * on its local vCPU and handles it on the own physical core.
  */
@@ -30,5 +42,8 @@ namespace Romain
 		MAX_OBSERVERS      = 16,        // maximum # of fault observers
 		TRAMPOLINE_SIZE    = 64,        // size of the per-thread trampoline area
 		HANDLER_STACK_SIZE = (1 << 14), // size of the VCPU handler stack
+		DEBUG_ENTRIES      = 1000,      // dbg: # of 64bit entries in thread->_measurements
+		FIRST_REPLICA_CAP  = 0x1000,    // first replica cap markes as unused
+		LOCK_INFO_PAGE     = 0xA000,    // address the lock info page is mapped to in replicas
 	};
 }

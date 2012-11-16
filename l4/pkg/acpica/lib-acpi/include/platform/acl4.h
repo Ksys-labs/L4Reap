@@ -12,13 +12,9 @@
 #define ACPI_USE_STANDARD_HEADERS
 
 #define ACPI_USE_NATIVE_DIVIDE
-#define ACPI_USE_LOCAL_CACHE
 #define ACPI_DEBUG_OUTPUT
 //#define ACPI_DEBUGGER
 #define ACPI_DISASSEMBLER
-#define L4_ACPICA
-
-#define ACPI_THREAD_ID unsigned long
 
 #include "platform/acgcc.h"
 

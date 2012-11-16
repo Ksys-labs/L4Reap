@@ -26,39 +26,66 @@
 
 namespace Event {
 
-void
-Event::attach_thread(pthread_t thread)
+
+int
+Event::wait()
 {
-  if (!thread)
-    thread = pthread_self();
-  L4::Cap<L4::Thread> t(pthread_getl4cap(thread));
-  _l4thread = t;
-  attach();
+  pthread_mutex_lock(&_wait_lock);
+
+  attach(pthread_l4_getcap(pthread_self()));
+
+  int ret = l4_error(_irq->receive());
+
+  pthread_mutex_unlock(&_wait_lock);
+  return ret;
 }
 
-Event::~Event()
+Event_loop::Event_loop(L4::Cap<L4::Irq> irq, int prio)
+  : Event_base(irq), _pthread(0)
 {
-  if (_pthread)
-    pthread_cancel(_pthread);
-
-  if (_irq.is_valid())
+  pthread_attr_t a;
+  pthread_attr_init(&a);
+  if (prio != -1)
     {
-      _irq->detach();
-      L4Re::Util::cap_alloc.free(_irq, L4Re::This_task);
+      sched_param sp;
+      sp.sched_priority = prio;
+      pthread_attr_setschedpolicy(&a, SCHED_L4);
+      pthread_attr_setschedparam(&a, &sp);
+      pthread_attr_setinheritsched(&a, PTHREAD_EXPLICIT_SCHED);
+    }
+  else
+    pthread_attr_setinheritsched(&a, PTHREAD_INHERIT_SCHED);
+
+  if (pthread_create(&_pthread, &a, event_loop, this))
+    {
+      _irq = L4::Cap<void>::Invalid;
+      return;
     }
 }
 
-void *
-Event::event_loop(void *data)
+void
+Event_loop::start()
 {
-  Event *e = reinterpret_cast<Event *>(data);
+  attach(pthread_l4_getcap(_pthread));
+}
+
+Event_loop::~Event_loop()
+{
+  if (_pthread)
+    pthread_cancel(_pthread);
+}
+
+void *
+Event_loop::event_loop(void *data)
+{
+  Event_loop *e = reinterpret_cast<Event_loop *>(data);
   while (1)
     {
       l4_msgtag_t res = e->_irq->receive(L4_IPC_NEVER);
       if (l4_ipc_error(res, l4_utcb()))
         continue;
 
-      e->_event_func(data);
+      e->handle();
     }
   return 0;
 }

@@ -24,7 +24,7 @@ __BEGIN_DECLS
  * \param  devfn        devfn
  * \param  reg          register
  * \retval value        Value that has been read
- * \param  width        Width to read in bytes
+ * \param  width        Width to read in bits (e.g. 8, 16, 32)
  *
  * \return 0 on succes, else failure
  */
@@ -42,7 +42,7 @@ l4vbus_pci_cfg_read(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
  * \param  devfn        devfn
  * \param  reg          register
  * \param  value        Value to write
- * \param  width        Width to write in bytes
+ * \param  width        Width to write in bits (e.g. 8, 16, 32)
  */
 int L4_CV
 l4vbus_pci_cfg_write(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,

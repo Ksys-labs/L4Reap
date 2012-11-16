@@ -1,7 +1,7 @@
 /*
  * kiptime.cc --
  *
- * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -77,7 +77,8 @@ void Romain::KipTimeObserver_priv::status() const { }
  *****************************************************************/
 void Romain::KipTimeObserver_priv::startup_notify(Romain::App_instance *inst,
                                                   Romain::App_thread *,
-                                                 Romain::App_model *am)
+                                                  Romain::Thread_group *,
+                                                  Romain::App_model *am)
 {
 	for (std::vector<Breakpoint*>::iterator i = _breakpoints.begin();
 		 i != _breakpoints.end(); ++i) {
@@ -89,6 +90,7 @@ void Romain::KipTimeObserver_priv::startup_notify(Romain::App_instance *inst,
 Romain::Observer::ObserverReturnVal
 Romain::KipTimeObserver_priv::notify(Romain::App_instance *i,
                                      Romain::App_thread *t,
+                                     Romain::Thread_group *,
                                      Romain::App_model *am)
 {
 	if (!entry_reason_is_int3(t->vcpu(), i, am) &&

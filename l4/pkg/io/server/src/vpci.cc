@@ -94,7 +94,7 @@ Pci_proxy_dev::Pci_proxy_dev(Hw::Pci::If *hwf)
   assert (hwf);
   for (int i = 0; i < 6; ++i)
     {
-      Adr_resource *r = _hwf->bar(i);
+      Resource *r = _hwf->bar(i);
 
       if (!r)
 	{
@@ -109,7 +109,7 @@ Pci_proxy_dev::Pci_proxy_dev(Hw::Pci::If *hwf)
       else
 	{
 	  _vbars[i] = r->start();
-	  if (r->type() == Adr_resource::Io_res)
+	  if (r->type() == Resource::Io_res)
 	    _vbars[i] |= 1;
 
 	  if (r->is_64bit())
@@ -130,14 +130,12 @@ Pci_proxy_dev::Pci_proxy_dev(Hw::Pci::If *hwf)
 int
 Pci_proxy_dev::irq_enable(Irq_info *irq)
 {
-  for (Resource_list::iterator i = host()->resources()->begin();
+  for (Resource_list::const_iterator i = host()->resources()->begin();
       i != host()->resources()->end(); ++i)
     {
-      Adr_resource *res = dynamic_cast<Adr_resource*>(*i);
-      if (!res)
-	continue;
+      Resource *res = *i;
 
-      if (res->type() == Adr_resource::Irq_res)
+      if (res->type() == Resource::Irq_res)
 	{
 	  irq->irq = res->start();
 	  irq->trigger = !(res->flags() & Resource::Irq_info_base);
@@ -165,14 +163,14 @@ Pci_proxy_dev::write_bar(int bar, l4_uint32_t v)
 {
   Hw::Pci::If *p = _hwf;
 
-  Adr_resource *r = p->bar(bar);
+  Resource *r = p->bar(bar);
   if (!r)
     return;
 
   // printf("  write bar[%x]: %llx-%llx...\n", bar, r->abs_start(), r->abs_end());
   l4_uint64_t size_mask = r->alignment();
 
-  if (r->type() == Adr_resource::Io_res)
+  if (r->type() == Resource::Io_res)
     size_mask |= 0xffff0000;
 
   if (p->is_64bit_high_bar(bar))
@@ -189,7 +187,7 @@ Pci_proxy_dev::write_rom(l4_uint32_t v)
   Hw::Pci::If *p = _hwf;
 
   // printf("write rom bar %x %p\n", v, _dev->rom());
-  Adr_resource *r = p->rom();
+  Resource *r = p->rom();
   if (!r)
     return;
 

@@ -35,10 +35,10 @@ public:
   int dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc::Iostream &ios);
   bool match_hw_feature(Hw::Dev_feature const *) const { return false; }
 
-  bool add_irqs(Adr_resource const *r);
+  bool add_irqs(Resource const *r);
   bool add_irq(unsigned n, unsigned flags, Io_irq_pin *be);
   int alloc_irq(unsigned flags, Io_irq_pin *be);
-  bool irqs_allocated(Adr_resource const *r);
+  bool irqs_allocated(Resource const *r);
 
 private:
   int bind_irq(l4_msgtag_t tag, unsigned irqn, L4::Ipc::Snd_fpage const &irqc);
@@ -64,11 +64,11 @@ private:
   public:
     enum Irq_type
     {
-      S_irq_type_level = Adr_resource::Irq_level,
-      S_irq_type_edge  = Adr_resource::Irq_edge,
-      S_irq_type_high  = Adr_resource::Irq_high,
-      S_irq_type_low   = Adr_resource::Irq_low,
-      S_irq_type_both  = Adr_resource::Irq_both,
+      S_irq_type_level = Resource::Irq_level,
+      S_irq_type_edge  = Resource::Irq_edge,
+      S_irq_type_high  = Resource::Irq_high,
+      S_irq_type_low   = Resource::Irq_low,
+      S_irq_type_both  = Resource::Irq_both,
       S_irq_type_mode_mask = S_irq_type_level | S_irq_type_edge
                              | S_irq_type_both,
       S_irq_type_polarity_mask = S_irq_type_high | S_irq_type_low,

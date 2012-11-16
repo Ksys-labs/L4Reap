@@ -35,7 +35,7 @@ struct Value
 
     Vi::Device *vi_dev;
     Hw::Device *hw_dev;
-    Adr_resource *res;
+    Resource *res;
   } val;
 };
 
@@ -67,7 +67,7 @@ public:
   explicit Expression(Vi::Device *d) : _next(0)
   { v.type = Value::Vi_dev; v.val.vi_dev = d; }
 
-  explicit Expression(Adr_resource *r) : _next(0)
+  explicit Expression(Resource *r) : _next(0)
   { v.type = Value::Res; v.val.res = r; }
 
   Expression *prepend(Expression *suffix) { _next = suffix; return this; }

@@ -3,7 +3,7 @@
  *
  *     GDB stub implemented on top of the Romain framework
  *
- * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -116,8 +116,9 @@ Romain::GDBServerObserver::~GDBServerObserver()
  * obtain an IP through DHCP and wait for a remote GDB to connect.
  */
 void Romain::GDBServerObserver::startup_notify(Romain::App_instance *,
-                                            Romain::App_thread *,
-                                            Romain::App_model *a)
+                                               Romain::App_thread *,
+                                               Romain::Thread_group *,
+                                               Romain::App_model *a)
 {
 	_app_model = a;
 
@@ -133,8 +134,9 @@ void Romain::GDBServerObserver::startup_notify(Romain::App_instance *,
  */
 Romain::Observer::ObserverReturnVal
 Romain::GDBServerObserver::notify(Romain::App_instance *,
-                               Romain::App_thread *t,
-                               Romain::App_model *)
+                                  Romain::App_thread *t,
+                                  Romain::Thread_group *,
+                                  Romain::App_model *)
 {
 #if 0
 	MSG() << "want halt: " << _want_halt

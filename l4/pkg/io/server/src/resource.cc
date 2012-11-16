@@ -19,8 +19,8 @@
 #include <cassert>
 
 void
-Adr_resource::dump(char const *ty, int indent) const
-{
+Resource::dump(char const *ty, int indent) const
+{ printf("<%p>", this);
   //bool abs = true;
 
   //if (!valid())
@@ -36,8 +36,8 @@ Adr_resource::dump(char const *ty, int indent) const
   else
 #endif
     {
-      s = _d.start();
-      e = _d.end();
+      s = _s;
+      e = _e;
     }
 
   static char const * const irq_trigger[]
@@ -51,14 +51,14 @@ Adr_resource::dump(char const *ty, int indent) const
   printf("%*.s%s%c [%014llx-%014llx %llx] %s (%dbit) (align=%llx flags=%lx)\n",
          indent, " ",
          ty, provided() ? '*' : ' ',
-         s, e, (l4_uint64_t)_d.size(),
+         s, e, (l4_uint64_t)size(),
          tp,
          is_64bit() ? 64 : 32, (unsigned long long)alignment(), flags());
 }
 
 
 void
-Adr_resource::dump(int indent) const
+Resource::dump(int indent) const
 {
   static char const *ty[] = { "INVALID", "IRQ   ", "IOMEM ", "IOPORT",
                               "BUS   ", "unk" };
@@ -69,34 +69,29 @@ Adr_resource::dump(int indent) const
 
 
 bool
-Adr_resource_provider::_RS::request(Resource *parent, Device *,
-                                    Resource *cld, Device *)
+Resource_provider::_RS::request(Resource *parent, Device *,
+                                Resource *child, Device *)
 {
-  Adr_resource *_provider = dynamic_cast<Adr_resource*>(parent);
-  Adr_resource *child = dynamic_cast<Adr_resource*>(cld);
-  if (!child || !_provider)
-    return false;
-
   Addr start = child->start();
   Addr end   = child->end();
 
   if (end < start)
     return false;
 
-  if (start < _provider->start())
+  if (start < parent->start())
     return false;
 
-  if (end > _provider->end())
+  if (end > parent->end())
     return false;
 
-  Rl::iterator r = _rl.begin();
+  Resource_list::iterator r = _rl.begin();
   while (true)
     {
       if (r == _rl.end() || (*r)->start() > end)
 	{
 	  // insert before r
 	  _rl.insert(r, child);
-	  child->parent(_provider);
+	  child->parent(parent);
 	  return true;
 	}
 
@@ -109,17 +104,12 @@ Adr_resource_provider::_RS::request(Resource *parent, Device *,
 
 
 bool
-Adr_resource_provider::_RS::alloc(Resource *parent, Device *pdev,
-                                  Resource *cld, Device *cdev,
-                                  bool resize)
+Resource_provider::_RS::alloc(Resource *parent, Device *pdev,
+                              Resource *child, Device *cdev,
+                              bool resize)
 {
-  Adr_resource *_provider = dynamic_cast<Adr_resource*>(parent);
-  Adr_resource *child = dynamic_cast<Adr_resource*>(cld);
-  if (!child || !_provider)
-    return false;
-
-  Rl::iterator p = _rl.begin();
-  Addr start = _provider->start();
+  Resource_list::iterator p = _rl.begin();
+  Addr start = parent->start();
   Addr end;
   Size min_align = L4_PAGESIZE - 1;
 
@@ -134,12 +124,12 @@ Adr_resource_provider::_RS::alloc(Resource *parent, Device *pdev,
       if (p != _rl.end())
 	end = (*p)->start() - 1;
       else
-	end = _provider->end();
+	end = parent->end();
 
       Size align = cxx::max<Size>(child->alignment(), min_align);
       start = (start + align) & ~align; // pad to get alignment
 
-      if (start < end && end - start >= child->size() - 1)
+      if (start < end && end - start >= (Addr)child->size() - 1)
 	{
 	  child->start(start);
 	  break;
@@ -154,7 +144,7 @@ Adr_resource_provider::_RS::alloc(Resource *parent, Device *pdev,
 	  if (end < start)
 	    return false; // wrapped around
 
-	  _provider->end(end);
+	  parent->end(end);
 	  child->start(start);
 	  break;
 	}
@@ -162,7 +152,7 @@ Adr_resource_provider::_RS::alloc(Resource *parent, Device *pdev,
       start = (*p)->end() + 1;
       ++p;
     }
-  return request(_provider, pdev, child, cdev);
+  return request(parent, pdev, child, cdev);
 }
 
 void Mmio_data_space::alloc_ram(Size size, unsigned long alloc_flags)

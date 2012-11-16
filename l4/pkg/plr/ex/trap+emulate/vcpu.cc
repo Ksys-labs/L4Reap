@@ -67,7 +67,7 @@ asm
 );
 
 
-static char __attribute((aligned(4096))) data_area[DATASIZE];
+static char __attribute__((aligned(4096))) data_area[DATASIZE];
 
 
 static void setup_user_state_arch(L4vcpu::Vcpu *v)
@@ -134,11 +134,12 @@ struct MyTranslator : public Romain::AddressTranslator
 };
 
 
-static inline void emulate_write(L4vcpu::Vcpu *v)
+static inline void emulate_write(L4vcpu::Vcpu *)
 {
 	//unsigned ip = v->r()->ip - super_code_map_addr;
 	//Romain::InstructionPrinter((l4_addr_t)my_super_code + ip, v->r()->ip);
-	Romain::WriteEmulator(vcpu, MyTranslator()).emulate();
+	static MyTranslator t;
+	Romain::WriteEmulator(vcpu, &t).emulate();
 }
 
 /*
@@ -172,7 +173,7 @@ void local_singlestep(L4vcpu::Vcpu *v)
 	printf("\n");
 #endif
 
-	asm volatile ("call %1"
+	asm volatile ("call *%1"
 	              :
 	              : "A" (v->r()->ax),
 				    "r"(instruction_buffer));

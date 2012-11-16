@@ -66,11 +66,6 @@ int getloadavg(double loadavg[], int nelem)
   return 3;
 }
 
-int getpagesize(void)
-{
-  return L4_PAGESIZE;
-}
-
 pid_t getpid(void)
 {
   return 2;

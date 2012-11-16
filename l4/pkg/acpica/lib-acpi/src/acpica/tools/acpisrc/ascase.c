@@ -1,4 +1,3 @@
-
 /******************************************************************************
  *
  * Module Name: ascase - Source conversion - lower/upper case utilities
@@ -9,13 +8,13 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2009, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2012, Intel Corp.
  * All rights reserved.
  *
  * 2. License
  *
  * 2.1. This is your license from Intel Corp. under its intellectual property
- * rights.  You may have additional license terms from the party that provided
+ * rights. You may have additional license terms from the party that provided
  * you this software, covering your right to use that party's intellectual
  * property rights.
  *
@@ -32,7 +31,7 @@
  * offer to sell, and import the Covered Code and derivative works thereof
  * solely to the minimum extent necessary to exercise the above copyright
  * license, and in no event shall the patent license extend to any additions
- * to or modifications of the Original Intel Code.  No other license or right
+ * to or modifications of the Original Intel Code. No other license or right
  * is granted directly or by implication, estoppel or otherwise;
  *
  * The above copyright and patent license is granted only if the following
@@ -44,11 +43,11 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification with rights to further distribute source must include
  * the above Copyright Notice, the above License, this list of Conditions,
- * and the following Disclaimer and Export Compliance provision.  In addition,
+ * and the following Disclaimer and Export Compliance provision. In addition,
  * Licensee must cause all Covered Code to which Licensee contributes to
  * contain a file documenting the changes Licensee made to create that Covered
- * Code and the date of any change.  Licensee must include in that file the
- * documentation of any changes made by any predecessor Licensee.  Licensee
+ * Code and the date of any change. Licensee must include in that file the
+ * documentation of any changes made by any predecessor Licensee. Licensee
  * must include a prominent statement that the modification is derived,
  * directly or indirectly, from Original Intel Code.
  *
@@ -56,7 +55,7 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification without rights to further distribute source must
  * include the following Disclaimer and Export Compliance provision in the
- * documentation and/or other materials provided with distribution.  In
+ * documentation and/or other materials provided with distribution. In
  * addition, Licensee may not authorize further sublicense of source of any
  * portion of the Covered Code, and must include terms to the effect that the
  * license from Licensee to its licensee is limited to the intellectual
@@ -81,10 +80,10 @@
  * 4. Disclaimer and Export Compliance
  *
  * 4.1. INTEL MAKES NO WARRANTY OF ANY KIND REGARDING ANY SOFTWARE PROVIDED
- * HERE.  ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
- * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT,  ASSISTANCE,
- * INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL WILL NOT PROVIDE ANY
- * UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY DISCLAIMS ANY
+ * HERE. ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
+ * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
+ * INSTALLATION, TRAINING OR OTHER SERVICES. INTEL WILL NOT PROVIDE ANY
+ * UPDATES, ENHANCEMENTS OR EXTENSIONS. INTEL SPECIFICALLY DISCLAIMS ANY
  * IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT AND FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
@@ -93,14 +92,14 @@
  * COSTS OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, OR FOR ANY INDIRECT,
  * SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THIS AGREEMENT, UNDER ANY
  * CAUSE OF ACTION OR THEORY OF LIABILITY, AND IRRESPECTIVE OF WHETHER INTEL
- * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES.  THESE LIMITATIONS
+ * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES. THESE LIMITATIONS
  * SHALL APPLY NOTWITHSTANDING THE FAILURE OF THE ESSENTIAL PURPOSE OF ANY
  * LIMITED REMEDY.
  *
  * 4.3. Licensee shall not export, either directly or indirectly, any of this
  * software or system incorporating such software without first obtaining any
  * required license or other approval from the U. S. Department of Commerce or
- * any other agency or department of the United States Government.  In the
+ * any other agency or department of the United States Government. In the
  * event Licensee exports any such software from the United States or
  * re-exports any such software from a foreign destination, Licensee shall
  * ensure that the distribution and export/re-export of the software is in
@@ -129,7 +128,7 @@ AsUppercaseTokens (
  * FUNCTION:    AsLowerCaseString
  *
  * DESCRIPTION: LowerCase all instances of a target string with a replacement
- *              string.  Returns count of the strings replaced.
+ *              string. Returns count of the strings replaced.
  *
  ******************************************************************************/
 
@@ -158,7 +157,7 @@ AsLowerCaseString (
         SubString1 = strstr (SubBuffer, Target);
         if (!SubString1)
         {
-            return LowerCaseCount;
+            return (LowerCaseCount);
         }
 
         /*
@@ -177,7 +176,7 @@ AsLowerCaseString (
             {
                 /* Didn't find terminator */
 
-                return LowerCaseCount;
+                return (LowerCaseCount);
             }
 
             /* Move buffer to end of escape block and continue */
@@ -197,7 +196,7 @@ AsLowerCaseString (
 
             for (i = 0; i < TargetLength; i++)
             {
-                SubString1[i] = (char) tolower (SubString1[i]);
+                SubString1[i] = (char) tolower ((int) SubString1[i]);
             }
 
             SubBuffer = SubString1 + TargetLength;
@@ -214,7 +213,7 @@ AsLowerCaseString (
         }
     }
 
-    return LowerCaseCount;
+    return (LowerCaseCount);
 }
 
 
@@ -233,75 +232,87 @@ AsLowerCaseString (
 
 void
 AsMixedCaseToUnderscores (
-    char                    *Buffer)
+    char                    *Buffer,
+    char                    *Filename)
 {
     UINT32                  Length;
     char                    *SubBuffer = Buffer;
     char                    *TokenEnd;
     char                    *TokenStart = NULL;
     char                    *SubString;
-    BOOLEAN                 HasLowerCase = FALSE;
+    UINT32                  LineNumber = 1;
+    UINT32                  Count;
 
 
+    /*
+     * Examine the entire buffer (contains the entire file)
+     * We are only interested in these tokens:
+     *      Escape sequences - ignore entire sequence
+     *      Single-quoted constants - ignore
+     *      Quoted strings - ignore entire string
+     *      Translation escape - starts with /,*,!
+     *      Decimal and hex numeric constants - ignore entire token
+     *      Entire uppercase token - ignore, it is a macro or define
+     *      Starts with underscore, then a lowercase or digit: convert
+     */
     while (*SubBuffer)
     {
-        /* Ignore whitespace */
-
-        if (*SubBuffer == ' ')
+        if (*SubBuffer == '\n')
         {
-            while (*SubBuffer == ' ')
-            {
-                SubBuffer++;
-            }
-            TokenStart = NULL;
-            HasLowerCase = FALSE;
-            continue;
-        }
-
-        /* Ignore commas */
-
-        if ((*SubBuffer == ',') ||
-            (*SubBuffer == '>') ||
-            (*SubBuffer == ')'))
-        {
+            LineNumber++;
             SubBuffer++;
-            TokenStart = NULL;
-            HasLowerCase = FALSE;
             continue;
         }
 
-        /* Check for quoted string -- ignore */
+        /* Ignore standard escape sequences (\n, \r, etc.)  Not Hex or Octal escapes */
+
+        if (*SubBuffer == '\\')
+        {
+            SubBuffer += 2;
+            continue;
+        }
+
+        /* Ignore single-quoted characters */
+
+        if (*SubBuffer == '\'')
+        {
+            SubBuffer += 3;
+            continue;
+        }
+
+        /* Ignore standard double-quoted strings */
 
         if (*SubBuffer == '"')
         {
             SubBuffer++;
+            Count = 0;
             while (*SubBuffer != '"')
             {
-                if (!*SubBuffer)
+                Count++;
+                if ((!*SubBuffer) ||
+                     (Count > 8192))
                 {
+                    printf ("Found an unterminated quoted string!, line %u: %s\n",
+                        LineNumber, Filename);
                     return;
                 }
 
-                /* Handle embedded escape sequences */
+                /* Handle escape sequences */
 
                 if (*SubBuffer == '\\')
                 {
                     SubBuffer++;
                 }
+
                 SubBuffer++;
             }
             SubBuffer++;
             continue;
         }
 
-        if (islower (*SubBuffer))
-        {
-            HasLowerCase = TRUE;
-        }
-
         /*
-         * Check for translation escape string -- means to ignore
-         * blocks of code while replacing
+         * Check for translation escape string. It means to ignore
+         * blocks of code during this code conversion.
          */
         if ((SubBuffer[0] == '/') &&
             (SubBuffer[1] == '*') &&
@@ -310,161 +321,209 @@ AsMixedCaseToUnderscores (
             SubBuffer = strstr (SubBuffer, "!*/");
             if (!SubBuffer)
             {
+                printf ("Found an unterminated translation escape!, line %u: %s\n",
+                    LineNumber, Filename);
                 return;
             }
             continue;
         }
 
-        /* Ignore hex constants */
+        /* Ignore anything that starts with a number (0-9) */
 
-        if (SubBuffer[0] == '0')
+        if (isdigit ((int) *SubBuffer))
         {
-            if ((SubBuffer[1] == 'x') ||
-                (SubBuffer[1] == 'X'))
+            /* Ignore hex constants */
+
+            if ((SubBuffer[0] == '0') &&
+               ((SubBuffer[1] == 'x') || (SubBuffer[1] == 'X')))
             {
                 SubBuffer += 2;
-                while (isxdigit (*SubBuffer))
-                {
-                    SubBuffer++;
-                }
-                continue;
             }
-        }
 
-/* OBSOLETE CODE, all quoted strings now completely ignored. */
-#if 0
-        /* Ignore format specification fields */
+            /* Skip over all digits, both decimal and hex */
 
-        if (SubBuffer[0] == '%')
-        {
-            SubBuffer++;
-
-            while ((isalnum (*SubBuffer)) || (*SubBuffer == '.'))
+            while (isxdigit ((int) *SubBuffer))
             {
                 SubBuffer++;
             }
-
-            continue;
-        }
-#endif
-
-        /* Ignore standard escape sequences (\n, \r, etc.)  Not Hex or Octal escapes */
-
-        if (SubBuffer[0] == '\\')
-        {
-            SubBuffer += 2;
+            TokenStart = NULL;
             continue;
         }
 
         /*
-         * Ignore identifiers that already contain embedded underscores
-         * These are typically C macros or defines (all upper case)
-         * Note: there are some cases where identifiers have underscores
-         * AcpiGbl_* for example. HasLowerCase flag handles these.
+         * Check for fully upper case identifiers. These are usually macros
+         * or defines. Allow decimal digits and embedded underscores.
          */
-        if ((*SubBuffer == '_') && (!HasLowerCase) && (TokenStart))
+        if (isupper ((int) *SubBuffer))
         {
-            /* Check the rest of the identifier for any lower case letters */
-
-            SubString = SubBuffer;
-            while ((isalnum (*SubString)) || (*SubString == '_'))
+            SubString = SubBuffer + 1;
+            while ((isupper ((int) *SubString)) ||
+                   (isdigit ((int) *SubString)) ||
+                   (*SubString == '_'))
             {
-                if (islower (*SubString))
-                {
-                    HasLowerCase = TRUE;
-                }
                 SubString++;
             }
 
-            /* If no lower case letters, we can safely ignore the entire token */
-
-            if (!HasLowerCase)
+            /*
+             * For the next character, anything other than a lower case
+             * means that the identifier has terminated, and contains
+             * exclusively Uppers/Digits/Underscores. Ignore the entire
+             * identifier.
+             */
+            if (!islower ((int) *SubString))
             {
-                SubBuffer = SubString;
+                SubBuffer = SubString + 1;
                 continue;
             }
         }
 
-        /* A capital letter may indicate the start of a token; save it */
-
-        if (isupper (SubBuffer[0]))
+        /*
+         * These forms may indicate an identifier that can be converted:
+         *      <UpperCase><LowerCase> (Ax)
+         *      <UpperCase><Number> (An)
+         */
+        if (isupper ((int) SubBuffer[0]) &&
+          ((islower ((int) SubBuffer[1])) || isdigit ((int) SubBuffer[1])))
         {
             TokenStart = SubBuffer;
-        }
+            SubBuffer++;
 
-        /*
-         * Convert each pair of letters that matches the form:
-         *
-         *      <LowerCase><UpperCase>
-         * to
-         *      <LowerCase><Underscore><LowerCase>
-         */
-        else if ((islower (SubBuffer[0]) || isdigit (SubBuffer[0])) &&
-                 (isupper (SubBuffer[1])))
-        {
-            if (isdigit (SubBuffer[0]))
+            while (1)
             {
-                /* Ignore <UpperCase><Digit><UpperCase> */
-                /* Ignore <Underscore><Digit><UpperCase> */
+                /* Walk over the lower case letters and decimal digits */
 
-                if (isupper (*(SubBuffer-1)) ||
-                    *(SubBuffer-1) == '_')
+                while (islower ((int) *SubBuffer) ||
+                       isdigit ((int) *SubBuffer))
                 {
                     SubBuffer++;
-                    continue;
                 }
-            }
 
-            /*
-             * Matched the pattern.
-             * Find the end of this identifier (token)
-             */
-            TokenEnd = SubBuffer;
-            while ((isalnum (*TokenEnd)) || (*TokenEnd == '_'))
-            {
-                TokenEnd++;
-            }
+                /* Check for end of line or end of token */
 
-            /* Force the UpperCase letter (#2) to lower case */
-
-            Gbl_MadeChanges = TRUE;
-            SubBuffer[1] = (char) tolower (SubBuffer[1]);
-
-            SubString = TokenEnd;
-            Length = 0;
-
-            while (*SubString != '\n')
-            {
-                /*
-                 * If we have at least two trailing spaces, we can get rid of
-                 * one to make up for the newly inserted underscore.  This will
-                 * help preserve the alignment of the text
-                 */
-                if ((SubString[0] == ' ') &&
-                    (SubString[1] == ' '))
+                if (*SubBuffer == '\n')
                 {
-                    Length = SubString - SubBuffer - 2;
+                    LineNumber++;
                     break;
                 }
 
-                SubString++;
-            }
+                if (*SubBuffer == ' ')
+                {
+                    /* Check for form "Axx - " in a parameter header description */
 
-            if (!Length)
-            {
-                Length = strlen (&SubBuffer[1]);
-            }
+                    while (*SubBuffer == ' ')
+                    {
+                        SubBuffer++;
+                    }
 
-            memmove (&SubBuffer[2], &SubBuffer[1], Length + 1);
-            SubBuffer[1] = '_';
-            SubBuffer +=2;
+                    SubBuffer--;
+                    if ((SubBuffer[1] == '-') &&
+                        (SubBuffer[2] == ' '))
+                    {
+                        if (TokenStart)
+                        {
+                            *TokenStart = (char) tolower ((int) *TokenStart);
+                        }
+                    }
+                    break;
+                }
 
-            /* Lower case the leading character of the token */
+                /*
+                 * Ignore these combinations:
+                 *      <Letter><Digit><UpperCase>
+                 *      <Digit><Digit><UpperCase>
+                 *      <Underscore><Digit><UpperCase>
+                 */
+                if (isdigit ((int) *SubBuffer))
+                {
+                    if (isalnum ((int) *(SubBuffer-1)) ||
+                        *(SubBuffer-1) == '_')
+                    {
+                        break;
+                    }
+                }
 
-            if (TokenStart)
-            {
-                *TokenStart = (char) tolower (*TokenStart);
-                TokenStart = NULL;
+                /* Ignore token if next character is not uppercase or digit */
+
+                if (!isupper ((int) *SubBuffer) &&
+                    !isdigit ((int) *SubBuffer))
+                {
+                    break;
+                }
+
+                /*
+                 * Form <UpperCase><LowerCaseLetters><UpperCase> (AxxB):
+                 * Convert leading character of the token to lower case
+                 */
+                if (TokenStart)
+                {
+                    *TokenStart = (char) tolower ((int) *TokenStart);
+                    TokenStart = NULL;
+                }
+
+                /* Find the end of this identifier (token) */
+
+                TokenEnd = SubBuffer - 1;
+                while ((isalnum ((int) *TokenEnd)) ||
+                       (*TokenEnd == '_'))
+                {
+                    TokenEnd++;
+                }
+
+                SubString = TokenEnd;
+                Length = 0;
+
+                while (*SubString != '\n')
+                {
+                    /*
+                     * If we have at least two trailing spaces, we can get rid of
+                     * one to make up for the newly inserted underscore. This will
+                     * help preserve the alignment of the text
+                     */
+                    if ((SubString[0] == ' ') &&
+                        (SubString[1] == ' '))
+                    {
+                        Length = SubString - SubBuffer - 1;
+                        break;
+                    }
+
+                    SubString++;
+                }
+
+                if (!Length)
+                {
+                    Length = strlen (&SubBuffer[0]);
+                }
+
+                /*
+                 * Within this identifier, convert this pair of letters that
+                 * matches the form:
+                 *
+                 *      <LowerCase><UpperCase>
+                 * to
+                 *      <LowerCase><Underscore><LowerCase>
+                 */
+                Gbl_MadeChanges = TRUE;
+
+                /* Insert the underscore */
+
+                memmove (&SubBuffer[1], &SubBuffer[0], Length + 1);
+                SubBuffer[0] = '_';
+
+                /*
+                 * If we have <UpperCase><UpperCase>, leave them as-is
+                 * Enables transforms like:
+                 *      LocalFADT -> local_FADT
+                 */
+                if (isupper ((int) SubBuffer[2]))
+                {
+                    SubBuffer += 1;
+                    break;
+                }
+
+                /* Lower case the original upper case letter */
+
+                SubBuffer[1] = (char) tolower ((int) SubBuffer[1]);
+                SubBuffer += 2;
             }
         }
 
@@ -477,7 +536,7 @@ AsMixedCaseToUnderscores (
  *
  * FUNCTION:    AsLowerCaseIdentifiers
  *
- * DESCRIPTION: Converts mixed case identifiers to lower case.  Leaves comments,
+ * DESCRIPTION: Converts mixed case identifiers to lower case. Leaves comments,
  *              quoted strings, and all-upper-case macros alone.
  *
  ******************************************************************************/
@@ -554,11 +613,11 @@ AsLowerCaseIdentifiers (
          * Only lower case if we have an upper followed by a lower
          * This leaves the all-uppercase things (macros, etc.) intact
          */
-        if ((isupper (SubBuffer[0])) &&
-            (islower (SubBuffer[1])))
+        if ((isupper ((int) SubBuffer[0])) &&
+            (islower ((int) SubBuffer[1])))
         {
             Gbl_MadeChanges = TRUE;
-            *SubBuffer = (char) tolower (*SubBuffer);
+            *SubBuffer = (char) tolower ((int) *SubBuffer);
         }
 
         SubBuffer++;
@@ -595,15 +654,15 @@ AsUppercaseTokens (
         if (SubBuffer)
         {
             TokenEnd = SubBuffer;
-            while ((isalnum (*TokenEnd)) || (*TokenEnd == '_'))
+            while ((isalnum ((int) *TokenEnd)) || (*TokenEnd == '_'))
             {
                 TokenEnd++;
             }
 
             for (i = 0; i < (TokenEnd - SubBuffer); i++)
             {
-                if ((islower (SubBuffer[i])) &&
-                    (isupper (SubBuffer[i+1])))
+                if ((islower ((int) SubBuffer[i])) &&
+                    (isupper ((int) SubBuffer[i+1])))
                 {
 
                     SubString = TokenEnd;
@@ -635,12 +694,10 @@ AsUppercaseTokens (
 
             for (i = 0; i < (TokenEnd - SubBuffer); i++)
             {
-                SubBuffer[i] = (char) toupper (SubBuffer[i]);
+                SubBuffer[i] = (char) toupper ((int) SubBuffer[i]);
             }
 
             SubBuffer = TokenEnd;
         }
     }
 }
-
-

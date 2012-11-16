@@ -8,6 +8,7 @@ SYSTEMS     = x86-l4f
 OBSERVERS = $(addprefix fault_handlers/, \
               debugger.cc \
               kiptime.cc \
+			  lock_observer.cc \
               observer.cc \
               pagefault.cc \
               print_vcpu_state.cc \
@@ -37,6 +38,7 @@ ASMJIT = $(addprefix asmjit/, \
 
 # list your .c or .cc files here
 SRC_C       =
+SRC_S       = instruction_length.S
 SRC_CC      = main.cc \
               manager.cc \
               memory.cc \
@@ -63,3 +65,4 @@ DEFINES += -D__L4
 CXXFLAGS += -Wno-parentheses -Wno-unused -Wno-reorder -Wno-missing-field-initializers \
             -Wno-sequence-point -Wno-sign-compare -Wno-missing-braces -Wno-uninitialized \
             -Wno-missing-declarations -Wno-format -Wno-write-strings
+CXXFLAGS += $(call checkcxx,-std=c++11)

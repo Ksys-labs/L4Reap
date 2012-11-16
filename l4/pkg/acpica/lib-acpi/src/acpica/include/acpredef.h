@@ -8,13 +8,13 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2009, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2012, Intel Corp.
  * All rights reserved.
  *
  * 2. License
  *
  * 2.1. This is your license from Intel Corp. under its intellectual property
- * rights.  You may have additional license terms from the party that provided
+ * rights. You may have additional license terms from the party that provided
  * you this software, covering your right to use that party's intellectual
  * property rights.
  *
@@ -31,7 +31,7 @@
  * offer to sell, and import the Covered Code and derivative works thereof
  * solely to the minimum extent necessary to exercise the above copyright
  * license, and in no event shall the patent license extend to any additions
- * to or modifications of the Original Intel Code.  No other license or right
+ * to or modifications of the Original Intel Code. No other license or right
  * is granted directly or by implication, estoppel or otherwise;
  *
  * The above copyright and patent license is granted only if the following
@@ -43,11 +43,11 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification with rights to further distribute source must include
  * the above Copyright Notice, the above License, this list of Conditions,
- * and the following Disclaimer and Export Compliance provision.  In addition,
+ * and the following Disclaimer and Export Compliance provision. In addition,
  * Licensee must cause all Covered Code to which Licensee contributes to
  * contain a file documenting the changes Licensee made to create that Covered
- * Code and the date of any change.  Licensee must include in that file the
- * documentation of any changes made by any predecessor Licensee.  Licensee
+ * Code and the date of any change. Licensee must include in that file the
+ * documentation of any changes made by any predecessor Licensee. Licensee
  * must include a prominent statement that the modification is derived,
  * directly or indirectly, from Original Intel Code.
  *
@@ -55,7 +55,7 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification without rights to further distribute source must
  * include the following Disclaimer and Export Compliance provision in the
- * documentation and/or other materials provided with distribution.  In
+ * documentation and/or other materials provided with distribution. In
  * addition, Licensee may not authorize further sublicense of source of any
  * portion of the Covered Code, and must include terms to the effect that the
  * license from Licensee to its licensee is limited to the intellectual
@@ -80,10 +80,10 @@
  * 4. Disclaimer and Export Compliance
  *
  * 4.1. INTEL MAKES NO WARRANTY OF ANY KIND REGARDING ANY SOFTWARE PROVIDED
- * HERE.  ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
+ * HERE. ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
  * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
- * INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL WILL NOT PROVIDE ANY
- * UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY DISCLAIMS ANY
+ * INSTALLATION, TRAINING OR OTHER SERVICES. INTEL WILL NOT PROVIDE ANY
+ * UPDATES, ENHANCEMENTS OR EXTENSIONS. INTEL SPECIFICALLY DISCLAIMS ANY
  * IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT AND FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
@@ -92,14 +92,14 @@
  * COSTS OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, OR FOR ANY INDIRECT,
  * SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THIS AGREEMENT, UNDER ANY
  * CAUSE OF ACTION OR THEORY OF LIABILITY, AND IRRESPECTIVE OF WHETHER INTEL
- * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES.  THESE LIMITATIONS
+ * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES. THESE LIMITATIONS
  * SHALL APPLY NOTWITHSTANDING THE FAILURE OF THE ESSENTIAL PURPOSE OF ANY
  * LIMITED REMEDY.
  *
  * 4.3. Licensee shall not export, either directly or indirectly, any of this
  * software or system incorporating such software without first obtaining any
  * required license or other approval from the U. S. Department of Commerce or
- * any other agency or department of the United States Government.  In the
+ * any other agency or department of the United States Government. In the
  * event Licensee exports any such software from the United States or
  * re-exports any such software from a foreign destination, Licensee shall
  * ensure that the distribution and export/re-export of the software is in
@@ -166,6 +166,14 @@
  * ACPI_PTYPE2_REV_FIXED: Revision at start, each subpackage is Fixed-length
  *      (Used for _ART, _FPS)
  *
+ * ACPI_PTYPE2_FIX_VAR: Each subpackage consists of some fixed-length elements
+ *      followed by an optional element
+ *      object type
+ *      count
+ *      object type
+ *      count = 0 (optional)
+ *      (Used for _DLM)
+ *
  *****************************************************************************/
 
 enum AcpiReturnPackageTypes
@@ -178,7 +186,8 @@ enum AcpiReturnPackageTypes
     ACPI_PTYPE2_PKG_COUNT   = 6,
     ACPI_PTYPE2_FIXED       = 7,
     ACPI_PTYPE2_MIN         = 8,
-    ACPI_PTYPE2_REV_FIXED   = 9
+    ACPI_PTYPE2_REV_FIXED   = 9,
+    ACPI_PTYPE2_FIX_VAR     = 10
 };
 
 
@@ -231,6 +240,7 @@ static const ACPI_PREDEFINED_INFO     PredefinedNames[] =
     {{"_AC8", 0, ACPI_RTYPE_INTEGER}},
     {{"_AC9", 0, ACPI_RTYPE_INTEGER}},
     {{"_ADR", 0, ACPI_RTYPE_INTEGER}},
+    {{"_AEI", 0, ACPI_RTYPE_BUFFER}},
     {{"_AL0", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Refs) */
                     {{{ACPI_PTYPE1_VAR, ACPI_RTYPE_REFERENCE, 0,0}, 0,0}},
 
@@ -303,6 +313,12 @@ static const ACPI_PREDEFINED_INFO     PredefinedNames[] =
     {{"_CID", 0, ACPI_RTYPE_INTEGER | ACPI_RTYPE_STRING | ACPI_RTYPE_PACKAGE}}, /* Variable-length (Ints/Strs) */
                     {{{ACPI_PTYPE1_VAR, ACPI_RTYPE_INTEGER | ACPI_RTYPE_STRING, 0,0}, 0,0}},
 
+    {{"_CLS", 0, ACPI_RTYPE_PACKAGE}}, /* Fixed-length (3 Int) */
+                    {{{ACPI_PTYPE1_FIXED, ACPI_RTYPE_INTEGER, 3,0}, 0,0}},
+
+    {{"_CPC", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Ints/Bufs) */
+                    {{{ACPI_PTYPE1_VAR, ACPI_RTYPE_INTEGER | ACPI_RTYPE_BUFFER, 0,0}, 0,0}},
+
     {{"_CRS", 0, ACPI_RTYPE_BUFFER}},
     {{"_CRT", 0, ACPI_RTYPE_INTEGER}},
     {{"_CSD", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (1 Int(n), n-1 Int) */
@@ -311,12 +327,20 @@ static const ACPI_PREDEFINED_INFO     PredefinedNames[] =
     {{"_CST", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (1 Int(n), n Pkg (1 Buf/3 Int) */
                     {{{ACPI_PTYPE2_PKG_COUNT,ACPI_RTYPE_BUFFER, 1, ACPI_RTYPE_INTEGER}, 3,0}},
 
+    {{"_CWS", 1, ACPI_RTYPE_INTEGER}},
     {{"_DCK", 1, ACPI_RTYPE_INTEGER}},
     {{"_DCS", 0, ACPI_RTYPE_INTEGER}},
     {{"_DDC", 1, ACPI_RTYPE_INTEGER | ACPI_RTYPE_BUFFER}},
     {{"_DDN", 0, ACPI_RTYPE_STRING}},
+    {{"_DEP", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Refs) */
+                    {{{ACPI_PTYPE1_VAR, ACPI_RTYPE_REFERENCE, 0,0}, 0,0}},
+
     {{"_DGS", 0, ACPI_RTYPE_INTEGER}},
     {{"_DIS", 0, 0}},
+
+    {{"_DLM", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Pkgs) each (1 Ref, 0/1 Optional Buf/Ref) */
+                    {{{ACPI_PTYPE2_FIX_VAR, ACPI_RTYPE_REFERENCE, 1, ACPI_RTYPE_REFERENCE | ACPI_RTYPE_BUFFER}, 0,0}},
+
     {{"_DMA", 0, ACPI_RTYPE_BUFFER}},
     {{"_DOD", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Ints) */
                     {{{ACPI_PTYPE1_VAR, ACPI_RTYPE_INTEGER, 0,0}, 0,0}},
@@ -336,6 +360,8 @@ static const ACPI_PREDEFINED_INFO     PredefinedNames[] =
     {{"_EJ3", 1, 0}},
     {{"_EJ4", 1, 0}},
     {{"_EJD", 0, ACPI_RTYPE_STRING}},
+    {{"_ERR", 3, ACPI_RTYPE_INTEGER}}, /* Internal use only, used by ACPICA test suites */
+    {{"_EVT", 1, 0}},
     {{"_FDE", 0, ACPI_RTYPE_BUFFER}},
     {{"_FDI", 0, ACPI_RTYPE_PACKAGE}}, /* Fixed-length (16 Int) */
                     {{{ACPI_PTYPE1_FIXED, ACPI_RTYPE_INTEGER, 16,0}, 0,0}},
@@ -356,14 +382,17 @@ static const ACPI_PREDEFINED_INFO     PredefinedNames[] =
 
 
     {{"_GAI", 0, ACPI_RTYPE_INTEGER}},
+    {{"_GCP", 0, ACPI_RTYPE_INTEGER}},
     {{"_GHL", 0, ACPI_RTYPE_INTEGER}},
     {{"_GLK", 0, ACPI_RTYPE_INTEGER}},
     {{"_GPD", 0, ACPI_RTYPE_INTEGER}},
     {{"_GPE", 0, ACPI_RTYPE_INTEGER}}, /* _GPE method, not _GPE scope */
+    {{"_GRT", 0, ACPI_RTYPE_BUFFER}},
     {{"_GSB", 0, ACPI_RTYPE_INTEGER}},
     {{"_GTF", 0, ACPI_RTYPE_BUFFER}},
     {{"_GTM", 0, ACPI_RTYPE_BUFFER}},
     {{"_GTS", 1, 0}},
+    {{"_GWS", 1, ACPI_RTYPE_INTEGER}},
     {{"_HID", 0, ACPI_RTYPE_INTEGER | ACPI_RTYPE_STRING}},
     {{"_HOT", 0, ACPI_RTYPE_INTEGER}},
     {{"_HPP", 0, ACPI_RTYPE_PACKAGE}}, /* Fixed-length (4 Int) */
@@ -378,6 +407,7 @@ static const ACPI_PREDEFINED_INFO     PredefinedNames[] =
     {{"_HPX", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Pkgs) each (var Ints) */
                     {{{ACPI_PTYPE2_MIN, ACPI_RTYPE_INTEGER, 5,0}, 0,0}},
 
+    {{"_HRV", 0, ACPI_RTYPE_INTEGER}},
     {{"_IFT", 0, ACPI_RTYPE_INTEGER}}, /* See IPMI spec */
     {{"_INI", 0, 0}},
     {{"_IRC", 0, 0}},
@@ -435,6 +465,9 @@ static const ACPI_PREDEFINED_INFO     PredefinedNames[] =
     {{"_PR3", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Refs) */
                     {{{ACPI_PTYPE1_VAR, ACPI_RTYPE_REFERENCE, 0,0}, 0,0}},
 
+    {{"_PRE", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Refs) */
+                    {{{ACPI_PTYPE1_VAR, ACPI_RTYPE_REFERENCE, 0,0}, 0,0}},
+
     {{"_PRL", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Refs) */
                     {{{ACPI_PTYPE1_VAR, ACPI_RTYPE_REFERENCE, 0,0}, 0,0}},
 
@@ -465,6 +498,7 @@ static const ACPI_PREDEFINED_INFO     PredefinedNames[] =
     {{"_PSD", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Pkgs) each (5 Int) with count */
                     {{{ACPI_PTYPE2_COUNT, ACPI_RTYPE_INTEGER,0,0}, 0,0}},
 
+    {{"_PSE", 1, 0}},
     {{"_PSL", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Refs) */
                     {{{ACPI_PTYPE1_VAR, ACPI_RTYPE_REFERENCE, 0,0}, 0,0}},
 
@@ -531,6 +565,7 @@ static const ACPI_PREDEFINED_INFO     PredefinedNames[] =
     {{"_SLI", 0, ACPI_RTYPE_BUFFER}},
     {{"_SPD", 1, ACPI_RTYPE_INTEGER}},
     {{"_SRS", 1, 0}},
+    {{"_SRT", 1, ACPI_RTYPE_INTEGER}},
     {{"_SRV", 0, ACPI_RTYPE_INTEGER}}, /* See IPMI spec */
     {{"_SST", 1, 0}},
     {{"_STA", 0, ACPI_RTYPE_INTEGER}},
@@ -538,23 +573,25 @@ static const ACPI_PREDEFINED_INFO     PredefinedNames[] =
     {{"_STP", 2, ACPI_RTYPE_INTEGER}},
     {{"_STR", 0, ACPI_RTYPE_BUFFER}},
     {{"_STV", 2, ACPI_RTYPE_INTEGER}},
+    {{"_SUB", 0, ACPI_RTYPE_STRING}},
     {{"_SUN", 0, ACPI_RTYPE_INTEGER}},
     {{"_SWS", 0, ACPI_RTYPE_INTEGER}},
     {{"_TC1", 0, ACPI_RTYPE_INTEGER}},
     {{"_TC2", 0, ACPI_RTYPE_INTEGER}},
+    {{"_TDL", 0, ACPI_RTYPE_INTEGER}},
     {{"_TIP", 1, ACPI_RTYPE_INTEGER}},
     {{"_TIV", 1, ACPI_RTYPE_INTEGER}},
     {{"_TMP", 0, ACPI_RTYPE_INTEGER}},
     {{"_TPC", 0, ACPI_RTYPE_INTEGER}},
     {{"_TPT", 1, 0}},
-    {{"_TRT", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Pkgs) each 2Ref/6Int */
+    {{"_TRT", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Pkgs) each 2 Ref/6 Int */
                     {{{ACPI_PTYPE2, ACPI_RTYPE_REFERENCE, 2, ACPI_RTYPE_INTEGER}, 6, 0}},
 
-    {{"_TSD", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Pkgs) each 5Int with count */
+    {{"_TSD", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Pkgs) each 5 Int with count */
                     {{{ACPI_PTYPE2_COUNT,ACPI_RTYPE_INTEGER, 5,0}, 0,0}},
 
     {{"_TSP", 0, ACPI_RTYPE_INTEGER}},
-    {{"_TSS", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Pkgs) each 5Int */
+    {{"_TSS", 0, ACPI_RTYPE_PACKAGE}}, /* Variable-length (Pkgs) each 5 Int */
                     {{{ACPI_PTYPE2, ACPI_RTYPE_INTEGER, 5,0}, 0,0}},
 
     {{"_TST", 0, ACPI_RTYPE_INTEGER}},
@@ -577,14 +614,15 @@ static const ACPI_PREDEFINED_INFO     PredefinedNames[] =
     {{"_WAK", 1, ACPI_RTYPE_NONE | ACPI_RTYPE_INTEGER | ACPI_RTYPE_PACKAGE}},
                     {{{ACPI_PTYPE1_FIXED, ACPI_RTYPE_INTEGER, 2,0}, 0,0}}, /* Fixed-length (2 Int), but is optional */
 
+    /* _WDG/_WED are MS extensions defined by "Windows Instrumentation" */
+
+    {{"_WDG", 0, ACPI_RTYPE_BUFFER}},
+    {{"_WED", 1, ACPI_RTYPE_INTEGER | ACPI_RTYPE_STRING | ACPI_RTYPE_BUFFER}},
+
     {{{0,0,0,0}, 0,0}} /* Table terminator */
 };
 
 #if 0
-    /* Not implemented */
-
-    {{"_WDG", 0, ACPI_RTYPE_BUFFER}},  /* MS Extension */
-    {{"_WED", 1, ACPI_RTYPE_PACKAGE}}, /* MS Extension */
 
     /* This is an internally implemented control method, no need to check */
     {{"_OSI", 1, ACPI_RTYPE_INTEGER}},

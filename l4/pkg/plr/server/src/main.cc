@@ -3,7 +3,7 @@
  * 
  *     Main program entry point.
  *
- * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -60,7 +60,9 @@ static int _main(int argc, char const **argv)
 	setup_aux(argc, argv);
 
 	Romain::_the_instance_manager = new Romain::InstanceManager(argc-1, &argv[1]);
+	DEBUG() << "creating instances";
 	Romain::_the_instance_manager->create_instances();
+	DEBUG() << "running instances";
 	Romain::_the_instance_manager->run_instances();
 
 	l4_sleep_forever();

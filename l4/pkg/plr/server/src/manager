@@ -6,7 +6,7 @@
  *     Definition of the instance manager that knows about all
  *     redundant VCPUs as well as the fault observers.
  *
- * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -21,6 +21,7 @@
 
 #include "constants.h"
 #include "app"
+#include "thread_group.h"
 //#include "app_loading"
 #include "fault_observers"
 
@@ -45,7 +46,7 @@ namespace Romain
 			std::vector<Romain::App_instance *> _instances; // instance list
 
 			Romain::Observer *_observer_list[Romain::MAX_OBSERVERS];  // exception observer list
-			Romain::RedundancyCallback *_callback;                 // the callback for redundancy checking
+			//Romain::RedundancyCallback *_callback;                 // the callback for redundancy checking
 			unsigned _num_observers;
 			
 			char const *_name;        // app name
@@ -71,9 +72,10 @@ namespace Romain
 			 * 2nd parameter is an app_instance
 			 * 3rd parameter is a dummy for the location where usually the
 			 *                  return address would be located
+			 * 4th parameter is the thread group we are dealing with
 			 */
 			l4_addr_t prepare_stack(l4_addr_t sp, Romain::App_instance *inst,
-			                        Romain::App_thread *thread);
+			                        Romain::App_thread *thread, Romain::Thread_group* tgroup);
 
 
 			void configure_logflags(char *flags);
@@ -85,10 +87,31 @@ namespace Romain
 
 
 			/*
-			 * Prepare the instances (VCPUs)
+			 * Prepare the replica instances (VCPUs)
 			 */
 			void create_instances();
 
+			/*
+			 * Create a single replica thread along with
+			 * its VCPU handler stack
+			 */
+			Romain::App_thread* create_thread(l4_umword_t eip, l4_umword_t esp, unsigned inst, Romain::Thread_group *group);
+
+			/*
+			 * Create a group of replica threads, e.g., all replicas
+			 * of a single original thread
+			 */
+			Romain::Thread_group* create_thread_group(l4_umword_t eip, l4_umword_t esp,
+													  std::string, unsigned cap, unsigned uid);
+
+			/*
+			 * Setup the VCPU handler stack.
+			 *
+			 * Puts fake parameters on the handler stack so that
+			 * upon an event it looks like we got them passed as
+			 * parameters.
+			 */
+			void prepare_handler_stack(Romain::App_thread *t, Romain::App_instance* i);
 
 			/* 
 			 * Start the instances
@@ -103,6 +126,7 @@ namespace Romain
 			}
 
 
+#if 0
 			Romain::RedundancyCallback *redundancy() const { return _callback; }
 
 
@@ -111,16 +135,20 @@ namespace Romain
 				_check(_callback != 0, "there is already a callback registered?");
 				_callback = cb;
 			}
+#endif
 
 
-			void startup_notify(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a) const
+			void startup_notify(Romain::App_instance *i, Romain::App_thread *t,
+			                    Romain::Thread_group* tg, Romain::App_model *a) const
 			{
 				// XXX would need to be aware of observer list modifications
 				//     -> for now, we assume that observers are not added/removed
 				//        at runtime. otherwise we'd use sth. like an r/w lock with
 				//        reader prioritization??
-				for (unsigned idx = 0; idx < _num_observers; ++idx)
-					_observer_list[idx]->startup_notify(i,t,a);
+				for (unsigned idx = 0; idx < _num_observers; ++idx) {
+					DEBUG() << "[" << i->id() << "] startup notifying: " << _observer_list[idx]->name();
+					_observer_list[idx]->startup_notify(i,t,tg,a);
+				}
 			}
 
 
@@ -132,7 +160,8 @@ namespace Romain
 			 * this iteration process. See Romain::Observer::ObserverReturnVal
 			 */
 			Romain::Observer::ObserverReturnVal
-			fault_notify(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a)
+			fault_notify(Romain::App_instance *i, Romain::App_thread *t,
+			             Romain::Thread_group* tg, Romain::App_model *a)
 			{
 				Romain::Observer::ObserverReturnVal v = Romain::Observer::Ignored;
 				// XXX would need to be aware of observer list modifications
@@ -141,7 +170,7 @@ namespace Romain
 				//        reader prioritization??
 				for (unsigned idx = 0; idx < _num_observers; ++idx) {
 					//DEBUG() << "[" << i->id() << "] notifying: " << _observer_list[idx]->name();
-					v = _observer_list[idx]->notify(i,t,a);
+					v = _observer_list[idx]->notify(i,t,tg,a);
 					switch(v) {
 						case Romain::Observer::Finished:
 						case Romain::Observer::Replicatable:
@@ -166,8 +195,8 @@ namespace Romain
 
 			unsigned instance_count() const { return _num_inst; }
 
-			static void VCPU_handler(Romain::InstanceManager *m, Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a);
-			static void VCPU_startup(Romain::InstanceManager *m, Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a);
+			static void VCPU_handler(Romain::InstanceManager *m, Romain::App_instance *i, Romain::App_thread *t, Romain::Thread_group* tg, Romain::App_model *a);
+			static void VCPU_startup(Romain::InstanceManager *m, Romain::App_instance *i, Romain::App_thread *t, Romain::Thread_group* tg, Romain::App_model *a);
 
 
 		private:

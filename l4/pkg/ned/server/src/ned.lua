@@ -183,7 +183,7 @@ end
 function App_env:log()
   Class.check(self, App_env);
   if self.loader.log_fab == nil or self.loader.log_fab.create == nil then
-    error ("staring a application w/o valid log factory", 4);
+    error ("Starting a application without valid log factory", 4);
   end
   return self.loader.log_fab:create(Proto.Log, self.log_tag, self.log_color);
 end

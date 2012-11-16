@@ -49,13 +49,13 @@ Dev_factory::create(std::string const &_class)
 }
 
 Device *
-Dev_factory::create(Hw::Device *f, Tagged_parameter *filter, bool warn)
+Dev_factory::create(Hw::Device *f, bool warn)
 {
   if (!f)
     return 0;
 
   for (Iterator fa = _for_type.begin(); fa != _for_type.end(); ++fa)
-    if (Device *d = fa->vcreate(f, filter))
+    if (Device *d = fa->vcreate(f))
       return d;
 
   if (warn)

@@ -3,7 +3,7 @@
  *
  *     Instance manager implementation.
  *
- * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -17,6 +17,7 @@
 #include <l4/sys/segment.h>
 
 #define MSG() DEBUGf(Romain::Log::Manager)
+#include "fault_handlers/syscalls_factory.h"
 
 Romain::Configuration Romain::globalconfig;
 
@@ -45,7 +46,6 @@ Romain::InstanceManager::InstanceManager(unsigned int argc,
                                          unsigned num_instances)
 	: _am(0),
 	  _instances(),
-	  _callback(0),
 	  _num_observers(0),
 	  _num_inst(num_instances),
 	  _num_cpu(1),
@@ -133,10 +133,13 @@ void Romain::InstanceManager::configure_fault_observers()
 	ObserverConfig(this, "trap_limit");
 
 	/*
-	 * We always need the system call observer.
+	 * Always needed -- slightly ordered by the number of
+	 * calls they are expected to see, so that we minimize
+	 * the amount of unnecessary observer callbacks.
 	 */
-	ObserverConfig(this, "syscalls");
 	ObserverConfig(this, "pagefaults");
+	ObserverConfig(this, "syscalls");
+	BoolObserverConfig("general:threads", this, "threads");
 	ObserverConfig(this, "trap");
 
 	StringObserverConfig("general:debug", this);
@@ -152,13 +155,10 @@ void Romain::InstanceManager::configure_redundancy()
 	INFO() << "red: '" << redundancy << "'";
 	if (strcmp(redundancy, "none") == 0) {
 		_num_inst = 1;
-		set_redundancy_callback(new NoRed());
 	} else if (strcmp(redundancy, "dual") == 0) {
 		_num_inst = 2;
-		set_redundancy_callback(new DMR(2));
 	} else if (strcmp(redundancy, "triple") == 0) {
 		_num_inst = 3;
-		set_redundancy_callback(new DMR(3));
 	} else {
 		ERROR() << "Invalid redundancy setting: " << redundancy;
 		enter_kdebug("Invalid redundancy setting");
@@ -292,11 +292,13 @@ void Romain::InstanceManager::configure()
  */
 l4_addr_t Romain::InstanceManager::prepare_stack(l4_addr_t sp,
                                                  Romain::App_instance *inst,
-                                                 Romain::App_thread *thread)
+                                                 Romain::App_thread *thread,
+                                                 Romain::Thread_group *tgroup)
 {
 	Romain::Stack st(sp);
 
 	st.push(_am);
+	st.push(tgroup);
 	st.push(thread);
 	st.push(inst);
 	st.push(this);
@@ -315,34 +317,103 @@ void Romain::InstanceManager::create_instances()
 }
 
 
-void Romain::InstanceManager::run_instances()
+Romain::App_thread*
+Romain::InstanceManager::create_thread(l4_umword_t eip, l4_umword_t esp,
+                                       unsigned instance_id, Romain::Thread_group *group)
 {
-	for (unsigned i = 0; i < _num_inst; ++i) {
-		Romain::App_thread *at = new Romain::App_thread(_init_eip, _init_esp,
+		Romain::App_thread *at = new Romain::App_thread(eip, esp,
 		                                          reinterpret_cast<l4_addr_t>(VCPU_handler),
 		                                          reinterpret_cast<l4_addr_t>(VCPU_startup)
 		);
 
-		at->setup_gdt(_am->stack()->target_top() - 4, 4);
+		/*
+		 * Set up the VCPU handler thread. It has been allocated in
+		 * App_thread's constructor.
+		 */
+		DEBUG() << "prepare: " << (void*)at->handler_sp();
+		at->handler_sp(prepare_stack(at->handler_sp(),
+		                             _instances[instance_id], at, group));
 
+		/*
+		 * phys. CPU assignment, currently done by mapping instances to dedicated
+		 * physical CPUs
+		 */
+		if (_num_cpu > 1) {
+			INFO() << instance_id << " " << (instance_id+1) % _num_cpu << " " << _num_cpu;
+			at->cpu((instance_id + 1) % _num_cpu);
+		} else {
+			at->cpu(0);
+		}
+
+		return at;
+}
+
+
+Romain::Thread_group *
+Romain::InstanceManager::create_thread_group(l4_umword_t eip, l4_umword_t esp, std::string n,
+                                             unsigned cap, unsigned uid)
+{
+	Romain::Thread_group *group = new Romain::Thread_group(n, cap, uid);
+	group->set_redundancy_callback(new DMR(_num_inst));
+
+	for (unsigned i = 0; i < _num_inst; ++i) {
+		/*
+		 * Thread creation
+		 */
+		Romain::App_thread *at = create_thread(eip, esp, i, group);
+		group->add_replica(at);
+	}
+
+	return group;
+}
+
+
+void Romain::InstanceManager::run_instances()
+{
+	Romain::Thread_group *group = create_thread_group(_init_eip, _init_esp, "init",
+													  Romain::FIRST_REPLICA_CAP, 0);
+	DEBUG() << "created group object @ " << (void*)group;
+	theObjectFactory.register_thread_group(group, Romain::FIRST_REPLICA_CAP);
+
+	_check(group->threads.size() != _num_inst, "not enough threads created?");
+
+	for (unsigned i = 0; i < _num_inst; ++i) {
+
+		App_thread *at = group->threads[i];
+
+		/*
+		 * Stack setup
+		 */
+		at->thread_sp((l4_addr_t)_am->stack()->relocate(_am->stack()->ptr()));
+
+		/*
+		 * The initial UTCB address is on top of the app's stack. This location
+		 * is used for the first GDT entry, which L4Re later uses to find the
+		 * thread's UTCB address.
+		 */
+		at->setup_utcb_segdesc(_am->stack()->target_top() - 4, 4);
+
+		/*
+		 * Establish UTCB mapping
+		 */
 		Romain::Region_handler &rh = const_cast<Romain::Region_handler&>(
 		                                  _am->rm()->find(_am->prog_info()->utcbs_start)->second);
 		_check(_am->rm()->copy_existing_mapping(rh, 0, i) != true,
 		       "could not create UTCB copy");
 		at->remote_utcb(rh.local_region(i).start());
 
-		DEBUG() << "prepare: " << (void*)at->handler_sp();
-		at->handler_sp(prepare_stack(at->handler_sp(), _instances[i], at));
-		at->thread_sp((l4_addr_t)_am->stack()->relocate(_am->stack()->ptr()));
-		if (_num_cpu > 1) {
-			INFO() << i << " " << (i+1) % _num_cpu << " " << _num_cpu;
-			at->cpu((i+1) % _num_cpu);
-		} else {
-			at->cpu(0);
-		}
+		/*
+		 * Notfiy handlers about an instance that has started
+		 */
+		startup_notify(_instances[i], at, group, _am);
 
-		startup_notify(_instances[i], at, _am);
-
+		/*
+		 * Start the thread itself
+		 */
+		at->vcpu()->r()->sp = at->thread_sp();
 		at->start();
+		at->commit_client_gdt();
 	}
+
+	group->activate();
 }

@@ -18,12 +18,13 @@
 #include <cstdio> // dbg
 
 #include "device.h"
+#include <cerrno>
 
 namespace Hw {
 class Dev_feature;
 }
 
-class Adr_resource;
+class Resource;
 
 namespace Vi {
 
@@ -89,6 +90,9 @@ public:
 
   bool resource_allocated(Resource const *) const;
 
+  virtual int add_filter(cxx::String const &, cxx::String const &) { return -ENODEV; }
+  virtual int add_filter(cxx::String const &, unsigned long long) { return -ENODEV; }
+  virtual int add_filter(cxx::String const &, unsigned long long, unsigned long long) { return -ENODEV; }
   virtual void finalize_setup() {}
 
   Device *parent() const { return _dt.parent(); }

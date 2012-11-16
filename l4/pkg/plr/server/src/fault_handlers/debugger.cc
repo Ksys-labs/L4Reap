@@ -7,7 +7,7 @@
  *     (simplegdb:singlestep). It will then place a breakpoint (0xCC) on this address
  *     and once this BP is hit, start single-stepping from this point on.
  *
- * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -32,13 +32,16 @@ Romain::SimpleDebugObserver::SimpleDebugObserver()
  *                      Debugging stuff                          *
  *****************************************************************/
 void Romain::SimpleDebugObserver::startup_notify(Romain::App_instance *i,
-                                               Romain::App_thread *,
-                                               Romain::App_model *am)
+                                                 Romain::App_thread *,
+                                                 Romain::Thread_group *,
+                                                 Romain::App_model *am)
 {
-	_bp->activate(i, am);
-	DEBUG() << "Activated breakpoint in instance " << i->id()
-	        << " @ address " << std::hex << _bp->address();
-	enter_kdebug();
+	if (_bp->address() != ~0UL) {
+		_bp->activate(i, am);
+		DEBUG() << "Activated breakpoint in instance " << i->id()
+				<< " @ address " << std::hex << _bp->address();
+		enter_kdebug();
+	}
 }
 
 
@@ -47,11 +50,13 @@ void Romain::SimpleDebugObserver::status() const { }
 Romain::Observer::ObserverReturnVal
 Romain::SimpleDebugObserver::notify(Romain::App_instance *i,
                                     Romain::App_thread *t,
+                                    Romain::Thread_group *,
                                     Romain::App_model *am)
 {
 	switch(t->vcpu()->r()->trapno) {
 		case 1:
-			Romain::InstructionPrinter(t->vcpu()->r()->ip, 0).print_instruction();
+			Romain::InstructionPrinter(am->rm()->remote_to_local(t->vcpu()->r()->ip, 0),
+			                           t->vcpu()->r()->ip);
 			++_int1_seen;
 			t->vcpu()->print_state();
 			INFO() << "INT1 seen: " << _int1_seen;

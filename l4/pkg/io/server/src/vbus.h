@@ -42,17 +42,17 @@ public:
 private:
   struct Res_cmp
   {
-    bool operator () (Adr_resource const *a, Adr_resource const *b) const
+    bool operator () (Resource const *a, Resource const *b) const
     {
       if (a->type() == b->type())
-	return a->_data().end() < b->_data().start();
+	return a->end() < b->start();
       return a->type() < b->type();
     }
   };
-  //typedef std::set<Adr_resource*, Res_cmp> Resource_set;
+  //typedef std::set<Resource*, Res_cmp> Resource_set;
 
 public:
-  typedef cxx::Avl_set<Adr_resource*, Res_cmp> Resource_set;
+  typedef cxx::Avl_set<Resource*, Res_cmp> Resource_set;
 
   Resource_set const *resource_set() const { return &_resources; }
   Resource_set *resource_set() { return &_resources; }

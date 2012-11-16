@@ -159,7 +159,7 @@ public:
   /**
    * \brief Move this view in the view stack.
    * \param pivot   View to move relative to
-   * \param behind  When true move the view behind the pivit view, if false
+   * \param behind  When true move the view behind the pivot view, if false
    *                move the view before the pivot view.
    * \return 0 on success, error otherwise
    */

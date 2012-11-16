@@ -69,14 +69,6 @@ Acpi_pci_irq_router_rs::request(Resource *parent, Device *,
       printf(" at ACPI IRQ routing resource\n");
     }
 
-  Adr_resource *cr = dynamic_cast<Adr_resource*>(child);
-
-  if (!cr)
-    {
-      child->parent(parent);
-      return true;
-    }
-
   Hw::Device *cd = dynamic_cast<Hw::Device*>(cdev);
 
   if (!cd)
@@ -84,21 +76,21 @@ Acpi_pci_irq_router_rs::request(Resource *parent, Device *,
 
   struct acpica_pci_irq *irq = 0;
 
-  if (find(cd->adr() >> 16, cr->start(), &irq) < 0)
+  if (find(cd->adr() >> 16, child->start(), &irq) < 0)
     return false;
 
   if (!irq)
     return false;
 
-  cr->del_flags(Resource::F_relative);
-  cr->start(irq->irq);
-  cr->del_flags(Resource::Irq_info_base * 3);
+  child->del_flags(Resource::F_relative);
+  child->start(irq->irq);
+  child->del_flags(Resource::Irq_info_base * 3);
   unsigned flags = 0;
   flags |= (!irq->trigger) * Resource::Irq_info_base;
   flags |= (!!irq->polarity) * Resource::Irq_info_base * 2;
-  cr->add_flags(flags);
+  child->add_flags(flags);
 
-  cr->parent(parent);
+  child->parent(parent);
 
   return true;
 }
@@ -357,9 +349,9 @@ acpi_adr_res(Hw::Device *host, ACPI_RESOURCE_ADDRESS const *ar, l4_uint64_t s, l
 
   Resource *r;
   if (ar->ProducerConsumer == ACPI_PRODUCER)
-    r = new Adr_resource_provider(flags, s, s + l - 1);
+    r = new Resource_provider(flags, s, s + l - 1);
   else
-    r = new Adr_resource(flags, s, s + l -1);
+    r = new Resource(flags, s, s + l -1);
 
   host->add_resource(r);
 }
@@ -391,7 +383,7 @@ Acpi_res_discover::discover_crs(Hw::Device *host)
 	  flags |= (!d->Irq.Triggering) * Resource::Irq_info_base;
 	  flags |= (!!d->Irq.Polarity) * Resource::Irq_info_base * 2;
 	  for (unsigned c = 0; c < d->Irq.InterruptCount; ++c)
-	    host->add_resource(new Adr_resource(flags, d->Irq.Interrupts[c],
+	    host->add_resource(new Resource(flags, d->Irq.Interrupts[c],
 		                                d->Irq.Interrupts[c]));
 	  break;
 
@@ -408,38 +400,38 @@ Acpi_res_discover::discover_crs(Hw::Device *host)
 	  else
 	    {
 	      for (unsigned c = 0; c < d->ExtendedIrq.InterruptCount; ++c)
-		host->add_resource(new Adr_resource(flags, d->ExtendedIrq.Interrupts[c],
+		host->add_resource(new Resource(flags, d->ExtendedIrq.Interrupts[c],
 		      d->ExtendedIrq.Interrupts[c]));
 	    }
 	  break;
 
 	case ACPI_RESOURCE_TYPE_IO:
 	  flags = Resource::Io_res | Resource::F_fixed_size | Resource::F_fixed_addr;
-	  host->add_resource(new Adr_resource(flags, d->Io.Minimum,
-		                              d->Io.Minimum + d->Io.AddressLength - 1));
+	  host->add_resource(new Resource(flags, d->Io.Minimum,
+		                          d->Io.Minimum + d->Io.AddressLength - 1));
 	  break;
 
 	case ACPI_RESOURCE_TYPE_FIXED_IO:
 	  flags = Resource::Io_res | Resource::F_fixed_size | Resource::F_fixed_addr;
-	  host->add_resource(new Adr_resource(flags, d->FixedIo.Address,
-		                              d->FixedIo.Address + d->FixedIo.AddressLength - 1));
+	  host->add_resource(new Resource(flags, d->FixedIo.Address,
+		                          d->FixedIo.Address + d->FixedIo.AddressLength - 1));
 	  break;
 
 	case ACPI_RESOURCE_TYPE_MEMORY24:
 	  flags = Resource::Mmio_res | Resource::F_fixed_size | Resource::F_fixed_addr;
-	  host->add_resource(new Adr_resource(flags, d->Memory24.Minimum,
-		                              d->Memory24.Minimum + d->Memory24.AddressLength - 1));
+	  host->add_resource(new Resource(flags, d->Memory24.Minimum,
+		                          d->Memory24.Minimum + d->Memory24.AddressLength - 1));
 	  break;
 
 	case ACPI_RESOURCE_TYPE_MEMORY32:
 	  flags = Resource::Mmio_res | Resource::F_fixed_size | Resource::F_fixed_addr;
-	  host->add_resource(new Adr_resource(flags, d->Memory32.Minimum,
-		                              d->Memory32.Minimum + d->Memory32.AddressLength - 1));
+	  host->add_resource(new Resource(flags, d->Memory32.Minimum,
+		                          d->Memory32.Minimum + d->Memory32.AddressLength - 1));
 	  break;
 
 	case ACPI_RESOURCE_TYPE_FIXED_MEMORY32:
 	  flags = Resource::Mmio_res | Resource::F_fixed_size | Resource::F_fixed_addr;
-	  host->add_resource(new Adr_resource(flags, d->FixedMemory32.Address,
+	  host->add_resource(new Resource(flags, d->FixedMemory32.Address,
 		               d->FixedMemory32.Address + d->FixedMemory32.AddressLength - 1));
 	  break;
 
@@ -479,11 +471,11 @@ Acpi_res_discover::discover_resources(Hw::Device *host)
 
   if (bridge)
     {
-      for (Resource_list::iterator i = host->resources()->begin();
+      for (Resource_list::const_iterator i = host->resources()->begin();
 	  i != host->resources()->end(); ++i)
 	{
 	  if ((*i)->type() == Resource::Bus_res)
-	    bridge->num = bridge->subordinate = static_cast<Adr_resource*>(*i)->start();
+	    bridge->num = bridge->subordinate = (*i)->start();
 	}
     }
 }
@@ -547,8 +539,8 @@ discover_pre_cb(ACPI_HANDLE obj, UINT32 nl, void *ctxt, void **)
 
   get_name(obj, nd);
 
-  ACPI_DEVICE_ID *hid = 0;
-  ACPI_DEVICE_ID_LIST *cid = 0;
+  ACPI_PNP_DEVICE_ID *hid = 0;
+  ACPI_PNP_DEVICE_ID_LIST *cid = 0;
   bool pci_rb = false;
 #if 0
   if (ACPI_FAILURE(AcpiUtAcquireMutex(ACPI_MTX_NAMESPACE)))

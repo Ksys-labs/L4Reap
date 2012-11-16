@@ -12,7 +12,7 @@
 
 namespace Vi {
 
-Proxy_dev::Proxy_dev(Hw::Device *d, Tagged_parameter *)
+Proxy_dev::Proxy_dev(Hw::Device *d)
 : _hwd(d)
 {
   // suck features from real dev
@@ -25,13 +25,13 @@ Proxy_dev::Proxy_dev(Hw::Device *d, Tagged_parameter *)
     }
 
   // suck resources from our real dev
-  for (Resource_list::iterator i = d->resources()->begin();
+  for (Resource_list::const_iterator i = d->resources()->begin();
        i != d->resources()->end(); ++i)
     {
       if (!*i)
         continue;
 
-      if (i->disabled())
+      if ((*i)->disabled())
 	continue;
 
       Resource *vr = Resource_factory::create(*i, false);

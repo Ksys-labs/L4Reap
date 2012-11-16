@@ -125,9 +125,9 @@ Sw_icu::unmask_irq(l4_msgtag_t /*tag*/, unsigned irqn)
 
 
 bool
-Sw_icu::irqs_allocated(Adr_resource const *r)
+Sw_icu::irqs_allocated(Resource const *r)
 {
-  for (unsigned n = r->_data().start(); n <= r->_data().end(); ++n)
+  for (unsigned n = r->start(); n <= r->end(); ++n)
     {
       if (_irqs.find(n) == _irqs.end())
 	return false;
@@ -137,9 +137,9 @@ Sw_icu::irqs_allocated(Adr_resource const *r)
 }
 
 bool
-Sw_icu::add_irqs(Adr_resource const *r)
+Sw_icu::add_irqs(Resource const *r)
 {
-  for (unsigned n = r->_data().start(); n <= r->_data().end(); ++n)
+  for (unsigned n = r->start(); n <= r->end(); ++n)
     {
       if (_irqs.find(n) != _irqs.end())
 	continue;
@@ -243,7 +243,7 @@ unsigned
 Sw_icu::Sw_irq_pin::l4_type() const
 {
   unsigned m = type();
-  unsigned r = (m & S_irq_type_mask) / Adr_resource::Irq_info_factor;
+  unsigned r = (m & S_irq_type_mask) / Resource::Irq_info_factor;
   return r;
 }
 

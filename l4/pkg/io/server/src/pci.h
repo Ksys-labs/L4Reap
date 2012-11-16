@@ -74,8 +74,8 @@ namespace Hw { namespace Pci {
   {
   public:
 
-    virtual Adr_resource *bar(int) const = 0;
-    virtual Adr_resource *rom() const = 0;
+    virtual Resource *bar(int) const = 0;
+    virtual Resource *rom() const = 0;
     virtual bool is_64bit_high_bar(int) const = 0;
     virtual bool supports_msi() const = 0;
     virtual bool is_bridge() const = 0;
@@ -108,8 +108,8 @@ public:
   l4_uint16_t flags;
 
 private:
-  Adr_resource *_bars[6];
-  Adr_resource *_rom;
+  Resource *_bars[6];
+  Resource *_rom;
 
 
 public:
@@ -216,7 +216,7 @@ public:
 
 
 
-  Adr_resource *bar(int b) const
+  Resource *bar(int b) const
   {
     if (is_64bit_high_bar(b))
       return _bars[b-1];
@@ -224,7 +224,7 @@ public:
       return _bars[b];
   }
 
-  Adr_resource *rom() const
+  Resource *rom() const
   { return _rom; }
 
   bool is_64bit_high_bar(int b) const
@@ -388,9 +388,9 @@ public:
 class Pci_pci_bridge : public Pci_pci_bridge_basic
 {
 public:
-  Adr_resource *mmio;
-  Adr_resource *pref_mmio;
-  Adr_resource *io;
+  Resource *mmio;
+  Resource *pref_mmio;
+  Resource *io;
 
   explicit Pci_pci_bridge(Hw::Device *host, Pci_bridge *bus)
   : Pci_pci_bridge_basic(host, bus), mmio(0), pref_mmio(0), io(0)

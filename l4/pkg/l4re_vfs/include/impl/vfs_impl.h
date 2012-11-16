@@ -711,7 +711,7 @@ Vfs::mremap(void *old_addr, size_t old_size, size_t new_size, int flags,
 
 	  tds->take();
 
-          err = r->detach(ta, ts, &tds, This_task);
+          err = r->detach(ta, ts, &tds, This_task, Rm::Detach_exact |  Rm::Detach_keep);
           if (err < 0)
             return err;
 
@@ -737,7 +737,7 @@ Vfs::mremap(void *old_addr, size_t old_size, size_t new_size, int flags,
 
   *new_addr = (void *)na;
   na = na + old_size;
-  err = r->attach(&na, new_size - old_size, Rm::In_area, tds, toffs);
+  err = r->attach(&na, new_size - old_size, Rm::In_area | Rm::Detach_free, tds, toffs);
 
   return err;
 }

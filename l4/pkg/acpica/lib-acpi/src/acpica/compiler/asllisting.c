@@ -1,4 +1,3 @@
-
 /******************************************************************************
  *
  * Module Name: asllisting - Listing file generation
@@ -9,13 +8,13 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2009, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2012, Intel Corp.
  * All rights reserved.
  *
  * 2. License
  *
  * 2.1. This is your license from Intel Corp. under its intellectual property
- * rights.  You may have additional license terms from the party that provided
+ * rights. You may have additional license terms from the party that provided
  * you this software, covering your right to use that party's intellectual
  * property rights.
  *
@@ -32,7 +31,7 @@
  * offer to sell, and import the Covered Code and derivative works thereof
  * solely to the minimum extent necessary to exercise the above copyright
  * license, and in no event shall the patent license extend to any additions
- * to or modifications of the Original Intel Code.  No other license or right
+ * to or modifications of the Original Intel Code. No other license or right
  * is granted directly or by implication, estoppel or otherwise;
  *
  * The above copyright and patent license is granted only if the following
@@ -44,11 +43,11 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification with rights to further distribute source must include
  * the above Copyright Notice, the above License, this list of Conditions,
- * and the following Disclaimer and Export Compliance provision.  In addition,
+ * and the following Disclaimer and Export Compliance provision. In addition,
  * Licensee must cause all Covered Code to which Licensee contributes to
  * contain a file documenting the changes Licensee made to create that Covered
- * Code and the date of any change.  Licensee must include in that file the
- * documentation of any changes made by any predecessor Licensee.  Licensee
+ * Code and the date of any change. Licensee must include in that file the
+ * documentation of any changes made by any predecessor Licensee. Licensee
  * must include a prominent statement that the modification is derived,
  * directly or indirectly, from Original Intel Code.
  *
@@ -56,7 +55,7 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification without rights to further distribute source must
  * include the following Disclaimer and Export Compliance provision in the
- * documentation and/or other materials provided with distribution.  In
+ * documentation and/or other materials provided with distribution. In
  * addition, Licensee may not authorize further sublicense of source of any
  * portion of the Covered Code, and must include terms to the effect that the
  * license from Licensee to its licensee is limited to the intellectual
@@ -81,10 +80,10 @@
  * 4. Disclaimer and Export Compliance
  *
  * 4.1. INTEL MAKES NO WARRANTY OF ANY KIND REGARDING ANY SOFTWARE PROVIDED
- * HERE.  ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
- * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT,  ASSISTANCE,
- * INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL WILL NOT PROVIDE ANY
- * UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY DISCLAIMS ANY
+ * HERE. ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
+ * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
+ * INSTALLATION, TRAINING OR OTHER SERVICES. INTEL WILL NOT PROVIDE ANY
+ * UPDATES, ENHANCEMENTS OR EXTENSIONS. INTEL SPECIFICALLY DISCLAIMS ANY
  * IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT AND FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
@@ -93,14 +92,14 @@
  * COSTS OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, OR FOR ANY INDIRECT,
  * SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THIS AGREEMENT, UNDER ANY
  * CAUSE OF ACTION OR THEORY OF LIABILITY, AND IRRESPECTIVE OF WHETHER INTEL
- * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES.  THESE LIMITATIONS
+ * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES. THESE LIMITATIONS
  * SHALL APPLY NOTWITHSTANDING THE FAILURE OF THE ESSENTIAL PURPOSE OF ANY
  * LIMITED REMEDY.
  *
  * 4.3. Licensee shall not export, either directly or indirectly, any of this
  * software or system incorporating such software without first obtaining any
  * required license or other approval from the U. S. Department of Commerce or
- * any other agency or department of the United States Government.  In the
+ * any other agency or department of the United States Government. In the
  * event Licensee exports any such software from the United States or
  * re-exports any such software from a foreign destination, Licensee shall
  * ensure that the distribution and export/re-export of the software is in
@@ -198,7 +197,11 @@ static void
 LsDoHexOutputAsm (
     void);
 
-ACPI_STATUS
+static void
+LsDoHexOutputAsl (
+    void);
+
+static ACPI_STATUS
 LsTreeWriteWalk (
     ACPI_PARSE_OBJECT       *Op,
     UINT32                  Level,
@@ -218,7 +221,7 @@ LsTreeWriteWalk (
  *
  ******************************************************************************/
 
-ACPI_STATUS
+static ACPI_STATUS
 LsTreeWriteWalk (
     ACPI_PARSE_OBJECT       *Op,
     UINT32                  Level,
@@ -408,7 +411,7 @@ LsAmlListingWalk (
  *
  * RETURN:      None
  *
- * DESCRIPTION: Generate a listing file.  This can be one of the several types
+ * DESCRIPTION: Generate a listing file. This can be one of the several types
  *              of "listings" supported.
  *
  ******************************************************************************/
@@ -489,7 +492,7 @@ LsDoListings (
  *
  * RETURN:      None
  *
- * DESCRIPTION: Push a listing node on the listing/include file stack.  This
+ * DESCRIPTION: Push a listing node on the listing/include file stack. This
  *              stack enables tracking of include files (infinitely nested)
  *              and resumption of the listing of the parent file when the
  *              include file is finished.
@@ -547,7 +550,7 @@ LsPopNode (
     {
         AslError (ASL_ERROR, ASL_MSG_COMPILER_INTERNAL, NULL,
             "Could not pop empty listing stack");
-        return Gbl_ListingNode;
+        return (Gbl_ListingNode);
     }
 
     Gbl_ListingNode = Lnode->Next;
@@ -569,8 +572,8 @@ LsPopNode (
  * RETURN:      None
  *
  * DESCRIPTION: Check if there is an exception for this line, and if there is,
- *              put it in the listing immediately.  Handles multiple errors
- *              per line.  Gbl_NextError points to the next error in the
+ *              put it in the listing immediately. Handles multiple errors
+ *              per line. Gbl_NextError points to the next error in the
  *              sorted (by line #) list of compile errors/warnings.
  *
  ******************************************************************************/
@@ -613,7 +616,7 @@ LsCheckException (
  * RETURN:      None
  *
  * DESCRIPTION: Flush out the current contents of the 16-byte hex AML code
- *              buffer.  Usually called at the termination of a single line
+ *              buffer. Usually called at the termination of a single line
  *              of source code or when the buffer is full.
  *
  ******************************************************************************/
@@ -721,7 +724,7 @@ LsFlushListingBuffer (
  * RETURN:      None
  *
  * DESCRIPTION: Write the contents of the AML buffer to the listing file via
- *              the listing buffer.  The listing buffer is flushed every 16
+ *              the listing buffer. The listing buffer is flushed every 16
  *              AML bytes.
  *
  ******************************************************************************/
@@ -875,7 +878,7 @@ LsWriteOneSourceLine (
  *
  * RETURN:      None
  *
- * DESCRIPTION: Cleanup routine for the listing file.  Flush the hex AML
+ * DESCRIPTION: Cleanup routine for the listing file. Flush the hex AML
  *              listing buffer, and flush out any remaining lines in the
  *              source input file.
  *
@@ -918,9 +921,9 @@ LsFinishSourceListing (
 
         FlPrintFile (FileId, "\n\nSummary of errors and warnings\n\n");
         AePrintErrorLog (FileId);
-        FlPrintFile (FileId, "\n\n");
+        FlPrintFile (FileId, "\n");
         UtDisplaySummary (FileId);
-        FlPrintFile (FileId, "\n\n");
+        FlPrintFile (FileId, "\n");
     }
 }
 
@@ -936,7 +939,7 @@ LsFinishSourceListing (
  * RETURN:      None
  *
  * DESCRIPTION: Read then write source lines to the listing file until we have
- *              reached the specified logical (cumulative) line number.  This
+ *              reached the specified logical (cumulative) line number. This
  *              automatically echos out comment blocks and other non-AML
  *              generating text until we get to the actual AML-generating line
  *              of ASL code specified by the logical line number.
@@ -1005,7 +1008,7 @@ LsWriteSourceLines (
  *
  * RETURN:      None.
  *
- * DESCRIPTION: Write "a node" to the listing file.  This means to
+ * DESCRIPTION: Write "a node" to the listing file. This means to
  *              1) Write out all of the source text associated with the node
  *              2) Write out all of the AML bytes associated with the node
  *              3) Write any compiler exceptions associated with the node
@@ -1337,6 +1340,11 @@ LsDoHexOutput (
         LsDoHexOutputAsm ();
         break;
 
+    case HEX_OUTPUT_ASL:
+
+        LsDoHexOutputAsl ();
+        break;
+
     default:
         /* No other output types supported */
         break;
@@ -1352,7 +1360,7 @@ LsDoHexOutput (
  *
  * RETURN:      None.
  *
- * DESCRIPTION: Create the hex output file.  This is the same data as the AML
+ * DESCRIPTION: Create the hex output file. This is the same data as the AML
  *              output file, but formatted into hex/ascii bytes suitable for
  *              inclusion into a C source file.
  *
@@ -1362,61 +1370,161 @@ static void
 LsDoHexOutputC (
     void)
 {
-    UINT32                  j;
-    UINT8                   FileByte[HEX_TABLE_LINE_SIZE];
-    UINT8                   Buffer[4];
+    UINT8                   FileData[HEX_TABLE_LINE_SIZE];
+    UINT32                  LineLength;
     UINT32                  Offset = 0;
+    UINT32                  AmlFileSize;
+    UINT32                  i;
 
 
-    FlPrintFile (ASL_FILE_HEX_OUTPUT, " * C source code output\n *\n */\n");
-    FlPrintFile (ASL_FILE_HEX_OUTPUT, "unsigned char AmlCode[] =\n{\n");
+    /* Get AML size, seek back to start */
 
-    /* Start at the beginning of the AML file */
-
+    AmlFileSize = FlGetFileSize (ASL_FILE_AML_OUTPUT);
     FlSeekFile (ASL_FILE_AML_OUTPUT, 0);
 
-    /* Process all AML bytes in the AML file */
+    FlPrintFile (ASL_FILE_HEX_OUTPUT, " * C source code output\n");
+    FlPrintFile (ASL_FILE_HEX_OUTPUT, " * AML code block contains 0x%X bytes\n *\n */\n",
+        AmlFileSize);
+    FlPrintFile (ASL_FILE_HEX_OUTPUT, "unsigned char AmlCode[] =\n{\n");
 
-    j = 0;
-    while (FlReadFile (ASL_FILE_AML_OUTPUT, &FileByte[j], 1) == AE_OK)
+    while (Offset < AmlFileSize)
     {
-        if (j == 0)
+        /* Read enough bytes needed for one output line */
+
+        LineLength = fread (FileData, 1, HEX_TABLE_LINE_SIZE,
+                        Gbl_Files[ASL_FILE_AML_OUTPUT].Handle);
+        if (!LineLength)
         {
-            FlPrintFile (ASL_FILE_HEX_OUTPUT, "    ");
+            break;
         }
 
-        /* Convert each AML byte to hex */
+        FlPrintFile (ASL_FILE_HEX_OUTPUT, "    ");
 
-        UtConvertByteToHex (FileByte[j], Buffer);
-        FlWriteFile (ASL_FILE_HEX_OUTPUT, Buffer, 4);
-        FlPrintFile (ASL_FILE_HEX_OUTPUT, ",");
-
-        /* An occasional linefeed improves readability */
-
-        Offset++;
-        j++;
-
-        if (j >= HEX_TABLE_LINE_SIZE)
+        for (i = 0; i < LineLength; i++)
         {
-            /* End of line, emit the ascii dump of the entire line */
-
-            FlPrintFile (ASL_FILE_HEX_OUTPUT,
-                "  /* %8.8X", Offset - HEX_TABLE_LINE_SIZE);
-
-            /* Write the ASCII character associated with each of the bytes */
-
-            LsDumpAsciiInComment (ASL_FILE_HEX_OUTPUT,
-                HEX_TABLE_LINE_SIZE, FileByte);
-            FlPrintFile (ASL_FILE_HEX_OUTPUT, " */\n");
-
-            /* Start new line */
-
-            j = 0;
+            /*
+             * Print each hex byte.
+             * Add a comma until the very last byte of the AML file
+             * (Some C compilers complain about a trailing comma)
+             */
+            FlPrintFile (ASL_FILE_HEX_OUTPUT, "0x%2.2X", FileData[i]);
+            if ((Offset + i + 1) < AmlFileSize)
+            {
+                FlPrintFile (ASL_FILE_HEX_OUTPUT, ",");
+            }
+            else
+            {
+                FlPrintFile (ASL_FILE_HEX_OUTPUT, " ");
+            }
         }
+
+        /* Add fill spaces if needed for last line */
+
+        if (LineLength < HEX_TABLE_LINE_SIZE)
+        {
+            FlPrintFile (ASL_FILE_HEX_OUTPUT, "%*s",
+                5 * (HEX_TABLE_LINE_SIZE - LineLength), " ");
+        }
+
+        /* Emit the offset and ascii dump for the entire line */
+
+        FlPrintFile (ASL_FILE_HEX_OUTPUT, "  /* %8.8X", Offset);
+        LsDumpAsciiInComment (ASL_FILE_HEX_OUTPUT, LineLength, FileData);
+        FlPrintFile (ASL_FILE_HEX_OUTPUT, "%*s*/\n",
+            HEX_TABLE_LINE_SIZE - LineLength + 1, " ");
+
+        Offset += LineLength;
     }
 
-    FlPrintFile (ASL_FILE_HEX_OUTPUT, "\n};\n");
-    FlCloseFile (ASL_FILE_HEX_OUTPUT);
+    FlPrintFile (ASL_FILE_HEX_OUTPUT, "};\n");
+}
+
+
+/*******************************************************************************
+ *
+ * FUNCTION:    LsDoHexOutputAsl
+ *
+ * PARAMETERS:  None
+ *
+ * RETURN:      None.
+ *
+ * DESCRIPTION: Create the hex output file. This is the same data as the AML
+ *              output file, but formatted into hex/ascii bytes suitable for
+ *              inclusion into a C source file.
+ *
+ ******************************************************************************/
+
+static void
+LsDoHexOutputAsl (
+    void)
+{
+    UINT8                   FileData[HEX_TABLE_LINE_SIZE];
+    UINT32                  LineLength;
+    UINT32                  Offset = 0;
+    UINT32                  AmlFileSize;
+    UINT32                  i;
+
+
+    /* Get AML size, seek back to start */
+
+    AmlFileSize = FlGetFileSize (ASL_FILE_AML_OUTPUT);
+    FlSeekFile (ASL_FILE_AML_OUTPUT, 0);
+
+    FlPrintFile (ASL_FILE_HEX_OUTPUT, " * ASL source code output\n");
+    FlPrintFile (ASL_FILE_HEX_OUTPUT, " * AML code block contains 0x%X bytes\n *\n */\n",
+        AmlFileSize);
+    FlPrintFile (ASL_FILE_HEX_OUTPUT, "    Name (BUF1, Buffer()\n    {\n");
+
+    while (Offset < AmlFileSize)
+    {
+        /* Read enough bytes needed for one output line */
+
+        LineLength = fread (FileData, 1, HEX_TABLE_LINE_SIZE,
+                        Gbl_Files[ASL_FILE_AML_OUTPUT].Handle);
+        if (!LineLength)
+        {
+            break;
+        }
+
+        FlPrintFile (ASL_FILE_HEX_OUTPUT, "        ");
+
+        for (i = 0; i < LineLength; i++)
+        {
+            /*
+             * Print each hex byte.
+             * Add a comma until the very last byte of the AML file
+             * (Some C compilers complain about a trailing comma)
+             */
+            FlPrintFile (ASL_FILE_HEX_OUTPUT, "0x%2.2X", FileData[i]);
+            if ((Offset + i + 1) < AmlFileSize)
+            {
+                FlPrintFile (ASL_FILE_HEX_OUTPUT, ",");
+            }
+            else
+            {
+                FlPrintFile (ASL_FILE_HEX_OUTPUT, " ");
+            }
+        }
+
+        /* Add fill spaces if needed for last line */
+
+        if (LineLength < HEX_TABLE_LINE_SIZE)
+        {
+            FlPrintFile (ASL_FILE_HEX_OUTPUT, "%*s",
+                5 * (HEX_TABLE_LINE_SIZE - LineLength), " ");
+        }
+
+        /* Emit the offset and ascii dump for the entire line */
+
+        FlPrintFile (ASL_FILE_HEX_OUTPUT, "  /* %8.8X", Offset);
+        LsDumpAsciiInComment (ASL_FILE_HEX_OUTPUT, LineLength, FileData);
+        FlPrintFile (ASL_FILE_HEX_OUTPUT, "%*s*/\n",
+            HEX_TABLE_LINE_SIZE - LineLength + 1, " ");
+
+        Offset += LineLength;
+    }
+
+    FlPrintFile (ASL_FILE_HEX_OUTPUT, "    })\n");
 }
 
 
@@ -1428,7 +1536,7 @@ LsDoHexOutputC (
  *
  * RETURN:      None.
  *
- * DESCRIPTION: Create the hex output file.  This is the same data as the AML
+ * DESCRIPTION: Create the hex output file. This is the same data as the AML
  *              output file, but formatted into hex/ascii bytes suitable for
  *              inclusion into a ASM source file.
  *
@@ -1438,62 +1546,66 @@ static void
 LsDoHexOutputAsm (
     void)
 {
-    UINT32                  j;
-    UINT8                   FileByte[HEX_TABLE_LINE_SIZE];
-    UINT8                   Buffer[4];
+    UINT8                   FileData[HEX_TABLE_LINE_SIZE];
+    UINT32                  LineLength;
     UINT32                  Offset = 0;
-    BOOLEAN                 DoComma = FALSE;
+    UINT32                  AmlFileSize;
+    UINT32                  i;
 
 
-    FlPrintFile (ASL_FILE_HEX_OUTPUT, "; Assembly code source output\n;\n");
+    /* Get AML size, seek back to start */
 
-    /* Start at the beginning of the AML file */
-
+    AmlFileSize = FlGetFileSize (ASL_FILE_AML_OUTPUT);
     FlSeekFile (ASL_FILE_AML_OUTPUT, 0);
 
-    /* Process all AML bytes in the AML file */
+    FlPrintFile (ASL_FILE_HEX_OUTPUT, "; Assembly code source output\n");
+    FlPrintFile (ASL_FILE_HEX_OUTPUT, "; AML code block contains 0x%X bytes\n;\n",
+        AmlFileSize);
 
-    j = 0;
-    while (FlReadFile (ASL_FILE_AML_OUTPUT, &FileByte[j], 1) == AE_OK)
+    while (Offset < AmlFileSize)
     {
-        if (j == 0)
+        /* Read enough bytes needed for one output line */
+
+        LineLength = fread (FileData, 1, HEX_TABLE_LINE_SIZE,
+                        Gbl_Files[ASL_FILE_AML_OUTPUT].Handle);
+        if (!LineLength)
         {
-            FlPrintFile (ASL_FILE_HEX_OUTPUT, "  db  ");
+            break;
         }
-        else if (DoComma)
+
+        FlPrintFile (ASL_FILE_HEX_OUTPUT, "  db  ");
+
+        for (i = 0; i < LineLength; i++)
         {
-            FlPrintFile (ASL_FILE_HEX_OUTPUT, ",");
-            DoComma = FALSE;
+            /*
+             * Print each hex byte.
+             * Add a comma until the last byte of the line
+             */
+            FlPrintFile (ASL_FILE_HEX_OUTPUT, "0%2.2Xh", FileData[i]);
+            if ((i + 1) < LineLength)
+            {
+                FlPrintFile (ASL_FILE_HEX_OUTPUT, ",");
+            }
         }
 
-        /* Convert each AML byte to hex */
+        FlPrintFile (ASL_FILE_HEX_OUTPUT, " ");
 
-        UtConvertByteToAsmHex (FileByte[j], Buffer);
-        FlWriteFile (ASL_FILE_HEX_OUTPUT, Buffer, 4);
+        /* Add fill spaces if needed for last line */
 
-        /* An occasional linefeed improves readability */
-
-        Offset++;
-        j++;
-        if (j >= HEX_TABLE_LINE_SIZE)
+        if (LineLength < HEX_TABLE_LINE_SIZE)
         {
-            FlPrintFile (ASL_FILE_HEX_OUTPUT,
-                "  ;%8.8X", Offset - HEX_TABLE_LINE_SIZE);
-
-            /* Write the ASCII character associated with each of the bytes */
-
-            LsDumpAscii (ASL_FILE_HEX_OUTPUT, HEX_TABLE_LINE_SIZE, FileByte);
-            FlPrintFile (ASL_FILE_HEX_OUTPUT, "\n");
-            j = 0;
+            FlPrintFile (ASL_FILE_HEX_OUTPUT, "%*s",
+                5 * (HEX_TABLE_LINE_SIZE - LineLength), " ");
         }
-        else
-        {
-            DoComma = TRUE;
-        }
+
+        /* Emit the offset and ascii dump for the entire line */
+
+        FlPrintFile (ASL_FILE_HEX_OUTPUT, "  ; %8.8X", Offset);
+        LsDumpAsciiInComment (ASL_FILE_HEX_OUTPUT, LineLength, FileData);
+        FlPrintFile (ASL_FILE_HEX_OUTPUT, "\n");
+
+        Offset += LineLength;
     }
 
     FlPrintFile (ASL_FILE_HEX_OUTPUT, "\n");
-    FlCloseFile (ASL_FILE_HEX_OUTPUT);
 }
-
-

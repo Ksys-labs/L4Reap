@@ -189,7 +189,7 @@ public:
 
 
 
-class Generic_device : public virtual Device
+class Generic_device : public Device
 {
 private:
   Resource_list _resources;
@@ -199,7 +199,7 @@ public:
 
   Resource_list const *resources() const { return &_resources; }
   void add_resource(Resource *r)
-  { _resources.insert(r); }
+  { _resources.push_back(r); }
 
   virtual bool match_cid(cxx::String const &) const { return false; }
   virtual char const *name() const { return "(noname)"; }

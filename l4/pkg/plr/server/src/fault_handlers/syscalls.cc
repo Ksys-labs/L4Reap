@@ -1,9 +1,9 @@
 /*
- * romain_syscalls.cc --
+ * syscalls.cc --
  *
  *     Implementation of Romain syscall handling.
  *
- * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -14,32 +14,46 @@
 #include "../app_loading"
 #include "../locking.h"
 #include "../manager"
+#include "../thread_group.h"
 
 #include "observers.h"
 
 #include <l4/re/util/region_mapping_svr>
 #include <l4/sys/segment.h>
+#include <l4/sys/consts.h>
 
 #define MSG() DEBUGf(Romain::Log::Faults)
+#define MSGt(t) DEBUGf(Romain::Log::Faults) << "[" << t->vcpu() << "] "
+#define DEBUGt(t) DEBUG() <<  "[" << t->vcpu() << "] "
+
+#include "syscalls_factory.h" // uses MSG() defined above (ugly)
 
 DEFINE_EMPTY_STARTUP(SyscallObserver)
 
 static unsigned long num_syscalls;
 
-namespace Romain {
-extern Romain::InstanceManager *_the_instance_manager;
-}
 
 void Romain::SyscallObserver::status() const
 {
 	INFO() << "System call count: " << num_syscalls;
 }
 
+
+static Romain::ThreadHandler          threadsyscall;
+static Romain::SyscallHandler         nullhandler;
+static Romain::RegionManagingHandler  rm;
+static Romain::Scheduling             sched;
+static Romain::IrqHandler             irq;
+
+Romain::Factory theObjectFactory;
+
 Romain::Observer::ObserverReturnVal
 Romain::SyscallObserver::notify(Romain::App_instance *i,
                                 Romain::App_thread *t,
+                                Romain::Thread_group *tg,
                                 Romain::App_model *a)
 {
+	enum { Syscall_magic_address = 0xEACFF003, };
 	Romain::Observer::ObserverReturnVal retval = Romain::Observer::Ignored;
 
 	if (t->vcpu()->r()->trapno != 13) {
@@ -47,11 +61,11 @@ Romain::SyscallObserver::notify(Romain::App_instance *i,
 	}
 
 	/* SYSENTER / INT30 */
-	if (t->vcpu()->r()->ip == 0xEACFF003) {
+	if (t->vcpu()->r()->ip == Syscall_magic_address) {
 		++num_syscalls;
 
 		l4_msgtag_t *tag = reinterpret_cast<l4_msgtag_t*>(&t->vcpu()->r()->ax);
-		MSG() << "SYSENTER. tag = " << std::hex << tag->label();
+		MSG() << "SYSENTER(" << tg->name << ") tag = " << std::hex << tag->label();
 
 		/*
 		 * Fiasco-specific:
@@ -62,37 +76,49 @@ Romain::SyscallObserver::notify(Romain::App_instance *i,
 		l4_addr_t ebx_pre = t->vcpu()->r()->bx;
 		l4_addr_t ebp_pre = t->vcpu()->r()->bp;
 
-		/*
-		 * XXX:
-		 * This should not only distinguish between the protocol type used
-		 * for invocation but also between local and remote objects. Remote
-		 * invocations should always be redirected (e.g., ex_reg'ing a remote
-		 * thread should be okay) and only local object invocations should be
-		 * okay.
-		 *
-		 * XXX: By the way: How does a remote ex_regs() work if the remote thread
-		 *      object is also running in a replicated task?
-		 *      -> The remote master will provide an IPC gate that implements the
-		 *         thread protocol and intercepts&emulates the ex_regs call.
-		 */
 		switch(tag->label()) {
+
+			case L4_PROTO_NONE:
+				/*
+				 * Catch the open_wait versions of IPC as they require
+				 * redirection through the gateagent thread. Open wait
+				 * is defined by the IPC bindings as one where EDX is set
+				 * to L4_INVALID_CAP | <some_flags>.
+				 */
+				if ((t->vcpu()->r()->dx & L4_INVALID_CAP) == L4_INVALID_CAP) {
+					tg->gateagent->trigger_agent(t);
+				} else {
+					nullhandler.proxy_syscall(i, t, tg, a);
+				}
+				retval = Romain::Observer::Replicatable;
+				break;
+
+			case L4_PROTO_FACTORY:
+				retval = theObjectFactory.handle(i, t, tg, a);
+				break;
+
+			case L4_PROTO_IRQ:
+				retval = irq.handle(i, t, tg, a);
+				break;
+
 			case L4_PROTO_THREAD:
 				/* 
 				 * Each instance needs to perform its own
 				 * thread creation.
 				 */
-				handle_thread(i, t, a);
-				retval = Romain::Observer::Finished;
+				retval = threadsyscall.handle(i, t, tg, a);
 				break;
+
 			case L4_PROTO_TASK:
 				if ((t->vcpu()->r()->dx & ~0xF) == L4RE_THIS_TASK_CAP) {
 					handle_task(i, t, a);
 					retval = Romain::Observer::Finished;
 				} else {
-					do_proxy_syscall(i, t, a);
+					nullhandler.proxy_syscall(i, t, tg, a);
 					retval = Romain::Observer::Replicatable;
 				}
 				break;
+
 			case L4Re::Protocol::Rm:
 				/*
 				 * Region management is done only once as e.g.,
@@ -100,9 +126,9 @@ Romain::SyscallObserver::notify(Romain::App_instance *i,
 				 * across instances. The real adaptation then
 				 * happens during page fault handling.
 				 */
-				handle_rm(i, t, a);
-				retval = Romain::Observer::Replicatable;
+				retval = rm.handle(i, t, tg, a);
 				break;
+
 			case L4Re::Protocol::Parent:
 				/*
 				 * The parent protocol is only used for exitting.
@@ -111,13 +137,19 @@ Romain::SyscallObserver::notify(Romain::App_instance *i,
 					struct timeval tv;
 					gettimeofday(&tv, 0);
 					INFO() << "Instance " << i->id() << " exitting. Time "
-					       << "\033[33;1m" << tv.tv_sec << "." << tv.tv_usec << "\033[0m";
+					       << "\033[33;1m" << tv.tv_sec << "." << tv.tv_usec
+					       << "\033[0m";
 					Romain::_the_instance_manager->query_observer_status();
 					if (1) enter_kdebug("*#^");
-					do_proxy_syscall(i, t, a);
+					nullhandler.proxy_syscall(i, t, tg, a);
 					retval = Romain::Observer::Replicatable;
 				}
 				break;
+
+			case L4_PROTO_SCHEDULER:
+				retval = sched.handle(i, t, tg, a);
+				break;
+
 			default:
 				/*
 				 * Proxied syscalls are always only executed
@@ -125,10 +157,10 @@ Romain::SyscallObserver::notify(Romain::App_instance *i,
 				 * look as if the master server _is_ the one
 				 * application everyone is talking to.
 				 */
-				do_proxy_syscall(i, t, a);
+				nullhandler.proxy_syscall(i, t, tg, a);
 				retval = Romain::Observer::Replicatable;
-				//enter_kdebug("after proxying");
 				break;
+		
 		}
 
 		t->vcpu()->r()->ip = ebx_pre;
@@ -136,22 +168,24 @@ Romain::SyscallObserver::notify(Romain::App_instance *i,
 
 	} else {
 		MSG() << "GPF";
+		enter_kdebug("GPF in replica");
 	}
 
-	//enter_kdebug("done syscall");
 	return retval;
 }
 
 
-void Romain::SyscallObserver::do_proxy_syscall(Romain::App_instance *,
-                                               Romain::App_thread* t,
-                                               Romain::App_model *)
+void Romain::SyscallHandler::proxy_syscall(Romain::App_instance *,
+                                           Romain::App_thread* t,
+                                           Romain::Thread_group* tg,
+                                           Romain::App_model *)
 {
 	char backup_utcb[L4_UTCB_OFFSET]; // for storing local UTCB content
 
 	l4_utcb_t *addr = reinterpret_cast<l4_utcb_t*>(t->remote_utcb());
 	l4_utcb_t *cur_utcb = l4_utcb();
-	MSG() << "UTCB @ " << std::hex << (unsigned)addr;
+	MSGt(t) << "UTCB @ " << std::hex << (unsigned)addr;
+	_check((l4_addr_t)addr == ~0UL, "remote utcb ptr??");
 
 	/*
 	 * We are going to perform the system call on behalf of the client. This will
@@ -160,7 +194,7 @@ void Romain::SyscallObserver::do_proxy_syscall(Romain::App_instance *,
 	store_utcb((char*)cur_utcb, backup_utcb);
 	store_utcb((char*)addr, (char*)cur_utcb);
 
-	//t->vcpu()->print_state();
+	//t->print_vcpu_state();
 	//Romain::dump_mem((unsigned*)addr, 40);
 
 	/* Perform Fiasco system call */
@@ -186,22 +220,25 @@ void Romain::SyscallObserver::do_proxy_syscall(Romain::App_instance *,
 	store_utcb((char*)cur_utcb, (char*)addr);
 	store_utcb(backup_utcb, (char*)cur_utcb);
 
-	//t->vcpu()->print_state();
+	//t->print_vcpu_state();
 	//Romain::dump_mem((unsigned*)addr, 40);
 	//enter_kdebug("done syscall");
 }
 
 
-void Romain::SyscallObserver::handle_rm(Romain::App_instance* i,
-                                        Romain::App_thread* t,
-                                        Romain::App_model * a)
+Romain::Observer::ObserverReturnVal
+Romain::RegionManagingHandler::handle(Romain::App_instance* i,
+                                      Romain::App_thread* t,
+                                      Romain::Thread_group* tg,
+                                      Romain::App_model * a)
 {
-	MSG() << "RM PROTOCOL";
+	MSGt(t) << "RM PROTOCOL";
 
 	l4_utcb_t *utcb = reinterpret_cast<l4_utcb_t*>(t->remote_utcb());
-	MSG() << "UTCB @ " << std::hex << (unsigned)utcb;
+	MSGt(t) << "UTCB @ " << std::hex << (unsigned)utcb;
+	_check((l4_addr_t)utcb == ~0UL, "remote utcb ptr??");
 
-	//t->vcpu()->print_state();
+	//t->print_vcpu_state();
 	//Romain::dump_mem((unsigned*)utcb, 40);
 
 	{
@@ -210,29 +247,45 @@ void Romain::SyscallObserver::handle_rm(Romain::App_instance* i,
 		L4Re::Util::region_map_server<Romain::Region_map_server>(a->rm(), ios);
 	}
 
-	//t->vcpu()->print_state();
+	//t->print_vcpu_state();
 	//Romain::dump_mem((unsigned*)utcb, 40);
+
+	return Romain::Observer::Replicatable;
 }
 
-void Romain::SyscallObserver::handle_thread(Romain::App_instance *,
-                                            Romain::App_thread* t,
-                                            Romain::App_model *)
-{
-	MSG() << "Thread system call";
-	l4_utcb_t *utcb = reinterpret_cast<l4_utcb_t*>(t->remote_utcb());
-	MSG() << "UTCB @ " << std::hex << (unsigned)utcb;
 
-	//t->vcpu()->print_state();
+Romain::Observer::ObserverReturnVal
+Romain::ThreadHandler::handle(Romain::App_instance *,
+                              Romain::App_thread* t,
+                              Romain::Thread_group * tg,
+                              Romain::App_model *am)
+{
+	MSGt(t) << "Thread system call";
+	l4_utcb_t *utcb = reinterpret_cast<l4_utcb_t*>(t->remote_utcb());
+	MSGt(t) << "UTCB @ " << std::hex << (unsigned)utcb;
+	_check((l4_addr_t)utcb == ~0UL, "remote utcb ptr??");
+
+	//t->print_vcpu_state();
 	//Romain::dump_mem((unsigned*)utcb, 40);
 
-	l4_umword_t op = l4_utcb_mr_u(utcb)->mr[0] & L4_THREAD_OPCODE_MASK;
+	l4_umword_t op   = l4_utcb_mr_u(utcb)->mr[0] & L4_THREAD_OPCODE_MASK;
+	l4_umword_t dest = t->vcpu()->r()->dx & L4_CAP_MASK;
+
+	DEBUG() << "dest cap " << std::hex << dest << " " << L4_INVALID_CAP;
+	Romain::Thread_group* group = (Romain::Thread_group*)0xdeadbeef;
+	if (dest == L4_INVALID_CAP) {
+		group = tg;
+	} else {
+		group = theObjectFactory.thread_for_cap(dest >> L4_CAP_SHIFT);
+	}
+	DEBUG() << "tgroup " << group;
 
 	switch(op) {
 		case L4_THREAD_CONTROL_OP:
-			enter_kdebug("THREAD: control");
-			break;
+			group->control(t, utcb, am);
+			return Romain::Observer::Replicatable;
 		case L4_THREAD_EX_REGS_OP:
-			enter_kdebug("THREAD: ex_regs");
+			group->ex_regs(t);
 			break;
 		case L4_THREAD_SWITCH_OP:
 			enter_kdebug("THREAD: switch");
@@ -256,7 +309,7 @@ void Romain::SyscallObserver::handle_thread(Romain::App_instance *,
 			enter_kdebug("THREAD: vcpu control ext");
 			break;
 		case L4_THREAD_GDT_X86_OP:
-			handle_thread_gdt(t, utcb);
+			group->gdt(t, utcb);
 			break;
 		case L4_THREAD_SET_FS_AMD64_OP:
 			enter_kdebug("THREAD: set fs amd64");
@@ -266,29 +319,8 @@ void Romain::SyscallObserver::handle_thread(Romain::App_instance *,
 			break;
 	}
 
+	return Romain::Observer::Replicatable;
 	//enter_kdebug("thread");
-}
-
-void Romain::SyscallObserver::handle_thread_gdt(Romain::App_thread* t,
-                                                l4_utcb_t *utcb)
-{
-	l4_msgtag_t *tag = reinterpret_cast<l4_msgtag_t*>(&t->vcpu()->r()->ax);
-	MSG() << "GDT: words = " << tag->words();
-
-	// 1 word -> query GDT start
-	if (tag->words() == 1) {
-		l4_utcb_mr_u(utcb)->mr[0] = 0x48 >> 3;
-		t->vcpu()->r()->ax = l4_msgtag(0, 1, 0, 0).raw;
-	} else { // setup new GDT entry
-		unsigned idx = l4_utcb_mr_u(utcb)->mr[1];
-		unsigned numbytes = (tag->words() == 4) ? 8 : 16;
-		if (idx == 0) {
-			t->write_gdt(&l4_utcb_mr_u(utcb)->mr[2], numbytes);
-		} else {
-			enter_kdebug("XXX");
-		}
-		t->vcpu()->r()->ax = l4_msgtag((idx << 3) + 0x48 + 3, 0, 0, 0).raw;
-	}
 }
 
 
@@ -300,18 +332,145 @@ void Romain::SyscallObserver::handle_task(Romain::App_instance* i,
 	l4_umword_t    op = l4_utcb_mr_u(utcb)->mr[0] & L4_THREAD_OPCODE_MASK;
 	switch(op) {
 		case L4_TASK_UNMAP_OP:
-			MSG() << "unmap";
+			MSGt(t) << "unmap";
 			i->unmap(l4_utcb_mr_u(utcb)->mr[2]);
 			break;
 		case L4_TASK_CAP_INFO_OP:
-			do_proxy_syscall(i,t,a);
+			nullhandler.proxy_syscall(i,t,0,a);
 			break;
 		default:
-			MSG() << "Task system call";
-			MSG() << "UTCB @ " << std::hex << (unsigned)utcb << " op: " << op
+			MSGt(t) << "Task system call";
+			MSGt(t) << "UTCB @ " << std::hex << (unsigned)utcb << " op: " << op
 				  << " cap " << (t->vcpu()->r()->dx & ~0xF) << " " << L4RE_THIS_TASK_CAP;
-			t->vcpu()->print_state();
+			t->print_vcpu_state();
 			enter_kdebug("unknown task op?");
 			break;
 	}
+}
+
+
+Romain::Observer::ObserverReturnVal
+Romain::Factory::handle(Romain::App_instance* inst,
+                        Romain::App_thread* t,
+                        Romain::Thread_group* tg,
+                        Romain::App_model* am)
+{
+	MSGt(t) << "Factory system call";
+	l4_utcb_t *utcb = reinterpret_cast<l4_utcb_t*>(t->remote_utcb());
+	MSGt(t) << "UTCB @ " << std::hex << (unsigned)utcb;
+	_check((l4_addr_t)utcb == ~0UL, "remote utcb ptr??");
+
+	l4_umword_t obj = l4_utcb_mr_u(utcb)->mr[0];
+	l4_umword_t cap = l4_utcb_br_u(utcb)->br[0] & ~L4_RCV_ITEM_SINGLE_CAP;
+	MSGt(t) << std::hex << L4_PROTO_THREAD;
+	MSGt(t) << "object type: " << std::hex << obj
+	      << " cap: " << cap;
+
+	switch(obj) {
+		case L4_PROTO_THREAD:
+			create_thread(inst, t, tg, am, cap);
+			return Romain::Observer::Replicatable;
+
+		case L4_PROTO_IRQ:
+			create_irq(inst, t, tg, am, cap);
+			return Romain::Observer::Replicatable;
+
+		case L4Re::Protocol::Dataspace:
+			SyscallHandler::proxy_syscall(inst, t, tg, am);
+			return Romain::Observer::Replicatable;
+
+		default:
+			break;
+	}
+
+	enter_kdebug("theObjectFactory");
+	return Romain::Observer::Finished;
+}
+
+
+Romain::Observer::ObserverReturnVal
+Romain::Scheduling::handle(Romain::App_instance* inst,
+                           Romain::App_thread* t,
+                           Romain::Thread_group* tg,
+                           Romain::App_model* am)
+{
+	l4_utcb_t *utcb = reinterpret_cast<l4_utcb_t*>(t->remote_utcb());
+	l4_umword_t op  = l4_utcb_mr_u(utcb)->mr[0];
+
+	MSGt(t) << "\033[32mschedule(" << std::hex << op << ")\033[0m";
+	if (op == L4_SCHEDULER_RUN_THREAD_OP) {
+		l4_umword_t cap             = l4_utcb_mr_u(utcb)->mr[6] >> L4_CAP_SHIFT;
+		Romain::Thread_group* group = theObjectFactory.thread_for_cap(cap);
+		group->scheduler_run(t);
+	} else {
+		enter_kdebug("run_thread != 1");
+		SyscallHandler::proxy_syscall(inst, t, tg, am);
+	}
+
+	return Romain::Observer::Replicatable;
+}
+
+
+Romain::Observer::ObserverReturnVal
+Romain::IrqHandler::handle(Romain::App_instance* inst,
+                           Romain::App_thread* t,
+                           Romain::Thread_group* tg,
+                           Romain::App_model* am)
+{
+	l4_utcb_t *utcb = reinterpret_cast<l4_utcb_t*>(t->remote_utcb());
+	unsigned op     = l4_utcb_mr_u(utcb)->mr[0];
+	unsigned label  = l4_utcb_mr_u(utcb)->mr[1];
+	unsigned cap    = t->vcpu()->r()->dx & L4_CAP_MASK;
+	l4_msgtag_t ret;
+
+	L4::Cap<L4::Irq> irq(cap);
+
+	DEBUGt(t) << "IRQ: cap = " << std::hex << cap << " op = " << op; 
+
+	if (!theObjectFactory.is_irq(cap)) {
+		SyscallHandler::proxy_syscall(inst, t, tg, am);
+		return Romain::Observer::Replicatable;
+	}
+
+	switch(op) {
+		/*
+		 * For attach(), we cannot simply redirect to the gate
+		 * agent, because we need to modify the thread that is
+		 * attached to the IRQ
+		 */
+		case L4_IRQ_OP_ATTACH:
+			{
+				l4_umword_t attach_cap      = l4_utcb_mr_u(utcb)->mr[3] & L4_FPAGE_ADDR_MASK;
+				DEBUG() << "attach " << std::hex << (attach_cap >> L4_CAP_SHIFT);
+				Romain::Thread_group *group = theObjectFactory.thread_for_cap(attach_cap >> L4_CAP_SHIFT);
+				l4_msgtag_t ret;
+
+				if (!group) {
+					ERROR() << "Unimplemented: Attaching someone else but myself!";
+					enter_kdebug();
+				}
+
+				ret = irq->attach(label, group->gateagent->listener_cap);
+
+				t->vcpu()->r()->ax = ret.raw;
+				DEBUG() << std::hex << ret.raw ;
+				return Romain::Observer::Replicatable;
+			}
+			break;
+
+		case L4_IRQ_OP_TRIGGER:
+			DEBUGt(t) << ":: trigger";
+			//enter_kdebug("trigger");
+			irq->trigger();
+			break;
+		case L4_IRQ_OP_EOI:
+			DEBUGt(t) << ":: eoi";
+			tg->gateagent->trigger_agent(t);
+			break;
+
+		case L4_IRQ_OP_CHAIN:
+			enter_kdebug("irq::chain?");
+	}
+
+	return Romain::Observer::Replicatable;
 }

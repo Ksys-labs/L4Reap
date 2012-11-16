@@ -1,5 +1,17 @@
 #pragma once
 
+/*
+ * swifi.h --
+ *
+ *     Fault observer for fault injection experiments
+ *
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ *     economic rights: Technische Universität Dresden (Germany)
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+
 #include "../asmjit/Assembler.h"
 #include "../asmjit/MemoryManager.h"
 #include "observers.h"
@@ -40,13 +52,18 @@ class Flipper : public Emulator_base
 		Flipper(L4vcpu::Vcpu *vcpu,
                 Romain::App_model *am,
                 Romain::App_instance *inst)
-		: Emulator_base(vcpu, Romain::AppModelAddressTranslator(am, inst)),
+		: Emulator_base(vcpu, new Romain::AppModelAddressTranslator(am, inst)),
 		      _flip_eip(vcpu->r()->ip), _am(am),
 		      _when(0), _hitcount(0), _interval(1), _repeat(false)
 		{
 			_vcpu       = vcpu;
-			_local_ip   = _translator.translate(ip());
+			_local_ip   = _translator->translate(ip());
 			print_instruction();
+		}
+
+		virtual ~Flipper()
+		{
+			delete _translator;
 		}
 
 		l4_addr_t prev_eip() { return _flip_eip; }
@@ -693,7 +710,7 @@ class MemFlipEmulator : public Flipper,
 
 	virtual bool flip()
 	{
-		unsigned i;
+		unsigned i = 0;
 		for ( ; i < UD_MAX_OPERANDS; ++i) {
 			if (_ud.operand[i].type == UD_OP_MEM)
 				break;
@@ -720,7 +737,7 @@ class MemFlipEmulator : public Flipper,
 		}
 
 		MSG() << "target addr: " << std::hex << addr << " ("
-		      << *(unsigned*)_translator.translate(addr) << ")";
+		      << *(unsigned*)_translator->translate(addr) << ")";
 
 		AsmJit::Assembler as;
 		ud_operand_t &udreg = _ud.operand[0];

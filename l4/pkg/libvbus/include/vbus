@@ -10,6 +10,7 @@
 #pragma once
 
 #include <l4/vbus/vbus.h>
+#include <l4/sys/icu>
 
 namespace L4vbus {
 

@@ -8,13 +8,13 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2009, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2012, Intel Corp.
  * All rights reserved.
  *
  * 2. License
  *
  * 2.1. This is your license from Intel Corp. under its intellectual property
- * rights.  You may have additional license terms from the party that provided
+ * rights. You may have additional license terms from the party that provided
  * you this software, covering your right to use that party's intellectual
  * property rights.
  *
@@ -31,7 +31,7 @@
  * offer to sell, and import the Covered Code and derivative works thereof
  * solely to the minimum extent necessary to exercise the above copyright
  * license, and in no event shall the patent license extend to any additions
- * to or modifications of the Original Intel Code.  No other license or right
+ * to or modifications of the Original Intel Code. No other license or right
  * is granted directly or by implication, estoppel or otherwise;
  *
  * The above copyright and patent license is granted only if the following
@@ -43,11 +43,11 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification with rights to further distribute source must include
  * the above Copyright Notice, the above License, this list of Conditions,
- * and the following Disclaimer and Export Compliance provision.  In addition,
+ * and the following Disclaimer and Export Compliance provision. In addition,
  * Licensee must cause all Covered Code to which Licensee contributes to
  * contain a file documenting the changes Licensee made to create that Covered
- * Code and the date of any change.  Licensee must include in that file the
- * documentation of any changes made by any predecessor Licensee.  Licensee
+ * Code and the date of any change. Licensee must include in that file the
+ * documentation of any changes made by any predecessor Licensee. Licensee
  * must include a prominent statement that the modification is derived,
  * directly or indirectly, from Original Intel Code.
  *
@@ -55,7 +55,7 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification without rights to further distribute source must
  * include the following Disclaimer and Export Compliance provision in the
- * documentation and/or other materials provided with distribution.  In
+ * documentation and/or other materials provided with distribution. In
  * addition, Licensee may not authorize further sublicense of source of any
  * portion of the Covered Code, and must include terms to the effect that the
  * license from Licensee to its licensee is limited to the intellectual
@@ -80,10 +80,10 @@
  * 4. Disclaimer and Export Compliance
  *
  * 4.1. INTEL MAKES NO WARRANTY OF ANY KIND REGARDING ANY SOFTWARE PROVIDED
- * HERE.  ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
- * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT,  ASSISTANCE,
- * INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL WILL NOT PROVIDE ANY
- * UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY DISCLAIMS ANY
+ * HERE. ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
+ * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
+ * INSTALLATION, TRAINING OR OTHER SERVICES. INTEL WILL NOT PROVIDE ANY
+ * UPDATES, ENHANCEMENTS OR EXTENSIONS. INTEL SPECIFICALLY DISCLAIMS ANY
  * IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT AND FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
@@ -92,14 +92,14 @@
  * COSTS OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, OR FOR ANY INDIRECT,
  * SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THIS AGREEMENT, UNDER ANY
  * CAUSE OF ACTION OR THEORY OF LIABILITY, AND IRRESPECTIVE OF WHETHER INTEL
- * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES.  THESE LIMITATIONS
+ * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES. THESE LIMITATIONS
  * SHALL APPLY NOTWITHSTANDING THE FAILURE OF THE ESSENTIAL PURPOSE OF ANY
  * LIMITED REMEDY.
  *
  * 4.3. Licensee shall not export, either directly or indirectly, any of this
  * software or system incorporating such software without first obtaining any
  * required license or other approval from the U. S. Department of Commerce or
- * any other agency or department of the United States Government.  In the
+ * any other agency or department of the United States Government. In the
  * event Licensee exports any such software from the United States or
  * re-exports any such software from a foreign destination, Licensee shall
  * ensure that the distribution and export/re-export of the software is in
@@ -450,6 +450,10 @@ AcpiDmDumpDescending (
         AcpiOsPrintf ("%X", (UINT32) Op->Common.Value.Integer);
         break;
 
+    case AML_QWORD_OP:
+        AcpiOsPrintf ("%8.8X%8.8X", ACPI_FORMAT_UINT64 (Op->Common.Value.Integer));
+        break;
+
     case AML_INT_NAMEPATH_OP:
         if (Op->Common.Value.String)
         {
@@ -537,7 +541,7 @@ AcpiDmFindOrphanDescending (
             }
 
             ArgCount = AcpiDmInspectPossibleArgs (3, 1, NextOp);
-            AcpiOsPrintf ("/* A-CHILDREN: %d Actual %d */\n", ArgCount, AcpiDmCountChildren (Op));
+            AcpiOsPrintf ("/* A-CHILDREN: %u Actual %u */\n", ArgCount, AcpiDmCountChildren (Op));
 
             if (ArgCount < 1)
             {
@@ -589,6 +593,7 @@ AcpiDmFindOrphanDescending (
 
         if ((OpInfo->Class != AML_CLASS_EXECUTE) &&
             (OpInfo->Class != AML_CLASS_CREATE) &&
+            (OpInfo->ObjectType != ACPI_TYPE_LOCAL_ALIAS) &&
             (ParentOp->Common.AmlOpcode != AML_INT_METHODCALL_OP) &&
             !Op->Common.Node)
         {
@@ -721,8 +726,8 @@ AcpiDmLoadDescendingOp (
 
         while (AcpiGbl_PreDefinedNames[PreDefineIndex].Name)
         {
-            if (!ACPI_STRNCMP (Node->Name.Ascii,
-                AcpiGbl_PreDefinedNames[PreDefineIndex].Name, 4))
+            if (ACPI_COMPARE_NAME (Node->Name.Ascii,
+                AcpiGbl_PreDefinedNames[PreDefineIndex].Name))
             {
                 PreDefined = TRUE;
                 break;
@@ -792,6 +797,7 @@ AcpiDmXrefDescendingOp (
     ACPI_PARSE_OBJECT       *NextOp;
     ACPI_NAMESPACE_NODE     *Node;
     ACPI_OPERAND_OBJECT     *Object;
+    UINT32                  ParamCount = 0;
 
 
     WalkState = Info->WalkState;
@@ -810,19 +816,31 @@ AcpiDmXrefDescendingOp (
 
     if (OpInfo->Flags & AML_NAMED)
     {
-        if ((Op->Common.AmlOpcode == AML_ALIAS_OP) ||
-            (Op->Common.AmlOpcode == AML_SCOPE_OP))
+        /*
+         * Only these two operators (Alias, Scope) refer to an existing
+         * name, it is the first argument
+         */
+        if (Op->Common.AmlOpcode == AML_ALIAS_OP)
         {
-            /*
-             * Only these two operators refer to an existing name,
-             * first argument
-             */
+            ObjectType = ACPI_TYPE_ANY;
+
+            NextOp = Op->Common.Value.Arg;
+            NextOp = NextOp->Common.Value.Arg;
+            if (NextOp->Common.AmlOpcode == AML_INT_NAMEPATH_OP)
+            {
+                Path = NextOp->Common.Value.String;
+            }
+        }
+        else if (Op->Common.AmlOpcode == AML_SCOPE_OP)
+        {
             Path = (char *) Op->Named.Path;
         }
     }
     else if (OpInfo->Flags & AML_CREATE)
     {
         /* Referenced Buffer Name is the first child */
+
+        ObjectType = ACPI_TYPE_BUFFER; /* Change from TYPE_BUFFER_FIELD */
 
         NextOp = Op->Common.Value.Arg;
         if (NextOp->Common.AmlOpcode == AML_INT_NAMEPATH_OP)
@@ -841,7 +859,7 @@ AcpiDmXrefDescendingOp (
     }
 
     /*
-     * Lookup the name in the namespace.  Name must exist at this point, or it
+     * Lookup the name in the namespace. Name must exist at this point, or it
      * is an invalid reference.
      *
      * The namespace is also used as a lookup table for references to resource
@@ -850,6 +868,11 @@ AcpiDmXrefDescendingOp (
     Status = AcpiNsLookup (WalkState->ScopeInfo, Path, ACPI_TYPE_ANY,
                 ACPI_IMODE_EXECUTE, ACPI_NS_SEARCH_PARENT | ACPI_NS_DONT_OPEN_SCOPE,
                 WalkState, &Node);
+    if (ACPI_SUCCESS (Status) && (Node->Flags & ANOBJ_IS_EXTERNAL))
+    {
+        Status = AE_NOT_FOUND;
+    }
+
     if (ACPI_FAILURE (Status))
     {
         if (Status == AE_NOT_FOUND)
@@ -880,18 +903,13 @@ AcpiDmXrefDescendingOp (
         if (Object)
         {
             ObjectType2 = Object->Common.Type;
+            if (ObjectType2 == ACPI_TYPE_METHOD)
+            {
+                ParamCount = Object->Method.ParamCount;
+            }
         }
 
-        if (ObjectType2 == ACPI_TYPE_METHOD)
-        {
-            AcpiDmAddToExternalList (Op, Path, ACPI_TYPE_METHOD,
-                Object->Method.ParamCount);
-        }
-        else
-        {
-            AcpiDmAddToExternalList (Op, Path, (UINT8) ObjectType2, 0);
-        }
-
+        AcpiDmAddToExternalList (Op, Path, (UINT8) ObjectType2, ParamCount);
         Op->Common.Node = Node;
     }
     else
@@ -1072,5 +1090,3 @@ AcpiDmInspectPossibleArgs (
 
     return (Last);
 }
-
-

@@ -7,7 +7,7 @@
  *     Basic definition of an instruction emulator. Used
  *     by the framework to emulate memory write instructions.
  *
- * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -15,6 +15,7 @@
  */
 
 #include <l4/vcpu/vcpu>
+#include "log"
 
 namespace Romain {
 /*
@@ -23,6 +24,7 @@ namespace Romain {
 struct AddressTranslator
 {
 	virtual l4_addr_t translate(l4_addr_t orig) const = 0;
+	virtual ~AddressTranslator() {}
 };
 
 struct IdentityTranslator : public AddressTranslator
@@ -58,7 +60,7 @@ class Emulator_base
 			UD_MAX_OPERANDS = 3,
 		};
 		L4vcpu::Vcpu           *_vcpu;
-		Romain::AddressTranslator const & _translator;
+		Romain::AddressTranslator const * _translator;
 		l4_addr_t               _local_ip;   // XXX: abstraction fault
 		ud_t                    _ud;
 
@@ -98,10 +100,10 @@ class Emulator_base
 		void init_ud();
 
 	public:
-		Emulator_base(L4vcpu::Vcpu *, Romain::AddressTranslator const &);
+		Emulator_base(L4vcpu::Vcpu *, Romain::AddressTranslator const *);
 #if 1
 		Emulator_base() // XXX: needed?
-			: _vcpu(0), _translator(IdentityTranslator()), _local_ip(0)
+			: _vcpu(0), _translator(new IdentityTranslator()), _local_ip(0)
 		{}
 #endif
 		void print_instruction();
@@ -147,7 +149,7 @@ class WriteEmulator : public Emulator_base
 
 	public:
 		WriteEmulator(L4vcpu::Vcpu *vcpu,
-		              Romain::AddressTranslator const &trans)
+		              Romain::AddressTranslator const *trans)
 			: Emulator_base(vcpu, trans)
 		{
 		}

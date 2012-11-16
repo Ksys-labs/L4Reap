@@ -8,13 +8,13 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2009, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2012, Intel Corp.
  * All rights reserved.
  *
  * 2. License
  *
  * 2.1. This is your license from Intel Corp. under its intellectual property
- * rights.  You may have additional license terms from the party that provided
+ * rights. You may have additional license terms from the party that provided
  * you this software, covering your right to use that party's intellectual
  * property rights.
  *
@@ -31,7 +31,7 @@
  * offer to sell, and import the Covered Code and derivative works thereof
  * solely to the minimum extent necessary to exercise the above copyright
  * license, and in no event shall the patent license extend to any additions
- * to or modifications of the Original Intel Code.  No other license or right
+ * to or modifications of the Original Intel Code. No other license or right
  * is granted directly or by implication, estoppel or otherwise;
  *
  * The above copyright and patent license is granted only if the following
@@ -43,11 +43,11 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification with rights to further distribute source must include
  * the above Copyright Notice, the above License, this list of Conditions,
- * and the following Disclaimer and Export Compliance provision.  In addition,
+ * and the following Disclaimer and Export Compliance provision. In addition,
  * Licensee must cause all Covered Code to which Licensee contributes to
  * contain a file documenting the changes Licensee made to create that Covered
- * Code and the date of any change.  Licensee must include in that file the
- * documentation of any changes made by any predecessor Licensee.  Licensee
+ * Code and the date of any change. Licensee must include in that file the
+ * documentation of any changes made by any predecessor Licensee. Licensee
  * must include a prominent statement that the modification is derived,
  * directly or indirectly, from Original Intel Code.
  *
@@ -55,7 +55,7 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification without rights to further distribute source must
  * include the following Disclaimer and Export Compliance provision in the
- * documentation and/or other materials provided with distribution.  In
+ * documentation and/or other materials provided with distribution. In
  * addition, Licensee may not authorize further sublicense of source of any
  * portion of the Covered Code, and must include terms to the effect that the
  * license from Licensee to its licensee is limited to the intellectual
@@ -80,10 +80,10 @@
  * 4. Disclaimer and Export Compliance
  *
  * 4.1. INTEL MAKES NO WARRANTY OF ANY KIND REGARDING ANY SOFTWARE PROVIDED
- * HERE.  ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
- * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT,  ASSISTANCE,
- * INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL WILL NOT PROVIDE ANY
- * UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY DISCLAIMS ANY
+ * HERE. ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
+ * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
+ * INSTALLATION, TRAINING OR OTHER SERVICES. INTEL WILL NOT PROVIDE ANY
+ * UPDATES, ENHANCEMENTS OR EXTENSIONS. INTEL SPECIFICALLY DISCLAIMS ANY
  * IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT AND FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
@@ -92,14 +92,14 @@
  * COSTS OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, OR FOR ANY INDIRECT,
  * SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THIS AGREEMENT, UNDER ANY
  * CAUSE OF ACTION OR THEORY OF LIABILITY, AND IRRESPECTIVE OF WHETHER INTEL
- * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES.  THESE LIMITATIONS
+ * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES. THESE LIMITATIONS
  * SHALL APPLY NOTWITHSTANDING THE FAILURE OF THE ESSENTIAL PURPOSE OF ANY
  * LIMITED REMEDY.
  *
  * 4.3. Licensee shall not export, either directly or indirectly, any of this
  * software or system incorporating such software without first obtaining any
  * required license or other approval from the U. S. Department of Commerce or
- * any other agency or department of the United States Government.  In the
+ * any other agency or department of the United States Government. In the
  * event Licensee exports any such software from the United States or
  * re-exports any such software from a foreign destination, Licensee shall
  * ensure that the distribution and export/re-export of the software is in
@@ -114,7 +114,7 @@
  *****************************************************************************/
 
 #ifndef __ACFREEBSD_H__
-#define	__ACFREEBSD_H__
+#define __ACFREEBSD_H__
 
 
 /* FreeBSD uses GCC */
@@ -123,12 +123,11 @@
 #include <sys/types.h>
 #include <machine/acpica_machdep.h>
 
-#define	ACPI_UINTPTR_T		uintptr_t
+#define ACPI_UINTPTR_T      uintptr_t
 
-#define	ACPI_USE_LOCAL_CACHE
-#define	ACPI_USE_SYSTEM_CLIBRARY
-
-#define	__cdecl
+#define ACPI_USE_DO_WHILE_0
+#define ACPI_USE_LOCAL_CACHE
+#define ACPI_USE_SYSTEM_CLIBRARY
 
 #ifdef _KERNEL
 
@@ -140,17 +139,17 @@
 
 #include "opt_acpi.h"
 
-#define	ACPI_THREAD_ID		lwpid_t
+#define ACPI_MUTEX_TYPE     ACPI_OSL_MUTEX
 
 #ifdef ACPI_DEBUG
-#define	ACPI_DEBUG_OUTPUT	/* for backward compatibility */
-#define	ACPI_DISASSEMBLER
+#define ACPI_DEBUG_OUTPUT   /* for backward compatibility */
+#define ACPI_DISASSEMBLER
 #endif
 
 #ifdef ACPI_DEBUG_OUTPUT
 #include "opt_ddb.h"
 #ifdef DDB
-#define	ACPI_DEBUGGER
+#define ACPI_DEBUGGER
 #endif /* DDB */
 #endif /* ACPI_DEBUG_OUTPUT */
 
@@ -158,7 +157,7 @@
 #undef DEBUGGER_THREADING
 #endif /* DEBUGGER_THREADING */
 
-#define	DEBUGGER_THREADING	0	/* integrated with DDB */
+#define DEBUGGER_THREADING  0   /* integrated with DDB */
 
 #else /* _KERNEL */
 
@@ -166,14 +165,12 @@
 #include <ctype.h>
 #endif
 
-#define	ACPI_THREAD_ID		pthread_t
+#define ACPI_CAST_PTHREAD_T(pthread)    ((ACPI_THREAD_ID) ACPI_TO_INTEGER (pthread))
 
-/* Not building kernel code, so use libc */
-#define	ACPI_USE_STANDARD_HEADERS
-#define	ACPI_FLUSH_CPU_CACHE()
+#define ACPI_USE_STANDARD_HEADERS
 
-#define	__cli()
-#define	__sti()
+#define ACPI_FLUSH_CPU_CACHE()
+#define __cdecl
 
 #endif /* _KERNEL */
 

@@ -15,6 +15,7 @@ void Romain::SWIFIPriv::status() const { }
 void
 Romain::SWIFIPriv::startup_notify(Romain::App_instance *i,
                                   Romain::App_thread *,
+                                  Romain::Thread_group *tg,
                                   Romain::App_model *a)
 {
 	/*
@@ -33,6 +34,7 @@ Romain::SWIFIPriv::startup_notify(Romain::App_instance *i,
 Romain::Observer::ObserverReturnVal
 Romain::SWIFIPriv::notify(Romain::App_instance *i,
                           Romain::App_thread *t,
+                          Romain::Thread_group *tg,
                           Romain::App_model *a)
 {
 	Romain::Observer::ObserverReturnVal ret = Romain::Observer::Invalid;
@@ -57,7 +59,7 @@ Romain::SWIFIPriv::notify(Romain::App_instance *i,
 			return Romain::Observer::Finished_wait;
 		}
 
-		t->vcpu()->print_state();
+		t->print_vcpu_state();
 
 		switch(_flags) {
 			case GPR:   _flipper = new GPRFlipEmulator(t->vcpu(), a, i);
@@ -119,7 +121,7 @@ void Romain::SWIFIPriv::flipper_trap1(Romain::App_thread *t)
 
 	t->vcpu()->r()->ip = _flipper->next_eip();
 	t->vcpu()->r()->flags &= ~TrapFlag;
-	t->vcpu()->print_state();
+	t->print_vcpu_state();
 
 	delete _flipper;
 }
@@ -130,7 +132,7 @@ void Romain::SWIFIPriv::flipper_trap3(Romain::App_thread *t, bool step)
 	if (_flipper->flip()) {
 		t->vcpu()->r()->flags |= TrapFlag;
 	}
-	t->vcpu()->print_state();
+	t->print_vcpu_state();
 }
 
 

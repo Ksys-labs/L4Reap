@@ -1,4 +1,3 @@
-
 /******************************************************************************
  *
  * Module Name: acpixtract - convert ascii ACPI tables to binary
@@ -9,13 +8,13 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2009, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2012, Intel Corp.
  * All rights reserved.
  *
  * 2. License
  *
  * 2.1. This is your license from Intel Corp. under its intellectual property
- * rights.  You may have additional license terms from the party that provided
+ * rights. You may have additional license terms from the party that provided
  * you this software, covering your right to use that party's intellectual
  * property rights.
  *
@@ -32,7 +31,7 @@
  * offer to sell, and import the Covered Code and derivative works thereof
  * solely to the minimum extent necessary to exercise the above copyright
  * license, and in no event shall the patent license extend to any additions
- * to or modifications of the Original Intel Code.  No other license or right
+ * to or modifications of the Original Intel Code. No other license or right
  * is granted directly or by implication, estoppel or otherwise;
  *
  * The above copyright and patent license is granted only if the following
@@ -44,11 +43,11 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification with rights to further distribute source must include
  * the above Copyright Notice, the above License, this list of Conditions,
- * and the following Disclaimer and Export Compliance provision.  In addition,
+ * and the following Disclaimer and Export Compliance provision. In addition,
  * Licensee must cause all Covered Code to which Licensee contributes to
  * contain a file documenting the changes Licensee made to create that Covered
- * Code and the date of any change.  Licensee must include in that file the
- * documentation of any changes made by any predecessor Licensee.  Licensee
+ * Code and the date of any change. Licensee must include in that file the
+ * documentation of any changes made by any predecessor Licensee. Licensee
  * must include a prominent statement that the modification is derived,
  * directly or indirectly, from Original Intel Code.
  *
@@ -56,7 +55,7 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification without rights to further distribute source must
  * include the following Disclaimer and Export Compliance provision in the
- * documentation and/or other materials provided with distribution.  In
+ * documentation and/or other materials provided with distribution. In
  * addition, Licensee may not authorize further sublicense of source of any
  * portion of the Covered Code, and must include terms to the effect that the
  * license from Licensee to its licensee is limited to the intellectual
@@ -81,10 +80,10 @@
  * 4. Disclaimer and Export Compliance
  *
  * 4.1. INTEL MAKES NO WARRANTY OF ANY KIND REGARDING ANY SOFTWARE PROVIDED
- * HERE.  ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
- * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT,  ASSISTANCE,
- * INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL WILL NOT PROVIDE ANY
- * UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY DISCLAIMS ANY
+ * HERE. ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
+ * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
+ * INSTALLATION, TRAINING OR OTHER SERVICES. INTEL WILL NOT PROVIDE ANY
+ * UPDATES, ENHANCEMENTS OR EXTENSIONS. INTEL SPECIFICALLY DISCLAIMS ANY
  * IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT AND FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
@@ -93,14 +92,14 @@
  * COSTS OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, OR FOR ANY INDIRECT,
  * SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THIS AGREEMENT, UNDER ANY
  * CAUSE OF ACTION OR THEORY OF LIABILITY, AND IRRESPECTIVE OF WHETHER INTEL
- * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES.  THESE LIMITATIONS
+ * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES. THESE LIMITATIONS
  * SHALL APPLY NOTWITHSTANDING THE FAILURE OF THE ESSENTIAL PURPOSE OF ANY
  * LIMITED REMEDY.
  *
  * 4.3. Licensee shall not export, either directly or indirectly, any of this
  * software or system incorporating such software without first obtaining any
  * required license or other approval from the U. S. Department of Commerce or
- * any other agency or department of the United States Government.  In the
+ * any other agency or department of the United States Government. In the
  * event Licensee exports any such software from the United States or
  * re-exports any such software from a foreign destination, Licensee shall
  * ensure that the distribution and export/re-export of the software is in
@@ -114,121 +113,117 @@
  *
  *****************************************************************************/
 
+#include "acpi.h"
+#include "accommon.h"
+#include "acapps.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
-
-/* Note: This is a 32-bit program only */
-
-#define VERSION             0x20091002
-#define FIND_HEADER         0
-#define EXTRACT_DATA        1
-#define BUFFER_SIZE         256
-
-
 /* Local prototypes */
 
-void
-CheckAscii (
+static void
+AxStrlwr (
+    char                    *String);
+
+static void
+AxCheckAscii (
     char                    *Name,
     int                     Count);
 
-void
-NormalizeSignature (
+static void
+AxNormalizeSignature (
     char                    *Signature);
 
-unsigned int
-GetNextInstance (
+static unsigned int
+AxGetNextInstance (
+    char                    *InputPathname,
+    char                    *Signature);
+
+static size_t
+AxGetTableHeader (
+    FILE                    *InputFile,
+    unsigned char           *OutputData);
+
+static unsigned int
+AxCountTableInstances (
     char                    *InputPathname,
     char                    *Signature);
 
 int
-ExtractTables (
+AxExtractTables (
     char                    *InputPathname,
     char                    *Signature,
     unsigned int            MinimumInstances);
 
-size_t
-GetTableHeader (
-    FILE                    *InputFile,
-    unsigned char           *OutputData);
-
-unsigned int
-CountTableInstances (
-    char                    *InputPathname,
-    char                    *Signature);
-
 int
-ListTables (
+AxListTables (
     char                    *InputPathname);
 
-size_t
-ConvertLine (
+static size_t
+AxConvertLine (
     char                    *InputLine,
     unsigned char           *OutputData);
 
-void
-DisplayUsage (
-    void);
 
-
-typedef struct acpi_table_header
+typedef struct AxTableInfo
 {
-    char                    Signature[4];
-    int                     Length;
-    unsigned char           Revision;
-    unsigned char           Checksum;
-    char                    OemId[6];
-    char                    OemTableId[8];
-    int                     OemRevision;
-    char                    AslCompilerId[4];
-    int                     AslCompilerRevision;
-
-} ACPI_TABLE_HEADER;
-
-struct TableInfo
-{
-    unsigned int            Signature;
+    UINT32                  Signature;
     unsigned int            Instances;
     unsigned int            NextInstance;
-    struct TableInfo        *Next;
-};
+    struct AxTableInfo      *Next;
 
-struct TableInfo            *ListHead = NULL;
-char                        Filename[16];
-unsigned char               Data[16];
+} AX_TABLE_INFO;
+
+/* Extraction states */
+
+#define AX_STATE_FIND_HEADER        0
+#define AX_STATE_EXTRACT_DATA       1
+
+/* Miscellaneous constants */
+
+#define AX_LINE_BUFFER_SIZE         256
+#define AX_MIN_TABLE_NAME_LENGTH    6   /* strlen ("DSDT @") */
 
 
-/******************************************************************************
+static AX_TABLE_INFO        *AxTableListHead = NULL;
+static char                 Filename[16];
+static unsigned char        Data[16];
+static char                 LineBuffer[AX_LINE_BUFFER_SIZE];
+static char                 HeaderBuffer[AX_LINE_BUFFER_SIZE];
+static char                 InstanceBuffer[AX_LINE_BUFFER_SIZE];
+
+
+/*******************************************************************************
  *
- * FUNCTION:    DisplayUsage
+ * FUNCTION:    AxStrlwr
  *
- * DESCRIPTION: Usage message
+ * PARAMETERS:  String              - Ascii string
+ *
+ * RETURN:      None
+ *
+ * DESCRIPTION: String lowercase function.
  *
  ******************************************************************************/
 
-void
-DisplayUsage (
-    void)
+static void
+AxStrlwr (
+    char                    *String)
 {
 
-    printf ("Usage: acpixtract [option] <InputFile>\n");
-    printf ("\nExtract binary ACPI tables from text acpidump output\n");
-    printf ("Default invocation extracts all DSDTs and SSDTs\n");
-    printf ("Version %8.8X\n\n", VERSION);
-    printf ("Options:\n");
-    printf (" -a                    Extract all tables, not just DSDT/SSDT\n");
-    printf (" -l                    List table summaries, do not extract\n");
-    printf (" -s<Signature>         Extract all tables named <Signature>\n");
-    printf ("\n");
+    while (*String)
+    {
+        *String = (char) tolower ((int) *String);
+        String++;
+    }
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    CheckAscii
+ * FUNCTION:    AxCheckAscii
  *
  * PARAMETERS:  Name                - Ascii string, at least as long as Count
  *              Count               - Number of characters to check
@@ -240,8 +235,8 @@ DisplayUsage (
  *
  ******************************************************************************/
 
-void
-CheckAscii (
+static void
+AxCheckAscii (
     char                    *Name,
     int                     Count)
 {
@@ -250,7 +245,7 @@ CheckAscii (
 
     for (i = 0; i < Count; i++)
     {
-        if (!Name[i] || !isprint (Name[i]))
+        if (!Name[i] || !isprint ((int) Name[i]))
         {
             Name[i] = ' ';
         }
@@ -260,7 +255,7 @@ CheckAscii (
 
 /*******************************************************************************
  *
- * FUNCTION:    NormalizeSignature
+ * FUNCTION:    AxNormalizeSignature
  *
  * PARAMETERS:  Name                - Ascii string containing an ACPI signature
  *
@@ -270,8 +265,8 @@ CheckAscii (
  *
  ******************************************************************************/
 
-void
-NormalizeSignature (
+static void
+AxNormalizeSignature (
     char                    *Signature)
 {
 
@@ -284,7 +279,7 @@ NormalizeSignature (
 
 /******************************************************************************
  *
- * FUNCTION:    ConvertLine
+ * FUNCTION:    AxConvertLine
  *
  * PARAMETERS:  InputLine           - One line from the input acpidump file
  *              OutputData          - Where the converted data is returned
@@ -295,8 +290,8 @@ NormalizeSignature (
  *
  ******************************************************************************/
 
-size_t
-ConvertLine (
+static size_t
+AxConvertLine (
     char                    *InputLine,
     unsigned char           *OutputData)
 {
@@ -342,7 +337,7 @@ ConvertLine (
 
 /******************************************************************************
  *
- * FUNCTION:    GetTableHeader
+ * FUNCTION:    AxGetTableHeader
  *
  * PARAMETERS:  InputFile           - Handle for the input acpidump file
  *              OutputData          - Where the table header is returned
@@ -353,27 +348,26 @@ ConvertLine (
  *
  ******************************************************************************/
 
-size_t
-GetTableHeader (
+static size_t
+AxGetTableHeader (
     FILE                    *InputFile,
     unsigned char           *OutputData)
 {
     size_t                  BytesConverted;
     size_t                  TotalConverted = 0;
-    char                    Buffer[BUFFER_SIZE];
     int                     i;
 
 
-    /* Get the full 36 byte header, requires 3 lines */
+    /* Get the full 36 byte ACPI table header, requires 3 input text lines */
 
     for (i = 0; i < 3; i++)
     {
-        if (!fgets (Buffer, BUFFER_SIZE, InputFile))
+        if (!fgets (HeaderBuffer, AX_LINE_BUFFER_SIZE, InputFile))
         {
             return (TotalConverted);
         }
 
-        BytesConverted = ConvertLine (Buffer, OutputData);
+        BytesConverted = AxConvertLine (HeaderBuffer, OutputData);
         TotalConverted += BytesConverted;
         OutputData += 16;
 
@@ -389,7 +383,7 @@ GetTableHeader (
 
 /******************************************************************************
  *
- * FUNCTION:    CountTableInstances
+ * FUNCTION:    AxCountTableInstances
  *
  * PARAMETERS:  InputPathname       - Filename for acpidump file
  *              Signature           - Requested signature to count
@@ -401,12 +395,11 @@ GetTableHeader (
  *
  ******************************************************************************/
 
-unsigned int
-CountTableInstances (
+static unsigned int
+AxCountTableInstances (
     char                    *InputPathname,
     char                    *Signature)
 {
-    char                    Buffer[BUFFER_SIZE];
     FILE                    *InputFile;
     unsigned int            Instances = 0;
 
@@ -420,18 +413,18 @@ CountTableInstances (
 
     /* Count the number of instances of this signature */
 
-    while (fgets (Buffer, BUFFER_SIZE, InputFile))
+    while (fgets (InstanceBuffer, AX_LINE_BUFFER_SIZE, InputFile))
     {
         /* Ignore empty lines and lines that start with a space */
 
-        if ((Buffer[0] == ' ') ||
-            (Buffer[0] == '\n'))
+        if ((InstanceBuffer[0] == ' ') ||
+            (InstanceBuffer[0] == '\n'))
         {
             continue;
         }
 
-        NormalizeSignature (Buffer);
-        if (!strncmp (Buffer, Signature, 4))
+        AxNormalizeSignature (InstanceBuffer);
+        if (ACPI_COMPARE_NAME (InstanceBuffer, Signature))
         {
             Instances++;
         }
@@ -444,7 +437,7 @@ CountTableInstances (
 
 /******************************************************************************
  *
- * FUNCTION:    GetNextInstance
+ * FUNCTION:    AxGetNextInstance
  *
  * PARAMETERS:  InputPathname       - Filename for acpidump file
  *              Signature           - Requested ACPI signature
@@ -459,18 +452,18 @@ CountTableInstances (
  *
  ******************************************************************************/
 
-unsigned int
-GetNextInstance (
+static unsigned int
+AxGetNextInstance (
     char                    *InputPathname,
     char                    *Signature)
 {
-    struct TableInfo        *Info;
+    AX_TABLE_INFO           *Info;
 
 
-    Info = ListHead;
+    Info = AxTableListHead;
     while (Info)
     {
-        if (*(unsigned int *) Signature == Info->Signature)
+        if (*(UINT32 *) Signature == Info->Signature)
         {
             break;
         }
@@ -482,18 +475,18 @@ GetNextInstance (
     {
         /* Signature not found, create new table info block */
 
-        Info = malloc (sizeof (struct TableInfo));
+        Info = malloc (sizeof (AX_TABLE_INFO));
         if (!Info)
         {
             printf ("Could not allocate memory\n");
             exit (0);
         }
 
-        Info->Signature = *(unsigned int *) Signature;
-        Info->Instances = CountTableInstances (InputPathname, Signature);
+        Info->Signature = *(UINT32 *) Signature;
+        Info->Instances = AxCountTableInstances (InputPathname, Signature);
         Info->NextInstance = 1;
-        Info->Next = ListHead;
-        ListHead = Info;
+        Info->Next = AxTableListHead;
+        AxTableListHead = Info;
     }
 
     if (Info->Instances > 1)
@@ -507,7 +500,7 @@ GetNextInstance (
 
 /******************************************************************************
  *
- * FUNCTION:    ExtractTables
+ * FUNCTION:    AxExtractTables
  *
  * PARAMETERS:  InputPathname       - Filename for acpidump file
  *              Signature           - Requested ACPI signature to extract.
@@ -521,18 +514,17 @@ GetNextInstance (
  ******************************************************************************/
 
 int
-ExtractTables (
+AxExtractTables (
     char                    *InputPathname,
     char                    *Signature,
     unsigned int            MinimumInstances)
 {
-    char                    Buffer[BUFFER_SIZE];
     FILE                    *InputFile;
     FILE                    *OutputFile = NULL;
     size_t                  BytesWritten;
     size_t                  TotalBytesWritten = 0;
     size_t                  BytesConverted;
-    unsigned int            State = FIND_HEADER;
+    unsigned int            State = AX_STATE_FIND_HEADER;
     unsigned int            FoundTable = 0;
     unsigned int            Instances = 0;
     unsigned int            ThisInstance;
@@ -553,9 +545,9 @@ ExtractTables (
     {
         /* Are there enough instances of the table to continue? */
 
-        NormalizeSignature (Signature);
+        AxNormalizeSignature (Signature);
 
-        Instances = CountTableInstances (InputPathname, Signature);
+        Instances = AxCountTableInstances (InputPathname, Signature);
         if (Instances < MinimumInstances)
         {
             printf ("Table %s was not found in %s\n", Signature, InputPathname);
@@ -571,28 +563,49 @@ ExtractTables (
 
     /* Convert all instances of the table to binary */
 
-    while (fgets (Buffer, BUFFER_SIZE, InputFile))
+    while (fgets (LineBuffer, AX_LINE_BUFFER_SIZE, InputFile))
     {
         switch (State)
         {
-        case FIND_HEADER:
+        case AX_STATE_FIND_HEADER:
 
-            /* Ignore empty lines and lines that start with a space */
+            /* Ignore lines that are too short to be header lines */
 
-            if ((Buffer[0] == ' ') ||
-                (Buffer[0] == '\n'))
+            if (strlen (LineBuffer) < AX_MIN_TABLE_NAME_LENGTH)
             {
                 continue;
             }
 
-            NormalizeSignature (Buffer);
-            strncpy (ThisSignature, Buffer, 4);
+            /* Ignore empty lines and lines that start with a space */
+
+            if ((LineBuffer[0] == ' ') ||
+                (LineBuffer[0] == '\n'))
+            {
+                continue;
+            }
+
+            /*
+             * Ignore lines that are not of the form <sig> @ <addr>.
+             * Examples of lines that must be supported:
+             *
+             * DSDT @ 0x737e4000
+             * XSDT @ 0x737f2fff
+             * RSD PTR @ 0xf6cd0
+             * SSDT @ (nil)
+             */
+            if (!strstr (LineBuffer, " @ "))
+            {
+                continue;
+            }
+
+            AxNormalizeSignature (LineBuffer);
+            ACPI_MOVE_NAME (ThisSignature, LineBuffer);
 
             if (Signature)
             {
                 /* Ignore signatures that don't match */
 
-                if (strncmp (ThisSignature, Signature, 4))
+                if (!ACPI_COMPARE_NAME (ThisSignature, Signature))
                 {
                     continue;
                 }
@@ -602,7 +615,7 @@ ExtractTables (
              * Get the instance number for this signature. Only the
              * SSDT and PSDT tables can have multiple instances.
              */
-            ThisInstance = GetNextInstance (InputPathname, ThisSignature);
+            ThisInstance = AxGetNextInstance (InputPathname, ThisSignature);
 
             /* Build an output filename and create/open the output file */
 
@@ -615,6 +628,7 @@ ExtractTables (
                 sprintf (Filename, "%4.4s.dat", ThisSignature);
             }
 
+            AxStrlwr (Filename);
             OutputFile = fopen (Filename, "w+b");
             if (!OutputFile)
             {
@@ -623,30 +637,30 @@ ExtractTables (
                 goto CleanupAndExit;
             }
 
-            State = EXTRACT_DATA;
+            State = AX_STATE_EXTRACT_DATA;
             TotalBytesWritten = 0;
             FoundTable = 1;
             continue;
 
-        case EXTRACT_DATA:
+        case AX_STATE_EXTRACT_DATA:
 
             /* Empty line or non-data line terminates the data */
 
-            if ((Buffer[0] == '\n') ||
-                (Buffer[0] != ' '))
+            if ((LineBuffer[0] == '\n') ||
+                (LineBuffer[0] != ' '))
             {
                 fclose (OutputFile);
                 OutputFile = NULL;
-                State = FIND_HEADER;
+                State = AX_STATE_FIND_HEADER;
 
-                printf ("Acpi table [%4.4s] - % 7d bytes written to %s\n",
-                    ThisSignature, TotalBytesWritten, Filename);
+                printf ("Acpi table [%4.4s] - %u bytes written to %s\n",
+                    ThisSignature, (unsigned int) TotalBytesWritten, Filename);
                 continue;
             }
 
             /* Convert the ascii data (one line of text) to binary */
 
-            BytesConverted = ConvertLine (Buffer, Data);
+            BytesConverted = AxConvertLine (LineBuffer, Data);
 
             /* Write the binary data */
 
@@ -680,12 +694,12 @@ CleanupAndExit:
     if (OutputFile)
     {
         fclose (OutputFile);
-        if (State == EXTRACT_DATA)
+        if (State == AX_STATE_EXTRACT_DATA)
         {
             /* Received an EOF while extracting data */
 
-            printf ("Acpi table [%4.4s] - % 7d bytes written to %s\n",
-                ThisSignature, TotalBytesWritten, Filename);
+            printf ("Acpi table [%4.4s] - %u bytes written to %s\n",
+                ThisSignature, (unsigned int) TotalBytesWritten, Filename);
         }
     }
 
@@ -696,7 +710,7 @@ CleanupAndExit:
 
 /******************************************************************************
  *
- * FUNCTION:    ListTables
+ * FUNCTION:    AxListTables
  *
  * PARAMETERS:  InputPathname       - Filename for acpidump file
  *
@@ -708,11 +722,10 @@ CleanupAndExit:
  ******************************************************************************/
 
 int
-ListTables (
+AxListTables (
     char                    *InputPathname)
 {
     FILE                    *InputFile;
-    char                    Buffer[BUFFER_SIZE];
     size_t                  HeaderSize;
     unsigned char           Header[48];
     int                     TableCount = 0;
@@ -733,19 +746,19 @@ ListTables (
     printf ("\nSignature Length Revision  OemId     OemTableId"
             "   OemRevision CompilerId CompilerRevision\n\n");
 
-    while (fgets (Buffer, BUFFER_SIZE, InputFile))
+    while (fgets (LineBuffer, AX_LINE_BUFFER_SIZE, InputFile))
     {
         /* Ignore empty lines and lines that start with a space */
 
-        if ((Buffer[0] == ' ') ||
-            (Buffer[0] == '\n'))
+        if ((LineBuffer[0] == ' ') ||
+            (LineBuffer[0] == '\n'))
         {
             continue;
         }
 
         /* Get the 36 byte header and display the fields */
 
-        HeaderSize = GetTableHeader (InputFile, Header);
+        HeaderSize = AxGetTableHeader (InputFile, Header);
         if (HeaderSize < 16)
         {
             continue;
@@ -755,7 +768,7 @@ ListTables (
 
         if (!strncmp (TableHeader->Signature, "RSD PTR ", 8))
         {
-            CheckAscii ((char *) &Header[9], 6);
+            AxCheckAscii ((char *) &Header[9], 6);
             printf ("%8.4s                   \"%6.6s\"\n", "RSDP", &Header[9]);
             TableCount++;
             continue;
@@ -763,7 +776,7 @@ ListTables (
 
         /* Minimum size for table with standard header */
 
-        if (HeaderSize < 36)
+        if (HeaderSize < sizeof (ACPI_TABLE_HEADER))
         {
             continue;
         }
@@ -775,7 +788,7 @@ ListTables (
 
         /* FACS has only signature and length */
 
-        if (!strncmp (TableHeader->Signature, "FACS", 4))
+        if (ACPI_COMPARE_NAME (TableHeader->Signature, "FACS"))
         {
             printf ("\n");
             continue;
@@ -783,9 +796,9 @@ ListTables (
 
         /* OEM IDs and Compiler IDs */
 
-        CheckAscii (TableHeader->OemId, 6);
-        CheckAscii (TableHeader->OemTableId, 8);
-        CheckAscii (TableHeader->AslCompilerId, 4);
+        AxCheckAscii (TableHeader->OemId, 6);
+        AxCheckAscii (TableHeader->OemTableId, 8);
+        AxCheckAscii (TableHeader->AslCompilerId, 4);
 
         printf ("     %2.2X    \"%6.6s\"  \"%8.8s\"    %8.8X    \"%4.4s\"     %8.8X\n",
             TableHeader->Revision, TableHeader->OemId,
@@ -793,80 +806,7 @@ ListTables (
             TableHeader->AslCompilerId, TableHeader->AslCompilerRevision);
     }
 
-    printf ("\nFound %d ACPI tables [%8.8X]\n", TableCount, VERSION);
+    printf ("\nFound %u ACPI tables\n", TableCount);
     fclose (InputFile);
     return (0);
 }
-
-
-/******************************************************************************
- *
- * FUNCTION:    main
- *
- * DESCRIPTION: C main function
- *
- ******************************************************************************/
-
-int
-main (
-    int                     argc,
-    char                    *argv[])
-{
-    int                     Status;
-
-
-    if (argc < 2)
-    {
-        DisplayUsage ();
-        return (0);
-    }
-
-    if (argv[1][0] == '-')
-    {
-        if (argc < 3)
-        {
-            DisplayUsage ();
-            return (0);
-        }
-
-        switch (argv[1][1])
-        {
-        case 'a':
-
-            /* Extract all tables found */
-
-            return (ExtractTables (argv[2], NULL, 0));
-
-        case 'l':
-
-            /* List tables only, do not extract */
-
-            return (ListTables (argv[2]));
-
-        case 's':
-
-            /* Extract only tables with this signature */
-
-            return (ExtractTables (argv[2], &argv[1][2], 1));
-
-        default:
-            DisplayUsage ();
-            return (0);
-        }
-    }
-
-    /*
-     * Default output is the DSDT and all SSDTs. One DSDT is required,
-     * any SSDTs are optional.
-     */
-    Status = ExtractTables (argv[1], "DSDT", 1);
-    if (Status)
-    {
-        return (Status);
-    }
-
-    Status = ExtractTables (argv[1], "SSDT", 0);
-    return (Status);
-}
-
-

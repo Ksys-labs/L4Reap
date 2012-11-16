@@ -154,8 +154,11 @@ public:
 };
 
 int
-Allocator::disp_factory(l4_umword_t, L4::Ipc::Iostream &ios)
+Allocator::disp_factory(l4_umword_t r, L4::Ipc::Iostream &ios)
 {
+  if (!(r & L4_CAP_FPAGE_S))
+    return -L4_EPERM;
+
   L4::Factory::Proto o;
   ios >> o;
 

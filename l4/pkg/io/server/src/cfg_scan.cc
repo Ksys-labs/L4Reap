@@ -16,7 +16,7 @@
 #include "cfg_scanner.h"
 
 
-#line 119 "cfg_scan.rl"
+#line 118 "cfg_scan.rl"
 
 
 
@@ -147,7 +147,7 @@ static const int cfg_lang_error = 0;
 static const int cfg_lang_en_main = 12;
 
 
-#line 122 "cfg_scan.rl"
+#line 121 "cfg_scan.rl"
 
 
 void
@@ -162,7 +162,7 @@ cfg::Scanner::init()
 	act = 0;
 	}
 
-#line 128 "cfg_scan.rl"
+#line 127 "cfg_scan.rl"
   p = s;
   pe = e;
 }
@@ -222,7 +222,7 @@ _resume:
 			else if ( (*p) > *_mid )
 				_lower = _mid + 1;
 			else {
-				_trans += (_mid - _keys);
+				_trans += (unsigned int)(_mid - _keys);
 				goto _match;
 			}
 		}
@@ -245,7 +245,7 @@ _resume:
 			else if ( (*p) > _mid[1] )
 				_lower = _mid + 2;
 			else {
-				_trans += ((_mid - _keys)>>1);
+				_trans += (unsigned int)((_mid - _keys)>>1);
 				goto _match;
 			}
 		}
@@ -279,7 +279,7 @@ _eof_trans:
 	{act = 10;}
 	break;
 	case 5:
-#line 55 "cfg_scan.rl"
+#line 54 "cfg_scan.rl"
 	{act = 11;}
 	break;
 	case 6:
@@ -318,7 +318,7 @@ _eof_trans:
 	{te = p+1;{ tt = Token::HWROOT; {p++; goto _out; } }}
 	break;
 	case 14:
-#line 72 "cfg_scan.rl"
+#line 71 "cfg_scan.rl"
 	{te = p+1;{
 		tt = Token::STRING;
 		yylval->str.s = ts;
@@ -327,7 +327,7 @@ _eof_trans:
 	}}
 	break;
 	case 15:
-#line 81 "cfg_scan.rl"
+#line 80 "cfg_scan.rl"
 	{te = p+1;}
 	break;
 	case 16:
@@ -342,7 +342,7 @@ _eof_trans:
 	{te = p;p--;{ tt = Token::NEW; {p++; goto _out; } }}
 	break;
 	case 18:
-#line 55 "cfg_scan.rl"
+#line 54 "cfg_scan.rl"
 	{te = p;p--;{
 		tt = Token::IDENTIFIER;
 		yylval->str.s = ts;
@@ -351,11 +351,11 @@ _eof_trans:
 	}}
 	break;
 	case 19:
-#line 80 "cfg_scan.rl"
+#line 79 "cfg_scan.rl"
 	{te = p;p--;{ yylloc->columns(te-ts); yylloc->step();}}
 	break;
 	case 20:
-#line 85 "cfg_scan.rl"
+#line 84 "cfg_scan.rl"
 	{te = p;p--;{
 		tt = Token::INTEGER;
 		yylval->num = 0;
@@ -365,7 +365,7 @@ _eof_trans:
 	}}
 	break;
 	case 21:
-#line 103 "cfg_scan.rl"
+#line 102 "cfg_scan.rl"
 	{te = p;p--;{
 		tt = Token::INTEGER;
 		yylval->num = 0;
@@ -393,7 +393,7 @@ _eof_trans:
 	{{p = ((te))-1;}{ tt = Token::NEW; {p++; goto _out; } }}
 	break;
 	case 24:
-#line 55 "cfg_scan.rl"
+#line 54 "cfg_scan.rl"
 	{{p = ((te))-1;}{
 		tt = Token::IDENTIFIER;
 		yylval->str.s = ts;
@@ -402,7 +402,7 @@ _eof_trans:
 	}}
 	break;
 	case 25:
-#line 85 "cfg_scan.rl"
+#line 84 "cfg_scan.rl"
 	{{p = ((te))-1;}{
 		tt = Token::INTEGER;
 		yylval->num = 0;
@@ -461,7 +461,7 @@ _again:
 	_out: {}
 	}
 
-#line 144 "cfg_scan.rl"
+#line 143 "cfg_scan.rl"
 
   if ( cs == cfg_lang_error )
     {

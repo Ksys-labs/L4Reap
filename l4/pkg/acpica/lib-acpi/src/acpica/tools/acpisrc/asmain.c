@@ -1,4 +1,3 @@
-
 /******************************************************************************
  *
  * Module Name: asmain - Main module for the acpi source processor utility
@@ -9,13 +8,13 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2009, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2012, Intel Corp.
  * All rights reserved.
  *
  * 2. License
  *
  * 2.1. This is your license from Intel Corp. under its intellectual property
- * rights.  You may have additional license terms from the party that provided
+ * rights. You may have additional license terms from the party that provided
  * you this software, covering your right to use that party's intellectual
  * property rights.
  *
@@ -32,7 +31,7 @@
  * offer to sell, and import the Covered Code and derivative works thereof
  * solely to the minimum extent necessary to exercise the above copyright
  * license, and in no event shall the patent license extend to any additions
- * to or modifications of the Original Intel Code.  No other license or right
+ * to or modifications of the Original Intel Code. No other license or right
  * is granted directly or by implication, estoppel or otherwise;
  *
  * The above copyright and patent license is granted only if the following
@@ -44,11 +43,11 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification with rights to further distribute source must include
  * the above Copyright Notice, the above License, this list of Conditions,
- * and the following Disclaimer and Export Compliance provision.  In addition,
+ * and the following Disclaimer and Export Compliance provision. In addition,
  * Licensee must cause all Covered Code to which Licensee contributes to
  * contain a file documenting the changes Licensee made to create that Covered
- * Code and the date of any change.  Licensee must include in that file the
- * documentation of any changes made by any predecessor Licensee.  Licensee
+ * Code and the date of any change. Licensee must include in that file the
+ * documentation of any changes made by any predecessor Licensee. Licensee
  * must include a prominent statement that the modification is derived,
  * directly or indirectly, from Original Intel Code.
  *
@@ -56,7 +55,7 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification without rights to further distribute source must
  * include the following Disclaimer and Export Compliance provision in the
- * documentation and/or other materials provided with distribution.  In
+ * documentation and/or other materials provided with distribution. In
  * addition, Licensee may not authorize further sublicense of source of any
  * portion of the Covered Code, and must include terms to the effect that the
  * license from Licensee to its licensee is limited to the intellectual
@@ -81,10 +80,10 @@
  * 4. Disclaimer and Export Compliance
  *
  * 4.1. INTEL MAKES NO WARRANTY OF ANY KIND REGARDING ANY SOFTWARE PROVIDED
- * HERE.  ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
- * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT,  ASSISTANCE,
- * INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL WILL NOT PROVIDE ANY
- * UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY DISCLAIMS ANY
+ * HERE. ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
+ * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
+ * INSTALLATION, TRAINING OR OTHER SERVICES. INTEL WILL NOT PROVIDE ANY
+ * UPDATES, ENHANCEMENTS OR EXTENSIONS. INTEL SPECIFICALLY DISCLAIMS ANY
  * IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT AND FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
@@ -93,14 +92,14 @@
  * COSTS OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, OR FOR ANY INDIRECT,
  * SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THIS AGREEMENT, UNDER ANY
  * CAUSE OF ACTION OR THEORY OF LIABILITY, AND IRRESPECTIVE OF WHETHER INTEL
- * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES.  THESE LIMITATIONS
+ * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES. THESE LIMITATIONS
  * SHALL APPLY NOTWITHSTANDING THE FAILURE OF THE ESSENTIAL PURPOSE OF ANY
  * LIMITED REMEDY.
  *
  * 4.3. Licensee shall not export, either directly or indirectly, any of this
  * software or system incorporating such software without first obtaining any
  * required license or other approval from the U. S. Department of Commerce or
- * any other agency or department of the United States Government.  In the
+ * any other agency or department of the United States Government. In the
  * event Licensee exports any such software from the United States or
  * re-exports any such software from a foreign destination, Licensee shall
  * ensure that the distribution and export/re-export of the software is in
@@ -169,6 +168,7 @@ BOOLEAN                 Gbl_Overwrite = FALSE;
 BOOLEAN                 Gbl_WidenDeclarations = FALSE;
 BOOLEAN                 Gbl_IgnoreLoneLineFeeds = FALSE;
 BOOLEAN                 Gbl_HasLoneLineFeeds = FALSE;
+BOOLEAN                 Gbl_Cleanup = FALSE;
 
 
 /******************************************************************************
@@ -191,8 +191,8 @@ AsStricmp (
 
     do
     {
-        c1 = tolower (*String1);
-        c2 = tolower (*String2);
+        c1 = tolower ((int) *String1);
+        c2 = tolower ((int) *String2);
 
         String1++;
         String2++;
@@ -219,14 +219,14 @@ AsExaminePaths (
     UINT32                  *SourceFileType)
 {
     int                     Status;
-    char                    Response;
+    int                     Response;
 
 
     Status = stat (Source, &Gbl_StatBuf);
     if (Status)
     {
         printf ("Source path \"%s\" does not exist\n", Source);
-        return -1;
+        return (-1);
     }
 
     /* Return the filetype -- file or a directory */
@@ -243,19 +243,19 @@ AsExaminePaths (
     if ((ConversionTable->Flags & FLG_NO_FILE_OUTPUT) ||
         (Gbl_BatchMode))
     {
-        return 0;
+        return (0);
     }
 
     if (!AsStricmp (Source, Target))
     {
         printf ("Target path is the same as the source path, overwrite?\n");
-        scanf ("%c", &Response);
+        Response = getchar ();
 
         /* Check response */
 
-        if ((char) Response != 'y')
+        if (Response != 'y')
         {
-            return -1;
+            return (-1);
         }
 
         Gbl_Overwrite = TRUE;
@@ -266,18 +266,18 @@ AsExaminePaths (
         if (!Status)
         {
             printf ("Target path already exists, overwrite?\n");
-            scanf ("%c", &Response);
+            Response = getchar ();
 
             /* Check response */
 
-            if ((char) Response != 'y')
+            if (Response != 'y')
             {
-                return -1;
+                return (-1);
             }
         }
     }
 
-    return 0;
+    return (0);
 }
 
 
@@ -301,6 +301,12 @@ AsDisplayStats (
 
     printf ("\nAcpiSrc statistics:\n\n");
     printf ("%8u Files processed\n", Gbl_Files);
+
+    if (!Gbl_Files)
+    {
+        return;
+    }
+
     printf ("%8u Total bytes (%.1fK/file)\n",
         Gbl_TotalSize, ((double) Gbl_TotalSize/Gbl_Files)/1024);
     printf ("%8u Tabs found\n", Gbl_Tabs);
@@ -311,10 +317,24 @@ AsDisplayStats (
     printf ("%8u Lines of non-comment whitespace\n", Gbl_WhiteLines);
     printf ("%8u Lines of comments\n", Gbl_CommentLines);
     printf ("%8u Long lines found\n", Gbl_LongLines);
-    printf ("%8.1f Ratio of code to whitespace\n",
-        ((float) Gbl_SourceLines / (float) Gbl_WhiteLines));
-    printf ("%8.1f Ratio of code to comments\n",
-        ((float) Gbl_SourceLines / (float) (Gbl_CommentLines + Gbl_NonAnsiComments)));
+
+    if (Gbl_WhiteLines > 0)
+    {
+        printf ("%8.1f Ratio of code to whitespace\n",
+            ((float) Gbl_SourceLines / (float) Gbl_WhiteLines));
+    }
+
+    if ((Gbl_CommentLines + Gbl_NonAnsiComments) > 0)
+    {
+        printf ("%8.1f Ratio of code to comments\n",
+            ((float) Gbl_SourceLines / (float) (Gbl_CommentLines + Gbl_NonAnsiComments)));
+    }
+
+    if (!Gbl_TotalLines)
+    {
+        return;
+    }
+
     printf ("         %u%% code, %u%% comments, %u%% whitespace, %u%% headers\n",
         (Gbl_SourceLines * 100) / Gbl_TotalLines,
         (Gbl_CommentLines * 100) / Gbl_TotalLines,
@@ -337,18 +357,18 @@ AsDisplayUsage (
     void)
 {
 
+    ACPI_USAGE_HEADER ("acpisrc [-c|l|u] [-dsvy] <SourceDir> <DestinationDir>");
+
+    ACPI_OPTION ("-c",          "Generate cleaned version of the source");
+    ACPI_OPTION ("-h",          "Insert dual-license header into all modules");
+    ACPI_OPTION ("-l",          "Generate Linux version of the source");
+    ACPI_OPTION ("-u",          "Generate Custom source translation");
+
     printf ("\n");
-    printf ("Usage: acpisrc [-c|l|u] [-dsvy] <SourceDir> <DestinationDir>\n\n");
-    printf ("Where: -c          Generate cleaned version of the source\n");
-    printf ("       -l          Generate Linux version of the source\n");
-    printf ("       -u          Generate Custom source translation\n");
-    printf ("\n");
-    printf ("       -d          Leave debug statements in code\n");
-    printf ("       -s          Generate source statistics only\n");
-    printf ("       -v          Verbose mode\n");
-    printf ("       -y          Suppress file overwrite prompts\n");
-    printf ("\n");
-    return;
+    ACPI_OPTION ("-d",          "Leave debug statements in code");
+    ACPI_OPTION ("-s",          "Generate source statistics only");
+    ACPI_OPTION ("-v",          "Verbose mode");
+    ACPI_OPTION ("-y",          "Suppress file overwrite prompts");
 }
 
 
@@ -372,19 +392,17 @@ main (
     UINT32                  FileType;
 
 
-    printf ("ACPI Source Code Conversion Utility");
-    printf (" version %8.8X", ((UINT32) ACPI_CA_VERSION));
-    printf (" [%s]\n\n",  __DATE__);
+    printf (ACPI_COMMON_SIGNON ("ACPI Source Code Conversion Utility"));
 
     if (argc < 2)
     {
         AsDisplayUsage ();
-        return 0;
+        return (0);
     }
 
     /* Command line options */
 
-    while ((j = AcpiGetopt (argc, argv, "cdlqsuvy")) != EOF) switch(j)
+    while ((j = AcpiGetopt (argc, argv, "cdhlqsuvy")) != EOF) switch(j)
     {
     case 'l':
         /* Linux code generation */
@@ -400,6 +418,14 @@ main (
 
         printf ("Code cleanup\n");
         ConversionTable = &CleanupConversionTable;
+        Gbl_Cleanup = TRUE;
+        break;
+
+    case 'h':
+        /* Inject Dual-license header */
+
+        printf ("Inserting Dual-license header to all modules\n");
+        ConversionTable = &LicenseConversionTable;
         break;
 
     case 's':
@@ -440,7 +466,7 @@ main (
 
     default:
         AsDisplayUsage ();
-        return -1;
+        return (-1);
     }
 
 
@@ -449,14 +475,14 @@ main (
     {
         printf ("Missing source path\n");
         AsDisplayUsage ();
-        return -1;
+        return (-1);
     }
 
     TargetPath = argv[AcpiGbl_Optind+1];
 
     if (!ConversionTable)
     {
-        /* Just generate statistics.  Ignore target path */
+        /* Just generate statistics. Ignore target path */
 
         TargetPath = SourcePath;
 
@@ -477,7 +503,7 @@ main (
 
     if (AsExaminePaths (ConversionTable, SourcePath, TargetPath, &FileType))
     {
-        return -1;
+        return (-1);
     }
 
     /* Source/target can be either directories or a files */
@@ -508,5 +534,5 @@ main (
 
     AsDisplayStats ();
 
-    return 0;
+    return (0);
 }

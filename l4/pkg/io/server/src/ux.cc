@@ -40,13 +40,13 @@ void ux_setup(Hw::Device *bus)
          {
 	   input->set_hid("L4UXinput");
            input->add_resource
-             (new Adr_resource(Adr_resource::Mmio_res
-                               | Resource::F_fixed_size | Resource::F_fixed_addr,
-                               vhwe->mem_start,
-                               vhwe->mem_start + vhwe->mem_size - 1));
+             (new Resource(Resource::Mmio_res
+                           | Resource::F_fixed_size | Resource::F_fixed_addr,
+                           vhwe->mem_start,
+                           vhwe->mem_start + vhwe->mem_size - 1));
            input->add_resource
-             (new Adr_resource(Adr_resource::Irq_res,
-                               vhwe->irq_no, vhwe->irq_no));
+             (new Resource(Resource::Irq_res,
+                           vhwe->irq_no, vhwe->irq_no));
           bus->add_child(input);
          }
     }
@@ -61,10 +61,10 @@ void ux_setup(Hw::Device *bus)
         {
 	  fb->set_hid("L4UXfb");
           fb->add_resource
-            (new Adr_resource(Adr_resource::Mmio_res
-                              | Resource::F_fixed_size | Resource::F_fixed_addr,
-                              vhwe->mem_start,
-                              vhwe->mem_start + vhwe->mem_size - 1));
+            (new Resource(Resource::Mmio_res
+                          | Resource::F_fixed_size | Resource::F_fixed_addr,
+                          vhwe->mem_start,
+                          vhwe->mem_start + vhwe->mem_size - 1));
           bus->add_child(fb);
         }
     }
@@ -79,11 +79,11 @@ void ux_setup(Hw::Device *bus)
         {
           net->set_hid("L4UXnet");
           net->add_resource
-            (new Adr_resource(Adr_resource::Irq_res,
-                              vhwe->irq_no, vhwe->irq_no));
+            (new Resource(Resource::Irq_res,
+                          vhwe->irq_no, vhwe->irq_no));
           net->add_resource
-            (new Adr_resource(Adr_resource::Io_res,
-                              vhwe->fd, vhwe->provider_pid));
+            (new Resource(Resource::Io_res,
+                          vhwe->fd, vhwe->provider_pid));
           bus->add_child(net);
         }
     }

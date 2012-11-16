@@ -85,22 +85,22 @@ Pci_iomem_root_bridge::init()
   if (!_iobase_virt)
     return;
 
-  add_resource(new Adr_resource(Resource::Mmio_res
-                                | Resource::F_fixed_size
-                                | Resource::F_fixed_addr,
-                                _iobase_phys,
-                                _iobase_phys + _iosize - 1));
+  add_resource(new Resource(Resource::Mmio_res
+                            | Resource::F_fixed_size
+                            | Resource::F_fixed_addr,
+                            _iobase_phys,
+                            _iobase_phys + _iosize - 1));
 
-  Adr_resource *r = new Adr_resource_provider(Resource::Mmio_res
-                                              | Resource::F_fixed_size
-                                              | Resource::F_fixed_addr);
+  Resource *r = new Resource_provider(Resource::Mmio_res
+                                      | Resource::F_fixed_size
+                                      | Resource::F_fixed_addr);
   r->alignment(0xfffff);
   r->start_end(_dev_start, _dev_end);
   add_resource(r);
 
-  r = new Adr_resource_provider(Resource::Io_res
-                                | Resource::F_fixed_size
-                                | Resource::F_fixed_addr);
+  r = new Resource_provider(Resource::Io_res
+                            | Resource::F_fixed_size
+                            | Resource::F_fixed_addr);
   r->start_end(0, 0xffff);
   add_resource(r);
 
@@ -207,34 +207,26 @@ static Hw::Device_factory_t<Pci_iomem_root_bridge>
 bool Irq_router_rs::request(Resource *parent, Device *pdev,
                             Resource *child, Device *cdev)
 {
-  Adr_resource *cr = dynamic_cast<Adr_resource*>(child);
-
-  if (!cr)
-    {
-      child->parent(parent);
-      return true;
-    }
-
   Hw::Device *cd = dynamic_cast<Hw::Device*>(cdev);
   if (!cd)
     return false;
 
-  if (cr->start() > 3)
+  if (child->start() > 3)
     return false;
 
-  int i = (cr->start() + (cd->adr() >> 16)) & 3;
+  int i = (child->start() + (cd->adr() >> 16)) & 3;
 
   Pci_iomem_root_bridge *pd = dynamic_cast<Pci_iomem_root_bridge *>(pdev);
   if (!pd)
     return false;
 
 
-  cr->del_flags(Resource::F_relative);
-  cr->start(pd->int_map(i));
-  cr->del_flags(Resource::Irq_info_base * 3);
-  cr->add_flags(Resource::Irq_level | Resource::Irq_low);
+  child->del_flags(Resource::F_relative);
+  child->start(pd->int_map(i));
+  child->del_flags(Resource::Irq_info_base * 3);
+  child->add_flags(Resource::Irq_level | Resource::Irq_low);
 
-  cr->parent(parent);
+  child->parent(parent);
 
   return true;
 }

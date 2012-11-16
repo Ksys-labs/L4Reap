@@ -290,13 +290,13 @@ unsigned ddekit_pci_dev::emulate_config_dword(unsigned pos) const
 EXTERN_C int ddekit_pci_read(int bus, int slot, int func, int pos, int len, ddekit_uint32_t *val)
 {
   l4_uint32_t devfn = (slot << 16) | func;
-  return l4vbus_pci_cfg_read(_vbus, _root_bridge, bus, devfn, pos, val, len);
+  return l4vbus_pci_cfg_read(_vbus, _root_bridge, bus, devfn, pos, val, len*8);
 }
 
 EXTERN_C int ddekit_pci_write(int bus, int slot, int func, int pos, int len, ddekit_uint32_t val)
 {
   l4_uint32_t devfn = (slot << 16) | func;
-  return l4vbus_pci_cfg_write(_vbus, _root_bridge, bus, devfn, pos, val, len);
+  return l4vbus_pci_cfg_write(_vbus, _root_bridge, bus, devfn, pos, val, len*8);
 }
 
 #if 0

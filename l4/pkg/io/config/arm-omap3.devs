@@ -1,50 +1,53 @@
-# vim:set ft=ioconfig:
-#
-# (c) 2008-2009 Technische Universität Dresden
-# This file is part of TUD:OS and distributed under the terms of the
-# GNU General Public License 2.
-# Please see the COPYING-GPL-2 file for details.
-#
+-- vim:set ft=lua:
+--
+-- (c) 2008-2009 Technische Universität Dresden
+-- This file is part of TUD:OS and distributed under the terms of the
+-- GNU General Public License 2.
+-- Please see the COPYING-GPL-2 file for details.
+--
 
-# OMAP3 (OMAP3EVM, Beagleboard)
+-- OMAP3 (OMAP3EVM, Beagleboard)
 
-hw-root
+local Hw = Io.Hw
+local Res = Io.Res
+
+Io.hw_add_devices
 {
-  sys => new Device()
+  sys = Hw.Device
   {
-    .hid = "System Control";
-    new-res Mmio(0x48002000 .. 0x48002fff);
-    new-res Mmio(0x48004000 .. 0x48004fff);
-  }
+    hid = "System Control";
+    Res.mmio(0x48002000, 0x48002fff);
+    Res.mmio(0x48004000, 0x48004fff);
+  },
 
-  prcm => new Device()
+  prcm = Hw.Device
   {
-    .hid = "OMAP PRCM";
-    new-res Mmio(0x48004000 .. 0x48004fff);
-    new-res Mmio(0x48005000 .. 0x48005fff);
-  }
+    hid = "OMAP PRCM";
+    Res.mmio(0x48004000, 0x48004fff);
+    Res.mmio(0x48005000, 0x48005fff);
+  },
 
-  gpio => new Device()
+  gpio = Hw.Device
   {
-    .hid = "GPIO";
-    new-res Mmio(0x48004000 .. 0x48004fff);
-    new-res Mmio(0x48310000 .. 0x48310fff);
-    new-res Mmio(0x49050000 .. 0x49050fff);
-    new-res Mmio(0x49052000 .. 0x49052fff);
-    new-res Mmio(0x49054000 .. 0x49054fff);
-    new-res Mmio(0x49056000 .. 0x49056fff);
-    new-res Mmio(0x49058000 .. 0x49058fff);
-  }
+    hid = "GPIO"; -- FIXME: should be "OMAP GPIO" or something
+    Res.mmio(0x48004000, 0x48004fff);
+    Res.mmio(0x48310000, 0x48310fff);
+    Res.mmio(0x49050000, 0x49050fff);
+    Res.mmio(0x49052000, 0x49052fff);
+    Res.mmio(0x49054000, 0x49054fff);
+    Res.mmio(0x49056000, 0x49056fff);
+    Res.mmio(0x49058000, 0x49058fff);
+  },
 
-  lcd => new Device()
+  lcd = Hw.Device
   {
-    .hid = "OMAP_LCD";
-    new-res Mmio(0x48050000 .. 0x48050fff);
-  }
+    hid = "OMAP_LCD";
+    Res.mmio(0x48050000, 0x48050fff);
+  },
 
-  i2c1 => new Device()
+  i2c1 = Hw.Device
   {
-    .hid = "I2C";
-    new-res Mmio(0x48070000 .. 0x48070fff);
+    hid = "I2C";  -- FIXME: this should be "OMAP I2C" or smoething
+    Res.mmio(0x48070000, 0x48070fff);
   }
 }

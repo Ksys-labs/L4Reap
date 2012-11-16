@@ -28,33 +28,36 @@ class Gpio : public Device, public Dev_feature
 public:
   int dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc::Iostream &ios);
 
-  explicit Gpio(Hw::Device *d, Tagged_parameter *filter)
+  explicit Gpio(Hw::Device *d)
     : _hwd(dynamic_cast<Hw::Gpio_chip*>(d)), _mask(0)
   {
     add_feature(this);
 
     for (unsigned i = 0; i < Max_pins; ++i)
       _irqs[i] = -1;
+  }
 
-    if (!filter)
-      return;
+  int add_filter(cxx::String const &tag, cxx::String const &)
+  {
+    if (tag != "pins")
+      return -ENODEV;
+    return -EINVAL;
+  }
 
-    for (Expression *x = filter->get("pins"); x; x = x->next())
-      {
-	Value v = x->eval();
-	switch (v.type)
-	  {
-	  case Value::Num:
-	    _mask |= (1UL << v.val.num);
-	    break;
-	  case Value::Range:
-	    _mask |= ~(~0UL << (v.val.range.e - v.val.range.s + 1)) << v.val.range.s;
-	    break;
-	  default:
-	    d_printf(DBG_ERR, "ERROR: GPIO: Invalid value for 'pins' statement in config, ignored.\n");
-	    break;
-	  }
-      }
+  int add_filter(cxx::String const &tag, unsigned long long val)
+  {
+    if (tag != "pins")
+      return -ENODEV;
+    _mask |= (1UL << val);
+    return 0;
+  }
+
+  int add_filter(cxx::String const &tag, unsigned long long s, unsigned long long e)
+  {
+    if (tag != "pins")
+      return -ENODEV;
+    _mask |= ~(~0UL << (e - s + 1)) << s;
+    return 0;
   }
 
   char const *hid() const { return "GPIO"; }

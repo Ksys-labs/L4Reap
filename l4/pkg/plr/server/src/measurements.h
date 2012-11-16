@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <climits>
+#include <utility>
 
 /*
  * Namespace containing classes regarding measurements and
@@ -147,11 +148,11 @@ class AverageStrategy
 		}
 
 		typedef double ReadType;
-		ReadType const operator () (DS& ds)
+		ReadType operator () (DS& ds)
 		{
 			if (ds.value(COUNT) == 0) return 0.0;
 
-			return static_cast<T>(ds.value(SUM)) / ds.value(COUNT);
+			return static_cast<ReadType const>(ds.value(SUM)) / ds.value(COUNT);
 		}
 
 
@@ -162,7 +163,6 @@ class AverageStrategy
 		}
 };
 
-
 /*
  * Abstract interface for a sensor. A sensor is
  * used to observe events with a given value and
@@ -170,7 +170,7 @@ class AverageStrategy
  */
 template <typename DATASTORE,
 		  typename STRATEGY>
-class Sensor
+class SensorInstance
 {
 	protected:
 		DATASTORE _ds;
@@ -179,7 +179,7 @@ class Sensor
 		typedef typename DATASTORE::Type    StoredType;
 		typedef typename STRATEGY::ReadType ReadType;
 
-		Sensor(StoredType t) : _ds(t) { reset(); }
+		SensorInstance(StoredType t) : _ds(t) { reset(); }
 
 		/*
 		 * Show _one_ event to the sensor and perform
@@ -196,7 +196,7 @@ class Sensor
 		/*
 		 * Reset the sensor to a predefined value.
 		 */
-		void reset() { STRATEGY().reset(_ds); };
+		virtual void reset() { STRATEGY().reset(_ds); };
 };
 
 /**************************************************
@@ -208,12 +208,12 @@ class Sensor
  * as they are generated.
  */
 class MinMaxSensor
-	: public Sensor<ArrayDatastore<int, 2>,
+	: public SensorInstance<ArrayDatastore<int, 2>,
 					MinMaxStrategy<int, ArrayDatastore<int, 2> > >
 {
 	public:
 		MinMaxSensor()
-			: Sensor(0)
+			: SensorInstance(0)
 		{ }
 };
 
@@ -222,12 +222,12 @@ class MinMaxSensor
  * Sensor computing an average of all seen values.
  */
 class AverageSensor
-	: public Sensor<ArrayDatastore<int, 2>,
+	: public SensorInstance<ArrayDatastore<int, 2>,
 					AverageStrategy<int, ArrayDatastore<int, 2> > >
 {
 	public:
 		AverageSensor()
-			: Sensor(0)
+			: SensorInstance(0)
 		{ }
 };
 

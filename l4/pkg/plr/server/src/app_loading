@@ -7,7 +7,7 @@
  *    Implementation of application loading. Similar to the stuff
  *    moe and ned do.
  *
- * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -81,9 +81,10 @@ class App_model : public Ldr::Base_app_model<Romain::App_stack>
 		                     Const_dataspace src, unsigned long src_offs,
 		                     unsigned long size);
 
-		void         prog_attach_ds(l4_addr_t addr, unsigned long size,
+		void *       prog_attach_ds(l4_addr_t addr, unsigned long size,
 		                            Const_dataspace ds, unsigned long offset,
-		                            unsigned flags, char const *what, l4_addr_t local_start = 0);
+		                            unsigned flags, char const *what, l4_addr_t local_start = 0,
+		                            bool shared = false);
 		l4_addr_t    local_attach_ds(Const_dataspace ds, unsigned long size,
 		                             unsigned long offset) const;
 		void         local_detach_ds(l4_addr_t addr, unsigned long /*size*/) const;
@@ -190,11 +191,19 @@ class App_model : public Ldr::Base_app_model<Romain::App_stack>
 		l4_addr_t        _trampoline_local;
 		l4_addr_t        _trampoline_remote;
 
+		/*
+		 * Store lock info page for pthread determinism enforcer. See
+		 * fault_handlers/lock_observer.*
+		 */
+		l4_addr_t        _lockinfo_local;
+		l4_addr_t        _lockinfo_remote;
+
 	public:
 		App_model(char const *filename, unsigned argc, char const **argv)
 			: _binary_ds(Romain::App_model::open_file(filename)),
 			  _argc(argc), _argv(argv),
-		      _trampoline_local(0), _trampoline_remote(0)
+		      _trampoline_local(0), _trampoline_remote(0),
+		      _lockinfo_local(0), _lockinfo_remote(0)
 		{
 		    _rm = new Romain::Region_map();
 
@@ -226,6 +235,12 @@ class App_model : public Ldr::Base_app_model<Romain::App_stack>
 		{
 			return ((a >= _trampoline_remote) && (a < (_trampoline_remote + Romain::TRAMPOLINE_SIZE)));
 		}
+
+
+		l4_addr_t lockinfo_local() const { return _lockinfo_local; }
+		l4_addr_t lockinfo_remote() const { return _lockinfo_remote; }
+		void lockinfo_local(l4_addr_t a) { _lockinfo_local = a; }
+		void lockinfo_remote(l4_addr_t a) { _lockinfo_remote = a; }
 };
 
 
@@ -237,6 +252,8 @@ class AppModelAddressTranslator : public Romain::AddressTranslator
 		AppModelAddressTranslator(Romain::App_model* a, Romain::App_instance *i)
 			: am(a), inst(i)
 		{ }
+
+		virtual ~AppModelAddressTranslator() { }
 
 		virtual l4_addr_t translate(l4_addr_t orig) const
 		{ return am->rm()->remote_to_local(orig, inst->id()); }

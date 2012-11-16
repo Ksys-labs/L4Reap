@@ -1,4 +1,3 @@
-
 /******************************************************************************
  *
  * Module Name: aslopcode - AML opcode generation
@@ -9,13 +8,13 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2009, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2012, Intel Corp.
  * All rights reserved.
  *
  * 2. License
  *
  * 2.1. This is your license from Intel Corp. under its intellectual property
- * rights.  You may have additional license terms from the party that provided
+ * rights. You may have additional license terms from the party that provided
  * you this software, covering your right to use that party's intellectual
  * property rights.
  *
@@ -32,7 +31,7 @@
  * offer to sell, and import the Covered Code and derivative works thereof
  * solely to the minimum extent necessary to exercise the above copyright
  * license, and in no event shall the patent license extend to any additions
- * to or modifications of the Original Intel Code.  No other license or right
+ * to or modifications of the Original Intel Code. No other license or right
  * is granted directly or by implication, estoppel or otherwise;
  *
  * The above copyright and patent license is granted only if the following
@@ -44,11 +43,11 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification with rights to further distribute source must include
  * the above Copyright Notice, the above License, this list of Conditions,
- * and the following Disclaimer and Export Compliance provision.  In addition,
+ * and the following Disclaimer and Export Compliance provision. In addition,
  * Licensee must cause all Covered Code to which Licensee contributes to
  * contain a file documenting the changes Licensee made to create that Covered
- * Code and the date of any change.  Licensee must include in that file the
- * documentation of any changes made by any predecessor Licensee.  Licensee
+ * Code and the date of any change. Licensee must include in that file the
+ * documentation of any changes made by any predecessor Licensee. Licensee
  * must include a prominent statement that the modification is derived,
  * directly or indirectly, from Original Intel Code.
  *
@@ -56,7 +55,7 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification without rights to further distribute source must
  * include the following Disclaimer and Export Compliance provision in the
- * documentation and/or other materials provided with distribution.  In
+ * documentation and/or other materials provided with distribution. In
  * addition, Licensee may not authorize further sublicense of source of any
  * portion of the Covered Code, and must include terms to the effect that the
  * license from Licensee to its licensee is limited to the intellectual
@@ -81,10 +80,10 @@
  * 4. Disclaimer and Export Compliance
  *
  * 4.1. INTEL MAKES NO WARRANTY OF ANY KIND REGARDING ANY SOFTWARE PROVIDED
- * HERE.  ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
- * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT,  ASSISTANCE,
- * INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL WILL NOT PROVIDE ANY
- * UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY DISCLAIMS ANY
+ * HERE. ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
+ * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
+ * INSTALLATION, TRAINING OR OTHER SERVICES. INTEL WILL NOT PROVIDE ANY
+ * UPDATES, ENHANCEMENTS OR EXTENSIONS. INTEL SPECIFICALLY DISCLAIMS ANY
  * IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT AND FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
@@ -93,14 +92,14 @@
  * COSTS OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, OR FOR ANY INDIRECT,
  * SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THIS AGREEMENT, UNDER ANY
  * CAUSE OF ACTION OR THEORY OF LIABILITY, AND IRRESPECTIVE OF WHETHER INTEL
- * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES.  THESE LIMITATIONS
+ * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES. THESE LIMITATIONS
  * SHALL APPLY NOTWITHSTANDING THE FAILURE OF THE ESSENTIAL PURPOSE OF ANY
  * LIMITED REMEDY.
  *
  * 4.3. Licensee shall not export, either directly or indirectly, any of this
  * software or system incorporating such software without first obtaining any
  * required license or other approval from the U. S. Department of Commerce or
- * any other agency or department of the United States Government.  In the
+ * any other agency or department of the United States Government. In the
  * event Licensee exports any such software from the United States or
  * re-exports any such software from a foreign destination, Licensee shall
  * ensure that the distribution and export/re-export of the software is in
@@ -123,17 +122,14 @@
         ACPI_MODULE_NAME    ("aslopcodes")
 
 
-/* UUID support */
-
-static UINT8 OpcMapToUUID[16] =
-{
-    6,4,2,0,11,9,16,14,19,21,24,26,28,30,32,34
-};
-
 /* Local prototypes */
 
 static void
 OpcDoAccessAs (
+    ACPI_PARSE_OBJECT       *Op);
+
+static void
+OpcDoConnection (
     ACPI_PARSE_OBJECT       *Op);
 
 static void
@@ -263,10 +259,10 @@ OpcGetIntegerWidth (
  *
  * PARAMETERS:  Op        - A parse tree node
  *
- * RETURN:      Integer width, in bytes.  Also sets the node AML opcode to the
+ * RETURN:      Integer width, in bytes. Also sets the node AML opcode to the
  *              optimal integer AML prefix opcode.
  *
- * DESCRIPTION: Determine the optimal AML encoding of an integer.  All leading
+ * DESCRIPTION: Determine the optimal AML encoding of an integer. All leading
  *              zeros can be truncated to squeeze the integer into the
  *              minimal number of AML bytes.
  *
@@ -286,7 +282,7 @@ OpcSetOptimalIntegerSize (
         Op->Asl.Parent->Asl.Parent &&
        (Op->Asl.Parent->Asl.Parent->Asl.ParseOpcode == PARSEOP_DEFINITIONBLOCK))
     {
-        return 0;
+        return (0);
     }
 #endif
 
@@ -306,14 +302,14 @@ OpcSetOptimalIntegerSize (
             Op->Asl.AmlOpcode = AML_ZERO_OP;
             AslError (ASL_OPTIMIZATION, ASL_MSG_INTEGER_OPTIMIZATION,
                 Op, "Zero");
-            return 1;
+            return (1);
 
         case 1:
 
             Op->Asl.AmlOpcode = AML_ONE_OP;
             AslError (ASL_OPTIMIZATION, ASL_MSG_INTEGER_OPTIMIZATION,
                 Op, "One");
-            return 1;
+            return (1);
 
         case ACPI_UINT32_MAX:
 
@@ -324,11 +320,11 @@ OpcSetOptimalIntegerSize (
                 Op->Asl.AmlOpcode = AML_ONES_OP;
                 AslError (ASL_OPTIMIZATION, ASL_MSG_INTEGER_OPTIMIZATION,
                     Op, "Ones");
-                return 1;
+                return (1);
             }
             break;
 
-        case ACPI_INTEGER_MAX:
+        case ACPI_UINT64_MAX:
 
             /* Check for table integer width (32 or 64) */
 
@@ -337,7 +333,7 @@ OpcSetOptimalIntegerSize (
                 Op->Asl.AmlOpcode = AML_ONES_OP;
                 AslError (ASL_OPTIMIZATION, ASL_MSG_INTEGER_OPTIMIZATION,
                     Op, "Ones");
-                return 1;
+                return (1);
             }
             break;
 
@@ -351,17 +347,17 @@ OpcSetOptimalIntegerSize (
     if (Op->Asl.Value.Integer <= ACPI_UINT8_MAX)
     {
         Op->Asl.AmlOpcode = AML_BYTE_OP;
-        return 1;
+        return (1);
     }
     if (Op->Asl.Value.Integer <= ACPI_UINT16_MAX)
     {
         Op->Asl.AmlOpcode = AML_WORD_OP;
-        return 2;
+        return (2);
     }
     if (Op->Asl.Value.Integer <= ACPI_UINT32_MAX)
     {
         Op->Asl.AmlOpcode = AML_DWORD_OP;
-        return 4;
+        return (4);
     }
     else
     {
@@ -374,12 +370,12 @@ OpcSetOptimalIntegerSize (
             {
                 /* Truncate the integer to 32-bit */
                 Op->Asl.AmlOpcode = AML_DWORD_OP;
-                return 4;
+                return (4);
             }
         }
 
         Op->Asl.AmlOpcode = AML_QWORD_OP;
-        return 8;
+        return (8);
     }
 }
 
@@ -400,26 +396,128 @@ static void
 OpcDoAccessAs (
     ACPI_PARSE_OBJECT       *Op)
 {
-    ACPI_PARSE_OBJECT       *Next;
+    ACPI_PARSE_OBJECT       *TypeOp;
+    ACPI_PARSE_OBJECT       *AttribOp;
+    ACPI_PARSE_OBJECT       *LengthOp;
+    UINT8                   Attribute;
 
 
     Op->Asl.AmlOpcodeLength = 1;
-    Next = Op->Asl.Child;
+    TypeOp = Op->Asl.Child;
 
     /* First child is the access type */
 
-    Next->Asl.AmlOpcode = AML_RAW_DATA_BYTE;
-    Next->Asl.ParseOpcode = PARSEOP_RAW_DATA;
+    TypeOp->Asl.AmlOpcode = AML_RAW_DATA_BYTE;
+    TypeOp->Asl.ParseOpcode = PARSEOP_RAW_DATA;
 
     /* Second child is the optional access attribute */
 
-    Next = Next->Asl.Next;
-    if (Next->Asl.ParseOpcode == PARSEOP_DEFAULT_ARG)
+    AttribOp = TypeOp->Asl.Next;
+    if (AttribOp->Asl.ParseOpcode == PARSEOP_DEFAULT_ARG)
     {
-        Next->Asl.Value.Integer = 0;
+        AttribOp->Asl.Value.Integer = 0;
     }
-    Next->Asl.AmlOpcode = AML_RAW_DATA_BYTE;
-    Next->Asl.ParseOpcode = PARSEOP_RAW_DATA;
+    AttribOp->Asl.AmlOpcode = AML_RAW_DATA_BYTE;
+    AttribOp->Asl.ParseOpcode = PARSEOP_RAW_DATA;
+
+    /* Only a few AccessAttributes support AccessLength */
+
+    Attribute = (UINT8) AttribOp->Asl.Value.Integer;
+    if ((Attribute != AML_FIELD_ATTRIB_MULTIBYTE) &&
+        (Attribute != AML_FIELD_ATTRIB_RAW_BYTES) &&
+        (Attribute != AML_FIELD_ATTRIB_RAW_PROCESS))
+    {
+        return;
+    }
+
+    Op->Asl.AmlOpcode = AML_FIELD_EXT_ACCESS_OP;
+
+    /*
+     * Child of Attributes is the AccessLength (required for Multibyte,
+     * RawBytes, RawProcess.)
+     */
+    LengthOp = AttribOp->Asl.Child;
+    if (!LengthOp)
+    {
+        return;
+    }
+
+    /* TBD: probably can remove */
+
+    if (LengthOp->Asl.ParseOpcode == PARSEOP_DEFAULT_ARG)
+    {
+        LengthOp->Asl.Value.Integer = 16;
+    }
+
+    LengthOp->Asl.AmlOpcode = AML_RAW_DATA_BYTE;
+    LengthOp->Asl.ParseOpcode = PARSEOP_RAW_DATA;
+}
+
+
+/*******************************************************************************
+ *
+ * FUNCTION:    OpcDoConnection
+ *
+ * PARAMETERS:  Op        - Parse node
+ *
+ * RETURN:      None
+ *
+ * DESCRIPTION: Implement the Connection ASL keyword.
+ *
+ ******************************************************************************/
+
+static void
+OpcDoConnection (
+    ACPI_PARSE_OBJECT       *Op)
+{
+    ASL_RESOURCE_NODE       *Rnode;
+    ACPI_PARSE_OBJECT       *BufferOp;
+    ACPI_PARSE_OBJECT       *BufferLengthOp;
+    ACPI_PARSE_OBJECT       *BufferDataOp;
+    UINT8                   State;
+
+
+    Op->Asl.AmlOpcodeLength = 1;
+
+    if (Op->Asl.Child->Asl.AmlOpcode == AML_INT_NAMEPATH_OP)
+    {
+        return;
+    }
+
+    BufferOp = Op->Asl.Child;
+    BufferLengthOp = BufferOp->Asl.Child;
+    BufferDataOp = BufferLengthOp->Asl.Next;
+
+    State = ACPI_RSTATE_NORMAL;
+    Rnode = RsDoOneResourceDescriptor (BufferDataOp->Asl.Next, 0, &State);
+    if (!Rnode)
+    {
+        return; /* error */
+    }
+
+    /*
+     * Transform the nodes into the following
+     *
+     * Op           -> AML_BUFFER_OP
+     * First Child  -> BufferLength
+     * Second Child -> Descriptor Buffer (raw byte data)
+     */
+    BufferOp->Asl.ParseOpcode         = PARSEOP_BUFFER;
+    BufferOp->Asl.AmlOpcode           = AML_BUFFER_OP;
+    BufferOp->Asl.CompileFlags        = NODE_AML_PACKAGE | NODE_IS_RESOURCE_DESC;
+    UtSetParseOpName (BufferOp);
+
+    BufferLengthOp->Asl.ParseOpcode   = PARSEOP_INTEGER;
+    BufferLengthOp->Asl.Value.Integer = Rnode->BufferLength;
+    (void) OpcSetOptimalIntegerSize (BufferLengthOp);
+    UtSetParseOpName (BufferLengthOp);
+
+    BufferDataOp->Asl.ParseOpcode         = PARSEOP_RAW_DATA;
+    BufferDataOp->Asl.AmlOpcode           = AML_RAW_DATA_CHAIN;
+    BufferDataOp->Asl.AmlOpcodeLength     = 0;
+    BufferDataOp->Asl.AmlLength           = Rnode->BufferLength;
+    BufferDataOp->Asl.Value.Buffer        = (UINT8 *) Rnode;
+    UtSetParseOpName (BufferDataOp);
 }
 
 
@@ -432,7 +530,7 @@ OpcDoAccessAs (
  * RETURN:      None
  *
  * DESCRIPTION: Implement the UNICODE ASL "macro".  Convert the input string
- *              to a unicode buffer.  There is no Unicode AML opcode.
+ *              to a unicode buffer. There is no Unicode AML opcode.
  *
  * Note:  The Unicode string is 16 bits per character, no leading signature,
  *        with a 16-bit terminating NULL.
@@ -508,19 +606,19 @@ OpcDoUnicode (
  *
  * RETURN:      None
  *
- * DESCRIPTION: Convert a string EISA ID to numeric representation.  See the
- *              Pnp BIOS Specification for details.  Here is an excerpt:
+ * DESCRIPTION: Convert a string EISA ID to numeric representation. See the
+ *              Pnp BIOS Specification for details. Here is an excerpt:
  *
  *              A seven character ASCII representation of the product
- *              identifier compressed into a 32-bit identifier.  The seven
+ *              identifier compressed into a 32-bit identifier. The seven
  *              character ID consists of a three character manufacturer code,
  *              a three character hexadecimal product identifier, and a one
- *              character hexadecimal revision number.  The manufacturer code
+ *              character hexadecimal revision number. The manufacturer code
  *              is a 3 uppercase character code that is compressed into 3 5-bit
  *              values as follows:
  *                  1) Find hex ASCII value for each letter
  *                  2) Subtract 40h from each ASCII value
- *                  3) Retain 5 least signficant bits for each letter by
+ *                  3) Retain 5 least significant bits for each letter by
  *                     discarding upper 3 bits because they are always 0.
  *                  4) Compressed code = concatenate 0 and the 3 5-bit values
  *
@@ -568,7 +666,7 @@ OpcDoEisaId (
 
             if (i < 3)
             {
-                if (!isupper (InString[i]))
+                if (!isupper ((int) InString[i]))
                 {
                     Status = AE_BAD_PARAMETER;
                 }
@@ -576,7 +674,7 @@ OpcDoEisaId (
 
             /* Last 4 characters must be hex digits */
 
-            else if (!isxdigit (InString[i]))
+            else if (!isxdigit ((int) InString[i]))
             {
                 Status = AE_BAD_PARAMETER;
             }
@@ -592,9 +690,9 @@ OpcDoEisaId (
         /* Create ID big-endian first (bits are contiguous) */
 
         BigEndianId =
-            (UINT32) (InString[0] - 0x40) << 26 |
-            (UINT32) (InString[1] - 0x40) << 21 |
-            (UINT32) (InString[2] - 0x40) << 16 |
+            (UINT32) ((UINT8) (InString[0] - 0x40)) << 26 |
+            (UINT32) ((UINT8) (InString[1] - 0x40)) << 21 |
+            (UINT32) ((UINT8) (InString[2] - 0x40)) << 16 |
 
             (UtHexCharToValue (InString[3])) << 12 |
             (UtHexCharToValue (InString[4])) << 8  |
@@ -624,7 +722,7 @@ OpcDoEisaId (
 
 /*******************************************************************************
  *
- * FUNCTION:    OpcDoUiId
+ * FUNCTION:    OpcDoUuId
  *
  * PARAMETERS:  Op        - Parse node
  *
@@ -641,49 +739,20 @@ OpcDoUuId (
     char                    *InString;
     char                    *Buffer;
     ACPI_STATUS             Status = AE_OK;
-    UINT32                  i;
     ACPI_PARSE_OBJECT       *NewOp;
 
 
     InString = (char *) Op->Asl.Value.String;
-
-    if (ACPI_STRLEN (InString) != 36)
-    {
-        Status = AE_BAD_PARAMETER;
-    }
-    else
-    {
-        /* Check all 36 characters for correct format */
-
-        for (i = 0; i < 36; i++)
-        {
-            if ((i == 8) || (i == 13) || (i == 18) || (i == 23))
-            {
-                if (InString[i] != '-')
-                {
-                    Status = AE_BAD_PARAMETER;
-                }
-            }
-            else
-            {
-                if (!isxdigit (InString[i]))
-                {
-                    Status = AE_BAD_PARAMETER;
-                }
-            }
-        }
-    }
-
     Buffer = UtLocalCalloc (16);
 
+    Status = AuValidateUuid (InString);
     if (ACPI_FAILURE (Status))
     {
         AslError (ASL_ERROR, ASL_MSG_INVALID_UUID, Op, Op->Asl.Value.String);
     }
-    else for (i = 0; i < 16; i++)
+    else
     {
-        Buffer[i]  = (char) (UtHexCharToValue (InString[OpcMapToUUID[i]]) << 4);
-        Buffer[i] |= (char)  UtHexCharToValue (InString[OpcMapToUUID[i] + 1]);
+        (void) AuConvertStringToUuid (InString, Buffer);
     }
 
     /* Change Op to a Buffer */
@@ -728,7 +797,7 @@ OpcDoUuId (
  * RETURN:      None
  *
  * DESCRIPTION: Generate the AML opcode associated with the node and its
- *              parse (lex/flex) keyword opcode.  Essentially implements
+ *              parse (lex/flex) keyword opcode. Essentially implements
  *              a mapping between the parse opcodes and the actual AML opcodes.
  *
  ******************************************************************************/
@@ -773,6 +842,11 @@ OpcGenerateAmlOpcode (
         OpcDoAccessAs (Op);
         break;
 
+    case PARSEOP_CONNECTION:
+
+        OpcDoConnection (Op);
+        break;
+
     case PARSEOP_EISAID:
 
         OpcDoEisaId (Op);
@@ -807,5 +881,3 @@ OpcGenerateAmlOpcode (
 
     return;
 }
-
-

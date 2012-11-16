@@ -40,7 +40,27 @@
 #include <stdio.h>
 #include <fcntl.h>
 
+#ifdef SUPPORT_LEGACY_CFG
 #include "cfg_parser.h"
+#endif
+
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
+
+#include "lua_glue.swg.h"
+
+int luaopen_Io(lua_State *);
+
+static const luaL_Reg libs[] =
+{
+  {"", luaopen_base },
+  {LUA_STRLIBNAME, luaopen_string },
+  {LUA_LOADLIBNAME, luaopen_package},
+  {LUA_DBLIBNAME, luaopen_debug},
+  {LUA_TABLIBNAME, luaopen_table},
+  { NULL, NULL }
+};
 
 using L4Re::Util::Auto_cap;
 
@@ -108,12 +128,17 @@ static void dump(Device *d)
       if (dlevel(DBG_INFO))
         i->dump(i->depth() * 2);
       if (dlevel(DBG_DEBUG))
-        for (Resource_list::iterator r = i->resources()->begin();
+        for (Resource_list::const_iterator r = i->resources()->begin();
              r != i->resources()->end(); ++r)
           if (*r)
-            r->dump(i->depth() * 2 + 2);
+            (*r)->dump(i->depth() * 2 + 2);
     }
 }
+
+void dump_devs(Device *d);
+int add_vbus(Vi::Device *dev);
+
+void dump_devs(Device *d) { dump(d); }
 
 
 Hw_icu::Hw_icu()
@@ -123,6 +148,25 @@ Hw_icu::Hw_icu()
     icu->info(&info);
 }
 
+int add_vbus(Vi::Device *dev)
+{
+  Vi::System_bus *b = dynamic_cast<Vi::System_bus*>(dev);
+  if (!b)
+    {
+      d_printf(DBG_ERR, "ERROR: found non system-bus device as root device, ignored\n");
+      return -1;
+    }
+
+  b->request_child_resources();
+  b->allocate_pending_child_resources();
+  b->setup_resources();
+  if (!registry->register_obj(b, b->name()).is_valid())
+    {
+      d_printf(DBG_WARN, "WARNING: Service registration failed: '%s'\n", b->name());
+      return -1;
+    }
+  return 0;
+}
 
 
 struct Add_system_bus
@@ -147,51 +191,98 @@ struct Add_system_bus
   }
 };
 
-static void
-read_config(char const *cfg_file)
-{
-  Vi::Device *vdev = 0;
 
+#ifdef SUPPORT_LEGACY_CFG
+static void
+print_cfg_error(char const *cfg, char const *lua_err, char const *msg, int err)
+{
+  if (lua_err)
+    d_printf(DBG_ERR, "%s: error using as lua config: %s\n", cfg, lua_err);
+
+  if (msg)
+    d_printf(DBG_ERR, "%s: error (legacy format): %s (errno=%d)\n", cfg, msg, err);
+
+  if (errno < 0)
+    exit(1);
+}
+#endif
+
+static int
+read_config(char const *cfg_file, lua_State *lua)
+{
   d_printf(DBG_INFO, "Loading: config '%s'\n", cfg_file);
 
+  char const *lua_err = 0;
+  int err = luaL_loadfile(lua, cfg_file);
 
+  switch (err)
+    {
+    case 0:
+      if ((err = lua_pcall(lua, 0, LUA_MULTRET, 0)))
+        {
+          lua_err = lua_tostring(lua, -1);
+          d_printf(DBG_ERR, "%s: error executing lua config: %s\n", cfg_file, lua_err);
+          lua_pop(lua, lua_gettop(lua));
+          return -1;
+        }
+      lua_pop(lua, lua_gettop(lua));
+      return 0;
+      break;
+    case LUA_ERRSYNTAX:
+      lua_err = lua_tostring(lua, -1);
+      lua_pop(lua, lua_gettop(lua));
+      break;
+    case LUA_ERRMEM:
+      d_printf(DBG_ERR, "%s: out of memory while loading file\n", cfg_file);
+      exit(1);
+    case LUA_ERRFILE:
+      lua_err = lua_tostring(lua, -1);
+      d_printf(DBG_ERR, "%s: cannot open/read file: %s\n", cfg_file, lua_err);
+      exit(1);
+    default:
+      d_printf(DBG_ERR, "%s: unknown error: %s\n", cfg_file, lua_err);
+      exit(1);
+    }
+#ifdef SUPPORT_LEGACY_CFG
+  // try old school config file parser
   int fd = open(cfg_file, O_RDONLY);
 
   if (fd < 0)
-    {
-      d_printf(DBG_ERR, "ERROR: failed to open config file '%s'\n", cfg_file);
-      exit(1);
-    }
+    print_cfg_error(cfg_file, lua_err, "failed to open", errno);
 
   struct stat sd;
   if (fstat(fd, &sd))
-    {
-      d_printf(DBG_ERR, "ERROR: failed to stat config file '%s'\n", cfg_file);
-      exit(1);
-    }
+    print_cfg_error(cfg_file, lua_err, "cannot stat file", errno);
 
   void *adr = mmap(NULL, sd.st_size, PROT_READ, MAP_SHARED, fd, 0);
   if (adr == MAP_FAILED)
-    {
-      d_printf(DBG_ERR, "ERROR: failed to mmap config file '%s'\n", cfg_file);
-      exit(1);
-    }
+    print_cfg_error(cfg_file, lua_err, "cannot mmap file", errno);
 
   char const *config_file = (char const *)adr;
-
+  Vi::Device *vdev = 0;
+  int parse_errors = 0;
   cfg::Scanner s(config_file, config_file + sd.st_size, cfg_file);
-  cfg::Parser p(&s, 0, vdev, system_bus());
+  cfg::Parser p(&s, 0, vdev, system_bus(), parse_errors);
   p.parse();
 
   munmap(adr, sd.st_size);
 
+  if (parse_errors > 0)
+    print_cfg_error(cfg_file, lua_err, "parse errors", parse_errors);
+
   if (!vdev)
-    return;
+    return 0;
 
   std::for_each(Vi::Device::iterator(0, vdev, 0), Vi::Device::end(), Add_system_bus());
 
   if (dlevel(DBG_DEBUG))
     dump(vdev);
+
+  return 0;
+#else
+  d_printf(DBG_ERR, "%s: error using as lua config: %s\n", cfg_file, lua_err);
+  return -1;
+#endif
 }
 
 
@@ -265,8 +356,34 @@ run(int argc, char * const *argv)
     ux_setup(system_bus());
 #endif
 
+  lua_State *lua = luaL_newstate();
+
+  if (!lua)
+    {
+      printf("ERROR: cannot allocate Lua state\n");
+      exit(1);
+    }
+
+  lua_newtable(lua);
+  lua_setglobal(lua, "Io");
+
+  for (int i = 0; libs[i].func; ++i)
+    {
+#if 1 // lua 5.1
+      lua_pushcfunction(lua, libs[i].func);
+      lua_pushstring(lua,libs[i].name);
+      lua_call(lua, 1, 0);
+#endif
+#if 0  // lua 5.2
+      luaL_requiref(lua, libs[i].name, libs[i].func, 1);
+      lua_pop(lua, 1);
+#endif
+    }
+
+  luaopen_Io(lua);
+
   for (; argfileidx < argc; ++argfileidx)
-    read_config(argv[argfileidx]);
+    read_config(argv[argfileidx], lua);
 
   if (dlevel(DBG_DEBUG))
     {

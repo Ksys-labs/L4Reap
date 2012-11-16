@@ -187,96 +187,90 @@ touch_repeat(termstate_t * term, unsigned code, unsigned repeat)
  (void)term; (void)code; (void)repeat;
 }
 
-void event_handler(void *data)
+void handle_key(L4Re::Event_buffer::Event *e)
 {
-  (void)data;
-  L4Re::Event_buffer::Event *e;
-  int do_trigger = 0;
-
-  while ((e = ev_buffer.next()))
+  switch (e->payload.code)
     {
-      switch (e->payload.type)
+    case L4RE_KEY_RIGHTSHIFT:        // modifiers
+    case L4RE_KEY_LEFTSHIFT:
+      if (e->payload.value)
+        term->__shift = 1;
+      else
+        term->__shift = 0;
+      touch_repeat(term, e->payload.code, 0);
+      break;
+    case L4RE_KEY_LEFTCTRL:
+    case L4RE_KEY_RIGHTCTRL:
+      if (e->payload.value)
+        term->__ctrl  = 1;
+      else
+        term->__ctrl  = 0;
+      touch_repeat(term, e->payload.code, 0);
+      break;
+    case L4RE_KEY_LEFTALT:
+      if (e->payload.value)
+        term->__alt  = 1;
+      else
+        term->__alt  = 0;
+      touch_repeat(term, e->payload.code, 0);
+      break;
+    case L4RE_KEY_RIGHTALT:
+      if (e->payload.value)
+        term->__altgr  = 1;
+      else
+        term->__altgr  = 0;
+      touch_repeat(term, e->payload.code, 0);
+      break;
+    case L4RE_KEY_PAGEUP:            // special terminal movement chars
+      if (e->payload.value && term->__shift)
         {
-        case L4RE_EV_KEY:
-            {
-              do_trigger = 1;
-          switch (e->payload.code)
-            {
-            case L4RE_KEY_RIGHTSHIFT:        // modifiers
-            case L4RE_KEY_LEFTSHIFT:
-              if (e->payload.value)
-                term->__shift = 1;
-              else
-                term->__shift = 0;
-              touch_repeat(term, e->payload.code, 0);
-              break;
-            case L4RE_KEY_LEFTCTRL:
-            case L4RE_KEY_RIGHTCTRL:
-              if (e->payload.value)
-                term->__ctrl  = 1;
-              else
-                term->__ctrl  = 0;
-              touch_repeat(term, e->payload.code, 0);
-              break;
-            case L4RE_KEY_LEFTALT:
-              if (e->payload.value)
-                term->__alt  = 1;
-              else
-                term->__alt  = 0;
-              touch_repeat(term, e->payload.code, 0);
-              break;
-            case L4RE_KEY_RIGHTALT:
-              if (e->payload.value)
-                term->__altgr  = 1;
-              else
-                term->__altgr  = 0;
-              touch_repeat(term, e->payload.code, 0);
-              break;
-            case L4RE_KEY_PAGEUP:            // special terminal movement chars
-              if (e->payload.value && term->__shift)
-                {
-                  vt100_scroll_up(term, term->phys_h / 2); // scroll for half screen
-                  vt100_redraw(term);
-                  touch_repeat(term, e->payload.code, e->payload.value);
-                }
-              break;
-            case L4RE_KEY_PAGEDOWN:
-              if (e->payload.value && term->__shift)
-                {
-                  vt100_scroll_down(term, term->phys_h / 2); // scroll for half screen
-                  vt100_redraw(term);
-                  touch_repeat(term, e->payload.code, e->payload.value);
-                }
-              break;
-            }
-          if (e->payload.value)         // regular chars
-            vt100_add_key(term, e->payload.code);
+          vt100_scroll_up(term, term->phys_h / 2); // scroll for half screen
+          vt100_redraw(term);
           touch_repeat(term, e->payload.code, e->payload.value);
-          break;
-            }
-
-#if 0
-        case L4RE_EV_CON:
-          switch (e->code) 
-            {
-            case EV_CON_REDRAW:
-              LOG("vt100_redraw()");
-              vt100_redraw(term);
-              break;
-            }
-          break;
-#endif
-        default:
-          //LOGl("Event = %d", e->payload.type);
-          break;
         }
-
-      e->free();
+      break;
+    case L4RE_KEY_PAGEDOWN:
+      if (e->payload.value && term->__shift)
+        {
+          vt100_scroll_down(term, term->phys_h / 2); // scroll for half screen
+          vt100_redraw(term);
+          touch_repeat(term, e->payload.code, e->payload.value);
+        }
+      break;
     }
-  if (do_trigger)
-    terminal->trigger();
+
+  if (e->payload.value)         // regular chars
+    vt100_add_key(term, e->payload.code);
+  touch_repeat(term, e->payload.code, e->payload.value);
 }
 
+namespace {
+
+struct Ev_loop : public Event::Event_loop
+{
+  Ev_loop(L4::Cap<L4::Irq> irq, int prio) : Event::Event_loop(irq, prio) {}
+  void handle()
+  {
+    L4Re::Event_buffer::Event *e;
+    bool fire = false;
+    while ((e = ev_buffer.next()))
+      {
+        if (e->payload.type == L4RE_EV_KEY)
+          {
+            handle_key(e);
+            fire = true;
+          }
+
+        e->free();
+      }
+
+    if (fire)
+      terminal->trigger();
+
+    fire = false;
+  }
+};
+}
 
 // convert attributes to corresponding gfxbitmap_color_pix_t
 static void attribs_to_colors(l4_int8_t a, gfxbitmap_color_pix_t *fg,
@@ -543,9 +537,11 @@ int main()
       exit(1);
     }
 
-  Event::Event event(ev_irq, event_handler, 0, 0xff);
+  Ev_loop event(ev_irq, 0xff);
   if (!event.attached())
     return 1;
+
+  event.start();
 
   Terminal _terminal;
   term_registry.register_obj(&_terminal, "term");

@@ -1,6 +1,19 @@
 #include "app_loading"
 #include "locking.h"
 
+/*
+ * app_loading.cc --
+ *
+ *    Implementation of application loading. Similar to the stuff
+ *    moe and ned do.
+ *
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ *     economic rights: Technische Universität Dresden (Germany)
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+
 #define MSG() DEBUGf(Romain::Log::Loader)
 
 Romain::App_model::Const_dataspace Romain::App_model::open_file(char const *name)
@@ -69,7 +82,7 @@ int Romain::App_model::prog_reserve_area(l4_addr_t *start, unsigned long size,
 	      << size << " "
 	      << flags << " "
 	      << align;
-	_check(1, "unimplemented");
+	_check(1, "prog_reserve_area unimplemented");
 	return -1;
 }
 
@@ -112,9 +125,11 @@ void Romain::App_model::prog_attach_kip()
 }
 
 
-void Romain::App_model::prog_attach_ds(l4_addr_t addr, unsigned long size,
-                                    Romain::App_model::Const_dataspace ds, unsigned long offset,
-                                    unsigned flags, char const *what, l4_addr_t local_start)
+void*
+Romain::App_model::prog_attach_ds(l4_addr_t addr, unsigned long size,
+                                  Romain::App_model::Const_dataspace ds, unsigned long offset,
+                                  unsigned flags, char const *what, l4_addr_t local_start,
+                                  bool sharedFlag)
 {
 	(void)what;
 	Romain::Rm_guard r(rm(), 0); // we always init stuff for instance 0,
@@ -136,12 +151,13 @@ void Romain::App_model::prog_attach_ds(l4_addr_t addr, unsigned long size,
 	                            Romain::Region_handler(
 	                                ds, L4_INVALID_CAP, offset, flags,
 	                                Romain::Region(local_start, local_start + size - 1)),
-	                                flags);
-#if 0
+	                                flags, L4_PAGESHIFT, sharedFlag);
+#if 1
 	MSG() << std::hex << (void*)target;
 #endif
 
 	_check(((target == 0) || (target == (void*)~0UL)), "error attaching segment");
+	return target;
 }
 
 
@@ -158,7 +174,12 @@ Romain::App_model::add_env()
 	memcpy(env, L4Re::Env::env(), sizeof(L4Re::Env));
 	MSG() << "my first cap " << std::hex << env->first_free_cap();
 	env->initial_caps(remote_cap_ptr);
-	env->first_free_cap(0x1000);
+	env->main_thread(L4::Cap<L4::Thread>(Romain::FIRST_REPLICA_CAP << L4_CAP_SHIFT));
+	env->first_free_cap(Romain::FIRST_REPLICA_CAP + 1); // First free + 1, because the first
+	                                                    // free slot is used for the main thread's
+	                                                    // GateAgent
+	env->utcb_area(l4_fpage(this->prog_info()->utcbs_start, this->prog_info()->utcbs_log2size, 0));
+	env->first_free_utcb(this->prog_info()->utcbs_start + L4_UTCB_OFFSET);
 
 	return env;
 }

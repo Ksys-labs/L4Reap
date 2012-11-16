@@ -291,13 +291,13 @@ Pci_dev::discover_bar(int bar)
             | Resource::F_size_aligned
             | Resource::F_hierarchical;
 
-  Adr_resource *res = 0;
+  Resource *res = 0;
   if (!(x & 1))
     {
       //printf("%08x: BAR[%d] mmio ... %x\n", adr(), bar, x );
-      res = new Adr_resource(mem_flags);
+      res = new Resource(mem_flags);
       if ((x & 0x6) == 0x4)
-	res->add_flags(Adr_resource::F_width_64bit);
+	res->add_flags(Resource::F_width_64bit);
 
       if (x & 0x8)
 	res->add_flags(Resource::F_prefetchable);
@@ -330,7 +330,7 @@ Pci_dev::discover_bar(int bar)
       // printf("%08x: BAR[%d] mem ...\n", adr(), bar*4 + 10 );
       _bars[bar - res->is_64bit()] = res;
       if (res->is_64bit())
-	_bars[bar] = (Adr_resource*)1;
+	_bars[bar] = (Resource*)1;
 
     }
   else
@@ -341,7 +341,7 @@ Pci_dev::discover_bar(int bar)
 	if ((x >> s) & 1)
 	  break;
 
-      res = new Adr_resource(io_flags);
+      res = new Resource(io_flags);
 
       _bars[bar] = res;
       res->start_size(v & ~3, 1 << s);
@@ -366,15 +366,15 @@ Pci_dev::discover_legacy_ide_resources()
   // IDE legacy IO interface
   if (cls_rev >> 16 == 0x101 && !(cls_rev & 0x100))
     {
-      _host->add_resource(new Adr_resource(io_flags, 0x1f0, 0x1f7));
-      _host->add_resource(new Adr_resource(io_flags, 0x3f6, 0x3f6));
-      _host->add_resource(new Adr_resource(Resource::Irq_res | Resource::Irq_edge, 14, 14));
+      _host->add_resource(new Resource(io_flags, 0x1f0, 0x1f7));
+      _host->add_resource(new Resource(io_flags, 0x3f6, 0x3f6));
+      _host->add_resource(new Resource(Resource::Irq_res | Resource::Irq_edge, 14, 14));
     }
   if (cls_rev >> 16 == 0x101 && !(cls_rev & 0x400))
     {
-      _host->add_resource(new Adr_resource(io_flags, 0x170, 0x177));
-      _host->add_resource(new Adr_resource(io_flags, 0x376, 0x376));
-      _host->add_resource(new Adr_resource(Resource::Irq_res | Resource::Irq_edge, 15, 15));
+      _host->add_resource(new Resource(io_flags, 0x170, 0x177));
+      _host->add_resource(new Resource(io_flags, 0x376, 0x376));
+      _host->add_resource(new Resource(Resource::Irq_res | Resource::Irq_edge, 15, 15));
     }
 }
 
@@ -415,10 +415,10 @@ Pci_dev::quirk_8086_8108()
                    | Resource::F_fixed_size;
   l4_addr_t end = v + gfx_mem_sz - 1;
 
-  _host->add_resource(new Adr_resource(flags, v, end));
+  _host->add_resource(new Resource(flags, v, end));
   for (Pci_bridge *p = _bus; p;)
     {
-      p->host()->add_resource(new Adr_resource_provider(flags, v, end));
+      p->host()->add_resource(new Resource_provider(flags, v, end));
       if (Pci_dev *d = dynamic_cast<Pci_dev *>(p))
         p = d->_bus;
       else
@@ -458,9 +458,9 @@ Pci_dev::discover_expansion_rom()
 
   if (0) // currently we do not add a resource record for ROMs
     {
-      unsigned flags = Adr_resource::Mmio_res | Adr_resource::F_size_aligned
-                       | Adr_resource::F_rom | Adr_resource::F_prefetchable;
-      Adr_resource *res = new Adr_resource(flags);
+      unsigned flags = Resource::Mmio_res | Resource::F_size_aligned
+                       | Resource::F_rom | Resource::F_prefetchable;
+      Resource *res = new Resource(flags);
 
       _rom = res;
       res->start_size(v & ~3, 1 << s);
@@ -482,7 +482,7 @@ public:
   int unbind();
 
   void dump(int indent) const
-  { Adr_resource::dump("MSI   ", indent);  }
+  { Resource::dump("MSI   ", indent);  }
 
 private:
   Pci_bridge *_bus;
@@ -576,12 +576,12 @@ Pci_dev::discover_pci_caps()
 	      continue;
 	    }
 
-	  for (Resource_list::iterator i = host()->resources()->begin();
+	  for (Resource_list::const_iterator i = host()->resources()->begin();
 	       i != host()->resources()->end(); ++i)
 	    {
 	      if ((*i)->type() == Resource::Irq_res)
 		{
-		  (*i)->set_empty(true);
+		  (*i)->set_empty();
 		  (*i)->add_flags(Resource::F_disabled);
 		}
 	    }
@@ -589,7 +589,7 @@ Pci_dev::discover_pci_caps()
 	  d_printf(DBG_DEBUG, "Use MSI PCI device %02x:%02x:%x: pin=%x\n",
 	           bus()->num, host()->adr() >> 16, host()->adr() & 0xff, msi);
 
-	  Adr_resource *res = new Msi_res(msi, bus(), cfg_addr(cap_ptr));
+	  Resource *res = new Msi_res(msi, bus(), cfg_addr(cap_ptr));
 	  flags |= F_msi;
 	  _host->add_resource(res);
 	}
@@ -609,9 +609,15 @@ Pci_dev::discover_resources(Hw::Device *host)
   irq_pin = v;
 
   if (irq_pin)
-    host->add_resource(new Adr_resource(Resource::Irq_res | Resource::F_relative
+    {
+      Resource * r = new Resource(Resource::Irq_res | Resource::F_relative
                                   | Resource::F_hierarchical,
-                                  irq_pin - 1, irq_pin - 1));
+                                  irq_pin - 1, irq_pin - 1);
+      r->dump(0);
+    host->add_resource(r); //new Resource(Resource::Irq_res | Resource::F_relative
+//                                  | Resource::F_hierarchical,
+//                                  irq_pin - 1, irq_pin - 1));
+    }
 
   cfg_read(C_command, &v, Cfg_short);
 
@@ -635,7 +641,7 @@ Pci_dev::setup_resources(Hw::Device *)
 
   for (unsigned i = 0; i < sizeof(_bars)/sizeof(_bars[0]); ++i)
     {
-      Adr_resource *r = bar(i);
+      Resource *r = bar(i);
       if (!r || r->type() == Resource::Io_res)
 	continue;
 
@@ -785,7 +791,7 @@ Pci_pci_bridge::discover_resources(Hw::Device *host)
   s = (v & 0xfff0) << 16;
   e = (v & 0xfff00000) | 0xfffff;
 
-  Adr_resource *r = new Adr_resource_provider(Resource::Mmio_res);
+  Resource *r = new Resource_provider(Resource::Mmio_res);
   r->alignment(0xfffff);
   if (s < e)
     r->start_end(s, e);
@@ -797,14 +803,14 @@ Pci_pci_bridge::discover_resources(Hw::Device *host)
   mmio->validate();
   _host->add_resource(mmio);
 
-  r = new Adr_resource_provider(Resource::Mmio_res | Resource::F_prefetchable);
+  r = new Resource_provider(Resource::Mmio_res | Resource::F_prefetchable);
   cfg_read(C_pref_mem_base, &v, Cfg_long);
   s = (v & 0xfff0) << 16;
   e = (v & 0xfff00000) | 0xfffff;
 
   if ((v & 0x0f) == 1)
     {
-      r->add_flags(Adr_resource::F_width_64bit);
+      r->add_flags(Resource::F_width_64bit);
       cfg_read(C_pref_mem_base_hi, &v, Cfg_long);
       s |= l4_uint64_t(v) << 32;
       cfg_read(C_pref_mem_limit_hi, &v, Cfg_long);
@@ -825,7 +831,7 @@ Pci_pci_bridge::discover_resources(Hw::Device *host)
   s = (v & 0xf0) << 8;
   e = (v & 0xf000) | 0xfff;
 
-  r = new Adr_resource_provider(Resource::Io_res);
+  r = new Resource_provider(Resource::Io_res);
   r->alignment(0xfff);
   if (s < e)
     r->start_end(s, e);
@@ -929,7 +935,7 @@ Pci_cardbus_bridge::discover_resources(Hw::Device *host)
   cfg_read(C_subsys_vendor, &v, Cfg_long);
   subsys_ids = v;
 
-  Adr_resource *r = new Adr_resource_provider(Resource::Mmio_res);
+  Resource *r = new Resource_provider(Resource::Mmio_res);
   cfg_read(C_cb_mem_base_0, &v, Cfg_long);
   r->start(v);
   cfg_read(C_cb_mem_limit_0, &v, Cfg_long);
@@ -939,7 +945,7 @@ Pci_cardbus_bridge::discover_resources(Hw::Device *host)
   r->validate();
   host->add_resource(r);
 
-  r = new Adr_resource_provider(Resource::Mmio_res);
+  r = new Resource_provider(Resource::Mmio_res);
   cfg_read(C_cb_mem_base_1, &v, Cfg_long);
   r->start(v);
   cfg_read(C_cb_mem_limit_1, &v, Cfg_long);
@@ -949,7 +955,7 @@ Pci_cardbus_bridge::discover_resources(Hw::Device *host)
   r->validate();
   host->add_resource(r);
 
-  r = new Adr_resource_provider(Resource::Io_res);
+  r = new Resource_provider(Resource::Io_res);
   cfg_read(C_cb_io_base_0, &v, Cfg_long);
   r->start(v);
   cfg_read(C_cb_io_limit_0, &v, Cfg_long);
@@ -959,7 +965,7 @@ Pci_cardbus_bridge::discover_resources(Hw::Device *host)
   r->validate();
   host->add_resource(r);
 
-  r = new Adr_resource_provider(Resource::Io_res);
+  r = new Resource_provider(Resource::Io_res);
   cfg_read(C_cb_io_base_1, &v, Cfg_long);
   r->start(v);
   cfg_read(C_cb_io_limit_1, &v, Cfg_long);
@@ -981,16 +987,6 @@ bool
 Pci_pci_bridge_irq_router_rs::request(Resource *parent, Device *pdev,
                                       Resource *child, Device *cdev)
 {
-  Adr_resource *cr = dynamic_cast<Adr_resource*>(child);
-
-  if (!cr)
-    {
-      // assume we allocate an abstract IRQ router resource as a child
-      // that always fits
-      child->parent(parent);
-      return true;
-    }
-
   bool res = false;
 
   Hw::Device *cd = dynamic_cast<Hw::Device*>(cdev);
@@ -1000,10 +996,10 @@ Pci_pci_bridge_irq_router_rs::request(Resource *parent, Device *pdev,
 
   if (pdev->parent())
     {
-      cr->start((cr->start() + (cd->adr() >> 16)) & 3);
-      res = pdev->parent()->request_child_resource(cr, pdev);
+      child->start((child->start() + (cd->adr() >> 16)) & 3);
+      res = pdev->parent()->request_child_resource(child, pdev);
       if (res)
-	cr->parent(parent);
+	child->parent(parent);
     }
 
   return res;

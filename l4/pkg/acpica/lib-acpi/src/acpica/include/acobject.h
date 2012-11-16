@@ -1,4 +1,3 @@
-
 /******************************************************************************
  *
  * Name: acobject.h - Definition of ACPI_OPERAND_OBJECT  (Internal object only)
@@ -9,13 +8,13 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2009, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2012, Intel Corp.
  * All rights reserved.
  *
  * 2. License
  *
  * 2.1. This is your license from Intel Corp. under its intellectual property
- * rights.  You may have additional license terms from the party that provided
+ * rights. You may have additional license terms from the party that provided
  * you this software, covering your right to use that party's intellectual
  * property rights.
  *
@@ -32,7 +31,7 @@
  * offer to sell, and import the Covered Code and derivative works thereof
  * solely to the minimum extent necessary to exercise the above copyright
  * license, and in no event shall the patent license extend to any additions
- * to or modifications of the Original Intel Code.  No other license or right
+ * to or modifications of the Original Intel Code. No other license or right
  * is granted directly or by implication, estoppel or otherwise;
  *
  * The above copyright and patent license is granted only if the following
@@ -44,11 +43,11 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification with rights to further distribute source must include
  * the above Copyright Notice, the above License, this list of Conditions,
- * and the following Disclaimer and Export Compliance provision.  In addition,
+ * and the following Disclaimer and Export Compliance provision. In addition,
  * Licensee must cause all Covered Code to which Licensee contributes to
  * contain a file documenting the changes Licensee made to create that Covered
- * Code and the date of any change.  Licensee must include in that file the
- * documentation of any changes made by any predecessor Licensee.  Licensee
+ * Code and the date of any change. Licensee must include in that file the
+ * documentation of any changes made by any predecessor Licensee. Licensee
  * must include a prominent statement that the modification is derived,
  * directly or indirectly, from Original Intel Code.
  *
@@ -56,7 +55,7 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification without rights to further distribute source must
  * include the following Disclaimer and Export Compliance provision in the
- * documentation and/or other materials provided with distribution.  In
+ * documentation and/or other materials provided with distribution. In
  * addition, Licensee may not authorize further sublicense of source of any
  * portion of the Covered Code, and must include terms to the effect that the
  * license from Licensee to its licensee is limited to the intellectual
@@ -81,10 +80,10 @@
  * 4. Disclaimer and Export Compliance
  *
  * 4.1. INTEL MAKES NO WARRANTY OF ANY KIND REGARDING ANY SOFTWARE PROVIDED
- * HERE.  ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
- * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT,  ASSISTANCE,
- * INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL WILL NOT PROVIDE ANY
- * UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY DISCLAIMS ANY
+ * HERE. ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
+ * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
+ * INSTALLATION, TRAINING OR OTHER SERVICES. INTEL WILL NOT PROVIDE ANY
+ * UPDATES, ENHANCEMENTS OR EXTENSIONS. INTEL SPECIFICALLY DISCLAIMS ANY
  * IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT AND FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
@@ -93,14 +92,14 @@
  * COSTS OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, OR FOR ANY INDIRECT,
  * SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THIS AGREEMENT, UNDER ANY
  * CAUSE OF ACTION OR THEORY OF LIABILITY, AND IRRESPECTIVE OF WHETHER INTEL
- * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES.  THESE LIMITATIONS
+ * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES. THESE LIMITATIONS
  * SHALL APPLY NOTWITHSTANDING THE FAILURE OF THE ESSENTIAL PURPOSE OF ANY
  * LIMITED REMEDY.
  *
  * 4.3. Licensee shall not export, either directly or indirectly, any of this
  * software or system incorporating such software without first obtaining any
  * required license or other approval from the U. S. Department of Commerce or
- * any other agency or department of the United States Government.  In the
+ * any other agency or department of the United States Government. In the
  * event Licensee exports any such software from the United States or
  * re-exports any such software from a foreign destination, Licensee shall
  * ensure that the distribution and export/re-export of the software is in
@@ -164,13 +163,12 @@
 
 /* Values for Flag byte above */
 
-#define AOPOBJ_AML_CONSTANT         0x01
-#define AOPOBJ_STATIC_POINTER       0x02
-#define AOPOBJ_DATA_VALID           0x04
-#define AOPOBJ_OBJECT_INITIALIZED   0x08
-#define AOPOBJ_SETUP_COMPLETE       0x10
-#define AOPOBJ_SINGLE_DATUM         0x20
-#define AOPOBJ_MODULE_LEVEL         0x40
+#define AOPOBJ_AML_CONSTANT         0x01    /* Integer is an AML constant */
+#define AOPOBJ_STATIC_POINTER       0x02    /* Data is part of an ACPI table, don't delete */
+#define AOPOBJ_DATA_VALID           0x04    /* Object is initialized and data is valid */
+#define AOPOBJ_OBJECT_INITIALIZED   0x08    /* Region is initialized, _REG was run */
+#define AOPOBJ_SETUP_COMPLETE       0x10    /* Region setup is complete */
+#define AOPOBJ_INVALID              0x20    /* Host OS won't allow a Region address */
 
 
 /******************************************************************************
@@ -190,14 +188,14 @@ typedef struct acpi_object_integer
 {
     ACPI_OBJECT_COMMON_HEADER
     UINT8                           Fill[3];            /* Prevent warning on some compilers */
-    ACPI_INTEGER                    Value;
+    UINT64                          Value;
 
 } ACPI_OBJECT_INTEGER;
 
 
 /*
- * Note: The String and Buffer object must be identical through the Pointer
- * and length elements.  There is code that depends on this.
+ * Note: The String and Buffer object must be identical through the
+ * pointer and length elements. There is code that depends on this.
  *
  * Fields common to both Strings and Buffers
  */
@@ -283,7 +281,7 @@ typedef struct acpi_object_region
 typedef struct acpi_object_method
 {
     ACPI_OBJECT_COMMON_HEADER
-    UINT8                           MethodFlags;
+    UINT8                           InfoFlags;
     UINT8                           ParamCount;
     UINT8                           SyncLevel;
     union acpi_operand_object       *Mutex;
@@ -292,7 +290,7 @@ typedef struct acpi_object_method
     {
         ACPI_INTERNAL_METHOD            Implementation;
         union acpi_operand_object       *Handler;
-    } Extra;
+    } Dispatch;
 
     UINT32                          AmlLength;
     UINT8                           ThreadCount;
@@ -300,10 +298,18 @@ typedef struct acpi_object_method
 
 } ACPI_OBJECT_METHOD;
 
+/* Flags for InfoFlags field above */
+
+#define ACPI_METHOD_MODULE_LEVEL        0x01    /* Method is actually module-level code */
+#define ACPI_METHOD_INTERNAL_ONLY       0x02    /* Method is implemented internally (_OSI) */
+#define ACPI_METHOD_SERIALIZED          0x04    /* Method is serialized */
+#define ACPI_METHOD_SERIALIZED_PENDING  0x08    /* Method is to be marked serialized */
+#define ACPI_METHOD_MODIFIED_NAMESPACE  0x10    /* Method modified the namespace */
+
 
 /******************************************************************************
  *
- * Objects that can be notified.  All share a common NotifyInfo area.
+ * Objects that can be notified. All share a common NotifyInfo area.
  *
  *****************************************************************************/
 
@@ -311,8 +317,7 @@ typedef struct acpi_object_method
  * Common fields for objects that support ASL notifications
  */
 #define ACPI_COMMON_NOTIFY_INFO \
-    union acpi_operand_object       *SystemNotify;      /* Handler for system notifies */\
-    union acpi_operand_object       *DeviceNotify;      /* Handler for driver notifies */\
+    union acpi_operand_object       *NotifyList[2];     /* Handlers for system/device notifies */\
     union acpi_operand_object       *Handler;           /* Handler for Address space */
 
 
@@ -367,7 +372,7 @@ typedef struct acpi_object_thermal_zone
 
 /******************************************************************************
  *
- * Fields.  All share a common header/info field.
+ * Fields. All share a common header/info field.
  *
  *****************************************************************************/
 
@@ -385,7 +390,7 @@ typedef struct acpi_object_thermal_zone
     UINT32                          BaseByteOffset;     /* Byte offset within containing object */\
     UINT32                          Value;              /* Value to store into the Bank or Index register */\
     UINT8                           StartFieldBitOffset;/* Bit offset within first field datum (0-63) */\
-    UINT8                           AccessBitWidth;     /* Read/Write size in bits (8-64) */
+    UINT8                           AccessLength;       /* For serial regions/fields */
 
 
 typedef struct acpi_object_field_common                 /* COMMON FIELD (for BUFFER, REGION, BANK, and INDEX fields) */
@@ -401,7 +406,9 @@ typedef struct acpi_object_region_field
 {
     ACPI_OBJECT_COMMON_HEADER
     ACPI_COMMON_FIELD_INFO
+    UINT16                          ResourceLength;
     union acpi_operand_object       *RegionObj;         /* Containing OpRegion object */
+    UINT8                           *ResourceBuffer;    /* ResourceTemplate for serial regions/fields */
 
 } ACPI_OBJECT_REGION_FIELD;
 
@@ -452,8 +459,10 @@ typedef struct acpi_object_notify_handler
 {
     ACPI_OBJECT_COMMON_HEADER
     ACPI_NAMESPACE_NODE             *Node;              /* Parent device */
-    ACPI_NOTIFY_HANDLER             Handler;
+    UINT32                          HandlerType;        /* Type: Device/System/Both */
+    ACPI_NOTIFY_HANDLER             Handler;            /* Handler address */
     void                            *Context;
+    union acpi_operand_object       *Next[2];           /* Device and System handler lists */
 
 } ACPI_OBJECT_NOTIFY_HANDLER;
 
@@ -467,7 +476,7 @@ typedef struct acpi_object_addr_handler
     ACPI_NAMESPACE_NODE             *Node;              /* Parent device */
     void                            *Context;
     ACPI_ADR_SPACE_SETUP            Setup;
-    union acpi_operand_object       *RegionList;        /* regions using this handler */
+    union acpi_operand_object       *RegionList;        /* Regions using this handler */
     union acpi_operand_object       *Next;
 
 } ACPI_OBJECT_ADDR_HANDLER;
@@ -529,6 +538,7 @@ typedef struct acpi_object_extra
 {
     ACPI_OBJECT_COMMON_HEADER
     ACPI_NAMESPACE_NODE             *Method_REG;        /* _REG method for this region (if any) */
+    ACPI_NAMESPACE_NODE             *ScopeNode;
     void                            *RegionContext;     /* Region-specific data */
     UINT8                           *AmlStart;
     UINT32                          AmlLength;

@@ -1,4 +1,3 @@
-
 /******************************************************************************
  *
  * Module Name: aslcompile - top level compile module
@@ -9,13 +8,13 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2009, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2012, Intel Corp.
  * All rights reserved.
  *
  * 2. License
  *
  * 2.1. This is your license from Intel Corp. under its intellectual property
- * rights.  You may have additional license terms from the party that provided
+ * rights. You may have additional license terms from the party that provided
  * you this software, covering your right to use that party's intellectual
  * property rights.
  *
@@ -32,7 +31,7 @@
  * offer to sell, and import the Covered Code and derivative works thereof
  * solely to the minimum extent necessary to exercise the above copyright
  * license, and in no event shall the patent license extend to any additions
- * to or modifications of the Original Intel Code.  No other license or right
+ * to or modifications of the Original Intel Code. No other license or right
  * is granted directly or by implication, estoppel or otherwise;
  *
  * The above copyright and patent license is granted only if the following
@@ -44,11 +43,11 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification with rights to further distribute source must include
  * the above Copyright Notice, the above License, this list of Conditions,
- * and the following Disclaimer and Export Compliance provision.  In addition,
+ * and the following Disclaimer and Export Compliance provision. In addition,
  * Licensee must cause all Covered Code to which Licensee contributes to
  * contain a file documenting the changes Licensee made to create that Covered
- * Code and the date of any change.  Licensee must include in that file the
- * documentation of any changes made by any predecessor Licensee.  Licensee
+ * Code and the date of any change. Licensee must include in that file the
+ * documentation of any changes made by any predecessor Licensee. Licensee
  * must include a prominent statement that the modification is derived,
  * directly or indirectly, from Original Intel Code.
  *
@@ -56,7 +55,7 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification without rights to further distribute source must
  * include the following Disclaimer and Export Compliance provision in the
- * documentation and/or other materials provided with distribution.  In
+ * documentation and/or other materials provided with distribution. In
  * addition, Licensee may not authorize further sublicense of source of any
  * portion of the Covered Code, and must include terms to the effect that the
  * license from Licensee to its licensee is limited to the intellectual
@@ -81,10 +80,10 @@
  * 4. Disclaimer and Export Compliance
  *
  * 4.1. INTEL MAKES NO WARRANTY OF ANY KIND REGARDING ANY SOFTWARE PROVIDED
- * HERE.  ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
- * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT,  ASSISTANCE,
- * INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL WILL NOT PROVIDE ANY
- * UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY DISCLAIMS ANY
+ * HERE. ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
+ * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
+ * INSTALLATION, TRAINING OR OTHER SERVICES. INTEL WILL NOT PROVIDE ANY
+ * UPDATES, ENHANCEMENTS OR EXTENSIONS. INTEL SPECIFICALLY DISCLAIMS ANY
  * IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT AND FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
@@ -93,14 +92,14 @@
  * COSTS OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, OR FOR ANY INDIRECT,
  * SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THIS AGREEMENT, UNDER ANY
  * CAUSE OF ACTION OR THEORY OF LIABILITY, AND IRRESPECTIVE OF WHETHER INTEL
- * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES.  THESE LIMITATIONS
+ * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES. THESE LIMITATIONS
  * SHALL APPLY NOTWITHSTANDING THE FAILURE OF THE ESSENTIAL PURPOSE OF ANY
  * LIMITED REMEDY.
  *
  * 4.3. Licensee shall not export, either directly or indirectly, any of this
  * software or system incorporating such software without first obtaining any
  * required license or other approval from the U. S. Department of Commerce or
- * any other agency or department of the United States Government.  In the
+ * any other agency or department of the United States Government. In the
  * event Licensee exports any such software from the United States or
  * re-exports any such software from a foreign destination, Licensee shall
  * ensure that the distribution and export/re-export of the software is in
@@ -114,12 +113,23 @@
  *
  *****************************************************************************/
 
+#include "aslcompiler.h"
+
 #include <stdio.h>
 #include <time.h>
-#include "aslcompiler.h"
+#include <acapps.h>
 
 #define _COMPONENT          ACPI_COMPILER
         ACPI_MODULE_NAME    ("aslcompile")
+
+/*
+ * Main parser entry
+ * External is here in case the parser emits the same external in the
+ * generated header. (Newer versions of Bison)
+ */
+int
+AslCompilerparse(
+    void);
 
 /* Local prototypes */
 
@@ -127,19 +137,19 @@ static void
 CmFlushSourceCode (
     void);
 
-static ACPI_STATUS
-FlCheckForAscii (
-    ASL_FILE_INFO           *FileInfo);
-
-void
+static void
 FlConsumeAnsiComment (
-    ASL_FILE_INFO           *FileInfo,
+    FILE                    *Handle,
     ASL_FILE_STATUS         *Status);
 
-void
+static void
 FlConsumeNewComment (
-    ASL_FILE_INFO           *FileInfo,
+    FILE                    *Handle,
     ASL_FILE_STATUS         *Status);
+
+static void
+CmDumpAllEvents (
+    void);
 
 
 /*******************************************************************************
@@ -159,6 +169,7 @@ AslCompilerSignon (
     UINT32                  FileId)
 {
     char                    *Prefix = "";
+    char                    *UtilityName;
 
 
     /* Set line prefix depending on the destination file type */
@@ -177,7 +188,8 @@ AslCompilerSignon (
         {
             Prefix = "; ";
         }
-        else if (Gbl_HexOutputFlag == HEX_OUTPUT_C)
+        else if ((Gbl_HexOutputFlag == HEX_OUTPUT_C) ||
+                 (Gbl_HexOutputFlag == HEX_OUTPUT_ASL))
         {
             FlPrintFile (ASL_FILE_HEX_OUTPUT, "/*\n");
             Prefix = " * ";
@@ -195,36 +207,21 @@ AslCompilerSignon (
         break;
     }
 
-    /*
-     * Compiler signon with copyright
-     */
-    FlPrintFile (FileId,
-        "%s\n%s%s\n%s",
-        Prefix,
-        Prefix, IntelAcpiCA,
-        Prefix);
-
     /* Running compiler or disassembler? */
 
     if (Gbl_DisasmFlag)
     {
-        FlPrintFile (FileId,
-            "%s", DisassemblerId);
+        UtilityName = AML_DISASSEMBLER_NAME;
     }
     else
     {
-        FlPrintFile (FileId,
-            "%s", CompilerId);
+        UtilityName = ASL_COMPILER_NAME;
     }
 
-    /* Version, build date, copyright, compliance */
+    /* Compiler signon with copyright */
 
-    FlPrintFile (FileId,
-        " version %X [%s]\n%s%s\n%s%s\n%s\n",
-        (UINT32) ACPI_CA_VERSION, __DATE__,
-        Prefix, CompilerCopyright,
-        Prefix, CompilerCompliance,
-        Prefix);
+    FlPrintFile (FileId, "%s\n", Prefix);
+    FlPrintFile (FileId, ACPI_COMMON_HEADER (UtilityName, Prefix));
 }
 
 
@@ -265,7 +262,8 @@ AslCompilerFileHeader (
         {
             Prefix = "; ";
         }
-        else if (Gbl_HexOutputFlag == HEX_OUTPUT_C)
+        else if ((Gbl_HexOutputFlag == HEX_OUTPUT_C) ||
+                 (Gbl_HexOutputFlag == HEX_OUTPUT_ASL))
         {
             Prefix = " * ";
         }
@@ -328,10 +326,10 @@ CmFlushSourceCode (
 
     while (FlReadFile (ASL_FILE_INPUT, &Buffer, 1) != AE_ERROR)
     {
-        InsertLineBuffer ((int) Buffer);
+        AslInsertLineBuffer ((int) Buffer);
     }
 
-    ResetCurrentLineBuffer ();
+    AslResetCurrentLineBuffer ();
 }
 
 
@@ -339,7 +337,8 @@ CmFlushSourceCode (
  *
  * FUNCTION:    FlConsume*
  *
- * PARAMETERS:  FileInfo        - Points to an open input file
+ * PARAMETERS:  Handle              - Open input file
+ *              Status              - File current status struct
  *
  * RETURN:      Number of lines consumed
  *
@@ -347,16 +346,16 @@ CmFlushSourceCode (
  *
  ******************************************************************************/
 
-void
+static void
 FlConsumeAnsiComment (
-    ASL_FILE_INFO           *FileInfo,
+    FILE                    *Handle,
     ASL_FILE_STATUS         *Status)
 {
     UINT8                   Byte;
     BOOLEAN                 ClosingComment = FALSE;
 
 
-    while (fread (&Byte, 1, 1, FileInfo->Handle))
+    while (fread (&Byte, 1, 1, Handle))
     {
         /* Scan until comment close is found */
 
@@ -391,15 +390,15 @@ FlConsumeAnsiComment (
 }
 
 
-void
+static void
 FlConsumeNewComment (
-    ASL_FILE_INFO           *FileInfo,
+    FILE                    *Handle,
     ASL_FILE_STATUS         *Status)
 {
     UINT8                   Byte;
 
 
-    while (fread (&Byte, 1, 1, FileInfo->Handle))
+    while (fread (&Byte, 1, 1, Handle))
     {
         Status->Offset++;
 
@@ -418,7 +417,9 @@ FlConsumeNewComment (
  *
  * FUNCTION:    FlCheckForAscii
  *
- * PARAMETERS:  FileInfo        - Points to an open input file
+ * PARAMETERS:  Handle              - Open input file
+ *              Filename            - Input filename
+ *              DisplayErrors       - TRUE if error messages desired
  *
  * RETURN:      Status
  *
@@ -431,9 +432,11 @@ FlConsumeNewComment (
  *
  ******************************************************************************/
 
-static ACPI_STATUS
+ACPI_STATUS
 FlCheckForAscii (
-    ASL_FILE_INFO           *FileInfo)
+    FILE                    *Handle,
+    char                    *Filename,
+    BOOLEAN                 DisplayErrors)
 {
     UINT8                   Byte;
     ACPI_SIZE               BadBytes = 0;
@@ -446,7 +449,7 @@ FlCheckForAscii (
 
     /* Read the entire file */
 
-    while (fread (&Byte, 1, 1, FileInfo->Handle))
+    while (fread (&Byte, 1, 1, Handle))
     {
         /* Ignore comment fields (allow non-ascii within) */
 
@@ -456,12 +459,12 @@ FlCheckForAscii (
 
             if (Byte == '*')
             {
-                FlConsumeAnsiComment (FileInfo, &Status);
+                FlConsumeAnsiComment (Handle, &Status);
             }
 
             if (Byte == '/')
             {
-                FlConsumeNewComment (FileInfo, &Status);
+                FlConsumeNewComment (Handle, &Status);
             }
 
             /* Reset */
@@ -477,7 +480,7 @@ FlCheckForAscii (
 
         if (!ACPI_IS_ASCII (Byte))
         {
-            if (BadBytes < 10)
+            if ((BadBytes < 10) && (DisplayErrors))
             {
                 AcpiOsPrintf (
                     "Non-ASCII character [0x%2.2X] found in line %u, file offset 0x%.2X\n",
@@ -499,20 +502,24 @@ FlCheckForAscii (
 
     /* Seek back to the beginning of the source file */
 
-    fseek (FileInfo->Handle, 0, SEEK_SET);
+    fseek (Handle, 0, SEEK_SET);
 
     /* Were there any non-ASCII characters in the file? */
 
     if (BadBytes)
     {
-        AcpiOsPrintf (
-            "%u non-ASCII characters found in input source text, could be a binary file\n",
-            BadBytes);
-        AslError (ASL_ERROR, ASL_MSG_NON_ASCII, NULL, FileInfo->Filename);
+        if (DisplayErrors)
+        {
+            AcpiOsPrintf (
+                "%u non-ASCII characters found in input source text, could be a binary file\n",
+                BadBytes);
+            AslError (ASL_ERROR, ASL_MSG_NON_ASCII, NULL, Filename);
+        }
+
         return (AE_BAD_CHARACTER);
     }
 
-    /* File is OK */
+    /* File is OK (100% ASCII) */
 
     return (AE_OK);
 }
@@ -541,30 +548,20 @@ CmDoCompile (
 
     FullCompile = UtBeginEvent ("*** Total Compile time ***");
     Event = UtBeginEvent ("Open input and output files");
+    UtEndEvent (Event);
 
-    /* Open the required input and output files */
-
-    Status = FlOpenInputFile (Gbl_Files[ASL_FILE_INPUT].Filename);
-    if (ACPI_FAILURE (Status))
+    Event = UtBeginEvent ("Preprocess input file");
+    if (Gbl_PreprocessFlag)
     {
-        AePrintErrorLog (ASL_FILE_STDERR);
-        return -1;
-    }
+        /* Preprocessor */
 
-    /* Check for 100% ASCII source file (comments are ignored) */
-
-    Status = FlCheckForAscii (&Gbl_Files[ASL_FILE_INPUT]);
-    if (ACPI_FAILURE (Status))
-    {
-        AePrintErrorLog (ASL_FILE_STDERR);
-        return -1;
-    }
-
-    Status = FlOpenMiscOutputFiles (Gbl_OutputFilenamePrefix);
-    if (ACPI_FAILURE (Status))
-    {
-        AePrintErrorLog (ASL_FILE_STDERR);
-        return -1;
+        PrDoPreprocess ();
+        if (Gbl_PreprocessOnly)
+        {
+            UtEndEvent (Event);
+            CmCleanupAndExit ();
+            return (0);
+        }
     }
     UtEndEvent (Event);
 
@@ -583,8 +580,18 @@ CmDoCompile (
 
     if (!RootNode)
     {
-        CmCleanupAndExit ();
-        return -1;
+        /*
+         * If there are no errors, then we have some sort of
+         * internal problem.
+         */
+        Status = AslCheckForErrorExit ();
+        if (Status == AE_OK)
+        {
+            AslError (ASL_ERROR, ASL_MSG_COMPILER_INTERNAL,
+                NULL, "- Could not resolve parse tree root node");
+        }
+
+        goto ErrorExit;
     }
 
     /* Optional parse tree dump, compiler debug output only */
@@ -617,12 +624,12 @@ CmDoCompile (
      */
     Event = UtBeginEvent ("Open AML output file");
     Status = FlOpenAmlOutputFile (Gbl_OutputFilenamePrefix);
+    UtEndEvent (Event);
     if (ACPI_FAILURE (Status))
     {
         AePrintErrorLog (ASL_FILE_STDERR);
-        return -1;
+        return (-1);
     }
-    UtEndEvent (Event);
 
     /* Interpret and generate all compile-time constants */
 
@@ -652,16 +659,17 @@ CmDoCompile (
 
     if (Gbl_ParseOnlyFlag)
     {
-        AePrintErrorLog (ASL_FILE_STDOUT);
-        UtDisplaySummary (ASL_FILE_STDOUT);
+        AePrintErrorLog (ASL_FILE_STDERR);
+        UtDisplaySummary (ASL_FILE_STDERR);
         if (Gbl_DebugFlag)
         {
-            /* Print error summary to the debug file */
+            /* Print error summary to the stdout also */
 
-            AePrintErrorLog (ASL_FILE_STDERR);
-            UtDisplaySummary (ASL_FILE_STDERR);
+            AePrintErrorLog (ASL_FILE_STDOUT);
+            UtDisplaySummary (ASL_FILE_STDOUT);
         }
-        return 0;
+        UtEndEvent (FullCompile);
+        return (0);
     }
 
     /*
@@ -675,7 +683,7 @@ CmDoCompile (
     UtEndEvent (Event);
     if (ACPI_FAILURE (Status))
     {
-        return -1;
+        goto ErrorExit;
     }
 
     /* Namespace cross-reference */
@@ -684,7 +692,7 @@ CmDoCompile (
     Status = LkCrossReferenceNamespace ();
     if (ACPI_FAILURE (Status))
     {
-        return -1;
+        goto ErrorExit;
     }
 
     /* Namespace - Check for non-referenced objects */
@@ -693,7 +701,7 @@ CmDoCompile (
     UtEndEvent (AslGbl_NamespaceEvent);
 
     /*
-     * Semantic analysis.  This can happen only after the
+     * Semantic analysis. This can happen only after the
      * namespace has been loaded and cross-referenced.
      *
      * part one - check control methods
@@ -711,27 +719,25 @@ CmDoCompile (
 
     Event = UtBeginEvent ("Determine object types returned by methods");
     DbgPrint (ASL_DEBUG_OUTPUT, "\nSemantic analysis - Method typing\n\n");
-    TrWalkParseTree (RootNode, ASL_WALK_VISIT_TWICE,
-        AnMethodTypingWalkBegin,
-        AnMethodTypingWalkEnd, NULL);
+    TrWalkParseTree (RootNode, ASL_WALK_VISIT_UPWARD,
+        NULL, AnMethodTypingWalkEnd, NULL);
     UtEndEvent (Event);
 
     /* Semantic error checking part three - operand type checking */
 
     Event = UtBeginEvent ("Analyze AML operand types");
     DbgPrint (ASL_DEBUG_OUTPUT, "\nSemantic analysis - Operand type checking\n\n");
-    TrWalkParseTree (RootNode, ASL_WALK_VISIT_TWICE,
-        AnOperandTypecheckWalkBegin,
-        AnOperandTypecheckWalkEnd, &AnalysisWalkInfo);
+    TrWalkParseTree (RootNode, ASL_WALK_VISIT_UPWARD,
+        NULL, AnOperandTypecheckWalkEnd, &AnalysisWalkInfo);
     UtEndEvent (Event);
 
     /* Semantic error checking part four - other miscellaneous checks */
 
     Event = UtBeginEvent ("Miscellaneous analysis");
     DbgPrint (ASL_DEBUG_OUTPUT, "\nSemantic analysis - miscellaneous\n\n");
-    TrWalkParseTree (RootNode, ASL_WALK_VISIT_TWICE,
+    TrWalkParseTree (RootNode, ASL_WALK_VISIT_DOWNWARD,
         AnOtherSemanticAnalysisWalkBegin,
-        AnOtherSemanticAnalysisWalkEnd, &AnalysisWalkInfo);
+        NULL, &AnalysisWalkInfo);
     UtEndEvent (Event);
 
     /* Calculate all AML package lengths */
@@ -756,7 +762,12 @@ CmDoCompile (
 
     UtEndEvent (FullCompile);
     CmCleanupAndExit ();
-    return 0;
+    return (0);
+
+ErrorExit:
+    UtEndEvent (FullCompile);
+    CmCleanupAndExit ();
+    return (-1);
 }
 
 
@@ -790,45 +801,65 @@ CmDoOutputFiles (
 
 /*******************************************************************************
  *
- * FUNCTION:    CmDumpEvent
+ * FUNCTION:    CmDumpAllEvents
  *
- * PARAMETERS:  Event           - A compiler event struct
+ * PARAMETERS:  None
  *
  * RETURN:      None.
  *
- * DESCRIPTION: Dump a compiler event struct
+ * DESCRIPTION: Dump all compiler events
  *
  ******************************************************************************/
 
 static void
-CmDumpEvent (
-    ASL_EVENT_INFO          *Event)
+CmDumpAllEvents (
+    void)
 {
+    ASL_EVENT_INFO          *Event;
     UINT32                  Delta;
     UINT32                  USec;
     UINT32                  MSec;
+    UINT32                  i;
 
-    if (!Event->Valid)
+
+    Event = AslGbl_Events;
+
+    DbgPrint (ASL_DEBUG_OUTPUT, "\n\nElapsed time for major events\n\n");
+    if (Gbl_CompileTimesFlag)
     {
-        return;
+        printf ("\nElapsed time for major events\n\n");
     }
 
-    /* Delta will be in 100-nanosecond units */
-
-    Delta = (UINT32) (Event->EndTime - Event->StartTime);
-
-    USec = Delta / 10;
-    MSec = Delta / 10000;
-
-    /* Round milliseconds up */
-
-    if ((USec - (MSec * 1000)) >= 500)
+    for (i = 0; i < AslGbl_NextEvent; i++)
     {
-        MSec++;
-    }
+        if (Event->Valid)
+        {
+            /* Delta will be in 100-nanosecond units */
 
-    DbgPrint (ASL_DEBUG_OUTPUT, "%8u usec %8u msec - %s\n",
-        USec, MSec, Event->EventName);
+            Delta = (UINT32) (Event->EndTime - Event->StartTime);
+
+            USec = Delta / 10;
+            MSec = Delta / 10000;
+
+            /* Round milliseconds up */
+
+            if ((USec - (MSec * 1000)) >= 500)
+            {
+                MSec++;
+            }
+
+            DbgPrint (ASL_DEBUG_OUTPUT, "%8u usec %8u msec - %s\n",
+                USec, MSec, Event->EventName);
+
+            if (Gbl_CompileTimesFlag)
+            {
+                printf ("%8u usec %8u msec - %s\n",
+                    USec, MSec, Event->EventName);
+            }
+        }
+
+        Event++;
+    }
 }
 
 
@@ -849,30 +880,23 @@ CmCleanupAndExit (
     void)
 {
     UINT32                  i;
+    BOOLEAN                 DeleteAmlFile = FALSE;
 
 
-    AePrintErrorLog (ASL_FILE_STDOUT);
+    AePrintErrorLog (ASL_FILE_STDERR);
     if (Gbl_DebugFlag)
     {
-        /* Print error summary to the debug file */
+        /* Print error summary to stdout also */
 
-        AePrintErrorLog (ASL_FILE_STDERR);
+        AePrintErrorLog (ASL_FILE_STDOUT);
     }
 
-    DbgPrint (ASL_DEBUG_OUTPUT, "\n\nElapsed time for major events\n\n");
-    for (i = 0; i < AslGbl_NextEvent; i++)
-    {
-        CmDumpEvent (&AslGbl_Events[i]);
-    }
+    /* Emit compile times if enabled */
+
+    CmDumpAllEvents ();
 
     if (Gbl_CompileTimesFlag)
     {
-        printf ("\nElapsed time for major events\n\n");
-        for (i = 0; i < AslGbl_NextEvent; i++)
-        {
-            CmDumpEvent (&AslGbl_Events[i]);
-        }
-
         printf ("\nMiscellaneous compile statistics\n\n");
         printf ("%11u : %s\n", TotalParseNodes, "Parse nodes");
         printf ("%11u : %s\n", Gbl_NsLookupCount, "Namespace searches");
@@ -886,50 +910,78 @@ CmCleanupAndExit (
 
     if (Gbl_NsLookupCount)
     {
-        DbgPrint (ASL_DEBUG_OUTPUT, "\n\nMiscellaneous compile statistics\n\n");
-        DbgPrint (ASL_DEBUG_OUTPUT, "%32s : %d\n", "Total Namespace searches",
-            Gbl_NsLookupCount);
-        DbgPrint (ASL_DEBUG_OUTPUT, "%32s : %d usec\n", "Time per search",
-            ((UINT32) (AslGbl_Events[AslGbl_NamespaceEvent].EndTime -
-                        AslGbl_Events[AslGbl_NamespaceEvent].StartTime) /
-                        10) / Gbl_NsLookupCount);
-    }
+        DbgPrint (ASL_DEBUG_OUTPUT,
+            "\n\nMiscellaneous compile statistics\n\n");
 
+        DbgPrint (ASL_DEBUG_OUTPUT,
+            "%32s : %u\n", "Total Namespace searches",
+            Gbl_NsLookupCount);
+
+        DbgPrint (ASL_DEBUG_OUTPUT,
+            "%32s : %u usec\n", "Time per search", ((UINT32)
+            (AslGbl_Events[AslGbl_NamespaceEvent].EndTime -
+                AslGbl_Events[AslGbl_NamespaceEvent].StartTime) / 10) /
+                Gbl_NsLookupCount);
+    }
 
     if (Gbl_ExceptionCount[ASL_ERROR] > ASL_MAX_ERROR_COUNT)
     {
-        printf ("\nMaximum error count (%d) exceeded\n", ASL_MAX_ERROR_COUNT);
+        printf ("\nMaximum error count (%u) exceeded\n",
+            ASL_MAX_ERROR_COUNT);
     }
 
     UtDisplaySummary (ASL_FILE_STDOUT);
 
+    /*
+     * We will delete the AML file if there are errors and the
+     * force AML output option has not been used.
+     */
+    if ((Gbl_ExceptionCount[ASL_ERROR] > 0) && (!Gbl_IgnoreErrors) &&
+        Gbl_Files[ASL_FILE_AML_OUTPUT].Handle)
+    {
+        DeleteAmlFile = TRUE;
+    }
+
     /* Close all open files */
 
-    for (i = 2; i < ASL_MAX_FILE_TYPE; i++)
+    Gbl_Files[ASL_FILE_PREPROCESSOR].Handle = NULL; /* the .i file is same as source file */
+
+    for (i = ASL_FILE_INPUT; i < ASL_MAX_FILE_TYPE; i++)
     {
         FlCloseFile (i);
     }
 
     /* Delete AML file if there are errors */
 
-    if ((Gbl_ExceptionCount[ASL_ERROR] > 0) && (!Gbl_IgnoreErrors))
+    if (DeleteAmlFile)
     {
-        remove (Gbl_Files[ASL_FILE_AML_OUTPUT].Filename);
+        FlDeleteFile (ASL_FILE_AML_OUTPUT);
+    }
+
+    /* Delete the preprocessor output file (.i) unless -li flag is set */
+
+    if (!Gbl_PreprocessorOutputFlag &&
+        Gbl_PreprocessFlag)
+    {
+        FlDeleteFile (ASL_FILE_PREPROCESSOR);
     }
 
     /*
      * Delete intermediate ("combined") source file (if -ls flag not set)
+     * This file is created during normal ASL/AML compiles. It is not
+     * created by the data table compiler.
+     *
+     * If the -ls flag is set, then the .SRC file should not be deleted.
+     * In this case, Gbl_SourceOutputFlag is set to TRUE.
+     *
+     * Note: Handles are cleared by FlCloseFile above, so we look at the
+     * filename instead, to determine if the .SRC file was actually
+     * created.
      *
      * TBD: SourceOutput should be .TMP, then rename if we want to keep it?
      */
     if (!Gbl_SourceOutputFlag)
     {
-        if (remove (Gbl_Files[ASL_FILE_SOURCE_OUTPUT].Filename))
-        {
-            printf ("Could not remove SRC file, %s\n",
-                Gbl_Files[ASL_FILE_SOURCE_OUTPUT].Filename);
-        }
+        FlDeleteFile (ASL_FILE_SOURCE_OUTPUT);
     }
 }
-
-

@@ -4,7 +4,6 @@
 
 #include <l4/drivers/lcd.h>
 #include <l4/drivers/amba.h>
-#include <l4/drivers/io.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -125,15 +124,15 @@ static const char *arm_lcd_get_info(void)
 }
 
 static
-l4_umword_t read_sys_reg(unsigned reg)
+l4_uint32_t read_sys_reg(unsigned reg)
 {
-  return io_read_mword(amba_pl110_sys_base_virt + reg);
+  return *((volatile l4_uint32_t *)(amba_pl110_sys_base_virt + reg));
 }
 
 static
-void write_sys_reg(unsigned reg, l4_umword_t val)
+void write_sys_reg(unsigned reg, l4_uint32_t val)
 {
-  io_write_mword(amba_pl110_sys_base_virt + reg, val);
+  *((volatile l4_uint32_t *)(amba_pl110_sys_base_virt + reg)) = val;
 }
 
 static
@@ -145,15 +144,15 @@ void set_clcd_clock(l4_umword_t val)
 }
 
 static
-l4_umword_t read_clcd_reg(unsigned reg)
+l4_uint32_t read_clcd_reg(unsigned reg)
 {
-  return *((volatile l4_umword_t *)(amba_pl110_lcd_control_virt_base + reg));
+  return *((volatile l4_uint32_t *)(amba_pl110_lcd_control_virt_base + reg));
 }
 
 static
 void write_clcd_reg(unsigned reg, l4_umword_t val)
 {
-  *((volatile l4_umword_t *)(amba_pl110_lcd_control_virt_base + reg)) = val;
+  *((volatile l4_uint32_t *)(amba_pl110_lcd_control_virt_base + reg)) = val;
 }
 
 static

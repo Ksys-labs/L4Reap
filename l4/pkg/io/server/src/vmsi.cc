@@ -15,7 +15,7 @@
 
 namespace Vi {
   Msi_resource::Msi_resource(Hw::Msi_resource *hr)
-  : Adr_resource(Resource::Irq_res | Resource::Irq_edge | Resource::F_disabled, 0, 0), _hw_msi(hr)
+  : Resource(Resource::Irq_res | Resource::Irq_edge | Resource::F_disabled, 0, 0), _hw_msi(hr)
   {
     d_printf(DBG_ALL, "Create virtual MSI wrapper for MSI %ld\n", _hw_msi->start());
   }

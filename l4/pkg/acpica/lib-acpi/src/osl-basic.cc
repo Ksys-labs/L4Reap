@@ -3,6 +3,7 @@
 __BEGIN_DECLS
 #include "acpi.h"
 #include "acpiosxf.h"
+#include "actypes.h"
 __END_DECLS
 
 #include <stdlib.h>
@@ -48,32 +49,39 @@ AcpiOsFree (void * memory)
   return;
 }
 
+#ifndef HAVE_NOT_IMPLEMENTED_AcpiOsInstallInterruptHandler
 ACPI_STATUS
 AcpiOsInstallInterruptHandler (
-	uint32_t                        /* interrupt_number */,
-	ACPI_OSD_HANDLER                /* service_routine */,
-	void                            * /*context*/)
+	uint32_t                        interrupt_number,
+	ACPI_OSD_HANDLER                service_routine,
+	void                            *context)
 {
-  printf("%s:%d:%s: UNINPLEMENTED\n", __FILE__, __LINE__, __func__);
+  printf("%s:%d:%s(%d, %p, %p): UNINPLEMENTED\n",
+         __FILE__, __LINE__, __func__,
+         interrupt_number, service_routine, context);
   return AE_OK;
 }
+#endif
 
 ACPI_STATUS
 AcpiOsRemoveInterruptHandler (
-	uint32_t                        /* interrupt_number */,
-	ACPI_OSD_HANDLER                /* service_routine */)
+	uint32_t                        interrupt_number,
+	ACPI_OSD_HANDLER                service_routine)
 {
-  printf("%s:%d:%s: UNINPLEMENTED\n", __FILE__, __LINE__, __func__);
+  printf("%s:%d:%s(%d, %p): UNINPLEMENTED\n",
+         __FILE__, __LINE__, __func__,
+         interrupt_number, service_routine);
   return AE_OK;
 }
 
 ACPI_STATUS
 AcpiOsExecute (
-	ACPI_EXECUTE_TYPE                /*type */,
-	ACPI_OSD_EXEC_CALLBACK           /*function */,
-	void                            * /*context */)
+	ACPI_EXECUTE_TYPE                type,
+	ACPI_OSD_EXEC_CALLBACK           function,
+	void                            *context)
 {
-  printf("%s:%d:%s: UNINPLEMENTED\n", __FILE__, __LINE__, __func__);
+  printf("%s:%d:%s(%d, %p, %p): UNINPLEMENTED\n",
+         __FILE__, __LINE__, __func__, type, function, context);
   return !AE_OK;
 }
 
@@ -87,30 +95,6 @@ void
 AcpiOsStall (uint32_t microseconds)
 {
   l4_usleep(microseconds);
-}
-
-
-/*
- * Platform and hardware-independent physical memory interfaces
- */
-ACPI_STATUS
-AcpiOsReadMemory (
-	ACPI_PHYSICAL_ADDRESS           /*address*/,
-	uint32_t                             * /*value*/,
-	uint32_t                             /*width*/)
-{
-  printf("%s:%d:%s: UNINPLEMENTED\n", __FILE__, __LINE__, __func__);
-  return !AE_OK;
-}
-
-ACPI_STATUS
-AcpiOsWriteMemory (
-	ACPI_PHYSICAL_ADDRESS            /*address */,
-	uint32_t                            /*  value */,
-	uint32_t                             /* width */)
-{
-  printf("%s:%d:%s: UNINPLEMENTED\n", __FILE__, __LINE__, __func__);
-  return !AE_OK;
 }
 
 
@@ -202,72 +186,6 @@ AcpiOsGetRootPointer (void)
 
 /******************************************************************************
  *
- * FUNCTION:    AcpiOsValidateInterface
- *
- * PARAMETERS:  Interface           - Requested interface to be validated
- *
- * RETURN:      AE_OK if interface is supported, AE_SUPPORT otherwise
- *
- * DESCRIPTION: Match an interface string to the interfaces supported by the
- *              host. Strings originate from an AML call to the _OSI method.
- *
- *****************************************************************************/
-
-ACPI_STATUS
-AcpiOsValidateInterface (
-    char                    * /*Interface*/)
-{
-
-    return (AE_SUPPORT);
-}
-
-
-/* TEMPORARY STUB FUNCTION */
-void
-AcpiOsDerivePciId(
-    ACPI_HANDLE             /* rhandle */,
-    ACPI_HANDLE             /* chandle */,
-    ACPI_PCI_ID             ** /* PciId */)
-{
-
-}
-
-/******************************************************************************
- *
- * FUNCTION:    AcpiOsValidateAddress
- *
- * PARAMETERS:  SpaceId             - ACPI space ID
- *              Address             - Physical address
- *              Length              - Address length
- *
- * RETURN:      AE_OK if Address/Length is valid for the SpaceId. Otherwise,
- *              should return AE_AML_ILLEGAL_ADDRESS.
- *
- * DESCRIPTION: Validate a system address via the host OS. Used to validate
- *              the addresses accessed by AML operation regions.
- *
- *****************************************************************************/
-ACPI_STATUS
-AcpiOsValidateAddress (
-    UINT8                   /* SpaceId */,
-    ACPI_PHYSICAL_ADDRESS   /* Address */,
-    ACPI_SIZE               /* Length */);
-
-ACPI_STATUS
-AcpiOsValidateAddress (
-    UINT8                   /* SpaceId */,
-    ACPI_PHYSICAL_ADDRESS   /* Address */,
-    ACPI_SIZE               /* Length */)
-{
-
-    return (AE_OK);
-}
-
-
-
-
-/******************************************************************************
- *
  * FUNCTION:    AcpiOsSignal
  *
  * PARAMETERS:  Function            ACPI CA signal function code
@@ -333,3 +251,117 @@ AcpiOsGetTimer (void)
 }
 
 
+// from: acpica/source/os_specific/service_layers/osunixxf.c
+/******************************************************************************
+ *
+ * FUNCTION:    AcpiOsReadMemory
+ *
+ * PARAMETERS:  Address             - Physical Memory Address to read
+ *              Value               - Where value is placed
+ *              Width               - Number of bits (8,16,32, or 64)
+ *
+ * RETURN:      Value read from physical memory address. Always returned
+ *              as a 64-bit integer, regardless of the read width.
+ *
+ * DESCRIPTION: Read data from a physical memory address
+ *
+ *****************************************************************************/
+
+ACPI_STATUS
+AcpiOsReadMemory (
+    ACPI_PHYSICAL_ADDRESS   Address,
+    UINT64                  *Value,
+    UINT32                  Width)
+{
+
+    printf("%s:%d:%s(%x, %p, %u): UNINPLEMENTED\n",
+           __FILE__, __LINE__, __func__, Address, Value, Width);
+    switch (Width)
+    {
+    case 8:
+    case 16:
+    case 32:
+    case 64:
+        *Value = 0;
+        break;
+
+    default:
+        return (AE_BAD_PARAMETER);
+    }
+    return (AE_OK);
+}
+
+
+/******************************************************************************
+ *
+ * FUNCTION:    AcpiOsWriteMemory
+ *
+ * PARAMETERS:  Address             - Physical Memory Address to write
+ *              Value               - Value to write
+ *              Width               - Number of bits (8,16,32, or 64)
+ *
+ * RETURN:      None
+ *
+ * DESCRIPTION: Write data to a physical memory address
+ *
+ *****************************************************************************/
+
+ACPI_STATUS
+AcpiOsWriteMemory (
+    ACPI_PHYSICAL_ADDRESS   Address,
+    UINT64                  Value,
+    UINT32                  Width)
+{
+  printf("%s:%d:%s(%x, %llu, %u): UNINPLEMENTED\n",
+         __FILE__, __LINE__, __func__, Address, Value, Width);
+    return (AE_OK);
+}
+
+
+/******************************************************************************
+ *
+ * FUNCTION:    AcpiOsPhysicalTableOverride
+ *
+ * PARAMETERS:  ExistingTable       - Header of current table (probably firmware)
+ *              NewAddress          - Where new table address is returned
+ *                                    (Physical address)
+ *              NewTableLength      - Where new table length is returned
+ *
+ * RETURN:      Status, address/length of new table. Null pointer returned
+ *              if no table is available to override.
+ *
+ * DESCRIPTION: Returns AE_SUPPORT, function not used in user space.
+ *
+ *****************************************************************************/
+
+ACPI_STATUS
+AcpiOsPhysicalTableOverride (
+    ACPI_TABLE_HEADER       *ExistingTable,
+    ACPI_PHYSICAL_ADDRESS   *NewAddress,
+    UINT32                  *NewTableLength)
+{
+  printf("%s:%d:%s(%p, %p, %p): UNINPLEMENTED\n",
+         __FILE__, __LINE__, __func__, ExistingTable, NewAddress, NewTableLength);
+
+    return (AE_SUPPORT);
+}
+
+/******************************************************************************
+ *
+ * FUNCTION:    AcpiOsWaitEventsComplete
+ *
+ * PARAMETERS:  None
+ *
+ * RETURN:      None
+ *
+ * DESCRIPTION: Wait for all asynchronous events to complete. This
+ *              implementation does nothing.
+ *
+ *****************************************************************************/
+
+void
+AcpiOsWaitEventsComplete (
+    void)
+{
+    return;
+}

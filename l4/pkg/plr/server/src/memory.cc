@@ -1,3 +1,14 @@
+/*
+ * memory.cc --
+ *
+ * Memory management implementation
+ *
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ *     economic rights: Technische Universität Dresden (Germany)
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
 #include "memory"
 #include "app_loading"
 #include "locking.h"
@@ -147,7 +158,7 @@ void *Romain::Region_map::attach_locally(void* addr, unsigned long size,
 	l4_addr_t offset_in_page = hdlr->offset() - page_base;
 	unsigned eff_size        = l4_round_page(size + offset_in_page);
 
-#if 0
+#if 1
 	MSG() << "  page_base " << (void*)page_base << ", offset " << std::hex << offset_in_page
 	      << ", eff_size " << eff_size << ", hdlr->offset " << hdlr->offset();
 #endif
@@ -172,7 +183,7 @@ void *Romain::Region_map::attach_locally(void* addr, unsigned long size,
 		ds        = &mem; // taking pointer to stack?? XXX
 		flags    &= ~L4Re::Rm::Read_only;
 		page_base = 0;
-		/* 
+		/*
 		 * XXX: If we copied the dataspace above, what happens to the
 		 *      original DS that was passed in? Shoudln't it be released?
 		 *
@@ -181,6 +192,13 @@ void *Romain::Region_map::attach_locally(void* addr, unsigned long size,
 		 */
 	}
 
+	/*
+	 * flags contains the replica's flags setting. If the replica asks to attach into
+	 * a previously reserved region, then this is only valid for the replica's
+	 * rm::attach() call, but not for attaching our local version/copy of the DS.
+	 */
+	flags &= ~L4Re::Rm::In_area;
+
 	l4_addr_t a = 0;
 	r = L4Re::Env::env()->rm()->attach(&a, eff_size,
 	                                   L4Re::Rm::Search_addr | flags,
@@ -188,11 +206,7 @@ void *Romain::Region_map::attach_locally(void* addr, unsigned long size,
 	_check(r != 0, "attach error");
 
 	Romain::Region reg(a, a+eff_size - 1);
-#if 1
-	MSG() << "touching 0x" << std::hex << a
-	      << " + " << eff_size << " rw'able";
-#endif
-	l4_touch_rw((void*)a, eff_size-1);
+	reg.touch_rw();
 
 	hdlr->set_local_region(_active_instance, reg);
 	return (void*)(a + offset_in_page);
@@ -200,10 +214,15 @@ void *Romain::Region_map::attach_locally(void* addr, unsigned long size,
 
 void *Romain::Region_map::attach(void* addr, unsigned long size,
                                  Romain::Region_handler const &hdlr,
-                                 unsigned flags, unsigned char align)
+                                 unsigned flags, unsigned char align, bool shared)
 {
 	void *ret = 0;
 	Romain::Region_handler _handler(hdlr);
+
+	if (shared) {
+		//DEBUG() << "======> SHARED <======";
+		_handler.shared(true);
+	}
 
 	/* Only attach locally, if this hasn't been done beforehand yet. */
 	if (!_handler.local_region(_active_instance).start()) {
@@ -241,8 +260,10 @@ bool Romain::Region_map::lazy_map_region(Romain::Region_map::Base::Node &n, unsi
 	if (n->second.local_region(inst).start())
 		return false;
 
+	DEBUGf(Romain::Log::Memory) << "start " <<  n->second.local_region(inst).start();
 	DEBUGf(Romain::Log::Memory) << "replica without yet established mapping.";
 	DEBUGf(Romain::Log::Memory) << "ro: " << n->second.is_ro();
+	DEBUGf(Romain::Log::Memory) << "shared: " << (n->second.shared() ? "true" : "false");
 
 	/*
 	 * As we found a node, we know there exists at least one replica
@@ -260,7 +281,8 @@ bool Romain::Region_map::lazy_map_region(Romain::Region_map::Base::Node &n, unsi
 	 * Case 1: region is read-only -> we share the mapping from
 	 *         the first node, because it was already established.
 	 */
-	if (n->second.is_ro()) {
+	
+	if (n->second.is_ro() or rh->shared()) {
 		/*
 		 * XXX: Why is setting local_region and memory split up?
 		 */

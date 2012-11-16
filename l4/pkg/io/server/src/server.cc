@@ -25,7 +25,7 @@ class Loop_hooks :
   public L4::Ipc_svr::Compound_reply
 {
 public:
-  static void setup_wait(L4::Ipc::Istream &istr, bool)
+  static void setup_wait(L4::Ipc::Istream &istr, L4::Ipc_svr::Reply_mode)
   {
     istr.reset();
     istr << L4::Ipc::Small_buf(rcv_cap.cap(), L4_RCV_ITEM_LOCAL_ID);

@@ -14,11 +14,11 @@
 
 namespace Hw {
 
-class Msi_resource : public Adr_resource, public Kernel_irq_pin
+class Msi_resource : public Resource, public Kernel_irq_pin
 {
 public:
   Msi_resource(unsigned msi)
-  : Adr_resource(Resource::Irq_res | Resource::Irq_edge, msi, msi),
+  : Resource(Resource::Irq_res | Resource::Irq_edge, msi, msi),
     Kernel_irq_pin(msi |  L4::Icu::F_msi)
   {}
 

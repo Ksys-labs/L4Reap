@@ -1,4 +1,3 @@
-
 /******************************************************************************
  *
  * Module Name: asconvrt - Source conversion code
@@ -9,13 +8,13 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2009, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2012, Intel Corp.
  * All rights reserved.
  *
  * 2. License
  *
  * 2.1. This is your license from Intel Corp. under its intellectual property
- * rights.  You may have additional license terms from the party that provided
+ * rights. You may have additional license terms from the party that provided
  * you this software, covering your right to use that party's intellectual
  * property rights.
  *
@@ -32,7 +31,7 @@
  * offer to sell, and import the Covered Code and derivative works thereof
  * solely to the minimum extent necessary to exercise the above copyright
  * license, and in no event shall the patent license extend to any additions
- * to or modifications of the Original Intel Code.  No other license or right
+ * to or modifications of the Original Intel Code. No other license or right
  * is granted directly or by implication, estoppel or otherwise;
  *
  * The above copyright and patent license is granted only if the following
@@ -44,11 +43,11 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification with rights to further distribute source must include
  * the above Copyright Notice, the above License, this list of Conditions,
- * and the following Disclaimer and Export Compliance provision.  In addition,
+ * and the following Disclaimer and Export Compliance provision. In addition,
  * Licensee must cause all Covered Code to which Licensee contributes to
  * contain a file documenting the changes Licensee made to create that Covered
- * Code and the date of any change.  Licensee must include in that file the
- * documentation of any changes made by any predecessor Licensee.  Licensee
+ * Code and the date of any change. Licensee must include in that file the
+ * documentation of any changes made by any predecessor Licensee. Licensee
  * must include a prominent statement that the modification is derived,
  * directly or indirectly, from Original Intel Code.
  *
@@ -56,7 +55,7 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification without rights to further distribute source must
  * include the following Disclaimer and Export Compliance provision in the
- * documentation and/or other materials provided with distribution.  In
+ * documentation and/or other materials provided with distribution. In
  * addition, Licensee may not authorize further sublicense of source of any
  * portion of the Covered Code, and must include terms to the effect that the
  * license from Licensee to its licensee is limited to the intellectual
@@ -81,10 +80,10 @@
  * 4. Disclaimer and Export Compliance
  *
  * 4.1. INTEL MAKES NO WARRANTY OF ANY KIND REGARDING ANY SOFTWARE PROVIDED
- * HERE.  ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
- * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT,  ASSISTANCE,
- * INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL WILL NOT PROVIDE ANY
- * UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY DISCLAIMS ANY
+ * HERE. ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
+ * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
+ * INSTALLATION, TRAINING OR OTHER SERVICES. INTEL WILL NOT PROVIDE ANY
+ * UPDATES, ENHANCEMENTS OR EXTENSIONS. INTEL SPECIFICALLY DISCLAIMS ANY
  * IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT AND FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
@@ -93,14 +92,14 @@
  * COSTS OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, OR FOR ANY INDIRECT,
  * SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THIS AGREEMENT, UNDER ANY
  * CAUSE OF ACTION OR THEORY OF LIABILITY, AND IRRESPECTIVE OF WHETHER INTEL
- * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES.  THESE LIMITATIONS
+ * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES. THESE LIMITATIONS
  * SHALL APPLY NOTWITHSTANDING THE FAILURE OF THE ESSENTIAL PURPOSE OF ANY
  * LIMITED REMEDY.
  *
  * 4.3. Licensee shall not export, either directly or indirectly, any of this
  * software or system incorporating such software without first obtaining any
  * required license or other approval from the U. S. Department of Commerce or
- * any other agency or department of the United States Government.  In the
+ * any other agency or department of the United States Government. In the
  * event Licensee exports any such software from the United States or
  * re-exports any such software from a foreign destination, Licensee shall
  * ensure that the distribution and export/re-export of the software is in
@@ -135,6 +134,89 @@ char        *HeaderBegin = "/***************************************************
 
 /******************************************************************************
  *
+ * FUNCTION:    AsRemoveExtraLines
+ *
+ * DESCRIPTION: Remove all extra lines at the start and end of the file.
+ *
+ ******************************************************************************/
+
+void
+AsRemoveExtraLines (
+    char                    *FileBuffer,
+    char                    *Filename)
+{
+    char                    *FileEnd;
+    int                     Length;
+
+
+    /* Remove any extra lines at the start of the file */
+
+    while (*FileBuffer == '\n')
+    {
+        printf ("Removing extra line at start of file: %s\n", Filename);
+        AsRemoveData (FileBuffer, FileBuffer + 1);
+    }
+
+    /* Remove any extra lines at the end of the file */
+
+    Length = strlen (FileBuffer);
+    FileEnd = FileBuffer + (Length - 2);
+
+    while (*FileEnd == '\n')
+    {
+        printf ("Removing extra line at end of file: %s\n", Filename);
+        AsRemoveData (FileEnd, FileEnd + 1);
+        FileEnd--;
+    }
+}
+
+
+/******************************************************************************
+ *
+ * FUNCTION:    AsRemoveSpacesAfterPeriod
+ *
+ * DESCRIPTION: Remove an extra space after a period.
+ *
+ ******************************************************************************/
+
+void
+AsRemoveSpacesAfterPeriod (
+    char                    *FileBuffer,
+    char                    *Filename)
+{
+    int                     ReplaceCount = 0;
+    char                    *Possible;
+
+
+    Possible = FileBuffer;
+    while (Possible)
+    {
+        Possible = strstr (Possible, ".  ");
+        if (Possible)
+        {
+            if ((*(Possible -1) == '.')  ||
+                (*(Possible -1) == '\"') ||
+                (*(Possible -1) == '\n'))
+            {
+                Possible += 3;
+                continue;
+            }
+
+            Possible = AsReplaceData (Possible, 3, ". ", 2);
+            ReplaceCount++;
+        }
+    }
+
+    if (ReplaceCount)
+    {
+        printf ("Removed %d extra blanks after a period: %s\n",
+            ReplaceCount, Filename);
+    }
+}
+
+
+/******************************************************************************
+ *
  * FUNCTION:    AsMatchExactWord
  *
  * DESCRIPTION: Check previous and next characters for whitespace
@@ -153,9 +235,9 @@ AsMatchExactWord (
     NextChar = Word[WordLength];
     PrevChar = * (Word -1);
 
-    if (isalnum (NextChar) ||
+    if (isalnum ((int) NextChar) ||
         (NextChar == '_')  ||
-        isalnum (PrevChar) ||
+        isalnum ((int) PrevChar) ||
         (PrevChar == '_'))
     {
         return (FALSE);
@@ -218,7 +300,7 @@ AsCheckAndSkipLiterals (
 
         if (!LiteralEnd)
         {
-            return SubBuffer;
+            return (SubBuffer);
         }
 
         while (SubBuffer < LiteralEnd)
@@ -242,7 +324,7 @@ AsCheckAndSkipLiterals (
         LiteralEnd = AsSkipPastChar (SubBuffer, '\"');
         if (!LiteralEnd)
         {
-            return SubBuffer;
+            return (SubBuffer);
         }
     }
 
@@ -250,7 +332,7 @@ AsCheckAndSkipLiterals (
     {
         (*TotalLines) += NewLines;
     }
-    return SubBuffer;
+    return (SubBuffer);
 }
 
 
@@ -298,7 +380,7 @@ AsCheckForBraces (
 
                 if (!Gbl_QuietMode)
                 {
-                    printf ("Missing braces for <if>, line %d: %s\n", TotalLines, Filename);
+                    printf ("Missing braces for <if>, line %u: %s\n", TotalLines, Filename);
                 }
             }
         }
@@ -317,7 +399,7 @@ AsCheckForBraces (
 
                 if (!Gbl_QuietMode)
                 {
-                    printf ("Missing braces for <if>, line %d: %s\n", TotalLines, Filename);
+                    printf ("Missing braces for <if>, line %u: %s\n", TotalLines, Filename);
                 }
             }
         }
@@ -336,7 +418,7 @@ AsCheckForBraces (
 
                 if (!Gbl_QuietMode)
                 {
-                    printf ("Missing braces for <else>, line %d: %s\n", TotalLines, Filename);
+                    printf ("Missing braces for <else>, line %u: %s\n", TotalLines, Filename);
                 }
             }
         }
@@ -350,7 +432,7 @@ AsCheckForBraces (
  *
  * FUNCTION:    AsTrimLines
  *
- * DESCRIPTION: Remove extra blanks from the end of source lines.  Does not
+ * DESCRIPTION: Remove extra blanks from the end of source lines. Does not
  *              check for tabs.
  *
  ******************************************************************************/
@@ -476,7 +558,7 @@ AsReplaceHeader (
  * FUNCTION:    AsReplaceString
  *
  * DESCRIPTION: Replace all instances of a target string with a replacement
- *              string.  Returns count of the strings replaced.
+ *              string. Returns count of the strings replaced.
  *
  ******************************************************************************/
 
@@ -508,7 +590,7 @@ AsReplaceString (
         SubString1 = strstr (SubBuffer, Target);
         if (!SubString1)
         {
-            return ReplaceCount;
+            return (ReplaceCount);
         }
 
         /*
@@ -527,7 +609,7 @@ AsReplaceString (
             {
                 /* Didn't find terminator */
 
-                return ReplaceCount;
+                return (ReplaceCount);
             }
 
             /* Move buffer to end of escape block and continue */
@@ -560,7 +642,7 @@ AsReplaceString (
         }
     }
 
-    return ReplaceCount;
+    return (ReplaceCount);
 }
 
 
@@ -649,7 +731,6 @@ void
 AsBracesOnSameLine (
     char                    *Buffer)
 {
-    UINT32                  Length;
     char                    *SubBuffer = Buffer;
     char                    *Beginning;
     char                    *StartOfThisLine;
@@ -700,7 +781,7 @@ AsBracesOnSameLine (
          * Check for digit will ignore initializer lists surrounded by braces.
          * This will work until we we need more complex detection.
          */
-        if ((*SubBuffer == '{') && !isdigit (SubBuffer[1]))
+        if ((*SubBuffer == '{') && !isdigit ((int) SubBuffer[1]))
         {
             if (BlockBegin)
             {
@@ -741,7 +822,6 @@ AsBracesOnSameLine (
                 {
                     Beginning++;
                     SubBuffer++;
-                    Length = strlen (SubBuffer);
 
                     Gbl_MadeChanges = TRUE;
 
@@ -799,7 +879,7 @@ AsBracesOnSameLine (
  *
  * FUNCTION:    AsTabify4
  *
- * DESCRIPTION: Convert the text to tabbed text.  Alignment of text is
+ * DESCRIPTION: Convert the text to tabbed text. Alignment of text is
  *              preserved.
  *
  ******************************************************************************/
@@ -889,7 +969,7 @@ AsTabify4 (
  *
  * FUNCTION:    AsTabify8
  *
- * DESCRIPTION: Convert the text to tabbed text.  Alignment of text is
+ * DESCRIPTION: Convert the text to tabbed text. Alignment of text is
  *              preserved.
  *
  ******************************************************************************/
@@ -937,7 +1017,7 @@ AsTabify8 (
 
             /*
              * This mechanism limits the difference in tab counts from
-             * line to line.  It helps avoid the situation where a second
+             * line to line. It helps avoid the situation where a second
              * continuation line (which was indented correctly for tabs=4) would
              * get indented off the screen if we just blindly converted to tabs.
              */
@@ -1089,7 +1169,7 @@ AsTabify8 (
  *
  * FUNCTION:    AsCountLines
  *
- * DESCRIPTION: Count the number of lines in the input buffer.  Also count
+ * DESCRIPTION: Count the number of lines in the input buffer. Also count
  *              the number of long lines (lines longer than 80 chars).
  *
  ******************************************************************************/
@@ -1111,7 +1191,7 @@ AsCountLines (
         if (!EndOfLine)
         {
             Gbl_TotalLines += LineCount;
-            return LineCount;
+            return (LineCount);
         }
 
         if ((EndOfLine - SubBuffer) > 80)
@@ -1126,12 +1206,12 @@ AsCountLines (
 
     if (LongLineCount)
     {
-        VERBOSE_PRINT (("%d Lines longer than 80 found in %s\n", LongLineCount, Filename));
+        VERBOSE_PRINT (("%u Lines longer than 80 found in %s\n", LongLineCount, Filename));
         Gbl_LongLines += LongLineCount;
     }
 
     Gbl_TotalLines += LineCount;
-    return LineCount;
+    return (LineCount);
 }
 
 
@@ -1174,7 +1254,7 @@ AsCountTabs (
  *
  * FUNCTION:    AsCountNonAnsiComments
  *
- * DESCRIPTION: Count the number of "//" comments.  This type of comment is
+ * DESCRIPTION: Count the number of "//" comments. This type of comment is
  *              non-ANSI C.
  *
  ******************************************************************************/
@@ -1210,7 +1290,7 @@ AsCountNonAnsiComments (
  *
  * FUNCTION:    AsCountSourceLines
  *
- * DESCRIPTION: Count the number of C source lines.  Defined by 1) not a
+ * DESCRIPTION: Count the number of C source lines. Defined by 1) not a
  *              comment, and 2) not a blank line.
  *
  ******************************************************************************/
@@ -1293,7 +1373,7 @@ AsCountSourceLines (
     Gbl_WhiteLines += WhiteCount;
     Gbl_CommentLines += CommentCount;
 
-    VERBOSE_PRINT (("%d Comment %d White %d Code %d Lines in %s\n",
+    VERBOSE_PRINT (("%u Comment %u White %u Code %u Lines in %s\n",
                 CommentCount, WhiteCount, LineCount, LineCount+WhiteCount+CommentCount, Filename));
 }
 
@@ -1315,7 +1395,6 @@ AsInsertPrefix (
     char                    *SubString;
     char                    *SubBuffer;
     char                    *EndKeyword;
-    int                     StrLength;
     int                     InsertLength;
     char                    *InsertString;
     int                     TrailingSpaces;
@@ -1351,7 +1430,6 @@ AsInsertPrefix (
         /* Find an instance of the keyword */
 
         SubString = strstr (SubBuffer, LowerKeyword);
-
         if (!SubString)
         {
             return;
@@ -1392,7 +1470,6 @@ AsInsertPrefix (
             /* Prefix the keyword with the insert string */
 
             Gbl_MadeChanges = TRUE;
-            StrLength = strlen (SubString);
 
             /* Is there room for insertion */
 
@@ -1521,5 +1598,3 @@ Exit:
     }
 }
 #endif
-
-

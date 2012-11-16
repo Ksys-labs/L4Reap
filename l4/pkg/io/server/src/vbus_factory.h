@@ -20,8 +20,6 @@
 #include "hw_device.h"
 #include "vdevice.h"
 
-#include "tagged_parameter.h"
-
 namespace Vi {
 
 template< typename VI, typename HW >
@@ -58,9 +56,8 @@ class Dev_factory : public cxx::H_list_item
 {
 public:
   virtual Device *vcreate() = 0;
-  virtual Device *vcreate(Hw::Device *f, Tagged_parameter *filter) = 0;
+  virtual Device *vcreate(Hw::Device *f) = 0;
 
-//  typedef cxx::Avl_map<std::type_info const *, Dev_factory *> Type_map;
   typedef cxx::Avl_map<std::string, Dev_factory *> Name_map;
   typedef cxx::H_list<Dev_factory> List;
   typedef List::Iterator Iterator;
@@ -79,7 +76,7 @@ protected:
 
 public:
   static Device *create(std::string const &_class);
-  static Device *create(Hw::Device *f, Tagged_parameter *filter, bool warn = true);
+  static Device *create(Hw::Device *f, bool warn = true);
 
 private:
   Dev_factory(Dev_factory const &);
@@ -136,7 +133,7 @@ public:
   { }
 
 
-  virtual Device *vcreate(Hw::Device *dev, Tagged_parameter *filter)
+  virtual Device *vcreate(Hw::Device *dev)
   {
     if (dev->ref_count())
       printf("WARNING: device '%s' already assigned to an other virtual bus.\n",
@@ -145,7 +142,7 @@ public:
     if (!dynamic_cast<HW_DEV const*>(dev))
       return 0;
 
-    Device *d = new V_dev(static_cast<Hw_dev*>(dev), filter);
+    Device *d = new V_dev(static_cast<Hw_dev*>(dev));
     dev->inc_ref_count();
     return d;
   }
@@ -163,19 +160,14 @@ public:
   typedef V_DEV V_dev;
 
   explicit Dev_factory_t(std::string const &_class) : Dev_factory(0)
-  {
-    name_map()[_class] = this;
-  }
+  { name_map()[_class] = this; }
 
 
-  virtual Device *vcreate(Hw::Device *, Tagged_parameter *)
+  virtual Device *vcreate(Hw::Device *)
   { return 0; }
 
   virtual Device *vcreate()
-  {
-    Device *d = new V_dev();
-    return d;
-  }
+  { return new V_dev; }
 
 };
 

@@ -1,8 +1,8 @@
-/* A Bison parser, made by GNU Bison 2.5.  */
+/* A Bison parser, made by GNU Bison 2.6.2.  */
 
 /* Skeleton interface for Bison LALR(1) parsers in C++
    
-      Copyright (C) 2002-2011 Free Software Foundation, Inc.
+      Copyright (C) 2002-2012 Free Software Foundation, Inc.
    
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -30,14 +30,18 @@
    This special exception was added by the Free Software Foundation in
    version 2.2 of Bison.  */
 
+/**
+ ** \file cfg_parser.tab.hh
+ ** Define the cfg::parser class.
+ */
+
 /* C++ LALR(1) parser skeleton written by Akim Demaille.  */
 
-#ifndef PARSER_HEADER_H
-# define PARSER_HEADER_H
+#ifndef CFG_CFG_PARSER_TAB_HH
+# define CFG_CFG_PARSER_TAB_HH
 
 /* "%code requires" blocks.  */
-
-/* Line 35 of lalr1.cc  */
+/* Line 36 of lalr1.cc  */
 #line 16 "cfg_parser.yy"
 
 
@@ -52,9 +56,8 @@
 
 
 
-
-/* Line 35 of lalr1.cc  */
-#line 58 "cfg_parser.tab.hh"
+/* Line 36 of lalr1.cc  */
+#line 61 "cfg_parser.tab.hh"
 
 
 #include <string>
@@ -67,24 +70,10 @@
 # define YYDEBUG 1
 #endif
 
-/* Enabling verbose error messages.  */
-#ifdef YYERROR_VERBOSE
-# undef YYERROR_VERBOSE
-# define YYERROR_VERBOSE 1
-#else
-# define YYERROR_VERBOSE 1
-#endif
-
-/* Enabling the token table.  */
-#ifndef YYTOKEN_TABLE
-# define YYTOKEN_TABLE 0
-#endif
-
 
 namespace cfg {
-
-/* Line 35 of lalr1.cc  */
-#line 88 "cfg_parser.tab.hh"
+/* Line 36 of lalr1.cc  */
+#line 77 "cfg_parser.tab.hh"
 
   /// A Bison parser.
   class Parser
@@ -94,9 +83,8 @@ namespace cfg {
 #ifndef YYSTYPE
     union semantic_type
     {
-
-/* Line 35 of lalr1.cc  */
-#line 52 "cfg_parser.yy"
+/* Line 36 of lalr1.cc  */
+#line 53 "cfg_parser.yy"
 
     l4_uint64_t num;
     struct {
@@ -109,9 +97,8 @@ namespace cfg {
     Hw::Device *hw_device;
 
 
-
-/* Line 35 of lalr1.cc  */
-#line 115 "cfg_parser.tab.hh"
+/* Line 36 of lalr1.cc  */
+#line 102 "cfg_parser.tab.hh"
     };
 #else
     typedef YYSTYPE semantic_type;
@@ -141,7 +128,7 @@ namespace cfg {
     typedef token::yytokentype token_type;
 
     /// Build a parser object.
-    Parser (class Scanner *_lexer_yyarg, Vi::Dev_factory *_vbus_factory_yyarg, Vi::Device *&_glbl_vbus_yyarg, Hw::Device *_hw_root_yyarg);
+    Parser (class Scanner *_lexer_yyarg, Vi::Dev_factory *_vbus_factory_yyarg, Vi::Device *&_glbl_vbus_yyarg, Hw::Device *_hw_root_yyarg, int &_errors_yyarg);
     virtual ~Parser ();
 
     /// Parse.
@@ -246,16 +233,14 @@ namespace cfg {
     /// For a rule, its LHS.
     static const unsigned char yyr1_[];
     /// For a rule, its RHS length.
-    static const unsigned char yyr2_[];
-
-#if YYDEBUG || YYERROR_VERBOSE || YYTOKEN_TABLE
-    /// For a symbol, its name in clear.
-    static const char* const yytname_[];
-#endif
+    static const unsigned char yyr2_[]; 
 
     /// Convert the symbol name \a n to a form suitable for a diagnostic.
     static std::string yytnamerr_ (const char *n);
 
+
+    /// For a symbol, its name in clear.
+    static const char* const yytname_[];
 #if YYDEBUG
     /// A type to store symbol numbers and -1.
     typedef signed char rhs_number_type;
@@ -311,13 +296,13 @@ namespace cfg {
     Vi::Dev_factory *_vbus_factory;
     Vi::Device *&_glbl_vbus;
     Hw::Device *_hw_root;
+    int &_errors;
   };
 
 } // cfg
-
-/* Line 35 of lalr1.cc  */
-#line 320 "cfg_parser.tab.hh"
-
+/* Line 36 of lalr1.cc  */
+#line 305 "cfg_parser.tab.hh"
 
 
-#endif /* ! defined PARSER_HEADER_H */
+
+#endif /* !CFG_CFG_PARSER_TAB_HH  */

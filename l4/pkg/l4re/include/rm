@@ -128,6 +128,15 @@ public:
      * the given region.
      */
     Detach_overlap = 2,
+
+    /**
+     * \brief Do not free the detached data space, ignore the #Detach_free
+     * \internal
+     *
+     * This flag is useful for _detach().
+     *
+     */
+    Detach_keep = 4,
   };
 
 
@@ -433,25 +442,24 @@ public:
   int get_regions(l4_addr_t start, Region **regions) throw();
   int get_areas(l4_addr_t start, Area **areas) throw();
 
-private:
-  int _detach(l4_addr_t start, unsigned long size, L4::Cap<Dataspace> *mem,
-              L4::Cap<L4::Task> task, unsigned flags) const throw();
+  int detach(l4_addr_t start, unsigned long size, L4::Cap<Dataspace> *mem,
+             L4::Cap<L4::Task> task, unsigned flags) const throw();
 };
 
 
 inline int
 Rm::detach(l4_addr_t addr, L4::Cap<Dataspace> *mem,
            L4::Cap<L4::Task> const &task) const throw()
-{  return _detach(addr, 1, mem, task, Detach_overlap); }
+{  return detach(addr, 1, mem, task, Detach_overlap); }
 
 inline int
 Rm::detach(void *addr, L4::Cap<Dataspace> *mem,
            L4::Cap<L4::Task> const &task) const throw()
-{  return _detach((l4_addr_t)addr, 1, mem, task, Detach_overlap); }
+{  return detach((l4_addr_t)addr, 1, mem, task, Detach_overlap); }
 
 inline int
 Rm::detach(l4_addr_t addr, unsigned long size, L4::Cap<Dataspace> *mem,
            L4::Cap<L4::Task> const &task) const throw()
-{  return _detach(addr, size, mem, task, Detach_exact); }
+{  return detach(addr, size, mem, task, Detach_exact); }
 
 };

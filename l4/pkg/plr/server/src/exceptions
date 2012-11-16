@@ -6,7 +6,7 @@
  *
  *     Romain exception definitions.
  *
- * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -14,7 +14,7 @@
  */
 
 #include <l4/sys/kdebug.h>
-#include <cstring> // snprintf etc.
+#include <cstdio> // snprintf etc.
 #include <l4/cxx/exceptions> // L4::Base_error
 
 class Romain_error : public L4::Base_exception

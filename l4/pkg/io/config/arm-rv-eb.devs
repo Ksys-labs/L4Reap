@@ -1,63 +1,66 @@
-# vim:set ft=ioconfig:
-# (c) 2008-2009 Technische Universität Dresden
-# This file is part of TUD:OS and distributed under the terms of the
-# GNU General Public License 2.
-# Please see the COPYING-GPL-2 file for details.
+-- vim:set ft=lua:
+-- (c) 2008-2009 Technische Universität Dresden
+-- This file is part of TUD:OS and distributed under the terms of the
+-- GNU General Public License 2.
+-- Please see the COPYING-GPL-2 file for details.
 
+-- single core EB
 
-// single core EB
-hw-root
+local Res = Io.Res
+local Hw = Io.Hw
+
+Io.hw_add_devices
 {
-  CTRL => new Device()
+  CTRL = Hw.Device
   {
-    .hid = "System Control";
-    new-res Mmio(0x10000000 .. 0x10000fff);
-  }
+    hid = "System Control";
+    Res.mmio(0x10000000, 0x10000fff);
+  },
 
-  LCD => new Device()
+  LCD = Hw.Device
   {
-    .hid = "AMBA PL110";
-    new-res Mmio(0x10020000 .. 0x10020fff);
-  }
+    hid = "AMBA PL110";
+    Res.mmio(0x10020000, 0x10020fff);
+  },
 
-  KBD => new Device()
+  KBD = Hw.Device
   {
-    .hid = "AMBA KMI Kbd";
-    new-res Irq(52);
-    new-res Mmio(0x10006000 .. 0x10006fff);
-  }
+    hid = "AMBA KMI Kbd";
+    Res.irq(52);
+    Res.mmio(0x10006000, 0x10006fff);
+  },
 
-  MOUSE => new Device()
+  MOUSE = Hw.Device
   {
-    .hid = "AMBA KMI mou";
-    new-res Mmio(0x10007000 .. 0x10007fff);
-    new-res Irq(53);
-  }
+    hid = "AMBA KMI mou";
+    Res.mmio(0x10007000, 0x10007fff);
+    Res.irq(53);
+  },
 
-  NIC => new Device()
+  NIC = Hw.Device
   {
-    .hid = "smc91x";
-    #.hid = "smsc911x";
-    new-res Mmio(0x4e000000 .. 0x4e000fff);
-    new-res Irq(60);
-  }
+    hid = "smc91x";
+    --hid = "smsc911x";
+    Res.mmio(0x4e000000, 0x4e000fff);
+    Res.irq(60);
+  },
 
-  PCIrootbridge => new Pci_iomem_root_bridge()
+  PCI0 = Hw.Pci_iomem_root_bridge
   {
-    .hid       = "PNP0A03";
-    .iobase    = 0x62000000;
-    .iosize    = 0x00010000;
-    .dev_start = 0x64000000;
-    .dev_end   = 0x6fffffff;
-    .int_a     = 80;
-    .int_b     = 81;
-    .int_c     = 82;
-    .int_d     = 83;
-  }
+    hid       = "PNP0A03";
+    iobase    = 0x62000000;
+    iosize    = 0x00010000;
+    dev_start = 0x64000000;
+    dev_end   = 0x6fffffff;
+    int_a     = 80;
+    int_b     = 81;
+    int_c     = 82;
+    int_d     = 83;
+  },
 
-  MEM1 => new Device()
+  MEM1 = Hw.Device
   {
-    .hid = "foomem";
-    new-res Mmio_ram(0x10000, 0);
+    hid = "foomem";
+    Io.Mmio_data_space(0x10000, 0);
   }
 }

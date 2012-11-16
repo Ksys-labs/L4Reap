@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2012.06.25
-#	Date:    2012-06-25 14:42:27
+#	Version: 2012.08.15
+#	Date:    2012-08-15 03:15:02
 #
 #	Maintained by Martin Mares <mj@ucw.cz> and other volunteers from the
 #	PCI ID Project at http://pci-ids.ucw.cz/.
@@ -88,7 +88,6 @@
 04b3  IBM Corp.
 	4001  Remote System Administration device [RSA2]
 050d  Belkin
-058f  Alcor Micro Corporation
 05a9  OmniVision
 	8519  OV519 series
 05e3  CyberDoor
@@ -122,8 +121,8 @@
 08e6  Gemalto NV
 08ff  AuthenTec
 	afe4  [Anchor] AF-S2 FingerLoc Sensor Module
-0925  First International Computer, Inc.
-	1234  VA-502 Mainboard
+0925  VIA Technologies, Inc. (Wrong ID)
+	1234  VT82C686/A/B USB Controller
 093a  PixArt Imaging Inc.
 	010e  Innovage Mini Digital Camera
 	010f  SDC-300 Webcam
@@ -378,6 +377,7 @@
 	005b  MegaRAID SAS 2208 [Thunderbolt]
 		1000 9265  MegaRAID SAS 9265-8i
 		1000 9266  MegaRAID SAS 9266-8i
+		1000 9268  MegaRAID SAS 9265CV-8i / 9270CV-8i
 		1014 040b  ServeRAID M5110 SAS/SATA Controller
 		1014 0412  ServeRAID M5110e SAS/SATA Controller
 		1028 1f2d  PERC H810 Adapter
@@ -392,6 +392,7 @@
 	005c  SAS1064A PCI-X Fusion-MPT SAS
 	005d  MegaRAID SAS-3 3108 [Invader]
 	005e  SAS1066 PCI-X Fusion-MPT SAS
+	005f  MegaRAID SAS-3 3008 [Fury]
 	0060  MegaRAID SAS 1078
 		1000 1006  MegaRAID SAS 8888ELP
 		1000 100a  MegaRAID SAS 8708ELP
@@ -441,6 +442,7 @@
 	0073  MegaRAID SAS 2008 [Falcon]
 		1000 9240  MegaRAID SAS 9240-8i
 		1000 9241  MegaRAID SAS 9240-4i
+		1000 92a0  MegaRAID SAS 9220-8i
 		1014 03b1  ServeRAID M1015 SAS/SATA Controller
 		1028 1f4e  PERC H310 Adapter
 		1028 1f4f  PERC H310 Integrated
@@ -615,7 +617,7 @@
 	1314  Wrestler HDMI Audio [Radeon HD 6250/6310]
 		174b 1001  Sapphire PURE Fusion Mini
 	1714  BeaverCreek HDMI Audio [Radeon HD 6500D and 6400G-6600G series]
-		103c 168b  ATI R6xx HDMI
+		103c 168b  ProBook 4535s
 	3150  M24 1P [Radeon Mobility X600]
 		103c 0934  nx8220
 	3151  M24 [FireMV 2400]
@@ -1515,7 +1517,8 @@
 	671f  Cayman [Radeon HD 6900 Series]
 	6720  Blackcomb [Radeon HD 6900M series]
 	6738  Barts XT [Radeon HD 6800 Series]
-	6739  Barts PRO [ATI Radeon HD 6800 Series]
+	6739  Barts PRO [Radeon HD 6800 Series]
+		1043 03b4  EAH6850 [Radeon HD 6850]
 	673e  Barts LE [AMD Radeon HD 6700 Series]
 	6740  Whistler XT [AMD Radeon HD 6700M Series]
 	6741  Whistler [AMD Radeon HD 6600M Series]
@@ -1529,7 +1532,7 @@
 	6758  Turks [Radeon HD 6670]
 	6759  Turks [Radeon HD 6570]
 	675d  Turks [Radeon HD 7500 Series]
-	6760  Seymour XT/PRO [Radeon HD 7400M Series]
+	6760  Caicos [Radeon HD 6400M/7400M Series]
 		1028 04cc  Vostro 3350
 	6761  Seymour LP [Radeon HD 6430M]
 	6763  Seymour [Radeon E6460]
@@ -1545,6 +1548,7 @@
 	6800  WIMBLEDON XT [Radeon HD 7970M]
 	6818  PITCAIRN [Radeon HD 7800]
 	6819  PITCAIRN PRO [Radeon HD 7800 Series]
+	682f  Cape Verde [Radeon HD 7700M Series]
 	683d  Cape Verde [Radeon HD 7700 Series]
 	683f  Cape Verde PRO [Radeon HD 7700 Series]
 	6840  Thames XT/GL [Radeon HD 7600M Series]
@@ -1557,7 +1561,8 @@
 	688d  Cypress [AMD FireStream 9350]
 	6898  Cypress XT [Radeon HD 5870]
 		1462 8032  R5870 PM2D1G
-	6899  Cypress [Radeon HD 5800 Series]
+	6899  Cypress PRO [Radeon HD 5800 Series]
+		1043 0330  EAH5850 [Radeon HD5850]
 	689b  Cypress [Radeon HD 6800 Series]
 	689c  Hemlock [Radeon HD 5900 Series]
 	689e  Cypress LE [Radeon HD 5800 Series]
@@ -1590,7 +1595,7 @@
 	68e5  Robson LE [AMD Radeon HD 6300M Series]
 	68f1  Cedar [FirePro 2460]
 	68f2  Cedar [FirePro 2270]
-	68f9  Cedar PRO [Radeon HD 5450]
+	68f9  Cedar PRO [Radeon HD 5450/6350]
 		1028 010e  XPS 8300
 	68fa  EG Cedar [Radeon HD 7300 Series]
 	700f  PCI Bridge [IGP 320M]
@@ -1865,6 +1870,7 @@
 	9616  RS780L [Radeon HD 3000]
 	9640  BeaverCreek [Radeon HD 6550D]
 	9641  BeaverCreek [Mobility Radeon HD 6620G]
+	9647  BeaverCreek [Radeon HD 6520G]
 	964a  BeaverCreek [Radeon HD 6530D]
 	970f  RS880 HDMI Audio [Radeon HD 4200 Series]
 		1043 83a2  M4A785TD Motherboard
@@ -2553,6 +2559,7 @@
 	780b  Hudson SMBus Controller
 	780c  Hudson IDE Controller
 	780d  Hudson Azalia Controller
+		103c 168b  Integrated Device Technology, Inc. [IDT] 92HD87B1/3 Audio Processor
 	780e  Hudson LPC Bridge
 	780f  Hudson PCI Bridge
 	7812  Hudson USB XHCI Controller
@@ -2929,11 +2936,10 @@
 		102b ff05  MGA-G100 Productiva AGP Multi-Monitor
 		110a 001e  MGA-G100 AGP
 	2007  MGA Mistral
-	2527  MGA G550 AGP
+	2527  Millennium G550
 		102b 0f83  Millennium G550
 		102b 0f84  Millennium G550 Dual Head DDR 32Mb
 		102b 1e41  Millennium G550
-# Clearly the device name should not say AGP anymore...
 		102b 2300  Millennium G550 LP PCIE
 	2537  Millenium P650/P750
 		102b 1820  Millennium P750 64MB
@@ -3400,6 +3406,8 @@
 	1361  BCM4312 802.11a/b/g WLAN Controller
 	1371  Broadcom Corporation BCM4312 802.11a/b/g (rev 02)
 	1717  Intel 82571EB dual 1 Gb Ethernet controller
+	179b  EliteBook 8470p Notebook
+	179d  EliteBook 8470p Notebook
 	2910  E2910A PCIBus Exerciser
 	2925  E2925A 32 Bit, 33 MHzPCI Exerciser & Analyzer
 	3080  Pavilion ze2028ea
@@ -4501,7 +4509,6 @@
 	1001  Happy Meal 10/100 Ethernet [hme]
 	1100  RIO EBUS
 		108e 1100  RIO EBUS on Blade 100 motherboard
-# Correction
 	1101  RIO 10/100 Ethernet [eri]
 		108e 1101  RIO GEM on Blade 100 motherboard
 	1102  RIO 1394
@@ -5558,7 +5565,6 @@
 10de  NVIDIA Corporation
 	0008  NV1 [EDGE 3D]
 	0009  NV1 [EDGE 3D]
-	0010  NV2 [Mutara V08]
 	0020  NV4 [RIVA TNT]
 		1043 0200  V3400 TNT
 		1048 0c18  Erazor II SGRAM
@@ -6636,7 +6642,6 @@
 		1849 054c  ALiveNF7G-HDready, MCP67 Gigabit Ethernet
 	054d  MCP67 Ethernet
 	054e  MCP67 Ethernet
-# forcedeth source code from Nvidi
 	054f  MCP67 Ethernet
 	0550  MCP67 AHCI Controller
 		1043 8308  M2N68-AM Motherboard
@@ -6781,9 +6786,9 @@
 	06cd  GF100 [GeForce GTX 470]
 	06d1  GF100 [Tesla C2050 / C2070]
 	06d2  GF100 [Tesla M2070]
-	06d8  GF100 [Quadro 6000]
-	06d9  GF100 [Quadro 5000]
-	06dd  GF100 [Quadro 4000]
+	06d8  GF100GL [Quadro 6000]
+	06d9  GF100GL [Quadro 5000]
+	06dd  GF100GL [Quadro 4000]
 	06de  GF100 [Tesla S2050]
 	06df  GF100 [Tesla M2070Q]
 	06e0  G98 [GeForce 9300 GE]
@@ -7148,6 +7153,7 @@
 # Not fully sure that it's GF108, might also be GF106.
 	0deb  GF108 [GeForce GT 555M]
 	0dee  GF108 [GeForce GT 415M]
+	0def  GF108 [Quadro NVS 5400M]
 	0df0  GF108 [GeForce GT 425M]
 	0df2  GF108 [GeForce GT 435M]
 	0df4  GF108 [GeForce GT 540M]
@@ -7159,12 +7165,15 @@
 	0e08  GF119 HDMI Audio Controller
 	0e09  GF110 High Definition Audio Controller
 	0e0a  GK104 HDMI Audio Controller
-	0e0c  GF110 High Definition Audio Controller
+	0e0c  GF114 HDMI Audio Controller
 	0e22  GF104 [GeForce GTX 460]
 		1462 2322  N460GTX Cyclone 1GD5/OC
 	0e3a  GF104 [Quadro 3000M]
 	0e3b  GF104 [Quadro 4000M]
+	0fd1  GK107 [GeForce GT 650M]
 	0fd2  GK107 [GeForce GT 640M]
+	0ffb  GK107 [Quadro K2000M]
+	0ffc  GK107 [Quadro K1000M]
 	1040  GF119 [GeForce GT 520]
 	1050  GF119 [GeForce GT 520M]
 	1051  GF119 [GeForce GT 520MX]
@@ -7180,13 +7189,18 @@
 	1091  Tesla M2090
 	1094  Tesla M2075 Dual-Slot Computing Processor Module
 	1096  Tesla C2075
+	109b  GF100GL [Quadro 7000]
 	10c3  GT218 [GeForce 8400 GS]
 		10de 066d  G98 [GeForce 8400GS]
 	10c5  GT218 [GeForce 405]
 	10d8  GT218 [Quadro NVS 300]
 	1180  GK104 [GeForce GTX 680]
+	1183  GK104 [GeForce GTX 660 Ti]
 	1188  GK104 [GeForce GTX 690]
 	1189  GK104 [GeForce GTX 670]
+	11bc  GK104 [Quadro K5000M]
+	11bd  GK104 [Quadro K4000M]
+	11be  GK104 [Quadro K3000M]
 	1200  GF114 [GeForce GTX 560 Ti]
 	1201  GF114 [GeForce GTX 560]
 	1205  GF114 [GeForce GTX 460 v2]
@@ -7437,7 +7451,7 @@
 		1775 11cc  CC11/CL11
 		1849 8168  Motherboard (one of many)
 		8086 d615  Desktop Board D510MO
-	8169  RTL-8169 Gigabit Ethernet
+	8169  RTL8169 PCI Gigabit Ethernet Controller
 		1025 0079  Aspire 5024WLMi
 		10bd 3202  EP-320G-TX1 32-bit PCI Gigabit Ethernet Adapter
 		10ec 8169  RTL8169/8110 Family PCI Gigabit Ethernet NIC
@@ -7467,6 +7481,7 @@
 	8190  RTL8190 802.11n Wireless LAN
 	8191  RTL8188CE 802.11b/g/n WiFi Adapter
 	8192  RTL8192E/RTL8192SE Wireless LAN Controller
+	8193  RTL8192DE Wireless LAN Controller
 	8197  SmartLAN56 56K Modem
 	8199  RTL8187SE Wireless LAN Controller
 		1462 6894  MN54G2 / MS-6894 Wireless Mini PCIe Card
@@ -8514,7 +8529,6 @@
 		0000 5071  Behold TV 507 RDS
 		0000 507b  Behold TV 507 RDS
 		0000 5201  Behold TV Columbus
-# Deleting vendor name after rereading submit instructions
 		0070 6701  WinTV HVR-1110
 		1019 4cb5  Elitegroup ECS TVP3XP FM1236 Tuner Card (NTSC,FM)
 		1043 0210  FlyTV mini Asus Digimatrix
@@ -8794,10 +8808,14 @@
 		1137 0047  VIC P81E PCIe Ethernet NIC
 		1137 0048  VIC M81KR Mezzanine Ethernet NIC
 		1137 004f  VIC 1280 Mezzanine Ethernet NIC
+		1137 0084  VIC 1240 MLOM Ethernet NIC
+		1137 0085  VIC 1225 PCIe Ethernet NIC
 	0044  VIC Ethernet NIC Dynamic
 		1137 0047  VIC P81E PCIe Ethernet NIC Dynamic
 		1137 0048  VIC M81KR Mezzanine Ethernet NIC Dynamic
 		1137 004f  VIC 1280 Mezzanine Ethernet NIC Dynamic
+		1137 0084  VIC 1240 MLOM Ethernet NIC Dynamic
+		1137 0085  VIC 1225 PCIe Ethernet NIC Dynamic
 	0045  VIC FCoE HBA
 		1137 0047  VIC P81E PCIe FCoE HBA
 		1137 0048  VIC M81KR Mezzanine FCoE HBA
@@ -9295,6 +9313,7 @@
 		1028 01d7  XPS M1210
 		1028 01f3  Inspiron 1420
 		1028 01f5  Dell Inspiron 1501
+		1028 024f  Dell Latitude e6500
 		103c 03b5  Presario V3242AU
 		103c 30b7  Presario V6133CL
 		1183 0843  Alienware Aurora m9700
@@ -9309,11 +9328,14 @@
 		1324 10cf  P7120
 	e230  R5U2xx (R5U230 / R5U231 / R5U241) [Memory Stick Host Controller]
 	e476  CardBus bridge
+		1028 040a  Latitude E6410
 		1028 040b  Latitude E6510
 	e822  MMC/SD Host Controller
+		1028 040a  Latitude E6410
 		1028 040b  Latitude E6510
 	e823  PCIe SDXC/MMC Host Controller
 	e832  R5C832 PCIe IEEE 1394 Controller
+		1028 040a  Latitude E6410
 		1028 040b  Latitude E6510
 	e852  PCIe xD-Picture Card Controller
 1181  Telmatics International
@@ -11049,6 +11071,7 @@
 	006f  PCI-DAS6036
 	0078  PCI-DAS6013
 	0079  PCI-DAS6014
+	0115  PCIe-DAS1602/16
 1308  Jato Technologies Inc.
 	0001  NetCelerator Adapter
 		1308 0001  NetCelerator Adapter
@@ -11173,6 +11196,13 @@
 1343  Phylon Communications Inc
 # nee Crucial Technology
 1344  Micron Technology Inc
+	5150  RealSSD P320h
+	5151  RealSSD P320m
+	5152  RealSSD P320s
+	5153  RealSSD P325m
+	5160  RealSSD P420h
+	5161  RealSSD P420m
+	5163  RealSSD P425m
 1345  Arescom Inc
 1347  Odetics
 1349  Sumitomo Electric Industries, Ltd.
@@ -11376,6 +11406,7 @@
 1389  Applicom International
 	0001  PCI1500PFB [Intelligent fieldbus adaptor]
 138a  Fusion Micromedia Corp
+	003d  VFS491 Validity Sensor
 138b  Tokimec Inc
 138c  Silicon Reality
 138d  Future Techno Designs pte Ltd
@@ -11669,6 +11700,9 @@
 		7284 9761  CLARO
 		7284 9781  CLARO halo
 		7284 9783  eCLARO
+	8828  CM8828 [Oxygen Express]
+	8888  CM8888 [Oxygen Express]
+		1043 84d5  ROG Xonar Phoebus
 	9880  CM9880
 13f7  Wildfire Communications
 13f8  Ad Lib Multimedia Inc
@@ -13942,6 +13976,7 @@
 		105b e01f  T77H047.31 802.11bgn Wireless Half-size Mini PCIe Card [AR9283]
 		11ad 6600  WN6600A 802.11bgn Wireless Mini PCIe Card [AR9281]
 		144f 7141  WLL6080 802.11bgn Wireless Mini PCIe Card [AR9281]
+		168c 0203  DW1525 802.11abgn WLAN PCIe Card [AR9280]
 		1a32 0303  EM303 802.11bgn Wireless Mini PCIe Card [AR9281]
 		1a32 0306  EM306 802.11bgn Wireless Half-size Mini PCIe Card [AR9283]
 		1a3b 1067  AW-NE771 802.11bgn Wireless Mini PCIe Card [AR9281]
@@ -14373,6 +14408,7 @@
 		13bd 1057  GN-WS32L-RH Half-size Mini PCIe Card
 	3091  RT3091 Wireless 802.11n 1T/2R PCIe
 	3092  RT3092 Wireless 802.11n 2T/2R PCIe
+	3592  RT3592 Wireless 802.11an 2T/2R PCIe
 	5360  RT5360 Wireless 802.11n 1T/1R
 		1186 3c05  DWA-525 Wireless N 150 Desktop Adapter (rev.A2)
 		20f4 703a  TEW-703PI N150 Wireless PCI Adapter
@@ -15000,6 +15036,7 @@
 	1501  Swipetech barcode scanner
 1ae0  Google, Inc.
 1ae7  First Wise Media GmbH
+	0520  HFC-S PCI A [X-TENSIONS XC-520]
 1ae8  Silicon Software GmbH
 	0a40  microEnable IV-BASE x1
 	0a41  microEnable IV-FULL x1
@@ -15071,11 +15108,21 @@
 1b55  NetUP Inc.
 	2a2c  Dual DVB-S2-CI card
 	e2e4  Dual DVB-T/C-CI RF card
+# 2xHDMI and 2xHD-SDI inputs
+	e5f4  MPEG2 and H264 Encoder-Transcoder
+	f1c4  Dual ASI-RX/TX-CI card
 1b6f  Etron Technology, Inc.
 	7023  EJ168 USB 3.0 Host Controller
 1b73  Fresco Logic
 	1000  FL1000G USB 3.0 Host Controller
 		1d5c 1000  Anker USB 3.0 Express Card
+1b74  OpenVox Communication Co. Ltd.
+	0115  D115P/D115E Single-port E1/T1 card
+	d130  D130P/D130E Single-port E1/T1 card (3rd GEN)
+	d210  D210P/D210E Dual-port E1/T1 card(2nd generation)
+	d230  D230 Dual-port E1/T1 card (2nd generation)
+	d410  D410/430 Quad-port E1/T1 card
+	d430  D410/430 Quad-port E1/T1 card
 1b85  OCZ Technology Group, Inc.
 	1041  RevoDrive 3 X2 PCI-Express SSD 240 GB (Marvell Controller)
 1b96  Western Digital
@@ -16025,6 +16072,118 @@
 	0c7d  Centerton Internal Fabric
 	0c7e  Centerton Internal Fabric
 	0c7f  Centerton Internal Fabric
+	0e00  Ivytown DMI2
+	0e01  Ivytown PCI Express Root Port in DMI2 Mode
+	0e04  Ivytown PCI Express Root Port 2a
+	0e05  Ivytown PCI Express Root Port 2b
+	0e06  Ivytown PCI Express Root Port 2c
+	0e07  Ivytown PCI Express Root Port 2d
+	0e08  Ivytown PCI Express Root Port 3a
+	0e09  Ivytown PCI Express Root Port 3b
+	0e0a  Ivytown PCI Express Root Port 3c
+	0e0b  Ivytown PCI Express Root Port 3d
+	0e1c  Ivytown Debug and Error Injection Related Registers
+	0e1d  Ivytown R2PCIe
+	0e1e  Ivytown Semaphore and Scratchpad Configuration Registers
+	0e1f  Ivytown Semaphore and Scratchpad Configuration Registers
+	0e20  Ivytown Crystal Beach DMA Channel 0
+	0e21  Ivytown Crystal Beach DMA Channel 1
+	0e22  Ivytown Crystal Beach DMA Channel 2
+	0e23  Ivytown Crystal Beach DMA Channel 3
+	0e24  Ivytown Crystal Beach DMA Channel 4
+	0e25  Ivytown Crystal Beach DMA Channel 5
+	0e26  Ivytown Crystal Beach DMA Channel 6
+	0e27  Ivytown Crystal Beach DMA Channel 7
+	0e28  Ivytown VTd/Memory Map/Misc
+	0e29  Ivytown Memory Hotplug
+	0e2a  Ivytown IIO RAS
+	0e2c  Ivytown IOAPIC
+	0e2e  Ivytown CBDMA
+	0e2f  Ivytown CBDMA
+	0e30  Ivytown Home Agent 0
+	0e32  Ivytown QPI Link 0
+	0e33  Ivytown QPI Link 1
+	0e34  Ivytown PCI Express Ring Performance Monitoring
+	0e36  Ivytown QPI Ring Performance Ring Monitoring
+	0e37  Ivytown QPI Ring Performance Ring Monitoring
+	0e38  Ivytown Home Agent 1
+	0e3a  Ivytown QPI Link 2
+	0e3e  Ivytown QPI Ring Performance Ring Monitoring
+	0e3f  Ivytown QPI Ring Performance Ring Monitoring
+	0e40  Ivytown QPI Link 2
+	0e41  Ivytown QPI Ring Registers
+	0e43  Ivytown QPI Link Reut 2
+	0e44  Ivytown QPI Link Reut 2
+	0e60  Ivytown Home Agent 1
+	0e68  Ivytown Integrated Memory Controller 1 Target Address/Thermal Registers
+	0e6a  Ivytown Integrated Memory Controller 1 Channel Target Address Decoder Registers
+	0e6b  Ivytown Integrated Memory Controller 1 Channel Target Address Decoder Registers
+	0e6c  Ivytown Integrated Memory Controller 1 Channel Target Address Decoder Registers
+	0e6d  Ivytown Integrated Memory Controller 1 Channel Target Address Decoder Registers
+	0e71  Ivytown Integrated Memory Controller 0 RAS Registers
+	0e79  Ivytown Integrated Memory Controller 1 RAS Registers
+	0e80  Ivytown QPI Link 0
+	0e81  Ivytown QPI Ring Registers
+	0e83  Ivytown QPI Link Reut 0
+	0e84  Ivytown QPI Link Reut 0
+	0e90  Ivytown QPI Link 1
+	0e93  Ivytown QPI Link 1
+	0e94  Ivytown QPI Link Reut 1
+	0ea0  Ivytown Home Agent 0
+	0ea8  Ivytown Integrated Memory Controller 0 Target Address/Thermal Registers
+	0eaa  Ivytown Integrated Memory Controller 0 Channel Target Address Decoder Registers
+	0eab  Ivytown Integrated Memory Controller 0 Channel Target Address Decoder Registers
+	0eac  Ivytown Integrated Memory Controller 0 Channel Target Address Decoder Registers
+	0ead  Ivytown Integrated Memory Controller 0 Channel Target Address Decoder Registers
+	0eb0  Ivytown Integrated Memory Controller 1 Channel 0-3 Thermal Control 0
+	0eb1  Ivytown Integrated Memory Controller 1 Channel 0-3 Thermal Control 1
+	0eb2  Ivytown Integrated Memory Controller 1 Channel 0-3 ERROR Registers 0
+	0eb3  Ivytown Integrated Memory Controller 1 Channel 0-3 ERROR Registers 1
+	0eb4  Ivytown Integrated Memory Controller 1 Channel 0-3 Thermal Control 2
+	0eb5  Ivytown Integrated Memory Controller 1 Channel 0-3 Thermal Control 3
+	0eb7  Ivytown Integrated Memory Controller 1 Channel 0-3 ERROR Registers 2
+	0ec0  Ivytown Power Control Unit 0
+	0ec1  Ivytown Power Control Unit 1
+	0ec2  Ivytown Power Control Unit 2
+	0ec3  Ivytown Power Control Unit 3
+	0ec4  Ivytown Power Control Unit 4
+	0ec8  Ivytown System Address Decoder
+	0ec9  Ivytown Broadcast Registers
+	0eca  Ivytown Broadcast Registers
+	0ed8  Ivytown DDRIO
+	0ed9  Ivytown DDRIO
+	0edc  Ivytown DDRIO
+	0edd  Ivytown DDRIO
+	0ede  Ivytown DDRIO
+	0edf  Ivytown DDRIO
+	0ee0  Ivytown Unicast Registers
+	0ee1  Ivytown Unicast Registers
+	0ee2  Ivytown Unicast Registers
+	0ee3  Ivytown Unicast Registers
+	0ee4  Ivytown Unicast Registers
+	0ee5  Ivytown Unicast Registers
+	0ee6  Ivytown Unicast Registers
+	0ee7  Ivytown Unicast Registers
+	0ee8  Ivytown Unicast Registers
+	0ee9  Ivytown Unicast Registers
+	0eea  Ivytown Unicast Registers
+	0eeb  Ivytown Unicast Registers
+	0eec  Ivytown Unicast Registers
+	0eed  Ivytown Unicast Registers
+	0eee  Ivytown Unicast Registers
+	0ef0  Ivytown Integrated Memory Controller 0 Channel 0-3 Thermal Control 0
+	0ef1  Ivytown Integrated Memory Controller 0 Channel 0-3 Thermal Control 1
+	0ef2  Ivytown Integrated Memory Controller 0 Channel 0-3 ERROR Registers 0
+	0ef3  Ivytown Integrated Memory Controller 0 Channel 0-3 ERROR Registers 2
+	0ef4  Ivytown Integrated Memory Controller 0 Channel 0-3 Thermal Control 2
+	0ef5  Ivytown Integrated Memory Controller 0 Channel 0-3 Thermal Control 3
+	0ef7  Ivytown Integrated Memory Controller 0 Channel 0-3 ERROR Registers 3
+	0ef8  Ivytown DDRIO
+	0ef9  Ivytown DDRIO
+	0efa  Ivytown DDRIO
+	0efb  Ivytown DDRIO
+	0efc  Ivytown DDRIO
+	0efd  Ivytown DDRIO
 	1000  82542 Gigabit Ethernet Controller (Fiber)
 		0e11 b0df  NC6132 Gigabit Ethernet Adapter (1000-SX)
 		0e11 b0e0  NC6133 Gigabit Ethernet Adapter (1000-LX)
@@ -16773,6 +16932,7 @@
 	1528  Ethernet Controller 10-Gigabit X540-AT2
 		108e 7b14  Sun Dual Port 10 GbE PCIe 2.0 ExpressModule, Base-T
 		108e 7b15  Sun Dual Port 10 GbE PCIe 2.0 Low Profile Adapter, Base-T
+		1137 00bf  Ethernet Converged Network Adapter X540-T2
 		8086 0001  Ethernet Converged Network Adapter X540-T2
 		8086 0002  Ethernet Converged Network Adapter X540-T1
 		8086 001a  Ethernet Converged Network Adapter X540-T2
@@ -18610,7 +18770,6 @@
 	292c  82801IEM (ICH9M-E) SATA Controller [RAID mode]
 	292d  82801IBM/IEM (ICH9M/ICH9M-E) 2 port SATA Controller [IDE mode]
 		e4bf cc4d  CCM-BOOGIE
-	292e  ICH9M SATA IDE Controller
 	2930  82801I (ICH9 Family) SMBus Controller
 		1028 020d  Inspiron 530
 		1028 0211  Optiplex 755

@@ -88,8 +88,8 @@ Rm::attach(l4_addr_t *start, unsigned long size, unsigned long flags,
 }
 
 int
-Rm::_detach(l4_addr_t addr, unsigned long size, L4::Cap<Dataspace> *mem,
-            L4::Cap<L4::Task> task, unsigned flags) const throw()
+Rm::detach(l4_addr_t addr, unsigned long size, L4::Cap<Dataspace> *mem,
+           L4::Cap<L4::Task> task, unsigned flags) const throw()
 {
   L4::Ipc::Iostream io(l4_utcb());
   io << Opcode(Rm_::Detach) << addr << size << flags;

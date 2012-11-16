@@ -5,7 +5,7 @@
  *
  *    Definitions of applications, instances
  *
- * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <malloc.h>
 #include <map>
+#include <semaphore.h>
 
 #include <l4/sys/types.h>
 #include <l4/sys/utcb.h>
@@ -107,7 +108,7 @@ class App_instance
 			 * Every replica gets a name set as the debug ID
 			 */
 			char namebuf[debug_name_size];
-			snprintf(namebuf, debug_name_size, "V %s %d", name, _id);
+			snprintf(namebuf, debug_name_size, "V%d %s", _id, name);
 			l4_debugger_set_object_name(_vcpu_task.cap(), namebuf);
 		}
 
@@ -206,9 +207,11 @@ class App_thread
 		/* Handler stack layout:
 		 *
 		 * +-------------------------------+ _handler_stack + sizeof(_handler_stack)
-		 * | Instance Manager pointer      |
+		 * | Instance Mgr pointer          |
 		 * | App_instance pointer          |
 		 * | App_thread pointer            |
+		 * | Thread group pointer          |
+		 * | App_model pointer             |
 		 * +-------------------------------+ _initial stack ptr
 		 * |   handler entry ebp           |
 		 * |   ...                         |
@@ -226,13 +229,20 @@ class App_thread
 		pthread_t           _pthread;      // pthread backing this VCPU
 		l4_addr_t           _remote_utcb;  // address of remote UTCB
 
-		unsigned long       _stored_ds;    // stored register ES/DS
-		unsigned long       _stored_fs;    // stored register FS
-		unsigned long       _stored_gs;    // stored register GS
+		/*
+		 * Master segment registers. Restored whenever we enter the
+		 * master through a VCPU fault.
+		 */
+		unsigned long       _master_ds;
+		unsigned long       _master_fs;
+		unsigned long       _master_gs;
 
 		l4_umword_t         _pending_trap; // for injecting HW traps
 		l4_umword_t         _events;       // keeping track of handle events
 		enum eventpending {
+			/* Set if we detected a page fault that could not be handled.
+			 * Thereby, the PF handler can then bail out if this fault is
+			 * raised again. */
 			Unhandled_Page_Fault = 1,
 		};
 
@@ -291,6 +301,7 @@ class App_thread
 			  _cpu(1),
 			  _vcpu(0),
 			  _vcpu_utcb(0),
+			  _remote_utcb(0xFFFFFFFF),
 			  _pending_trap(0),
 			  _events(0)
 		{
@@ -298,9 +309,9 @@ class App_thread
 			    "mov %%fs, %0\n\t"
 			    "mov %%gs, %1\n\t"
 			    "mov %%ds, %2\n\t"
-			    : "=r" (_stored_fs),
-				  "=r" (_stored_gs),
-			      "=r" (_stored_ds));
+			    : "=r" (_master_fs),
+				  "=r" (_master_gs),
+			      "=r" (_master_ds));
 
 			_handler_stack = (char*)memalign(L4_PAGESIZE, HANDLER_STACK_SIZE);
 			_handler_sp    = top_of_handler_stack();
@@ -311,9 +322,12 @@ class App_thread
 			alloc_vcpu_cap();
 			alloc_vcpu_mem();
 
+			DEBUG() << "vCPU cap: " << std::hex << vcpu_cap();
+
 			DEBUG() << "STACK: " << std::hex << (void*)esp;
 			vcpu()->r()->ip = eip;
 			vcpu()->r()->sp = esp;
+			DEBUG() << "EIP " << (void*)eip << " ESP " << (void*)esp;
 		}
 
 
@@ -340,13 +354,14 @@ class App_thread
 		l4_umword_t           cpu()           const { return _cpu; }
 		void                  cpu(l4_umword_t c)    { _cpu = c; }
 		L4::Cap<L4::Thread>   vcpu_cap()      const { return _vcpu_cap; }
+		void                  vcpu_cap(L4::Cap<L4::Thread> c) { _vcpu_cap = c; }
 		L4vcpu::Vcpu         *vcpu()          const { return _vcpu; }
 		l4_utcb_t            *vcpu_utcb()     const { return _vcpu_utcb; }
 
-		unsigned long         ds()            const { return _stored_ds; }
-		unsigned long         fs()            const { return _stored_fs; }
-		unsigned long         gs()            const { return _stored_gs; }
-//		void                  gs(l4_addr_t a)       { _stored_gs = a; }
+		unsigned long         ds()            const { return _master_ds; }
+		unsigned long         fs()            const { return _master_fs; }
+		unsigned long         gs()            const { return _master_gs; }
+//		void                  gs(l4_addr_t a)       { _master_gs = a; }
 
 		void *                gdt()           const
 		{
@@ -354,12 +369,33 @@ class App_thread
 		}
 		unsigned              gdt_size()      const { return sizeof(_client_gdt); }
 
+		/***********************************************************************
+		 * GDT Handling Explained
+		 *
+		 * Fiasco uses the FS register to store the current UTCB address,
+		 * libpthread uses GS for providing thread-local storage. Both require
+		 * a valid entry in the GDT, which user space can access through the
+		 * fiasco_gdt_set() system call. Furthermore, Fiasco provides a range
+		 * of user-defined segment entries at offsets 0x48, 0x50, and 0x58.
+		 *
+		 * By default, the GDT entry for the UTCB address is 0x40. As Romain
+		 * uses pthreads, the first user-defined segment is used for Romain's
+		 * TLS address.
+		 *
+		 * Replicas use user-defined entries 2 and 3:
+		 * - Entry 2 (0x50) contains the replica's UTCB address.
+		 * - Entry 3 (0x58) can later be set up for thread-local storage.
+		 *
+		 * This means there are no free user-defined GDT entries anymore! If we
+		 * wanted to fix this, we'd have to manually swap GDT entries every
+		 * time we switch between replicas and master. This would require two
+		 * additional system calls for modifying the GDT.
+		 ***********************************************************************/
+
 		/*
-		 * This method is called during bootup and sets up the initial
-		 * FS segment for the thread. uClibC later sets the second entry,
-		 * which refers to the GS segment.
+		 * Set up the initial GDT segment (e.g., UTCB address)
 		 */
-		void setup_gdt(l4_addr_t base, l4_addr_t limit)
+		void setup_utcb_segdesc(l4_addr_t base, l4_addr_t limit)
 		{
 			memset(_client_gdt, 0, sizeof(_client_gdt));
 
@@ -371,41 +407,27 @@ class App_thread
 			_client_gdt[0].granularity = 0x40;
 		}
 
-		void write_gdt(l4_umword_t *src, l4_umword_t bytes)
+
+		/*
+		 * Write the second entry, actually.
+		 */
+		void write_gdt_entry(l4_umword_t *src, l4_umword_t bytes)
 		{
 			memcpy(&_client_gdt[1], src, bytes);
-			unsigned r = fiasco_gdt_set(_vcpu_cap.cap(), _client_gdt,
-			                            gdt_size(), 1, l4_utcb());
-			vcpu()->r()->fs = r;
-			vcpu()->r()->gs = r+8;
+			vcpu()->r()->gs = fiasco_gdt_set(vcpu_cap().cap(), &_client_gdt[1],
+			                                 sizeof(_client_gdt[1]), 2, l4_utcb());
+			DEBUG() << "set " << std::hex << vcpu()->r()->gs;
 		}
 
 
 		/*
-		 * Make sure the stored GDT is used for the client.
-		 *
-		 * XXX: This overwrites the user GDT entries 2 & 3 (1st is kept intact).
-		 *      Because of this we'd actually need to restore at least entry #2
-		 *      whenever the VCPU enters the master, so that the master task's
-		 *      GDT segment is used properly. 
-		 *      Another option would be to have 4 user GDT entries in the
-		 *      kernel.  In this case, on would only need to set GDT entries
-		 *      when a gdt_set() from the client is emulated. Otherwise, the
-		 *      fault handler prologue and epilogue would only need to set the
-		 *      proper values to FS and GS.
 		 *
 		 */
 		void commit_client_gdt()
 		{
-			unsigned size = gdt_size();
-			if (_client_gdt[1].access == 0x00) {
-				size /= 2;
-			}
-			unsigned r = fiasco_gdt_set(_vcpu_cap.cap(), gdt(), size, 1, l4_utcb());
-			vcpu()->r()->fs = r;
-			if (_client_gdt[1].access != 0x00) {
-				vcpu()->r()->gs = r + 8;
-			}
+			vcpu()->r()->fs = fiasco_gdt_set(vcpu_cap().cap(), gdt(),
+			                                 gdt_size()/2, 1, l4_utcb());
+			DEBUG() << "set " << std::hex << vcpu()->r()->fs;
 		}
 
 		/*
@@ -419,7 +441,12 @@ class App_thread
 		 */
 		void set_pending_trap(unsigned no) { _pending_trap |= (1 << no); }
 
-		void set_unhandled_pf()   { _events |= Unhandled_Page_Fault; }
+		void set_unhandled_pf()
+		{
+			_events |= Unhandled_Page_Fault;
+			set_pending_trap(0xE);
+		}
+
 		void unset_unhandled_pf() { _events &= ~Unhandled_Page_Fault; }
 		bool unhandled_pf()       { return _events & Unhandled_Page_Fault; }
 
@@ -431,7 +458,7 @@ class App_thread
 		unsigned get_pending_trap()
 		{
 			unsigned ret = l4util_find_first_set_bit(&_pending_trap, sizeof(_pending_trap));
-			if (ret > sizeof(_pending_trap)) {
+			if (ret >= sizeof(_pending_trap) * 8) {
 				return 0;
 			} else {
 				_pending_trap &= ~(1 << ret);
@@ -440,8 +467,18 @@ class App_thread
 			return ret;
 		}
 
+
+		void print_vcpu_state()
+		{
+			char pref[32];
+			snprintf(pref, 32, "[VCPU %p] ", vcpu());
+			vcpu()->print_state(pref);
+		}
+
 		unsigned long csum_state();
 };
+
+
 }
 
 /*
@@ -450,11 +487,13 @@ class App_thread
  * execution in the handler address space.
  */
 #define handler_prolog(app_thread) \
-	do { asm volatile ( \
-	              "mov %0, %%es \t\n" \
-	              "mov %0, %%ds \t\n" \
-	              "mov %1, %%fs \t\n" \
-	              "mov %2, %%gs \t\n" \
-	              : : "r"((app_thread)->ds()), "r"((app_thread)->fs()), \
+	do {  \
+		  asm volatile ( \
+	              "mov %0, %%es;" \
+	              "mov %0, %%ds;" \
+	              "mov %1, %%fs;" \
+	              "mov %2, %%gs;" \
+	              : : \
+	                  "r"((app_thread)->ds()), "r"((app_thread)->fs()), \
 	                  "r"((app_thread)->gs())); \
 	} while (0)

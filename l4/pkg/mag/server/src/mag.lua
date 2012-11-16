@@ -703,6 +703,19 @@ function Input_device.Devs.pointer:init()
     abs_info[0x35].mode = 1;
     abs_info[0x36].mode = 2;
   end
+
+  for a, i in pairs(self.vaxes) do
+    if (not abs_info[a]) then
+      local ai = abs_info:create(a);
+      ai.value = i.value or 0;
+      ai.min   = i.min or 0;
+      ai.max   = i.max or 0;
+      ai.fuzz  = i.fuzz or 0;
+      ai.resolution = i.resolution or 0;
+      ai.delta = i.delta or 0;
+      ai.mode  = i.mode or 0;
+    end
+  end
 end
 
 function Input_device.Devs.pointer:get_stream_info()

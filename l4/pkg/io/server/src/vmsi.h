@@ -7,7 +7,7 @@ namespace Hw {
 }
 
 namespace Vi {
-  class Msi_resource : public Adr_resource
+  class Msi_resource : public Resource
   {
   private:
     Hw::Msi_resource *_hw_msi;

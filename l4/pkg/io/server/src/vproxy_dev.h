@@ -19,7 +19,7 @@ namespace Vi {
 class Proxy_dev : public Device
 {
 public:
-  explicit Proxy_dev(Hw::Device *d, Tagged_parameter *filter);
+  explicit Proxy_dev(Hw::Device *d);
 
   char const *hid() const { return _hwd->hid(); }
 private:

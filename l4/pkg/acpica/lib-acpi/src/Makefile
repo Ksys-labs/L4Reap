@@ -6,25 +6,19 @@ CONTRIB_INCDIR  = acpica
 
 IASL ?= iasl
 
-
-# list your .c files here
 ACPICA_SRC_C		= \
-	events/evevent.c \
-	events/evgpeblk.c \
-	events/evgpe.c \
-	events/evmisc.c \
-	events/evrgnini.c \
-	events/evregion.c \
-	events/evsci.c \
-	events/evxface.c \
-	events/evxfregn.c \
-	events/evxfevnt.c \
-	hardware/hwacpi.c \
-	hardware/hwgpe.c \
-	hardware/hwregs.c \
-	hardware/hwsleep.c \
-	hardware/hwvalid.c \
-	hardware/hwxface.c \
+	disassembler/dmbuffer.c \
+	disassembler/dmnames.c \
+	disassembler/dmobject.c \
+	disassembler/dmopcode.c \
+	disassembler/dmresrc.c \
+	disassembler/dmresrcl.c \
+	disassembler/dmresrcl2.c \
+	disassembler/dmresrcs.c \
+	disassembler/dmutils.c \
+	disassembler/dmwalk.c \
+	dispatcher/dsargs.c \
+	dispatcher/dscontrol.c \
 	dispatcher/dsfield.c \
 	dispatcher/dsinit.c \
 	dispatcher/dsmethod.c \
@@ -34,11 +28,27 @@ ACPICA_SRC_C		= \
 	dispatcher/dsutils.c \
 	dispatcher/dswexec.c \
 	dispatcher/dswload.c \
+	dispatcher/dswload2.c \
 	dispatcher/dswscope.c \
 	dispatcher/dswstate.c \
+	events/evevent.c \
+	events/evglock.c \
+	events/evgpe.c \
+	events/evgpeblk.c \
+	events/evgpeinit.c \
+	events/evgpeutil.c \
+	events/evmisc.c \
+	events/evregion.c \
+	events/evrgnini.c \
+	events/evsci.c \
+	events/evxface.c \
+	events/evxfevnt.c \
+	events/evxfregn.c \
 	executer/exconfig.c \
 	executer/exconvrt.c \
 	executer/excreate.c \
+	executer/exdebug.c \
+	executer/exdump.c \
 	executer/exfield.c \
 	executer/exfldio.c \
 	executer/exmisc.c \
@@ -58,18 +68,17 @@ ACPICA_SRC_C		= \
 	executer/exstorob.c \
 	executer/exsystem.c \
 	executer/exutils.c \
-	executer/exdump.c \
-	parser/psargs.c \
-	parser/psloop.c \
-	parser/psopcode.c \
-	parser/psparse.c \
-	parser/psscope.c \
-	parser/pstree.c \
-	parser/psutils.c \
-	parser/pswalk.c \
-	parser/psxface.c \
+	hardware/hwacpi.c \
+	hardware/hwgpe.c \
+	hardware/hwpci.c \
+	hardware/hwregs.c \
+	hardware/hwsleep.c \
+	hardware/hwesleep.c \
+	hardware/hwvalid.c \
+	hardware/hwxface.c \
 	namespace/nsaccess.c \
 	namespace/nsalloc.c \
+	namespace/nsdump.c \
 	namespace/nseval.c \
 	namespace/nsinit.c \
 	namespace/nsload.c \
@@ -85,31 +94,45 @@ ACPICA_SRC_C		= \
 	namespace/nsxfeval.c \
 	namespace/nsxfname.c \
 	namespace/nsxfobj.c \
-	namespace/nsdump.c \
+	parser/psargs.c \
+	parser/psloop.c \
+	parser/psopcode.c \
+	parser/psparse.c \
+	parser/psscope.c \
+	parser/pstree.c \
+	parser/psutils.c \
+	parser/pswalk.c \
+	parser/psxface.c \
 	resources/rsaddr.c \
 	resources/rscalc.c \
 	resources/rscreate.c \
+	resources/rsdump.c \
 	resources/rsinfo.c \
 	resources/rsio.c \
 	resources/rsirq.c \
 	resources/rslist.c \
 	resources/rsmemory.c \
 	resources/rsmisc.c \
+	resources/rsserial.c \
 	resources/rsutils.c \
 	resources/rsxface.c \
-	resources/rsdump.c \
 	tables/tbfadt.c \
 	tables/tbfind.c \
 	tables/tbinstal.c \
 	tables/tbutils.c \
-	tables/tbxfroot.c \
 	tables/tbxface.c \
+	tables/tbxfload.c \
+	tables/tbxfroot.c \
+	utilities/utaddress.c \
 	utilities/utalloc.c \
 	utilities/utcache.c \
 	utilities/utclib.c \
 	utilities/utcopy.c \
+	utilities/utdebug.c \
+	utilities/utdecode.c \
 	utilities/utdelete.c \
 	utilities/uteval.c \
+        utilities/utexcep.c \
 	utilities/utglobal.c \
 	utilities/utids.c \
 	utilities/utinit.c \
@@ -118,34 +141,18 @@ ACPICA_SRC_C		= \
 	utilities/utmisc.c \
 	utilities/utmutex.c \
 	utilities/utobject.c \
+	utilities/utosi.c \
 	utilities/utresrc.c \
 	utilities/utstate.c \
 	utilities/utxface.c \
-	utilities/utdebug.c \
-	disassembler/dmobject.c \
-	disassembler/dmwalk.c \
-	disassembler/dmutils.c \
-	disassembler/dmopcode.c \
-	disassembler/dmbuffer.c \
-	disassembler/dmnames.c \
-	disassembler/dmresrc.c \
-	disassembler/dmresrcl.c \
-	disassembler/dmresrcs.c \
+	utilities/utxferror.c \
+	utilities/utxfinit.c \
 
-
-
-#	osl.c \
-	show.c \
-	extract_infos.c \
-	listdevs.c \
-	main.c
-
-SRC_C := $(addprefix acpica/,$(ACPICA_SRC_C))
+SRC_C := $(addprefix acpica/components/,$(ACPICA_SRC_C))
 SRC_C += osl-stdio.c osl-thread.c debug.c
 SRC_CC+= osl-basic.cc
 
-# list additional library paths and libraries here
-# LIBS		= -lio -ldm_phys -lomega0
+DEFINES += -DACPI_LIBRARY -DL4_ACPICA
 
 include $(L4DIR)/mk/lib.mk
 

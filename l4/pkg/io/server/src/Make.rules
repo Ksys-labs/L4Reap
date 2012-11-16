@@ -5,17 +5,52 @@ TARGET  = io
 SRC_CC := main.cc pci.cc res.cc phys_space.cc resource.cc hw_device.cc \
           hw_root_bus.cc device.cc vdevice.cc vproxy_dev.cc \
           vpci.cc vpci_virtual_root.cc vpci_pci_bridge.cc vbus_factory.cc \
-          cfg_scanner.cc cfg_scan.cc cfg_parser.tab.cc vbus.cc vicu.cc \
+          vbus.cc vicu.cc \
           server.cc pci_iomem_root_bridge.cc vmsi.cc irqs.cc debug.cc \
-	  vgpio.cc
+          vgpio.cc lua_glue.swg.cc
+
+SRC_CC_legacy_cfg = cfg_scanner.cc cfg_scan.cc cfg_parser.tab.cc
+
+SRC_CC += $(SRC_CC_legacy_cfg)
+DEFINES += -DSUPPORT_LEGACY_CFG
 
 SRC_CC_x86    = acpi.cc ux.cc acpi_osl.cc
 SRC_CC_amd64  = acpi.cc ux.cc acpi_osl.cc
 SRC_CC       += $(SRC_CC_$(ARCH))
 
-REQUIRES_LIBS   = libsigma0 libstdc++ libpciids
+REQUIRES_LIBS   = libsigma0 libstdc++ libpciids lua++
 REQUIRES_LIBS_x86 = acpica
 REQUIRES_LIBS_amd64 = acpica
 
 REQUIRES_CFLAGS = libio-vbus libio-io
 PRIVATE_INCDIR += $(SRC_DIR)
+
+
+ifneq ($(SRC_DIR),)
+all:: $(SRC_DIR)/lua_glue.swg.h $(SRC_DIR)/lua_glue.swg.cc
+endif
+
+SWIG_RM_EXT_C ?= $(L4DIR)/tool/bin/swig-rm-extern-c.pl
+SWIG ?= swig
+
+%.swg:
+
+$(SRC_DIR)/%.swg.cc: $(SRC_DIR)/%.swg.c_cc $(SRC_DIR)/Makefile
+	@$(GEN_MESSAGE)
+	$(VERBOSE)$(SWIG_RM_EXT_C) $< >$@
+
+$(SRC_DIR)/%.swg.h: $(SRC_DIR)/%.swg.c_h
+	@$(GEN_MESSAGE)
+	$(VERBOSE)$(SWIG_RM_EXT_C) $< >$@
+
+SWIG_INCDIR:=-I$(SRC_DIR) -I$(SRC_DIR)/../../include -I$(L4DIR)/pkg
+
+$(SRC_DIR)/%.swg.c_cc: $(SRC_DIR)/%.swg $(SRC_DIR)/Makefile
+	@$(GEN_MESSAGE)
+	$(VERBOSE)$(SWIG) $(SWIG_INCDIR) -c++ -small -lua -o $@ $<
+
+$(SRC_DIR)/%.swg.c_h:
+	pwd
+	@$(GEN_MESSAGE)
+	$(VERBOSE)$(SWIG) $(SWIG_INCDIR) -c++ -lua -small -external-runtime $@
+

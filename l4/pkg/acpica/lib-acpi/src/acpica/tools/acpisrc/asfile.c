@@ -1,4 +1,3 @@
-
 /******************************************************************************
  *
  * Module Name: asfile - Main module for the acpi source processor utility
@@ -9,13 +8,13 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2009, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2012, Intel Corp.
  * All rights reserved.
  *
  * 2. License
  *
  * 2.1. This is your license from Intel Corp. under its intellectual property
- * rights.  You may have additional license terms from the party that provided
+ * rights. You may have additional license terms from the party that provided
  * you this software, covering your right to use that party's intellectual
  * property rights.
  *
@@ -32,7 +31,7 @@
  * offer to sell, and import the Covered Code and derivative works thereof
  * solely to the minimum extent necessary to exercise the above copyright
  * license, and in no event shall the patent license extend to any additions
- * to or modifications of the Original Intel Code.  No other license or right
+ * to or modifications of the Original Intel Code. No other license or right
  * is granted directly or by implication, estoppel or otherwise;
  *
  * The above copyright and patent license is granted only if the following
@@ -44,11 +43,11 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification with rights to further distribute source must include
  * the above Copyright Notice, the above License, this list of Conditions,
- * and the following Disclaimer and Export Compliance provision.  In addition,
+ * and the following Disclaimer and Export Compliance provision. In addition,
  * Licensee must cause all Covered Code to which Licensee contributes to
  * contain a file documenting the changes Licensee made to create that Covered
- * Code and the date of any change.  Licensee must include in that file the
- * documentation of any changes made by any predecessor Licensee.  Licensee
+ * Code and the date of any change. Licensee must include in that file the
+ * documentation of any changes made by any predecessor Licensee. Licensee
  * must include a prominent statement that the modification is derived,
  * directly or indirectly, from Original Intel Code.
  *
@@ -56,7 +55,7 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification without rights to further distribute source must
  * include the following Disclaimer and Export Compliance provision in the
- * documentation and/or other materials provided with distribution.  In
+ * documentation and/or other materials provided with distribution. In
  * addition, Licensee may not authorize further sublicense of source of any
  * portion of the Covered Code, and must include terms to the effect that the
  * license from Licensee to its licensee is limited to the intellectual
@@ -81,10 +80,10 @@
  * 4. Disclaimer and Export Compliance
  *
  * 4.1. INTEL MAKES NO WARRANTY OF ANY KIND REGARDING ANY SOFTWARE PROVIDED
- * HERE.  ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
- * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT,  ASSISTANCE,
- * INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL WILL NOT PROVIDE ANY
- * UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY DISCLAIMS ANY
+ * HERE. ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
+ * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
+ * INSTALLATION, TRAINING OR OTHER SERVICES. INTEL WILL NOT PROVIDE ANY
+ * UPDATES, ENHANCEMENTS OR EXTENSIONS. INTEL SPECIFICALLY DISCLAIMS ANY
  * IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT AND FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
@@ -93,14 +92,14 @@
  * COSTS OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, OR FOR ANY INDIRECT,
  * SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THIS AGREEMENT, UNDER ANY
  * CAUSE OF ACTION OR THEORY OF LIABILITY, AND IRRESPECTIVE OF WHETHER INTEL
- * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES.  THESE LIMITATIONS
+ * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES. THESE LIMITATIONS
  * SHALL APPLY NOTWITHSTANDING THE FAILURE OF THE ESSENTIAL PURPOSE OF ANY
  * LIMITED REMEDY.
  *
  * 4.3. Licensee shall not export, either directly or indirectly, any of this
  * software or system incorporating such software without first obtaining any
  * required license or other approval from the U. S. Department of Commerce or
- * any other agency or department of the United States Government.  In the
+ * any other agency or department of the United States Government. In the
  * event Licensee exports any such software from the United States or
  * re-exports any such software from a foreign destination, Licensee shall
  * ensure that the distribution and export/re-export of the software is in
@@ -132,7 +131,7 @@ AsDetectLoneLineFeeds (
     char                    *Filename,
     char                    *Buffer);
 
-static inline int
+static ACPI_INLINE int
 AsMaxInt (int a, int b)
 {
     return (a > b ? a : b);
@@ -231,7 +230,7 @@ AsDoWildcard (
  *
  * FUNCTION:    AsProcessTree
  *
- * DESCRIPTION: Process the directory tree.  Files with the extension ".C" and
+ * DESCRIPTION: Process the directory tree. Files with the extension ".C" and
  *              ".H" are processed as the tree is traversed.
  *
  ******************************************************************************/
@@ -260,7 +259,7 @@ AsProcessTree (
             if (errno != EEXIST)
             {
                 printf ("Could not create target directory\n");
-                return -1;
+                return (-1);
             }
         }
     }
@@ -295,7 +294,7 @@ AsProcessTree (
     AsDoWildcard (ConversionTable, SourcePath, TargetPath, MaxPathLength,
             FILE_TYPE_DIRECTORY, "*");
 
-    return 0;
+    return (0);
 }
 
 
@@ -319,7 +318,7 @@ AsDetectLoneLineFeeds (
 
     if (!Buffer[0])
     {
-        return FALSE;
+        return (FALSE);
     }
 
     while (Buffer[i])
@@ -341,15 +340,15 @@ AsDetectLoneLineFeeds (
         {
             if (!Gbl_IgnoreLoneLineFeeds)
             {
-                printf ("%s: ****File has UNIX format**** (LF only, not CR/LF) %d lines\n",
+                printf ("%s: ****File has UNIX format**** (LF only, not CR/LF) %u lines\n",
                     Filename, LfCount);
             }
         }
         else
         {
-            printf ("%s: %d lone linefeeds in file\n", Filename, LfCount);
+            printf ("%s: %u lone linefeeds in file\n", Filename, LfCount);
         }
-        return TRUE;
+        return (TRUE);
     }
 
     return (FALSE);
@@ -409,7 +408,14 @@ AsConvertFile (
 
     Gbl_StructDefs = strstr (FileBuffer, "/* acpisrc:StructDefs");
     Gbl_Files++;
-    VERBOSE_PRINT (("Processing %u bytes\n", strlen (FileBuffer)));
+    VERBOSE_PRINT (("Processing %u bytes\n",
+        (unsigned int) strlen (FileBuffer)));
+
+    if (Gbl_Cleanup)
+    {
+        AsRemoveExtraLines (FileBuffer, Filename);
+        AsRemoveSpacesAfterPeriod (FileBuffer, Filename);
+    }
 
     if (ConversionTable->LowerCaseTable)
     {
@@ -514,7 +520,7 @@ AsConvertFile (
 
         case CVT_MIXED_CASE_TO_UNDERSCORES:
 
-            AsMixedCaseToUnderscores (FileBuffer);
+            AsMixedCaseToUnderscores (FileBuffer, Filename);
             break;
 
 
@@ -585,7 +591,7 @@ AsConvertFile (
  *
  * FUNCTION:    AsProcessOneFile
  *
- * DESCRIPTION: Process one source file.  The file is opened, read entirely
+ * DESCRIPTION: Process one source file. The file is opened, read entirely
  *              into a buffer, converted, then written to a new file.
  *
  ******************************************************************************/
@@ -609,7 +615,7 @@ AsProcessOneFile (
     if (!Pathname)
     {
         printf ("Could not allocate buffer for file pathnames\n");
-        return -1;
+        return (-1);
     }
 
     Gbl_FileType = FileType;
@@ -626,7 +632,7 @@ AsProcessOneFile (
 
     if (AsGetFile (Pathname, &Gbl_FileBuffer, &Gbl_FileSize))
     {
-        return -1;
+        return (-1);
     }
 
     Gbl_HeaderSize = 0;
@@ -668,7 +674,7 @@ AsProcessOneFile (
             if (!OutPathname)
             {
                 printf ("Could not allocate buffer for file pathnames\n");
-                return -1;
+                return (-1);
             }
 
             strcpy (OutPathname, TargetPath);
@@ -689,7 +695,7 @@ AsProcessOneFile (
         free (OutPathname);
     }
 
-    return 0;
+    return (0);
 }
 
 
@@ -697,7 +703,7 @@ AsProcessOneFile (
  *
  * FUNCTION:    AsCheckForDirectory
  *
- * DESCRIPTION: Check if the current file is a valid directory.  If not,
+ * DESCRIPTION: Check if the current file is a valid directory. If not,
  *              construct the full pathname for the source and target paths.
  *              Checks for the dot and dot-dot files (they are ignored)
  *
@@ -718,14 +724,14 @@ AsCheckForDirectory (
     if (!(strcmp (Filename, ".")) ||
         !(strcmp (Filename, "..")))
     {
-        return -1;
+        return (-1);
     }
 
     SrcPath = calloc (strlen (SourceDirPath) + strlen (Filename) + 2, 1);
     if (!SrcPath)
     {
         printf ("Could not allocate buffer for directory source pathname\n");
-        return -1;
+        return (-1);
     }
 
     TgtPath = calloc (strlen (TargetDirPath) + strlen (Filename) + 2, 1);
@@ -733,7 +739,7 @@ AsCheckForDirectory (
     {
         printf ("Could not allocate buffer for directory target pathname\n");
         free (SrcPath);
-        return -1;
+        return (-1);
     }
 
     strcpy (SrcPath, SourceDirPath);
@@ -746,7 +752,7 @@ AsCheckForDirectory (
 
     *SourcePath = SrcPath;
     *TargetPath = TgtPath;
-    return 0;
+    return (0);
 }
 
 
@@ -776,7 +782,7 @@ AsGetFile (
     if (!FileHandle)
     {
         printf ("Could not open %s\n", Filename);
-        return -1;
+        return (-1);
     }
 
     if (fstat (FileHandle, &Gbl_StatBuf))
@@ -787,7 +793,7 @@ AsGetFile (
 
     /*
      * Create a buffer for the entire file
-     * Add plenty extra buffer to accomodate string replacements
+     * Add plenty extra buffer to accommodate string replacements
      */
     Size = Gbl_StatBuf.st_size;
     Gbl_TotalSize += Size;
@@ -795,7 +801,7 @@ AsGetFile (
     Buffer = calloc (Size * 2, 1);
     if (!Buffer)
     {
-        printf ("Could not allocate buffer of size %d\n", Size * 2);
+        printf ("Could not allocate buffer of size %u\n", Size * 2);
         goto ErrorExit;
     }
 
@@ -816,7 +822,7 @@ AsGetFile (
     Gbl_HasLoneLineFeeds = AsDetectLoneLineFeeds (Filename, Buffer);
 
     /*
-     * Convert all CR/LF pairs to LF only.  We do this locally so that
+     * Convert all CR/LF pairs to LF only. We do this locally so that
      * this code is portable across operating systems.
      */
     AsConvertToLineFeeds (Buffer);
@@ -824,13 +830,13 @@ AsGetFile (
     *FileBuffer = Buffer;
     *FileSize = Size;
 
-    return 0;
+    return (0);
 
 
 ErrorExit:
 
     close (FileHandle);
-    return -1;
+    return (-1);
 }
 
 
@@ -839,7 +845,7 @@ ErrorExit:
  * FUNCTION:    AsPutFile
  *
  * DESCRIPTION: Create a new output file and write the entire contents of the
- *              buffer to the new file.  Buffer must be a zero terminated string
+ *              buffer to the new file. Buffer must be a zero terminated string
  *
  ******************************************************************************/
 
@@ -870,17 +876,17 @@ AsPutFile (
     {
         perror ("Could not create destination file");
         printf ("Could not create destination file \"%s\"\n", Pathname);
-        return -1;
+        return (-1);
     }
 
     /* Write the buffer to the file */
 
     FileSize = strlen (FileBuffer);
-    write (DestHandle, FileBuffer, FileSize);
+    if (write (DestHandle, FileBuffer, FileSize) == -1)
+    {
+        printf ("Error writing output file \"%s\"\n", Pathname);
+    }
 
     close (DestHandle);
-
-    return 0;
+    return (0);
 }
-
-

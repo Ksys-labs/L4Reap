@@ -1,4 +1,3 @@
-
 /******************************************************************************
  *
  * Module Name: aslstartup - Compiler startup routines, called from main
@@ -9,13 +8,13 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2009, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2012, Intel Corp.
  * All rights reserved.
  *
  * 2. License
  *
  * 2.1. This is your license from Intel Corp. under its intellectual property
- * rights.  You may have additional license terms from the party that provided
+ * rights. You may have additional license terms from the party that provided
  * you this software, covering your right to use that party's intellectual
  * property rights.
  *
@@ -32,7 +31,7 @@
  * offer to sell, and import the Covered Code and derivative works thereof
  * solely to the minimum extent necessary to exercise the above copyright
  * license, and in no event shall the patent license extend to any additions
- * to or modifications of the Original Intel Code.  No other license or right
+ * to or modifications of the Original Intel Code. No other license or right
  * is granted directly or by implication, estoppel or otherwise;
  *
  * The above copyright and patent license is granted only if the following
@@ -44,11 +43,11 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification with rights to further distribute source must include
  * the above Copyright Notice, the above License, this list of Conditions,
- * and the following Disclaimer and Export Compliance provision.  In addition,
+ * and the following Disclaimer and Export Compliance provision. In addition,
  * Licensee must cause all Covered Code to which Licensee contributes to
  * contain a file documenting the changes Licensee made to create that Covered
- * Code and the date of any change.  Licensee must include in that file the
- * documentation of any changes made by any predecessor Licensee.  Licensee
+ * Code and the date of any change. Licensee must include in that file the
+ * documentation of any changes made by any predecessor Licensee. Licensee
  * must include a prominent statement that the modification is derived,
  * directly or indirectly, from Original Intel Code.
  *
@@ -56,7 +55,7 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification without rights to further distribute source must
  * include the following Disclaimer and Export Compliance provision in the
- * documentation and/or other materials provided with distribution.  In
+ * documentation and/or other materials provided with distribution. In
  * addition, Licensee may not authorize further sublicense of source of any
  * portion of the Covered Code, and must include terms to the effect that the
  * license from Licensee to its licensee is limited to the intellectual
@@ -81,10 +80,10 @@
  * 4. Disclaimer and Export Compliance
  *
  * 4.1. INTEL MAKES NO WARRANTY OF ANY KIND REGARDING ANY SOFTWARE PROVIDED
- * HERE.  ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
- * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT,  ASSISTANCE,
- * INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL WILL NOT PROVIDE ANY
- * UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY DISCLAIMS ANY
+ * HERE. ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
+ * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
+ * INSTALLATION, TRAINING OR OTHER SERVICES. INTEL WILL NOT PROVIDE ANY
+ * UPDATES, ENHANCEMENTS OR EXTENSIONS. INTEL SPECIFICALLY DISCLAIMS ANY
  * IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT AND FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
@@ -93,14 +92,14 @@
  * COSTS OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, OR FOR ANY INDIRECT,
  * SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THIS AGREEMENT, UNDER ANY
  * CAUSE OF ACTION OR THEORY OF LIABILITY, AND IRRESPECTIVE OF WHETHER INTEL
- * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES.  THESE LIMITATIONS
+ * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES. THESE LIMITATIONS
  * SHALL APPLY NOTWITHSTANDING THE FAILURE OF THE ESSENTIAL PURPOSE OF ANY
  * LIMITED REMEDY.
  *
  * 4.3. Licensee shall not export, either directly or indirectly, any of this
  * software or system incorporating such software without first obtaining any
  * required license or other approval from the U. S. Department of Commerce or
- * any other agency or department of the United States Government.  In the
+ * any other agency or department of the United States Government. In the
  * event Licensee exports any such software from the United States or
  * re-exports any such software from a foreign destination, Licensee shall
  * ensure that the distribution and export/re-export of the software is in
@@ -124,21 +123,20 @@
 
 
 #define ASL_MAX_FILES   256
-char                    *FileList[ASL_MAX_FILES];
-int                     FileCount;
-BOOLEAN                 AslToFile = TRUE;
+static char             *FileList[ASL_MAX_FILES];
+static BOOLEAN          AslToFile = TRUE;
 
 
 /* Local prototypes */
-
-static void
-AslInitializeGlobals (
-    void);
 
 static char **
 AsDoWildcard (
     char                    *DirectoryPathname,
     char                    *FileSpecifier);
+
+static UINT8
+AslDetectSourceFileType (
+    ASL_FILE_INFO           *Info);
 
 
 /*******************************************************************************
@@ -154,7 +152,7 @@ AsDoWildcard (
  *
  ******************************************************************************/
 
-static void
+void
 AslInitializeGlobals (
     void)
 {
@@ -167,10 +165,24 @@ AslInitializeGlobals (
     Gbl_CurrentLineNumber = 1;
     Gbl_LogicalLineNumber = 1;
     Gbl_CurrentLineOffset = 0;
+    Gbl_InputFieldCount = 0;
+    Gbl_InputByteCount = 0;
+    Gbl_NsLookupCount = 0;
     Gbl_LineBufPtr = Gbl_CurrentLineBuffer;
 
     Gbl_ErrorLog = NULL;
     Gbl_NextError = NULL;
+    Gbl_Signature = NULL;
+    Gbl_FileType = 0;
+
+    TotalExecutableOpcodes = 0;
+    TotalNamedObjects = 0;
+    TotalKeywords = 0;
+    TotalParseNodes = 0;
+    TotalMethods = 0;
+    TotalAllocations = 0;
+    TotalAllocated = 0;
+    TotalFolds = 0;
 
     AslGbl_NextEvent = 0;
     for (i = 0; i < ASL_NUM_REPORT_LEVELS; i++)
@@ -178,7 +190,11 @@ AslInitializeGlobals (
         Gbl_ExceptionCount[i] = 0;
     }
 
-    Gbl_Files[ASL_FILE_AML_OUTPUT].Filename = NULL;
+    for (i = ASL_FILE_INPUT; i <= ASL_MAX_FILE_TYPE; i++)
+    {
+        Gbl_Files[i].Handle = NULL;
+        Gbl_Files[i].Filename = NULL;
+    }
 }
 
 
@@ -203,6 +219,7 @@ AsDoWildcard (
 #ifdef WIN32
     void                    *DirInfo;
     char                    *Filename;
+    int                     FileCount;
 
 
     FileCount = 0;
@@ -259,6 +276,81 @@ AsDoWildcard (
 
 /*******************************************************************************
  *
+ * FUNCTION:    AslDetectSourceFileType
+ *
+ * PARAMETERS:  Info            - Name/Handle for the file (must be open)
+ *
+ * RETURN:      File Type
+ *
+ * DESCRIPTION: Determine the type of the input file. Either binary (contains
+ *              non-ASCII characters), ASL file, or an ACPI Data Table file.
+ *
+ ******************************************************************************/
+
+static UINT8
+AslDetectSourceFileType (
+    ASL_FILE_INFO           *Info)
+{
+    char                    *FileChar;
+    UINT8                   Type;
+    ACPI_STATUS             Status;
+
+
+    /* Check for 100% ASCII source file (comments are ignored) */
+
+    Status = FlCheckForAscii (Info->Handle, Info->Filename, TRUE);
+    if (ACPI_FAILURE (Status))
+    {
+        printf ("Non-ascii input file - %s\n", Info->Filename);
+
+        if (!Gbl_IgnoreErrors)
+        {
+            Type = ASL_INPUT_TYPE_BINARY;
+            goto Cleanup;
+        }
+    }
+
+    /*
+     * File is ASCII. Determine if this is an ASL file or an ACPI data
+     * table file.
+     */
+    while (fgets (Gbl_CurrentLineBuffer, Gbl_LineBufferSize, Info->Handle))
+    {
+        /* Uppercase the buffer for caseless compare */
+
+        FileChar = Gbl_CurrentLineBuffer;
+        while (*FileChar)
+        {
+            *FileChar = (char) toupper ((int) *FileChar);
+            FileChar++;
+        }
+
+        /* Presence of "DefinitionBlock" indicates actual ASL code */
+
+        if (strstr (Gbl_CurrentLineBuffer, "DEFINITIONBLOCK"))
+        {
+            /* Appears to be an ASL file */
+
+            Type = ASL_INPUT_TYPE_ASCII_ASL;
+            goto Cleanup;
+        }
+    }
+
+    /* Not an ASL source file, default to a data table source file */
+
+    Type = ASL_INPUT_TYPE_ASCII_DATA;
+
+Cleanup:
+
+    /* Must seek back to the start of the file */
+
+    fseek (Info->Handle, 0, SEEK_SET);
+    return (Type);
+}
+
+
+/*******************************************************************************
+ *
  * FUNCTION:    AslDoOneFile
  *
  * PARAMETERS:  Filename        - Name of the file
@@ -276,18 +368,19 @@ AslDoOneFile (
     ACPI_STATUS             Status;
 
 
-    Gbl_Files[ASL_FILE_INPUT].Filename = Filename;
-
-    /* Re-initialize "some" compiler globals */
+    /* Re-initialize "some" compiler/preprocessor globals */
 
     AslInitializeGlobals ();
+    PrInitializeGlobals ();
+
+    Gbl_Files[ASL_FILE_INPUT].Filename = Filename;
 
     /*
      * AML Disassembly (Optional)
      */
     if (Gbl_DisasmFlag || Gbl_GetAllTables)
     {
-        /* ACPI CA subsystem initialization */
+        /* ACPICA subsystem initialization */
 
         Status = AdInitialize ();
         if (ACPI_FAILURE (Status))
@@ -319,7 +412,7 @@ AslDoOneFile (
         /* Shutdown compiler and ACPICA subsystem */
 
         AeClearErrorLog ();
-        AcpiTerminate ();
+        (void) AcpiTerminate ();
 
         /*
          * Gbl_Files[ASL_FILE_INPUT].Filename was replaced with the
@@ -330,23 +423,93 @@ AslDoOneFile (
             AcpiOsPrintf ("\nCompiling \"%s\"\n",
                 Gbl_Files[ASL_FILE_INPUT].Filename);
         }
+        else
+        {
+            Gbl_Files[ASL_FILE_INPUT].Filename = NULL;
+            return (AE_OK);
+        }
     }
 
     /*
-     * ASL Compilation (Optional)
+     * Open the input file. Here, this should be an ASCII source file,
+     * either an ASL file or a Data Table file
      */
-    if (Gbl_DoCompile)
+    Status = FlOpenInputFile (Gbl_Files[ASL_FILE_INPUT].Filename);
+    if (ACPI_FAILURE (Status))
     {
-        /*
-         * If -p not specified, we will use the input filename as the
-         * output filename prefix
-         */
-        if (Gbl_UseDefaultAmlFilename)
+        AePrintErrorLog (ASL_FILE_STDERR);
+        return (AE_ERROR);
+    }
+
+    /* Determine input file type */
+
+    Gbl_FileType = AslDetectSourceFileType (&Gbl_Files[ASL_FILE_INPUT]);
+    if (Gbl_FileType == ASL_INPUT_TYPE_BINARY)
+    {
+        return (AE_ERROR);
+    }
+
+    /*
+     * If -p not specified, we will use the input filename as the
+     * output filename prefix
+     */
+    if (Gbl_UseDefaultAmlFilename)
+    {
+        Gbl_OutputFilenamePrefix = Gbl_Files[ASL_FILE_INPUT].Filename;
+    }
+
+    /* Open the optional output files (listings, etc.) */
+
+    Status = FlOpenMiscOutputFiles (Gbl_OutputFilenamePrefix);
+    if (ACPI_FAILURE (Status))
+    {
+        AePrintErrorLog (ASL_FILE_STDERR);
+        return (AE_ERROR);
+    }
+
+    /*
+     * Compilation of ASL source versus DataTable source uses different
+     * compiler subsystems
+     */
+    switch (Gbl_FileType)
+    {
+    /*
+     * Data Table Compilation
+     */
+    case ASL_INPUT_TYPE_ASCII_DATA:
+
+        Status = DtDoCompile ();
+        if (ACPI_FAILURE (Status))
         {
-            Gbl_OutputFilenamePrefix = Gbl_Files[ASL_FILE_INPUT].Filename;
+            return (Status);
         }
 
-        /* ACPI CA subsystem initialization (Must be re-initialized) */
+        if (Gbl_Signature)
+        {
+            ACPI_FREE (Gbl_Signature);
+            Gbl_Signature = NULL;
+        }
+
+        /* Check if any errors occurred during compile */
+
+        Status = AslCheckForErrorExit ();
+        if (ACPI_FAILURE (Status))
+        {
+            return (Status);
+        }
+
+        /* Cleanup (for next source file) and exit */
+
+        AeClearErrorLog ();
+        PrTerminatePreprocessor ();
+        return (Status);
+
+    /*
+     * ASL Compilation
+     */
+    case ASL_INPUT_TYPE_ASCII_ASL:
+
+        /* ACPICA subsystem initialization */
 
         Status = AdInitialize ();
         if (ACPI_FAILURE (Status))
@@ -354,22 +517,32 @@ AslDoOneFile (
             return (Status);
         }
 
-        Status = CmDoCompile ();
-        AcpiTerminate ();
+        (void) CmDoCompile ();
+        (void) AcpiTerminate ();
 
-        /*
-         * Return non-zero exit code if there have been errors, unless the
-         * global ignore error flag has been set
-         */
-        if ((Gbl_ExceptionCount[ASL_ERROR] > 0) && (!Gbl_IgnoreErrors))
+        /* Check if any errors occurred during compile */
+
+        Status = AslCheckForErrorExit ();
+        if (ACPI_FAILURE (Status))
         {
-            return (AE_ERROR);
+            return (Status);
         }
 
-        AeClearErrorLog ();
-    }
+        /* Cleanup (for next source file) and exit */
 
-    return (AE_OK);
+        AeClearErrorLog ();
+        PrTerminatePreprocessor ();
+        return (AE_OK);
+
+    case ASL_INPUT_TYPE_BINARY:
+
+        AePrintErrorLog (ASL_FILE_STDERR);
+        return (AE_ERROR);
+
+    default:
+        printf ("Unknown file type %X\n", Gbl_FileType);
+        return (AE_ERROR);
+    }
 }
 
 
@@ -389,10 +562,11 @@ AslDoOneFile (
 
 ACPI_STATUS
 AslDoOnePathname (
-    char                    *Pathname)
+    char                    *Pathname,
+    ASL_PATHNAME_CALLBACK   PathCallback)
 {
-    ACPI_STATUS             Status;
-    char                    **FileList;
+    ACPI_STATUS             Status = AE_OK;
+    char                    **WildcardList;
     char                    *Filename;
     char                    *FullPathname;
 
@@ -407,16 +581,16 @@ AslDoOnePathname (
 
     /* Expand possible wildcard into a file list (Windows/DOS only) */
 
-    FileList = AsDoWildcard (Gbl_DirectoryPath, Filename);
-    while (*FileList)
+    WildcardList = AsDoWildcard (Gbl_DirectoryPath, Filename);
+    while (*WildcardList)
     {
         FullPathname = ACPI_ALLOCATE (
-            strlen (Gbl_DirectoryPath) + strlen (*FileList) + 1);
+            strlen (Gbl_DirectoryPath) + strlen (*WildcardList) + 1);
 
         /* Construct a full path to the file */
 
         strcpy (FullPathname, Gbl_DirectoryPath);
-        strcat (FullPathname, *FileList);
+        strcat (FullPathname, *WildcardList);
 
         /*
          * If -p not specified, we will use the input filename as the
@@ -427,20 +601,62 @@ AslDoOnePathname (
             Gbl_OutputFilenamePrefix = FullPathname;
         }
 
-        Status = AslDoOneFile (FullPathname);
-        if (ACPI_FAILURE (Status))
-        {
-            return (Status);
-        }
+        /* Save status from all compiles */
+
+        Status |= (*PathCallback) (FullPathname);
 
         ACPI_FREE (FullPathname);
-        ACPI_FREE (*FileList);
-        *FileList = NULL;
-        FileList++;
+        ACPI_FREE (*WildcardList);
+        *WildcardList = NULL;
+        WildcardList++;
     }
 
     ACPI_FREE (Gbl_DirectoryPath);
     ACPI_FREE (Filename);
-    return (AE_OK);
+    return (Status);
 }
 
+
+/*******************************************************************************
+ *
+ * FUNCTION:    AslCheckForErrorExit
+ *
+ * PARAMETERS:  None. Examines global exception count array
+ *
+ * RETURN:      Status
+ *
+ * DESCRIPTION: Determine if compiler should abort with error status
+ *
+ ******************************************************************************/
+
+ACPI_STATUS
+AslCheckForErrorExit (
+    void)
+{
+
+    /*
+     * Return non-zero exit code if there have been errors, unless the
+     * global ignore error flag has been set
+     */
+    if (!Gbl_IgnoreErrors)
+    {
+        if (Gbl_ExceptionCount[ASL_ERROR] > 0)
+        {
+            return (AE_ERROR);
+        }
+
+        /* Optionally treat warnings as errors */
+
+        if (Gbl_WarningsAsErrors)
+        {
+            if ((Gbl_ExceptionCount[ASL_WARNING] > 0)  ||
+                (Gbl_ExceptionCount[ASL_WARNING2] > 0) ||
+                (Gbl_ExceptionCount[ASL_WARNING3] > 0))
+            {
+                return (AE_ERROR);
+            }
+        }
+    }
+
+    return (AE_OK);
+}

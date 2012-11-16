@@ -5,7 +5,7 @@
  *     system calls. Also, this observer handles Fiasco JDB
  *     traps.
  *
- * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -25,9 +25,11 @@ void Romain::TrapObserver::status() const { }
 Romain::Observer::ObserverReturnVal
 Romain::TrapObserver::notify(Romain::App_instance *inst,
                              Romain::App_thread *t,
+                             Romain::Thread_group *tg,
                              Romain::App_model *a)
 {
 	if (t->vcpu()->r()->trapno == 6) {
+		ERROR() << "Invalid opcode @ " << std::hex << t->vcpu()->r()->ip;
 		enter_kdebug("invalid opcode");
 	}
 

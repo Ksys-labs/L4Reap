@@ -1,4 +1,3 @@
-
 /******************************************************************************
  *
  * Module Name: aslerror - Error handling and statistics
@@ -9,13 +8,13 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2009, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2012, Intel Corp.
  * All rights reserved.
  *
  * 2. License
  *
  * 2.1. This is your license from Intel Corp. under its intellectual property
- * rights.  You may have additional license terms from the party that provided
+ * rights. You may have additional license terms from the party that provided
  * you this software, covering your right to use that party's intellectual
  * property rights.
  *
@@ -32,7 +31,7 @@
  * offer to sell, and import the Covered Code and derivative works thereof
  * solely to the minimum extent necessary to exercise the above copyright
  * license, and in no event shall the patent license extend to any additions
- * to or modifications of the Original Intel Code.  No other license or right
+ * to or modifications of the Original Intel Code. No other license or right
  * is granted directly or by implication, estoppel or otherwise;
  *
  * The above copyright and patent license is granted only if the following
@@ -44,11 +43,11 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification with rights to further distribute source must include
  * the above Copyright Notice, the above License, this list of Conditions,
- * and the following Disclaimer and Export Compliance provision.  In addition,
+ * and the following Disclaimer and Export Compliance provision. In addition,
  * Licensee must cause all Covered Code to which Licensee contributes to
  * contain a file documenting the changes Licensee made to create that Covered
- * Code and the date of any change.  Licensee must include in that file the
- * documentation of any changes made by any predecessor Licensee.  Licensee
+ * Code and the date of any change. Licensee must include in that file the
+ * documentation of any changes made by any predecessor Licensee. Licensee
  * must include a prominent statement that the modification is derived,
  * directly or indirectly, from Original Intel Code.
  *
@@ -56,7 +55,7 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification without rights to further distribute source must
  * include the following Disclaimer and Export Compliance provision in the
- * documentation and/or other materials provided with distribution.  In
+ * documentation and/or other materials provided with distribution. In
  * addition, Licensee may not authorize further sublicense of source of any
  * portion of the Covered Code, and must include terms to the effect that the
  * license from Licensee to its licensee is limited to the intellectual
@@ -81,10 +80,10 @@
  * 4. Disclaimer and Export Compliance
  *
  * 4.1. INTEL MAKES NO WARRANTY OF ANY KIND REGARDING ANY SOFTWARE PROVIDED
- * HERE.  ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
- * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT,  ASSISTANCE,
- * INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL WILL NOT PROVIDE ANY
- * UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY DISCLAIMS ANY
+ * HERE. ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
+ * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
+ * INSTALLATION, TRAINING OR OTHER SERVICES. INTEL WILL NOT PROVIDE ANY
+ * UPDATES, ENHANCEMENTS OR EXTENSIONS. INTEL SPECIFICALLY DISCLAIMS ANY
  * IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT AND FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
@@ -93,14 +92,14 @@
  * COSTS OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, OR FOR ANY INDIRECT,
  * SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THIS AGREEMENT, UNDER ANY
  * CAUSE OF ACTION OR THEORY OF LIABILITY, AND IRRESPECTIVE OF WHETHER INTEL
- * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES.  THESE LIMITATIONS
+ * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES. THESE LIMITATIONS
  * SHALL APPLY NOTWITHSTANDING THE FAILURE OF THE ESSENTIAL PURPOSE OF ANY
  * LIMITED REMEDY.
  *
  * 4.3. Licensee shall not export, either directly or indirectly, any of this
  * software or system incorporating such software without first obtaining any
  * required license or other approval from the U. S. Department of Commerce or
- * any other agency or department of the United States Government.  In the
+ * any other agency or department of the United States Government. In the
  * event Licensee exports any such software from the United States or
  * re-exports any such software from a foreign destination, Licensee shall
  * ensure that the distribution and export/re-export of the software is in
@@ -126,6 +125,18 @@ static void
 AeAddToErrorLog (
     ASL_ERROR_MSG           *Enode);
 
+
+/*******************************************************************************
+ *
+ * FUNCTION:    AeClearErrorLog
+ *
+ * PARAMETERS:  None
+ *
+ * RETURN:      None
+ *
+ * DESCRIPTION: Empty the error list
+ *
+ ******************************************************************************/
 
 void
 AeClearErrorLog (
@@ -155,7 +166,7 @@ AeClearErrorLog (
  *
  * RETURN:      None
  *
- * DESCRIPTION: Add a new error node to the error log.  The error log is
+ * DESCRIPTION: Add a new error node to the error log. The error log is
  *              ordered by the "logical" line number (cumulative line number
  *              including all include files.)
  *
@@ -169,13 +180,7 @@ AeAddToErrorLog (
     ASL_ERROR_MSG           *Prev;
 
 
-    if (!Gbl_ErrorLog)
-    {
-        Gbl_ErrorLog = Enode;
-        return;
-    }
-
-    /* List is sorted according to line number */
+    /* If Gbl_ErrorLog is null, this is the first error node */
 
     if (!Gbl_ErrorLog)
     {
@@ -183,8 +188,10 @@ AeAddToErrorLog (
         return;
     }
 
-    /* Walk error list until we find a line number greater than ours */
-
+    /*
+     * Walk error list until we find a line number greater than ours.
+     * List is sorted according to line number.
+     */
     Prev = NULL;
     Next = Gbl_ErrorLog;
 
@@ -244,7 +251,10 @@ AePrintException (
     UINT32                  SourceColumn;
     UINT32                  ErrorColumn;
     FILE                    *OutputFile;
-    FILE                    *SourceFile;
+    FILE                    *SourceFile = NULL;
+    long                    FileSize;
+    BOOLEAN                 PrematureEOF = FALSE;
+    UINT32                  Total = 0;
 
 
     if (Gbl_NoErrors)
@@ -284,7 +294,31 @@ AePrintException (
     /* Get the file handles */
 
     OutputFile = Gbl_Files[FileId].Handle;
-    SourceFile = Gbl_Files[ASL_FILE_SOURCE_OUTPUT].Handle;
+
+
+    if (!Enode->SourceLine)
+    {
+        /* Use the merged header/source file if present, otherwise use input file */
+
+        SourceFile = Gbl_Files[ASL_FILE_SOURCE_OUTPUT].Handle;
+        if (!SourceFile)
+        {
+            SourceFile = Gbl_Files[ASL_FILE_INPUT].Handle;
+        }
+
+        if (SourceFile)
+        {
+            /* Determine if the error occurred at source file EOF */
+
+            fseek (SourceFile, 0, SEEK_END);
+            FileSize = ftell (SourceFile);
+
+            if ((long) Enode->LogicalByteOffset >= FileSize)
+            {
+                PrematureEOF = TRUE;
+            }
+        }
+    }
 
     if (Header)
     {
@@ -297,50 +331,87 @@ AePrintException (
     {
         if (Gbl_VerboseErrors)
         {
-            fprintf (OutputFile, "%6s", Enode->Filename);
+            fprintf (OutputFile, "%-8s", Enode->Filename);
 
             if (Enode->LineNumber)
             {
-                fprintf (OutputFile, "%6u: ", Enode->LineNumber);
-
-                /*
-                 * Seek to the offset in the combined source file, read the source
-                 * line, and write it to the output.
-                 */
-                Actual = fseek (SourceFile, (long) Enode->LogicalByteOffset,
-                            (int) SEEK_SET);
-                if (Actual)
+                if (Enode->SourceLine)
                 {
-                    fprintf (OutputFile,
-                        "[*** iASL: Seek error on source code temp file %s ***]",
-                        Gbl_Files[ASL_FILE_SOURCE_OUTPUT].Filename);
+                    fprintf (OutputFile, " %6u: %s",
+                        Enode->LineNumber, Enode->SourceLine);
                 }
                 else
                 {
-                    RActual = fread (&SourceByte, 1, 1, SourceFile);
-                    if (!RActual)
+                    fprintf (OutputFile, " %6u: ", Enode->LineNumber);
+
+                    /*
+                     * If not at EOF, get the corresponding source code line and
+                     * display it. Don't attempt this if we have a premature EOF
+                     * condition.
+                     */
+                    if (!PrematureEOF)
                     {
-                        fprintf (OutputFile,
-                            "[*** iASL: Read error on source code temp file %s ***]",
-                            Gbl_Files[ASL_FILE_SOURCE_OUTPUT].Filename);
+                        /*
+                         * Seek to the offset in the combined source file, read
+                         * the source line, and write it to the output.
+                         */
+                        Actual = fseek (SourceFile, (long) Enode->LogicalByteOffset,
+                                    (int) SEEK_SET);
+                        if (Actual)
+                        {
+                            fprintf (OutputFile,
+                                "[*** iASL: Seek error on source code temp file %s ***]",
+                                Gbl_Files[ASL_FILE_SOURCE_OUTPUT].Filename);
+                        }
+                        else
+                        {
+                            RActual = fread (&SourceByte, 1, 1, SourceFile);
+                            if (!RActual)
+                            {
+                                fprintf (OutputFile,
+                                    "[*** iASL: Read error on source code temp file %s ***]",
+                                    Gbl_Files[ASL_FILE_SOURCE_OUTPUT].Filename);
+                            }
+                            else
+                            {
+                                while (RActual && SourceByte && (SourceByte != '\n') && (Total < 256))
+                                {
+                                    if (fwrite (&SourceByte, 1, 1, OutputFile) != 1)
+                                    {
+                                        printf ("[*** iASL: Write error on output file ***]\n");
+                                        return;
+                                    }
+
+                                    RActual = fread (&SourceByte, 1, 1, SourceFile);
+                                    Total++;
+                                }
+
+                                if (Total >= 256)
+                                {
+                                    fprintf (OutputFile,
+                                        "\n[*** iASL: Long input line, an error occurred at column %u ***]",
+                                        Enode->Column);
+                                }
+                            }
+                        }
                     }
 
-                    else while (RActual && SourceByte && (SourceByte != '\n'))
-                    {
-                        fwrite (&SourceByte, 1, 1, OutputFile);
-                        RActual = fread (&SourceByte, 1, 1, SourceFile);
-                    }
+                    fprintf (OutputFile, "\n");
                 }
-                fprintf (OutputFile, "\n");
             }
         }
         else
         {
+            /*
+             * Less verbose version of the error message, enabled via the
+             * -vi switch. The format is compatible with MS Visual Studio.
+             */
             fprintf (OutputFile, "%s", Enode->Filename);
 
             if (Enode->LineNumber)
             {
-                fprintf (OutputFile, "(%u) : ", Enode->LineNumber);
+                fprintf (OutputFile, "(%u) : ",
+                    Enode->LineNumber);
             }
         }
     }
@@ -355,40 +426,70 @@ AePrintException (
     {
         /* Decode the message ID */
 
-        fprintf (OutputFile, "%s %4.4d -",
-                    AslErrorLevel[Enode->Level],
-                    Enode->MessageId + ((Enode->Level+1) * 1000));
+        if (Gbl_VerboseErrors)
+        {
+            fprintf (OutputFile, "%s %4.4d -",
+                        AslErrorLevel[Enode->Level],
+                        Enode->MessageId + ((Enode->Level+1) * 1000));
+        }
+        else /* IDE case */
+        {
+            fprintf (OutputFile, "%s %4.4d:",
+                        AslErrorLevelIde[Enode->Level],
+                        Enode->MessageId + ((Enode->Level+1) * 1000));
+        }
 
         MainMessage = AslMessages[Enode->MessageId];
         ExtraMessage = Enode->Message;
 
         if (Enode->LineNumber)
         {
+            /* Main message: try to use string from AslMessages first */
+
+            if (!MainMessage)
+            {
+                MainMessage = "";
+            }
+
             MsgLength = strlen (MainMessage);
             if (MsgLength == 0)
             {
+                /* Use the secondary/extra message as main message */
+
                 MainMessage = Enode->Message;
+                if (!MainMessage)
+                {
+                    MainMessage = "";
+                }
 
                 MsgLength = strlen (MainMessage);
                 ExtraMessage = NULL;
             }
 
-            if (Gbl_VerboseErrors)
+            if (Gbl_VerboseErrors && !PrematureEOF)
             {
-                SourceColumn = Enode->Column + Enode->FilenameLength + 6 + 2;
-                ErrorColumn = ASL_ERROR_LEVEL_LENGTH + 5 + 2 + 1;
-
-                if ((MsgLength + ErrorColumn) < (SourceColumn - 1))
+                if (Total >= 256)
                 {
-                    fprintf (OutputFile, "%*s%s",
-                        (int) ((SourceColumn - 1) - ErrorColumn),
-                        MainMessage, " ^ ");
+                    fprintf (OutputFile, "    %s",
+                        MainMessage);
                 }
                 else
                 {
-                    fprintf (OutputFile, "%*s %s",
-                        (int) ((SourceColumn - ErrorColumn) + 1), "^",
-                        MainMessage);
+                    SourceColumn = Enode->Column + Enode->FilenameLength + 6 + 2;
+                    ErrorColumn = ASL_ERROR_LEVEL_LENGTH + 5 + 2 + 1;
+
+                    if ((MsgLength + ErrorColumn) < (SourceColumn - 1))
+                    {
+                        fprintf (OutputFile, "%*s%s",
+                            (int) ((SourceColumn - 1) - ErrorColumn),
+                            MainMessage, " ^ ");
+                    }
+                    else
+                    {
+                        fprintf (OutputFile, "%*s %s",
+                            (int) ((SourceColumn - ErrorColumn) + 1), "^",
+                            MainMessage);
+                    }
                 }
             }
             else
@@ -401,6 +502,11 @@ AePrintException (
             if (ExtraMessage)
             {
                 fprintf (OutputFile, " (%s)", ExtraMessage);
+            }
+
+            if (PrematureEOF)
+            {
+                fprintf (OutputFile, " and premature End-Of-File");
             }
 
             fprintf (OutputFile, "\n");
@@ -443,6 +549,91 @@ AePrintErrorLog (
         AePrintException (FileId, Enode, NULL);
         Enode = Enode->Next;
     }
+}
+
+
+/*******************************************************************************
+ *
+ * FUNCTION:    AslCommonError2
+ *
+ * PARAMETERS:  Level               - Seriousness (Warning/error, etc.)
+ *              MessageId           - Index into global message buffer
+ *              LineNumber          - Actual file line number
+ *              Column              - Column in current line
+ *              SourceLine          - Actual source code line
+ *              Filename            - source filename
+ *              ExtraMessage        - additional error message
+ *
+ * RETURN:      None
+ *
+ * DESCRIPTION: Create a new error node and add it to the error log
+ *
+ ******************************************************************************/
+
+void
+AslCommonError2 (
+    UINT8                   Level,
+    UINT8                   MessageId,
+    UINT32                  LineNumber,
+    UINT32                  Column,
+    char                    *SourceLine,
+    char                    *Filename,
+    char                    *ExtraMessage)
+{
+    char                    *MessageBuffer = NULL;
+    char                    *LineBuffer;
+    ASL_ERROR_MSG           *Enode;
+
+
+    Enode = UtLocalCalloc (sizeof (ASL_ERROR_MSG));
+
+    if (ExtraMessage)
+    {
+        /* Allocate a buffer for the message and a new error node */
+
+        MessageBuffer = UtLocalCalloc (strlen (ExtraMessage) + 1);
+
+        /* Keep a copy of the extra message */
+
+        ACPI_STRCPY (MessageBuffer, ExtraMessage);
+    }
+
+    LineBuffer = UtLocalCalloc (strlen (SourceLine) + 1);
+    ACPI_STRCPY (LineBuffer, SourceLine);
+
+    /* Initialize the error node */
+
+    if (Filename)
+    {
+        Enode->Filename       = Filename;
+        Enode->FilenameLength = strlen (Filename);
+        if (Enode->FilenameLength < 6)
+        {
+            Enode->FilenameLength = 6;
+        }
+    }
+
+    Enode->MessageId            = MessageId;
+    Enode->Level                = Level;
+    Enode->LineNumber           = LineNumber;
+    Enode->LogicalLineNumber    = LineNumber;
+    Enode->LogicalByteOffset    = 0;
+    Enode->Column               = Column;
+    Enode->Message              = MessageBuffer;
+    Enode->SourceLine           = LineBuffer;
+
+    /* Add the new node to the error node list */
+
+    AeAddToErrorLog (Enode);
+
+    if (Gbl_DebugFlag)
+    {
+        /* stderr is a file, send error to it immediately */
+
+        AePrintException (ASL_FILE_STDERR, Enode, NULL);
+    }
+
+    Gbl_ExceptionCount[Level]++;
 }
 
 
@@ -514,6 +705,7 @@ AslCommonError (
     Enode->LogicalByteOffset    = LogicalByteOffset;
     Enode->Column               = Column;
     Enode->Message              = MessageBuffer;
+    Enode->SourceLine           = NULL;
 
     /* Add the new node to the error node list */
 
@@ -529,7 +721,7 @@ AslCommonError (
     Gbl_ExceptionCount[Level]++;
     if (Gbl_ExceptionCount[ASL_ERROR] > ASL_MAX_ERROR_COUNT)
     {
-        printf ("\nMaximum error count (%d) exceeded\n", ASL_MAX_ERROR_COUNT);
+        printf ("\nMaximum error count (%u) exceeded\n", ASL_MAX_ERROR_COUNT);
 
         Gbl_SourceLine = 0;
         Gbl_NextError = Gbl_ErrorLog;
@@ -579,7 +771,6 @@ AslError (
     default:
         break;
     }
-
 
     if (Op)
     {
@@ -660,15 +851,13 @@ AslCoreSubsystemError (
 
 int
 AslCompilererror (
-    char                    *CompilerMessage)
+    const char              *CompilerMessage)
 {
 
     AslCommonError (ASL_ERROR, ASL_MSG_SYNTAX, Gbl_CurrentLineNumber,
-                    Gbl_LogicalLineNumber, Gbl_CurrentLineOffset,
-                    Gbl_CurrentColumn, Gbl_Files[ASL_FILE_INPUT].Filename,
-                    CompilerMessage);
+        Gbl_LogicalLineNumber, Gbl_CurrentLineOffset,
+        Gbl_CurrentColumn, Gbl_Files[ASL_FILE_INPUT].Filename,
+        ACPI_CAST_PTR (char, CompilerMessage));
 
-    return 0;
+    return (0);
 }
-
-

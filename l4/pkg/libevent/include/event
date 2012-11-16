@@ -26,22 +26,62 @@
 
 namespace Event {
 
-class Event
+class Event_base
+{
+public:
+  L4::Cap<L4::Irq> irq() const { return _irq; }
+  bool attached() const { return _irq.is_valid(); }
+
+protected:
+  L4::Cap<L4::Irq> _irq;
+  L4::Cap<L4::Thread> _l4thread;
+
+  explicit Event_base(L4::Cap<L4::Irq> irq) : _irq(irq) {}
+  ~Event_base()
+  {
+    if (_irq.is_valid())
+      _irq->detach();
+  }
+
+  void attach(L4::Cap<L4::Thread> thread)
+  {
+    if (_l4thread == thread)
+      return;
+
+    _irq->detach();
+    _l4thread = thread;
+    _irq->attach(12, _l4thread);
+  }
+};
+
+class Event : public Event_base
+{
+public:
+  explicit Event(L4::Cap<L4::Irq> irq) : Event_base(irq)
+  {
+    pthread_mutex_init(&_wait_lock, 0);
+    attach(pthread_l4_getcap(pthread_self()));
+  }
+
+  int wait();
+
+protected:
+  Event() : Event_base(L4::Cap<L4::Irq>::Invalid)
+  {
+    pthread_mutex_init(&_wait_lock, 0);
+  }
+
+private:
+  pthread_mutex_t     _wait_lock;
+};
+
+class Event_cap : public Event
 {
 public:
 
-  Event(L4::Cap<L4::Irq> const irq, pthread_t thread = 0)
-    : _irq(irq), _pthread(0)
-  {
-    pthread_mutex_init(&_wait_lock, 0);
-    attach_thread(thread);
-  }
-
   template < typename GI >
-  Event(GI *gi, pthread_t thread = 0)
-    : _pthread(0)
+  explicit Event_cap(GI *gi) : Event()
   {
-    pthread_mutex_init(&_wait_lock, 0);
     _irq = L4Re::Util::cap_alloc.alloc<L4::Irq>();
     if (!_irq.is_valid())
       return;
@@ -55,91 +95,37 @@ public:
 
     if (gi->bind_irq(0, _irq) < 0)
       {
-	L4Re::Util::cap_alloc.free(_irq, L4Re::This_task);
+	L4Re::Util::cap_alloc.free(_irq, L4Re::This_task, L4_FP_DELETE_OBJ);
 	_irq.invalidate();
 	return;
       }
 
-    attach_thread(thread);
+    attach(pthread_l4_getcap(pthread_self()));
   }
 
-  template < typename HANDLER >
-  Event(L4::Cap<L4::Irq> const irq, HANDLER const &handler,
-        void *data, int prio)
-    : _irq(irq), _pthread(0)
+  ~Event_cap()
   {
-    pthread_mutex_init(&_wait_lock, 0);
-    if (create_handler(handler, data, prio))
-      _irq.invalidate();
-    else
-      attach_thread(_pthread);
+    if (_irq)
+      L4Re::Util::cap_alloc.free(_irq, L4Re::This_task, L4_FP_DELETE_OBJ);
   }
+};
+
+class Event_loop : public Event_base
+{
+public:
 
 
-  ~Event();
+  Event_loop(L4::Cap<L4::Irq> irq, int prio);
 
-  L4::Cap<L4::Irq> irq() const { return _irq; }
-  bool attached() const { return _irq.is_valid(); }
+  void start();
 
-  int wait()
-  {
-    pthread_mutex_lock(&_wait_lock);
-
-    L4::Cap<L4::Thread> t(pthread_getl4cap(pthread_self()));
-
-    if (_l4thread != t)
-      {
-	_irq->detach();
-	_l4thread = t;
-	attach();
-      }
-
-    int ret = l4_error(_irq->receive());
-
-    pthread_mutex_unlock(&_wait_lock);
-    return ret;
-  }
+  virtual void handle() = 0;
+  virtual ~Event_loop();
 
 private:
-  L4::Cap<L4::Irq>    _irq;
-  L4::Cap<L4::Thread> _l4thread;
   pthread_t           _pthread;
-  pthread_mutex_t     _wait_lock;
-  void                (*_event_func)(void *);
-  void               *_data;
 
   static void *event_loop(void *);
-
-  void attach() { _irq->attach(12, _l4thread); }
-
-  template < typename EVENT_HANDLER >
-  int
-  create_handler(EVENT_HANDLER const &handler, void *data,
-                 int thread_prio)
-  {
-    _event_func = handler;
-    _data       = data;
-
-    pthread_attr_t a;
-    pthread_attr_init(&a);
-    if (thread_prio != -1)
-      {
-	struct sched_param sp;
-	sp.sched_priority = thread_prio;
-	pthread_attr_setschedpolicy(&a, SCHED_L4);
-	pthread_attr_setschedparam(&a, &sp);
-	pthread_attr_setinheritsched(&a, PTHREAD_EXPLICIT_SCHED);
-      }
-    else
-      pthread_attr_setinheritsched(&a, PTHREAD_INHERIT_SCHED);
-
-    if (pthread_create(&_pthread, &a, event_loop, this))
-      return -1;
-
-    return 0;
-  }
-
-  void attach_thread(pthread_t thread);
 };
 
 }

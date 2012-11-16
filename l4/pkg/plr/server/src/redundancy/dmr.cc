@@ -1,3 +1,15 @@
+/*
+ * dmr.cc --
+ *
+ *    n-way modular redundancy implementation 
+ *
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ *     economic rights: Technische Universität Dresden (Germany)
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
+
 #include "../log"
 #include "../redundancy.h"
 #include "../app_loading"
@@ -5,6 +17,8 @@
 
 #define MSG() DEBUGf(Romain::Log::Redundancy)
 #define MSGi(inst) MSG() << "[" << (inst)->id() << "] "
+
+//extern char * __func__;
 
 /* Replication protocol:
  * =====================
@@ -60,7 +74,7 @@ Romain::Replicator::put(Romain::App_thread *t)
 	PUT(trapno); PUT(err); PUT(ip); PUT(flags);
 	PUT(sp); PUT(ss);
 #undef PUT
-	l4_utcb_t *addr = reinterpret_cast<l4_utcb_t*>(t->remote_utcb()); 
+	l4_utcb_t *addr = reinterpret_cast<l4_utcb_t*>(t->remote_utcb());
 	memcpy(&_utcb, addr, L4_UTCB_OFFSET);
 }
 
@@ -75,7 +89,7 @@ Romain::Replicator::get(Romain::App_thread *t)
 	PUT(trapno); PUT(err); PUT(ip); PUT(flags);
 	PUT(sp); PUT(ss);
 #undef PUT
-	l4_utcb_t *addr = reinterpret_cast<l4_utcb_t*>(t->remote_utcb()); 
+	l4_utcb_t *addr = reinterpret_cast<l4_utcb_t*>(t->remote_utcb());
 	memcpy(addr, &_utcb, L4_UTCB_OFFSET);
 }
 
@@ -117,6 +131,7 @@ class RecoverAbort
 		static __attribute__((noreturn)) void recover()
 		{
 			ERROR() << "Aborting after error.";
+			enter_kdebug("abort");
 			throw("ERROR -> abort");
 		}
 };
@@ -166,14 +181,17 @@ Romain::DMR::recover(Romain::App_model *am)
 	replicator().get(_orig_vcpu[bad]);
 	am->rm()->replicate(good, bad);
 
+#if 0
 	DEBUG() << "after recovery:";
 	for (unsigned i = 0; i < _num_instances; ++i)
 		DEBUG() << i << " " << std::hex << _orig_vcpu[i]->csum_state();
+#endif
 }
 
 
 Romain::RedundancyCallback::EnterReturnVal
-Romain::DMR::enter(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a)
+Romain::DMR::enter(Romain::App_instance *i, Romain::App_thread *t,
+                   Romain::App_model *a)
 {
 	(void)a;
 	MSGi(i) << "DMR::enter act(" << _enter_count << ")";
@@ -185,6 +203,9 @@ Romain::DMR::enter(Romain::App_instance *i, Romain::App_thread *t, Romain::App_m
 
 	pthread_mutex_lock(&_enter_mtx);
 
+	/* TODO: select the first replica that makes the sum of all replicas
+	 *       larger than N/2, if all their states match.
+	 */
 	if (++_enter_count < _num_instances) {
 		//MSGi(i) << "I'm not the last instance -> going to wait.";
 		// wait for the leader
@@ -215,7 +236,8 @@ Romain::DMR::enter(Romain::App_instance *i, Romain::App_thread *t, Romain::App_m
 }
 
 
-void Romain::DMR::leader_repeat(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a)
+void Romain::DMR::leader_repeat(Romain::App_instance *i, Romain::App_thread *t,
+                                Romain::App_model *a)
 {
 	(void)i; (void)t; (void)a;
 	MSGi(i) << __func__;
@@ -223,18 +245,20 @@ void Romain::DMR::leader_repeat(Romain::App_instance *i, Romain::App_thread *t, 
 }
 
 
-void Romain::DMR::leader_replicate(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a)
+void Romain::DMR::leader_replicate(Romain::App_instance *i, Romain::App_thread *t,
+                                   Romain::App_model *a)
 {
 	(void)i; (void)t; (void)a;
 	MSGi(i) << __func__;
 	_rv = Romain::RedundancyCallback::Skip_syscall;
 
-	//t->vcpu()->print_state();
+	//t->print_vcpu_state();
 	replicator().put(t);
 }
 
 
-void Romain::DMR::resume(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a)
+void Romain::DMR::resume(Romain::App_instance *i, Romain::App_thread *t,
+                         Romain::App_model *a)
 {
 	(void)i; (void)t; (void)a;
 	//MSGi(i) << "[l] acquiring leave mtx";
@@ -263,7 +287,8 @@ void Romain::DMR::resume(Romain::App_instance *i, Romain::App_thread *t, Romain:
 	//enter_kdebug("DMR::resume");
 }
 
-void Romain::DMR::wait(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a)
+void Romain::DMR::wait(Romain::App_instance *i, Romain::App_thread *t,
+                       Romain::App_model *a)
 {
 	MSGi(i) << __func__;
 	pthread_mutex_lock(&_block_mtx);
@@ -274,7 +299,8 @@ void Romain::DMR::wait(Romain::App_instance *i, Romain::App_thread *t, Romain::A
 	pthread_mutex_unlock(&_block_mtx);
 }
 
-void Romain::DMR::silence(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a)
+void Romain::DMR::silence(Romain::App_instance *i, Romain::App_thread *t,
+                          Romain::App_model *a)
 {
 	MSGi(i) << __func__;
 	// 1. Tell anyone who is still waiting to enter that he can now do so.
@@ -288,7 +314,8 @@ void Romain::DMR::silence(Romain::App_instance *i, Romain::App_thread *t, Romain
 	_num_instances     = 1;
 }
 
-void Romain::DMR::wakeup(Romain::App_instance *i, Romain::App_thread *t, Romain::App_model *a)
+void Romain::DMR::wakeup(Romain::App_instance *i, Romain::App_thread *t,
+                         Romain::App_model *a)
 {
 	MSGi(i) << __func__;
 	_block_count   = 0;

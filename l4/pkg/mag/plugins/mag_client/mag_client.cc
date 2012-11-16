@@ -208,7 +208,7 @@ Client_view::get_info(L4Re::Video::View::Info *inf) const
 {
   using L4Re::Video::Color_component;
   inf->flags = L4Re::Video::View::F_fully_dynamic;
-  // we do not support chaning the pixel format
+  // we do not support changing the pixel format
   inf->flags &= ~L4Re::Video::View::F_set_pixel;
   if (above())
     inf->flags |= L4Re::Video::View::F_above;

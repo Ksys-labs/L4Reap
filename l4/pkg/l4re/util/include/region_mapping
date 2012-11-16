@@ -281,12 +281,12 @@ public:
     Region g = r->first;
     Hdlr   h = r->second;
 
-    if (flags == L4Re::Rm::Detach_overlap || dr.contains(g))
+    if (flags & L4Re::Rm::Detach_overlap || dr.contains(g))
       {
 	if (_rm.remove(g))
 	  return -L4_ENOENT;
 
-	if (h.flags() & L4Re::Rm::Detach_free)
+	if (!(flags & L4Re::Rm::Detach_keep) && (h.flags() & L4Re::Rm::Detach_free))
 	  h.free(0, g.size());
 
 	if (hdlr) *hdlr = h;
@@ -301,7 +301,7 @@ public:
       {
 	// move the start of a region
 
-	if (h.flags() & L4Re::Rm::Detach_free)
+	if (!(flags & L4Re::Rm::Detach_keep) && (h.flags() & L4Re::Rm::Detach_free))
 	  h.free(0, dr.end() + 1 - g.start());
 
 	unsigned long sz = dr.end() + 1 - g.start();
@@ -319,7 +319,7 @@ public:
       {
 	// move the end of a region
 
-	if (h.flags() & L4Re::Rm::Detach_free)
+	if (!(flags & L4Re::Rm::Detach_keep) && (h.flags() & L4Re::Rm::Detach_free))
 	  h.free(dr.start() - g.start(), g.end() + 1 - dr.start());
 
 	Item *cn = const_cast<Item*>((Item const*)r);
@@ -336,7 +336,7 @@ public:
       {
 	// split a single region that contains the new region
 
-	if (h.flags() & L4Re::Rm::Detach_free)
+	if (!(flags & L4Re::Rm::Detach_keep) && (h.flags() & L4Re::Rm::Detach_free))
 	  h.free(dr.start() - g.start(), dr.size());
 
 	// first move the end off the existing region before the new one

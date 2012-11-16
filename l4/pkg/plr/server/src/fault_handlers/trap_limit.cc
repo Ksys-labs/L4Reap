@@ -54,8 +54,9 @@ void Romain::TrapLimitObserver_priv::status() const
 
 Romain::Observer::ObserverReturnVal
 Romain::TrapLimitObserver_priv::notify(Romain::App_instance *inst,
-                                          Romain::App_thread *t,
-                                          Romain::App_model *a)
+                                       Romain::App_thread *t,
+                                       Romain::Thread_group *tg,
+                                       Romain::App_model *a)
 {
 	if (limitIsValid()) {
 		increment();

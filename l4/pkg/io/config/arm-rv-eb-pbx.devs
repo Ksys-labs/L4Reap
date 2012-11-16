@@ -1,81 +1,85 @@
-# vim:set ft=ioconfig:
+-- vim:set ft=lua:
 
-# ARM Realview PBX Platform
-hw-root
+-- ARM Realview PBX Platform
+
+local Res = Io.Res
+local Hw = Io.Hw
+
+Io.hw_add_devices
 {
-  CTRL => new Device()
+  CTRL = Hw.Device
   {
-    .hid = "System Control";
-    new-res Mmio(0x10000000 .. 0x10000fff);
-  }
+    hid = "System Control";
+    Res.mmio(0x10000000, 0x10000fff);
+  },
 
-  LCD => new Device()
+  LCD = Hw.Device
   {
-    .hid = "AMBA PL110";
-    new-res Mmio(0x10020000 .. 0x10020fff);
-    new-res Irq(55);
-  }
+    hid = "AMBA PL110";
+    Res.mmio(0x10020000, 0x10020fff);
+    Res.irq(55);
+  },
 
-  KBD => new Device()
+  KBD = Hw.Device
   {
-    .hid = "AMBA KMI Kbd";
-    new-res Irq(52);
-    new-res Mmio(0x10006000 .. 0x10006fff);
-  }
+    hid = "AMBA KMI Kbd";
+    Res.irq(52);
+    Res.mmio(0x10006000, 0x10006fff);
+  },
 
-  MOUSE => new Device()
+  MOUSE = Hw.Device
   {
-    .hid = "AMBA KMI mou";
-    new-res Mmio(0x10007000 .. 0x10007fff);
-    new-res Irq(53);
-  }
+    hid = "AMBA KMI mou";
+    Res.mmio(0x10007000, 0x10007fff);
+    Res.irq(53);
+  },
 
-  GPIO0 => new Device()
+  GPIO0 = Hw.Device
   {
-    .hid = "AMBA PL061 dev0";
-    new-res Mmio(0x10013000 .. 0x10013fff);
-    new-res Irq(38);
-  }
+    hid = "AMBA PL061 dev0";
+    Res.mmio(0x10013000, 0x10013fff);
+    Res.irq(38);
+  },
 
-  GPIO1 => new Device()
+  GPIO1 = Hw.Device
   {
-    .hid = "AMBA PL061 dev1";
-    new-res Mmio(0x10014000 .. 0x10014fff);
-    new-res Irq(39);
-  }
+    hid = "AMBA PL061 dev1";
+    Res.mmio(0x10014000, 0x10014fff);
+    Res.irq(39);
+  },
 
-  COMPACTFLASH => new Device()
+  COMPACTFLASH = Hw.Device
   {
-    .hid = "compactflash";
-    new-res Mmio(0x18000000 .. 0x1b000fff);
-    new-res Irq(59);
-  }
+    hid = "compactflash"; -- FIXME: should be something like "ARM RV FLASH"
+    Res.mmio(0x18000000, 0x1b000fff);
+    Res.irq(59);
+  },
 
-  AACI => new Device()
+  AACI = Hw.Device
   {
-    .hid = "aaci";
-    new-res Mmio(0x10004000 .. 0x10004fff);
-    new-res Irq(51);
-  }
+    hid = "aaci";
+    Res.mmio(0x10004000, 0x10004fff);
+    Res.irq(51);
+  },
 
-  NIC => new Device()
+  NIC = Hw.Device
   {
-    .hid = "smsc911x";
-    new-res Mmio(0x4e000000 .. 0x4e000fff);
-    new-res Irq(41);
-  }
+    hid = "smsc911x";
+    Res.mmio(0x4e000000, 0x4e000fff);
+    Res.irq(41);
+  },
 
-  USB => new Device()
+  USB = Hw.Device
   {
-    .hid = "usb";
-    new-res Mmio(0x4f000000 .. 0x4fffffff);
-    new-res Irq(61);
-  }
+    hid = "usb";
+    Res.mmio(0x4f000000, 0x4fffffff);
+    Res.irq(61);
+  },
 
-  RTC => new Device()
+  RTC = Hw.Device
   {
-    .hid = "rtc";
-    new-res Mmio(0x10017000 .. 0x10017fff);
-    new-res Irq(42);
+    hid = "rtc";
+    Res.mmio(0x10017000, 0x10017fff);
+    Res.irq(42);
   }
 }

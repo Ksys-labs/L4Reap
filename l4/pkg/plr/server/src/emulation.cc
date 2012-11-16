@@ -3,7 +3,7 @@
  *
  *     Implementation of the write instruction emulator.
  *
- * (c) 2011 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -60,10 +60,10 @@ void Romain::Emulator_base::init_ud()
  * property. XXX
  */
 Romain::Emulator_base::Emulator_base(L4vcpu::Vcpu *vcpu,
-                                     Romain::AddressTranslator const &trans)
+                                     Romain::AddressTranslator const *trans)
 	: _vcpu(vcpu), _translator(trans)
 {
-	_local_ip = _translator.translate(ip());
+	_local_ip = _translator->translate(ip());
 	init_ud();
 }
 
@@ -231,7 +231,7 @@ l4_umword_t Romain::Emulator_base::operand_to_value(ud_operand_t *op)
 				// reading a full mword here is okay, because users of the
 				// results returned from this function need to check the real
 				// operand size anyway
-				val = *(l4_umword_t*)_translator.translate(addr);
+				val = *(l4_umword_t*)_translator->translate(addr);
 
 				MSG() << std::hex << addr << " := " << val;
 
@@ -313,7 +313,7 @@ void Romain::Emulator_base::value_to_operand(l4_umword_t val, ud_operand_t *op)
 
 				// no base reg, 32 bit size -> this is an address
 				if (!op->base && op->offset) {
-					l4_addr_t target = _translator.translate(op->lval.sdword);
+					l4_addr_t target = _translator->translate(op->lval.sdword);
 					MSG() << std::hex
 					        << "writing to address: (r " << op->lval.sdword
 					        << " l " << target << ") := " << val;
@@ -329,7 +329,7 @@ void Romain::Emulator_base::value_to_operand(l4_umword_t val, ud_operand_t *op)
 					        << op->lval.sword << " = " << b_addr + (i_addr << scale) + offset_from_operand(op);
 					b_addr = b_addr + (i_addr << scale) + offset_from_operand(op);
 
-					l4_addr_t target = _translator.translate(b_addr);
+					l4_addr_t target = _translator->translate(b_addr);
 					MSG() << "target: " << std::hex << target;
 					// XXX: error check
 					MSG() << std::hex
@@ -361,7 +361,7 @@ void Romain::WriteEmulator::handle_push()
 
 	val = operand_to_value(op);
 
-	Romain::Stack(_translator.translate(_vcpu->r()->sp)).push(val);
+	Romain::Stack(_translator->translate(_vcpu->r()->sp)).push(val);
 
 	_vcpu->r()->sp -= sizeof(l4_umword_t);
 	_vcpu->r()->ip += ilen();
@@ -375,7 +375,7 @@ void Romain::WriteEmulator::handle_call()
 {
 	// push return address
 	_vcpu->r()->ip += ilen();
-	Romain::Stack(_translator.translate(_vcpu->r()->sp)).push(ip());
+	Romain::Stack(_translator->translate(_vcpu->r()->sp)).push(ip());
 
 	// adapt EIP
 	ud_operand_t *op = &_ud.operand[0];
@@ -385,7 +385,7 @@ void Romain::WriteEmulator::handle_call()
 		case UD_OP_JIMM:
 			_check(op->size != 32, "!! immediate jmp offset not an mword");
 			MSG() << std::hex << op->lval.sdword
-			                          << " " << _vcpu->r()->ip + op->lval.sdword;
+			      << " " << _vcpu->r()->ip + op->lval.sdword;
 			_vcpu->r()->ip += op->lval.sdword;
 			break;
 
@@ -439,7 +439,7 @@ void Romain::WriteEmulator::handle_stos()
 	MSG() << "iterations: " << count;
 
 	l4_addr_t base = _vcpu->r()->di;
-	base = _translator.translate(base);
+	base = _translator->translate(base);
 
 	for (unsigned idx = 0; idx < count; ++idx) {
 		*(l4_umword_t*)base = _vcpu->r()->ax;
@@ -470,8 +470,8 @@ void Romain::WriteEmulator::handle_movsd()
 	MSG() << std::hex << "rep = 0x" << (int)_ud.pfx_rep;
 	MSG() << "iterations: " << count;
 
-	l4_addr_t src = _translator.translate(_vcpu->r()->si);
-	l4_addr_t dst = _translator.translate(_vcpu->r()->di);
+	l4_addr_t src = _translator->translate(_vcpu->r()->si);
+	l4_addr_t dst = _translator->translate(_vcpu->r()->di);
 
 	for (unsigned idx = 0; idx < count; ++idx) {
 		*(l4_umword_t*)dst = *(l4_umword_t*)src;
@@ -499,8 +499,8 @@ void Romain::WriteEmulator::handle_movsb()
 	MSG() << std::hex << "rep = 0x" << (int)_ud.pfx_rep;
 	MSG() << "iterations: " << count;
 
-	l4_addr_t src = _translator.translate(_vcpu->r()->si);
-	l4_addr_t dst = _translator.translate(_vcpu->r()->di);
+	l4_addr_t src = _translator->translate(_vcpu->r()->si);
+	l4_addr_t dst = _translator->translate(_vcpu->r()->di);
 
 	for (unsigned idx = 0; idx < count; ++idx) {
 		*(unsigned char*)dst = *(unsigned char*)src;

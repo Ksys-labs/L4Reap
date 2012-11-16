@@ -1,4 +1,3 @@
-
 /******************************************************************************
  *
  * Module Name: aslcompiler.h - common include file for iASL
@@ -9,13 +8,13 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2009, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2012, Intel Corp.
  * All rights reserved.
  *
  * 2. License
  *
  * 2.1. This is your license from Intel Corp. under its intellectual property
- * rights.  You may have additional license terms from the party that provided
+ * rights. You may have additional license terms from the party that provided
  * you this software, covering your right to use that party's intellectual
  * property rights.
  *
@@ -32,7 +31,7 @@
  * offer to sell, and import the Covered Code and derivative works thereof
  * solely to the minimum extent necessary to exercise the above copyright
  * license, and in no event shall the patent license extend to any additions
- * to or modifications of the Original Intel Code.  No other license or right
+ * to or modifications of the Original Intel Code. No other license or right
  * is granted directly or by implication, estoppel or otherwise;
  *
  * The above copyright and patent license is granted only if the following
@@ -44,11 +43,11 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification with rights to further distribute source must include
  * the above Copyright Notice, the above License, this list of Conditions,
- * and the following Disclaimer and Export Compliance provision.  In addition,
+ * and the following Disclaimer and Export Compliance provision. In addition,
  * Licensee must cause all Covered Code to which Licensee contributes to
  * contain a file documenting the changes Licensee made to create that Covered
- * Code and the date of any change.  Licensee must include in that file the
- * documentation of any changes made by any predecessor Licensee.  Licensee
+ * Code and the date of any change. Licensee must include in that file the
+ * documentation of any changes made by any predecessor Licensee. Licensee
  * must include a prominent statement that the modification is derived,
  * directly or indirectly, from Original Intel Code.
  *
@@ -56,7 +55,7 @@
  * Redistribution of source code of any substantial portion of the Covered
  * Code or modification without rights to further distribute source must
  * include the following Disclaimer and Export Compliance provision in the
- * documentation and/or other materials provided with distribution.  In
+ * documentation and/or other materials provided with distribution. In
  * addition, Licensee may not authorize further sublicense of source of any
  * portion of the Covered Code, and must include terms to the effect that the
  * license from Licensee to its licensee is limited to the intellectual
@@ -81,10 +80,10 @@
  * 4. Disclaimer and Export Compliance
  *
  * 4.1. INTEL MAKES NO WARRANTY OF ANY KIND REGARDING ANY SOFTWARE PROVIDED
- * HERE.  ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
- * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT,  ASSISTANCE,
- * INSTALLATION, TRAINING OR OTHER SERVICES.  INTEL WILL NOT PROVIDE ANY
- * UPDATES, ENHANCEMENTS OR EXTENSIONS.  INTEL SPECIFICALLY DISCLAIMS ANY
+ * HERE. ANY SOFTWARE ORIGINATING FROM INTEL OR DERIVED FROM INTEL SOFTWARE
+ * IS PROVIDED "AS IS," AND INTEL WILL NOT PROVIDE ANY SUPPORT, ASSISTANCE,
+ * INSTALLATION, TRAINING OR OTHER SERVICES. INTEL WILL NOT PROVIDE ANY
+ * UPDATES, ENHANCEMENTS OR EXTENSIONS. INTEL SPECIFICALLY DISCLAIMS ANY
  * IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT AND FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
@@ -93,14 +92,14 @@
  * COSTS OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES, OR FOR ANY INDIRECT,
  * SPECIAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THIS AGREEMENT, UNDER ANY
  * CAUSE OF ACTION OR THEORY OF LIABILITY, AND IRRESPECTIVE OF WHETHER INTEL
- * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES.  THESE LIMITATIONS
+ * HAS ADVANCE NOTICE OF THE POSSIBILITY OF SUCH DAMAGES. THESE LIMITATIONS
  * SHALL APPLY NOTWITHSTANDING THE FAILURE OF THE ESSENTIAL PURPOSE OF ANY
  * LIMITED REMEDY.
  *
  * 4.3. Licensee shall not export, either directly or indirectly, any of this
  * software or system incorporating such software without first obtaining any
  * required license or other approval from the U. S. Department of Commerce or
- * any other agency or department of the United States Government.  In the
+ * any other agency or department of the United States Government. In the
  * event Licensee exports any such software from the United States or
  * re-exports any such software from a foreign destination, Licensee shall
  * ensure that the distribution and export/re-export of the software is in
@@ -118,6 +117,10 @@
 #ifndef __ASLCOMPILER_H
 #define __ASLCOMPILER_H
 
+#include "acpi.h"
+#include "accommon.h"
+#include "amlresrc.h"
+#include "acdebug.h"
 
 /* Microsoft-specific */
 
@@ -137,17 +140,13 @@
 #include <errno.h>
 #include <ctype.h>
 
-
-#include "acpi.h"
-#include "accommon.h"
-#include "amlresrc.h"
-#include "acdebug.h"
-
 /* Compiler headers */
 
 #include "asldefine.h"
 #include "asltypes.h"
+#include "aslmessages.h"
 #include "aslglobal.h"
+#include "preprocess.h"
 
 
 /*******************************************************************************
@@ -157,12 +156,8 @@
  ******************************************************************************/
 
 /*
- * parser - generated from flex/bison, lex/yacc, etc.
+ * Main ASL parser - generated from flex/bison, lex/yacc, etc.
  */
-int
-AslCompilerparse(
-    void);
-
 ACPI_PARSE_OBJECT *
 AslDoError (
     void);
@@ -172,11 +167,11 @@ AslCompilerlex(
     void);
 
 void
-ResetCurrentLineBuffer (
+AslResetCurrentLineBuffer (
     void);
 
 void
-InsertLineBuffer (
+AslInsertLineBuffer (
     int                     SourceChar);
 
 int
@@ -189,15 +184,29 @@ AslPushInputFileStack (
     char                    *Filename);
 
 /*
- * aslstartup - called from main
+ * aslstartup - entered from main()
  */
+void
+AslInitializeGlobals (
+    void);
+
+typedef
+ACPI_STATUS (*ASL_PATHNAME_CALLBACK) (
+    char *);
+
 ACPI_STATUS
 AslDoOnePathname (
-    char                    *Pathname);
+    char                    *Pathname,
+    ASL_PATHNAME_CALLBACK   Callback);
 
 ACPI_STATUS
 AslDoOneFile (
     char                    *Filename);
+
+ACPI_STATUS
+AslCheckForErrorExit (
+    void);
+
 
 /*
  * aslcompile - compile mainline
@@ -222,9 +231,15 @@ void
 CmCleanupAndExit (
     void);
 
+ACPI_STATUS
+FlCheckForAscii (
+    FILE                    *Handle,
+    char                    *Filename,
+    BOOLEAN                 DisplayErrors);
+
 
 /*
- * aslanalyze - semantic analysis
+ * aslwalks - semantic analysis and parse tree walks
  */
 ACPI_STATUS
 AnOtherSemanticAnalysisWalkBegin (
@@ -234,12 +249,6 @@ AnOtherSemanticAnalysisWalkBegin (
 
 ACPI_STATUS
 AnOtherSemanticAnalysisWalkEnd (
-    ACPI_PARSE_OBJECT       *Op,
-    UINT32                  Level,
-    void                    *Context);
-
-ACPI_STATUS
-AnOperandTypecheckWalkBegin (
     ACPI_PARSE_OBJECT       *Op,
     UINT32                  Level,
     void                    *Context);
@@ -263,16 +272,77 @@ AnMethodAnalysisWalkEnd (
     void                    *Context);
 
 ACPI_STATUS
-AnMethodTypingWalkBegin (
-    ACPI_PARSE_OBJECT       *Op,
-    UINT32                  Level,
-    void                    *Context);
-
-ACPI_STATUS
 AnMethodTypingWalkEnd (
     ACPI_PARSE_OBJECT       *Op,
     UINT32                  Level,
     void                    *Context);
+
+
+/*
+ * aslbtypes - bitfield data types
+ */
+UINT32
+AnMapObjTypeToBtype (
+    ACPI_PARSE_OBJECT       *Op);
+
+UINT32
+AnMapArgTypeToBtype (
+    UINT32                  ArgType);
+
+UINT32
+AnGetBtype (
+    ACPI_PARSE_OBJECT       *Op);
+
+void
+AnFormatBtype (
+    char                    *Buffer,
+    UINT32                  Btype);
+
+
+/*
+ * aslanalyze - Support functions for parse tree walks
+ */
+void
+AnCheckId (
+    ACPI_PARSE_OBJECT       *Op,
+    ACPI_NAME               Type);
+
+/* Values for Type argument above */
+
+#define ASL_TYPE_HID        0
+#define ASL_TYPE_CID        1
+
+BOOLEAN
+AnIsInternalMethod (
+    ACPI_PARSE_OBJECT       *Op);
+
+UINT32
+AnGetInternalMethodReturnType (
+    ACPI_PARSE_OBJECT       *Op);
+
+BOOLEAN
+AnLastStatementIsReturn (
+    ACPI_PARSE_OBJECT       *Op);
+
+void
+AnCheckMethodReturnValue (
+    ACPI_PARSE_OBJECT       *Op,
+    const ACPI_OPCODE_INFO  *OpInfo,
+    ACPI_PARSE_OBJECT       *ArgOp,
+    UINT32                  RequiredBtypes,
+    UINT32                  ThisNodeBtype);
+
+BOOLEAN
+AnIsResultUsed (
+    ACPI_PARSE_OBJECT       *Op);
+
+void
+ApCheckForGpeNameConflict (
+    ACPI_PARSE_OBJECT       *Op);
+
+void
+ApCheckRegMethod (
+    ACPI_PARSE_OBJECT       *Op);
 
 
 /*
@@ -294,7 +364,7 @@ AslCoreSubsystemError (
 
 int
 AslCompilererror(
-    char                    *s);
+    const char              *s);
 
 void
 AslCommonError (
@@ -304,6 +374,16 @@ AslCommonError (
     UINT32                  LogicalLineNumber,
     UINT32                  LogicalByteOffset,
     UINT32                  Column,
+    char                    *Filename,
+    char                    *ExtraMessage);
+
+void
+AslCommonError2 (
+    UINT8                   Level,
+    UINT8                   MessageId,
+    UINT32                  LineNumber,
+    UINT32                  Column,
+    char                    *SourceLine,
     char                    *Filename,
     char                    *ExtraMessage);
 
@@ -426,6 +506,16 @@ CgGenerateAmlOutput (
 
 
 /*
+ * aslfile
+ */
+void
+FlOpenFile (
+    UINT32                  FileId,
+    char                    *Filename,
+    char                    *Mode);
+
+
+/*
  * asllength - calculate/adjust AML package lengths
  */
 ACPI_STATUS
@@ -452,8 +542,32 @@ ACPI_OBJECT_TYPE
 AslMapNamedOpcodeToDataType (
     UINT16                  Opcode);
 
+
+/*
+ * aslpredef - ACPI predefined names support
+ */
+BOOLEAN
+ApCheckForPredefinedMethod (
+    ACPI_PARSE_OBJECT       *Op,
+    ASL_METHOD_INFO         *MethodInfo);
+
 void
-MpDisplayReservedNames (
+ApCheckPredefinedReturnValue (
+    ACPI_PARSE_OBJECT       *Op,
+    ASL_METHOD_INFO         *MethodInfo);
+
+UINT32
+ApCheckForPredefinedName (
+    ACPI_PARSE_OBJECT       *Op,
+    char                    *Name);
+
+void
+ApCheckForPredefinedObject (
+    ACPI_PARSE_OBJECT       *Op,
+    char                    *Name);
+
+void
+ApDisplayReservedNames (
     void);
 
 
@@ -511,7 +625,11 @@ TrCreateLeafNode (
 ACPI_PARSE_OBJECT *
 TrCreateValuedLeafNode (
     UINT32                  ParseOpcode,
-    ACPI_INTEGER            Value);
+    UINT64                  Value);
+
+ACPI_PARSE_OBJECT *
+TrCreateConstantLeafNode (
+    UINT32                  ParseOpcode);
 
 ACPI_PARSE_OBJECT *
 TrLinkChildren (
@@ -543,6 +661,11 @@ TrSetNodeFlags (
     UINT32                  Flags);
 
 ACPI_PARSE_OBJECT *
+TrSetNodeAmlLength (
+    ACPI_PARSE_OBJECT       *Op,
+    UINT32                  Length);
+
+ACPI_PARSE_OBJECT *
 TrLinkPeerNodes (
     UINT32                  NumPeers,
     ...);
@@ -559,6 +682,11 @@ void
 FlAddIncludeDirectory (
     char                    *Dir);
 
+char *
+FlMergePathnames (
+    char                    *PrefixDir,
+    char                    *FilePathname);
+
 void
 FlOpenIncludeFile (
     ACPI_PARSE_OBJECT       *Op);
@@ -567,6 +695,10 @@ void
 FlFileError (
     UINT32                  FileId,
     UINT8                   ErrorId);
+
+UINT32
+FlGetFileSize (
+    UINT32                  FileId);
 
 ACPI_STATUS
 FlReadFile (
@@ -596,8 +728,16 @@ FlPrintFile (
     ...);
 
 void
+FlDeleteFile (
+    UINT32                  FileId);
+
+void
 FlSetLineNumber (
-    ACPI_PARSE_OBJECT       *Op);
+    UINT32                  LineNumber);
+
+void
+FlSetFilename (
+    char                    *Filename);
 
 ACPI_STATUS
 FlOpenInputFile (
@@ -635,6 +775,10 @@ ACPI_STATUS
 LsDisplayNamespace (
     void);
 
+void
+LsSetupNsList (
+    void                    *Handle);
+
 
 /*
  * aslutils - common compiler utilites
@@ -650,6 +794,10 @@ DbgPrint (
 #define ASL_DEBUG_OUTPUT    0
 #define ASL_PARSE_OUTPUT    1
 #define ASL_TREE_OUTPUT     2
+
+void
+UtDisplaySupportedTables (
+    void);
 
 void
 UtDisplayConstantOpcodes (
@@ -702,6 +850,10 @@ char *
 UtGetStringBuffer (
     UINT32                  Length);
 
+void
+UtExpandLineBuffers (
+    void);
+
 ACPI_STATUS
 UtInternalizeName (
     char                    *ExternalName,
@@ -718,34 +870,89 @@ UtCheckIntegerRange (
     UINT32                  LowValue,
     UINT32                  HighValue);
 
-ACPI_INTEGER
+UINT64
 UtDoConstant (
     char                    *String);
 
+ACPI_STATUS
+UtStrtoul64 (
+    char                    *String,
+    UINT32                  Base,
+    UINT64                  *RetInteger);
+
+
+/*
+ * asluuid - UUID support
+ */
+ACPI_STATUS
+AuValidateUuid (
+    char                    *InString);
+
+ACPI_STATUS
+AuConvertStringToUuid (
+    char                    *InString,
+    char                    *UuIdBuffer);
+
+ACPI_STATUS
+AuConvertUuidToString (
+    char                    *UuIdBuffer,
+    char                    *OutString);
 
 /*
  * aslresource - Resource template generation utilities
  */
+void
+RsSmallAddressCheck (
+    UINT8                   Type,
+    UINT32                  Minimum,
+    UINT32                  Maximum,
+    UINT32                  Length,
+    UINT32                  Alignment,
+    ACPI_PARSE_OBJECT       *MinOp,
+    ACPI_PARSE_OBJECT       *MaxOp,
+    ACPI_PARSE_OBJECT       *LengthOp,
+    ACPI_PARSE_OBJECT       *AlignOp,
+    ACPI_PARSE_OBJECT       *Op);
+
+void
+RsLargeAddressCheck (
+    UINT64                  Minimum,
+    UINT64                  Maximum,
+    UINT64                  Length,
+    UINT64                  Granularity,
+    UINT8                   Flags,
+    ACPI_PARSE_OBJECT       *MinOp,
+    ACPI_PARSE_OBJECT       *MaxOp,
+    ACPI_PARSE_OBJECT       *LengthOp,
+    ACPI_PARSE_OBJECT       *GranOp,
+    ACPI_PARSE_OBJECT       *Op);
+
+UINT16
+RsGetStringDataLength (
+    ACPI_PARSE_OBJECT       *InitializerOp);
+
 ASL_RESOURCE_NODE *
 RsAllocateResourceNode (
     UINT32                  Size);
 
 void
-RsCreateBitField (
+RsCreateResourceField (
     ACPI_PARSE_OBJECT       *Op,
     char                    *Name,
     UINT32                  ByteOffset,
-    UINT32                  BitOffset);
-
-void
-RsCreateByteField (
-    ACPI_PARSE_OBJECT       *Op,
-    char                    *Name,
-    UINT32                  ByteOffset);
+    UINT32                  BitOffset,
+    UINT32                  BitLength);
 
 void
 RsSetFlagBits (
     UINT8                   *Flags,
+    ACPI_PARSE_OBJECT       *Op,
+    UINT8                   Position,
+    UINT8                   DefaultBit);
+
+void
+RsSetFlagBits16 (
+    UINT16                  *Flags,
     ACPI_PARSE_OBJECT       *Op,
     UINT8                   Position,
     UINT8                   DefaultBit);
@@ -781,7 +988,7 @@ RsDoResourceTemplate (
 
 
 /*
- * aslrestype1 - generate Small descriptors
+ * aslrestype1 - Miscellaneous Small descriptors
  */
 ASL_RESOURCE_NODE *
 RsDoEndTagDescriptor (
@@ -789,32 +996,7 @@ RsDoEndTagDescriptor (
     UINT32                  CurrentByteOffset);
 
 ASL_RESOURCE_NODE *
-RsDoDmaDescriptor (
-    ACPI_PARSE_OBJECT       *Op,
-    UINT32                  CurrentByteOffset);
-
-ASL_RESOURCE_NODE *
 RsDoEndDependentDescriptor (
-    ACPI_PARSE_OBJECT       *Op,
-    UINT32                  CurrentByteOffset);
-
-ASL_RESOURCE_NODE *
-RsDoFixedIoDescriptor (
-    ACPI_PARSE_OBJECT       *Op,
-    UINT32                  CurrentByteOffset);
-
-ASL_RESOURCE_NODE *
-RsDoIoDescriptor (
-    ACPI_PARSE_OBJECT       *Op,
-    UINT32                  CurrentByteOffset);
-
-ASL_RESOURCE_NODE *
-RsDoIrqDescriptor (
-    ACPI_PARSE_OBJECT       *Op,
-    UINT32                  CurrentByteOffset);
-
-ASL_RESOURCE_NODE *
-RsDoIrqNoFlagsDescriptor (
     ACPI_PARSE_OBJECT       *Op,
     UINT32                  CurrentByteOffset);
 
@@ -850,13 +1032,85 @@ RsDoVendorSmallDescriptor (
 
 
 /*
- * aslrestype2 - generate Large descriptors
+ * aslrestype1i - I/O-related Small descriptors
+ */
+ASL_RESOURCE_NODE *
+RsDoDmaDescriptor (
+    ACPI_PARSE_OBJECT       *Op,
+    UINT32                  CurrentByteOffset);
+
+ASL_RESOURCE_NODE *
+RsDoFixedDmaDescriptor (
+    ACPI_PARSE_OBJECT       *Op,
+    UINT32                  CurrentByteOffset);
+
+ASL_RESOURCE_NODE *
+RsDoFixedIoDescriptor (
+    ACPI_PARSE_OBJECT       *Op,
+    UINT32                  CurrentByteOffset);
+
+ASL_RESOURCE_NODE *
+RsDoIoDescriptor (
+    ACPI_PARSE_OBJECT       *Op,
+    UINT32                  CurrentByteOffset);
+
+ASL_RESOURCE_NODE *
+RsDoIrqDescriptor (
+    ACPI_PARSE_OBJECT       *Op,
+    UINT32                  CurrentByteOffset);
+
+ASL_RESOURCE_NODE *
+RsDoIrqNoFlagsDescriptor (
+    ACPI_PARSE_OBJECT       *Op,
+    UINT32                  CurrentByteOffset);
+
+
+/*
+ * aslrestype2 - Large resource descriptors
  */
 ASL_RESOURCE_NODE *
 RsDoInterruptDescriptor (
     ACPI_PARSE_OBJECT       *Op,
     UINT32                  CurrentByteOffset);
 
+ASL_RESOURCE_NODE *
+RsDoVendorLargeDescriptor (
+    ACPI_PARSE_OBJECT       *Op,
+    UINT32                  CurrentByteOffset);
+
+ASL_RESOURCE_NODE *
+RsDoGeneralRegisterDescriptor (
+    ACPI_PARSE_OBJECT       *Op,
+    UINT32                  CurrentByteOffset);
+
+ASL_RESOURCE_NODE *
+RsDoGpioIntDescriptor (
+    ACPI_PARSE_OBJECT       *Op,
+    UINT32                  CurrentByteOffset);
+
+ASL_RESOURCE_NODE *
+RsDoGpioIoDescriptor (
+    ACPI_PARSE_OBJECT       *Op,
+    UINT32                  CurrentByteOffset);
+
+ASL_RESOURCE_NODE *
+RsDoI2cSerialBusDescriptor (
+    ACPI_PARSE_OBJECT       *Op,
+    UINT32                  CurrentByteOffset);
+
+ASL_RESOURCE_NODE *
+RsDoSpiSerialBusDescriptor (
+    ACPI_PARSE_OBJECT       *Op,
+    UINT32                  CurrentByteOffset);
+
+ASL_RESOURCE_NODE *
+RsDoUartSerialBusDescriptor (
+    ACPI_PARSE_OBJECT       *Op,
+    UINT32                  CurrentByteOffset);
+
+/*
+ * aslrestype2d - DWord address descriptors
+ */
 ASL_RESOURCE_NODE *
 RsDoDwordIoDescriptor (
     ACPI_PARSE_OBJECT       *Op,
@@ -872,6 +1126,10 @@ RsDoDwordSpaceDescriptor (
     ACPI_PARSE_OBJECT       *Op,
     UINT32                  CurrentByteOffset);
 
+
+/*
+ * aslrestype2e - Extended address descriptors
+ */
 ASL_RESOURCE_NODE *
 RsDoExtendedIoDescriptor (
     ACPI_PARSE_OBJECT       *Op,
@@ -887,6 +1145,10 @@ RsDoExtendedSpaceDescriptor (
     ACPI_PARSE_OBJECT       *Op,
     UINT32                  CurrentByteOffset);
 
+
+/*
+ * aslrestype2q - QWord address descriptors
+ */
 ASL_RESOURCE_NODE *
 RsDoQwordIoDescriptor (
     ACPI_PARSE_OBJECT       *Op,
@@ -902,6 +1164,10 @@ RsDoQwordSpaceDescriptor (
     ACPI_PARSE_OBJECT       *Op,
     UINT32                  CurrentByteOffset);
 
+
+/*
+ * aslrestype2w - Word address descriptors
+ */
 ASL_RESOURCE_NODE *
 RsDoWordIoDescriptor (
     ACPI_PARSE_OBJECT       *Op,
@@ -917,15 +1183,15 @@ RsDoWordBusNumberDescriptor (
     ACPI_PARSE_OBJECT       *Op,
     UINT32                  CurrentByteOffset);
 
-ASL_RESOURCE_NODE *
-RsDoVendorLargeDescriptor (
-    ACPI_PARSE_OBJECT       *Op,
-    UINT32                  CurrentByteOffset);
+/*
+ * Entry to data table compiler subsystem
+ */
+ACPI_STATUS
+DtDoCompile(
+    void);
 
-ASL_RESOURCE_NODE *
-RsDoGeneralRegisterDescriptor (
-    ACPI_PARSE_OBJECT       *Op,
-    UINT32                  CurrentByteOffset);
+ACPI_STATUS
+DtCreateTemplates (
+    char                    *Signature);
 
 #endif /*  __ASLCOMPILER_H */
-

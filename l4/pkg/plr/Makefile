@@ -6,6 +6,10 @@ L4DIR	?= $(PKGDIR)/../..
 # line and adapt it.
 # TARGET = include src lib server doc
 
-TARGET = server ex
+SYSTEMS = x86-l4f
+
+TARGET = include server lib ex
+
+ex : server lib
 
 include $(L4DIR)/mk/subdir.mk

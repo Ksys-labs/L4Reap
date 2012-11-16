@@ -51,8 +51,7 @@ public:
   bool request(Resource *parent, Device *, Resource *child, Device *)
   {
     // printf("VBUS: IRQ resource request: "); child->dump();
-    Adr_resource *r = dynamic_cast<Adr_resource*>(child);
-    if (!r || !parent)
+    if (!parent)
       return false;
 
     if (!_icu)
@@ -66,8 +65,8 @@ public:
     if (dlevel(DBG_DEBUG2))
       child->dump();
 
-    _icu->add_irqs(r);
-    _bus->resource_set()->insert(r);
+    _icu->add_irqs(child);
+    _bus->resource_set()->insert(child);
 
     return true;
   };
@@ -125,12 +124,11 @@ public:
   bool request(Resource *parent, Device *, Resource *child, Device *)
   {
     //printf("VBUS: X resource request: "); child->dump();
-    Adr_resource *r = dynamic_cast<Adr_resource*>(child);
-    if (!r || !parent)
+    if (!parent)
       return false;
 
 
-    _bus->resource_set()->insert(r);
+    _bus->resource_set()->insert(child);
     return true;
   }
 
@@ -146,18 +144,14 @@ public:
 namespace Vi {
 
 bool
-System_bus::resource_allocated(Resource const *_r) const
+System_bus::resource_allocated(Resource const *r) const
 {
-  Adr_resource const *r = dynamic_cast<Adr_resource const *>(_r);
-  if (!r)
-    return false;
-
-  Resource_set::const_iterator i = _resources.find(const_cast<Adr_resource*>(r));
+  Resource_set::const_iterator i = _resources.find(const_cast<Resource*>(r));
   if (i == _resources.end())
     return false;
 
-  if ((*i)->data().start() <= r->data().start()
-      && (*i)->data().end() >= r->data().end())
+  if ((*i)->start() <= r->start()
+      && (*i)->end() >= r->end())
     return true;
 
   return false;
@@ -194,11 +188,11 @@ System_bus::request_resource(L4::Ipc::Iostream &ios)
   l4vbus_resource_t res;
   ios.get(res);
 
-  ::Adr_resource ires(res.type, res.start, res.end);
+  Resource ires(res.type, res.start, res.end);
   if (dlevel(DBG_DEBUG2))
     {
       printf("request resource: ");
-      Adr_resource(ires).dump();
+      ires.dump();
       puts("");
     }
 
@@ -256,7 +250,7 @@ System_bus::request_iomem(L4::Ipc::Iostream &ios)
 	  ios >> offset >> spot >> flags;
 
 //	  printf("map iomem: %lx...\n", offset);
-	  Adr_resource pivot(L4VBUS_RESOURCE_MEM, offset, offset);
+	  Resource pivot(L4VBUS_RESOURCE_MEM, offset, offset);
 	  Resource_set::iterator r = _resources.find(&pivot);
 
 	  if (r == _resources.end())

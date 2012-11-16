@@ -7,7 +7,7 @@ L4DIR   ?= $(PKGDIR)/../..
 TARGET           = libtlfs.a libtlfs.so
 PC_FILENAME      = libtlsf
 CONTRIB_INCDIR   = libtlsf
-REQUIRES_LIBS    = libpthread libc_support_misc
+REQUIRES_LIBS    = libpthread
 SRC_C           += tlsf.c
 DEFINES          = -DTLSF_USE_LOCKS=1
 DEFINES         += -DUSE_MMAP=1

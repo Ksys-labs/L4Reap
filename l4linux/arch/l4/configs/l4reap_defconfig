@@ -8,7 +8,6 @@
 #
 CONFIG_L4=y
 CONFIG_L4_LINUX=y
-CONFIG_L4_OBJ_TREE="/home/dmsh/sandbox/l4re-git/obj/l4/arm-beagleboard"
 # CONFIG_L4_ARCH_X86 is not set
 CONFIG_L4_ARCH_ARM=y
 CONFIG_L4_VMLINUZ_SUFFIX=".arm"

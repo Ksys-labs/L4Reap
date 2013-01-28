@@ -1,0 +1,18 @@
+# vim:set ft=l4mods:
+
+modaddr 0x01100000
+
+default-kernel fiasco -serial_esc
+default-bootstrap bootstrap
+
+entry l4reap
+roottask moe rom/l4reap.cfg
+module l4re
+module ned
+module l4reap.cfg
+module arm-omap3.devs
+module gumstix-fb-l4l.io
+module io
+module vmlinuz.arm
+module ramdisk-arm.rd
+

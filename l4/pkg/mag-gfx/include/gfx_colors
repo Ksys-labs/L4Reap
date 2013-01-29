@@ -617,6 +617,7 @@ typedef Color_traits<Color_def<Pixel_traits<2>, 11,5,5,6,0,5> >      Rgb16;
 typedef Color_traits<Color_def<Pixel_traits<2>, 0,5,5,6,11,5> >      Bgr16;
 typedef Color_traits<Color_def<Pixel_traits<3>, 16,8,8,8,0,8> >      Rgb24;
 typedef Color_traits<Color_def<Pixel_traits<4>, 16,8,8,8,0,8> >      Rgb32;
+typedef Color_traits<Color_def<Pixel_traits<4>, 0,8,8,8,16,8> >      Bgr32;
 typedef Color_traits<Color_def<Pixel_traits<4>, 16,8,8,8,0,8,24,8> > Rgba32;
 
 }

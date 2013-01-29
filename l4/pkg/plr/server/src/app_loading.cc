@@ -7,7 +7,7 @@
  *    Implementation of application loading. Similar to the stuff
  *    moe and ned do.
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -187,12 +187,8 @@ Romain::App_model::add_env()
 
 Romain::App_model::Dataspace Romain::App_model::alloc_ds(unsigned long size) const
 {
-	Dataspace ds = L4Re::Util::cap_alloc.alloc<L4Re::Dataspace>();
-	_check(!ds.is_valid(), "ds cap allocation failed");
-
-	long r = L4Re::Env::env()->mem_alloc()->alloc(size, ds);
-	_check(r != 0, "dataspace allocation failed");
-
+	Dataspace ds;
+	Romain::Region_map::allocate_ds(&ds, size);
 	return ds;
 }
 

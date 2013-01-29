@@ -44,6 +44,7 @@ static Csf<Rgb16>  _csf_rgb16;
 static Csf<Bgr16>  _csf_bgr16;
 static Csf<Rgb24>  _csf_rgb24;
 static Csf<Rgb32>  _csf_rgb32;
+static Csf<Bgr32>  _csf_bgr32;
 static Csf<Rgba32>  _csf_rgba32;
 
 }

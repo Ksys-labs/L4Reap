@@ -3,7 +3,7 @@
  *
  * Here's where the real stuff is going on
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -15,11 +15,13 @@
 #include "exceptions"
 #include "emulation"
 #include "app_loading"
+#include "fault_handlers/syscalls_handler.h"
 
 #include <cassert>
 
 #include <l4/sys/kdebug.h>
 #include <l4/util/bitops.h>
+#include <l4/util/rdtsc.h>
 
 #include <pthread-l4.h>
 #include <l4/sys/segment.h>
@@ -27,6 +29,8 @@
 #define MSG() DEBUGf(Romain::Log::Faults)
 #define MSGi(inst) MSG() << "[" << (inst)->id() << "] "
 #define MSGit(inst,tg) MSG() << "[" << (inst)->id() << "] \033[34;1m{" << tg->name << "}\033[0m "
+
+#define ____dummy " /* ST2 highlighting fix XXX */
 
 EXTERN_C void *pthread_fn(void *data);
 EXTERN_C void *pthread_fn(void *data)
@@ -302,7 +306,7 @@ EXTERN_C void *split_handler_fn(void* data)
 
 #endif // SPLIT_HANDLING
 
-void __attribute__((noreturn)) Romain::InstanceManager::VCPU_startup(Romain::InstanceManager *,
+void __attribute__((noreturn)) Romain::InstanceManager::VCPU_startup(Romain::InstanceManager *m,
                                                                      Romain::App_instance *i,
                                                                      Romain::App_thread *t,
                                                                      Romain::Thread_group *tg,
@@ -331,6 +335,11 @@ void __attribute__((noreturn)) Romain::InstanceManager::VCPU_startup(Romain::Ins
 		INFO() << "\033[33;1mStarting\033[0m";
 
 	MSGit(i,tg) << "Resuming instance @ " << (void*)vcpu->r()->ip << " ...";
+
+	Measurements::GenericEvent* ev = m->logbuf()->next();
+	ev->header.tsc                 = Romain::_the_instance_manager->logbuf()->getTime(Log::logLocalTSC);
+	ev->header.vcpu                = (l4_uint32_t)vcpu;
+	ev->header.type                = Measurements::Thread_start;
 
 	L4::Cap<L4::Thread> cap = t->vcpu_cap();
 
@@ -364,6 +373,12 @@ static void local_vCPU_handling(Romain::InstanceManager *m,
 		MSGit(i,tg) << "\033[33;1mTRAP 0x" << std::hex << vcpu->r()->trapno
 		        << " @ 0x" << vcpu->r()->ip << "\033[0m";
 
+		if (t->vcpu()->r()->ip == 0xA041) {
+			m->fault_notify(i,t,tg,a);
+			break;
+		}
+
+#if 0
 		/*
 		 * HACK: In case we are using lock-internal determinism, there's a special
 		 *       entry address in which a single replica will signal us if we need
@@ -376,6 +391,7 @@ static void local_vCPU_handling(Romain::InstanceManager *m,
 			m->fault_notify(i,t,tg,a);
 			break;
 		}
+#endif
 
 		Romain::Observer::ObserverReturnVal v         = Romain::Observer::Invalid;
 
@@ -501,6 +517,14 @@ void __attribute__((noreturn)) Romain::InstanceManager::VCPU_handler(Romain::Ins
 	vcpu->state()->clear(L4_VCPU_F_EXCEPTIONS | L4_VCPU_F_DEBUG_EXC);
 	handler_prolog(t);
 
+	Measurements::GenericEvent* ev = m->logbuf()->next();
+	ev->header.tsc     = Romain::_the_instance_manager->logbuf()->getTime(Log::logLocalTSC);
+	ev->header.vcpu        = (l4_uint32_t)vcpu;
+	ev->header.type        = Measurements::Trap;
+	ev->data.trap.start    = 1;
+	ev->data.trap.trapaddr = vcpu->r()->ip;
+	ev->data.trap.trapno   = vcpu->r()->trapno;
+
 #if MIGRATE_VCPU
 	migrated_vCPU_handling(m, i, t, tg, a);
 #elif SPLIT_HANDLING
@@ -510,6 +534,13 @@ void __attribute__((noreturn)) Romain::InstanceManager::VCPU_handler(Romain::Ins
 #else
 #error No vCPU handling method selected!
 #endif
+
+	ev = m->logbuf()->next();
+	ev->header.tsc     = Romain::_the_instance_manager->logbuf()->getTime(Log::logLocalTSC);
+	ev->header.vcpu      = (l4_uint32_t)vcpu;
+	ev->header.type      = Measurements::Trap;
+	ev->data.trap.start  = 0;
+	ev->data.trap.trapno = ~0U;
 
 	L4::Cap<L4::Thread> self;
 	self->vcpu_resume_commit(self->vcpu_resume_start());

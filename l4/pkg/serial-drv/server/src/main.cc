@@ -147,7 +147,7 @@ Serial_drv::init()
   printf("serial-drv: virtual base at:%lx\n", virt_base);
 
   L4::Io_register_block_mmio *regs = new L4::Io_register_block_mmio(virt_base);
-  _uart = new (malloc(sizeof(L4::Uart_pl011))) L4::Uart_pl011;
+  _uart = new (malloc(sizeof(L4::Uart_pl011))) L4::Uart_pl011(24019200);
   //_uart = new (malloc(sizeof(L4::Uart_omap35x))) L4::Uart_omap35x;
   _uart->startup(regs);
 

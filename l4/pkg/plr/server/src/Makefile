@@ -12,6 +12,7 @@ OBSERVERS = $(addprefix fault_handlers/, \
               observer.cc \
               pagefault.cc \
               print_vcpu_state.cc \
+              replicalog.cc \
               syscalls.cc \
               swifi.cc \
               trap_limit.cc \
@@ -46,6 +47,7 @@ SRC_CC      = main.cc \
               app_thread.cc \
               handler.cc \
               emulation.cc \
+              logging.cc \
               $(OBSERVERS) \
               $(ASMJIT)
 
@@ -56,7 +58,7 @@ SRC_CC      = main.cc \
 
 # list requirements of your program here
 REQUIRES_LIBS = libvcpu libstdc++ libloader libudis86 libiniparser libpthread \
-                cxx_io libio-vbus
+                cxx_io libio-vbus libuu
 #REQUIRES_LIBS += lwip liblwip_netif_ankh
 
 include $(L4DIR)/mk/prog.mk

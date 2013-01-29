@@ -13,7 +13,7 @@ CC_YY  := $(SRC_YY:%.yy=%.tab.cc) $(SRC_YY:%.yy=%.tab.hh)
 # generate scanner in the source dir, to prevent a hard dependency to ragel
 CC_RL  := $(SRC_DIR)/cfg_scan.cc
 
-regen_files: $(CC_RL) $(CC_YY)
+regen_files:: $(CC_RL) $(CC_YY)
 
 $(CC_RL): %.cc: %.rl $(SRC_DIR)/Makefile
 	@$(GEN_MESSAGE)

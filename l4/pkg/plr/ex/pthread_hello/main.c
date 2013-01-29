@@ -24,6 +24,7 @@ int main(int argc, char **argv)
 	(void)argc; (void)argv;
 
 	pthread_t pt;
+	printf("\033[32mhello from main thread\033[0m\n");
 
 	int res = pthread_create(&pt, NULL, thread, NULL);
 	assert(res == 0);

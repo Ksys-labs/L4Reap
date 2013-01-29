@@ -232,6 +232,9 @@ int
 l4io_iterate_devices(l4io_device_handle_t *devhandle,
                      l4io_device_t *dev, l4io_resource_handle_t *reshandle)
 {
+  if (!vbus().is_valid())
+    return -L4_ENOENT;
+
   if (reshandle)
     *reshandle = 0;
 

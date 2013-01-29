@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include <pthread.h>
 
@@ -37,8 +38,8 @@ static unsigned long gdt[32 * 2] __attribute__((aligned(4096)));
 
 void vm_resume(void);
 void handle_vmexit(void);
-l4_vcpu_state_t *vcpu;
-l4_vm_svm_vmcb_t *vmcb_s;
+static l4_vcpu_state_t *vcpu;
+static l4_vm_svm_vmcb_t *vmcb_s;
 
 static void init_vmcb(l4_vm_svm_vmcb_t *vmcb_s) {
 
@@ -131,7 +132,7 @@ static int check_svm_npt(void) {
     return (!(dx & 1));
 }
 
-int vmexit = 0;
+static int vmexit = 0;
 
 static int cnt_triggered, cnt_received;
 
@@ -237,22 +238,22 @@ void handle_vmexit(void) {
     }
 }
 
-static l4_vcpu_state_t *get_state_mem(l4_addr_t *extstate) {
-    static int done;
+static l4_addr_t get_state_mem(void)
+{
     long r;
     l4_msgtag_t tag;
     static l4_addr_t ext_state;
 
-    if (done) {
-        *extstate = ext_state;
-        return vcpu;
-    }
+    if (ext_state)
+        return ext_state;
 
     if ((r = l4vcpu_ext_alloc(&vcpu, &ext_state, L4_BASE_TASK_CAP,
             l4re_env()->rm))) {
         printf("Adding state mem failed: %ld\n", r);
         exit(1);
     }
+
+    assert(ext_state);
 
     vcpu->state = L4_VCPU_F_FPU_ENABLED;
     vcpu->saved_state = L4_VCPU_F_USER_MODE | L4_VCPU_F_FPU_ENABLED | L4_VCPU_F_IRQ;
@@ -270,10 +271,7 @@ static l4_vcpu_state_t *get_state_mem(l4_addr_t *extstate) {
         exit(1);
     }
 
-    done = 1;
-    *extstate = ext_state;
-
-    return vcpu;
+    return ext_state;
 }
 
 
@@ -283,8 +281,7 @@ static void run_test(int np_available) {
     l4_cap_idx_t vm_task = l4re_util_cap_alloc();
 //    int i;
     l4_umword_t ip; //, marker, test_end;
-    l4_addr_t vmcx;
-    get_state_mem(&vmcx);
+    l4_addr_t vmcx = get_state_mem();
 
     printf("run test, np_available=%d\n", np_available);
 

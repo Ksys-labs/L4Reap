@@ -3,7 +3,7 @@
  *
  *     Instance manager implementation.
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -15,11 +15,18 @@
 #include "configuration"
 
 #include <l4/sys/segment.h>
+#include <l4/re/mem_alloc>
+#include <l4/re/rm>
+#include <l4/re/env>
+#include <l4/re/dataspace>
+#include <l4/re/util/cap_alloc>
+#include <l4/plr/uu.h>
 
 #define MSG() DEBUGf(Romain::Log::Manager)
 #include "fault_handlers/syscalls_factory.h"
 
 Romain::Configuration Romain::globalconfig;
+
 
 L4_INLINE unsigned countbits(long v)
 {
@@ -28,18 +35,20 @@ L4_INLINE unsigned countbits(long v)
 	return ((v + ((v >> 4) & 0xF0F0F0F)) * 0x1010101) >> 24; // count
 }
 
+
 L4_INLINE l4_umword_t count_online_cpus()
 {
-	l4_umword_t ret;
-	l4_sched_cpu_set_t set = l4_sched_cpu_set(0, 0);
-	if (l4_error(L4Re::Env::env()->scheduler()->info(&ret, &set)) < 0) {
+	l4_umword_t maxcpu = 0;
+	l4_sched_cpu_set_t cpuonline = l4_sched_cpu_set(0, 0);
+	if (l4_error(L4Re::Env::env()->scheduler()->info(&maxcpu, &cpuonline)) < 0) {
 		ERROR() << "reading CPU info";
 	}
-	ret = countbits(set.map);
 
-	INFO() << "Found " << ret << " CPUs.";
-	return ret;
+	INFO() << "Online " << countbits(cpuonline.map) << " / MAX " << maxcpu;
+
+	return countbits(cpuonline.map) > maxcpu ? maxcpu : countbits(cpuonline.map);
 }
+
 
 Romain::InstanceManager::InstanceManager(unsigned int argc,
                                          char const **argv,
@@ -50,7 +59,8 @@ Romain::InstanceManager::InstanceManager(unsigned int argc,
 	  _num_inst(num_instances),
 	  _num_cpu(1),
 	  _argc(argc), // XXX: remove
-	  _argv(argv)  // XXX: remove
+	  _argv(argv), // XXX: remove
+	  _logBuf(0)
 {
 	configure();
 
@@ -145,6 +155,7 @@ void Romain::InstanceManager::configure_fault_observers()
 	StringObserverConfig("general:debug", this);
 	BoolObserverConfig("general:intercept_kip", this, "kip-time");
 	BoolObserverConfig("general:swifi", this, "swifi");
+	BoolObserverConfig("general:logreplica", this, "replicalog");
 }
 
 
@@ -164,6 +175,21 @@ void Romain::InstanceManager::configure_redundancy()
 		enter_kdebug("Invalid redundancy setting");
 	}
 }
+
+
+void Romain::InstanceManager::configure_logbuf(int sizeMB)
+{
+	INFO() << "Log buffer size: " << sizeMB << " MB requested.";
+	unsigned size_in_bytes = sizeMB << 20;
+
+	L4::Cap<L4Re::Dataspace> ds;
+
+	l4_addr_t addr = Romain::Region_map::allocate_and_attach(&ds, size_in_bytes, 0, L4_SUPERPAGESHIFT);
+    INFO() << "Log buffer attached to 0x" << std::hex << addr;
+
+    _logBuf->set_buffer(reinterpret_cast<unsigned char*>(addr), size_in_bytes);
+}
+
 
 /*
  * Romain ini file settings
@@ -203,6 +229,30 @@ void Romain::InstanceManager::configure_redundancy()
  *       - swifi      -> fault injetion
  *       - gdb        -> GDB stub logging
  *       - all        -> everything
+ *
+ *  logbuf [int] (-1)
+ *       - establish a log buffer with the given size in MB
+ *       - runtime events are logged into this buffer and can later
+ *         be dumped for postprocessing -> this is an alternative to
+ *         printing a lot of stuff to the serial console
+ *
+ *  logcpu [int]
+ *       - event generation needs a global timestamp. On real SMP hardware
+ *         CPUs disagree on their local TSC values. As a workaround, we start
+ *         a dedicated thread that busily writes its local TSC to a global timer
+ *         variable that is then read by everyone else. This of course requires
+ *         the thread to solely run on a dedicated CPU. This option sets the
+ *         respective CPU #.
+ *
+ *  logrdtsc [bool] (false)
+ *       - use local TSC instead of global time stamp counter for event timestamps
+ *         -> use on Qemu where a dedicated timestamp thread does not work properly
+ *
+ *  logreplica [bool] (false)
+ *       - assign each replica a log buffer (mapped to REPLICA_LOG_ADDRESS)
+ *
+ *  replicalogsize [int] (-1)
+ *       - buffser size for the replica-specific log buffer
  *
  *  swifi [bool] (false)
  *       - Perform fault injection experiments, details are configured
@@ -272,6 +322,39 @@ void Romain::InstanceManager::configure_redundancy()
  */
 void Romain::InstanceManager::configure()
 {
+#define USE_SHARABLE_TIMESTAMP 1
+
+	int logMB = ConfigIntValue("general:logbuf");
+
+#if USE_SHARABLE_TIMESTAMP
+	_logBuf = new Measurements::EventBuf(true);
+	L4::Cap<L4Re::Dataspace> tsds;
+	l4_addr_t ts_addr = Romain::Region_map::allocate_and_attach(&tsds, L4_PAGESIZE);
+	l4_touch_ro((void*)ts_addr, L4_PAGESIZE);
+	_logBuf->set_tsc_buffer(reinterpret_cast<l4_uint64_t*>(ts_addr));
+#else
+	_logBuf = new Measurements::EventBuf();
+#endif
+	if (logMB != -1) {
+		configure_logbuf(logMB);
+	}
+
+	Log::logLocalTSC = ConfigBoolValue("general:logrdtsc", false);
+
+	/*
+	 * These modes are exclusive: either we use the local TSC _xor_ we start a
+	 * timer thread on a dedicated CPU.
+	 */
+	if (!Log::logLocalTSC) {
+		int logCPU = ConfigIntValue("general:logcpu");
+		if (logCPU != -1) {
+			INFO() << "Starting counter thread on CPU " << logCPU;
+			INFO() << "Timestamp @ 0x" << std::hex << (l4_addr_t)_logBuf->timestamp;
+			Measurements::EventBuf::launchTimerThread((l4_addr_t)_logBuf->timestamp,
+			                                          logCPU);
+		}
+	}
+
 	char *log = strdup(ConfigStringValue("general:log", "none"));
 	configure_logflags(log);
 	
@@ -280,6 +363,30 @@ void Romain::InstanceManager::configure()
 	configure_fault_observers();
 	configure_redundancy();
 	free(log);
+}
+
+
+void Romain::InstanceManager::logdump()
+{
+	int logMB = ConfigIntValue("general:logbuf");
+	if (logMB != -1) {
+		char const *filename = "sampledump.txt";
+
+		unsigned oldest = _logBuf->oldest();
+		unsigned dump_start, dump_size;
+
+		if (oldest == 0) { // half-full -> dump from 0 to index
+			dump_start = 0;
+			dump_size  = _logBuf->index * sizeof(Measurements::GenericEvent);
+		} else { // buffer completely full -> dump full size starting from oldest entry
+			dump_start = oldest * sizeof(Measurements::GenericEvent);
+			dump_size  = _logBuf->size * sizeof(Measurements::GenericEvent);
+		}
+
+		uu_dumpz_ringbuffer(filename, _logBuf->buffer,
+		                    _logBuf->size * sizeof(Measurements::GenericEvent),
+		                    dump_start, dump_size);
+	}
 }
 
 
@@ -340,7 +447,23 @@ Romain::InstanceManager::create_thread(l4_umword_t eip, l4_umword_t esp,
 		 */
 		if (_num_cpu > 1) {
 			INFO() << instance_id << " " << (instance_id+1) % _num_cpu << " " << _num_cpu;
-			at->cpu((instance_id + 1) % _num_cpu);
+			
+			/* XXX REPLICAS PER CPU XXX */
+			at->cpu(group->uid % _num_cpu);
+
+			/* XXX INSTANCES PER CPU XXX */
+			//at->cpu((instance_id + 1) % _num_cpu);
+
+			/* XXX OVERLAPPING REPLICAS XXX */
+			//at->cpu((group->uid + instance_id) % _num_cpu);
+
+			/* XXX RANDOM PLACEMENT XXX */
+			//at->cpu(random() % _num_cpu);
+			
+			/* XXX Threads assigned RR to CPUs */
+			//static int threadcount = 1;
+			//at->cpu(threadcount % _num_cpu);
+			//threadcount++;
 		} else {
 			at->cpu(0);
 		}

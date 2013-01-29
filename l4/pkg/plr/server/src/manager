@@ -6,7 +6,7 @@
  *     Definition of the instance manager that knows about all
  *     redundant VCPUs as well as the fault observers.
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -29,6 +29,7 @@
 #include <cstdio>
 
 #include "redundancy.h"
+#include <l4/plr/measurements.h>
 
 #if SPLIT_HANDLING
 EXTERN_C void *split_handler_fn(void*);
@@ -60,6 +61,8 @@ namespace Romain
 			unsigned     _argc;       // client argc
 			char const **_argv;       // argv of the client
 
+			Measurements::EventBuf *_logBuf;
+
 #if SPLIT_HANDLING
 			pthread_t _split_handler; // resilient core handler thread
 #endif // SPLIT_HANDLING
@@ -81,6 +84,7 @@ namespace Romain
 			void configure_logflags(char *flags);
 			void configure_fault_observers();
 			void configure_redundancy();
+			void configure_logbuf(int size);
 
 		public:
 			InstanceManager(unsigned argc, char const **argv, unsigned num_instances = 1);
@@ -194,6 +198,9 @@ namespace Romain
 
 
 			unsigned instance_count() const { return _num_inst; }
+
+			Measurements::EventBuf* logbuf() { return _logBuf; }
+			void logdump();
 
 			static void VCPU_handler(Romain::InstanceManager *m, Romain::App_instance *i, Romain::App_thread *t, Romain::Thread_group* tg, Romain::App_model *a);
 			static void VCPU_startup(Romain::InstanceManager *m, Romain::App_instance *i, Romain::App_thread *t, Romain::Thread_group* tg, Romain::App_model *a);

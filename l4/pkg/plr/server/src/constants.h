@@ -5,7 +5,7 @@
  *
  * Globally used constants
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -38,12 +38,14 @@
 namespace Romain
 {
 	enum {
-		MAX_REPLICAS       =  3,        // maximum # of allowed replicas
-		MAX_OBSERVERS      = 16,        // maximum # of fault observers
-		TRAMPOLINE_SIZE    = 64,        // size of the per-thread trampoline area
-		HANDLER_STACK_SIZE = (1 << 14), // size of the VCPU handler stack
-		DEBUG_ENTRIES      = 1000,      // dbg: # of 64bit entries in thread->_measurements
-		FIRST_REPLICA_CAP  = 0x1000,    // first replica cap markes as unused
-		LOCK_INFO_PAGE     = 0xA000,    // address the lock info page is mapped to in replicas
+		MAX_REPLICAS        =  3,        // maximum # of allowed replicas
+		MAX_OBSERVERS       = 16,        // maximum # of fault observers
+		TRAMPOLINE_SIZE     = 64,        // size of the per-thread trampoline area
+		HANDLER_STACK_SIZE  = (1 << 14), // size of the VCPU handler stack
+		DEBUG_ENTRIES       = 1000,      // dbg: # of 64bit entries in thread->_measurements
+		FIRST_REPLICA_CAP   = 0x1000,    // first replica cap markes as unused
+		LOCK_INFO_PAGE      = 0xA000,    // address the lock info page is mapped to in replicas
+		REPLICA_TSC_ADDRESS = 0xC000,    // start of replica-shared TSC buffer
+		REPLICA_LOG_ADDRESS = 0xB0000000,   // start of replica log buffer (XXX: don't go lower -> KIP is there!)
 	};
 }

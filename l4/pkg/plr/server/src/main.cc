@@ -3,7 +3,7 @@
  * 
  *     Main program entry point.
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -27,6 +27,8 @@ using L4Re::chkcap;
 Romain::Log::LogLevel Romain::Log::maxLog = Romain::Log::INFO;
 l4_umword_t Romain::Log::logFlags         = Romain::Log::None;
 bool Romain::Log::withtime                = false;
+bool Romain::Log::logLocalTSC             = false;
+bool Romain::Log::replicaLogBuf           = false;
 
 namespace Romain {
 	l4re_aux_t* l4re_aux;
@@ -56,6 +58,12 @@ static int _main(int argc, char const **argv)
 {
 	(void)argc; (void)argv;
 	INFO() << "FILE: " << argv[1];
+
+	sleep(2);
+
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	srandom(tv.tv_usec);
 
 	setup_aux(argc, argv);
 

@@ -3,7 +3,7 @@
  *
  *    n-way modular redundancy implementation 
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -14,6 +14,8 @@
 #include "../redundancy.h"
 #include "../app_loading"
 #include "../fault_observers"
+#include "../manager"
+#include "../fault_handlers/syscalls_handler.h"
 
 #define MSG() DEBUGf(Romain::Log::Redundancy)
 #define MSGi(inst) MSG() << "[" << (inst)->id() << "] "
@@ -48,7 +50,7 @@
  */
 
 Romain::DMR::DMR(unsigned instances)
-	: _leave_count(0), _enter_count(0), _block_count(0),
+	: _enter_count(0), _leave_count(0), _block_count(0),
       _rv(Romain::RedundancyCallback::Invalid),
       _num_instances(instances), _num_instances_bak(0)
 {
@@ -116,7 +118,8 @@ Romain::DMR::checksum_replicas()
 				if (_orig_vcpu[cnt])
 					_orig_vcpu[cnt]->vcpu()->print_state();
 			}
-			//enter_kdebug("checksum");
+			ERROR() << "Instances: " << _num_instances << " this inst " << idx;
+			enter_kdebug("checksum");
 #endif
 			return false;
 		}
@@ -131,6 +134,7 @@ class RecoverAbort
 		static __attribute__((noreturn)) void recover()
 		{
 			ERROR() << "Aborting after error.";
+			Romain::_the_instance_manager->logdump();
 			enter_kdebug("abort");
 			throw("ERROR -> abort");
 		}

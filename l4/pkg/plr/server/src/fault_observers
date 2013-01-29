@@ -7,7 +7,7 @@
  *    Definition of the generic fault handling class as well as
  *    specific sub-classes.
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -25,7 +25,7 @@ namespace Romain
 	class App_model;
 	class App_instance;
 	class App_thread;
-	class Thread_group;
+	struct Thread_group;
 
 /* Make this a macro because every sub-class will have to define
  * these two virtual functions.

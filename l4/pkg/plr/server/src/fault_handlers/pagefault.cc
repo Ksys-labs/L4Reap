@@ -18,6 +18,7 @@
 #include "../app_loading"
 #include "../locking.h"
 #include "../configuration"
+#include "syscalls_handler.h"
 
 #include "observers.h"
 
@@ -59,6 +60,15 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 
 	bool write_pf = vcpu->r()->err & 0x2;
 	l4_addr_t pfa = vcpu->r()->pfa;
+
+	Measurements::GenericEvent *ev = Romain::_the_instance_manager->logbuf()->next();
+	ev->header.tsc         = Romain::_the_instance_manager->logbuf()->getTime(Log::logLocalTSC);
+	ev->header.vcpu        = (l4_uint32_t)t->vcpu();
+	ev->header.type        = Measurements::Pagefault;
+	ev->data.pf.address    = pfa;
+	ev->data.pf.rw         = write_pf ? 1 : 0;
+	ev->data.pf.localbase  = 0;
+	ev->data.pf.remotebase = 0;
 
 	MSGt(t) << (write_pf ? "\033[31mwrite\033[0m" : "\033[34;1mread\033[0m")
 	      << " page fault @ 0x" << std::hex << pfa;
@@ -117,6 +127,8 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 			}
 #undef MAX_MAP_SHIFT
 #endif
+			ev->data.pf.localbase  = n->second.local_region(i->id()).start() + offset_in_region;
+			ev->data.pf.remotebase = n->first.start() + offset_in_region;
 
 			i->map(n->second.local_region(i->id()).start() + offset_in_region, // local addr
 				   n->first.start() + offset_in_region,                        // remote addr

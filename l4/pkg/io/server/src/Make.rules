@@ -26,8 +26,10 @@ REQUIRES_CFLAGS = libio-vbus libio-io
 PRIVATE_INCDIR += $(SRC_DIR)
 
 
+ifneq ($(filter regen_files,$(MAKECMDGOALS)),)
+
 ifneq ($(SRC_DIR),)
-all:: $(SRC_DIR)/lua_glue.swg.h $(SRC_DIR)/lua_glue.swg.cc
+regen_files:: $(SRC_DIR)/lua_glue.swg.h $(SRC_DIR)/lua_glue.swg.cc
 endif
 
 SWIG_RM_EXT_C ?= $(L4DIR)/tool/bin/swig-rm-extern-c.pl
@@ -50,7 +52,7 @@ $(SRC_DIR)/%.swg.c_cc: $(SRC_DIR)/%.swg $(SRC_DIR)/Makefile
 	$(VERBOSE)$(SWIG) $(SWIG_INCDIR) -c++ -small -lua -o $@ $<
 
 $(SRC_DIR)/%.swg.c_h:
-	pwd
 	@$(GEN_MESSAGE)
 	$(VERBOSE)$(SWIG) $(SWIG_INCDIR) -c++ -lua -small -external-runtime $@
 
+endif

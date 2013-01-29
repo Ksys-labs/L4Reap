@@ -5,7 +5,7 @@
  *
  *     Memory management classes, mirroring the L4 RM's ones.
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -145,13 +145,14 @@ namespace Romain
 			};
 
 		private:
-			l4_cap_idx_t             _cap;
-			Romain::Region            _local_regions[Romain::MAX_REPLICAS];
-			l4_addr_t                _offs;
-			DS                       _mem[Romain::MAX_REPLICAS];
-			unsigned char            _flags;
-			RegionWritableType       _row;
-			bool                     _shared;
+			l4_cap_idx_t             _cap; // capability of the underlying dataspace
+			Romain::Region            _local_regions[Romain::MAX_REPLICAS]; // replicated regions (writable regions exist in
+				                                                            // multiple instances)
+			l4_addr_t                _offs; // offset in DS
+			DS                       _mem[Romain::MAX_REPLICAS]; // DS capabilities of underlying dataspaces
+			unsigned char            _flags; // region flags
+			RegionWritableType       _row; // rw state
+			bool                     _shared; // is DS shared across all replicas (true for internal determinism's lock info page)
 
 		public:
 
@@ -310,18 +311,12 @@ namespace Romain
 			{
 				if (orig_id == inst_id) return true;
 
-				L4::Cap<L4Re::Dataspace> mem = L4Re::Util::cap_alloc.alloc<L4Re::Dataspace>();
-				_check(!mem.is_valid(), "could not allocate ds cap?");
-
+				L4::Cap<L4Re::Dataspace> mem;
 				unsigned long size = r.local_region(orig_id).size();
-				int ret = L4Re::Env::env()->mem_alloc()->alloc(size, mem);
-				_check(ret != 0, "memory allocation failed");
 
-				l4_addr_t a = 0;
-				ret = L4Re::Env::env()->rm()->attach(&a, size,
-				                                     L4Re::Rm::Search_addr,
-				                                     mem, 0);
-				_check(ret != 0, "attach failed");
+				l4_addr_t a = Romain::Region_map::allocate_and_attach(&mem, size);
+				_check(a == 0, "DS allocation failed");
+
 				memcpy((void*)a, (void*)r.local_region(orig_id).start(), size);
 
 				//DEBUG() << "COPY: DS " << std::hex << mem.cap() << " SIZE " << size
@@ -330,6 +325,37 @@ namespace Romain
 				r.memory(inst_id, mem);
 
 				return true;
+			}
+
+
+			/*
+			 * Allocate a master-local dataspace object.
+			 */
+			static void
+			allocate_ds(L4::Cap<L4Re::Dataspace> *cap, unsigned size)
+			{
+				*cap = L4Re::Util::cap_alloc.alloc<L4Re::Dataspace>();
+				_check(!cap->is_valid(), "error allocating DS capability");
+
+				int error = L4Re::Env::env()->mem_alloc()->alloc(size, *cap);
+				_check(error != 0, "error allocating memory");
+			}
+
+
+			/*
+			 * Allocate and attach a master-local dataspace object.
+			 */
+			static l4_addr_t
+			allocate_and_attach(L4::Cap<L4Re::Dataspace> *cap, unsigned size,
+				                unsigned offs = 0, unsigned align = L4_PAGESHIFT)
+			{
+				Romain::Region_map::allocate_ds(cap, size);
+
+				l4_addr_t a = 0;
+				int error = L4Re::Env::env()->rm()->attach(&a, size, L4Re::Rm::Search_addr, *cap, offs, align);
+				_check(error != 0, "attach failed");
+
+				return a;
 			}
 
 

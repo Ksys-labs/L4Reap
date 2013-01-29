@@ -1,0 +1,267 @@
+#!/usr/bin/python
+# -*- coding: iso-8859-1 -*-
+#vi: ft=python
+#
+# TSAR - Trace Sequence AnalyzeR
+#        *     *        *      *
+# Tool to extract and analyze Romain event logs
+#
+# (c) 2012-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+#     economic rights: Technische Universität Dresden (Germany)
+#
+#  This file is part of TUD:OS and distributed under the terms of the
+#  GNU General Public License 2.
+#  Please see the COPYING-GPL-2 file for details.
+
+import gzip
+import operator
+import os
+import re
+import sys
+import struct
+import tempfile
+import uu
+
+import tsar_events
+
+
+class EventFactory:
+    """Event factory: random access to Event objects
+       based on an underlying trace reader."""
+
+    def __init__(self, traceReader):
+        self.input = traceReader.raw_read()
+        self.offset = 0
+        self.idpfx = traceReader.prefix()
+
+    def uid(self, utcb):
+        return "%s:%x" % (self.idpfx, utcb)
+
+    def reset(self):
+        self.offset = 0
+
+    def _build(self, start):
+        """Get the Event object in the input stream
+           at the given position"""
+
+        if start >= len(self.input):
+            return None
+
+        eventTypes = [
+            None,
+            tsar_events.SyscallEvent,
+            tsar_events.PagefaultEvent,
+            tsar_events.SwifiEvent,
+            tsar_events.FooEvent,
+            tsar_events.TrapEvent,
+            tsar_events.ThreadStartEvent,
+            tsar_events.ThreadStopEvent,
+        ]
+
+        #print "Input: %d bytes" % len(bytes)
+
+        (tsc, utcb, typ) = struct.unpack_from("QIB", self.input[start:])
+
+        try:
+            return eventTypes[typ](self.input[start:], tsc, utcb,
+                                   self.uid(utcb))
+        except IndexError:
+            print "Index error with event type %d" % typ
+            sys.exit(1)
+
+    def nextEvent(self):
+        """Get the next event in stream
+
+        Allows iterating over the stream."""
+        start = self.offset * tsar_events.Event.EVENTSIZE
+        self.offset += 1
+        return self._build(start)
+
+    def eventAtOffset(self, offset):
+        """Get event at a specified offset.
+
+        Random access to the stream."""
+        start = offset * tsar_events.Event.EVENTSIZE
+        return self._build(start)
+
+
+class TraceReader:
+    """Reader for zipped uu-encoded data"""
+
+    def __init__(self, logfile):
+        tmp = tempfile.NamedTemporaryFile(mode="w+b")
+        # XXX also print UID here
+        print "UUDecoding %s -> %s" % (logfile.name, tmp.name)
+        uu.decode(logfile.name, tmp.name)
+        self.zipFile = gzip.open(tmp.name)
+
+        self.pfx = os.path.splitext(os.path.basename(logfile.name))[0]
+
+    def prefix(self):
+        return self.pfx
+
+    def raw_read(self):
+        """Read the raw bytes from the underlying stream
+           into a string."""
+        decomp = ""
+        bytes = self.zipFile.read(1024)
+        while bytes != "":
+            decomp += bytes
+            bytes = self.zipFile.read(1024)
+        print "Read %d bytes." % len(decomp)
+
+        return decomp
+
+
+class EventList:
+    """
+    Raw list of events from potentially multiple event stream sources
+    """
+    def __init__(self):
+        self.streams = []
+        self.stream_index = 0
+
+    def addStream(self, eventFactory):
+        """Add another stream to the event sources"""
+        self.streams += [eventFactory]
+
+    def reset(self):
+        """Reset the event list"""
+        for s in self.streams:
+            s.reset()
+        self.stream_index = 0
+
+    def next(self):
+        """Return the next event.
+
+        Continuously calling this function iterates over the associated
+        streams one at a time. Returns 'None' if no more events are to
+        be found
+        """
+
+        if self.stream_index >= len(self.streams):
+            return None
+
+        ev = self.streams[self.stream_index].nextEvent()
+
+        if ev is None:
+            self.stream_index += 1
+            return self.next()
+
+        return ev
+
+
+def print_plain(events):
+    """Plain dump of an event list"""
+    for e in events:
+        print e
+
+
+def print_pretty(events):
+    """Pretty-printed event list.
+
+    Prints a table. First column is a time stamp. Every other
+    colunm represents one distinct replica
+    """
+    ids = []
+
+    # first run to determine UTCB IDs
+    for e in events:
+        if e.uid() not in ids:
+            ids += [e.uid()]
+    ids.sort()
+
+    # header
+    print "\033[32m%14s" % "Timestamp",
+    for i in ids:
+        print "| %20s" % ("UID %s" % i[0:16]),
+    print "\033[0m"
+
+    # printing run
+    for e in events:
+        first = True
+        for line in e.pretty():
+            if first:
+                print "%14s" % e.ts,
+                first = False
+            else:
+                print " " * 14,
+
+            idx = ids.index(e.uid())
+
+            for i in range(0, idx):
+                print "|",
+                print " " * 20,
+            if e.type == tsar_events.Event.TRAP_TYPE and e.is_start:
+                print "| \033[33m%20s\033[0m" % line,
+            else:
+                print "| %20s" % line,
+            for i in range(idx + 1, len(ids)):
+                print "|",
+                print " " * 20,
+            print
+
+
+def remove_vt100(line):
+    """Remoe any occurrence of a VT100 color sequence from a string"""
+    return re.sub("\033\[\d+(;\d+)?m", "", line)
+
+
+def extractLogs(inputFile):
+    """Take a QEMU log file (Fiasco serial output) and extract the
+       UU-encoded trace dumps from it.
+    """
+    files = []         # list of trace files
+    inLogFile = False  # are we currently operating on a dump?
+
+    for l in file(inputFile).readlines():
+        v = remove_vt100(l)
+
+        # start and end indicators
+        startmo = re.match("romain.*(begin 644 .*.gz)", v)
+        endmo = re.match("romain.*end", v)
+
+        if startmo:
+            curFile = tempfile.NamedTemporaryFile(mode="w+")
+            inLogFile = True
+
+        # Write lines belonging to the dump to temporary file.
+        # Remove L4Re's log prefix upfront
+        if inLogFile:
+            curFile.write(v.replace("romain  | ", ""))
+
+        if inLogFile and endmo:
+            files += [curFile]
+            inLogFile = False
+
+    return files
+
+
+def main():
+    if len(sys.argv) < 2:
+        print "Need at least 1 argument"
+        sys.exit(1)
+
+    elist = EventList()
+
+    for f in extractLogs(sys.argv[1]):
+        print "=== %s ===" % f.name
+        f.seek(0)  # need to reset file seek ptr
+        elist.addStream(EventFactory(TraceReader(f)))
+
+    events = []
+
+    e = elist.next()
+    while e is not None:
+        events += [e]
+        e = elist.next()
+
+    # events are not necessarily sorted by time right now!
+    events.sort(key=operator.attrgetter('ts'))
+
+    #print_plain(events)
+    print_pretty(events)
+
+
+if __name__ == "__main__":
+    main()

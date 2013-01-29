@@ -5,6 +5,13 @@
 #    Tool for parsing binaries and finding the relevant instrumentation
 #    points for a fault injection campaign (which is then coordinated by
 #    IGOR).
+#
+# (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+#     economic rights: Technische Universität Dresden (Germany)
+#
+#  This file is part of TUD:OS and distributed under the terms of the
+#  GNU General Public License 2.
+#  Please see the COPYING-GPL-2 file for details.
 
 import sys, os
 import udis86

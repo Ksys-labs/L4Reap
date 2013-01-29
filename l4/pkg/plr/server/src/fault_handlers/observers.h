@@ -5,7 +5,7 @@
  *
  *    Fault observer interface
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -149,5 +149,22 @@ namespace Romain
 	{
 		public:
 		static PThreadLockObserver* Create();
+	};
+
+
+	class ReplicaLogObserver : public Observer
+	{
+		DECLARE_OBSERVER("replica::log");
+
+		public:
+			ReplicaLogObserver();
+
+		private:
+			struct {
+				l4_addr_t local_addr;
+			} buffers[Romain::MAX_REPLICAS];
+
+			void map_eventlog(Romain::App_instance *i, int logsizeMB);
+			void dump_eventlog(unsigned id) const;
 	};
 }

@@ -24,6 +24,7 @@ Io.hw_add_devices
     hid = "PNP0900";
     Res.io(0x3b0, 0x3bf); -- MDA
     Res.io(0x3c0, 0x3df); -- EGA/VGA
+    Res.io(0x1ce, 0x1d0); -- Vbox
     Res.mmio(0xa0000, 0xbffff, 0xc000);
   },
 

@@ -3,7 +3,7 @@
  *
  *     App_thread functions for creating and preparing a new VCPU
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -110,10 +110,10 @@ Romain::App_thread::csum_state()
 	     + _vcpu->r()->sp
 	     + _vcpu->r()->ax
 	     + _vcpu->r()->bx
+#if 0
 	     + _vcpu->r()->cx
 	     + _vcpu->r()->dx
 	     + _vcpu->r()->bp
-#if 0
 	     + _vcpu->r()->fs
 	     + _vcpu->r()->gs
 #endif

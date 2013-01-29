@@ -264,14 +264,14 @@ Allocator::disp_factory(l4_umword_t r, L4::Ipc::Iostream &ios)
 	  if (!size.is_of_int())
 	    return -L4_EINVAL;
 
-	  //L4::cout << "MEM: alloc ... " << size << "; " << flags << "\n";
+	  // L4::cout << "MEM: alloc ... " << size.value<l4_umword_t>() << "; " << flags.value<l4_umword_t>() << "\n";
 	  cxx::Auto_ptr<Moe::Dataspace> mo(alloc(size.value<l4_umword_t>(),
 		flags.is_of_int() ? flags.value<l4_umword_t>() : 0));
 
 	  // L4::cout << "MO=" << mo.get() << "\n";
 	  ko = object_pool.cap_alloc()->alloc(mo.get());
 	  ko->dec_refcnt(1);
-	  //L4::cout << "MO_CAP=" << mo->obj_cap() << "\n";
+	  // L4::cout << "MO_CAP=" << mo->obj_cap() << "\n";
 	  ios << ko;
 	  mo.release();
 	  return L4_EOK;

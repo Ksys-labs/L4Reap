@@ -5,7 +5,7 @@
  *
  *     Implementation of the factory system call
  *
- * (c) 2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2012-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -64,7 +64,7 @@ class Factory : public SyscallHandler
 		 * made sure that all faults raised by these threads will be resolved,
 		 * because we cannot be sure if they run before or after any subsequent
 		 * code. */
-		unsigned cnt = 0;
+		//unsigned cnt = 0;
 		for (std::vector<Romain::App_thread*>::const_iterator it = newgroup->threads.begin();
 			 it != newgroup->threads.end(); ++it)
 		{

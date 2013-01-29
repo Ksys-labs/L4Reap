@@ -5,7 +5,7 @@
  *
  *    Thread group -> representation of a single replicated thread
  *
- * (c) 2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2012-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -99,8 +99,10 @@ struct GateAgent
 #if USE_IRQ
 		gate_irq->trigger();
 		l4_umword_t lbl;
-		l4_msgtag_t tag = l4_ipc_wait(l4_utcb(), &lbl, L4_IPC_NEVER);
-		/* XXX IPC error check */
+		l4_ipc_wait(l4_utcb(), &lbl, L4_IPC_NEVER);
+		/* No error check. After return from this call, the UTCB contains
+		 * the IPC error the gate agent received, which may in fact be a real
+		 * IPC error -> it is up to the app to check and react on it. */
 #endif
 
 		DEBUG() << "agent returned.";
@@ -108,7 +110,7 @@ struct GateAgent
 
 
 	GateAgent(unsigned cap_idx, Romain::Thread_group *tg)
-		: current_client(0), owner_group(tg)
+		: owner_group(tg), current_client(0)
 	{
 		DEBUG() << "\033[31;1mGateAgent\033[0m";
 		sem_init(&init_sem, 0, 0);

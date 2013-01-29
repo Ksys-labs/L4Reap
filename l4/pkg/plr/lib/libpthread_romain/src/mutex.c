@@ -14,6 +14,7 @@
 
 /* Mutexes */
 
+#include "descr.h"
 #include <bits/libc-lock.h>
 #include <errno.h>
 #ifdef NOT_FOR_L4
@@ -31,11 +32,126 @@
 #include <l4/plr/pthread_rep.h>
 
 
+int pthread_mutex_lock_rep(pthread_mutex_t * mutex);
+int pthread_mutex_unlock_rep(pthread_mutex_t * mutex);
+
+
+#define LOCKli(li, mtx) (li)->locks[(mtx)->__m_reserved]
+#define ACQ(li, mtx)    lock_li(  (li), (mtx)->__m_reserved)
+#define REL(li, mtx)    unlock_li((li), (mtx)->__m_reserved)
+
+#define YIELD()  yield() 
+#define BARRIER() asm volatile ("" : : : "memory");
+#define ASSERT42(cond, msg) do { /*if (cond) enter_kdebug42(msg);*/ } while (0)
+
+#define GO_TO_SLEEP 0
+
+/*
+ * The generated code uses registers to access and modify data in
+ * the lock info page. This page is shared between all replicas, but
+ * the counts written to it may differ between replicas, which in turn
+ * may lead to the master process detecting state deviation if the values
+ * remain in those registers.
+ *
+ * To fix that, we store the original values of EBX, ECX, and EDX in
+ * thread-private storage and restore them before we a) leave the function or
+ * b) perform a system call that would be observed by the master.
+ *
+ * XXX: This assumes that we will not cause a page fault or
+ *      any other exception during execution, because then we might end
+ *      up with differing register values as well.
+ */
+static inline void rep_function_save_regs(void)
+{
+  BARRIER();
+  asm volatile ("mov %%ebx, %0\t\n"
+                "mov %%ecx, %1\t\n"
+                "mov %%edx, %2\t\n"
+                /*
+                "mov %%esi, %3\t\n"
+                "mov %%edi, %4\t\n"*/
+                : "=m" (thread_self()->ebx),
+                  "=m" (thread_self()->ecx),
+                  "=m" (thread_self()->edx)/*,
+                  "=m" (thread_self()->esi),
+                  "=m" (thread_self()->edi)*/
+                :
+                : "memory"
+  );
+}
+
+
+static inline void rep_function_restore_regs(void)
+{
+  
+  BARRIER();
+  asm volatile ("mov %0, %%ebx\t\n"
+                "mov %1, %%ecx\t\n"
+                "mov %2, %%edx\t\n"
+                /*
+                "mov %3, %%esi\t\n"
+                "mov %4, %%edi\t\n"*/
+                :
+                : "m" (thread_self()->ebx),
+                  "m" (thread_self()->ecx),
+                  "m" (thread_self()->edx)/*,
+                  "m" (thread_self()->esi),
+                  "m" (thread_self()->edi)*/
+                : "memory"
+  );
+}
+
+static inline int yield()
+{
+	rep_function_restore_regs();
+	asm volatile ("ud2" : : : "edx", "ecx", "ebx", "memory");
+	rep_function_save_regs();
+}
+
+
+static inline void lock_rep_wait(pthread_mutex_t* mutex)
+{
+    /*
+     * Go to sleep. This is a system call and will be checked by the master. Therefore,
+     * we need to load the ECX and EDX values we pushed in the beginning, so that the
+     * master process sees a consistent state here.
+     */
+    rep_function_restore_regs();
+    asm volatile (
+                  "push %0\t\n"
+                  "mov $0xA020, %%eax\t\n"
+                  "call *%%eax\t\n"
+                  "pop %0\t\n"
+                  :
+                  : "r" (mutex)
+                  : "eax", "memory");
+    rep_function_save_regs();
+}
+
+
+
+static inline void lock_rep_post(pthread_mutex_t* mutex)
+{
+    /*
+     * Send the actual notification. This is a special case in the master,
+     * because here only one replica performs the system call while all
+     * others continue untouched.
+     */
+    BARRIER();
+    asm volatile ("push %0\t\n"
+                  "mov $0xA040, %%eax\t\n"
+                  "call *%%eax\t\n"
+                  "pop %0\t\n": : "r" (mutex) : "eax", "memory");
+}
+
+
 static void init_replica_mutex(pthread_mutex_t* mtx)
 {
   unsigned i = 0;
   lock_info* li = get_lock_info();
 
+  rep_function_save_regs();
+  
   /*
    * find either the respective lock (if it has been registered by another
    * replica yet) or a free slot to use
@@ -67,14 +183,16 @@ static void init_replica_mutex(pthread_mutex_t* mtx)
   if (i >= NUM_LOCKS) {
 	  enter_kdebug("out of locks");
   }
+  
+  rep_function_restore_regs();
 }
 
-
-int pthread_mutex_lock_rep(pthread_mutex_t * mutex);
 int
 attribute_hidden
 pthread_mutex_lock_rep(pthread_mutex_t * mutex)
 {
+    rep_function_save_regs();
+    
 	/*
 	 * not initialized yet? -> happens for statically initialized
 	 * locks as those don't call mutex_init(). And as we need to
@@ -85,127 +203,84 @@ pthread_mutex_lock_rep(pthread_mutex_t * mutex)
 	  init_replica_mutex(mutex);
 	}
 
-	lock_info* li      = get_lock_info();
-    pthread_descr self = thread_self();
-    if (!self) enter_kdebug("self == NULL");
+    unsigned retry_counter   = 0;
+    lock_info* li            = get_lock_info();
+    thread_self()->p_epoch  += 1;
+    
+    /*outstring("lock() "); outhex32(thread_self()->p_epoch); outstring("\n");*/
+ 
+    while (1) {
 
-#define LOCKli(li, mtx) (li)->locks[(mtx)->__m_reserved]
+		ACQ(li, mutex);
+    
+        if (LOCKli(li, mutex).owner == lock_unowned)
+        {
+            ASSERT42(LOCKli(li, mutex).wait_count != 0, "wait count != 0");
+            ASSERT42(LOCKli(li, mutex).acq_count != 0,  "acq count  != 0");
+            ASSERT42(LOCKli(li, mutex).wake_count != 0, "wake count != 0");
+            
+            LOCKli(li, mutex).owner       = (l4_addr_t)thread_self();
+            LOCKli(li, mutex).owner_epoch = thread_self()->p_epoch;
+            LOCKli(li, mutex).acq_count   = li->replica_count;
+            break;
+        }
+        else if (LOCKli(li, mutex).owner == (l4_addr_t)thread_self())
+        {
+            if (LOCKli(li, mutex).owner_epoch != thread_self()->p_epoch) {
+                //outchar42('.'); outchar42(' '); outhex42(thread_self());
+                REL(li, mutex);
+                YIELD();
+                continue;
+                
+                // XXX allow multiple subsequent lock acquisitions */
+                /*
+                outhex42(LOCKli(li, mutex).owner_epoch); outchar42(' ');
+                outhex42(thread_self()->p_epoch); outchar42('\n');
+                enter_kdebug42("epoch mismatch");
+                */
+            }
 
-    /*
-     * The generated code uses ECX and EDX to access and modify data in
-     * the lock info page. This page is shared between all replicas, but
-     * the counts written to it may differ between replicas, which in turn
-     * may lead to the master process detecting state deviation if the values
-     * remain in those registers.
-     *
-     * To fix that, we store the original values of ECX and EDX to the stack
-     * and restore them before we a) leave the function or b) perform a system
-     * call that would be observed by the master.
-     * 
-     * XXX: Ben points out that this only works if all the code
-     *      below does not use any (%esp)-indirect addresses.
-     *      I validated this for now. A proper solution would be
-     *      to store these registers to some replica-private page.
-     *
-     * XXX: Furthermore, this assumes that we will not cause a page fault or
-     *      any other exception during execution, because then we might end
-     *      up with differing register values as well.
-     */
-	asm volatile ("push %ecx\t\n"
-	              "push %edx\t\n");
+            break;
+            //enter_kdebug42("mtx owned by me");
+        }
+        else
+        {
+	        /*
+	         * XXX: Spin for a short while?
+	         */
+#if GO_TO_SLEEP
+			LOCKli(li, mutex).wait_count += 1;
+			REL(li, mutex);
+			
+			lock_rep_wait(mutex);
 
-retry:
-	lock_li(li, mutex->__m_reserved);
-	
-	if (LOCKli(li, mutex).owner == lock_unowned) {
-		/*
-		 * Case 1: The lock was previously unlocked.
-		 *   -> make ourselves the lock owner
-		 *   -> set acq_count to number of replicas
-		 *      (it is decremented in unlock())
-		 */
-		LOCKli(li, mutex).owner     = (l4_addr_t)self;
-		LOCKli(li, mutex).acq_count = li->replica_count;
-        asm volatile ("" : : : "memory");
-	} else if (LOCKli(li, mutex).owner != (l4_addr_t)self) {
-		/*
-		 * Case 2: someone else owns the lock
-		 *   -> best we can do is go to sleep
-		 *   -> XXX: maybe spinning with thread_yield
-		 *      would help even more?
-		 */
-		LOCKli(li, mutex).wait_count += 1;
-		unlock_li(li, mutex->__m_reserved);
-        
-		/*
-		 * Go to sleep. This is a system call and will be checked by the master. Therefore,
-		 * we need to load the ECX and EDX values we pushed in the beginning, so that the
-		 * master process sees a consistent state here.
-		 */
-        asm volatile ("pop %%edx\t\n"
-                      "pop %%ecx\t\n"
-                      "push %0\t\n"
-                      "mov $0xA020, %%eax\t\n"
-                      "call *%%eax\t\n"
-                      "pop %0\t\n"
-                      "push %%ecx\t\n"
-                      "push %%edx\t\n"
-                      : : "r" (mutex) : "eax", "memory");
+			ACQ(li, mutex);
 
-		/*
-		 * If we return from the call above, the previous lock
-		 * owner signalled us. The locking protocol makes sure that
-		 * the lock is not marked as unlocked, but instead appears
-		 * to still belong to the old owner.
-		 *
-		 * If we are the first replica to exit the call
-		 * (wait_count == replica count), we adjust the lock owner
-		 * to be ourselves.
-		 */
-        lock_li(li, mutex->__m_reserved);
+			LOCKli(li, mutex).wake_count -= 1;
+			LOCKli(li, mutex).wait_count -= 1;
 
-        LOCKli(li, mutex).wait_count   -= 1;
-        
-        if (LOCKli(li, mutex).wake_count == li->replica_count) {
-	        LOCKli(li, mutex).owner     = (l4_addr_t)self;
-			LOCKli(li, mutex).acq_count = li->replica_count;
-		}
+			if (LOCKli(li, mutex).wake_count == 0) {
+				ASSERT42(LOCKli(li, mutex).acq_count != 0,  "acq count  != 0");
+				LOCKli(li, mutex).owner       = (l4_addr_t)thread_self();
+				LOCKli(li, mutex).owner_epoch = thread_self()->p_epoch;
+				LOCKli(li, mutex).acq_count   = li->replica_count;
+			}
 
-        LOCKli(li, mutex).wake_count   -= 1;
+			REL(li, mutex);
+			break;
 
-        asm volatile ("" : : : "memory");
-        unlock_li(li, mutex->__m_reserved);
-	} else if (LOCKli(li, mutex).owner == (l4_addr_t)self) {
-		/*
-		 * Case 3: my thread group owns the lock,
-		 *         but i'm not the first to acquire it
-		 */
-
-		/* Not so good case: If the wake count is larger than 0, this means that
-		 * the current thread previously had acquired the lock, then called unlock,
-		 * but not all replicas reached the end of unlock() yet. In this case a
-		 * fast replica might already try to grab the lock again and find out that
-		 * it is already the lock owner. In this case, the thread must not grab the
-		 * lock, but instead release the CPU and retry at a later point in time.
-		 */
-		if (LOCKli(li, mutex).wake_count > 0) {
-			unlock_li(li, mutex->__m_reserved);
-			asm volatile ("ud2" : : : "memory");
-			goto retry;
-		}
-	}
-
-	unlock_li(li, mutex->__m_reserved);
-
-#if 1
-	asm volatile ("pop %edx\t\n"
-	              "pop %ecx\t\n");
+#else
+            REL(li, mutex);
+            YIELD();
+            continue;
 #endif
+            //enter_kdebug42("mtx: other owner");
+        }
+    }
+    
+    REL(li, mutex);
 
-#undef LOCKli
-
-	//enter_kdebug("acquired lock");
-
+    rep_function_restore_regs();
 	return 0;
 }
 
@@ -216,67 +291,40 @@ int
 attribute_hidden
 pthread_mutex_unlock_rep(pthread_mutex_t * mutex)
 {
-#define LOCKli(li, mtx) (li)->locks[(mtx)->__m_reserved]
-
-	lock_info* li      = get_lock_info();
-
-    /*
-     * See documentation at the beginning of pthread_mutex_lock_rep()
-     */
-	asm volatile ("push %ecx\t\n"
-	              "push %edx\t\n");
-
-	lock_li(li, mutex->__m_reserved);
-
-	LOCKli(li, mutex).acq_count -= 1;
-
-	/*
-	 * All replicas are required to decrement the lock acquisition count. However,
-	 * only the last replica to do so will actually wake up a sleeping thread.
-	 */
-	if (LOCKli(li, mutex).acq_count == 0) {
-
-		// 1. send unlock notification if there are waiting threads
-        if (LOCKli(li, mutex).wait_count > 0) {
-
-			/*
-			 * The wake count is used to figure out how many replicas will
-			 * exit their sleep() inside mutex_lock_rep(). See there.
-			 */	        
+    rep_function_save_regs();
+    lock_info *li = get_lock_info();
+    
+retry2:
+    ACQ(li, mutex);
+    
+    ASSERT42(LOCKli(li, mutex).owner != (l4_addr_t)thread_self(), "unlock not by owner");
+    ASSERT42(LOCKli(li, mutex).acq_count == 0, "acq count == 0");
+    
+    LOCKli(li, mutex).acq_count -= 1;
+    if (LOCKli(li, mutex).acq_count == 0) {
+#if GO_TO_SLEEP
+        if (LOCKli(li, mutex).wait_count != 0) {
 	        LOCKli(li, mutex).wake_count = li->replica_count;
-
-			/*
-			 * Send the actual notification. This is a special case in the master,
-			 * because here only one replica performs the system call while all
-			 * others continue untouched.
-			 */
-            asm volatile ("push %0\t\n"
-                          "mov $0xA040, %%eax\t\n"
-                          "call *%%eax\t\n"
-                          "pop %0\t\n": : "r" (mutex) : "eax");
-            /* Not resetting the owner here. We want to prevent other
-             * threads from grabbing the lock and instead leave the lock
-             * to the thread we just signalled. Therefore, this thread
-             * will need to set ownership directly.
-             */
+	        lock_rep_post(mutex);
+	        /* don't reset owner */
         } else {
-	        // no waiters -> lock is free now
             LOCKli(li, mutex).owner = lock_unowned;
-        }
+		}
+#else
+        LOCKli(li, mutex).owner = lock_unowned;
+#endif
+    }
 
-        asm volatile ("" : : : "memory");
-	}
-
-	unlock_li(li, mutex->__m_reserved);
-
-	asm volatile ("pop %edx\t\n"
-	              "pop %ecx\t\n");
-
-#undef LOCKli
-
+    REL(li, mutex);
+    rep_function_restore_regs();
+    
+    //if (thread_self()->p_epoch % 10 == 0)
+    //    YIELD();
+    
 	return 0;
 }
 
+#undef LOCKli
 
 int
 attribute_hidden

@@ -6,7 +6,7 @@
  *
  * Handling of Romain config stuff
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -74,10 +74,10 @@ struct ConfigIntValue : public ConfigValue
 struct ConfigStringValue : public ConfigValue
 {
 	char const *_val;
-	ConfigStringValue(char const * const key, char *_default = 0)
+	ConfigStringValue(char const * const key, char const *_default = 0)
 		: ConfigValue()
 	{
-		_val = iniparser_getstring(_dict, key, _default);
+		_val = iniparser_getstring(_dict, key, const_cast<char*>(_default));
 	}
 
 	operator char const *() { return _val; }

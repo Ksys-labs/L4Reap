@@ -40,7 +40,7 @@ INCDIR-x86   = $(ORIGDIR)/sysdeps/i386/i686 $(ORIGDIR)/sysdeps/i386 \
 #INCDIR-ppc32 = $(ORIGDIR)/sysdeps/powerpc
 #INCDIR-sparc = $(ORIGDIR)/sysdeps/sparc
 
-PRIVATE_INCDIR = -I- $(ORIGDIR) $(SRC_DIR) $(INCDIR-$(ARCH)) $(CONTRIBDIR)/ldso/include
+PRIVATE_INCDIR = -I- $(SRC_DIR) $(ORIGDIR) $(INCDIR-$(ARCH)) $(CONTRIBDIR)/ldso/include
 
 DEFINES   := -DL4_THREAD_SAFE -D__USE_XOPEN2K -D_POSIX_C_SOURCE=200112L \
              -D_GNU_SOURCE=1 -D__NO_WEAK_PTHREAD_ALIASES=1 \
@@ -52,8 +52,8 @@ DEFINES_x86-l4f   := -DUSE___THREAD=1
 #DEFINES_ppc32-l4f := -DUSE___THREAD=1 
 #DEFINES_sparc-l4f := -DUSE___THREAD=1 
 
-CFLAGS    += -include $(CONTRIBDIR)/include/libc-symbols.h
-CXXFLAGS  += -include $(CONTRIBDIR)/include/libc-symbols.h
+CFLAGS    += -include $(CONTRIBDIR)/include/libc-symbols.h -include $(SRC_DIR)/descr.h
+CXXFLAGS  += -include $(CONTRIBDIR)/include/libc-symbols.h -include $(SRC_DIR)/descr.h
 CXXFLAGS  += -fno-exceptions
 
 include $(L4DIR)/mk/lib.mk

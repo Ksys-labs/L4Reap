@@ -3,7 +3,7 @@
  *
  *     Implementation of Romain syscall handling.
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -66,6 +66,13 @@ Romain::SyscallObserver::notify(Romain::App_instance *i,
 
 		l4_msgtag_t *tag = reinterpret_cast<l4_msgtag_t*>(&t->vcpu()->r()->ax);
 		MSG() << "SYSENTER(" << tg->name << ") tag = " << std::hex << tag->label();
+
+		Measurements::GenericEvent* ev = Romain::_the_instance_manager->logbuf()->next();
+		ev->header.tsc     = Romain::_the_instance_manager->logbuf()->getTime(Log::logLocalTSC);
+		ev->header.vcpu    = (l4_uint32_t)t->vcpu();
+		ev->header.type    = Measurements::Syscall;
+		ev->data.sys.eip   = t->vcpu()->r()->bx;
+		ev->data.sys.label = tag->label();
 
 		/*
 		 * Fiasco-specific:
@@ -139,8 +146,18 @@ Romain::SyscallObserver::notify(Romain::App_instance *i,
 					INFO() << "Instance " << i->id() << " exitting. Time "
 					       << "\033[33;1m" << tv.tv_sec << "." << tv.tv_usec
 					       << "\033[0m";
+
+					Measurements::GenericEvent* ev = Romain::_the_instance_manager->logbuf()->next();
+					ev->header.tsc                 = Romain::_the_instance_manager->logbuf()->getTime(Log::logLocalTSC);
+					ev->header.vcpu                = (l4_uint32_t)t->vcpu();
+					ev->header.type                = Measurements::Thread_stop;
+
 					Romain::_the_instance_manager->query_observer_status();
+
+					Romain::_the_instance_manager->logdump();
+					
 					if (1) enter_kdebug("*#^");
+
 					nullhandler.proxy_syscall(i, t, tg, a);
 					retval = Romain::Observer::Replicatable;
 				}
@@ -332,8 +349,10 @@ void Romain::SyscallObserver::handle_task(Romain::App_instance* i,
 	l4_umword_t    op = l4_utcb_mr_u(utcb)->mr[0] & L4_THREAD_OPCODE_MASK;
 	switch(op) {
 		case L4_TASK_UNMAP_OP:
+#if 0
 			MSGt(t) << "unmap";
 			i->unmap(l4_utcb_mr_u(utcb)->mr[2]);
+#endif
 			break;
 		case L4_TASK_CAP_INFO_OP:
 			nullhandler.proxy_syscall(i,t,0,a);
@@ -403,7 +422,7 @@ Romain::Scheduling::handle(Romain::App_instance* inst,
 		Romain::Thread_group* group = theObjectFactory.thread_for_cap(cap);
 		group->scheduler_run(t);
 	} else {
-		enter_kdebug("run_thread != 1");
+		//enter_kdebug("run_thread != 1");
 		SyscallHandler::proxy_syscall(inst, t, tg, am);
 	}
 
@@ -421,7 +440,6 @@ Romain::IrqHandler::handle(Romain::App_instance* inst,
 	unsigned op     = l4_utcb_mr_u(utcb)->mr[0];
 	unsigned label  = l4_utcb_mr_u(utcb)->mr[1];
 	unsigned cap    = t->vcpu()->r()->dx & L4_CAP_MASK;
-	l4_msgtag_t ret;
 
 	L4::Cap<L4::Irq> irq(cap);
 

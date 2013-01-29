@@ -5,7 +5,7 @@
  *
  *     Deterministic lock acquisition
  *
- * (c) 2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2012-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -18,7 +18,9 @@
 #define EXTERNAL_DETERMINISM 0
 #define INTERNAL_DETERMINISM 1
 
+EXTERN_C_BEGIN
 #include <l4/plr/pthread_rep.h>
+EXTERN_C_END
 
 namespace Romain
 {
@@ -55,7 +57,7 @@ namespace Romain
 			 * which may not be the case due to replication).
 			 */ 
 			sem_init(&sem, 0, 1);
-			//pthread_mutex_init(&mtx, 0);
+			pthread_mutex_init(&mtx, 0);
 		}
 
 
@@ -64,18 +66,23 @@ namespace Romain
 		 */
 		int lock(Romain::Thread_group* tg)
 		{
+			pthread_mutex_lock(&mtx);
 			/*
 			 * If this is recursive, only increment the counter.
 			 */
 			if (recursive and counter) {
-				if (tg != owner)
+				if (tg != owner) {
+					pthread_mutex_unlock(&mtx);
 					return 1; // EPERM
+				}
 				counter++;
+				pthread_mutex_unlock(&mtx);
 				return 0;
 			}
 
 			owner = tg;
 			counter++;
+			pthread_mutex_unlock(&mtx);
 
 			return sem_wait(&sem);
 			//return pthread_mutex_lock(&mtx);
@@ -87,11 +94,13 @@ namespace Romain
 		 */
 		int unlock()
 		{
+			pthread_mutex_lock(&mtx);
 			counter--;
 
 			if (recursive and (counter == 0)) {
 				owner = 0;
 			}
+			pthread_mutex_unlock(&mtx);
 
 			return sem_post(&sem);
 			//return pthread_mutex_unlock(&mtx);
@@ -139,7 +148,12 @@ namespace Romain
 				do_patch(am);
 			}
 #else
+			DEBUG() << lockID_to_str(function_id);
+			if ((orig_address == 0) or (orig_address == ~0))
+				return;
+			bp = new Breakpoint(orig_address);
 			bp->activate(inst, am);
+			DEBUG() << "BP set.";
 #endif
 		}
 
@@ -290,14 +304,29 @@ namespace Romain
 		std::map<l4_umword_t, PThreadMutex*> _locks;
 		Romain::App_model::Dataspace         _lip_ds;
 		l4_addr_t                            _lip_local;
+		pthread_mutex_t                      _tablemtx;
+
+		unsigned /* Internal determinism counters */
+			     det_lock_count,   // counter: det_lock
+		         det_unlock_count, // counter: det_unlock
+		         /* External determinism counters: */
+		         mtx_lock_count,   // counter: pthread_mutex_lock
+		         mtx_unlock_count, // counter: pthread_mutex_unlock
+		         pt_lock_count,    // counter: __pthread_lock
+		         pt_unlock_count,  // counter: __pthread_unlock
+		         /* Global counter */
+		         ignore_count,     // counter: call ignored
+		         total_count;      // counter: total invocations
 
 		PThreadMutex* lookup_or_fail(unsigned addr)
 		{
+			pthread_mutex_lock(&_tablemtx);
 			PThreadMutex* r = _locks[addr];
 			if (!r) {
 				ERROR() << "Called with uninitialized mutex?";
 				enter_kdebug("op on uninitialized mutex");
 			}
+			pthread_mutex_unlock(&_tablemtx);
 			return r;
 		}
 
@@ -305,6 +334,7 @@ namespace Romain
 		PThreadMutex* lookup_or_create(unsigned addr, bool init_locked = false,
 		                               Romain::Thread_group* tg = 0)
 		{
+			pthread_mutex_lock(&_tablemtx);
 			PThreadMutex* mtx = _locks[addr];
 			if (!mtx) {
 				mtx           = new PThreadMutex(false);
@@ -314,6 +344,7 @@ namespace Romain
 					mtx->lock(tg);
 				}
 			}
+			pthread_mutex_unlock(&_tablemtx);
 			return mtx;
 		}
 
@@ -327,7 +358,7 @@ namespace Romain
 			l4_addr_t lock      = *(l4_addr_t*)(stackaddr + 4);
 			DEBUG() << "\033[35mLOCK @ \033[0m" << std::hex << lock;
 			lookup_or_create(lock, true, tg)->lock(tg);
-			enter_kdebug("det_lock");
+			//enter_kdebug("det_lock");
 		}
 
 
@@ -340,21 +371,35 @@ namespace Romain
 			l4_addr_t lock      = *(l4_addr_t*)(stackaddr + 4);
 			DEBUG() << "\033[35mUNLOCK @ \033[0m" << std::hex << lock;
 
+			pthread_mutex_lock(&_tablemtx);
 			PThreadMutex* m = _locks[lock];
-			while (!m) {
-				l4_thread_yield();
-				m = _locks[lock];
+			if (!m) {
+				/* This may actually happen! The unlocker is simply faster sending the
+				 * notification than the locker is in sending his wakeup. Hence,
+				 * we need to potentially create the respective lock here.
+				 */
+				l4_umword_t mtx_kind_ptr = am->rm()->remote_to_local(lock + 12, inst->id());
+				m            = new PThreadMutex(*(l4_umword_t*)mtx_kind_ptr == PTHREAD_MUTEX_RECURSIVE_NP);
+				_locks[lock] = m;
 			}
-
-			lookup_or_fail(lock)->unlock();
-			enter_kdebug("det_unlock");
+			pthread_mutex_unlock(&_tablemtx);
+			m->unlock();
+			//enter_kdebug("det_unlock");
 		}
+
+
+		void attach_lock_info_page(Romain::App_model *am);
 
 		
 		public:
 		PThreadLock_priv()
+			: det_lock_count(0), det_unlock_count(0),
+			  mtx_lock_count(0), mtx_unlock_count(0),
+			  pt_lock_count(0), pt_unlock_count(0),
+			  ignore_count(0), total_count(0)
 		{
-#if 1
+			pthread_mutex_init(&_tablemtx, 0);
+#if 0
 			_functions[mutex_init_id].configure("threads:mutex_init",
 			                                    "threads:mutex_init_rep",
 			                                    mutex_init_id);

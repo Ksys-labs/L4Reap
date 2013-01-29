@@ -5,7 +5,7 @@
  *
  *    Definitions of applications, instances
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -132,6 +132,7 @@ class App_instance
 			l4_fpage_t fp = l4_fpage(local, shift, flags);
 			//DEBUG() << "fp: " << fp.raw;
 			l4_msgtag_t tag = vcpu_task()->map(L4Re::This_task, fp, remote);
+			_check(l4_msgtag_has_error(tag), "error mapping page");
 			//DEBUG() << "mapped " << std::hex << fp.raw << " : " << std::hex << tag.raw;
 			for (unsigned offs = 0; offs < (L4_PAGESIZE << (shift - L4_PAGESHIFT));
 			          offs += L4_PAGESIZE) {
@@ -153,6 +154,7 @@ class App_instance
 			while (size > 0) {
 				unsigned frame_l = local_start  >> L4_PAGESHIFT;
 				unsigned frame_r = remote_start >> L4_PAGESHIFT;
+				(void)frame_l; (void)frame_r;
 				unsigned shift   = 0;
 
 /* Macro checks whether the size fits a given number of pages */
@@ -181,9 +183,8 @@ class App_instance
 			fp.raw = fpraw;
 			remote = l4_fpage_page(fp) << L4_PAGESHIFT;
 
-			//DEBUG() << "unmap @ " << std::hex << "0x" << remote;
 			l4_addr_t a = _mappings[remote];
-			//DEBUG() << std::hex << remote << " -> " << "0x" << a;
+			DEBUG() << "unmap @ " << std::hex << remote << " -> " << "0x" << a;
 			vcpu_task()->unmap(l4_fpage(a, L4_PAGESIZE, L4_FPAGE_RO), L4_FP_ALL_SPACES);
 			_mappings[remote] = 0;
 			//enter_kdebug("unmapped");

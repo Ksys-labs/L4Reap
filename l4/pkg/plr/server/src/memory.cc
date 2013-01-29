@@ -3,7 +3,7 @@
  *
  * Memory management implementation
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -173,11 +173,9 @@ void *Romain::Region_map::attach_locally(void* addr, unsigned long size,
 	 */
 	if (!(dsstat.flags & L4Re::Dataspace::Map_rw)) {
 		//MSG() << "Copying to rw dataspace.";
-		L4::Cap<L4Re::Dataspace> mem = L4Re::Util::cap_alloc.alloc<L4Re::Dataspace>();
-		_check(!mem.is_valid(), "could not alloc ds cap");
-		//MSG() << "  mem_alloc(" << eff_size << ", " << std::hex << mem.cap() << ")";
-		r = L4Re::Env::env()->mem_alloc()->alloc(eff_size, mem);
-		_check(r != 0, "memory allocation failed");
+		L4::Cap<L4Re::Dataspace> mem;
+
+		Romain::Region_map::allocate_ds(&mem, eff_size);
 
 		mem->copy_in(0, *ds, page_base, hdlr->offset() + size);
 		ds        = &mem; // taking pointer to stack?? XXX
@@ -219,10 +217,7 @@ void *Romain::Region_map::attach(void* addr, unsigned long size,
 	void *ret = 0;
 	Romain::Region_handler _handler(hdlr);
 
-	if (shared) {
-		//DEBUG() << "======> SHARED <======";
-		_handler.shared(true);
-	}
+	_handler.shared(shared);
 
 	/* Only attach locally, if this hasn't been done beforehand yet. */
 	if (!_handler.local_region(_active_instance).start()) {

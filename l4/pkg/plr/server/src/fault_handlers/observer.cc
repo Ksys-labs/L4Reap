@@ -3,7 +3,7 @@
  *
  *    General fault observer functions
  *
- * (c) 2011-2012 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
  * GNU General Public License 2.
@@ -32,6 +32,7 @@ Romain::ObserverFactory::CreateObserver(char const *name)
 	CASE("kip-time",   KIPTimeObserver::Create());
 	CASE("trap_limit", TrapLimitObserver::Create());
 	CASE("threads",    PThreadLockObserver::Create());
+	CASE("replicalog", new ReplicaLogObserver());
 
 #if 0
 	if (strcmp(name, "gdb") == 0) {

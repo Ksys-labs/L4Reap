@@ -13,7 +13,7 @@ ldr:start(
 		  { caps = { },
 		    log = {"romain", "c"},
 		  },
---		    "rom/romain rom/hello"
+		    "rom/romain rom/hello"
 --		    "rom/romain rom/pthread_hello"
-		    "rom/romain rom/pthread_mutex"
+--		    "rom/romain rom/pthread_mutex"
 		    );

@@ -110,13 +110,11 @@ Romain::App_thread::csum_state()
 	     + _vcpu->r()->sp
 	     + _vcpu->r()->ax
 	     + _vcpu->r()->bx
-#if 0
 	     + _vcpu->r()->cx
 	     + _vcpu->r()->dx
 	     + _vcpu->r()->bp
-	     + _vcpu->r()->fs
-	     + _vcpu->r()->gs
-#endif
+	     /*+ _vcpu->r()->fs
+	     + _vcpu->r()->gs*/
 	     ;
 }
 
@@ -315,7 +313,7 @@ Romain::Thread_group::gdt(Romain::App_thread* t, l4_utcb_t *utcb)
 	enum { replica_gs_base = 0x58 };
 
 	l4_msgtag_t *tag = reinterpret_cast<l4_msgtag_t*>(&t->vcpu()->r()->ax);
-	DEBUG() << "\033[34;1mGDT: words\033[0m = " << tag->words();
+	DEBUG() << BOLD_BLUE "GDT: words" << NOCOLOR << " = " << tag->words();
 
 	// 1 word -> query GDT start
 	if (tag->words() == 1) {

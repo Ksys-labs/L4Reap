@@ -118,7 +118,7 @@ public:
     while (lua_next(_lua, tab))
       {
 	char const *r = luaL_checkstring(_lua, -2);
-        if (!l4re_env_cap_entry_t::is_vaild_name(r))
+        if (!l4re_env_cap_entry_t::is_valid_name(r))
           luaL_error(_lua, "Capability name '%s' too long", r);
 	while (lua_isfunction(_lua, -1))
 	  {
@@ -306,21 +306,11 @@ static int __task_wait(lua_State *l)
       return 1;
     }
 
-  if (Ned::server->registry()->reap_list()->remove(t.get()))
-    {
-      lua_pushinteger(l, t->exit_code());
-      t = 0; // zap task
-      return 1;
-    }
-
   L4::Ipc::Iostream s(l4_utcb());
   s << pthread_getl4cap(pthread_self()) << l4_addr_t(t.get());
   s.call(observer->obj_cap().cap());
 
-  if (Ned::server->registry()->reap_list()->remove(t.get()))
-    lua_pushinteger(l, t->exit_code());
-  else
-    lua_pushnil(l);
+  lua_pushinteger(l, t->exit_code());
 
   t = 0; // zap task
   return 1;
@@ -389,32 +379,6 @@ static const luaL_Reg _task_ops[] = {
     { NULL, NULL }
 };
 
-
-static int wait_any(lua_State *l)
-{
-  using Ned::Server_object;
-  while (Server_object *t = Ned::server->registry()->reap_list()->remove(0))
-    {
-      App_ptr ap(dynamic_cast<App_task*>(t));
-      if (!ap)
-	continue;
-
-      App_ptr *at = new (lua_newuserdata(l, sizeof(App_ptr))) App_ptr();
-      *at = ap;
-
-      // remove the reap_list reference
-      ap->remove_ref();
-
-      luaL_newmetatable(l, APP_TASK_TYPE);
-      lua_setmetatable(l, -2);
-      return 1;
-    }
-
-  return 0;
-  // block
-}
-
-//void do_some_exc_tests();
 
 static int exec(lua_State *l)
 {
@@ -491,7 +455,6 @@ public:
     static const luaL_Reg _ops[] =
     {
       { "exec", exec },
-      { "wait_any", wait_any },
       { NULL, NULL }
     };
     luaL_register(l, "L4", _ops);

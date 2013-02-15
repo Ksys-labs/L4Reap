@@ -389,6 +389,7 @@ Client_fb::get_abs_info(l4_umword_t id, unsigned naxes, unsigned *axes,
 inline int
 Client_fb::event_get(L4::Ipc::Iostream &s)
 {
+  _events.reset();
   s << _ev_ds.get();
   return L4_EOK;
 }

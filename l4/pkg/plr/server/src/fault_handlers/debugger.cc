@@ -55,7 +55,7 @@ Romain::SimpleDebugObserver::notify(Romain::App_instance *i,
 {
 	switch(t->vcpu()->r()->trapno) {
 		case 1:
-			Romain::InstructionPrinter(am->rm()->remote_to_local(t->vcpu()->r()->ip, 0),
+			Romain::InstructionPrinter(am->rm()->remote_to_local(t->vcpu()->r()->ip, i->id()),
 			                           t->vcpu()->r()->ip);
 			++_int1_seen;
 			t->vcpu()->print_state();
@@ -72,11 +72,13 @@ Romain::SimpleDebugObserver::notify(Romain::App_instance *i,
 				_bp->deactivate(i, am);
 				if (_bp->refs() == 0)
 					delete _bp;
+			} else {
+				return Romain::Observer::Continue;
 			}
 			break;
 		default:
 			break;
 	}
 
-	return Romain::Observer::Continue;
+	return Romain::Observer::Finished;
 }

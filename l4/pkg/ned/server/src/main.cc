@@ -57,6 +57,7 @@ run(int argc, char const *const *argv)
   Ned::Server svr;
   Ned::server = &svr;
 
+
   lua(argc, argv);
 
 

@@ -78,6 +78,7 @@ public:
   long vc_dispatch(L4::Ipc::Iostream &ios);
 
   static L4::Cap<void> rcv_cap() { return ::rcv_cap(); }
+  void reset_event_buffer() { evbuf.reset(); }
 private:
   L4Re::Util::Event_buffer evbuf;
 };

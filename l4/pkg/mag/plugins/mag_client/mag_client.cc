@@ -412,6 +412,7 @@ Mag_goos::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 inline int
 Mag_goos::event_get(L4::Ipc::Iostream &ios)
 {
+  _events.reset();
   ios << L4::Ipc::Snd_fpage(_ev_ds.get().fpage(L4_CAP_FPAGE_RW));
   return L4_EOK;
 }

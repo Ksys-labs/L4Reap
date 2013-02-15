@@ -12,10 +12,10 @@
  * Please see the COPYING-GPL-2 file for details.
  */
 
+ #include "../manager"
+
 namespace Romain
 {
-
-extern InstanceManager *_the_instance_manager;
 
 /*
  * Generic system call wrapper class

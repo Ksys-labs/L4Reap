@@ -144,17 +144,15 @@ Romain::SyscallObserver::notify(Romain::App_instance *i,
 					struct timeval tv;
 					gettimeofday(&tv, 0);
 					INFO() << "Instance " << i->id() << " exitting. Time "
-					       << "\033[33;1m" << tv.tv_sec << "." << tv.tv_usec
-					       << "\033[0m";
+					       << YELLOW << tv.tv_sec << "." << tv.tv_usec
+					       << NOCOLOR;
 
 					Measurements::GenericEvent* ev = Romain::_the_instance_manager->logbuf()->next();
 					ev->header.tsc                 = Romain::_the_instance_manager->logbuf()->getTime(Log::logLocalTSC);
 					ev->header.vcpu                = (l4_uint32_t)t->vcpu();
 					ev->header.type                = Measurements::Thread_stop;
 
-					Romain::_the_instance_manager->query_observer_status();
-
-					Romain::_the_instance_manager->logdump();
+					Romain::_the_instance_manager->show_stats();
 					
 					if (1) enter_kdebug("*#^");
 

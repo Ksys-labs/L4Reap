@@ -13,7 +13,7 @@ static int globalcounter;
 pthread_mutex_t mtx;
 
 static const unsigned print_iterations = 100;
-static const unsigned inc_iterations   = 10000;
+static const unsigned inc_iterations   = 1000;
 
 static
 void *thread(void *data)

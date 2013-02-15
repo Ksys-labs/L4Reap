@@ -7,6 +7,7 @@
  * Please see the COPYING-GPL-2 file for details.
  */
 #include "app_task.h"
+
 #include <l4/re/parent-sys.h>
 #include <l4/re/protocols>
 #include <l4/re/error_helper>
@@ -67,25 +68,18 @@ App_task::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 
 	      terminate();
 
-	      //if (refs)
-		{
-		  _r->reap_list()->add(this);
-		  if (observer())
-		    l4_ipc_send(observer(), l4_utcb(), l4_msgtag(0,0,0,0), L4_IPC_NEVER);
+              if (remove_ref() == 0)
+                {
+                  delete this;
+                  return -L4_ENOREPLY;
+                }
 
-		  observer(0);
-		}
-#if 0
-	      else
-		delete this;
-#endif
-#if 0
-	      L4Re::Util::cap_alloc.free(obj_cap());
-	      delete this;
-	      if (val != 0)
-	        L4::cout << "LDR: task " << obj << " exited with " << val
-                         << '\n';
-#endif
+              if (l4_cap_idx_t o = observer())
+                {
+                  observer(0);
+                  l4_ipc_send(o, l4_utcb(), l4_msgtag(0,0,0,0), L4_IPC_NEVER);
+                }
+
 	      return -L4_ENOREPLY;
 	    }
 	  default: break;
@@ -116,6 +110,10 @@ App_task::terminate()
   _task = L4::Cap_base::Invalid;
   _thread = L4::Cap_base::Invalid;
   _rm = L4::Cap_base::Invalid;
+
+  L4::Cap<void> c = obj_cap();
+  _r->unregister_obj(this);
+  L4Re::Util::cap_alloc.free(c);
 }
 
 App_task::~App_task()

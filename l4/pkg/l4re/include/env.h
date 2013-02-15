@@ -75,7 +75,7 @@ typedef struct l4re_env_cap_entry_t
       }
   }
 
-  static bool is_vaild_name(char const *n)
+  static bool is_valid_name(char const *n)
   {
     for (unsigned i = 0; *n; ++i, ++n)
       if (i > sizeof(name))

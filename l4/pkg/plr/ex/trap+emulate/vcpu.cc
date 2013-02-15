@@ -49,7 +49,6 @@ static unsigned long fs;
 static unsigned long ds;
 
 #define DATASIZE (1 << 19)
-
 asm
 (
   ".p2align 12                      \t\n"

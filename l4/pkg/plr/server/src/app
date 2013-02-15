@@ -1,4 +1,4 @@
-// vi: ft=cpp
+// vim: ft=cpp
 
 /*
  * app --
@@ -156,6 +156,7 @@ class App_instance
 				unsigned frame_r = remote_start >> L4_PAGESHIFT;
 				(void)frame_l; (void)frame_r;
 				unsigned shift   = 0;
+				(void)frame_l; (void)frame_r;
 
 /* Macro checks whether the size fits a given number of pages */
 #define FOO(x) do { \
@@ -477,6 +478,21 @@ class App_thread
 		}
 
 		unsigned long csum_state();
+
+
+		void halt()
+		{
+			INFO() << "   Halting VCPU " << std::hex << vcpu();
+			l4_sched_param_t sp = l4_sched_param(0);
+			chksys(L4Re::Env::env()->scheduler()->run_thread(vcpu_cap(), sp));
+		}
+
+
+		void return_to(l4_addr_t ret)
+		{
+			vcpu()->r()->sp += sizeof(l4_umword_t); // RET: inc. ESP
+			vcpu()->r()->ip  = ret;                 // RET: return addr 
+		}
 };
 
 

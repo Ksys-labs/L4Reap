@@ -390,7 +390,10 @@ User_state::forget_view(View *v)
     _keyboard_focus = 0;
 
   if (_vstack->focused() == v)
-    _vstack->set_focused(0);
+    {
+      _vstack->set_focused(0);
+      _vstack->update_all_views();
+    }
 }
 
 bool

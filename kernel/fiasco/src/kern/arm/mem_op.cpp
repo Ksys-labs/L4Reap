@@ -53,7 +53,8 @@ Mem_op::l1_inv_dcache(Address start, Address end)
       end &= ~Mem_unit::Cache_line_mask;
     }
 
-  Mem_unit::inv_dcache((void *)start, (void *)end);
+  if (start < end)
+    Mem_unit::inv_dcache((void *)start, (void *)end);
 }
 
 PRIVATE static void

@@ -12,7 +12,8 @@ static
 void *thread(void *data)
 {
 	(void)data;
-	while (1) {
+	for (unsigned i = 0; i < 5; ++i) {
+	//while (1) {
 		printf("\033[31mhello world from thread\033[0m\n");
 		sleep(1);
 	}
@@ -29,7 +30,8 @@ int main(int argc, char **argv)
 	int res = pthread_create(&pt, NULL, thread, NULL);
 	assert(res == 0);
 
-	while (1) {
+	for (unsigned i = 0; i < 5; ++i) {
+	//while (1) {
 		printf("\033[32mhello world from main\033[0m\n");
 		sleep(1);
 	}

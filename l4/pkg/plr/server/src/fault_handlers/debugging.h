@@ -42,9 +42,12 @@ class Breakpoint
 			l4_addr_t local = m->rm()->remote_to_local(address(), i->id());
 			DEBUG() << "Setting BP @ 0x" << std::hex << address()
 			        << " -> local 0x" << local;
-			_orig_code = *(l4_umword_t*)local;
-			*(unsigned char*)local = BREAK_INSTRUCTION;
-			DEBUG() << "addr @ " << std::hex << &_address;
+			
+			if (*(unsigned char*)local != BREAK_INSTRUCTION) {
+				_orig_code = *(l4_umword_t*)local;
+				*(unsigned char*)local = BREAK_INSTRUCTION;
+				DEBUG() << "addr @ " << std::hex << &_address;
+			}
 		}
 
 

@@ -55,6 +55,7 @@ Romain::InstanceManager::InstanceManager(unsigned int argc,
                                          unsigned num_instances)
 	: _am(0),
 	  _instances(),
+	  _threadgroups(),
 	  _num_observers(0),
 	  _num_inst(num_instances),
 	  _num_cpu(1),
@@ -250,6 +251,10 @@ void Romain::InstanceManager::configure_logbuf(int sizeMB)
  *
  *  logreplica [bool] (false)
  *       - assign each replica a log buffer (mapped to REPLICA_LOG_ADDRESS)
+ *
+ *  logtimeout [int] (-1)
+ *       - run the replicated app for N seconds, then halt all threads and
+ *         print replica stats (as if on termination)
  *
  *  replicalogsize [int] (-1)
  *       - buffser size for the replica-specific log buffer
@@ -487,6 +492,7 @@ Romain::InstanceManager::create_thread_group(l4_umword_t eip, l4_umword_t esp, s
 		group->add_replica(at);
 	}
 
+	_threadgroups.push_back(group);
 	return group;
 }
 

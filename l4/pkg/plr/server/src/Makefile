@@ -59,6 +59,7 @@ SRC_CC      = main.cc \
 # list requirements of your program here
 REQUIRES_LIBS = libvcpu libstdc++ libloader libudis86 libiniparser libpthread \
                 cxx_io libio-vbus libuu
+
 #REQUIRES_LIBS += lwip liblwip_netif_ankh
 
 include $(L4DIR)/mk/prog.mk
@@ -68,3 +69,4 @@ CXXFLAGS += -Wno-parentheses -Wno-unused -Wno-reorder -Wno-missing-field-initial
             -Wno-sequence-point -Wno-sign-compare -Wno-missing-braces -Wno-uninitialized \
             -Wno-missing-declarations -Wno-format -Wno-write-strings
 CXXFLAGS += $(call checkcxx,-std=c++11)
+CXXFLAGS += $(call checkcxx,-std=c++0x)

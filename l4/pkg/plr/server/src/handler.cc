@@ -28,7 +28,7 @@
 
 #define MSG() DEBUGf(Romain::Log::Faults)
 #define MSGi(inst) MSG() << "[" << (inst)->id() << "] "
-#define MSGit(inst,tg) MSG() << "[" << (inst)->id() << "] \033[34;1m{" << tg->name << "}\033[0m "
+#define MSGit(inst,tg) MSG() << "[" << (inst)->id() << "] " << BLUE << "{" << tg->name << "}" << NOCOLOR
 
 #define ____dummy " /* ST2 highlighting fix XXX */
 
@@ -151,9 +151,9 @@ class SplitHandler
 		unsigned trap      = _psi[0]->t->vcpu()->r()->trapno;
 
 		while (trap) {
-			MSGi(_psi[0]->i) << "\033[33;1mTRAP 0x"
+			MSGi(_psi[0]->i) << BOLD_YELLOW << "TRAP 0x"
 			                 << std::hex << vcpu->r()->trapno
-			                 << " @ 0x" << vcpu->r()->ip << "\033[0m";
+			                 << " @ 0x" << vcpu->r()->ip << NOCOLOR;
 
 			Romain::Observer::ObserverReturnVal v 
 				= _im->fault_notify(_psi[0]->i, _psi[0]->t, _psi[0]->tg, _psi[0]->a);
@@ -330,9 +330,9 @@ void __attribute__((noreturn)) Romain::InstanceManager::VCPU_startup(Romain::Ins
 	struct timeval tv;
 	gettimeofday(&tv, 0);
 	if (Romain::Log::withtime)
-		INFO() << "\033[33;1mStarting @ " << tv.tv_sec << "." << tv.tv_usec << "\033[0m";
+		INFO() << BOLD_YELLOW << "Starting @ " << tv.tv_sec << "." << tv.tv_usec << NOCOLOR;
 	else
-		INFO() << "\033[33;1mStarting\033[0m";
+		INFO() << BOLD_YELLOW << "Starting" << NOCOLOR;
 
 	MSGit(i,tg) << "Resuming instance @ " << (void*)vcpu->r()->ip << " ...";
 
@@ -370,8 +370,8 @@ static void local_vCPU_handling(Romain::InstanceManager *m,
 	 * a new exception in such circumstances.
 	 */
 	while (trap) {
-		MSGit(i,tg) << "\033[33;1mTRAP 0x" << std::hex << vcpu->r()->trapno
-		        << " @ 0x" << vcpu->r()->ip << "\033[0m";
+		MSGit(i,tg) << BOLD_YELLOW << "TRAP 0x" << std::hex << vcpu->r()->trapno
+		        << " @ 0x" << vcpu->r()->ip << NOCOLOR;
 
 		if (t->vcpu()->r()->ip == 0xA041) {
 			m->fault_notify(i,t,tg,a);

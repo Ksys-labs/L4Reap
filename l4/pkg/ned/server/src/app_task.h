@@ -58,7 +58,7 @@ public:
   void running()
   {
     _state = Running;
-    add_ref(); // so we run do not silently kick this task
+    add_ref();
   }
 
 

@@ -1,6 +1,12 @@
 #!/usr/bin/python
 
+"""TSAR Event type definitions"""
+
 import struct
+import sys
+
+#pylint: disable=C0103,R0903
+
 
 class Event:
     """Event base class"""
@@ -15,48 +21,64 @@ class Event:
     TRAP_TYPE = 5
     THREAD_START_TYPE = 6
     THREAD_STOP_TYPE = 7
+    LOCKING_TYPE = 8
+    SHMLOCKING_TYPE = 9
+    BARNES_TYPE = 10
 
     @staticmethod
-    def eventName(ev):
+    def eventname(event):
         """Get name for event type"""
         syscall_names = ["INV", "SYS", "PF",
                          "SWIFI", "FOO", "TRAP",
-                         "START", "STOP"]
-        return syscall_names[ev]
+                         "START", "STOP", "LOCK", "SHML"]
+        return syscall_names[event]
 
     def __init__(self, time=0, typ=0, utcb=0, uid=None):
-        self.ts = time
+        self.timestamp = time
         self.type = typ
         self.utcb = utcb
         if uid is None:
-        	self.id = self.utcb
+            (self.id2, self.id1) = ("", self.utcb)
         else:
-        	self.id = uid
+            (self.id2, self.id1) = uid.split(":")
 
     def uid(self):
-    	return self.id
+        """Unique event source ID (NOT unique event ID!)"""
+        return "%s:%s" % (self.id1, self.id2)
 
     def __repr__(self):
-        return "%d [%8x|%5s]" % (self.ts, self.utcb,
-                                 Event.eventName(self.type))
+        try:
+            return "%d [%8x|%5s] (%s,%s) " % (self.timestamp, self.utcb,
+                                              Event.eventname(self.type),
+                                              str(self.id1),
+                                              str(self.id2))
+        except TypeError:
+            print self.timestamp
+            sys.exit(1)
+
+    def pretty(self):
+        """Pretty-print event"""
+        return " %d" % self.type
 
 
 class SyscallEvent(Event):
+    """Romain system call event"""
     def __init__(self, raw, time=0, utcb=0, uid=None):
         Event.__init__(self, time, Event.SYSCALL_TYPE, utcb, uid)
-        (self.ip, self.label, ) = struct.unpack_from("II",
-                                                     raw[Event.HEADSIZE:])
+        (self.eip, self.label, ) = struct.unpack_from("II",
+                                                      raw[Event.HEADSIZE:])
 
     def __repr__(self):
         return Event.__repr__(self) + " SYSCALL %08x, ret to %08x" % \
-            (self.label, self.ip)
+            (self.label, self.eip)
 
-    def pretty(self, cols=20):
+    def pretty(self):
         return ["SYSCALL %08x" % (self.label),
-                " ret -> %08x" % (self.ip)]
+                " ret -> %08x" % (self.eip)]
 
 
 class PagefaultEvent(Event):
+    """Page fault event"""
     def __init__(self, raw, time=0, utcb=0, uid=None):
         Event.__init__(self, time, Event.PAGEFAULT_TYPE, utcb, uid)
         (self.writepf, ) = struct.unpack_from("B", raw[Event.HEADSIZE:])
@@ -66,49 +88,51 @@ class PagefaultEvent(Event):
         #print hex(self.pfa)
 
     def __repr__(self):
-        r = Event.__repr__(self)
+        res = Event.__repr__(self)
         if (self.writepf):
-            r += " w"
-        r += "r pf @ %08x -> %08x" % (self.local, self.remote)
-        return r
+            res += " w"
+        res += "r pf @ %08x -> %08x" % (self.local, self.remote)
+        return res
 
-    def pretty(self, cols=20):
-        r = []
+    def pretty(self):
+        res = []
         if self.writepf:
-            r += ["wr pf @ 0x%x" % self.pfa]
+            res += ["wr pf @ 0x%x" % self.pfa]
         else:
-            r += ["r pf @ 0x%x" % self.pfa]
-        r += ["%x -> %x" % (self.local, self.remote)]
-        return r
+            res += ["r pf @ 0x%x" % self.pfa]
+        res += ["%x -> %x" % (self.local, self.remote)]
+        return res
 
 
 class SwifiEvent(Event):
+    """FI event"""
     def __init__(self, raw, time=0, utcb=0, uid=None):
         Event.__init__(self, time, Event.SWIFI_TYPE, utcb, uid)
 
-    def pretty(self, cols=20):
+    def pretty(self):
         return ["SWIFI"]
 
 
 class FooEvent(Event):
+    """Foo test event"""
     def __init__(self, raw, time=0, utcb=0, uid=None):
         Event.__init__(self, time, Event.FOO_TYPE, utcb, uid)
         (self.is_start, ) = struct.unpack_from("I", raw[Event.HEADSIZE:])
 
     def __repr__(self):
-        r = Event.__repr__(self)
+        res = Event.__repr__(self)
         if self.is_start == 0:
-            r += " STOP"
+            res += " STOP"
         else:
-            r += " START"
-        return r
+            res += " START"
+        return res
 
-    def pretty(self, cols=20):
+    def pretty(self):
         return ["FOO"]
 
 
 class TrapEvent(Event):
-
+    """Generic trap event"""
     counters = {}
 
     def __init__(self, raw, time=0, utcb=0, uid=None):
@@ -120,43 +144,113 @@ class TrapEvent(Event):
         #print "S %d T %d" % (self.is_start, self.trapno)
 
     def __repr__(self):
-        r = Event.__repr__(self)
+        res = Event.__repr__(self)
         if self.is_start == 1:
-            r += " start, trapno %x" % self.trapno
+            res += " start, trapno %x" % self.trapno
         else:
-            r += " done"
-        return r
+            res += " done"
+        return res
 
-    def pretty(self, cols=20):
+    def pretty(self):
         if self.is_start:
-            return ["TRAP %x @ %08x" % (self.trapno, self.trapaddr)]
+            return ["\033[33mTRAP %x @ %08x\033[0m" %
+                    (self.trapno, self.trapaddr)]
         else:
             return ["--- TRAP END ---"]
 
 
 class ThreadStartEvent(Event):
+    """Thread start event"""
 
     def __init__(self, raw, time=0, utcb=0, uid=None):
         Event.__init__(self, time, Event.THREAD_START_TYPE, utcb, uid)
 
     def __repr__(self):
-        r = Event.__repr__(self)
-        r += "Thread::Start"
-        return r
+        res = Event.__repr__(self)
+        res += "Thread::Start"
+        return res
 
-    def pretty(self, cols=20):
+    def pretty(self):
         return ["Thread::Start"]
 
 
 class ThreadStopEvent(Event):
+    """Thread end event"""
 
     def __init__(self, raw, time=0, utcb=0, uid=None):
         Event.__init__(self, time, Event.THREAD_STOP_TYPE, utcb, uid)
 
     def __repr__(self):
-        r = Event.__repr__(self)
-        r += "Thread::Exit"
-        return r
+        res = Event.__repr__(self)
+        res += "Thread::Exit"
+        return res
 
-    def pretty(self, cols=20):
+    def pretty(self):
         return ["Thread::Exit"]
+
+
+class LockingEvent(Event):
+    """Lock interception event"""
+    def __init__(self, raw, time=0, utcb=0, uid=None):
+        Event.__init__(self, time, Event.LOCKING_TYPE, utcb, uid)
+        (self.locktype, ) = \
+            struct.unpack_from("I", raw[Event.HEADSIZE:])
+
+        self.typenames = ["__lock", "__unlock", "mtx_lock", "mtx_unlock"]
+
+    def __repr__(self):
+        res = Event.__repr__(self)
+        res += "LOCK(%d)" % self.locktype
+        return res
+
+    def pretty(self):
+        return ["Lock(%s)" % self.typenames[self.locktype]]
+
+
+class SHMLockingEvent(Event):
+    """SHM locking event"""
+    def __init__(self, raw, time=0, utcb=0, uid=None):
+        Event.__init__(self, time, Event.SHMLOCKING_TYPE, utcb, uid)
+        (self.lockid, self.epoch, self.owner, self.evtype) = \
+            struct.unpack_from("IIII", raw[Event.HEADSIZE:])
+
+    def __repr__(self):
+        res = Event.__repr__(self)
+        res += "SHM %x, %d, %x" % (self.lockid, self.epoch, self.evtype)
+        return res
+
+    def pretty(self):
+
+        st1 = ["down1", "down2", "up1", "up2"][self.evtype - 2]
+        st1 += "(%x)" % self.lockid
+
+        st2 = "  ID %x, EP %x" % (self.utcb, self.epoch)
+        st3 = ""
+
+        if self.evtype in [2, 5]:
+            if self.owner == 0xffffffff:
+                st3 = "(owner: %x)" % self.owner
+            else:
+                st3 = "(owner: \033[31;1m%x\033[0m)" % self.owner
+
+        if self.evtype == 2:
+            return ["\033[34;1m==========\033[0m", st1, st2, st3]
+        if self.evtype == 5:
+            return [st1, st3, "\033[34m==========\033[0m"]
+
+        return [st1]
+
+
+class BarnesEvent(Event):
+    """SPLASH2::Barnes runtime event"""
+    def __init__(self, raw, time=0, utcb=0, uid=None):
+        Event.__init__(self, time, Event.SHMLOCKING_TYPE, utcb, uid)
+        (self.ptr, self.num, self.type) = \
+            struct.unpack_from("III", raw[Event.HEADSIZE:])
+
+    def __repr__(self):
+        return "Barnes(%d) ptr %x num %d" % (self.type, self.ptr, self.num)
+
+    def pretty(self):
+        return ["\033[32mbarnes(%d)\033[0m" % self.type,
+                "%x %d\033[0m" % (self.ptr, self.num)]

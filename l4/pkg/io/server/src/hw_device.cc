@@ -7,7 +7,6 @@
  * Please see the COPYING-GPL-2 file for details.
  */
 
-#include <libc-symbols.h>
 #include <fnmatch.h>
 
 #include "hw_device.h"

@@ -109,6 +109,7 @@ public:
   void event_cb(l4re_event_t *e, unsigned nr_events);
   static Dope_base *get_obj(s32 ai);
   static L4::Cap<void> rcv_cap() { return ::rcv_cap(); }
+  void reset_event_buffer() { evbuf.reset(); }
 
 private:
   static void check_appid(s32 ai);

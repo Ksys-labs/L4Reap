@@ -2,6 +2,36 @@
 
 #include <l4/util/atomic.h>
 
+struct spinlock
+{
+	unsigned int value;
+};
+
+
+typedef struct spinlock spinlock_t;
+
+
+#define fence() asm volatile ("" ::: "memory");
+
+
+inline static unsigned int
+fas_uint(volatile unsigned int *lock, unsigned int val)
+{
+	__asm__ __volatile__("xchgl %0, %1"
+	     : "+m" (*lock), "+q" (val)
+	     :
+	     : "memory");
+	return val;
+}
+
+
+static inline void
+stall(void)
+{
+	asm volatile ("ud2" ::: "memory");
+}
+
+
 enum {
 	mutex_init_id   = 0,
 	mutex_lock_id   = 1,
@@ -23,13 +53,13 @@ enum {
 typedef struct {
   unsigned char trampolines[NUM_TRAMPOLINES * TRAMPOLINE_SIZE];
   struct {
-	  volatile l4_addr_t lockdesc;            // corresponding pthread_mutex_t ptr
-	  volatile l4_addr_t owner;               // lock owner
-	  volatile l4_addr_t owner_epoch;         // lock holder's epoch
-	  volatile l4_addr_t wait_count; // count how many threads wait to acquire this lock
-	  volatile l4_addr_t acq_count;           // count how many threads acquired this lock
-	  volatile l4_addr_t wake_count;          // count how many threads should be unlocked
-	  volatile l4_uint32_t lock;     // internal: lock for this row
+	  volatile l4_addr_t lockdesc;    // corresponding pthread_mutex_t ptr
+	  volatile l4_addr_t owner;       // lock owner
+	  volatile l4_addr_t owner_epoch; // lock holder's epoch
+	  volatile l4_addr_t wait_count;  // count how many threads wait to acquire this lock
+	  volatile l4_addr_t acq_count;   // count how many threads acquired this lock
+	  volatile l4_addr_t wake_count;  // count how many threads should be unlocked
+	  volatile spinlock_t lock;       // internal: lock for this row
   } locks[NUM_LOCKS];
   volatile l4_umword_t replica_count; // number of replicas running a.t.m.
 } lock_info;
@@ -45,17 +75,17 @@ lock_info* get_lock_info(void) {
 
 static inline void lock_li(volatile lock_info *li, unsigned idx)
 {
-	asm volatile ("" : : : "memory");
-	while (!l4util_cmpxchg32(&li->locks[idx].lock, 0, 1)) {
-		asm volatile ("ud2" : : : "eax", "memory");
+	volatile spinlock_t *lock = &li->locks[idx].lock;
+	while (fas_uint(&lock->value, 1) == 1) {
+		stall();
 	}
+	fence();
 }
 
 static inline void unlock_li(volatile lock_info* li, unsigned idx)
 {
-	asm volatile ("" : : : "eax", "memory");
-	li->locks[idx].lock = 0;
-	asm volatile ("" ::: "memory");
+	fence();
+	li->locks[idx].lock.value = 0;
 }
 
 

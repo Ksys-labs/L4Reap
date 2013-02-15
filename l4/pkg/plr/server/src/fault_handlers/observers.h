@@ -158,11 +158,17 @@ namespace Romain
 
 		public:
 			ReplicaLogObserver();
+			int timeout() { return _timeout; }
+
+			bool want_cancel() { return _cancel; }
 
 		private:
 			struct {
 				l4_addr_t local_addr;
 			} buffers[Romain::MAX_REPLICAS];
+			int _timeout;
+			bool _cancel;
+			pthread_t _to_thread;
 
 			void map_eventlog(Romain::App_instance *i, int logsizeMB);
 			void dump_eventlog(unsigned id) const;

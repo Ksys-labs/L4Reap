@@ -9,4 +9,4 @@ SRC_C = main.c
 
 include $(L4DIR)/mk/prog.mk
 
-LDFLAGS += -lpthread_rep -luc_c
+LDFLAGS += -lpthread_rep -luc_c -levbuf_c

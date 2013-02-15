@@ -41,6 +41,8 @@ namespace Measurements
 		Trap = 5,
 		Thread_start = 6,
 		Thread_stop  = 7,
+		Locking = 8,
+		SHMLocking = 9,
 	};
 
 	struct __attribute__((packed))
@@ -85,6 +87,41 @@ namespace Measurements
 
 
 	struct __attribute__((packed))
+	LockEvent
+	{
+		enum LockEvents {
+			lock,
+			unlock,
+			mtx_lock,
+			mtx_unlock
+		};
+		unsigned eventType;
+	};
+
+
+	struct __attribute__((packed))
+	SHMLockEvent
+	{
+		unsigned lockid;
+		unsigned epoch;
+		unsigned owner; // current owner
+		unsigned type; // 1 -> init
+			           // 2 -> lock_enter
+					   // 3 -> lock_exit
+			           // 4 -> unlock_enter
+					   // 5 -> unlock_exit
+	};
+
+
+	struct __attribute__((packed))
+	BarnesEvent
+	{
+		unsigned nodeptr;
+		unsigned seqnum;
+	};
+
+
+	struct __attribute__((packed))
 	GenericEvent
 	{
 		struct SensorHead header;
@@ -93,6 +130,9 @@ namespace Measurements
 			struct SyscallEvent sys;
 			struct FooEvent     foo;
 			struct TrapEvent    trap;
+			struct LockEvent    lock;
+			struct SHMLockEvent shml;
+			struct BarnesEvent  barnes;
 			char         pad[19];
 		} data;
 	};
@@ -218,7 +258,8 @@ namespace Measurements
 extern "C"
 {
 #endif
-	l4_uint64_t evbuf_get_time(void *eb, unsigned local);
+	void *evbuf_get_address(void);
+	l4_uint64_t evbuf_get_time(void *eb, unsigned is_local);
 	struct GenericEvent* evbuf_next(void *eb);
 #ifdef __cplusplus
 }

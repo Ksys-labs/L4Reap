@@ -112,7 +112,7 @@ struct GateAgent
 	GateAgent(unsigned cap_idx, Romain::Thread_group *tg)
 		: owner_group(tg), current_client(0)
 	{
-		DEBUG() << "\033[31;1mGateAgent\033[0m";
+		DEBUG() << BOLD_RED << "GateAgent" << NOCOLOR;
 		sem_init(&init_sem, 0, 0);
 		
 		/*
@@ -174,7 +174,7 @@ struct Thread_group
 	Thread_group(std::string n, unsigned cap_idx, unsigned u)
 		: threads(), name(n), uid(u), stopped(true)
 	{
-		DEBUG() << "\033[31;1mThread_group\033[0m " << std::hex << cap_idx;
+		DEBUG() << BOLD_RED << "Thread_group " << NOCOLOR << std::hex << cap_idx;
 
 		gateagent = new GateAgent(cap_idx, this);
 
@@ -217,6 +217,16 @@ struct Thread_group
 	void add_replica(App_thread *a)
 	{
 		threads.push_back(a);
+	}
+
+
+	/* Halt all threads by setting their prio to 0 */
+	void halt()
+	{
+		INFO() << "Halting TG '" << name << "'";
+		for (auto it = threads.begin(); it != threads.end(); ++it) {
+			(*it)->halt();
+		}
 	}
 
 

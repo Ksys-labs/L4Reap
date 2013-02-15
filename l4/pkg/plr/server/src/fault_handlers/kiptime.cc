@@ -1,6 +1,8 @@
 /*
  * kiptime.cc --
  *
+ *   Intercept and emulate accesses to Fiasco's KIP->clock field.
+ *
  * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
  *     economic rights: Technische Universität Dresden (Germany)
  * This file is part of TUD:OS and distributed under the terms of the
@@ -16,7 +18,9 @@
 #include "observers.h"
 
 #include <vector>
-#include <stdlib.h>
+#include <cstdlib>
+#include <cstring>
+#include <l4/libc_backends/clk.h>
 
 namespace Romain {
 class KipTimeObserver_priv : public KIPTimeObserver
@@ -24,30 +28,14 @@ class KipTimeObserver_priv : public KIPTimeObserver
 	private:
 		std::vector<Breakpoint*> _breakpoints;
 
-		void read_target_list(char *list)
+		void configureBreakpoint(char *str)
 		{
-			char *end = list + strlen(list); // end of list
-			char *c = list;                  // iterator
-
-			while (c < end) {
-				char *c2 = c;
-
-				/* find next separator or end char */
-				while ((*c2 != ',') && (c2 < end)) ++c2;
-
-				*c2 = 0;
-
-				/* convert the address found */
-				errno = 0;
-				l4_addr_t a = strtol(c, NULL, 16); // XXX check return
-				if (errno) {
-					ERROR() << "Conversion error.";
-				} else {
-					_breakpoints.push_back(new Breakpoint(a));
-				}
-
-				c = c2+1;
-			}
+			l4_addr_t a = strtol(str, NULL, 16); // XXX check return
+			if (errno) {
+				ERROR() << "Conversion error.";
+			} else {
+				_breakpoints.push_back(new Breakpoint(a));
+			}			
 		}
 
 	DECLARE_OBSERVER("kip time");
@@ -62,11 +50,27 @@ Romain::KIPTimeObserver* Romain::KIPTimeObserver::Create()
 
 Romain::KipTimeObserver_priv::KipTimeObserver_priv()
 {
-	char *list = strdup(ConfigStringValue("kip-time:target", "none"));
-	if (list) {
-		read_target_list(list);
+	char *rtget = strdup(ConfigStringValue("kip-time:libc_backend_rt_clock_gettime", NULL));
+	if (rtget) {
+		INFO() << "BP @ " << rtget;
+		configureBreakpoint(rtget);
+	} else {
+		ERROR() << "No set address for libc_backend_rt_clock_gettime()";
+		enter_kdebug("??");
 	}
-	free(list);
+
+	char *monoget = strdup(ConfigStringValue("kip-time:mono_clock_gettime", NULL));
+	if (monoget) {
+		INFO() << "BP @ " << monoget;
+		configureBreakpoint(monoget);
+	} else {
+		ERROR() << "No set address for mono_clock_gettime()";
+		enter_kdebug("??");
+	}
+
+	free(monoget);
+	free(rtget);
+	enter_kdebug("kiptime");
 }
 
 
@@ -80,8 +84,7 @@ void Romain::KipTimeObserver_priv::startup_notify(Romain::App_instance *inst,
                                                   Romain::Thread_group *,
                                                   Romain::App_model *am)
 {
-	for (std::vector<Breakpoint*>::iterator i = _breakpoints.begin();
-		 i != _breakpoints.end(); ++i) {
+	for (auto i = _breakpoints.begin(); i != _breakpoints.end(); ++i) {
 		DEBUG() << std::hex << (*i)->address();
 		(*i)->activate(inst, am);
 	}
@@ -97,14 +100,35 @@ Romain::KipTimeObserver_priv::notify(Romain::App_instance *i,
 		!entry_reason_is_int1(t->vcpu()))
 		return Romain::Observer::Ignored;
 
-	for (std::vector<Breakpoint*>::const_iterator it = _breakpoints.begin();
-		 it != _breakpoints.end(); ++it) {
+	for (auto it = _breakpoints.begin(); it != _breakpoints.end(); ++it) {
 		if ((*it)->was_hit(t)) {
-			l4_cpu_time_t time = l4re_kip()->clock;
+			INFO() << "BP @ " << std::hex << (*it)->address() << " was hit.";
+			INFO() << "stack ptr 0x" << std::hex << t->vcpu()->r()->sp;
 
-			t->vcpu()->r()->si = time & 0xFFFFFFFF;
-			t->vcpu()->r()->di = (time >> 32) & 0xFFFFFFFF;
-			t->vcpu()->r()->ip += 11;
+			l4_addr_t stack      = am->rm()->remote_to_local(t->vcpu()->r()->sp, i->id());
+			l4_addr_t ret        = *(l4_addr_t*)stack;
+			l4_addr_t specptr    = *(l4_addr_t*)(stack + 1 * sizeof(l4_addr_t));
+			l4_addr_t spec_local = am->rm()->remote_to_local(specptr, i->id());
+			INFO() << "Retaddr " << std::hex << ret << ", ptr " << specptr;
+
+			int rv = libc_backend_rt_clock_gettime((struct timespec*)(spec_local));
+			t->vcpu()->r()->ax   = rv;
+
+			/* We wrote data directly into the replica's address space. Now
+			   we need to make sure the other replicas see the same value.
+			 */
+			for (unsigned rep = 0; rep < Romain::_the_instance_manager->instance_count();
+				 ++rep) {
+
+				if (rep == i->id())
+					continue;
+
+				l4_addr_t specptr_rep = am->rm()->remote_to_local(specptr, rep);
+				INFO() << "memcpy " << std::hex << specptr_rep << " <- " << spec_local;
+				memcpy((void*)specptr_rep, (void*)spec_local, sizeof(struct timespec));
+			}
+
+			t->return_to(ret);
 
 			return Romain::Observer::Replicatable;
 		}

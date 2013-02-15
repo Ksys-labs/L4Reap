@@ -15,8 +15,8 @@
 #include "../app_loading"
 #include "observers.h"
 
-char const * const Romain::TrapObserver::jdb_out_prefix = "\033[32;1m";
-char const * const Romain::TrapObserver::jdb_out_suffix = "\033[0m";
+char const * const Romain::TrapObserver::jdb_out_prefix = BOLD_GREEN;
+char const * const Romain::TrapObserver::jdb_out_suffix = NOCOLOR;
 
 DEFINE_EMPTY_STARTUP(TrapObserver)
 

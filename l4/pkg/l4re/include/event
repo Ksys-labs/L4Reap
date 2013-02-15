@@ -168,6 +168,13 @@ public:
 
   Event_buffer_t() : _current(0), _begin(0), _end(0) {}
 
+  void reset()
+  {
+    for (Event *i = _begin; i != _end; ++i)
+      i->time = 0;
+    _current = _begin;
+  }
+
   /**
    * \brief Initialize event buffer.
    *
@@ -177,7 +184,7 @@ public:
   Event_buffer_t(void *buffer, l4_addr_t size)
     : _current((Event*)buffer), _begin(_current),
       _end(_begin + size / sizeof(Event))
-  {}
+  { reset(); }
 
   /**
    * \brief Next event in buffer.

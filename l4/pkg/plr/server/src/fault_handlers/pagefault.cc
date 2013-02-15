@@ -70,7 +70,7 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 	ev->data.pf.localbase  = 0;
 	ev->data.pf.remotebase = 0;
 
-	MSGt(t) << (write_pf ? "\033[31mwrite\033[0m" : "\033[34;1mread\033[0m")
+	MSGt(t) << (write_pf ? RED "rite" NOCOLOR : BOLD_BLUE "read" NOCOLOR)
 	      << " page fault @ 0x" << std::hex << pfa;
 
 	Romain::Region_map::Base::Node n = a->rm()->find(pfa);
@@ -118,6 +118,7 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 			unsigned pageflags           = n->second.is_ro() ? L4_FPAGE_RO : L4_FPAGE_RW;
 			unsigned map_size            = L4_PAGESIZE;
 			unsigned size_left_in_region = n->first.end() - (n->first.start() + offset_in_region);
+			(void)size_left_in_region;
 
 #if 0
 #define MAX_MAP_SHIFT 0

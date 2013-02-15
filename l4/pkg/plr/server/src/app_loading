@@ -177,10 +177,10 @@ class App_model : public Ldr::Base_app_model<Romain::App_stack>
 		 ****************************************************************************/
 
 	private:
-		Const_dataspace  _binary_ds;
-		Romain::Region_map *_rm;
-		unsigned         _argc;
-		char const     **_argv;
+		Const_dataspace  _binary_ds;       // dataspace containing the original ELF binary
+		Romain::Region_map *_rm;           // our region map
+		unsigned         _argc;            // app argc
+		char const     **_argv;            // app argv
 		char const     *_remote_argv[32];  // XXX
 		Dataspace        _utcb_area;       // XXX: this is per thread!
 
@@ -217,7 +217,7 @@ class App_model : public Ldr::Base_app_model<Romain::App_stack>
 		}
 
 		Const_dataspace binary()      const { return _binary_ds; }
-		Romain::Region_map *rm()         const { return _rm; }
+		Romain::Region_map *rm()      const { return _rm; }
 		Dataspace utcb_area()         const { return _utcb_area; }
 
 		/*

@@ -46,6 +46,7 @@ void Romain::Emulator_base::init_ud()
 	ud_set_input_buffer(&_ud, (unsigned char*)_local_ip, 32);
 
 	int num_bytes = ud_disassemble(&_ud);
+	(void)num_bytes;
 #if 0
 	MSG() << "print_instruction "
 	                          << num_bytes << " byte"

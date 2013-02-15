@@ -45,6 +45,7 @@ namespace Romain
 		private:
 			Romain::App_model *_am;
 			std::vector<Romain::App_instance *> _instances; // instance list
+			std::vector<Romain::Thread_group *> _threadgroups; // list of thread groups
 
 			Romain::Observer *_observer_list[Romain::MAX_OBSERVERS];  // exception observer list
 			//Romain::RedundancyCallback *_callback;                 // the callback for redundancy checking
@@ -202,6 +203,15 @@ namespace Romain
 			Measurements::EventBuf* logbuf() { return _logBuf; }
 			void logdump();
 
+			void show_stats()
+			{
+				for (auto it = _threadgroups.begin(); it != _threadgroups.end(); ++it) {
+					(*it)->halt();
+				}
+				query_observer_status();
+				logdump();
+			}
+
 			static void VCPU_handler(Romain::InstanceManager *m, Romain::App_instance *i, Romain::App_thread *t, Romain::Thread_group* tg, Romain::App_model *a);
 			static void VCPU_startup(Romain::InstanceManager *m, Romain::App_instance *i, Romain::App_thread *t, Romain::Thread_group* tg, Romain::App_model *a);
 
@@ -212,4 +222,6 @@ namespace Romain
 			 */
 			void configure();
 	};
+
+	extern Romain::InstanceManager* _the_instance_manager;
 }

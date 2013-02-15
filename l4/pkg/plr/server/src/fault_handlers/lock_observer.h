@@ -161,8 +161,8 @@ namespace Romain
 		void do_patch(Romain::App_model *am)
 		{
 #if INTERNAL_DETERMINISM
-			DEBUG() << "=============== Patching \033[35m" << lockID_to_str(function_id)
-			        << "\033[0m ===============";
+			DEBUG() << "=============== Patching " << PURPLE << lockID_to_str(function_id)
+			        << NOCOLOR << " ===============";
 
 			lock_info* lockinfo = reinterpret_cast<lock_info*>(am->lockinfo_local());
 			if (wrapper_address == ~0)

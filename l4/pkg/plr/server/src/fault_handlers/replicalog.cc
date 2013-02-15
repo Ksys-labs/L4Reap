@@ -17,15 +17,48 @@
 #include "../configuration"
 #include "../memory"
 #include "../manager"
+#include "../log"
 
 #include <l4/plr/uu.h>
+#include <l4/plr/measurements.h>
 
 namespace Romain {
 	extern InstanceManager *_the_instance_manager;
 }
 
-Romain::ReplicaLogObserver::ReplicaLogObserver()
+
+void *to_thread(void *arg)
 {
+	Romain::ReplicaLogObserver *o = reinterpret_cast<Romain::ReplicaLogObserver *>(arg);
+	INFO() << "Waiting for " << o->timeout() << " seconds.";
+	sleep(o->timeout());
+
+	if (o->want_cancel())
+		return NULL;
+
+	Measurements::GenericEvent* ev = Romain::_the_instance_manager->logbuf()->next();
+	ev->header.tsc                 = Romain::_the_instance_manager->logbuf()->getTime(Romain::Log::logLocalTSC);
+	ev->header.vcpu                = (l4_uint32_t)0xDEADBEEF;
+	ev->header.type                = Measurements::Thread_stop;
+
+	Romain::_the_instance_manager->show_stats();
+
+	INFO() << "abort";
+
+	enter_kdebug("abort after logdump");
+
+	return NULL;
+}
+
+
+Romain::ReplicaLogObserver::ReplicaLogObserver()
+	: _cancel(false)
+{
+	_timeout = ConfigIntValue("general:logtimeout");
+	if (_timeout > 0) {
+		int err = pthread_create(&_to_thread, NULL, to_thread, this);
+		_check(err != 0, "error creating timeout thread");
+	}
 	for (unsigned i = 0; i < Romain::MAX_REPLICAS; ++i) {
 		buffers[i].local_addr = 0;
 	}
@@ -121,6 +154,9 @@ Romain::ReplicaLogObserver::notify(Romain::App_instance *i,
 void
 Romain::ReplicaLogObserver::dump_eventlog(unsigned id) const
 {
+	// prevent a potential timeout thread from dumping in parallel
+	const_cast<Romain::ReplicaLogObserver*>(this)->_cancel = true;
+
 	INFO() << "Dumping ... " << id;
 
 	Measurements::EventBuf *buf = reinterpret_cast<Measurements::EventBuf*>(buffers[id].local_addr);
@@ -147,7 +183,7 @@ Romain::ReplicaLogObserver::dump_eventlog(unsigned id) const
 	/* buf addr is relocated in replica AS -> need to retransform */
 	char *bufaddr = ((l4_addr_t)buf->buffer - Romain::REPLICA_LOG_ADDRESS) + (char*)buf;
 
-	INFO() << "file: " << filename << " start " << dump_start << " size " << dump_size;
+	INFO() << "file: " << filename << " start " << std::hex << dump_start << " size " << dump_size;
 	uu_dumpz_ringbuffer(filename, bufaddr,
 	                    buf->size * sizeof(Measurements::GenericEvent),
 	                    dump_start, dump_size);

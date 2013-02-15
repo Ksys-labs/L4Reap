@@ -1,5 +1,11 @@
 #include <l4/plr/measurements.h>
 
+extern "C" void*
+evbuf_get_address()
+{
+	return (void*)0xB0000000;
+}
+
 extern "C" l4_uint64_t evbuf_get_time(void *eb, unsigned local)
 {
 	return reinterpret_cast<Measurements::EventBuf*>(eb)->getTime(local == 1);

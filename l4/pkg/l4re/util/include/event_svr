@@ -68,6 +68,7 @@ Event_svr<SVR>::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
   switch (op)
     {
     case L4Re::Event_::Get:
+      static_cast<SVR*>(this)->reset_event_buffer();
       ios << _ds;
       return L4_EOK;
     case L4Re::Event_::Get_num_streams:

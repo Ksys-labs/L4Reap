@@ -24,6 +24,8 @@ public:
   virtual void setup(unsigned pin, unsigned mode, int value = 0) = 0;
   virtual void config_pad(unsigned pin, unsigned pinmask,
                           unsigned func, unsigned value) = 0;
+  virtual void config_get(unsigned pin, unsigned pinmask,
+                          unsigned func, unsigned *value) = 0;
 
   virtual int get(unsigned pin) = 0;
   virtual void set(unsigned pin, int value) = 0;

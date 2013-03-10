@@ -1,5 +1,6 @@
 #pragma once
 
+#include <l4/sys/types.h>
 #include <l4/util/atomic.h>
 
 struct spinlock

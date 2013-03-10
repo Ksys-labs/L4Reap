@@ -1,3 +1,14 @@
+/*
+ * eventbuf/main.cc --
+ *
+ * Test for the shared-memory event buffer
+ *
+ * (c) 2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ *     economic rights: Technische Universität Dresden (Germany)
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>

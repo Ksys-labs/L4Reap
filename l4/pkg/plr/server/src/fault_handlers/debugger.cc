@@ -40,7 +40,6 @@ void Romain::SimpleDebugObserver::startup_notify(Romain::App_instance *i,
 		_bp->activate(i, am);
 		DEBUG() << "Activated breakpoint in instance " << i->id()
 				<< " @ address " << std::hex << _bp->address();
-		enter_kdebug();
 	}
 }
 
@@ -60,7 +59,7 @@ Romain::SimpleDebugObserver::notify(Romain::App_instance *i,
 			++_int1_seen;
 			t->vcpu()->print_state();
 			INFO() << "INT1 seen: " << _int1_seen;
-			enter_kdebug("single step exception");
+			//enter_kdebug("single step exception");
 			break;
 		case 3:
 			DEBUG() << "INT3 @ " << std::hex << t->vcpu()->r()->ip

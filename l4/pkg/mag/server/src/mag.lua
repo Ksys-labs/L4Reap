@@ -620,7 +620,7 @@ end
 --  Generic pointer device handling.
 --
 --  Handles absolute and relative motion events and the buttons
---  corresponding to a pointer device, suahc as a mouse.
+--  corresponding to a pointer device, such as a mouse.
 -- ----------------------------------------------------------------------
 Input_device.Devs.pointer = {};
 

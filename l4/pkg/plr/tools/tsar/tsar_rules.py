@@ -43,6 +43,22 @@ class Condition:
             return "Cond(%s == 0x%x)" % (self.attrib, self.value)
 
 
+class Action:
+    """Represents a modification action"""
+    def __init__(self, act):
+        (self.dest, val) = act.split(":")
+        self.deststring = (val[0] == "\"")
+        if self.deststring:
+            self.destval = val[1:-1]
+        else:
+            self.destval = int(val, 0)
+
+    def action(self, obj):
+        """Perform the write action"""
+        #print "Rewriting: %s -> %s" % (self.dest, self.destval)
+        setattr(obj, self.dest, self.destval)
+
+
 class ProcessorRule:
     """Representation of a single rewrite rule.
 
@@ -57,17 +73,14 @@ class ProcessorRule:
     """
     def __init__(self, _input):
         self.conditions = []
+        self.actions = []
         #print _input
         #print "Conditions: "
         for cond in _input[0].split(","):
             self.conditions += [Condition(cond)]
 
-        (self.dest, val) = _input[1].split(":")
-        self.deststring = (val[0] == "\"")
-        if self.deststring:
-            self.destval = val[1:-1]
-        else:
-            self.destval = int(val, 0)
+        for act in _input[1].split(","):
+            self.actions += [Action(act)]
 
     def apply(self, event):
         """Apply the rewrite rule to a given event object.
@@ -76,14 +89,14 @@ class ProcessorRule:
         the event's target attribute is rewritten.
         """
         for c in self.conditions:
-            #print event
-            #print c
+            #print event, c
             if not c.apply(event):
                 #print "Cond did not hold"
                 return
 
         #print "Rewriting: %s -> %s" % (self.dest, self.destval)
-        setattr(event, self.dest, self.destval)
+        for act in self.actions:
+            act.action(event)
 
 
 class EventPreprocessor:
@@ -116,6 +129,8 @@ class EventPreprocessor:
             else:
                 self.rulefile = file(envrule, "r")
         except IOError:
+            self.rulefile = None
+        except TypeError:
             self.rulefile = None
 
     def parseRules(self):

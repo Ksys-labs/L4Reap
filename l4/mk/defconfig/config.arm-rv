@@ -31,6 +31,7 @@ CONFIG_CPU_ARM_ARMV5TE=y
 # CONFIG_PLATFORM_TYPE_omap3_am33xx is not set
 # CONFIG_PLATFORM_TYPE_omap3evm is not set
 # CONFIG_PLATFORM_TYPE_pandaboard is not set
+# CONFIG_PLATFORM_TYPE_rpi_a is not set
 # CONFIG_PLATFORM_TYPE_rpi_b is not set
 CONFIG_PLATFORM_TYPE_rv=y
 # CONFIG_PLATFORM_TYPE_rv_pbx is not set

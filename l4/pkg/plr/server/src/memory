@@ -27,6 +27,7 @@
 #include <l4/re/util/cap_alloc>
 #include <l4/re/util/region_mapping>
 #include <l4/re/util/dataspace_svr>
+#include <l4/util/bitops.h>
 
 #include <l4/sys/kdebug.h>
 
@@ -145,21 +146,23 @@ namespace Romain
 			};
 
 		private:
-			l4_cap_idx_t             _cap; // capability of the underlying dataspace
+			l4_cap_idx_t             _cap;       // capability of the underlying dataspace
 			Romain::Region            _local_regions[Romain::MAX_REPLICAS]; // replicated regions (writable regions exist in
 				                                                            // multiple instances)
-			l4_addr_t                _offs; // offset in DS
+			l4_addr_t                _offs;      // offset in DS
 			DS                       _mem[Romain::MAX_REPLICAS]; // DS capabilities of underlying dataspaces
-			unsigned char            _flags; // region flags
-			RegionWritableType       _row; // rw state
-			bool                     _shared; // is DS shared across all replicas (true for internal determinism's lock info page)
+			unsigned char            _flags;     // region flags
+			RegionWritableType       _row;       // rw state
+			bool                     _shared;    // is DS shared across all replicas
+			                                     // (true for internal determinism's lock info page)
+			l4_umword_t              _alignment; // alignment of this DS within master
 
 		public:
 
 			Region_handler_template()
 				: _cap(L4_INVALID_CAP),  _offs(0), _flags(),
 			      _row(Romain::Region_handler_template<DS, OPS>::Read_only),
-			      _shared(false)
+			      _shared(false), _alignment(L4_PAGESHIFT)
 			{}
 
 
@@ -168,7 +171,8 @@ namespace Romain
 				  _offs(o.offset()),
 				  _flags(o.flags()),
 				  _row(o.writable()),
-				  _shared(o.shared())
+				  _shared(o.shared()),
+				  _alignment(o.alignment())
 			{
 				for (unsigned i = 0; i < o.local_region_count(); ++i) {
 					_local_regions[i] = o.local_region(i);
@@ -178,7 +182,7 @@ namespace Romain
 
 			Region_handler_template(DSCAP cap, l4_cap_idx_t client_cap = L4_INVALID_CAP, l4_addr_t offset = 0,
 			                        unsigned flags = 0, Romain::Region local_reg = Romain::Region(0,0))
-				: _cap(client_cap), _offs(offset), _flags(flags), _shared(false)
+				: _cap(client_cap), _offs(offset), _flags(flags), _shared(false), _alignment(L4_PAGESHIFT)
 			{
 				_local_regions[0] = local_reg;
 				_mem[0]           = cap;
@@ -225,6 +229,31 @@ namespace Romain
 
 			bool         shared() const throw()                 { return _shared; }
 			void         shared(bool yn) { _shared = yn; }
+			l4_umword_t  alignment() const throw()				{ return _alignment; }
+
+			/* Compute the target alignment for attaching locally.
+			 *
+			 * This alignment is necessary to make sure that a large region
+			 * is attached to matching addresses in the replica and master
+			 * address spaces. Only then can we map memory in chunks of more
+			 * than one page a time when resolving page faults.
+			 */
+			void alignToAddressAndSize(l4_addr_t address, l4_size_t size)
+			{
+				_alignment = l4util_bsf(address);
+				DEBUG() << std::hex << address << " --> target alignment: "
+				        << _alignment;
+				if (_alignment > L4_SUPERPAGESHIFT) {
+					_alignment = L4_SUPERPAGESHIFT;
+				}
+				DEBUG() << std::hex << address << " --> [max: super page] alignment: "
+				        << _alignment;
+				if (_alignment > l4util_bsr(size)) {
+					_alignment = l4util_bsr(size);
+				}
+				DEBUG() << std::hex << address << " --> [max: size " << size
+				        << "] alignment: " << _alignment;
+			}
 
 			void         take() const                           { Ops::take(this); }
 			void         release() const                        { Ops::release(this); }
@@ -266,6 +295,13 @@ namespace Romain
 	};
 
 
+	/* Note to self: L4Re's Region_map is a cxx::avl_map<> that maps from a Region key to
+	 * Region_handler data. It can be indexed using the find() funtion that takes an l4_addr_t
+	 * and returns the respective tree node. The node's entries are:
+	 *
+	 *   node->first  -> the Region object
+	 *   node->second -> the Region_handler object
+	 */
 	class Region_map
 		: public L4Re::Util::Region_map<Romain::Region_handler,
 		                                Romain::Allocator>
@@ -314,7 +350,7 @@ namespace Romain
 				L4::Cap<L4Re::Dataspace> mem;
 				unsigned long size = r.local_region(orig_id).size();
 
-				l4_addr_t a = Romain::Region_map::allocate_and_attach(&mem, size);
+				l4_addr_t a = Romain::Region_map::allocate_and_attach(&mem, size, 0, r.alignment());
 				_check(a == 0, "DS allocation failed");
 
 				memcpy((void*)a, (void*)r.local_region(orig_id).start(), size);

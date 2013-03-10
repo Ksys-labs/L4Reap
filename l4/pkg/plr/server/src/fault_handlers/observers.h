@@ -75,6 +75,10 @@ namespace Romain
 		private:
 		bool _readonly;
 
+		l4_umword_t fit_alignment(Romain::Region const * local,
+		                          L4Re::Util::Region const * remote,
+		                          l4_umword_t offset, Romain::App_thread *t);
+
 		DECLARE_OBSERVER("pf");
 		PageFaultObserver();
 

@@ -53,7 +53,8 @@ L4_INLINE l4_umword_t count_online_cpus()
 Romain::InstanceManager::InstanceManager(unsigned int argc,
                                          char const **argv,
                                          unsigned num_instances)
-	: _am(0),
+	: LogicalCPUMap(),
+	  _am(0),
 	  _instances(),
 	  _threadgroups(),
 	  _num_observers(0),
@@ -139,8 +140,10 @@ void Romain::InstanceManager::configure_fault_observers()
 	 * First, register those observers that don't interfere
 	 * with anyone else and get notified all the time.
 	 */
+	DEBUG() << "[observer] vcpu state.";
 	BoolObserverConfig("general:print_vcpu_state",
 	                   this, "vcpu_state");
+	DEBUG() << "[observer] trap limit.";
 	ObserverConfig(this, "trap_limit");
 
 	/*
@@ -148,14 +151,22 @@ void Romain::InstanceManager::configure_fault_observers()
 	 * calls they are expected to see, so that we minimize
 	 * the amount of unnecessary observer callbacks.
 	 */
+	DEBUG() << "[observer] page faults.";
 	ObserverConfig(this, "pagefaults");
+	DEBUG() << "[observer] syscalls.";
 	ObserverConfig(this, "syscalls");
+	DEBUG() << "[observer] threads.";
 	BoolObserverConfig("general:threads", this, "threads");
+	DEBUG() << "[observer] trap.";
 	ObserverConfig(this, "trap");
 
+	DEBUG() << "[observer] simpledbg.";
 	StringObserverConfig("general:debug", this);
+	DEBUG() << "[observer] intercept-kip.";
 	BoolObserverConfig("general:intercept_kip", this, "kip-time");
+	DEBUG() << "[observer] swifi.";
 	BoolObserverConfig("general:swifi", this, "swifi");
+	DEBUG() << "[observer] logreplica.";
 	BoolObserverConfig("general:logreplica", this, "replicalog");
 }
 
@@ -453,22 +464,34 @@ Romain::InstanceManager::create_thread(l4_umword_t eip, l4_umword_t esp,
 		if (_num_cpu > 1) {
 			INFO() << instance_id << " " << (instance_id+1) % _num_cpu << " " << _num_cpu;
 			
+			unsigned logCPU = 1;
+
 			/* XXX REPLICAS PER CPU XXX */
-			at->cpu(group->uid % _num_cpu);
+			//logCPU = logicalToCPU(group->uid % _num_cpu);
 
 			/* XXX INSTANCES PER CPU XXX */
-			//at->cpu((instance_id + 1) % _num_cpu);
+			//logCPU = logicalToCPU((instance_id + 1) % _num_cpu);
 
 			/* XXX OVERLAPPING REPLICAS XXX */
-			//at->cpu((group->uid + instance_id) % _num_cpu);
+			//logCPU = logicalToCPU((group->uid + instance_id) % _num_cpu);
 
 			/* XXX RANDOM PLACEMENT XXX */
-			//at->cpu(random() % _num_cpu);
+			//logCPU = logicalToCPU(random() % _num_cpu);
 			
 			/* XXX Threads assigned RR to CPUs */
-			//static int threadcount = 1;
-			//at->cpu(threadcount % _num_cpu);
+			static int threadcount = 0;
+			logCPU = logicalToCPU(threadcount % _num_cpu);
+			threadcount++;
+
+			/* XXX The hard-coded placement map */
+			//int cpumap[12] = {0, 1, 2,
+			//                  0, 0, 0,
+			//                  3, 4, 5,
+			//                  0, 0, 0};
+			//logCPU = logicalToCPU(cpumap[threadcount]);
 			//threadcount++;
+
+			at->cpu(logCPU);
 		} else {
 			at->cpu(0);
 		}

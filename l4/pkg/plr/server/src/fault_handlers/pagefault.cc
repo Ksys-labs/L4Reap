@@ -41,8 +41,51 @@ DEFINE_EMPTY_STARTUP(PageFaultObserver)
 
 void Romain::PageFaultObserver::status() const
 {
-	INFO() << "Page faults so far: mapped " << pf_mapped << " write emu "
+	INFO() << "[ pf ] Page faults so far: mapped " << pf_mapped << " write emu "
 	       << pf_write << " kip " << pf_kip;
+}
+
+
+/*
+ * Prepare for a mapping by finding the largest possible alignment to map a
+ * flexpage that contains the address at (start + offset) from master to replica.
+ */
+l4_umword_t Romain::PageFaultObserver::fit_alignment(Romain::Region const* local,
+													 L4Re::Util::Region const * remote,
+								  					 l4_umword_t offset,
+								  					 Romain::App_thread *t)
+{
+	MSGt(t) << "offs in region: " << std::hex << offset;
+	
+	l4_addr_t localbase  = local->start() + offset;
+	l4_addr_t remotebase = remote->start() + offset;
+	MSGt(t) << std::hex << localbase  << "("  << l4util_bsf(localbase) << ") <-> "
+	        << remotebase << "(" << l4util_bsf(remotebase) << ")";
+
+	/*
+	 * The maximum possible alignment is the minimum of the zero bits in both
+	 * addresses.
+	 */
+	l4_umword_t align = std::min(l4util_bsf(localbase), l4util_bsf(remotebase));
+
+	/*
+	 * The maximum alignment might lead to a mapping that is larger than the
+	 * region itself. Therefore we shrink the mapping until it fits the region.
+	 */
+	for (; align > 12; --align) {
+		l4_umword_t mask    = (1 << align) - 1;
+		l4_addr_t newlocal  = localbase - (localbase & mask);
+
+		if ((newlocal >= local->start()) and
+			(newlocal + (1<<align) - 1 <= local->end())) {
+			break;
+		}
+	}
+
+	return align;
+
+	/* XXX: Use this if you want to test the single-page-mapping version. */
+	//return L4_PAGESHIFT;
 }
 
 Romain::Observer::ObserverReturnVal
@@ -70,7 +113,7 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 	ev->data.pf.localbase  = 0;
 	ev->data.pf.remotebase = 0;
 
-	MSGt(t) << (write_pf ? RED "rite" NOCOLOR : BOLD_BLUE "read" NOCOLOR)
+	MSGt(t) << (write_pf ? RED "write" NOCOLOR : BOLD_BLUE "read" NOCOLOR)
 	      << " page fault @ 0x" << std::hex << pfa;
 
 	Romain::Region_map::Base::Node n = a->rm()->find(pfa);
@@ -110,30 +153,38 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 		} else {
 			++pf_mapped;
 
-			l4_addr_t offset_in_region = l4_trunc_page(pfa - n->first.start());
-			MSGt(t) << "offs in region: " << std::hex << offset_in_region;
+			Romain::Region_handler const * rh   = &n->second;
+			Romain::Region const * localregion  = &rh->local_region(i->id());
+			L4Re::Util::Region const * remote   = &n->first;
+
+			/*
+			 * We try to map the largest possible flexpage to reduce the
+			 * total number of mappings.
+			 */
+			l4_addr_t offset_in_region = l4_trunc_page(pfa - remote->start());
+			l4_umword_t align = fit_alignment(localregion, remote, offset_in_region, t);
+			MSGt(t) << "fitting align " << align;
+
+			/* Calculate the map base addresses for the given alignment */
+			l4_addr_t localbase = localregion->start() + offset_in_region;
+			localbase  = localbase  - (localbase  & ((1 << align) - 1));
+
+			l4_addr_t remotebase = remote->start() + offset_in_region;
+			remotebase = remotebase - (remotebase & ((1 << align) - 1));
+
+			MSGt(t) << std::hex << "map: " << localbase << " -> "
+			        << remotebase << " size " << (1 << align);
+
+			//enter_kdebug("pf");
 			
 			// set flags properly, only check ro(), because else we'd already ended
 			// up in the emulation branch above
-			unsigned pageflags           = n->second.is_ro() ? L4_FPAGE_RO : L4_FPAGE_RW;
-			unsigned map_size            = L4_PAGESIZE;
-			unsigned size_left_in_region = n->first.end() - (n->first.start() + offset_in_region);
-			(void)size_left_in_region;
+			unsigned pageflags           = rh->is_ro() ? L4_FPAGE_RO : L4_FPAGE_RW;
 
-#if 0
-#define MAX_MAP_SHIFT 0
-			for (unsigned x = 1; x < MAX_MAP_SHIFT; ++x) {
-				if (size_left_in_region >= (1 << (L4_PAGESHIFT + x)))
-					map_size *= 2;
-			}
-#undef MAX_MAP_SHIFT
-#endif
-			ev->data.pf.localbase  = n->second.local_region(i->id()).start() + offset_in_region;
-			ev->data.pf.remotebase = n->first.start() + offset_in_region;
+			ev->data.pf.localbase  = localregion->start() + offset_in_region;
+			ev->data.pf.remotebase = remote->start() + offset_in_region;
 
-			i->map(n->second.local_region(i->id()).start() + offset_in_region, // local addr
-				   n->first.start() + offset_in_region,                        // remote addr
-				   pageflags, map_size);
+			i->map_aligned(localbase, remotebase, align, pageflags);
 		}
 
 	} else if ((a->prog_info()->kip <= pfa) && (pfa < a->prog_info()->kip + L4_PAGESIZE)) {

@@ -27,12 +27,14 @@ class KipTimeObserver_priv : public KIPTimeObserver
 {
 	private:
 		std::vector<Breakpoint*> _breakpoints;
+		unsigned                 _hitcount;
 
 		void configureBreakpoint(char *str)
 		{
+			errno = 0;
 			l4_addr_t a = strtol(str, NULL, 16); // XXX check return
 			if (errno) {
-				ERROR() << "Conversion error.";
+				ERROR() << "Conversion error: " << errno << std::hex << " (" << a << ")";
 			} else {
 				_breakpoints.push_back(new Breakpoint(a));
 			}			
@@ -49,32 +51,36 @@ Romain::KIPTimeObserver* Romain::KIPTimeObserver::Create()
 }
 
 Romain::KipTimeObserver_priv::KipTimeObserver_priv()
+  : _hitcount(0)
 {
-	char *rtget = strdup(ConfigStringValue("kip-time:libc_backend_rt_clock_gettime", NULL));
-	if (rtget) {
+	char *rtget = strdup(ConfigStringValue("kip-time:libc_backend_rt_clock_gettime", ""));
+	if (strlen(rtget) != 0) {
 		INFO() << "BP @ " << rtget;
 		configureBreakpoint(rtget);
 	} else {
 		ERROR() << "No set address for libc_backend_rt_clock_gettime()";
-		enter_kdebug("??");
+		//enter_kdebug("??");
 	}
 
-	char *monoget = strdup(ConfigStringValue("kip-time:mono_clock_gettime", NULL));
-	if (monoget) {
+	char *monoget = strdup(ConfigStringValue("kip-time:mono_clock_gettime", ""));
+	if (strlen(monoget) != 0) {
 		INFO() << "BP @ " << monoget;
 		configureBreakpoint(monoget);
 	} else {
 		ERROR() << "No set address for mono_clock_gettime()";
-		enter_kdebug("??");
+		//enter_kdebug("??");
 	}
 
 	free(monoget);
 	free(rtget);
-	enter_kdebug("kiptime");
+	//enter_kdebug("kiptime");
 }
 
 
-void Romain::KipTimeObserver_priv::status() const { }
+void Romain::KipTimeObserver_priv::status() const
+{
+	INFO() << "[time] gettime() calls: " << _hitcount;
+}
 
 /*****************************************************************
  *                      Debugging stuff                          *
@@ -102,14 +108,15 @@ Romain::KipTimeObserver_priv::notify(Romain::App_instance *i,
 
 	for (auto it = _breakpoints.begin(); it != _breakpoints.end(); ++it) {
 		if ((*it)->was_hit(t)) {
-			INFO() << "BP @ " << std::hex << (*it)->address() << " was hit.";
-			INFO() << "stack ptr 0x" << std::hex << t->vcpu()->r()->sp;
+			++_hitcount;
+			DEBUG() << "BP @ " << std::hex << (*it)->address() << " was hit.";
+			DEBUG() << "stack ptr 0x" << std::hex << t->vcpu()->r()->sp;
 
 			l4_addr_t stack      = am->rm()->remote_to_local(t->vcpu()->r()->sp, i->id());
 			l4_addr_t ret        = *(l4_addr_t*)stack;
 			l4_addr_t specptr    = *(l4_addr_t*)(stack + 1 * sizeof(l4_addr_t));
 			l4_addr_t spec_local = am->rm()->remote_to_local(specptr, i->id());
-			INFO() << "Retaddr " << std::hex << ret << ", ptr " << specptr;
+			DEBUG() << "Retaddr " << std::hex << ret << ", ptr " << specptr;
 
 			int rv = libc_backend_rt_clock_gettime((struct timespec*)(spec_local));
 			t->vcpu()->r()->ax   = rv;
@@ -124,7 +131,7 @@ Romain::KipTimeObserver_priv::notify(Romain::App_instance *i,
 					continue;
 
 				l4_addr_t specptr_rep = am->rm()->remote_to_local(specptr, rep);
-				INFO() << "memcpy " << std::hex << specptr_rep << " <- " << spec_local;
+				//INFO() << "memcpy " << std::hex << specptr_rep << " <- " << spec_local;
 				memcpy((void*)specptr_rep, (void*)spec_local, sizeof(struct timespec));
 			}
 

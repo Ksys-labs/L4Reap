@@ -24,9 +24,11 @@
 #include "thread_group.h"
 //#include "app_loading"
 #include "fault_observers"
+#include "cpuid.h"
 
 #include <vector>
 #include <cstdio>
+#include <algorithm>
 
 #include "redundancy.h"
 #include <l4/plr/measurements.h>
@@ -38,16 +40,105 @@ EXTERN_C void *split_handler_fn(void*);
 namespace Romain
 {
 	/*
+	 * Map logical (=sequential) CPU numbers to the topology of the underlying
+	 * platform.
+	 *
+	 * Background: Fiasco.OC uses sequential CPU numbers to assign threads to CPUs. These
+	 *             numbers are assigned during bootup and their order depends on the order
+	 *             in which booted CPUs come up. This means, assigning two threads to CPUs
+	 *             0 and 1 can in one case mean that they are running on the same core in
+	 *             different hyperthreads, while in the next run, they run on the different
+	 *             physical CPUs (or even NUMA domains, if we had those).
+	 *
+	 *             The purpose of this map is to make the assignment less surprising, e.g.,
+	 *             for the same platform, assigning to two specific CPU IDs should always
+	 *             lead to the same performance.
+	 */
+	class LogicalCPUMap
+	{
+		protected:
+		std::vector<CPU_id> _fiasco_cpus;
+
+		static void* topology_scanner(void* data)
+		{
+			for (unsigned cpu = 0; cpu < CPUID::num_cpus(); ++cpu) {
+				Romain::LogicalCPUMap *m = reinterpret_cast<Romain::LogicalCPUMap*>(data);
+
+				L4::Cap<L4::Thread> thread(pthread_getl4cap(pthread_self()));
+				l4_sched_param_t sp = l4_sched_param(2);
+				sp.affinity = l4_sched_cpu_set(cpu, 0);
+				chksys(L4Re::Env::env()->scheduler()->run_thread(thread, sp));
+
+				m->_fiasco_cpus[cpu] = CPUID::current_apicid(cpu);
+			}
+			return 0;
+		}
+
+
+		void scan_topology()
+		{
+			/* Check if we can perform a topology query. */
+			if (CPUID::max_cpuid() < CPUID::TOPOLOGY) {
+				INFO() << "CPU does not provide topology information";
+				return;
+			}
+
+			pthread_t p;
+			int ret = pthread_create(&p, 0, Romain::LogicalCPUMap::topology_scanner, this);
+			_check(ret != 0, "error creating topology scanner");
+			ret = pthread_join(p, 0);
+			INFO() << "Topology scan completed.";
+		}
+
+
+		void print_map()
+		{
+			INFO() << "Virtual to Fiasco CPU map";
+
+			for (unsigned i = 0; i < CPUID::num_cpus(); ++i) {
+				INFO() << "virt# " << i << " fiasco# " << _fiasco_cpus[i].fiasco_id
+				       << " apic# " << std::hex << _fiasco_cpus[i].apic_id;
+			}
+		}
+
+		public:
+			LogicalCPUMap()
+				: _fiasco_cpus(MAX_CPUS)
+			{
+				/* Default: identity mapping if nothing else works */
+				for (unsigned i = 0; i < MAX_CPUS; ++i) {
+					_fiasco_cpus[i].fiasco_id = i;
+					_fiasco_cpus[i].apic_id   = i;
+				}
+
+				if (CPUID::have_cpuid()) {
+					scan_topology();
+					std::sort(_fiasco_cpus.begin(), _fiasco_cpus.end(), CPU_id::comp_apic);
+					print_map();
+				}
+
+				//enter_kdebug("cpu");
+
+			}
+
+			unsigned logicalToCPU(unsigned log)
+			{
+				INFO() << log << " -> " << _fiasco_cpus[log].fiasco_id;
+				return _fiasco_cpus[log].fiasco_id;
+			}
+	};
+
+	/*
 	 * Set up and keep track of the running instances
 	 */
-	class InstanceManager
+	class InstanceManager : public LogicalCPUMap
 	{
 		private:
 			Romain::App_model *_am;
-			std::vector<Romain::App_instance *> _instances; // instance list
+			std::vector<Romain::App_instance *> _instances;    // instance list
 			std::vector<Romain::Thread_group *> _threadgroups; // list of thread groups
 
-			Romain::Observer *_observer_list[Romain::MAX_OBSERVERS];  // exception observer list
+			Romain::Observer *_observer_list[Romain::MAX_OBSERVERS]; // exception observer list
 			//Romain::RedundancyCallback *_callback;                 // the callback for redundancy checking
 			unsigned _num_observers;
 			

@@ -82,6 +82,7 @@ my %modules =
                    fb/Makefile
                    fb/spectrum
                    misc/eb_leds
+                   misc/fortran-hello
                    misc/reboot
                    libs/inputtst
                    libs/libc_thread_safe
@@ -123,6 +124,7 @@ my %modules =
                    libcrypto
                    libevent
                    libgfxbitmap
+                   libgfortran
                    libgomp
                    libiniparser
                    libio

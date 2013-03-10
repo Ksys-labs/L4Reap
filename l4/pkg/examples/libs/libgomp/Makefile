@@ -2,6 +2,9 @@ PKGDIR          ?= ../..
 L4DIR           ?= $(PKGDIR)/../..
 
 DEPENDS_PKGS     = libgomp
+# missing sync_* functions in (my) sparc compiler
+SYSTEMS          = $(filter-out sparc-l4f,$(SYSTEMS_ABI))
+
 include $(L4DIR)/mk/Makeconf
 
 ifneq ($(SYSTEM),)
@@ -11,7 +14,7 @@ ifneq ($(SYSTEM),)
   ifeq ($(strip $(OMP_H_PATH)),include/omp.h)
     $(info [32m $(CC) does not have omp.h header file available, skipping.[0m)
   else
-    TARGET        = $(if $(filter 4.2 4.3 4.4,$(GCCVERSION)),ex_omp)
+    TARGET        = $(if $(filter 4.2 4.3 4.4 4.5 4.6 4.7,$(GCCVERSION)),ex_omp)
     REQUIRES_LIBS = libgomp libc_support_misc
   endif
 endif

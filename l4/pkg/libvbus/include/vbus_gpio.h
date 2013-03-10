@@ -30,6 +30,10 @@ l4vbus_gpio_config_pad(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
                        unsigned pin, unsigned func, unsigned value);
 
 int L4_CV
+l4vbus_gpio_config_get(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
+                       unsigned pin, unsigned func, unsigned *value);
+
+int L4_CV
 l4vbus_gpio_get(l4_cap_idx_t vbus, l4vbus_device_handle_t handle,
                 unsigned pin);
 

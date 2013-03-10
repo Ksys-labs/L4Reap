@@ -1,6 +1,7 @@
 #include <l4/libpng/l4png_wrap.h>
 #include <l4/sys/l4int.h>
 #include <stdlib.h>
+#include <string.h>
 #include <png.h>
 #include <pngstruct.h>
 

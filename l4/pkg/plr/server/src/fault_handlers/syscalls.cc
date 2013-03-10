@@ -35,7 +35,7 @@ static unsigned long num_syscalls;
 
 void Romain::SyscallObserver::status() const
 {
-	INFO() << "System call count: " << num_syscalls;
+	INFO() << "[sys ] System call count: " << num_syscalls;
 }
 
 
@@ -181,7 +181,14 @@ Romain::SyscallObserver::notify(Romain::App_instance *i,
 		t->vcpu()->r()->ip = ebx_pre;
 		t->vcpu()->r()->sp = ebp_pre;
 
+	} else if (t->vcpu()->r()->err == 0x152) { // INT $42
+		INFO() << "[" << std::hex << (unsigned)t->vcpu() <<  "] INT 42 ("
+			   << t->vcpu()->r()->ip << ")";
+		t->vcpu()->r()->ip += 2;
+		retval = Romain::Observer::Replicatable;
 	} else {
+		t->vcpu()->print_state();
+		INFO() << "err = " << std::hex << t->vcpu()->r()->err;
 		MSG() << "GPF";
 		enter_kdebug("GPF in replica");
 	}

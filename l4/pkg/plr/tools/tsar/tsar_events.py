@@ -193,18 +193,18 @@ class LockingEvent(Event):
     """Lock interception event"""
     def __init__(self, raw, time=0, utcb=0, uid=None):
         Event.__init__(self, time, Event.LOCKING_TYPE, utcb, uid)
-        (self.locktype, ) = \
-            struct.unpack_from("I", raw[Event.HEADSIZE:])
+        (self.locktype, self.lockptr) = \
+            struct.unpack_from("II", raw[Event.HEADSIZE:])
 
         self.typenames = ["__lock", "__unlock", "mtx_lock", "mtx_unlock"]
 
     def __repr__(self):
         res = Event.__repr__(self)
-        res += "LOCK(%d)" % self.locktype
+        res += "%s(%lx)" % (self.typenames[self.locktype], self.lockptr)
         return res
 
     def pretty(self):
-        return ["Lock(%s)" % self.typenames[self.locktype]]
+        return ["%s(%lx)" % (self.typenames[self.locktype], self.lockptr)]
 
 
 class SHMLockingEvent(Event):
@@ -233,12 +233,15 @@ class SHMLockingEvent(Event):
             else:
                 st3 = "(owner: \033[31;1m%x\033[0m)" % self.owner
 
+        if self.evtype == 4:
+            st1 += (" AQ %d" % self.epoch)
+
         if self.evtype == 2:
             return ["\033[34;1m==========\033[0m", st1, st2, st3]
         if self.evtype == 5:
             return [st1, st3, "\033[34m==========\033[0m"]
 
-        return [st1]
+        return [st1, st2]
 
 
 class BarnesEvent(Event):
@@ -253,4 +256,4 @@ class BarnesEvent(Event):
 
     def pretty(self):
         return ["\033[32mbarnes(%d)\033[0m" % self.type,
-                "%x %d\033[0m" % (self.ptr, self.num)]
+                "%x %x\033[0m" % (self.ptr, self.num)]

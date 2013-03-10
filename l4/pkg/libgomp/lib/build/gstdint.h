@@ -1,4 +1,4 @@
-/* generated for  gcc (Debian 4.3.2-1) 4.3.2 */
+/* generated for  xgcc (GCC) 4.7.3 20121125 (prerelease) */
 
 #ifndef GCC_GENERATED_STDINT_H
 #define GCC_GENERATED_STDINT_H 1

@@ -1,3 +1,15 @@
+/*
+ * pthread_mutex/main.c --
+ * 
+ * 		Microbenchmark to evaluate the overhead of intercepting
+ * 		locking primitives.
+ *
+ * (c) 2012-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ *     economic rights: Technische Universität Dresden (Germany)
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
+ */
 #include <stdio.h>
 #include <assert.h>
 #include <sys/time.h>
@@ -12,8 +24,10 @@
 static int globalcounter;
 pthread_mutex_t mtx;
 
-static const unsigned print_iterations = 100;
-static const unsigned inc_iterations   = 1000;
+#define NUM_THREADS 2
+
+static const unsigned print_iterations = 1000;
+static const unsigned inc_iterations   = 10000 / NUM_THREADS;
 
 static
 void *thread(void *data)
@@ -77,6 +91,7 @@ int main(int argc, char **argv)
 	}
 
 	pthread_join(pt, NULL);
+	printf("joined\n");
 
 	gettimeofday(&stop, NULL);
 

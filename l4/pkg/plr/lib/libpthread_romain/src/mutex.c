@@ -43,7 +43,6 @@ int pthread_mutex_unlock_rep(pthread_mutex_t * mutex);
 
 #define YIELD()  yield() 
 #define BARRIER() asm volatile ("" : : : "memory");
-#define ASSERT42(cond, msg) do { /*if (cond) enter_kdebug42(msg);*/ } while (0)
 
 #define GO_TO_SLEEP 0
 
@@ -187,15 +186,28 @@ static void init_replica_mutex(pthread_mutex_t* mtx)
   rep_function_restore_regs();
 }
 
+#if 0
+#define EVENT(_mtx, _type, _data1, _data2) \
+do { \
+  char *evb = evbuf_get_address(); \
+  struct GenericEvent *ev = evbuf_next(evb); \
+  ev->header.tsc          = evbuf_get_time(evb, 1); \
+  ev->header.vcpu         = (unsigned)thread_self(); \
+  ev->header.type         = 9; \
+  ev->data.shml.lockid    = (_mtx)->__m_reserved; \
+  ev->data.shml.type      = _type; \
+  ev->data.shml.epoch     = _data1; \
+  ev->data.shml.owner     = _data2; \
+} while (0)
+#else
+#define EVENT(_mtx, _type, _data1, _data2) do {} while(0)
+#endif
+
 int
 attribute_hidden
 pthread_mutex_lock_rep(pthread_mutex_t * mutex)
 {
   rep_function_save_regs();
-
-  void *evb = evbuf_get_address();
-  struct GenericEvent *ev_in = evbuf_next(evb);
-  struct GenericEvent *ev_out = evbuf_next(evb);
   
 	/*
 	 * not initialized yet? -> happens for statically initialized
@@ -211,13 +223,7 @@ pthread_mutex_lock_rep(pthread_mutex_t * mutex)
   thread_self()->p_epoch  += 1;
   
   ACQ(li, mutex);
-  ev_in->header.tsc          = evbuf_get_time(evb, 1);
-  ev_in->header.vcpu         = (unsigned)thread_self();
-  ev_in->header.type         = 9; // SHMLOCKING
-  ev_in->data.shml.lockid    = mutex->__m_reserved;
-  ev_in->data.shml.type      = 2;
-  ev_in->data.shml.epoch     = thread_self()->p_epoch;
-  ev_in->data.shml.owner     = LOCKli(li, mutex).owner;
+  EVENT(mutex, 2, thread_self()->p_epoch, LOCKli(li, mutex).owner);
   REL(li, mutex);
   
   /*outstring("lock() "); outhex32(thread_self()->p_epoch); outstring("\n");*/
@@ -228,14 +234,9 @@ pthread_mutex_lock_rep(pthread_mutex_t * mutex)
   
     if (LOCKli(li, mutex).owner == lock_unowned)
     {
-      ASSERT42(LOCKli(li, mutex).wait_count != 0, "wait count != 0");
-      ASSERT42(LOCKli(li, mutex).acq_count != 0,  "acq count  != 0");
-      ASSERT42(LOCKli(li, mutex).wake_count != 0, "wake count != 0");
-      
       LOCKli(li, mutex).owner       = (l4_addr_t)thread_self();
       LOCKli(li, mutex).owner_epoch = thread_self()->p_epoch;
-      /* Acquisition count is incremented (not set to!) replica count */
-      LOCKli(li, mutex).acq_count   += li->replica_count;
+      LOCKli(li, mutex).acq_count   = li->replica_count;
       break;
     }
     else if (LOCKli(li, mutex).owner == (l4_addr_t)thread_self())
@@ -245,17 +246,9 @@ pthread_mutex_lock_rep(pthread_mutex_t * mutex)
         REL(li, mutex);
         YIELD();
         continue;
-        
-        // XXX allow multiple subsequent lock acquisitions */
-        /*
-        outhex42(LOCKli(li, mutex).owner_epoch); outchar42(' ');
-        outhex42(thread_self()->p_epoch); outchar42('\n');
-        enter_kdebug42("epoch mismatch");
-        */
       }
 
       break;
-      //enter_kdebug42("mtx owned by me");
     }
     else
     {
@@ -265,12 +258,7 @@ pthread_mutex_lock_rep(pthread_mutex_t * mutex)
     }
   }
 
-  ev_out->header.tsc          = evbuf_get_time(evb, 1);
-  ev_out->header.vcpu         = (unsigned)thread_self();
-  ev_out->header.type         = 9; // SHMLOCKING
-  ev_out->data.shml.lockid    = mutex->__m_reserved;
-  ev_out->data.shml.type      = 3;
-  ev_out->data.shml.epoch     = thread_self()->p_epoch;
+  EVENT(mutex, 3, thread_self()->p_epoch, 0);
 
   REL(li, mutex);
 
@@ -288,36 +276,17 @@ pthread_mutex_unlock_rep(pthread_mutex_t * mutex)
 {
   rep_function_save_regs();
 
-  void *evb = evbuf_get_address();
-  struct GenericEvent *ev_in  = evbuf_next(evb);
-  struct GenericEvent *ev_out = evbuf_next(evb);
-
   lock_info *li = get_lock_info();
   
   ACQ(li, mutex);
-
-  ev_in->header.tsc           = evbuf_get_time(evb, 1);
-  ev_in->header.vcpu          = (unsigned)thread_self();
-  ev_in->header.type          = 9; // SHMLOCKING
-  ev_in->data.shml.type       = 4;
-  ev_in->data.shml.lockid     = mutex->__m_reserved;
-  ev_in->data.shml.epoch      = thread_self()->p_epoch;
-  
-  ASSERT42(LOCKli(li, mutex).owner != (l4_addr_t)thread_self(), "unlock not by owner");
-  ASSERT42(LOCKli(li, mutex).acq_count == 0, "acq count == 0");
+  EVENT(mutex, 4, LOCKli(li, mutex).acq_count, 0);
   
   LOCKli(li, mutex).acq_count -= 1;
   if (LOCKli(li, mutex).acq_count == 0) {
       LOCKli(li, mutex).owner = lock_unowned;
   }
 
-  ev_out->header.tsc          = evbuf_get_time(evb, 1);
-  ev_out->header.vcpu         = (unsigned)thread_self();
-  ev_out->header.type         = 9; // SHMLOCKING
-  ev_out->data.shml.type      = 5;
-  ev_out->data.shml.lockid    = mutex->__m_reserved;
-  ev_out->data.shml.owner     = LOCKli(li, mutex).owner;
-  ev_out->data.shml.epoch     = thread_self()->p_epoch;
+  EVENT(mutex, 5, LOCKli(li, mutex).owner, thread_self()->p_epoch);
 
   REL(li, mutex);
 

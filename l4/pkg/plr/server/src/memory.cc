@@ -96,20 +96,38 @@ Romain::Region_map::Region_map()
 }
 
 
+/*
+ * Attach a replica region locally in the master AS.
+ *
+ * The Romain::Master manages replicas' region map. As a part of this, the master
+ * attaches a copy of every region attached to one of the replicas to its own
+ * address space. This local region is then used to service page faults caused by
+ * the replicas.
+ *
+ * For read-only replica dataspaces, the master creates a writable copy of the
+ * original region in a separate dataspace. This allows us to modify their content
+ * if necessary (e.g., setting debug breakpoints on read-only code).
+ *
+ * For writable dataspaces, the master simply attaches the same region that has
+ * already been attached to the replica AS into its own address space.
+ */
 void *Romain::Region_map::attach_locally(void* addr, unsigned long size,
                                          Romain::Region_handler *hdlr,
                                          unsigned flags, unsigned char align)
 {
-	long r; (void)align; (void)addr;
+	long r; (void)addr;
 	Romain::Region_handler::Dataspace const *ds = &hdlr->memory(0);
 	L4Re::Dataspace::Stats dsstat;
 	(*ds)->info(&dsstat);
 
-#if 0
-	MSG() << "attaching DS " << std::hex << ds->cap()
+#if 1
+	MSG() << PURPLE
+		  << "attaching DS " << std::hex << ds->cap()
 	      << ", addr = "     << addr
 	      << ", flags = "    << flags << " (" << dsstat.flags << ")"
-	      << ", size = "     << size;
+	      << ", size = "     << size
+	      << ", align = "    << (unsigned int)align
+	      << NOCOLOR;
 #endif
 
 	if (!ds->is_valid()) {
@@ -200,12 +218,14 @@ void *Romain::Region_map::attach_locally(void* addr, unsigned long size,
 	l4_addr_t a = 0;
 	r = L4Re::Env::env()->rm()->attach(&a, eff_size,
 	                                   L4Re::Rm::Search_addr | flags,
-	                                   *ds, page_base);
+	                                   *ds, page_base, align);
 	_check(r != 0, "attach error");
 
 	Romain::Region reg(a, a+eff_size - 1);
 	reg.touch_rw();
 
+	MSG() << "set_local_region(" << _active_instance << ", "
+		  << std::hex << reg.start() << ")";
 	hdlr->set_local_region(_active_instance, reg);
 	return (void*)(a + offset_in_page);
 }
@@ -215,20 +235,49 @@ void *Romain::Region_map::attach(void* addr, unsigned long size,
                                  unsigned flags, unsigned char align, bool shared)
 {
 	void *ret = 0;
-	Romain::Region_handler _handler(hdlr);
 
+	/*
+	 * XXX: the only reason for this Region_handler to exist is to copy
+	 *      the shared parameter into the handler. Shouldn't the caller
+	 *      do this???
+	 */
+	Romain::Region_handler _handler(hdlr);
 	_handler.shared(shared);
 
-	/* Only attach locally, if this hasn't been done beforehand yet. */
-	if (!_handler.local_region(_active_instance).start()) {
-		void* a = attach_locally(addr, size, &_handler, flags, align);
-		_check(a == 0, "Error in local attach");
-	}
+	/*
+	 * First, do the attach() in the remote address space. Thereby we get
+	 * the remote address and can then during local attaching make sure
+	 * that the memory alignment of the local mapping matches the remote
+	 * alignment. This allows us to play mapping tricks later.
+	 */
 	ret = Base::attach(addr, size, _handler, flags, align);
 
+	/*
+	 * The node is now present in the region map. This means we now need
+	 * to continue working with the node's handler member instead of our
+	 * local copy (because the attach() call has made a copy of it).
+	 */
+	Romain::Region_map::Base::Node n = find((l4_addr_t)ret);
+	// and the region handler is const by default ... *grrrml*
+	Romain::Region_handler* theHandler = const_cast<Romain::Region_handler*>(&(n->second));
+	
+	/*
+	 * Figure out the best possible alignment we can have between the local
+	 * and the remote region. If the alignments match, we can later map more
+	 * than one page at a time.
+	 */
+	theHandler->alignToAddressAndSize(reinterpret_cast<l4_addr_t>(ret), size);
+
+	/* Only attach locally, if this hasn't been done beforehand yet. */
+	if (!n->second.local_region(_active_instance).start()) {
+		void* a = attach_locally(addr, size, theHandler,
+		                         flags, theHandler->alignment());
+		_check(a == 0, "Error in local attach");
+	}
+
 	MSG() << "new mapping (" << _active_instance << ") "
-	      << "[" << std::hex << _handler.local_region(_active_instance).start()
-	      << " - " << _handler.local_region(_active_instance).end()
+	      << "[" << std::hex << n->second.local_region(_active_instance).start()
+	      << " - " << n->second.local_region(_active_instance).end()
 	      << "] -> " << ret;
 	//enter_kdebug("after attach");
 

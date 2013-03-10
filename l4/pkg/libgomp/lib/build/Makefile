@@ -15,17 +15,22 @@ ifneq ($(SYSTEM),)
  endif
 endif
 
-PRIVATE_INCDIR = $(PKGDIR)/lib/contrib/gcc-4.3/libgomp \
-                 $(PKGDIR)/lib/contrib/gcc-4.3/libgomp/config/posix \
+USE_VERSION = $(if $(filter 4.2 4.3 4.4 4.5 4.6,$(GCCVERSION)),4.3,4.7)
+
+PRIVATE_INCDIR = $(PKGDIR)/lib/contrib/gcc-$(USE_VERSION)/libgomp \
+                 $(PKGDIR)/lib/contrib/gcc-$(USE_VERSION)/libgomp/config/posix \
                  $(PKGDIR)/lib/build \
-                 $(PKGDIR)/lib/build/ARCH-$(BUILD_ARCH)
+                 $(PKGDIR)/lib/build/ARCH-$(BUILD_ARCH)/gcc-$(USE_VERSION)
 
-vpath %.c $(PKGDIR)/lib/contrib/gcc-4.3/libgomp \
-          $(PKGDIR)/lib/contrib/gcc-4.3/libgomp/config/posix
+vpath %.c $(PKGDIR)/lib/contrib/gcc-$(USE_VERSION)/libgomp \
+          $(PKGDIR)/lib/contrib/gcc-$(USE_VERSION)/libgomp/config/posix
 
-SRC_C = affinity.c alloc.c bar.c barrier.c critical.c env.c error.c \
-        fortran.c iter.c lock.c loop.c mutex.c ordered.c parallel.c proc.c \
-        sections.c sem.c single.c team.c time.c work.c
+SRC_C     = affinity.c alloc.c critical.c error.c iter.c loop.c ordered.c \
+	    sections.c work.c barrier.c env.c fortran.c parallel.c proc.c sem.c \
+            time.c team.c lock.c mutex.c single.c bar.c
+SRC_C-4.7 = task.c iter_ull.c loop_ull.c ptrlock.c 
+SRC_C    += $(SRC_C-$(USE_VERSION))
+
 REQUIRES_LIBS = libpthread
 
 include $(L4DIR)/mk/lib.mk

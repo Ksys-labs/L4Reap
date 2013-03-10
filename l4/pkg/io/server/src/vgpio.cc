@@ -77,6 +77,7 @@ private:
 
   int setup(L4::Ipc::Iostream &ios);
   int config_pad(L4::Ipc::Iostream &ios);
+  int config_get(L4::Ipc::Iostream &ios);
   int get(L4::Ipc::Iostream &ios);
   int set(L4::Ipc::Iostream &ios);
   int multi_setup(L4::Ipc::Iostream &ios);
@@ -121,6 +122,17 @@ Gpio::config_pad(L4::Ipc::Iostream &ios)
   ios >> pin >> func >> value;
   check(pin);
   _hwd->config_pad(pin, _mask, func, value);
+  return 0;
+}
+
+int
+Gpio::config_get(L4::Ipc::Iostream &ios)
+{
+  unsigned pin, func, value;
+  ios >> pin >> func;
+  check(pin);
+  _hwd->config_get(pin, _mask, func, &value);
+  ios << value;
   return 0;
 }
 
@@ -223,6 +235,7 @@ Gpio::dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc::Iostream &ios)
 	{
 	case L4VBUS_GPIO_OP_SETUP: return setup(ios);
 	case L4VBUS_GPIO_OP_CONFIG_PAD: return config_pad(ios);
+	case L4VBUS_GPIO_OP_CONFIG_GET: return config_get(ios);
 	case L4VBUS_GPIO_OP_GET: return get(ios);
 	case L4VBUS_GPIO_OP_SET: return set(ios);
 	case L4VBUS_GPIO_OP_MULTI_SETUP: return multi_setup(ios);

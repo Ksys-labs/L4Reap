@@ -5,14 +5,15 @@ echo ""
 echo "[general]"
 echo "   page_fault_handling = rw"
 echo "  threads             = yes"
+echo "  intercept_kip       = yes"
 echo "#  redundancy          = none"
 echo "#  redundancy          = dual"
 echo "#  redundancy          = triple"
 echo ""
-echo "  logbuf               = 16"
-echo "  logreplica           = true"
-echo "  logrdtsc             = true"
-echo "# logtimeout           = 45"
+echo "#  logbuf               = 16"
+echo "#  logreplica           = true"
+echo "#  logrdtsc             = true"
+echo "#  logtimeout           = 15"
 echo ""
 echo "#  print_vcpu_state    = y"
 echo "#  log                 = all"
@@ -28,11 +29,8 @@ for f in $function_list; do
 done
 
 
-kiptime=""
-for line in `objdump -lSCd $1 | grep ff0a0 | cut -d: -f 1`; do
-	kiptime+="0x$line "
-done
-kiptime=`echo $kiptime | sed -re 's/\w$//' | sed -re 's/ 0x/,0x/g'`
 echo ""
 echo "[kip-time]"
-echo "target = $kiptime"
+for v in libc_backend_rt_clock_gettime mono_clock_gettime; do
+	echo -n "  "; nm $1 | grep $v |  sed -re 's/([0-9a-f]+) [wWtT] (.*)/\2 = 0x\1/g';
+done

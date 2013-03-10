@@ -142,39 +142,6 @@ class App_instance
 
 
 		/*
-		 * Map a local region to a remote region using the least
-		 * possible amount of map operations (XXX).
-		 */
-		void map(l4_addr_t local_start, l4_addr_t remote_start,/* l4_size_t size,*/
-				 unsigned pageflags, l4_size_t size = L4_PAGESIZE)
-		{
-			//DEBUG() << "map " << std::hex << local_start << " -> " << remote_start
-			//        << " size " << size;
-
-			while (size > 0) {
-				unsigned frame_l = local_start  >> L4_PAGESHIFT;
-				unsigned frame_r = remote_start >> L4_PAGESHIFT;
-				(void)frame_l; (void)frame_r;
-				unsigned shift   = 0;
-				(void)frame_l; (void)frame_r;
-
-/* Macro checks whether the size fits a given number of pages */
-#define FOO(x) do { \
-	if ((!frame_l & (x-1)) && (!frame_r & (x-1)) && (size >= (x*L4_PAGESIZE))) { \
-		shift += 1; \
-	} \
-} while (0)
-				//FOO(2); FOO(4); FOO(8); FOO(16); FOO(32); FOO(64);
-				map_aligned(local_start, remote_start, L4_PAGESHIFT + shift, pageflags);
-				local_start  += (L4_PAGESIZE << shift);
-				remote_start += (L4_PAGESIZE << shift);
-				size -= (L4_PAGESIZE << shift);
-			}
-			//enter_kdebug("mapped");
-		}
-
-
-		/*
 		 * Unmap a flexpage from replica
 		 */
 		void unmap(l4_umword_t fpraw)

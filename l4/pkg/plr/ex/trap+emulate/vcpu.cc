@@ -1,7 +1,15 @@
 /*
- * (c) 2009 Technische Universität Dresden
- * This file is part of TUD:OS, which is distributed under the terms of the
- * GNU General Public License 2. Please see the COPYING file for details.
+ * vcpu.cc --
+ * 
+ * VCPU test for comparing different strategies of emulating
+ * write accesses to shared memory.
+ *
+ * (c) 2011-2013 Björn Döbel <doebel@os.inf.tu-dresden.de>,
+ * 				 Adam Lackorzynski <adam@os.inf.tu-dresden.de>
+ *     economic rights: Technische Universität Dresden (Germany)
+ * This file is part of TUD:OS and distributed under the terms of the
+ * GNU General Public License 2.
+ * Please see the COPYING-GPL-2 file for details.
  */
 #include <l4/sys/thread>
 #include <l4/sys/factory>

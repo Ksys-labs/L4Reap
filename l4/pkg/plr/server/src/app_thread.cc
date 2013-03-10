@@ -286,6 +286,7 @@ Romain::Thread_group::control(Romain::App_thread *t, l4_utcb_t *utcb, Romain::Ap
 		*reinterpret_cast<l4_umword_t*>(local_addr) = utcb_remote;
 		void* tip_addr = am->prog_attach_ds(0, L4_PAGESIZE, ds, 0,
 											L4Re::Rm::Search_addr, "thread info page", local_addr);
+		DEBUG() << "Remote TIP address: " << tip_addr;
 
 		for (unsigned i = 0; i < threads.size(); ++i) {
 			threads[i]->setup_utcb_segdesc(reinterpret_cast<l4_addr_t>(tip_addr), 4);

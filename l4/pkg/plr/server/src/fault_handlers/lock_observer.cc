@@ -14,13 +14,14 @@
 
 #define DEBUGt(t) DEBUG() <<  "[" << t->vcpu() << "] "
 
-#define EVENT(event) \
+#define EVENT(event, ptr) \
     do { \
 	 	Measurements::GenericEvent* ev = Romain::_the_instance_manager->logbuf()->next(); \
 		ev->header.tsc                 = Romain::_the_instance_manager->logbuf()->getTime(Log::logLocalTSC); \
 		ev->header.vcpu                = (l4_uint32_t)t->vcpu(); \
 		ev->header.type                = Measurements::Locking; \
 		ev->data.lock.eventType        = event; \
+		ev->data.lock.lockPtr          = ptr; \
     } while (0)
 
 Romain::PThreadLockObserver*
@@ -33,14 +34,14 @@ namespace Romain {
 
 void Romain::PThreadLock_priv::status() const
 {
-	INFO() << "LOCK.lock   = " << det_lock_count;
-	INFO() << "LOCK.unlock = " << det_unlock_count;
-	INFO() << "MTX.lock    = " << mtx_lock_count;
-	INFO() << "MTX.unlock  = " << mtx_unlock_count;
-	INFO() << "pt.lock     = " << pt_lock_count;
-	INFO() << "pt.unlock   = " << pt_unlock_count;
-	INFO() << "# ignored   = " << ignore_count;
-	INFO() << "Total count = " << total_count;
+	INFO() << "[lock] LOCK.lock   = " << det_lock_count;
+	INFO() << "[lock] LOCK.unlock = " << det_unlock_count;
+	INFO() << "[lock] MTX.lock    = " << mtx_lock_count;
+	INFO() << "[lock] MTX.unlock  = " << mtx_unlock_count;
+	INFO() << "[lock] pt.lock     = " << pt_lock_count;
+	INFO() << "[lock] pt.unlock   = " << pt_unlock_count;
+	INFO() << "[lock] # ignored   = " << ignore_count;
+	INFO() << "[lock] Total count = " << total_count;
 }
 
 
@@ -139,7 +140,7 @@ void Romain::PThreadLock_priv::startup_notify(Romain::App_instance *inst,
 		 * because code is shared across all replicas.
 		 */
 		for (unsigned idx = 0; idx < pt_max_wrappers; ++idx) {
-			DEBUG() << idx;
+			//DEBUG() << idx;
 			_functions[idx].activate(inst, am);
 		}
 #if INTERNAL_DETERMINISM
@@ -194,7 +195,7 @@ void Romain::PThreadLock_priv::lock(Romain::App_instance *inst,
 	l4_umword_t ret  = *(l4_umword_t*)stack;
 	l4_umword_t lock = t->vcpu()->r()->ax;
 
-	EVENT(Measurements::LockEvent::lock);
+	EVENT(Measurements::LockEvent::lock, lock);
 
 	DEBUG() << "Stack ptr " << std::hex << t->vcpu()->r()->sp << " => "
          	<< stack;
@@ -222,7 +223,7 @@ void Romain::PThreadLock_priv::unlock(Romain::App_instance *inst,
 	l4_umword_t retaddr = *(l4_umword_t*)stack;
 	l4_umword_t lock    = *(l4_umword_t*)(stack + 1*sizeof(l4_umword_t));
 
-	EVENT(Measurements::LockEvent::unlock);
+	EVENT(Measurements::LockEvent::unlock, lock);
 
 	DEBUG() << "Return addr " << std::hex << retaddr;
 	DEBUG() << "Lock @ " << std::hex << lock;
@@ -249,7 +250,7 @@ void Romain::PThreadLock_priv::mutex_lock(Romain::App_instance* inst, Romain::Ap
 	l4_umword_t retaddr = *(l4_umword_t*)stack;
 	l4_umword_t lock    = *(l4_umword_t*)(stack + 1*sizeof(l4_umword_t));
 
-	EVENT(Measurements::LockEvent::mtx_lock);
+	EVENT(Measurements::LockEvent::mtx_lock, lock);
 
 	DEBUG() << "lock @ " << std::hex << lock << " ESP.local = " << stack;
 	PThreadMutex* mtx = _locks[lock];
@@ -286,7 +287,7 @@ void Romain::PThreadLock_priv::mutex_unlock(Romain::App_instance* inst, Romain::
 	l4_umword_t retaddr = *(l4_umword_t*)stack;
 	l4_umword_t lock    = *(l4_umword_t*)(stack + 1*sizeof(l4_umword_t));
 
-	EVENT(Measurements::LockEvent::mtx_unlock);
+	EVENT(Measurements::LockEvent::mtx_unlock, lock);
 
 	int ret = lookup_or_fail(lock)->unlock();
 	DEBUG() << "unlock @ " << std::hex << lock << " = " << ret;

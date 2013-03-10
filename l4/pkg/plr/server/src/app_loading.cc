@@ -22,6 +22,10 @@ Romain::App_model::Const_dataspace Romain::App_model::open_file(char const *name
 
 	int err = open(name, O_RDONLY);
 	MSG() << "fopen: " << err;
+	if (err < 0) {
+		ERROR() << "Could not open binary file '" << name << "'";
+		enter_kdebug("file not found");
+	}
 
 	cxx::Ref_ptr<L4Re::Vfs::File> fp = L4Re::Vfs::vfs_ops->get_file(err);
 	MSG() << "file ptr @ " << fp;

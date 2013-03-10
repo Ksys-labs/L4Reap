@@ -40,6 +40,7 @@ namespace Romain
 	enum {
 		MAX_REPLICAS        =  3,        // maximum # of allowed replicas
 		MAX_OBSERVERS       = 16,        // maximum # of fault observers
+		MAX_CPUS            = 32,        // maximum # of physical CPUs we handle
 		TRAMPOLINE_SIZE     = 64,        // size of the per-thread trampoline area
 		HANDLER_STACK_SIZE  = (1 << 14), // size of the VCPU handler stack
 		DEBUG_ENTRIES       = 1000,      // dbg: # of 64bit entries in thread->_measurements

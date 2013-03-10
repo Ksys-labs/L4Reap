@@ -96,6 +96,7 @@ namespace Measurements
 			mtx_unlock
 		};
 		unsigned eventType;
+		unsigned lockPtr;
 	};
 
 
@@ -116,8 +117,9 @@ namespace Measurements
 	struct __attribute__((packed))
 	BarnesEvent
 	{
-		unsigned nodeptr;
-		unsigned seqnum;
+		unsigned ptr;
+		unsigned num;
+		unsigned type;
 	};
 
 

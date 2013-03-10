@@ -41,6 +41,11 @@ public:
     return l4vbus_gpio_config_pad(_bus.cap(), _dev, _pin, func, value);
   }
 
+  int config_get(unsigned func, unsigned *value) const
+  {
+    return l4vbus_gpio_config_get(_bus.cap(), _dev, _pin, func, value);
+  }
+
   int to_irq() const
   {
     return l4vbus_gpio_to_irq(_bus.cap(), _dev, _pin);

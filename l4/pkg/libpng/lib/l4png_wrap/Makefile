@@ -2,7 +2,6 @@ PKGDIR          ?= ../..
 L4DIR           ?= $(PKGDIR)/../..
 
 TARGET          = libl4png_wrap.a libl4png_wrap.so
-SYSTEMS         = $(SYSTEMS_PLAIN)
 SRC_C           = l4png_wrap.c 
 PC_FILENAME     = libl4png_wrap
 REQUIRES_LIBS   = zlib libpng

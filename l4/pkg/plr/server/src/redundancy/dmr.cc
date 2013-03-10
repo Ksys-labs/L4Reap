@@ -115,11 +115,13 @@ Romain::DMR::checksum_replicas()
 				ERROR() << "--- instance " << cnt << " @ "
 					<< _orig_vcpu[cnt]->vcpu() << " (cs: "
 					<< std::hex << csums[cnt] << ") ---";
-				if (_orig_vcpu[cnt])
+				if (_orig_vcpu[cnt]) {
 					_orig_vcpu[cnt]->vcpu()->print_state();
+					ERROR() << "vcpu.err = " << std::hex << _orig_vcpu[cnt]->vcpu()->r()->err;
+				}
 			}
 			ERROR() << "Instances: " << _num_instances << " this inst " << idx;
-			enter_kdebug("checksum");
+			//enter_kdebug("checksum");
 #endif
 			return false;
 		}
@@ -133,10 +135,15 @@ class RecoverAbort
 	public:
 		static __attribute__((noreturn)) void recover()
 		{
-			ERROR() << "Aborting after error.";
-			Romain::_the_instance_manager->logdump();
-			enter_kdebug("abort");
-			throw("ERROR -> abort");
+			static bool used = false;
+
+			if (!used){
+				used = true;
+				ERROR() << "Aborting after error.";
+				Romain::_the_instance_manager->show_stats();
+				enter_kdebug("abort");
+				throw("ERROR -> abort");
+			}
 		}
 };
 

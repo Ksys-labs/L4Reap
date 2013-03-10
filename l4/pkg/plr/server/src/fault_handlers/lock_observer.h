@@ -139,7 +139,9 @@ namespace Romain
 		void activate(Romain::App_instance *inst, Romain::App_model* am)
 		{
 #if INTERNAL_DETERMINISM
-			if (function_id == pt_lock_id or function_id == pt_unlock_id) {
+			if (((function_id == pt_lock_id) or
+			     (function_id == pt_unlock_id)) and 
+				(orig_address != ~0UL)) {
 				/* Assumption: __pthread_(un)lock are called seldomly, so
 				 * we simply use the bp functionality here */
 				bp = new Breakpoint(orig_address);
@@ -165,8 +167,10 @@ namespace Romain
 			        << NOCOLOR << " ===============";
 
 			lock_info* lockinfo = reinterpret_cast<lock_info*>(am->lockinfo_local());
-			if (wrapper_address == ~0)
+			if (wrapper_address == ~0) {
+				DEBUG() << BLUE << "   no known address" << NOCOLOR;
 				return;
+			}
 
 			unsigned char *instructionBuffer = lockinfo->trampolines + function_id * 32;
 			memset(instructionBuffer, 0xff, 32);

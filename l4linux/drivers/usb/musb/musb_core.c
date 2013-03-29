@@ -1499,7 +1499,8 @@ static int __devinit musb_core_init(u16 musb_type, struct musb *musb)
 /*-------------------------------------------------------------------------*/
 
 #if defined(CONFIG_SOC_OMAP2430) || defined(CONFIG_SOC_OMAP3430) || \
-	defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_ARCH_U8500) || defined(CONFIG_L4_PLAT_OVERO)
+	defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_ARCH_U8500) || \
+	defined(CONFIG_L4_PLAT_OVERO) || defined(CONFIG_L4_PLAT_IGEP)
 
 static irqreturn_t generic_interrupt(int irq, void *__hci)
 {

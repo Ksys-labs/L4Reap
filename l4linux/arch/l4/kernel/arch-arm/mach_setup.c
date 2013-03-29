@@ -293,6 +293,12 @@ void __init l4x_arm_devices_init(void)
 	extern void overo_init(void);
 	overo_init();
 #endif
+
+#ifdef CONFIG_L4_PLAT_IGEP
+	extern void igep_init(void);
+	igep_init();
+#endif
+
 }
 
 void __init l4x_arm_devices_early_init(void)
@@ -301,4 +307,10 @@ void __init l4x_arm_devices_early_init(void)
 	extern void overo_init_early(void);
 	overo_init_early();
 #endif
+
+#ifdef CONFIG_L4_PLAT_IGEP
+	extern void igep_init_early(void);
+	igep_init_early();
+#endif
+
 }

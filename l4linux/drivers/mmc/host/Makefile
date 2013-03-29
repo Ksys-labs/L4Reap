@@ -59,4 +59,10 @@ endif
 
 ifeq ($(CONFIG_L4_PLAT_OVERO), y)
 KBUILD_CPPFLAGS += -Iarch/l4/kernel/arch-arm/plat-omap/include
+KBUILD_CPPFLAGS += -Iarch/l4/kernel/arch-arm/mach-omap2/include
+endif
+
+ifeq ($(CONFIG_L4_PLAT_IGEP), y)
+KBUILD_CPPFLAGS += -Iarch/l4/kernel/arch-arm/plat-omap/include
+KBUILD_CPPFLAGS += -Iarch/l4/kernel/arch-arm/mach-omap2/include
 endif

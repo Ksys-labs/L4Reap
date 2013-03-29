@@ -18,7 +18,7 @@ KBUILD_CPPFLAGS	+= -DCONFIG_PM_OPP
 
 # Common support
 obj-y := id.o io.o control.o mux.o timer.o pm.o \
-	 common.o dma.o wd_timer.o display.o i2c.o hdq1w.o
+	 common.o dma.o wd_timer.o display.o i2c.o hdq1w.o gpio.o
 
 omap-2-3-common				= irq.o sdrc.o
 hwmod-common				= omap_hwmod.o \
@@ -214,7 +214,8 @@ obj-$(CONFIG_MACH_OMAP_LDP)		+= board-ldp.o
 obj-$(CONFIG_MACH_OMAP3530_LV_SOM)      += board-omap3logic.o
 obj-$(CONFIG_MACH_OMAP3_TORPEDO)        += board-omap3logic.o
 obj-$(CONFIG_MACH_ENCORE)		+= board-omap3encore.o
-obj-y					+= board-overo.o
+obj-$(CONFIG_L4_PLAT_OVERO)			+= board-overo.o
+obj-$(CONFIG_L4_PLAT_IGEP)			+= board-igep0030.o
 obj-$(CONFIG_MACH_OMAP3EVM)		+= board-omap3evm.o
 obj-$(CONFIG_MACH_OMAP3_PANDORA)	+= board-omap3pandora.o
 obj-$(CONFIG_MACH_OMAP_3430SDP)		+= board-3430sdp.o

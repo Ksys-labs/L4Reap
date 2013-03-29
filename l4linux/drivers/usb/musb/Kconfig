@@ -49,7 +49,7 @@ config USB_MUSB_TUSB6010
 
 config USB_MUSB_OMAP2PLUS
 	tristate "OMAP2430 and onwards"
-	depends on ARCH_OMAP2PLUS || L4_PLAT_OVERO
+	depends on ARCH_OMAP2PLUS || L4_PLAT_OVERO || L4_PLAT_IGEP
 
 config USB_MUSB_AM35X
 	tristate "AM35x"

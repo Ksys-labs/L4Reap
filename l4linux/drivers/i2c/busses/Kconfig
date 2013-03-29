@@ -504,7 +504,7 @@ config I2C_OCORES
 
 config I2C_OMAP
 	tristate "OMAP I2C adapter"
-	depends on ARCH_OMAP || L4_PLAT_OVERO
+	depends on ARCH_OMAP || L4_PLAT_OVERO || L4_PLAT_IGEP
 	default y if MACH_OMAP_H3 || MACH_OMAP_OSK
 	help
 	  If you say yes to this option, support will be included for the

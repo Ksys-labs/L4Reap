@@ -137,7 +137,7 @@ hw-root
 
 l4linux => new System_bus()
 {
-#	omap_gpio => wrap(hw-root.omap_gpio);
+	omap_gpio => wrap(hw-root.omap_gpio);
 	dmamem => wrap(hw-root.dmamem);
     sys => wrap(hw-root.sys);
     i2c1 => wrap(hw-root.i2c1);

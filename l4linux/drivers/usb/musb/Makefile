@@ -30,8 +30,11 @@ musb_hdrc-$(CONFIG_USB_TI_CPPI_DMA)		+= cppi_dma.o
 musb_hdrc-$(CONFIG_USB_TUSB_OMAP_DMA)		+= tusb6010_omap.o
 musb_hdrc-$(CONFIG_USB_UX500_DMA)		+= ux500_dma.o
 
-ifeq ($(CONFIG_L4_PLAT_OVERO), y)
 ifeq ($(CONFIG_I2C_OMAP), y) 
+ifeq ($(CONFIG_L4_PLAT_OVERO), y)
+KBUILD_CPPFLAGS += -Iarch/l4/kernel/arch-arm/plat-omap/include
+endif
+ifeq ($(CONFIG_L4_PLAT_IGEP), y)
 KBUILD_CPPFLAGS += -Iarch/l4/kernel/arch-arm/plat-omap/include
 endif
 endif

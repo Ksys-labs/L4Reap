@@ -46,7 +46,7 @@
 #include <linux/i2c.h>
 #include <linux/i2c/twl.h>
 
-#ifdef CONFIG_L4_PLAT_OVERO
+#if defined(CONFIG_L4_PLAT_OVERO) || defined(CONFIG_L4_PLAT_IGEP)
 #include <../kernel/arch-arm/plat-omap/include/plat/cpu.h>
 #endif
 

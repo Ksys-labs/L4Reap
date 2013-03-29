@@ -5,7 +5,7 @@
 #include <asm/generic/io.h>
 #include <l4/sys/kdebug.h>
 
-#define MAX_IOREMAP_ENTRIES 20
+#define MAX_IOREMAP_ENTRIES 32
 struct ioremap_table {
 	unsigned long real_map_addr;
 	unsigned long ioremap_addr;

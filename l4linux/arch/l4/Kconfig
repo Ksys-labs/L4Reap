@@ -441,6 +441,15 @@ choice
 		select MAY_HAVE_SPARSE_IRQ
 		select IRQ_DOMAIN
 		bool "Gumstix Overo board"
+	config L4_PLAT_IGEP
+	        select USB_GADGET_MUSB_HDRC
+	        select GENERIC_IRQ_CHIP
+		select MAY_HAVE_SPARSE_IRQ
+		select IRQ_DOMAIN
+		select ARCH_REQUIRE_GPIOLIB
+		select ARCH_OMAP3
+		select OMAP_MUX
+		bool "IGEP COM board"
 endchoice
 
 endmenu # Platform options

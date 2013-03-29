@@ -10,7 +10,7 @@
 #ifndef __MUSB_OMAP243X_H__
 #define __MUSB_OMAP243X_H__
 
-#ifdef CONFIG_L4_PLAT_OVERO
+#if defined(CONFIG_L4_PLAT_OVERO) || defined(CONFIG_L4_PLAT_IGEP)
 #include <../kernel/arch-arm/plat-omap/include/plat/usb.h>
 #else
 #include <plat/usb.h>

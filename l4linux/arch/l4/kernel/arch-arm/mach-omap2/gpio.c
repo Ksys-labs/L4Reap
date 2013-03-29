@@ -29,7 +29,7 @@
 
 #include "powerdomain.h"
 
-static int __init omap2_gpio_dev_init(struct omap_hwmod *oh, void *unused)
+int omap2_gpio_dev_init(struct omap_hwmod *oh, void *unused)
 {
 	struct platform_device *pdev;
 	struct omap_gpio_platform_data *pdata;
@@ -147,7 +147,7 @@ static int __init omap2_gpio_dev_init(struct omap_hwmod *oh, void *unused)
  * machine_init functions access gpio APIs.
  * Hence gpio_init is a postcore_initcall.
  */
-static int __init omap2_gpio_init(void)
+int omap2_gpio_init(void)
 {
 	/* If dtb is there, the devices will be created dynamically */
 	if (of_have_populated_dt())
@@ -155,4 +155,3 @@ static int __init omap2_gpio_init(void)
 
 	return omap_hwmod_for_each_by_class("gpio", omap2_gpio_dev_init, NULL);
 }
-postcore_initcall(omap2_gpio_init);

@@ -10,7 +10,7 @@
 #define NR_IRQS_HW	210
 #endif
 
-#ifdef  CONFIG_L4_PLAT_OVERO
+#if defined(CONFIG_L4_PLAT_OVERO) || defined(CONFIG_L4_PLAT_IGEP)
 #undef NR_IRQS
 #undef NR_IRQS_HW
 #define NR_IRQS		410

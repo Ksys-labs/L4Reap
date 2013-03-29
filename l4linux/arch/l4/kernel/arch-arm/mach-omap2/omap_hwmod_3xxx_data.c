@@ -3168,6 +3168,8 @@ static struct omap_hwmod_ocp_if *omap3xxx_hwmod_ocp_ifs[] __initdata = {
 	&omap3xxx_l4_core__timer10,
 	&omap3xxx_l4_core__timer11,
 	&omap3xxx_l4_wkup__wd_timer2,
+#endif
+#ifdef CONFIG_L4_PLAT_IGEP
 	&omap3xxx_l4_wkup__gpio1,
 	&omap3xxx_l4_per__gpio2,
 	&omap3xxx_l4_per__gpio3,

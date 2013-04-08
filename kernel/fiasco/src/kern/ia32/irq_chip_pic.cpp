@@ -92,7 +92,7 @@ Irq_chip_ia32_pic::unmask(Mword irq)
 
 PUBLIC
 void
-Irq_chip_ia32_pic::set_cpu(Mword, unsigned)
+Irq_chip_ia32_pic::set_cpu(Mword, Cpu_number)
 {}
 
 

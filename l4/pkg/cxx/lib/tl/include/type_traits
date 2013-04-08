@@ -125,5 +125,91 @@ struct enable_if {};
 template< typename T >
 struct enable_if<true, T> { typedef T type; };
 
+template< typename T >
+struct is_const : public false_type {};
+
+template< typename T >
+struct is_const<T const> : public true_type {};
+
+template< bool, typename, typename >
+struct conditional;
+
+template< bool C, typename T_TRUE, typename T_FALSE >
+struct conditional { typedef T_TRUE type; };
+
+template< typename T_TRUE, typename T_FALSE >
+struct conditional< false, T_TRUE, T_FALSE > { typedef T_FALSE type; };
+
+template<typename T>
+struct is_enum : integral_constant<bool, __is_enum(T)> {};
+
+
+template< typename T > struct is_integral : public false_type {};
+
+template<> struct is_integral<bool> : public true_type {};
+
+template<> struct is_integral<char> : public true_type {};
+template<> struct is_integral<signed char> : public true_type {};
+template<> struct is_integral<unsigned char> : public true_type {};
+template<> struct is_integral<short> : public true_type {};
+template<> struct is_integral<unsigned short> : public true_type {};
+template<> struct is_integral<int> : public true_type {};
+template<> struct is_integral<unsigned int> : public true_type {};
+template<> struct is_integral<long> : public true_type {};
+template<> struct is_integral<unsigned long> : public true_type {};
+template<> struct is_integral<long long> : public true_type {};
+template<> struct is_integral<unsigned long long> : public true_type {};
+
+template< typename T, bool = is_integral<T>::value || is_enum<T>::value >
+struct __is_signed_helper : integral_constant<bool, static_cast<bool>(T(-1) < T(0))> {};
+
+template< typename T >
+struct __is_signed_helper<T, false> : integral_constant<bool, false> {};
+
+template< typename T >
+struct is_signed : __is_signed_helper<T> {};
+
+
+template< int SIZE, bool SIGN = false, bool = true > struct int_type_for_size;
+
+template<> struct int_type_for_size<sizeof(char), true, true>
+{ typedef signed char type; };
+
+template<> struct int_type_for_size<sizeof(char), false, true>
+{ typedef unsigned char type; };
+
+template<> struct int_type_for_size<sizeof(short), true, (sizeof(short) > sizeof(char))>
+{ typedef short type; };
+
+template<> struct int_type_for_size<sizeof(short), false, (sizeof(short) > sizeof(char))>
+{ typedef unsigned short type; };
+
+template<> struct int_type_for_size<sizeof(int), true, (sizeof(int) > sizeof(short))>
+{ typedef int type; };
+
+template<> struct int_type_for_size<sizeof(int), false, (sizeof(int) > sizeof(short))>
+{ typedef unsigned int type; };
+
+template<> struct int_type_for_size<sizeof(long), true, (sizeof(long) > sizeof(int))>
+{ typedef long type; };
+
+template<> struct int_type_for_size<sizeof(long), false, (sizeof(long) > sizeof(int))>
+{ typedef unsigned long type; };
+
+template<> struct int_type_for_size<sizeof(long long), true, (sizeof(long long) > sizeof(long))>
+{ typedef long long type; };
+
+template<> struct int_type_for_size<sizeof(long long), false, (sizeof(long long) > sizeof(long))>
+{ typedef unsigned long long type; };
+
+template< typename T, class Enable = void > struct underlying_type {};
+
+template< typename T >
+struct underlying_type<T, typename enable_if<is_enum<T>::value>::type >
+{
+  typedef typename int_type_for_size<sizeof(T), is_signed<T>::value>::type type;
+};
+
+
 }
 

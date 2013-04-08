@@ -17,7 +17,7 @@ unsigned Timer::irq_mode()
 
 IMPLEMENT
 void
-Timer::init(unsigned)
+Timer::init(Cpu_number)
 {
   printf("Using the RTC on IRQ %d (%sHz) for scheduling\n", 8,
 #ifdef CONFIG_SLOW_RTC

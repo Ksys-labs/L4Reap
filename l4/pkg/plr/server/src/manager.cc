@@ -196,9 +196,11 @@ void Romain::InstanceManager::configure_logbuf(int sizeMB)
 
 	L4::Cap<L4Re::Dataspace> ds;
 
-	l4_addr_t addr = Romain::Region_map::allocate_and_attach(&ds, size_in_bytes, 0, L4_SUPERPAGESHIFT);
+	l4_addr_t addr = Romain::Region_map::allocate_and_attach(&ds, size_in_bytes,
+															 0, 0, L4_SUPERPAGESHIFT);
     INFO() << "Log buffer attached to 0x" << std::hex << addr;
 
+    memset((void*)addr, 0, size_in_bytes);
     _logBuf->set_buffer(reinterpret_cast<unsigned char*>(addr), size_in_bytes);
 }
 
@@ -480,16 +482,37 @@ Romain::InstanceManager::create_thread(l4_umword_t eip, l4_umword_t esp,
 			
 			/* XXX Threads assigned RR to CPUs */
 			static int threadcount = 0;
-			logCPU = logicalToCPU(threadcount % _num_cpu);
-			threadcount++;
-
-			/* XXX The hard-coded placement map */
-			//int cpumap[12] = {0, 1, 2,
-			//                  0, 0, 0,
-			//                  3, 4, 5,
-			//                  0, 0, 0};
-			//logCPU = logicalToCPU(cpumap[threadcount]);
+			//logCPU = logicalToCPU(threadcount % _num_cpu);
 			//threadcount++;
+
+			/* XXX The hard-coded placement map:
+			 * Manual optimization for pthreads applications. In our scenarios,
+			 * pthreads starts a manager as the second thread and this manager
+			 * often does nothing. Therefore, instead of placing each idle manager
+			 * replica on its own CPU, we simply put them onto CPU0 where they
+			 * don't hurt anyone.
+			 */
+			int cpumap[3][15] = { // single -> 1:1 mapping
+			                      {0, 1, 2,
+			                       3, 4, 5,
+			                       6, 7, 8,
+			                       9, 10, 11,
+			                       0, 1, 2},
+								  // DMR
+			                      {0, 1, 0,
+			                       0, 2, 3,
+			                       4, 5, 6,
+			                       7, 8, 9,
+			                      10, 11, 0},
+								  // TMR
+			                      {0, 1, 2,
+			                       0, 0, 0,
+			                       3, 4, 5,
+			                       6, 7, 8,
+			                       9, 10, 11}
+			                     };
+			logCPU = logicalToCPU(cpumap[instance_count()-1][threadcount]);
+			threadcount++;
 
 			at->cpu(logCPU);
 		} else {

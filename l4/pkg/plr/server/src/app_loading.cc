@@ -62,8 +62,7 @@ l4_addr_t Romain::App_model::local_attach_ds(Romain::App_model::Const_dataspace 
 	}
 	Romain::Region_handler handler(ds, L4_INVALID_CAP, offset, 0,
 	                            Romain::Region(0, 0));
-	l4_addr_t ret = (l4_addr_t)rm()->attach_locally((void*)0xdeadbeef,
-	                                                size, &handler, flags);
+	l4_addr_t ret = (l4_addr_t)rm()->attach_locally((void*)0, size, &handler, flags);
 	return ret;
 }
 

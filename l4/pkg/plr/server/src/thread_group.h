@@ -121,6 +121,7 @@ struct GateAgent
 		int err         = pthread_create(&listener, 0,
 		                                 listener_function, (void*)this);
 		_check(err != 0, "error creating listener thread");
+		l4_thread_yield();
 
 		listener_cap    = L4::Cap<L4::Thread>(pthread_getl4cap(listener));
 		_check(!listener_cap.is_valid(), "could not get listener pthread cap?");

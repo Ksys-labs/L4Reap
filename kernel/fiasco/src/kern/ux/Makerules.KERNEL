@@ -3,7 +3,9 @@
 shortcut.o:          $(TCBOFFSET)
 sighandler.o:        $(TCBOFFSET)
 entry.o:             $(TCBOFFSET)
+entry-mp.o:          $(TCBOFFSET)
 sys_call_page-asm.o: $(TCBOFFSET)
+tramp-mp.o:          $(TCBOFFSET)
 
 
 # Add future prerequisites somewhere among the list of libraries. You really

@@ -22,6 +22,8 @@ EXTERN_C_BEGIN
 #include <l4/plr/pthread_rep.h>
 EXTERN_C_END
 
+lock_info* __lip_address = reinterpret_cast<lock_info*>(LOCK_INFO_ADDR);
+
 namespace Romain
 {
 	/*

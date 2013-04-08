@@ -313,7 +313,7 @@ arg_init(int argc, char * const *argv, Io_config_x *cfg)
       switch (c)
         {
         case 'v':
-          _my_cfg.inc_verbosity();
+          cfg->inc_verbosity();
           break;
         case OPT_TRANSPARENT_MSI:
 	  d_printf(DBG_INFO, "Enabling transparent MSIs\n");

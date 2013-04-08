@@ -35,7 +35,7 @@ public:
    * \param pin the pin to configure
    * \param cpu the logical CPU number.
    */
-  virtual void set_cpu(Mword pin, unsigned cpu) = 0;
+  virtual void set_cpu(Mword pin, Cpu_number cpu) = 0;
   virtual void unbind(Irq_base *irq);
   virtual ~Irq_chip() = 0;
 };
@@ -51,7 +51,7 @@ public:
   void mask_and_ack(Mword) {}
   void ack(Mword) {}
 
-  void set_cpu(Mword, unsigned) {}
+  void set_cpu(Mword, Cpu_number) {}
   unsigned set_mode(Mword, unsigned mode) { return mode; }
 
   char const *chip_type() const { return "Soft"; }
@@ -136,7 +136,7 @@ public:
     switch_mode(mode);
   }
 
-  void set_cpu(unsigned cpu) { _chip->set_cpu(_pin, cpu); }
+  void set_cpu(Cpu_number cpu) { _chip->set_cpu(_pin, cpu); }
 
   unsigned get_mode() const
   { return _flags & 0xe; }

@@ -61,6 +61,8 @@ namespace Romain
 
 		static void* topology_scanner(void* data)
 		{
+			l4_debugger_set_object_name(pthread_getl4cap(pthread_self()), "romain::topscan");
+
 			for (unsigned cpu = 0; cpu < CPUID::num_cpus(); ++cpu) {
 				Romain::LogicalCPUMap *m = reinterpret_cast<Romain::LogicalCPUMap*>(data);
 
@@ -87,6 +89,11 @@ namespace Romain
 			int ret = pthread_create(&p, 0, Romain::LogicalCPUMap::topology_scanner, this);
 			_check(ret != 0, "error creating topology scanner");
 			ret = pthread_join(p, 0);
+
+			for (unsigned i = CPUID::num_cpus(); i < MAX_CPUS; ++i) {
+				_fiasco_cpus[i].apic_id = 0xDEADBEEF;
+			}
+
 			INFO() << "Topology scan completed.";
 		}
 
@@ -302,6 +309,9 @@ namespace Romain
 				query_observer_status();
 				logdump();
 			}
+
+			Romain::App_instance* instance(unsigned idx)
+			{ return _instances[idx]; }
 
 			static void VCPU_handler(Romain::InstanceManager *m, Romain::App_instance *i, Romain::App_thread *t, Romain::Thread_group* tg, Romain::App_model *a);
 			static void VCPU_startup(Romain::InstanceManager *m, Romain::App_instance *i, Romain::App_thread *t, Romain::Thread_group* tg, Romain::App_model *a);

@@ -66,6 +66,8 @@ void Romain::Region_ops::release(Region_handler const* h)
 Romain::Region_map::Region_map()
 	: Base(0,0), _active_instance(Invalid_inst)
 {
+	pthread_mutex_init(&_mtx, 0);
+
 	l4_kernel_info_t *kip = l4re_kip();
 	MSG() << "kip found at 0x" << std::hex << kip
 	      << " having " << L4::Kip::Mem_desc::count(kip)
@@ -109,7 +111,50 @@ Romain::Region_map::Region_map()
  * if necessary (e.g., setting debug breakpoints on read-only code).
  *
  * For writable dataspaces, the master simply attaches the same region that has
- * already been attached to the replica AS into its own address space.
+ * already been attached to the replica AS into its own address space and maintains
+ * a copy for every replica.
+ *
+ * The replica copies lead to another problem: to reduce replication overhead, we
+ * would like to handle page faults using as few memory mappings as possible. To
+ * be able to do so, we however need to make sure that all replica copies are
+ * aligned to the same start address. The Romain::Master does this by ensuring
+ * that the replica address as well as the master-local addresses of the copies
+ * are aligned to the same offset within a minimally aligned region. The minimum
+ * alignment is defined by the Region_handler()'s MIN_ALIGNMENT member (XXX and
+ * should at some point become a configurable feature).
+ *
+ * The layout looks like this:
+ *
+ *  REPLICA:
+ *
+ * (1)      (2)                         (3)
+ *  +- - - - +---------------------------+
+ *  |        |                           |
+ *  +- - - - +---------------------------+
+ *
+ *  MASTER (per copy):
+ *
+ * (A)      (B)                         (C)
+ *  +- - - - +---------------------------+
+ *  |        |                           |
+ *  +- - - - +---------------------------+ 
+ *
+ *   (1)  correct minimum alignment
+ *   (2)  region.start()
+ *   (3)  region.end()
+ *
+ *   (A)  address aligned similar to (1)
+ *   (B)  local_region[inst]->start()
+ *   (C)  local_region[inst]->end()
+ *
+ *   MIN_ALIGNMENT_MASK := (1 << MIN_ALIGNMENT) - 1
+ *   (1) := (2) - [(2) & MIN_ALIGNMENT_MASK]
+ *   (A) := (B) - [(B) & MIN_ALIGNMENT_MASK]
+ *
+ *  Attaching then works by first reserving an area with the RM
+ *  that has the size (C) - (A). Then we attach the dataspace to
+ *  (B) and free the reserved area so that the remaining memory
+ *  can again be freely used.
  */
 void *Romain::Region_map::attach_locally(void* addr, unsigned long size,
                                          Romain::Region_handler *hdlr,
@@ -215,11 +260,10 @@ void *Romain::Region_map::attach_locally(void* addr, unsigned long size,
 	 */
 	flags &= ~L4Re::Rm::In_area;
 
-	l4_addr_t a = 0;
-	r = L4Re::Env::env()->rm()->attach(&a, eff_size,
-	                                   L4Re::Rm::Search_addr | flags,
-	                                   *ds, page_base, align);
-	_check(r != 0, "attach error");
+	l4_addr_t a = Romain::Region_map::attach_aligned(ds, eff_size,
+	                                                 page_base, flags,
+	                                                 hdlr->alignment(),
+	                                                 hdlr->align_diff());
 
 	Romain::Region reg(a, a+eff_size - 1);
 	reg.touch_rw();
@@ -236,6 +280,8 @@ void *Romain::Region_map::attach(void* addr, unsigned long size,
 {
 	void *ret = 0;
 
+	DEBUG() << std::hex << addr << " " << size << " " << (int)align;
+
 	/*
 	 * XXX: the only reason for this Region_handler to exist is to copy
 	 *      the shared parameter into the handler. Shouldn't the caller
@@ -250,7 +296,13 @@ void *Romain::Region_map::attach(void* addr, unsigned long size,
 	 * that the memory alignment of the local mapping matches the remote
 	 * alignment. This allows us to play mapping tricks later.
 	 */
+	if ((size > L4_SUPERPAGESIZE) and (align < L4_LOG2_SUPERPAGESIZE)) {
+		align = L4_LOG2_SUPERPAGESIZE;
+		size  = l4_round_size(size, L4_SUPERPAGESHIFT);
+	}
+
 	ret = Base::attach(addr, size, _handler, flags, align);
+	DEBUG() << "Base::attach = " << std::hex << ret;
 
 	/*
 	 * The node is now present in the region map. This means we now need
@@ -286,19 +338,19 @@ void *Romain::Region_map::attach(void* addr, unsigned long size,
 
 
 
-#if 0
+#if 1
 int Romain::Region_map::detach(void* addr, unsigned long size, unsigned flags,
-                            L4Re::Util::Region* reg, Romain::Region_handler* h)
+                              L4Re::Util::Region* reg, Romain::Region_handler* h)
 {
 	MSG() << "addr " << std::hex << l4_addr_t(addr) << " " << size
 	      << " " << flags;
 	MSG() << "active instance: " << _active_instance;
-	enter_kdebug("detach");
+	//enter_kdebug("detach");
 	return -1;
 }
 #endif
 
-bool Romain::Region_map::lazy_map_region(Romain::Region_map::Base::Node &n, unsigned inst)
+bool Romain::Region_map::lazy_map_region(Romain::Region_map::Base::Node &n, unsigned inst, bool iswritepf)
 {
 	/* already mapped? */
 	if (n->second.local_region(inst).start())
@@ -333,9 +385,9 @@ bool Romain::Region_map::lazy_map_region(Romain::Region_map::Base::Node &n, unsi
 		rh->set_local_region(inst, n->second.local_region(existing));
 		rh->memory(inst, n->second.memory(existing));
 	} else {
-		DEBUGf(Romain::Log::Memory) << "Copying existing mapping.";
-		bool b = copy_existing_mapping(*rh, existing, inst);
-		_check(!b, "error creating rw copy");
+			DEBUGf(Romain::Log::Memory) << "Copying existing mapping.";
+			bool b = copy_existing_mapping(*rh, existing, inst, iswritepf);
+			_check(!b, "error creating rw copy");
 	}
 	return true;
 }

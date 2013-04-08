@@ -10,6 +10,7 @@
 
 #include <l4/cxx/avl_set>
 #include <l4/cxx/ipc_server>
+#include <l4/cxx/hlist>
 
 #include <l4/vbus/vbus_types.h>
 
@@ -22,6 +23,27 @@ class Sw_icu;
 class System_bus : public Device, public Dev_feature, public L4::Server_object
 {
 public:
+  class Root_resource_factory : public cxx::H_list_item
+  {
+  public:
+    virtual Root_resource *create(System_bus *bus) const = 0;
+    Root_resource_factory()
+    { _factories.push_front(this); }
+
+    typedef cxx::H_list<Root_resource_factory> Factory_list;
+    static Factory_list _factories;
+  };
+
+  template< unsigned TYPE, typename RS >
+  class Root_resource_factory_t : public Root_resource_factory
+  {
+  public:
+    Root_resource *create(System_bus *bus) const
+    {
+      return new Root_resource(TYPE, new RS(bus));
+    }
+  };
+
   System_bus();
   ~System_bus();
 
@@ -45,7 +67,7 @@ private:
     bool operator () (Resource const *a, Resource const *b) const
     {
       if (a->type() == b->type())
-	return a->end() < b->start();
+        return a->lt_compare(b);
       return a->type() < b->type();
     }
   };
@@ -67,6 +89,7 @@ private:
   Resource_set _resources;
   Device *_host;
   Sw_icu *_sw_icu;
+
 };
 
 }

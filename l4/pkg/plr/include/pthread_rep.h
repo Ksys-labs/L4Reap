@@ -26,11 +26,20 @@ fas_uint(volatile unsigned int *lock, unsigned int val)
 }
 
 
+#ifdef PT_SOLO
+#include <l4/util/util.h>
+static inline void
+stall(void)
+{
+	l4_thread_yield();
+}
+#else
 static inline void
 stall(void)
 {
 	asm volatile ("ud2" ::: "memory");
 }
+#endif
 
 
 enum {
@@ -66,11 +75,24 @@ typedef struct {
 } lock_info;
 
 /* Compile-time assertion: lock_info must fit into a page) */
-char __lock_info_size_valid[!!(sizeof(lock_info) <= L4_PAGESIZE)-1];
+static char __lock_info_size_valid[!!(sizeof(lock_info) <= L4_PAGESIZE)-1];
 
-lock_info* get_lock_info(void);
-lock_info* get_lock_info(void) {
-	return (lock_info*)LOCK_INFO_ADDR;
+static inline lock_info* get_lock_info(void)
+{
+	static lock_info* __lip_address = (lock_info*)LOCK_INFO_ADDR;
+#ifdef PT_SOLO
+	static lock_info lip;
+	static int init = 0;
+	if (!init) {
+		init = 1;
+		lip.replica_count = 1;
+		memset(&lip.trampolines, 0, NUM_TRAMPOLINES * TRAMPOLINE_SIZE);
+		lip.locks[0].owner    = 0xDEADBEEF;
+		lip.locks[0].lockdesc = 0xFAFAFAFA;
+	}
+	__lip_address = &lip;
+#endif
+	return __lip_address;
 }
 
 

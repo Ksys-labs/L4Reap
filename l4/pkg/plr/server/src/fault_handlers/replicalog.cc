@@ -36,6 +36,8 @@ void *to_thread(void *arg)
 	if (o->want_cancel())
 		return NULL;
 
+	l4_debugger_set_object_name(pthread_getl4cap(pthread_self()), "romain::timout");
+
 	Measurements::GenericEvent* ev = Romain::_the_instance_manager->logbuf()->next();
 	ev->header.tsc                 = Romain::_the_instance_manager->logbuf()->getTime(Romain::Log::logLocalTSC);
 	ev->header.vcpu                = (l4_uint32_t)0xDEADBEEF;

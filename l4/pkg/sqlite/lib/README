@@ -1,7 +1,7 @@
 
 
 The contrib directory contains the nearly unmodified contents of
-sqlite-autoconf-3071502.tar.gz
+sqlite-autoconf-3071601.tar.gz
 
 The current change is to undef HAVE_POSIX_FALLOCATE in case of uclibc
 because uclibc does not have it.

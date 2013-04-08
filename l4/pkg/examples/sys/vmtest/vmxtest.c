@@ -51,22 +51,7 @@ static l4_cap_idx_t vm_task;
 
 L4_INLINE
 void vmwrite(void *vmcs, unsigned field, unsigned long long val)
-{
-  void *ptr = l4_vm_vmx_field_ptr(vmcs, field);
-
-  switch(l4_vm_vmx_field_len(field))
-  {
-    case 2:
-      *((l4_uint16_t *)(ptr)) = val;
-      break;
-    case 4:
-      *((l4_uint32_t *)(ptr)) = val;
-      break;
-    case 8:
-      *((l4_uint64_t *)(ptr)) = val;
-      break;
-  }
-}
+{ l4_vm_vmx_write(vmcs, field, val); }
 
 static void init_vmcs(void *vmcs)
 {
@@ -115,6 +100,9 @@ static void init_vmcs(void *vmcs)
   vmwrite(vmcs, VMX_GUEST_TR_ACCESS_RIGHTS, 0x108b);
   vmwrite(vmcs, VMX_GUEST_TR_LIMIT, 67);
   vmwrite(vmcs, VMX_GUEST_TR_BASE, 0);
+
+  vmwrite(vmcs_s, VMX_GUEST_CR0, 0x0001003b);
+
 }
 
 static int check_vmx(void)
@@ -149,11 +137,11 @@ void handle_vmexit(void)
   l4_msgtag_t tag;
   l4_uint32_t interrupt_info;
 
-  printf("iteration=%d, rip=0x%x -> 0x%x\n",
-         i, (unsigned int)old_rip,
-         *((unsigned int *)l4_vm_vmx_field_ptr(vmcs_s, VMX_GUEST_RIP)));
+  printf("iteration=%d, rip=0x%lx -> 0x%lx\n",
+         i, old_rip,
+         l4_vm_vmx_read_nat(vmcs_s, VMX_GUEST_RIP));
 
-  l4_uint32_t exit_reason = *((l4_uint32_t *)l4_vm_vmx_field_ptr(vmcs_s, VMX_EXIT_REASON));
+  l4_uint32_t exit_reason = l4_vm_vmx_read_32(vmcs_s, VMX_EXIT_REASON);
   if ((exit_reason & (1<<31)))
     printf("VM entry failure, reason %d\n", (exit_reason & 0xffff));
   else
@@ -161,8 +149,9 @@ void handle_vmexit(void)
       switch (exit_reason)
         {
         case 0:
-          printf("Exception or NMI at guest ip 0x%x, checking interrupt info\n", *((unsigned int *)l4_vm_vmx_field_ptr(vmcs_s, VMX_GUEST_RIP)));
-          interrupt_info = *((l4_uint32_t *)l4_vm_vmx_field_ptr(vmcs_s, VMX_EXIT_INTERRUPT_INFO));
+          printf("Exception or NMI at guest ip 0x%lx, checking interrupt info\n",
+                 l4_vm_vmx_read_nat(vmcs_s, VMX_GUEST_RIP));
+          interrupt_info = l4_vm_vmx_read_32(vmcs_s, VMX_EXIT_INTERRUPT_INFO);
           // check valid bit
           if (!(interrupt_info & (1<<31)))
             printf("Interrupt info not valid\n");
@@ -173,15 +162,15 @@ void handle_vmexit(void)
 
           if ((interrupt_info & (1 << 11))) // interrupt error code valid?
             printf("interrupt error=0x%x\n",
-                   *((l4_uint32_t *)l4_vm_vmx_field_ptr(vmcs_s, VMX_EXIT_INTERRUPT_ERROR)));
+                   l4_vm_vmx_read_32(vmcs_s, VMX_EXIT_INTERRUPT_ERROR));
 
-          printf("cr0=%lx\n", *((l4_umword_t *)l4_vm_vmx_field_ptr(vmcs_s, VMX_GUEST_CR0)));
+          printf("cr0=%lx\n", l4_vm_vmx_read_nat(vmcs_s, VMX_GUEST_CR0));
           printf("eax: %lx ebx: %lx esi: %lx\n", vcpu->r.ax, vcpu->r.bx, vcpu->r.si);
 
           if (((interrupt_info & 0x700)>>8) == 3 &&
               (interrupt_info & 0xff) == 14)
             {
-              l4_umword_t fault_addr = *((l4_umword_t *)l4_vm_vmx_field_ptr(vmcs_s, VMX_EXIT_QUALIFICATION));
+              l4_umword_t fault_addr = l4_vm_vmx_read_nat(vmcs_s, VMX_EXIT_QUALIFICATION);
               printf("detected pagefault @ %lx\n", fault_addr);
               tag = l4_task_map(vm_task, L4RE_THIS_TASK_CAP,
                                 l4_fpage(fault_addr & L4_PAGEMASK, L4_PAGESHIFT, L4_FPAGE_RW),
@@ -192,12 +181,30 @@ void handle_vmexit(void)
             }
 
           // increment rip to continue
-          l4_umword_t l = *((l4_uint32_t *)l4_vm_vmx_field_ptr(vmcs_s, VMX_EXIT_INSTRUCTION_LENGTH));
-          l4_umword_t ip = *((l4_umword_t *)l4_vm_vmx_field_ptr(vmcs_s, VMX_GUEST_RIP));
+          l4_umword_t l = l4_vm_vmx_read_32(vmcs_s, VMX_EXIT_INSTRUCTION_LENGTH);
+          l4_umword_t ip = l4_vm_vmx_read_nat(vmcs_s, VMX_GUEST_RIP);
+          printf("insn length: %lx new rip=%lx\n", l, ip);
           vmwrite(vmcs_s, VMX_GUEST_RIP, ip+l);
           break;
         case 1:
           printf("External interrupt\n");
+          break;
+        case 48: // EPT violation
+          printf("EPT violation\n");
+          l4_umword_t q = l4_vm_vmx_read_nat(vmcs_s, VMX_EXIT_QUALIFICATION);
+          printf("  exit qualifiction: %lx\n", q);
+          printf("  guest phys = %llx,  guest linear: %lx\n", l4_vm_vmx_read_64(vmcs_s, 0x2400), l4_vm_vmx_read_nat(vmcs_s, 0x640a));
+          printf("  guest cr0 = %lx\n", l4_vm_vmx_read_nat(vmcs_s, VMX_GUEST_CR0));
+
+            {
+              l4_umword_t fault_addr = l4_vm_vmx_read_64(vmcs_s, 0x2400);
+              printf("detected pagefault @ %lx\n", fault_addr);
+              tag = l4_task_map(vm_task, L4RE_THIS_TASK_CAP,
+                                l4_fpage(fault_addr & L4_PAGEMASK, L4_PAGESHIFT, L4_FPAGE_RWX),
+                                l4_map_control(fault_addr, 0, L4_MAP_ITEM_MAP));
+              if (l4_error(tag))
+                printf("Error mapping page\n");
+            }
           break;
         default:
           printf("Exit reason %d\n", exit_reason);
@@ -217,11 +224,12 @@ void vm_resume(void)
     printf("vm_resume failed: %s (%d)\n", l4sys_errtostr(r), r);
 
   handle_vmexit();
-  old_rip = *((l4_umword_t *)l4_vm_vmx_field_ptr(vmcs_s, VMX_GUEST_RIP));
+  old_rip = l4_vm_vmx_read_nat(vmcs_s, VMX_GUEST_RIP);
 
   if (old_rip <= test_end)
     vm_resume();
 }
+
 
 static l4_vcpu_state_t *get_state_mem(l4_addr_t *extstate)
 {
@@ -263,6 +271,12 @@ static l4_vcpu_state_t *get_state_mem(l4_addr_t *extstate)
   done = 1;
 
   *extstate = ext_state;
+
+  for (unsigned i = 0x480; i < 0x48d; ++i)
+    printf("VMX: CAP MSR[%3x]: %llx\n", i, l4_vm_vmx_get_caps(vcpu, i));
+
+  for (unsigned i = 0x481; i < 0x485; ++i)
+    printf("VMX: CAP MSR[%3x]: default1: %x\n", i, l4_vm_vmx_get_caps_default1(vcpu, i));
 
   return vcpu;
 }
@@ -310,7 +324,7 @@ static void run_test(int ept_available)
                "    nop               \n"
                "    nop               \n"
 			         "    addl %%edx,%%eax  \n"
-               "    ud2               \n"
+//               "    ud2               \n"
 			         "    addl %%edx,%%eax  \n"
                "    int3              \n"
                "3:  nop               \n"
@@ -324,7 +338,7 @@ static void run_test(int ept_available)
                "4:                    \n"
                "    movl $1, %%eax    \n"
 			         "    addl %%edx,%%eax  \n"
-               "    ud2               \n"
+  //             "    ud2               \n"
                "1:  mov $2b, %0      \n"
                "    mov $3b, %1      \n"
                "    mov $4b, %2      \n"
@@ -363,7 +377,7 @@ static void run_test(int ept_available)
   vmwrite(vmcs_s, VMX_GUEST_RSP, (l4_umword_t)stack + STACKSIZE);
   vmwrite(vmcs_s, VMX_GUEST_RFLAGS, eflags);
   vmwrite(vmcs_s, VMX_GUEST_RIP, ip);
-  vmwrite(vmcs_s, VMX_GUEST_CR0, 0x8001003b);
+  vmwrite(vmcs_s, VMX_GUEST_CR0, 0x0001003b);
   vmwrite(vmcs_s, VMX_GUEST_CR4, 0x2690);
   vmwrite(vmcs_s, VMX_GUEST_DR7, 0x300);
   vmwrite(vmcs_s, VMX_VMCS_LINK_PTR, 0xffffffffffffffffULL);
@@ -382,13 +396,13 @@ static void run_test(int ept_available)
 
       tag = l4_task_map(vm_task, L4RE_THIS_TASK_CAP,
                         l4_fpage((((l4_umword_t)(stack)) + ofs) & L4_PAGEMASK,
-                                 L4_PAGESHIFT, L4_FPAGE_RW),
+                                 L4_PAGESHIFT, L4_FPAGE_RWX),
                         l4_map_control(((l4_umword_t)stack) +  ofs, 0,
                                        L4_MAP_ITEM_MAP));
     }
 
   tag = l4_task_map(vm_task, L4RE_THIS_TASK_CAP,
-                    l4_fpage(ip & L4_PAGEMASK, L4_PAGESHIFT, L4_FPAGE_RW),
+                    l4_fpage(ip & L4_PAGEMASK, L4_PAGESHIFT, L4_FPAGE_RWX),
                     l4_map_control(ip, 0, L4_MAP_ITEM_MAP));
 
   idt[26] = 0x80000; // #13 general protection fault
@@ -442,7 +456,7 @@ __attribute__((aligned(4096))) int main(void)
   l4_touch_rw(stack, sizeof(stack));
   l4_touch_rw(hdl_stack, sizeof(hdl_stack));
 
-  run_test(0);
+  run_test(1);
 
   printf("VM test exited\n");
 

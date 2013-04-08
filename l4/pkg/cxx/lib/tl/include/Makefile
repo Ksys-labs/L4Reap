@@ -21,6 +21,9 @@ EXTRA_TARGET := \
   std_alloc   \
   std_ops     \
   std_tmpl    \
-  type_traits
+  type_traits \
+  type_list \
+  bitfield \
+  utils
 
 include $(L4DIR)/mk/include.mk

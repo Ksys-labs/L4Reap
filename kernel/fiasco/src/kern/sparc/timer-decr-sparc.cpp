@@ -15,7 +15,7 @@ IMPLEMENTATION [sparc]:
 
 IMPLEMENT inline NEEDS ["decrementer.h", "kip.h", "config.h", <cstdio>]
 void
-Timer::init(unsigned)
+Timer::init(Cpu_number)
 {
   printf("Using PowerPC decrementer for scheduling\n");
 
@@ -70,9 +70,9 @@ Timer::system_clock()
 
 IMPLEMENT inline NEEDS ["decrementer.h", "config.h", "kip.h"]
 void
-Timer::update_system_clock(unsigned cpu)
+Timer::update_system_clock(Cpu_number cpu)
 {
-  if (cpu == 0)
+  if (cpu == Cpu_number::boot_cpu())
     {
       Decrementer::d()->set();
       Kip::k()->clock += Config::Scheduler_granularity;

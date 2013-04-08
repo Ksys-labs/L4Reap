@@ -17,7 +17,8 @@ void Pic::init()
 
   M *m = new Boot_object<M>(1);
 
-  gic.construct(Kmem::Gic_cpu_map_base, Kmem::Gic_dist_map_base);
+  gic.construct(Kmem::mmio_remap(Mem_layout::Gic_cpu_phys_base),
+                Kmem::mmio_remap(Mem_layout::Gic_dist_phys_base));
   m->add_chip(0, gic, gic->nr_irqs());
 
   Irq_mgr::mgr = m;
@@ -35,7 +36,7 @@ void Pic::restore_all(Status)
 IMPLEMENTATION [arm && mp && pic_gic && tegra2]:
 
 PUBLIC static
-void Pic::init_ap(unsigned)
+void Pic::init_ap(Cpu_number)
 {
   gic->init_ap();
 }

@@ -15,10 +15,10 @@ IMPLEMENTATION:
 Static_object<Timer_tick> Timer_tick::_glbl_timer;
 
 IMPLEMENT void
-Timer_tick::setup(unsigned cpu)
+Timer_tick::setup(Cpu_number cpu)
 {
   // all CPUs use the same timer IRQ, so initialize just on CPU 0
-  if (cpu != 0)
+  if (cpu != Cpu_number::boot_cpu())
     return;
 
   _glbl_timer.construct(Any_cpu);
@@ -30,14 +30,14 @@ Timer_tick::setup(unsigned cpu)
 
 IMPLEMENT
 void
-Timer_tick::enable(unsigned)
+Timer_tick::enable(Cpu_number)
 {
   _glbl_timer->chip()->unmask(_glbl_timer->pin());
 }
 
 IMPLEMENT
 void
-Timer_tick::disable(unsigned)
+Timer_tick::disable(Cpu_number)
 {
   _glbl_timer->chip()->mask(_glbl_timer->pin());
 }

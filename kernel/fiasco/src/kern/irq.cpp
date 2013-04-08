@@ -79,7 +79,7 @@ public:
     // level triggered
   }
 
-  void set_cpu(Mword, unsigned)
+  void set_cpu(Mword, Cpu_number)
   {
     // don't know what to do here, may be multiple targets on different
     // CPUs!
@@ -279,7 +279,7 @@ Irq_muxer::sys_attach(L4_msg_tag const &tag, Utcb const *utcb, Syscall_frame * /
 
 PUBLIC
 L4_msg_tag
-Irq_muxer::kinvoke(L4_obj_ref, Mword /*rights*/, Syscall_frame *f,
+Irq_muxer::kinvoke(L4_obj_ref, L4_fpage::Rights /*rights*/, Syscall_frame *f,
                    Utcb const *utcb, Utcb *)
 {
   register Context *const c_thread = ::current();
@@ -624,7 +624,7 @@ Irq_sender::sys_attach(L4_msg_tag const &tag, Utcb const *utcb, Syscall_frame * 
 
 PUBLIC
 L4_msg_tag
-Irq_sender::kinvoke(L4_obj_ref, Mword /*rights*/, Syscall_frame *f,
+Irq_sender::kinvoke(L4_obj_ref, L4_fpage::Rights /*rights*/, Syscall_frame *f,
                     Utcb const *utcb, Utcb *)
 {
   register Context *const c_thread = ::current();

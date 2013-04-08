@@ -8,12 +8,15 @@
  */
 
 
+#include "debug.h"
 #include "gpio"
 #include "hw_device.h"
 #include "vdevice.h"
 #include "vbus_factory.h"
 #include "vbus.h"
 #include "vicu.h"
+
+#include <vector>
 
 #include <l4/vbus/vbus_gpio-ops.h>
 
@@ -58,6 +61,11 @@ public:
       return -ENODEV;
     _mask |= ~(~0UL << (e - s + 1)) << s;
     return 0;
+  }
+
+  void modify_mask(l4_uint32_t enable, l4_uint32_t disable)
+  {
+    _mask = (_mask & ~disable) | enable;
   }
 
   char const *hid() const { return "GPIO"; }
@@ -255,6 +263,105 @@ Gpio::dispatch(l4_umword_t, l4_uint32_t func, L4::Ipc::Iostream &ios)
 
 static Dev_factory_t<Gpio, Hw::Gpio_device> __gpio_factory;
 
+class Gpio_resource : public Resource
+{
+public:
+  explicit Gpio_resource(::Gpio_resource *hr)
+  : Resource(hr->flags(), hr->start(), hr->end()), _hwr(hr) {}
+private:
+  ::Gpio_resource *_hwr;
+};
+
+class Root_gpio_rs : public Resource_space
+{
+public:
+  explicit Root_gpio_rs(System_bus *bus) : _bus(bus)
+  {}
+
+  bool request(Resource *parent, ::Device *pdev, Resource *child, ::Device *)
+  {
+    Vi::System_bus *vsb = dynamic_cast<Vi::System_bus *>(pdev);
+    if (!vsb || !parent)
+      return false;
+
+    ::Gpio_resource *r = dynamic_cast< ::Gpio_resource*>(child);
+    if (!r)
+      return false;
+
+    Hw::Gpio_device *gpio = r->provider();
+
+    Vi::Device *vbus = vsb;
+
+    for (Hw::Device *bus = system_bus(); bus != gpio; )
+      {
+        Hw::Device *d = gpio;
+        while (d->parent() != bus)
+          d = d->parent();
+
+        bus = d;
+        //printf("BUS: %p:%s\n", bus, bus->name());
+
+        Vi::Device *vd = vbus->find_by_name(bus->name());
+        if (!vd)
+          {
+            if (bus != gpio)
+              vd = new Vi::Device();
+            else
+              vd = new Gpio(gpio);
+
+            vd->name(bus->name());
+            vbus->add_child(vd);
+          }
+        // printf("VDEV=%p:%s\n", vd, vd ? vd->name() : "");
+        vbus = vd;
+      }
+
+    Gpio *vgpio = dynamic_cast<Gpio *>(vbus);
+
+    if (!vgpio)
+      {
+        d_printf(DBG_ERR, "ERROR: device: %s is not a GPIO device\n", vbus->name());
+        return false;
+      }
+
+    d_printf(DBG_DEBUG2, "Add GPIO resource to vbus: ");
+    if (dlevel(DBG_DEBUG2))
+      child->dump();
+
+
+      {
+        unsigned e = r->end() + 1;
+        unsigned s = r->start();
+        if (e > 31) e = 31;
+        if (s > 31) s = 31;
+        l4_uint32_t mask = ((1UL << (e - s)) - 1) << s;
+        vgpio->modify_mask(mask, 0);
+      }
+
+    return true;
+  }
+
+  bool alloc(Resource *parent, ::Device *, Resource *child, ::Device *, bool)
+  {
+    d_printf(DBG_DEBUG2, "Allocate virtual GPIO resource ...\n");
+    if (dlevel(DBG_DEBUG2))
+      child->dump();
+
+    if (!parent)
+      return false;
+    return false;
+  }
+
+
+private:
+  Root_gpio_rs(Root_gpio_rs const &);
+  void operator = (Root_gpio_rs const &);
+
+  System_bus *_bus;
+  std::vector<Gpio *> _gpios;
+};
+
+static System_bus::Root_resource_factory_t<Resource::Gpio_res, Root_gpio_rs> __rf;
 
 }
 }

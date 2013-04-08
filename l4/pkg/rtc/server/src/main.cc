@@ -38,7 +38,7 @@
 
 l4_uint32_t system_time_offs_rel_1970;
 
-int
+static int
 l4rtc_if_get_offset_component(l4_uint32_t *offset)
 {
 #if defined ARCH_x86 || defined ARCH_amd64
@@ -49,7 +49,7 @@ l4rtc_if_get_offset_component(l4_uint32_t *offset)
   return 1;
 }
 
-int
+static int
 l4rtc_if_get_linux_tsc_scaler_component(l4_uint32_t *scaler)
 {
 #if defined ARCH_x86 || defined ARCH_amd64
@@ -121,8 +121,9 @@ main()
       if (get_base_time())
         return 1;
 
-
-      L4::Cap<L4::Ipc_gate> cap = L4Re::Env::env()->get_cap<L4::Ipc_gate>("rtc");
+      L4::Cap<L4::Ipc_gate> cap;
+      cap = L4Re::chkcap(L4Re::Env::env()->get_cap<L4::Ipc_gate>("rtc"),
+                         "Did not find server cap 'rtc'");
       L4Re::chksys(cap->bind_thread(L4Re::Env::env()->main_thread(), 0x1230),
                    "bind to rtc server gate");
     }

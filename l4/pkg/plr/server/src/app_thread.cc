@@ -279,13 +279,22 @@ Romain::Thread_group::control(Romain::App_thread *t, l4_utcb_t *utcb, Romain::Ap
 		l4_addr_t utcb_remote = l4_utcb_mr_u(utcb)->mr[L4_THREAD_CONTROL_MR_IDX_BIND_UTCB];
 		DEBUG() << "Setting remote UTCB to " << (void*)utcb_remote;
 
-		Romain::App_model::Dataspace ds = am->alloc_ds(L4_PAGESIZE); // thread info page
-		l4_addr_t local_addr = am->local_attach_ds(ds, L4_PAGESIZE, 0);
+		L4::Cap<L4Re::Dataspace> mem;
+		Romain::Region_map::allocate_ds(&mem, L4_PAGESIZE);
+		l4_addr_t local_addr = Romain::Region_map::allocate_and_attach(&mem, L4_PAGESIZE, 0, 0);
 		DEBUG() << "Attached TIP to " << (void*)local_addr;
 
+		/* store UTCB address in TIP */
 		*reinterpret_cast<l4_umword_t*>(local_addr) = utcb_remote;
-		void* tip_addr = am->prog_attach_ds(0, L4_PAGESIZE, ds, 0,
-											L4Re::Rm::Search_addr, "thread info page", local_addr);
+
+		am->rm()->activate(0);
+		void* tip_addr = (void*)0x10000;
+		tip_addr = am->rm()->attach(tip_addr, L4_PAGESIZE,
+		                            Romain::Region_handler(mem, L4_INVALID_CAP, 0,
+		                                                   0, Romain::Region(local_addr, local_addr + L4_PAGESIZE - 1)),
+		                            L4Re::Rm::Search_addr, L4_PAGESHIFT, false);
+		am->rm()->release();
+
 		DEBUG() << "Remote TIP address: " << tip_addr;
 
 		for (unsigned i = 0; i < threads.size(); ++i) {

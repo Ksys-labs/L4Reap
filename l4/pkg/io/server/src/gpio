@@ -2,7 +2,9 @@
 
 #pragma once
 
+#include "debug.h"
 #include "hw_device.h"
+#include "resource.h"
 #include <l4/vbus/vbus_gpio.h>
 
 namespace Hw {
@@ -58,3 +60,30 @@ class Gpio_device :
 };
 
 }
+
+class Gpio_resource : public Resource
+{
+public:
+  explicit Gpio_resource(Hw::Device *dev, unsigned start, unsigned end)
+  : Resource(Gpio_res | F_fixed_size | F_fixed_addr | F_relative, start, end),
+    _hw(dynamic_cast<Hw::Gpio_device*>(dev))
+  {
+    if (!_hw)
+      {
+        d_printf(DBG_ERR,
+                 "ERROR: GPIO: failed to assign GPIO-device (%p: %s) to resource\n",
+                 dev, dev ? dev->name() : "");
+        throw("ERROR: GPIO: failed to assign GPIO-device to resource");
+      }
+  }
+
+  void dump(int indent) const;
+
+  Hw::Gpio_device *provider() const { return _hw; }
+
+private:
+  Gpio_resource(Gpio_resource const &);
+  void operator = (Gpio_resource const &);
+
+  Hw::Gpio_device *_hw;
+};

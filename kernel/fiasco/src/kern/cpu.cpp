@@ -10,8 +10,8 @@ class Cpu
 public:
   struct By_phys_id
   {
-    Unsigned32 _p;
-    By_phys_id(Unsigned32 p) : _p(p) {}
+    Cpu_phys_id _p;
+    By_phys_id(Cpu_phys_id p) : _p(p) {}
     template<typename CPU>
     bool operator () (CPU const &c) const { return _p == c.phys_id(); }
   };
@@ -20,9 +20,10 @@ public:
   typedef Cpu_mask_t<Config::Max_num_cpus + 1> Online_cpu_mask;
 
   enum { Invalid = Config::Max_num_cpus };
+  static Cpu_number invalid() { return Cpu_number(Invalid); }
 
   /** Get the logical ID of this CPU */
-  unsigned id() const;
+  Cpu_number id() const;
 
 
   /**
@@ -32,7 +33,7 @@ public:
   void set_online(bool o);
 
   /** Convienience for Cpu::cpus.cpu(cpu).online() */
-  static bool online(unsigned cpu);
+  static bool online(Cpu_number cpu);
 
   static Online_cpu_mask const &online_mask();
 
@@ -51,8 +52,8 @@ EXTENSION class Cpu
 {
 
 private:
-  void set_id(unsigned id) { _id = id; }
-  unsigned _id;
+  void set_id(Cpu_number id) { _id = id; }
+  Cpu_number _id;
 };
 
 //--------------------------------------------------------------------------
@@ -61,7 +62,7 @@ INTERFACE[!mp]:
 EXTENSION class Cpu
 {
 private:
-  void set_id(unsigned) {}
+  void set_id(Cpu_number) {}
 };
 
 
@@ -81,7 +82,7 @@ IMPLEMENTATION [mp]:
 #include "kdb_ke.h"
 
 IMPLEMENT inline
-unsigned
+Cpu_number
 Cpu::id() const
 { return _id; }
 
@@ -103,7 +104,7 @@ Cpu::set_online(bool o)
 
 IMPLEMENT static inline NEEDS["kdb_ke.h"]
 bool
-Cpu::online(unsigned _cpu)
+Cpu::online(Cpu_number _cpu)
 { return _online_mask.get(_cpu); }
 
 
@@ -111,9 +112,9 @@ Cpu::online(unsigned _cpu)
 IMPLEMENTATION [!mp]:
 
 IMPLEMENT inline
-unsigned
+Cpu_number
 Cpu::id() const
-{ return 0; }
+{ return Cpu_number::boot_cpu(); }
 
 IMPLEMENT inline
 bool
@@ -127,6 +128,6 @@ Cpu::set_online(bool)
 
 IMPLEMENT static inline
 bool
-Cpu::online(unsigned _cpu)
-{ return _cpu == 0; }
+Cpu::online(Cpu_number _cpu)
+{ return _cpu == Cpu_number::boot_cpu(); }
 

@@ -36,6 +36,8 @@
 int pthread_mutex_lock_rep(pthread_mutex_t * mutex);
 int pthread_mutex_unlock_rep(pthread_mutex_t * mutex);
 
+lock_info* __lip_address = LOCK_INFO_ADDR;
+
 
 #define LOCKli(li, mtx) (li)->locks[(mtx)->__m_reserved]
 #define ACQ(li, mtx)    lock_li(  (li), (mtx)->__m_reserved)
@@ -63,6 +65,7 @@ int pthread_mutex_unlock_rep(pthread_mutex_t * mutex);
  */
 static inline void rep_function_save_regs(void)
 {
+#if 0
   BARRIER();
   asm volatile ("mov %%ebx, %0\t\n"
                 "mov %%ecx, %1\t\n"
@@ -78,13 +81,15 @@ static inline void rep_function_save_regs(void)
                 :
                 : "memory"
   );
+  BARRIER();
+#endif
 }
 
 
 static inline void rep_function_restore_regs(void)
 {
-  
   BARRIER();
+#if 0
   asm volatile ("mov %0, %%ebx\t\n"
                 "mov %1, %%ecx\t\n"
                 "mov %2, %%edx\t\n"
@@ -99,14 +104,25 @@ static inline void rep_function_restore_regs(void)
                   "m" (thread_self()->edi)*/
                 : "memory"
   );
+#else
+  asm volatile ("mov $0, %%ebx\t\n"
+                "mov $0, %%ecx\t\n"
+                "mov $0, %%edx\t\n"
+                ::: "memory");
+#endif
+  BARRIER();
 }
 
+#ifdef PT_SOLO
+#define yield stall
+#else
 static inline void yield()
 {
 	rep_function_restore_regs();
 	asm volatile ("ud2" : : : "edx", "ecx", "ebx", "memory");
 	rep_function_save_regs();
 }
+#endif
 
 
 static inline void lock_rep_wait(pthread_mutex_t* mutex)
@@ -207,6 +223,7 @@ int
 attribute_hidden
 pthread_mutex_lock_rep(pthread_mutex_t * mutex)
 {
+
   rep_function_save_regs();
   
 	/*
@@ -286,7 +303,7 @@ pthread_mutex_unlock_rep(pthread_mutex_t * mutex)
       LOCKli(li, mutex).owner = lock_unowned;
   }
 
-  EVENT(mutex, 5, LOCKli(li, mutex).owner, thread_self()->p_epoch);
+  EVENT(mutex, 5, thread_self()->p_epoch, LOCKli(li, mutex).owner);
 
   REL(li, mutex);
 

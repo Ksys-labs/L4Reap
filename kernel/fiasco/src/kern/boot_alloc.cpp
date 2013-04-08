@@ -1,8 +1,8 @@
 INTERFACE:
 
 #include <cstddef>
-#include <slist>
-#include <type_traits>
+#include <cxx/slist>
+#include <cxx/type_traits>
 
 class Boot_alloced
 {

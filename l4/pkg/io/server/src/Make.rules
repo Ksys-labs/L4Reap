@@ -5,7 +5,7 @@ TARGET  = io
 SRC_CC := main.cc pci.cc res.cc phys_space.cc resource.cc hw_device.cc \
           hw_root_bus.cc device.cc vdevice.cc vproxy_dev.cc \
           vpci.cc vpci_virtual_root.cc vpci_pci_bridge.cc vbus_factory.cc \
-          vbus.cc vicu.cc \
+          vbus.cc vicu.cc gpio.cc \
           server.cc pci_iomem_root_bridge.cc vmsi.cc irqs.cc debug.cc \
           vgpio.cc lua_glue.swg.cc
 
@@ -26,11 +26,10 @@ REQUIRES_CFLAGS = libio-vbus libio-io
 PRIVATE_INCDIR += $(SRC_DIR)
 
 
-ifneq ($(filter regen_files,$(MAKECMDGOALS)),)
-
-ifneq ($(SRC_DIR),)
-regen_files:: $(SRC_DIR)/lua_glue.swg.h $(SRC_DIR)/lua_glue.swg.cc
-endif
+ifneq ($(REGEN_FILES),)
+#ifneq ($(SRC_DIR),)
+#all:: $(SRC_DIR)/lua_glue.swg.h $(SRC_DIR)/lua_glue.swg.cc
+#endif
 
 SWIG_RM_EXT_C ?= $(L4DIR)/tool/bin/swig-rm-extern-c.pl
 SWIG ?= swig

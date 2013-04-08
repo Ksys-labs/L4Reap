@@ -3,24 +3,18 @@ INTERFACE [arm && tegra2]:
 EXTENSION class Mem_layout
 {
 public:
-  enum Virt_layout_tegra2 : Address
+  enum Phys_layout_tegra2 : Address
   {
-    Mp_scu_map_base      = Devices2_map_base + 0x00040000,
-    L2cxx0_map_base      = Devices2_map_base + 0x00043000,
+    Mp_scu_phys_base      = 0x50040000,
+    L2cxx0_phys_base      = 0x50043000,
 
-    Gic_cpu_map_base     = Devices2_map_base + 0x00040100,
-    Gic_dist_map_base    = Devices2_map_base + 0x00041000,
-    Gic2_cpu_map_base    = Devices2_map_base + 0x00020000,
-    Gic2_dist_map_base   = Devices2_map_base + 0x00021000,
+    Gic_cpu_phys_base     = 0x50040100,
+    Gic_dist_phys_base    = 0x50041000,
+    Gic2_cpu_phys_base    = 0x50020000,
+    Gic2_dist_phys_base   = 0x50021000,
 
-    Uart_base            = Devices0_map_base + 0x00006300,
-    Clock_reset_map_base = Devices1_map_base + 0x00006000,
-  };
-
-  enum Phys_layout_tegra2 : Address {
-    Devices0_phys_base   = 0x70000000,
-    Devices1_phys_base   = 0x60000000,
-    Devices2_phys_base   = 0x50000000,
-    Sdram_phys_base      = 0x0,
+    Tmr_phys_base         = 0x60005000,
+    Clock_reset_phys_base = 0x60006000,
+    Uart_phys_base        = 0x70006300,
   };
 };

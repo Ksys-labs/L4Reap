@@ -7,7 +7,7 @@ IMPLEMENTATION[{ia32,amd64}-pit_timer]:
 
 IMPLEMENT
 void
-Timer::init(unsigned)
+Timer::init(Cpu_number)
 {
   printf("Using the PIT (i8254) on IRQ %d for scheduling\n", irq());
 

@@ -46,9 +46,9 @@ Timer::init_system_clock()
 
 IMPLEMENT inline NEEDS["config.h", "globals.h", "kip.h", "watchdog.h", Timer::kipclock_cache]
 void
-Timer::update_system_clock(unsigned cpu)
+Timer::update_system_clock(Cpu_number cpu)
 {
-  if (cpu == 0)
+  if (cpu == Cpu_number::boot_cpu())
     {
       Kip::k()->clock += Config::Scheduler_granularity;
       kipclock_cache();

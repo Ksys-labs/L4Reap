@@ -16,6 +16,7 @@
 #include "resource.h"
 
 #include <cstdio> 
+#include <cstring>
 
 template< typename D >
 class Device_tree
@@ -137,6 +138,15 @@ public:
   { return iterator(static_cast<D const*>(this), depth); }
 
   static iterator end() { return iterator(); }
+
+  D *find_by_name(char const *name) const
+  {
+    for (iterator c = begin(0); c != end(); ++c)
+      if (strcmp((*c)->name(), name) == 0)
+        return *c;
+
+    return 0;
+  }
 
   void set_depth(int d) { return _dt.set_depth(d); }
   void set_parent(D *p) { _dt.set_parent(p); }

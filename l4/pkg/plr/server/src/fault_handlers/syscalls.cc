@@ -267,6 +267,7 @@ Romain::RegionManagingHandler::handle(Romain::App_instance* i,
 		Romain::Rm_guard r(a->rm(), i->id());
 		L4::Ipc::Iostream ios(utcb);
 		L4Re::Util::region_map_server<Romain::Region_map_server>(a->rm(), ios);
+		t->vcpu()->r()->ax = 0;
 	}
 
 	//t->print_vcpu_state();

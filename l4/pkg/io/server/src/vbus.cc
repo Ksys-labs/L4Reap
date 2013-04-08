@@ -32,6 +32,9 @@
 #include "cfg.h"
 #include "vbus_factory.h"
 
+Vi::System_bus::Root_resource_factory::Factory_list
+  Vi::System_bus::Root_resource_factory::_factories;
+
 namespace {
 
 class Root_irq_rs : public Resource_space
@@ -46,7 +49,7 @@ public:
   {
     _bus->add_child(_icu);
     _bus->sw_icu(_icu);
-}
+  }
 
   bool request(Resource *parent, Device *, Resource *child, Device *)
   {
@@ -166,6 +169,11 @@ System_bus::System_bus() : _sw_icu(0)
   add_resource(new Root_resource(Resource::Mmio_res, x));
   add_resource(new Root_resource(Resource::Mmio_res | Resource::F_prefetchable, x));
   add_resource(new Root_resource(Resource::Io_res, x));
+  typedef Root_resource_factory RF;
+  for (RF::Factory_list::Const_iterator i = RF::_factories.begin();
+      i != RF::_factories.end();
+      ++i)
+    add_resource((*i)->create(this));
 }
 
 System_bus::~System_bus()

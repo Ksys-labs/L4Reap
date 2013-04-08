@@ -27,7 +27,7 @@ unsigned Timer::irq_mode()
 
 IMPLEMENT
 void
-Timer::init(unsigned)
+Timer::init(Cpu_number)
 {
   hpet_irq = -1;
   if (!Hpet::init())

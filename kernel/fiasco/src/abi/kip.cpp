@@ -147,7 +147,7 @@ void Kip::init_global_kip(Kip *kip)
   global_kip = kip;
 
   // check that the KIP has actually been set up
-  assert(kip->sigma0_ip && kip->root_ip && kip->user_ptr);
+  //assert(kip->sigma0_ip && kip->root_ip && kip->user_ptr);
 }
 
 PUBLIC static inline Kip *Kip::k() { return global_kip; }

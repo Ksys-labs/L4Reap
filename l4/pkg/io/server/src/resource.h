@@ -52,7 +52,8 @@ public:
     Irq_res     = L4VBUS_RESOURCE_IRQ,
     Mmio_res    = L4VBUS_RESOURCE_MEM,
     Io_res      = L4VBUS_RESOURCE_PORT,
-    Bus_res
+    Bus_res,
+    Gpio_res
   };
 
   enum Flags
@@ -97,6 +98,9 @@ public:
   bool fixed_size() const { return _f & F_fixed_size; }
   bool relative() const { return _f & F_relative; }
   unsigned type() const { return _f & F_type_mask; }
+
+  virtual bool lt_compare(Resource const *o) const
+  { return end() < o->start(); }
 
 public:
 //private:

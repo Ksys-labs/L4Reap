@@ -15,9 +15,9 @@ IMPLEMENTATION [arm]:
 #include <cstring>
 
 #include "config.h"
+#include "mem_layout.h"
 #include "panic.h"
 #include "boot_info.h"
-#include "kmem.h"
 
 
 // Make the stuff below apearing only in this compilation unit.

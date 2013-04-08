@@ -30,7 +30,7 @@ Timer::irq_mode() { return 0; }
 
 IMPLEMENT FIASCO_INIT_CPU
 void
-Timer::init(unsigned)
+Timer::init(Cpu_number)
 {
   if (Boot_info::irq0_disabled())
     return;

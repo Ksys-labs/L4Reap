@@ -62,7 +62,7 @@ Irq_chip_msi::set_mode(Mword, unsigned)
 { return Irq_base::Trigger_edge | Irq_base::Polarity_low; }
 
 PUBLIC void
-Irq_chip_msi::set_cpu(Mword, unsigned)
+Irq_chip_msi::set_cpu(Mword, Cpu_number)
 {}
 
 PUBLIC void

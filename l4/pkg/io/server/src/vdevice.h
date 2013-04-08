@@ -100,15 +100,14 @@ public:
   Device *next() const { return _dt.next(); }
   int depth() const { return _dt.depth(); }
 
+  Device() : _name("(noname)")
+  { __devs.insert(l4vbus_device_handle_t(this)); }
+
 protected:
   // helper functions
   int get_by_hid(L4::Ipc::Iostream &ios);
   int vbus_get_device(L4::Ipc::Iostream &ios);
   Device *get_dev_by_id(l4vbus_device_handle_t id);
-
-
-  Device() : _name("(noname)")
-  { __devs.insert(l4vbus_device_handle_t(this)); }
 
   Device *get_root()
   {

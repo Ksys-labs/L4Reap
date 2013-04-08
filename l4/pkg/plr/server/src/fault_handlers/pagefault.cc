@@ -99,6 +99,7 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 		enter_kdebug("unhandled pf");
 	}
 
+	Romain::Observer::ObserverReturnVal retVal = Romain::Observer::Finished;
 	L4vcpu::Vcpu *vcpu = t->vcpu();
 
 	bool write_pf = vcpu->r()->err & 0x2;
@@ -119,8 +120,7 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 	Romain::Region_map::Base::Node n = a->rm()->find(pfa);
 	MSGt(t) << "rm_find(" << std::hex << pfa << ") = " << n;
 	if (n) {
-		a->rm()->lazy_map_region(n, i->id());
-
+		const_cast<Romain::Region_handler&>(n->second).count_pf();
 		/*
 		 * Lazily establish region handlers for replicas
 		 */
@@ -154,37 +154,69 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 			++pf_mapped;
 
 			Romain::Region_handler const * rh   = &n->second;
-			Romain::Region const * localregion  = &rh->local_region(i->id());
 			L4Re::Util::Region const * remote   = &n->first;
+			l4_addr_t offset_in_region          = l4_trunc_page(pfa - remote->start());
+			l4_addr_t remotebase                = remote->start() + offset_in_region;
+			unsigned pageflags                  = rh->is_ro() ? L4_FPAGE_RO : L4_FPAGE_RW;
 
-			/*
-			 * We try to map the largest possible flexpage to reduce the
-			 * total number of mappings.
-			 */
-			l4_addr_t offset_in_region = l4_trunc_page(pfa - remote->start());
-			l4_umword_t align = fit_alignment(localregion, remote, offset_in_region, t);
-			MSGt(t) << "fitting align " << align;
+			for (l4_umword_t instID = 0;
+			     instID < Romain::_the_instance_manager->instance_count();
+			     ++instID) {
 
-			/* Calculate the map base addresses for the given alignment */
-			l4_addr_t localbase = localregion->start() + offset_in_region;
-			localbase  = localbase  - (localbase  & ((1 << align) - 1));
+				a->rm()->lazy_map_region(n, instID, write_pf);
 
-			l4_addr_t remotebase = remote->start() + offset_in_region;
-			remotebase = remotebase - (remotebase & ((1 << align) - 1));
+				Romain::Region const * localregion  = &rh->local_region(instID);
+				/*
+				 * We try to map the largest possible flexpage to reduce the
+				 * total number of mappings.
+				 */
+				l4_umword_t align = fit_alignment(localregion, remote, offset_in_region, t);
 
-			MSGt(t) << std::hex << "map: " << localbase << " -> "
-			        << remotebase << " size " << (1 << align);
+				/*
+				 * For replicas we unfortunately only have the guarantee that they
+				 * are aligned to rh->alignment(). Apart from this, the replica's region
+				 * copies may be aligned differently in the master.
+				 *
+				 * Example:
+				 *   - rh->alignment() = 64kB
+				 *   - replica1.alignment = 128 kB
+				 *   - replica2.alignment = 2 MB
+				 *
+				 * ==> Here, we may encounter a situation where a page fault can be
+				 *     serviced with a 256 kB mapping for replica 1 and a 1 MB mapping
+				 *     for replica 2. The replicas will thereafter diverge.
+				 *
+				 * Quickfix: we make sure that memory mappings are at most rh->alignment().
+				 *
+				 * Better fix: the PF observer should walk over all replicas and determine
+				 *             the minimum possible alignment for this specific mapping.
+				 */
+				if (align > rh->alignment()) {
+					align = rh->alignment();
+				}
+				MSGt(t) << "fitting align " << align;
 
-			//enter_kdebug("pf");
-			
-			// set flags properly, only check ro(), because else we'd already ended
-			// up in the emulation branch above
-			unsigned pageflags           = rh->is_ro() ? L4_FPAGE_RO : L4_FPAGE_RW;
+				/* Calculate the map base addresses for the given alignment */
+				l4_addr_t localbase = localregion->start() + offset_in_region;
+				localbase  = localbase  - (localbase  & ((1 << align) - 1));
 
-			ev->data.pf.localbase  = localregion->start() + offset_in_region;
-			ev->data.pf.remotebase = remote->start() + offset_in_region;
+				remotebase = remotebase - (remotebase & ((1 << align) - 1));
 
-			i->map_aligned(localbase, remotebase, align, pageflags);
+				MSGt(t) << std::hex << "map: " << localbase << " -> "
+						<< remotebase << " size " << (1 << align);
+
+				//enter_kdebug("pf");
+				
+				// set flags properly, only check ro(), because else we'd already ended
+				// up in the emulation branch above
+				ev->data.pf.localbase  = localregion->start() + offset_in_region;
+				ev->data.pf.remotebase = remote->start() + offset_in_region;
+
+				Romain::_the_instance_manager->instance(instID)->map_aligned(localbase,
+																			 remotebase,
+																			 align, pageflags);
+			}
+			retVal = Romain::Observer::Replicatable;
 		}
 
 	} else if ((a->prog_info()->kip <= pfa) && (pfa < a->prog_info()->kip + L4_PAGESIZE)) {
@@ -206,7 +238,7 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 	 */
 	MSGt(t) << "Page faults so far: mapped " << pf_mapped << " write emu " << pf_write << " kip " << pf_kip;
 
-	return Romain::Observer::Finished;
+	return retVal;
 }
 
 

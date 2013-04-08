@@ -1,6 +1,5 @@
 #pragma once
 
-#include <pthread-l4.h>
 #include <errno.h>
 
 #define SYS_MBOX_NULL NULL

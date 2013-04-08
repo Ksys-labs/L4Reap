@@ -83,7 +83,7 @@ class Chip : public Irq_chip_gen
 public:
   Chip() : Irq_chip_gen(Pic::IRQ_MAX) {}
   unsigned set_mode(Mword, unsigned) { return Irq_base::Trigger_level; }
-  void set_cpu(Mword, unsigned) {}
+  void set_cpu(Mword, Cpu_number) {}
 };
 
 PUBLIC

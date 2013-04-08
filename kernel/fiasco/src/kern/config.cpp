@@ -111,6 +111,8 @@ public:
 #endif
   };
 
+  static Cpu_number max_num_cpus() { return Cpu_number(Max_num_cpus); }
+
   static bool getchar_does_hlt_works_ok;
   static bool esc_hack;
   static unsigned tbuf_entries;
@@ -194,6 +196,17 @@ EXTENSION class Config
 public:
   static const int serial_esc = 0;
 };
+
+
+//---------------------------------------------------------------------------
+INTERFACE [!virtual_space_iface]:
+
+#define FIASCO_SPACE_VIRTUAL
+
+//---------------------------------------------------------------------------
+INTERFACE [virtual_space_iface]:
+
+#define FIASCO_SPACE_VIRTUAL virtual
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION:

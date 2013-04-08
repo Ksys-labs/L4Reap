@@ -10,6 +10,7 @@
 #include "vdevice.h"
 #include "vbus_factory.h"
 #include "hw_device.h"
+#include "gpio"
 
 static int is_lua_propval(lua_State *L, int idx)
 {
@@ -104,6 +105,8 @@ public:
   int add_filter(cxx::String const &, cxx::String const &);
   int add_filter(cxx::String const &, unsigned long long);
   int add_filter(cxx::String const &, unsigned long long, unsigned long long);
+
+  void dump(int) const;
 };
 
 class Dev_factory
@@ -137,6 +140,8 @@ public:
   Device *next() const;
   int depth() const;
   void plugin();
+
+  void dump(int) const;
 };
 
 class Device_factory
@@ -159,11 +164,37 @@ public:
 
     return 0;
   }
+
+  Hw::Device *__getitem(std::string const &name) const
+  {
+    for (Hw::Device::iterator c = self->begin(0);
+         c != self->end(); ++c)
+      if (name == (*c)->name())
+        return *c;
+
+    return 0;
+  }
+
+  void __setitem(std::string const &name, Hw::Device *dev)
+  {
+    dev->set_name(name);
+    self->add_child(dev);
+    if (self->parent() || self == system_bus())
+      dev->plugin();
+  }
 };
 
 Hw::Device *system_bus();
 void dump_devs(Device *d);
 int add_vbus(Vi::Device *dev);
+
+
+class Gpio_resource : public Resource
+{
+public:
+  explicit Gpio_resource(Hw::Device *dev, unsigned start, unsigned end)
+    throw(char const *);
+};
 
 %luacode {
 
@@ -196,7 +227,7 @@ Io.Dt = {}
 
 function Io.Dt.add_child(parent, name, dev, idx)
   parent:add_child(dev)
-  if dev.plugin and (parent:parent() or parent == Io.system_bus()) then
+  if dev.plugin and (parent:parent() or swig_equals(parent, Io.system_bus())) then
     dev:plugin()
   end
   if type(name) == "string" then
@@ -205,6 +236,26 @@ function Io.Dt.add_child(parent, name, dev, idx)
     end
     dev:set_name(name)
   end
+end
+
+function Io.Dt.add_children(parent, bus_func)
+  if type(bus_func) == "function" then
+    local d = {}
+    setmetatable(d, { __index = getfenv(1) })
+    setfenv(bus_func, d)
+    bus_func()
+    if type(d._res) == "table" then
+      for i, r in ipairs(d._res) do
+        Io.Dt.add_resource(parent, r)
+      end
+      d._res = nil
+    elseif type(d._res) == "userdata" then
+      Io.Dt.add_resource(parent, d._res)
+      d._res = nil
+    end
+    Io.Dt.add_device_data(parent, d)
+  end
+  return parent;
 end
 
 function Io.Dt.iterator(dev, max_depth)
@@ -360,6 +411,13 @@ local handle_device_member = function(dev, val, name)
   print("ERROR: cannot handle device member: " .. tostring(name) .. ": " .. tostring(val))
 end
 
+function Io.Dt.add_resource(dev, res)
+  if not Io.swig_instance_of(res, "Resource *") then
+    error("expected a resource object got: " .. tostring(res))
+  end
+  dev:add_resource(res)
+end
+
 function Io.Dt.add_device_data(dev, data)
   local maxi = 0
   for i, v in ipairs(data) do
@@ -374,13 +432,16 @@ function Io.Dt.add_device_data(dev, data)
 end
 
 local set_dev_data = Io.Dt.add_device_data
+local add_children = Io.Dt.add_children
 
 Io.Hw = {}
 
 setmetatable(Io.Hw, { __index = function (self, t)
   return function (data)
     local b = Io.Hw_dev_factory_create(t)
-    if data then
+    if type(data) == "function" then
+      add_children(b, data)
+    elseif type(data) == "table" then
       set_dev_data(b, data)
     end
     return b
@@ -404,7 +465,9 @@ Io.Vi = {}
 setmetatable(Io.Vi, { __index = function (self, t)
   return function (data)
     local b = Io.Vi_dev_factory_create(t)
-    if data then
+    if type(data) == "function" then
+      add_children(b, data)
+    elseif type(data) == "table" then
       set_dev_data(b, data)
     end
     return b

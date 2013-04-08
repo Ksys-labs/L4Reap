@@ -4,7 +4,7 @@ INTERFACE:
 #include "initcalls.h"
 #include <spin_lock.h>
 #include "irq_chip_ia32.h"
-#include <bitfield>
+#include <cxx/bitfield>
 
 class Acpi_madt;
 
@@ -181,7 +181,7 @@ Io_apic::write_entry(unsigned i, Io_apic_entry const &e)
 
 PUBLIC static FIASCO_INIT
 bool
-Io_apic::init(unsigned cpu)
+Io_apic::init(Cpu_number cpu)
 {
   _madt = Acpi::find<Acpi_madt const *>("APIC");
 
@@ -400,7 +400,7 @@ Io_apic::unmask(Mword irq)
 }
 
 PUBLIC void
-Io_apic::set_cpu(Mword irq, unsigned cpu)
+Io_apic::set_cpu(Mword irq, Cpu_number cpu)
 {
   set_dest(irq, ::Apic::apic.cpu(cpu)->apic_id());
 }

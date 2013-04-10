@@ -588,7 +588,8 @@ static struct omap_board_mux board_mux[] __initdata = {
 };
 #endif
 
-#if defined(CONFIG_LIBERTAS_SDIO) || defined(CONFIG_LIBERTAS_SDIO_MODULE)
+#if defined(CONFIG_LIBERTAS_SDIO) || defined(CONFIG_LIBERTAS_SDIO_MODULE) || \
+	defined(CONFIG_LIBERTAS_THINFIRM) || defined(CONFIG_LIBERTAS_THINFIRM_SDIO)
 void __init igep00x0_wifi_bt_init(int npd, int wifi_nreset, int bt_nreset,
 		int bt_enable)
 {

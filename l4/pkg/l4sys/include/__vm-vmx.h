@@ -397,8 +397,7 @@ L4_INLINE
 void
 l4_vm_vmx_copy_state(void const *vmcs, void *_dst, void const *_src) L4_NOTHROW
 {
-  l4_uint8_t const *offsets = (l4_uint8_t const *)vmcs;
-  offsets += 0x20;
+  l4_uint8_t const *offsets = (l4_uint8_t const *)vmcs + 0x20;
 
   unsigned offs = offsets[28] * 64;
   unsigned size = offsets[29] * 64;

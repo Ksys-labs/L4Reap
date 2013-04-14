@@ -21,6 +21,8 @@ SUPPORT_CC_arm-om              := platform/om.cc
 SUPPORT_CC_arm-kirkwood        := platform/kirkwood.cc
 SUPPORT_CC_arm-rpi_a           := platform/rpi.cc
 SUPPORT_CC_arm-rpi_b           := platform/rpi.cc
+SUPPORT_CC_arm-exynos4         := platform/exynos.cc
+SUPPORT_CC_arm-exynos5         := platform/exynos.cc
 
 # PPC
 SUPPORT_CC_ppc32-mpc5200       := platform/mpc5200.cc

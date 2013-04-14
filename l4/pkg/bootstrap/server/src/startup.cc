@@ -332,8 +332,8 @@ dump_ram_map(bool show_total = false)
   for (Region *i = ram.begin(); i < ram.end(); ++i)
     {
       printf("  RAM: %016llx - %016llx: %lldkB\n",
-             i->begin(), i->end(), (i->end() - i->begin() + 1) >> 10);
-      sum += i->end() - i->begin() + 1;
+             i->begin(), i->end(), i->size() >> 10);
+      sum += i->size();
     }
   if (show_total)
     printf("  Total RAM: %lldMB\n", sum >> 20);
@@ -934,6 +934,7 @@ extern mod_info _module_info_end[];
 
 extern l4util_mb_mod_t _modules_mbi_start[];
 extern l4util_mb_mod_t _modules_mbi_end[];
+extern char _mbi_cmdline[];
 
 /**
  * Create the basic multi-boot structure in IMAGE_MODE
@@ -1111,6 +1112,22 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
         ;
     }
 
+#ifdef IMAGE_MODE
+    {
+      loader_mbi_add_cmdline(_mbi_cmdline);
+      mbi = loader_mbi();
+    }
+#endif
+
+  if (check_arg(mbi, "-wait"))
+    {
+      puts("\nL4 Bootstrapper is waiting for key input to continue...");
+      if (getchar() == -1)
+        puts("   ...no key input available.");
+      else
+        puts("    ...going on.");
+    }
+
   puts("\nL4 Bootstrapper");
   puts("  Build: #" BUILD_NR " " BUILD_DATE
 #ifdef ARCH_x86
@@ -1140,7 +1157,7 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
 
 #ifdef REALMODE_LOADING
   /* create synthetic multi boot info */
-  mbi = init_loader_mbi(realmode_si);
+  mbi = init_loader_mbi_x86_realmode(realmode_si);
   (void)flag;
 #else
   (void)realmode_si;
@@ -1148,27 +1165,24 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
 #endif
 
 #elif defined(ARCH_arm)
-  l4util_mb_info_t my_mbi;
-  memset(&my_mbi, 0, sizeof(my_mbi));
-  mbi = &my_mbi;
+  mbi = loader_mbi();
 
   (void)realmode_si;
   (void)flag;
 
 #elif defined(ARCH_ppc32)
+  mbi = loader_mbi();
+
   (void)realmode_si;
   (void)flag;
 
-  l4util_mb_info_t my_mbi;
   L4_drivers::Of_if of_if;
 
   printf("  Detecting ram size ...\n");
   unsigned long ram_size = of_if.detect_ramsize();
   printf("    Total memory size is %luMB\n", ram_size / (1024 * 1024));
 
-  /* setup mbi and detect OF devices */
-  memset(&my_mbi, 0, sizeof(my_mbi));
-  mbi = &my_mbi;
+  /* detect OF devices */
   unsigned long drives_addr, drives_length;
 
   if (of_if.detect_devices(&drives_addr, &drives_length))
@@ -1180,9 +1194,7 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
   ram.add(Region::n(0x0, ram_size, ".ram", Region::Ram));
 
 #elif defined(ARCH_sparc)
-  l4util_mb_info_t my_mbi;
-  memset(&my_mbi, 0, sizeof(my_mbi));
-  mbi = &my_mbi;
+  mbi = loader_mbi();
 
   (void)realmode_si;
   (void)flag;
@@ -1203,7 +1215,7 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
     roottask = 0;
 
   if (const char *s = check_arg(mbi, "-modaddr"))
-    _mod_addr = strtoul(s + 9, 0, 0);
+    _mod_addr = RAM_BASE + strtoul(s + 9, 0, 0);
 
   _mod_addr = l4_round_page(_mod_addr);
 

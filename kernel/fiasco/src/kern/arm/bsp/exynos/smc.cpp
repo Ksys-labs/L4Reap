@@ -59,7 +59,7 @@ IMPLEMENTATION [exynos && arm_em_ns && arm_smif_mc]:
 
 IMPLEMENT
 void
-Exynos_smc::cpuboot(Mword phys_start, unsigned cpu)
+Exynos_smc::cpuboot(Mword, unsigned cpu)
 {
   call(Cpu1boot, cpu);
 }

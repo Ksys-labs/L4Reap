@@ -132,6 +132,14 @@ LOADER_MBI	 := 1
 CPPFLAGS         += -DSINGLE_SECTION
 endif
 
+ifeq ($(ARCH),ppc32)
+LOADER_MBI	 := 1
+endif
+
+ifeq ($(ARCH),sparc)
+LOADER_MBI	 := 1
+endif
+
 
 # convenience
 ifneq ($(E),)
@@ -230,11 +238,11 @@ LOADER_MBI	 = 1
 CPPFLAGS	+= -DREALMODE_LOADING -DSINGLE_SECTION
 # don't install bootstrap_$(ENTRY_FN).elf
 INSTALL_FILES	 = bootstrap.load
+MOD_ADDR	 = 0x00150000
 endif
 
 ifneq ($(LOADER_MBI),0)
 SRC_CC		+= loader_mbi.cc
-MOD_ADDR	 = 0x00150000
 CPPFLAGS	+= -DLOADER_MBI
 endif
 

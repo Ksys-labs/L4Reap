@@ -59,8 +59,8 @@ private:
   unsigned offs(Mword pin) const { return (pin >> 3) * 4; }
 
 public:
-  Gpio_eint_chip(Mword gpio_base)
-    : Irq_chip_gen(8 * 16), _gpio_base(gpio_base)
+  Gpio_eint_chip(Mword gpio_base, unsigned num_irqs)
+    : Irq_chip_gen(num_irqs), _gpio_base(gpio_base)
   {}
 
   void mask(Mword pin)
@@ -322,14 +322,15 @@ Gpio_cascade_wu23_irq::handle(Upstream_irq const *u)
 class Gpio_cascade_xab_irq : public Irq_base
 {
 public:
-  explicit Gpio_cascade_xab_irq(Gpio_eint_chip *g)
-  : _eint_gc(g)
+  explicit Gpio_cascade_xab_irq(Gpio_eint_chip *g, unsigned special = 0)
+  : _eint_gc(g), _special(special)
   { set_hit(&handler_wrapper<Gpio_cascade_xab_irq>); }
 
   void switch_mode(unsigned) {}
 
 private:
   Gpio_eint_chip *_eint_gc;
+  unsigned _special;
 };
 
 PUBLIC
@@ -338,7 +339,23 @@ Gpio_cascade_xab_irq::handle(Upstream_irq const *u)
 {
   Mword p = _eint_gc->pending();
   Upstream_irq ui(this, u);
-  _eint_gc->irq(p - 8)->hit(&ui);
+  if (1)
+    {
+      int grp = (p >> 3) & 0x1f;
+      int pin = p & 7;
+
+      if (_special == 1)
+        {
+          if (grp > 7)
+            grp += 5;
+        }
+      else if (_special == 2)
+        grp += 2;
+
+      _eint_gc->irq((grp - 1) * 8 + pin)->hit(&ui);
+    }
+  else
+    _eint_gc->irq(p - 8)->hit(&ui);
 }
 
 // ------------
@@ -571,8 +588,8 @@ Mgr_ext::Mgr_ext()
   _cc = new Boot_object<Combiner_chip>();
 
   _wu_gc = new Boot_object<Gpio_wakeup_chip>(Kmem::Gpio2_phys_base);
-  _ei_gc1 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio1_phys_base));
-  _ei_gc2 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio2_phys_base));
+  _ei_gc1 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio1_phys_base), 18 * 8);
+  _ei_gc2 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio2_phys_base), 14 * 8);
 
   // Combiners
   for (unsigned i = 0; i < 16; ++i)
@@ -601,11 +618,11 @@ Mgr_ext::Mgr_ext()
   g->unmask(64);
 
   // xa GIC:32+47
-  g->alloc(new Boot_object<Gpio_cascade_xab_irq>(_ei_gc1), 79);
+  g->alloc(new Boot_object<Gpio_cascade_xab_irq>(_ei_gc1, Platform::is_4412() ? 1 : 0), 79);
   g->unmask(79);
 
   // xb GIC:32+46
-  g->alloc(new Boot_object<Gpio_cascade_xab_irq>(_ei_gc2), 78);
+  g->alloc(new Boot_object<Gpio_cascade_xab_irq>(_ei_gc2, Platform::is_4412() ? 2 : 0), 78);
   g->unmask(78);
 
 
@@ -634,8 +651,8 @@ Mgr_ext::Mgr_ext()
     { 160,               _gic.cpu(Cpu_number(0)) },
     { 20 * 8,            _cc },
     {  4 * 8,            _wu_gc },
-    { 13 * 8,            _ei_gc1 },
-    { 12 * 8,            _ei_gc2 },
+    { 18 * 8,            _ei_gc1 },
+    { 14 * 8,            _ei_gc2 },
     //{  1 * 8,            _ei_gc3 }, // Do not know upstream IRQ-num :(
     //{  5 * 8,            _ei_gc4 }, // Do not know upstream IRQ-num :(
   };
@@ -792,10 +809,10 @@ Mgr::Mgr()
 
   _wu_gc = new Boot_object<Gpio_wakeup_chip>(Kmem::Gpio1_phys_base);
 
-  _ei_gc1 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio1_phys_base));
-  _ei_gc2 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio2_phys_base));
-  _ei_gc3 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio3_phys_base));
-  _ei_gc4 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio4_phys_base));
+  _ei_gc1 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio1_phys_base), 13 * 8);
+  _ei_gc2 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio2_phys_base),  8 * 8);
+  _ei_gc3 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio3_phys_base),  5 * 8);
+  _ei_gc4 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio4_phys_base),  1 * 8);
 
   // Combiners
   for (unsigned i = 0; i < 32; ++i)
@@ -835,13 +852,13 @@ Mgr::Mgr()
   //  - part4: ext-int 0x700: 50
 
   static Chip_block socblock[] = {
-    { 160,     Pic::gic },
-    { 32 * 8,  _cc },
-    { 32,      _wu_gc },
-    { 13 * 8,  _ei_gc1 },
-    {  8 * 8,  _ei_gc2 },
-    {  5 * 8,  _ei_gc3 },
-    {  1 * 8,  _ei_gc4 },
+    { 160,                Pic::gic },
+    { 32 * 8,             _cc },
+    { 32,                 _wu_gc },
+    { _ei_gc1->nr_irqs(), _ei_gc1 },
+    { _ei_gc2->nr_irqs(), _ei_gc2 },
+    { _ei_gc3->nr_irqs(), _ei_gc3 },
+    { _ei_gc4->nr_irqs(), _ei_gc4 },
   };
 
   _block = socblock;

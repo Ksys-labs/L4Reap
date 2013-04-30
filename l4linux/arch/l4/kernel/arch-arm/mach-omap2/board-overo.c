@@ -567,7 +567,6 @@ static 	void omap2_init_common_infrastructure_aux(void)
 void overo_init_early(void)
 {
 	omap2_set_globals_3xxx_aux();
-	omap34xx_map_common_io();
 	omap3_init_irq();
 	omap2_init_common_infrastructure_aux();
 	omap_hwmod_setup_all();

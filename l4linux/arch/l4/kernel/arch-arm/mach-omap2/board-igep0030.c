@@ -905,7 +905,6 @@ static 	void omap2_init_common_infrastructure_aux(void)
 void igep_init_early(void)
 {
 	omap2_set_globals_3xxx_aux();
-	omap34xx_map_common_io();
 	omap3_init_irq();
 	extern void omap2_gpio_init(void);
 	omap2_gpio_init();

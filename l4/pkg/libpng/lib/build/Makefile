@@ -2,7 +2,6 @@ PKGDIR          ?= ../..
 L4DIR           ?= $(PKGDIR)/../..
 
 TARGET          = libl4png.a libl4png.so
-#LIBS            = $(GCCLIB)
 REQUIRES_LIBS   = zlib
 CONTRIB_INCDIR  = libpng
 

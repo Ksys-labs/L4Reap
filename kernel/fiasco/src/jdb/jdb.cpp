@@ -938,7 +938,7 @@ Jdb_base_cmds::action (int cmd, void *&, char const *&, int &)
     return NOTHING;
 
   Jdb_core::short_mode = !Jdb_core::short_mode;
-  printf("\ntoggle mode: now in %s command mode (use %s) to switch back\n",
+  printf("\ntoggle mode: now in %s command mode (use '%s' to switch back)\n",
          Jdb_core::short_mode ? "short" : "long",
          Jdb_core::short_mode ? "*" : "mode");
   return NOTHING;

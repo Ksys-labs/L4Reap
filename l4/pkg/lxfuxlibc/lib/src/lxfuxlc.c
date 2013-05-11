@@ -33,13 +33,16 @@
 #define __NR_pipe		42
 #define __NR_ioctl		54
 #define __NR_gettimeofday	78
+#define __NR_sync		81
 #define __NR_ftruncate		93
+#define __NR_statfs		99
 #define __NR_socketcall		102
 #define __NR_stat		106
 #define __NR_lstat		107
 #define __NR_fstat		108
 #define __NR_ipc		117
 #define __NR_fsync		118
+#define __NR___lx_priv__llseek	140
 #define __NR_select		142 /* new select */
 #define __NR_readv		145
 #define __NR_writev		146
@@ -200,9 +203,11 @@ __lx_syscall2(int, mkdir, const char *, filename, int, mode)
 __lx_syscall1(int, rmdir, const char *, filename)
 __lx_syscall1(int, pipe, int *, filedes)
 __lx_syscall3(long, ioctl, unsigned int, fd, unsigned int, cmd, unsigned long, arg)
+__lx_syscall0(void, sync)
 __lx_syscall2(long, gettimeofday, struct lx_timeval *, tv, struct lx_timezone *, tz)
 __lx_syscall5(int, select, int, n, lx_fd_set *, readfds, lx_fd_set *, writefds, lx_fd_set *, exceptfds, struct lx_timeval *, timeout)
 __lx_syscall2(int, ftruncate, int, fd, unsigned long, ofs)
+__lx_syscall2(int, statfs, const char *, path, struct lx_statfs *, buf)
 __lx_syscall2(int, socketcall, int, call, unsigned long *, args);
 __lx_syscall2(int, stat, const char *, filename, struct lx_stat *, buf)
 __lx_syscall2(int, lstat, const char *, filename, struct lx_stat *, buf)
@@ -216,6 +221,8 @@ __lx_syscall3(int, poll, struct lx_pollfd *, fds, lx_nfds_t, nfds, int, timeout)
 #ifdef __i386__
 int lx___lx_priv_ftruncate64(int, unsigned long, unsigned long);
 __lx_syscall3(int, __lx_priv_ftruncate64, int, fd, unsigned long, high_length, unsigned long, low_length);
+int lx___lx_priv__llseek(int, unsigned long, unsigned long, long long *, int);
+__lx_syscall5(int, __lx_priv__llseek, int, fd, unsigned long, high_length, unsigned long, low_length, long long *, result, int, whence);
 #else
 __lx_syscall2(int, ftruncate64, int, fd, unsigned long, length);
 #endif
@@ -236,6 +243,14 @@ int lx_ftruncate64(int, unsigned long long);
 int lx_ftruncate64(int fd, unsigned long long length)
 {
   return lx___lx_priv_ftruncate64(fd, length << 32, length);
+}
+
+long long lx_lseek64(int, unsigned long long, int);
+long long lx_lseek64(int fd, unsigned long long offset, int whence)
+{
+  long long result;
+  int err = lx___lx_priv__llseek(fd, offset >> 32, offset & 0xffffffff, &result, whence);
+  return (err) ? err : result;
 }
 #endif
 

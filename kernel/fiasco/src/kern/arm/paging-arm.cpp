@@ -315,7 +315,7 @@ Pte_ptr::write_back(void *start, void *end)
 { Mem_unit::clean_dcache(start, end); }
 
 //---------------------------------------------------------------------------
-IMPLEMENTATION [arm && armv6]:
+IMPLEMENTATION [arm && (armv6 || armca8)]:
 
 PUBLIC static inline
 bool
@@ -337,7 +337,7 @@ Pte_ptr::write_back(void *start, void *end)
 { Mem_unit::clean_dcache(start, end); }
 
 //---------------------------------------------------------------------------
-IMPLEMENTATION [arm && armv7]:
+IMPLEMENTATION [arm && armca9]:
 
 PUBLIC static inline
 bool
@@ -356,7 +356,6 @@ PUBLIC static inline
 void
 Pte_ptr::write_back(void *, void *)
 {}
-
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [arm && armv5]:

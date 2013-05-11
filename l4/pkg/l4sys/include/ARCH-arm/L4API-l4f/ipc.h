@@ -40,7 +40,7 @@ l4_ipc(l4_cap_idx_t dest, l4_utcb_t *utcb,
 {
   register l4_umword_t _dest     __asm__("r2") = dest | flags;
   register l4_umword_t _timeout  __asm__("r3") = timeout.raw;
-  register l4_msgtag_t _tag      __asm__("r0") = tag;
+  register l4_umword_t _tag      __asm__("r0") = tag.raw;
   register l4_umword_t _label    __asm__("r4") = slabel;
   (void)utcb;
 
@@ -48,22 +48,18 @@ l4_ipc(l4_cap_idx_t dest, l4_utcb_t *utcb,
     ("mov lr, pc    \n"
      "mov pc, %[sc] \n"
      :
-     "=r" (_dest),
-     "=r" (_timeout),
-     "=r" (_label),
-     "=r" (_tag)
+     "+r" (_dest),
+     "+r" (_timeout),
+     "+r" (_label),
+     "+r" (_tag)
      :
-     "0" (_dest),
-     "1" (_timeout),
-     "2" (_label),
-     "3" (_tag),
      [sc] "i" (L4_SYSCALL_INVOKE)
      :
      "cc", "memory", "lr");
 
   if (rlabel)
     *rlabel = _label;
-  tag.raw = _tag.raw; // because gcc doesn't return out of registers variables
+  tag.raw = _tag;
 
   return tag;
 }

@@ -36,12 +36,14 @@ namespace L4Re
 
 long
 Mem_alloc::alloc(unsigned long size,
-                 L4::Cap<Dataspace> mem, unsigned long flags) const throw()
+                 L4::Cap<Dataspace> mem, unsigned long flags,
+                 unsigned long align) const throw()
 {
   L4::Cap<L4::Factory> f(cap());
   return l4_error(f->create(mem, L4Re::Dataspace::Protocol)
                   << l4_umword_t(size)
-                  << l4_umword_t(flags));
+                  << l4_umword_t(flags)
+                  << l4_umword_t(align));
 }
 
 long

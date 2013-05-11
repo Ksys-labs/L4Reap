@@ -201,7 +201,7 @@ namespace L4Re
       if (Cap_entry const *e = get(name, l))
 	return L4::Cap<T>(e->cap);
 
-      return L4::Cap<T>(-L4_ENOENT); //L4::Cap<T>::Invalid;
+      return L4::Cap<T>(-L4_ENOENT);
     }
 
     /**

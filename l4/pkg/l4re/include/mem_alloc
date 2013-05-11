@@ -81,6 +81,7 @@ public:
     Pinned       = 0x02, ///< Allocate pinned data space, if supported by the allocator
     Super_pages  = 0x04, ///< Allocate super pages, if supported by the allocator
   };
+
   /**
    * \brief Allocate anonymous memory.
    *
@@ -89,13 +90,17 @@ public:
    *               granularity).
    * \param mem   Object capability for the data space to be allocated.
    * \param flags Flags, see #Mem_alloc_flags, default none
+   * \param align Log2 alignment of dataspace if supported by allocator,
+   *              will be at least L4_PAGESHIFT,
+   *              with Super_pages flag set at least L4_SUPERPAGESHIFT,
+   *              default 0
    *
    * \return 0 on success, <0 on error
    *         - -#L4_ENOMEM
    *         - IPC errors
    */
   long alloc(unsigned long size, L4::Cap<Dataspace> mem,
-             unsigned long flags = 0) const throw();
+             unsigned long flags = 0, unsigned long align = 0) const throw();
   /**
    * \brief Free data space.
    *

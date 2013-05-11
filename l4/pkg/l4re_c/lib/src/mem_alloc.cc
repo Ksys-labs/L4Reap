@@ -26,12 +26,13 @@
 
 
 long
-l4re_ma_alloc_srv(l4_cap_idx_t srv, unsigned long size, l4re_ds_t const mem,
-                  unsigned long flags) L4_NOTHROW
+l4re_ma_alloc_align_srv(l4_cap_idx_t srv, unsigned long size,
+                        l4re_ds_t const mem, unsigned long flags,
+                        unsigned long align) L4_NOTHROW
 {
   L4::Cap<L4Re::Mem_alloc> x(srv);
   L4::Cap<L4Re::Dataspace> ds(mem);
-  return x->alloc(size, ds, flags);
+  return x->alloc(size, ds, flags, align);
 }
 
 long

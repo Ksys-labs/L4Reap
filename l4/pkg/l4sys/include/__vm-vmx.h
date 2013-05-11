@@ -33,7 +33,7 @@
 
 
 /**
- * \brief Exported VMX capability regsiters.
+ * \brief Exported VMX capability registers.
  * \ingroup l4_vm_vmx_api
  */
 enum L4_vm_vmx_caps_regs
@@ -56,7 +56,7 @@ enum L4_vm_vmx_caps_regs
 
 
 /**
- * \brief Exported VMX capability regsiters (default to 1 bits).
+ * \brief Exported VMX capability registers (default to 1 bits).
  * \ingroup l4_vm_vmx_api
  */
 enum L4_vm_vmx_dfl1_regs

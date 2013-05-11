@@ -370,7 +370,7 @@ Vmx_info::init()
       procbased_ctls.enforce(31, true);
 
       procbased_ctls2 = Cpu::rdmsr(0x48b);
-      if (procbased_ctls2.allowed(1))
+      if (procbased_ctls2.allowed(Vmx::PRB2_enable_ept))
 	ept_vpid_cap = Cpu::rdmsr(0x48c);
 
 
@@ -519,14 +519,14 @@ Vmx::Vmx(Cpu_number cpu)
   // check for EPT support
   if (cpu == Cpu_number::boot_cpu())
     {
-      if (info.procbased_ctls2.allowed(1))
+      if (info.procbased_ctls2.allowed(PRB2_enable_ept))
         WARNX(Info, "VMX:  EPT supported\n");
       else
         WARNX(Info, "VMX:  No EPT available\n");
     }
 
   // check for vpid support
-  if (info.procbased_ctls2.allowed(5))
+  if (info.procbased_ctls2.allowed(PRB2_enable_vpid))
     _has_vpid = true;
 
   c.set_cr4(c.get_cr4() | (1 << 13)); // set CR4.VMXE to 1

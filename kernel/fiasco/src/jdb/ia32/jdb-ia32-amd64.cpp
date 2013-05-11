@@ -827,6 +827,9 @@ Jdb::handle_user_request(Cpu_number cpu)
 {
   Jdb_entry_frame *entry_frame = Jdb::entry_frame.cpu(cpu);
 
+  if (entry_frame->debug_ipi())
+    return cpu != Cpu_number::boot_cpu();
+
   if (entry_frame->_trapno == 3)
     {
       Space *task = get_task(cpu);

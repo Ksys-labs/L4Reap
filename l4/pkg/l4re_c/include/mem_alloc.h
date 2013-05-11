@@ -68,6 +68,31 @@ l4re_ma_alloc(unsigned long size, l4re_ds_t const mem,
               unsigned long flags) L4_NOTHROW;
 
 /**
+ * \brief Allocate memory
+ * \ingroup api_l4re_c_mem_alloc
+ *
+ * \param  size   Size to be requested in bytes (granularity
+ *                 is (super)pages and the size is rounded up to this
+ *                 granularity).
+ * \param  mem    Capability slot to put the requested dataspace in
+ * \param  flags  Flags, see #l4re_ma_flags
+ * \param  align  Log2 alignment of dataspace if supported by allocator,
+ *                will be at least L4_PAGESHIFT,
+ *                with Super_pages flag set at least L4_SUPERPAGESHIFT,
+ *                default 0
+ * \return 0 on success, <0 on error
+ *
+ * \see L4Re::Mem_alloc::alloc and \see l4re_ma_alloc
+ *
+ * The memory allocator returns a dataspace.
+ *
+ * \note This function is using the L4Re::Env::env()->mem_alloc() service.
+ */
+L4_CV L4_INLINE long
+l4re_ma_alloc_align(unsigned long size, l4re_ds_t const mem,
+                    unsigned long flags, unsigned long align) L4_NOTHROW;
+
+/**
  * \brief Free memory.
  * \ingroup api_l4re_c_mem_alloc
  * \param  mem    Dataspace to free.
@@ -90,6 +115,10 @@ l4re_ma_free(l4re_ds_t const mem) L4_NOTHROW;
  * \param  size   Size to be requested.
  * \param  mem    Capability slot to put the requested dataspace in
  * \param  flags  Flags, see #l4re_ma_flags
+ * \param  align  Log2 alignment of dataspace if supported by allocator,
+ *                will be at least L4_PAGESHIFT,
+ *                with Super_pages flag set at least L4_SUPERPAGESHIFT,
+ *                default 0
  * \return 0 on success, <0 on error
  *
  * \see L4Re::Mem_alloc::alloc
@@ -97,8 +126,9 @@ l4re_ma_free(l4re_ds_t const mem) L4_NOTHROW;
  * The memory allocator returns a dataspace.
  */
 L4_CV long
-l4re_ma_alloc_srv(l4_cap_idx_t srv, unsigned long size, l4re_ds_t const mem,
-                  unsigned long flags) L4_NOTHROW;
+l4re_ma_alloc_align_srv(l4_cap_idx_t srv, unsigned long size,
+                        l4re_ds_t const mem, unsigned long flags,
+                        unsigned long align) L4_NOTHROW;
 
 /**
  * \brief Free memory.
@@ -123,7 +153,16 @@ L4_CV L4_INLINE long
 l4re_ma_alloc(unsigned long size, l4re_ds_t const mem,
               unsigned long flags) L4_NOTHROW
 {
-  return l4re_ma_alloc_srv(l4re_global_env->mem_alloc, size, mem, flags);
+  return l4re_ma_alloc_align_srv(l4re_global_env->mem_alloc, size, mem,
+                                 flags, 0);
+}
+
+L4_CV L4_INLINE long
+l4re_ma_alloc_align(unsigned long size, l4re_ds_t const mem,
+                    unsigned long flags, unsigned long align) L4_NOTHROW
+{
+  return l4re_ma_alloc_align_srv(l4re_global_env->mem_alloc, size, mem,
+                                 flags, align);
 }
 
 L4_CV L4_INLINE long

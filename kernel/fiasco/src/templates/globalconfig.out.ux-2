@@ -30,7 +30,6 @@ CONFIG_SCHED_PIT=y
 #
 # Kernel options
 #
-# CONFIG_MP is not set
 CONFIG_CONTEXT_4K=y
 # CONFIG_FINE_GRAINED_CPUTIME is not set
 # CONFIG_UX_CON is not set

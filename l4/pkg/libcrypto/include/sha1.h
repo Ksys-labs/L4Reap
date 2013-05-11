@@ -42,10 +42,11 @@ EXTERN_C_BEGIN
 
 typedef union
 {
-    SHA1Context     __sha1_ref_ctx;
-    struct sha1_ctx __sha1_linux_ctx;    
-    struct Context  __sha1_oslo_ctx;
-    SHA_CTX         __sha1_openssl;
+    SHA1Context       __sha1_ref_ctx;
+    struct sha1_ctx   __sha1_linux_ctx;    
+    struct shash_desc __sha1_linux_new_ctx;
+    struct Context    __sha1_oslo_ctx;
+    SHA_CTX           __sha1_openssl;
 } crypto_sha1_ctx_t;
 
 typedef char crypto_sha1_digest_t[SHA1_DIGEST_SIZE];

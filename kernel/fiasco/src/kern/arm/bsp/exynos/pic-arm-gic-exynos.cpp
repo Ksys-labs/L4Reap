@@ -434,8 +434,8 @@ Mgr_int::Mgr_int()
 
   _cc     = new Boot_object<Combiner_chip>();
   _wu_gc  = new Boot_object<Gpio_wakeup_chip>(Kmem::Gpio2_phys_base);
-  _ei_gc1 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio1_phys_base));
-  _ei_gc2 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio2_phys_base));
+  _ei_gc1 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio1_phys_base), 16 * 8);
+  _ei_gc2 = new Boot_object<Gpio_eint_chip>(Kmem::mmio_remap(Mem_layout::Gpio2_phys_base), (29 - 21 + 1) * 8);
 
   // Combiners
   for (unsigned i = 0; i < 40; ++i)
@@ -481,11 +481,11 @@ Mgr_int::Mgr_int()
   _cc->unmask(8 * 24 + 0);
 
   static Chip_block soc[] = {
-    { 96,                _gic },
-    { 54 * 8,            _cc },
-    { 32,                _wu_gc },
-    { 16 * 8,            _ei_gc1 },
-    { (29 - 21 + 1) * 8, _ei_gc2 },
+    { 96,                 _gic },
+    { 54 * 8,             _cc },
+    { 32,                 _wu_gc },
+    { _ei_gc1->nr_irqs(), _ei_gc1 },
+    { _ei_gc2->nr_irqs(), _ei_gc2 },
   };
 
   _block = soc;

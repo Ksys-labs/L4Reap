@@ -72,6 +72,25 @@ struct lx_iovec {
 
 typedef signed int lx_pid_t;
 
+/* see asm-generic/statfs.h */
+typedef struct {
+	int val[2];
+} lx__kernel_fsid_t;
+
+struct lx_statfs {
+	unsigned long f_type;
+	unsigned long f_bsize;
+	unsigned long f_blocks;
+	unsigned long f_bfree;
+	unsigned long f_bavail;
+	unsigned long f_files;
+	unsigned long f_ffree;
+	lx__kernel_fsid_t f_fsid;
+	unsigned long f_namelen;
+	unsigned long f_frsize;
+	unsigned long f_spare[5];
+};
+
 /* see asm/stat.h */
 struct lx_stat {
         unsigned long  st_dev;
@@ -235,14 +254,17 @@ struct lx_sockaddr_un {
 /*  42 */ extern int           lx_pipe(int filesdes[2]);
 /*  54 */ extern long          lx_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg);
 /*  78 */ extern long          lx_gettimeofday(struct lx_timeval *tv, struct lx_timezone *tz);
+/*  81 */ extern void          lx_sync(void);
 /*  82 */ extern int           lx_select(int n, lx_fd_set *readfds, lx_fd_set *writefds, lx_fd_set *exceptfds, struct lx_timeval *timeout);
 /*  93 */ extern int           lx_ftruncate(int fd, unsigned long ofs);
+/*  93 */ extern int           lx_statfs(const char *path, struct lx_statfs *buf);
 /* 102 */ extern int           lx_socketcall(int call, unsigned long *args);
 /* 106 */ extern int           lx_stat(const char *filename, struct lx_stat *buf);
 /* 107 */ extern int           lx_lstat(const char *filename, struct lx_stat *buf);
 /* 108 */ extern int           lx_fstat(int filedes, struct lx_stat *buf);
 /* 117 */ extern int           lx_ipc(unsigned int call, int first, int second, int third, const void *ptr, long fifth);
 /* 118 */ extern int           lx_fsync(int fd);
+/* 140 */ extern long long     lx_lseek64(int fd, unsigned long long offset, int origin);
 /* 145 */ extern lx_ssize_t    lx_readv(int fd, const struct lx_iovec *iov, int cnt);
 /* 146 */ extern lx_ssize_t    lx_writev(int fd, const struct lx_iovec *iov, int cnt);
 /* 148 */ extern int           lx_fdatasync(int fd);

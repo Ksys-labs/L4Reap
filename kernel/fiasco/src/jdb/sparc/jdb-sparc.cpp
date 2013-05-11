@@ -71,6 +71,9 @@ Jdb::handle_user_request(Cpu_number cpu)
   Space * task = get_task(cpu);
   char tmp;
 
+  if (ef->debug_ipi())
+    return cpu != Cpu_number::boot_cpu();
+
   if (!peek(str, task, tmp) || tmp != '*')
     return false;
   if (!peek(str+1, task, tmp) || tmp != '#')

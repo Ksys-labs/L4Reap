@@ -33,7 +33,8 @@ public:
 
   Moe::Quota *quota() { return &_quota; }
 
-  Moe::Dataspace *alloc(unsigned long size, unsigned long flags = 0);
+  Moe::Dataspace *alloc(unsigned long size, unsigned long flags = 0,
+                        unsigned long align = 0);
 
   virtual ~Allocator();
 

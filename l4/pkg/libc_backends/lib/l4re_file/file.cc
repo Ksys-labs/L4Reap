@@ -406,9 +406,22 @@ L4B_REDIRECT_2(int,       lstat64,     const char *, struct stat64 *)
   }
 
 L4B_REDIRECT_1(int, unlink,  const char *)
-L4B_REDIRECT_2(int, rename,  const char *, const char *)
 L4B_REDIRECT_2(int, mkdir,   const char *, mode_t)
 L4B_REDIRECT_1(int, rmdir,   const char *)
+#undef L4B_REDIRECT
+
+#define L4B_REDIRECT(ret, func, ptlist, plist) \
+  extern "C" ret func ptlist L4_NOTHROW                         \
+  {                                                             \
+    cxx::Ref_ptr<L4Re::Vfs::File> dir1;                         \
+    cxx::Ref_ptr<L4Re::Vfs::File> dir2;                         \
+    _a1 = __internal_resolvedir(AT_FDCWD, _a1, 0, 0, &dir1);    \
+    _a2 = __internal_resolvedir(AT_FDCWD, _a2, 0, 0, &dir2);    \
+    ret r = dir1->func plist;     \
+    POST();                                                     \
+  }
+
+L4B_REDIRECT_2(int, rename,  const char *, const char *)
 L4B_REDIRECT_2(int, link,    const char *, const char *)
 L4B_REDIRECT_2(int, symlink, const char *, const char *)
 #undef L4B_REDIRECT

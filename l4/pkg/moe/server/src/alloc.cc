@@ -90,7 +90,7 @@ void Allocator::operator delete (void *m) throw()
 }
 
 Moe::Dataspace *
-Allocator::alloc(unsigned long size, unsigned long flags)
+Allocator::alloc(unsigned long size, unsigned long flags, unsigned long align)
 {
   if (size == 0)
     throw L4::Bounds_error("stack too small");
@@ -99,9 +99,14 @@ Allocator::alloc(unsigned long size, unsigned long flags)
   Moe::Dataspace *mo;
   if (flags & L4Re::Mem_alloc::Continuous
       || flags & L4Re::Mem_alloc::Pinned)
-    mo = new (&_quota) Moe::Dataspace_annon(size, true,
-	flags & L4Re::Mem_alloc::Super_pages
-	  ? L4_SUPERPAGESHIFT : L4_PAGESHIFT);
+    {
+      if (flags & L4Re::Mem_alloc::Super_pages)
+        align = cxx::max<unsigned long>(align, L4_SUPERPAGESHIFT);
+      else
+        align = cxx::max<unsigned long>(align, L4_PAGESHIFT);
+
+      mo = new (&_quota) Moe::Dataspace_annon(size, true, align);
+    }
   else
     mo = Moe::Dataspace_noncont::create(&_quota, size);
 
@@ -258,15 +263,16 @@ Allocator::disp_factory(l4_umword_t r, L4::Ipc::Iostream &ios)
 	}
     case L4Re::Dataspace::Protocol:
 	{
-	  L4::Ipc::Varg size, flags;
-	  ios >> size >> flags;
+	  L4::Ipc::Varg size, flags, align;
+	  ios >> size >> flags >> align;
 
 	  if (!size.is_of_int())
 	    return -L4_EINVAL;
 
 	  // L4::cout << "MEM: alloc ... " << size.value<l4_umword_t>() << "; " << flags.value<l4_umword_t>() << "\n";
 	  cxx::Auto_ptr<Moe::Dataspace> mo(alloc(size.value<l4_umword_t>(),
-		flags.is_of_int() ? flags.value<l4_umword_t>() : 0));
+		flags.is_of_int() ? flags.value<l4_umword_t>() : 0,
+                align.is_of_int() ? align.value<l4_umword_t>() : 0));
 
 	  // L4::cout << "MO=" << mo.get() << "\n";
 	  ko = object_pool.cap_alloc()->alloc(mo.get());
@@ -312,6 +318,7 @@ Allocator::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 	      unsigned long flags;
 	      ios >> size >> flags;
 
+              printf("MOE: WARNING: Using deprecated interface L4Re::Mem_alloc_::Alloc\n");
 	      //L4::cout << "MEM: alloc ... " << size << "; " << flags << "\n";
               cxx::Auto_ptr<Moe::Dataspace> mo(alloc(size,flags));
 

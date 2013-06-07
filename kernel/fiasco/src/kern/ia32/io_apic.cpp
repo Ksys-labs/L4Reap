@@ -56,7 +56,7 @@ private:
   } __attribute__((packed));
 
   Apic *_apic;
-  Spin_lock<> _l;
+  mutable Spin_lock<> _l;
   unsigned _offset;
   Io_apic *_next;
 
@@ -159,7 +159,7 @@ Io_apic::Io_apic(Io_apic::Apic *addr, unsigned irqs, unsigned gsi_base)
 
 PUBLIC inline NEEDS["kdb_ke.h", "lock_guard.h"]
 Io_apic_entry
-Io_apic::read_entry(unsigned i)
+Io_apic::read_entry(unsigned i) const
 {
   auto g = lock_guard(_l);
   Io_apic_entry e;
@@ -406,32 +406,40 @@ Io_apic::set_cpu(Mword irq, Cpu_number cpu)
 }
 
 static inline
-Mword to_io_apic_trigger(unsigned mode)
+Mword to_io_apic_trigger(Irq_chip::Mode mode)
 {
-  return (mode & Irq_base::Trigger_level)
-            ? Io_apic_entry::Level
-            : Io_apic_entry::Edge;
+  return mode.level_triggered()
+         ? Io_apic_entry::Level
+         : Io_apic_entry::Edge;
 }
 
 static inline
-Mword to_io_apic_polarity(unsigned mode)
+Mword to_io_apic_polarity(Irq_chip::Mode mode)
 {
-  return (mode & Irq_base::Polarity_low)
-             ? Io_apic_entry::Low_active
-             : Io_apic_entry::High_active;
+  return mode.polarity() == Irq_chip::Mode::Polarity_high
+         ? Io_apic_entry::High_active
+         : Io_apic_entry::Low_active;
 }
 
-PUBLIC unsigned
-Io_apic::set_mode(Mword pin, unsigned mode)
+PUBLIC int
+Io_apic::set_mode(Mword pin, Mode mode)
 {
-  if ((mode & Irq_base::Polarity_mask) == Irq_base::Polarity_both)
-    mode = Irq_base::Polarity_low;
+  if (!mode.set_mode())
+    return 0;
 
   Io_apic_entry e = read_entry(pin);
   e.polarity() = to_io_apic_polarity(mode);
   e.trigger() = to_io_apic_trigger(mode);
   write_entry(pin, e);
-  return mode;
+  return 0;
+}
+
+PUBLIC
+bool
+Io_apic::is_edge_triggered(Mword pin) const
+{
+  Io_apic_entry e = read_entry(pin);
+  return e.trigger() == Io_apic_entry::Edge;
 }
 
 PUBLIC

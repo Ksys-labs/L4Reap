@@ -20,7 +20,7 @@ Kmem_alloc::map_pmem(unsigned long phy, unsigned long size)
     {
       auto pte = Kmem_space::kdir()->walk(Virt_addr(next_map + i), Pdir::Super_level);
       pte.create_page(Phys_mem_addr(phy + i), Page::Attr(Page::Rights::RW()));
-      pte.write_back_if(true);
+      pte.write_back_if(true, Mem_unit::Asid_kernel);
     }
   Mem_layout::add_pmem(phy, next_map, size);
   next_map += size;

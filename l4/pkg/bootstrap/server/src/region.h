@@ -126,12 +126,14 @@ public:
    */
   void init(Region *store, unsigned size,
             const char *name,
-            unsigned long long max_combined_size = ~0ULL)
+            unsigned long long max_combined_size = ~0ULL,
+            unsigned long long address_limit = ~0ULL)
   {
     _reg = _end = store;
     _max = _reg + size;
     _name = name;
     _max_combined_size = max_combined_size;
+    _address_limit = address_limit;
     _combined_size = 0;
   }
 
@@ -180,6 +182,7 @@ protected:
 
   const char *_name;
   unsigned long long _max_combined_size;
+  unsigned long long _address_limit;
   unsigned long long _combined_size;
 
 private:

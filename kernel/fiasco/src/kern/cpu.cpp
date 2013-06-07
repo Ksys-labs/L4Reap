@@ -79,8 +79,6 @@ Cpu::online_mask()
 // --------------------------------------------------------------------------
 IMPLEMENTATION [mp]:
 
-#include "kdb_ke.h"
-
 IMPLEMENT inline
 Cpu_number
 Cpu::id() const
@@ -96,13 +94,12 @@ void
 Cpu::set_online(bool o)
 {
   if (o)
-    _online_mask.set(_id);
+    _online_mask.atomic_set(_id);
   else
-    _online_mask.clear(_id);
+    _online_mask.atomic_clear(_id);
 }
 
-
-IMPLEMENT static inline NEEDS["kdb_ke.h"]
+IMPLEMENT static inline
 bool
 Cpu::online(Cpu_number _cpu)
 { return _online_mask.get(_cpu); }

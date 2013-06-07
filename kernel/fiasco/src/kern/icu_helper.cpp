@@ -169,16 +169,8 @@ Icu_h<REAL_ICU>::icu_invoke(L4_obj_ref, L4_fpage::Rights /*rights*/,
 
     case Op_set_mode:
       if (tag.words() >= 3)
-	{
-	  Irq_base *irq = this_icu()->icu_get_irq(utcb->values[1]);
-
-	  if (irq)
-	    {
-	      irq->set_mode(utcb->values[2]);
-	      return Kobject_iface::commit_result(0);
-	    }
-	}
-
+        return this_icu()->icu_set_mode(utcb->values[1],
+                                        Irq_chip::Mode(utcb->values[2]));
       return Kobject_iface::commit_result(-L4_err::EInval);
 
     default:

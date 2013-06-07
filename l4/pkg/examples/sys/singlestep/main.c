@@ -76,7 +76,7 @@ int main(void)
   l4_touch_ro(thread_func, 1);
 
   tag = l4_factory_create_thread(l4re_env()->factory, th);
-  if (l4_msgtag_has_error(tag))
+  if (l4_error(tag))
     return 1;
 
   l4_thread_control_start();
@@ -86,20 +86,25 @@ int main(void)
                           L4RE_THIS_TASK_CAP);
   l4_thread_control_alien(1);
   tag = l4_thread_control_commit(th);
-  if (l4_msgtag_has_error(tag))
+  if (l4_error(tag))
     return 2;
 
   tag = l4_thread_ex_regs(th, (l4_umword_t)thread_func,
                           (l4_umword_t)thread_stack + sizeof(thread_stack),
                           0);
-  if (l4_msgtag_has_error(tag))
+  if (l4_error(tag))
     return 3;
+
+  l4_sched_param_t sp = l4_sched_param(1, 0);
+  tag = l4_scheduler_run_thread(l4re_env()->scheduler, th, &sp);
+  if (l4_error(tag))
+    return 4;
 
   /* Pager/Exception loop */
   if (l4_msgtag_has_error(tag = l4_ipc_receive(th, u, L4_IPC_NEVER)))
     {
       printf("l4_ipc_receive failed");
-      return 4;
+      return 5;
     }
   memcpy(&exc, l4_utcb_exc(), sizeof(exc));
   mr0 = l4_utcb_mr()->mr[0];

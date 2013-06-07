@@ -29,7 +29,7 @@ Io.hw_add_devices
 
   gpio = Hw.Device
   {
-    hid = "GPIO"; -- FIXME: should be "OMAP GPIO" or something
+    hid = "omap3-gpio";
     Res.mmio(0x48004000, 0x48004fff);
     Res.mmio(0x48310000, 0x48310fff);
     Res.mmio(0x49050000, 0x49050fff);
@@ -47,7 +47,7 @@ Io.hw_add_devices
 
   i2c1 = Hw.Device
   {
-    hid = "I2C";  -- FIXME: this should be "OMAP I2C" or smoething
+    hid = "omap3-i2c";
     Res.mmio(0x48070000, 0x48070fff);
   }
 }

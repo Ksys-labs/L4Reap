@@ -461,6 +461,13 @@ Context::Context()
 
 PUBLIC inline
 void
+Context::reset_kernel_sp()
+{
+  _kernel_sp = reinterpret_cast<Mword*>(regs());
+}
+
+PUBLIC inline
+void
 Context::spill_fpu_if_owner()
 {
   // spill FPU state into memory before migration
@@ -1358,8 +1365,9 @@ Context::Drq_q::handle_requests(Drop_mode drop)
       need_resched |= execute_request(r, drop, false);
     }
 }
+
 /**
- * \biref Forced dequeue from lock wait queue, or DRQ queue.
+ * \brief Forced dequeue from lock wait queue, or DRQ queue.
  */
 PRIVATE
 void

@@ -26,7 +26,7 @@ Timer_tick::setup(Cpu_number cpu)
       else
         printf("Timer is at IRQ %d\n", Timer::irq());
 
-      _glbl_timer->set_mode(Timer::irq_mode());
+      _glbl_timer->chip()->set_mode(_glbl_timer->pin(), Timer::irq_mode());
     }
 }
 

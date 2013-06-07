@@ -75,21 +75,24 @@ public:
   { Io::clear<Mword>(1 << (pin & 7), _gpio_base + MASK + offs(pin)); }
 
   void set_cpu(Mword, Cpu_number) {}
-  unsigned set_mode(Mword pin, unsigned m)
+  int set_mode(Mword pin, Mode m)
   {
     unsigned v;
 
-    m &= ~1;
+    if (m.wakeup())
+      return -L4_err::EInval;
 
-    switch (m)
+    if (!m.set_mode())
+      return 0;
+
+    switch (m.flow_type())
     {
-      default: m = Irq_base::Trigger_level | Irq_base::Polarity_low;
-               /* Fall-through */
-      case Irq_base::Trigger_level | Irq_base::Polarity_low:  v = 0; break;
-      case Irq_base::Trigger_level | Irq_base::Polarity_high: v = 1; break;
-      case Irq_base::Trigger_edge  | Irq_base::Polarity_low:  v = 2; break;
-      case Irq_base::Trigger_edge  | Irq_base::Polarity_high: v = 3; break;
-      case Irq_base::Trigger_edge  | Irq_base::Polarity_both: v = 4; break;
+      default:
+      case Irq_chip::Mode::Trigger_level | Irq_chip::Mode::Polarity_low:  v = 0; break;
+      case Irq_chip::Mode::Trigger_level | Irq_chip::Mode::Polarity_high: v = 1; break;
+      case Irq_chip::Mode::Trigger_edge  | Irq_chip::Mode::Polarity_low:  v = 2; break;
+      case Irq_chip::Mode::Trigger_edge  | Irq_chip::Mode::Polarity_high: v = 3; break;
+      case Irq_chip::Mode::Trigger_edge  | Irq_chip::Mode::Polarity_both: v = 4; break;
     };
 
     Mword a = _gpio_base + INTCON + offs(pin);
@@ -97,8 +100,18 @@ public:
     v <<= pin * 4;
     Io::write<Mword>((Io::read<Mword>(a) & ~(7 << (pin * 4))) | v, a);
 
-    return m;
+    return 0;
   }
+
+  bool is_edge_triggered(Mword pin) const
+  {
+    unsigned v;
+    Mword a = _gpio_base + INTCON + offs(pin);
+    pin = pin % 8;
+    v = (Io::read<Mword>(a) >> (pin * 4)) & 7;
+    return v & 6;
+  }
+
   unsigned pending() { return Io::read<Mword>(_gpio_base + 0xb08); }
 
 private:
@@ -118,7 +131,8 @@ private:
 public:
   explicit Gpio_wakeup_chip(Address physbase)
   : Irq_chip_gen(32),
-    Mmio_register_block(Kmem::mmio_remap(physbase))
+    Mmio_register_block(Kmem::mmio_remap(physbase)),
+    _wakeup(0)
   {}
 
   void mask(Mword pin)
@@ -133,20 +147,29 @@ public:
   { modify<Mword>(0, 1 << (pin & 7), MASK + offs(pin)); }
   void set_cpu(Mword, Cpu_number) {}
 
-  unsigned set_mode(Mword pin, unsigned m)
+  int set_mode(Mword pin, Mode m)
   {
     unsigned v;
-    m &= ~1;
 
-    switch (m)
+    if (m.set_wakeup() && m.clear_wakeup())
+      return -L4_err::EInval;
+
+    if (m.set_wakeup())
+      _wakeup |= 1 << pin;
+    else if (m.clear_wakeup())
+      _wakeup &= ~(1 << pin);
+
+    if (!m.set_mode())
+      return 0;
+
+    switch (m.flow_type())
     {
-      default: m = Irq_base::Trigger_level | Irq_base::Polarity_low;
-               /* Fall-through */
-      case Irq_base::Trigger_level | Irq_base::Polarity_low:  v = 0; break;
-      case Irq_base::Trigger_level | Irq_base::Polarity_high: v = 1; break;
-      case Irq_base::Trigger_edge  | Irq_base::Polarity_low:  v = 2; break;
-      case Irq_base::Trigger_edge  | Irq_base::Polarity_high: v = 3; break;
-      case Irq_base::Trigger_edge  | Irq_base::Polarity_both: v = 4; break;
+      default:
+      case Irq_chip::Mode::Trigger_level | Irq_chip::Mode::Polarity_low:  v = 0; break;
+      case Irq_chip::Mode::Trigger_level | Irq_chip::Mode::Polarity_high: v = 1; break;
+      case Irq_chip::Mode::Trigger_edge  | Irq_chip::Mode::Polarity_low:  v = 2; break;
+      case Irq_chip::Mode::Trigger_edge  | Irq_chip::Mode::Polarity_high: v = 3; break;
+      case Irq_chip::Mode::Trigger_edge  | Irq_chip::Mode::Polarity_both: v = 4; break;
     };
 
     Mword a = INTCON + offs(pin);
@@ -154,7 +177,16 @@ public:
     v <<= pin * 4;
     modify<Mword>(v, 7UL << (pin * 4), a);
 
-    return m;
+    return 0;
+  }
+
+  bool is_edge_triggered(Mword pin) const
+  {
+    unsigned v;
+    Mword a = INTCON + offs(pin);
+    pin = pin % 8;
+    v = (read<Mword>(a) >> (pin * 4)) & 7;
+    return v & 6;
   }
 
   unsigned pending01() const // debug only
@@ -166,6 +198,8 @@ public:
   {
     return read<Unsigned8>(PEND + 8) | (static_cast<unsigned>(read<Unsigned8>(PEND + 12)) << 8);
   }
+
+  Unsigned32 _wakeup;
 
 private:
   enum {
@@ -212,8 +246,11 @@ public:
 
   void set_cpu(Mword, Cpu_number) {}
 
-  unsigned set_mode(Mword, unsigned)
-  { return Irq_base::Trigger_level; }
+  int set_mode(Mword, Mode)
+  { return 0; }
+
+  bool is_edge_triggered(Mword) const
+  { return false; }
 
   void unmask(Mword i)
   { write<Mword>(1UL << (i & 31), offset(i / 8) + Enable_set); }
@@ -274,7 +311,7 @@ public:
   : _wu_gpio(gc), _pin(pin)
   { set_hit(&handler_wrapper<Gpio_cascade_wu01_irq>); }
 
-  void switch_mode(unsigned) {}
+  void switch_mode(bool) {}
 
   void handle(Upstream_irq const *u)
   {
@@ -299,7 +336,7 @@ public:
   : _wu_gpio(gc)
   { set_hit(&handler_wrapper<Gpio_cascade_wu23_irq>); }
 
-  void switch_mode(unsigned) {}
+  void switch_mode(bool) {}
 
 private:
   Gpio_wakeup_chip *_wu_gpio;
@@ -326,7 +363,7 @@ public:
   : _eint_gc(g), _special(special)
   { set_hit(&handler_wrapper<Gpio_cascade_xab_irq>); }
 
-  void switch_mode(unsigned) {}
+  void switch_mode(bool) {}
 
 private:
   Gpio_eint_chip *_eint_gc;
@@ -366,7 +403,7 @@ public:
   : _combiner_nr(nr), _child(chld)
   { set_hit(&handler_wrapper<Combiner_cascade_irq>); }
 
-  void switch_mode(unsigned) {}
+  void switch_mode(bool) {}
   unsigned irq_nr_base() const { return _combiner_nr * 8; }
 
 private:
@@ -566,6 +603,8 @@ public:
     return Irq();
   }
 
+  Unsigned32 wakeup_irq_eint_mask() { return _wu_gc->_wakeup; }
+
 private:
   friend void irq_handler();
   friend class Pic;
@@ -710,7 +749,7 @@ public:
            cxx::int_value<Cpu_number>(current_cpu()));
   }
 private:
-  void switch_mode(unsigned) {}
+  void switch_mode(bool) {}
 };
 
 DEFINE_PER_CPU static Per_cpu<Static_object<Check_irq0> > _check_irq0;

@@ -280,9 +280,16 @@ Gic::unmask(Mword pin)
 }
 
 PUBLIC
-unsigned
-Gic::set_mode(Mword, unsigned)
-{ return Irq_base::Trigger_level; }
+int
+Gic::set_mode(Mword, Mode)
+{
+  return 0;
+}
+
+PUBLIC
+bool
+Gic::is_edge_triggered(Mword) const
+{ return false; }
 
 PUBLIC inline
 void

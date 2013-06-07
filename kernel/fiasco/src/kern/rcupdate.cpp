@@ -300,17 +300,33 @@ Rcu_glbl::start_batch()
     }
 }
 
+PUBLIC
+void
+Rcu_data::enter_idle(Rcu_glbl *rgp)
+{
+  if (EXPECT_TRUE(!_idle))
+    {
+      _idle = true;
+
+      auto guard = lock_guard(rgp->_lock);
+      rgp->_active_cpus.clear(_cpu);
+
+      if (_q_batch != rgp->_current || _pending)
+        {
+          _q_batch = rgp->_current;
+          _pending = 0;
+          rgp->cpu_quiet(_cpu);
+          assert (!pending(rgp));
+        }
+    }
+}
+
 PUBLIC static inline
 void
 Rcu::enter_idle(Cpu_number cpu)
 {
   Rcu_data *rdp = &_rcu_data.cpu(cpu);
-  if (EXPECT_TRUE(!rdp->_idle))
-    {
-      rdp->_idle = true;
-      auto guard = lock_guard(rcu()->_lock);
-      rcu()->_active_cpus.clear(cpu);
-    }
+  rdp->enter_idle(rcu());
 }
 
 PUBLIC static inline

@@ -914,7 +914,7 @@ monitor_vector_base:
 mon_enter_secure mon_undef_entry,      6, 4
 mon_enter_secure mon_swi_entry,        1, 0
 mon_enter_secure mon_inst_abort_entry, 2, 4
-mon_enter_secure mon_data_abort_entry, 3, 4
+mon_enter_secure mon_data_abort_entry, 3, 8
 mon_enter_secure mon_irq_entry,        4, 4
 mon_enter_secure mon_fiq_entry,        5, 4
 

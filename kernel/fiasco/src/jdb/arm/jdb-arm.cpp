@@ -173,7 +173,7 @@ Jdb::access_mem_task(Address virt, Space * task)
         {
           pte.create_page(Phys_mem_addr(cxx::mask_lsb(phys, pte.page_order())),
                           Page::Attr(Page::Rights::RW()));
-          pte.write_back_if(true);
+          pte.write_back_if(true, Mem_unit::Asid_kernel);
         }
 
       Mem_unit::tlb_flush();

@@ -1,6 +1,9 @@
 /**
- * PowerPC timer using internal decrementer
+ * Sparc timer
  */
+INTERFACE [sparc]:
+
+#include "irq_chip.h"
 
 IMPLEMENTATION [sparc]:
 
@@ -30,10 +33,10 @@ unsigned
 Timer::irq()
 { return 0; }
 
-PUBLIC static inline
-unsigned
+PUBLIC static inline NEEDS["irq_chip.h"]
+Irq_chip::Mode
 Timer::irq_mode()
-{ return 0; }
+{ return Irq_chip::Mode::F_raising_edge; }
 
 PUBLIC static inline
 void

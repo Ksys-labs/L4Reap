@@ -132,31 +132,19 @@ PUBLIC static
 void
 Platform_control::setup_cpu_start_vector(Cpu_phys_id cpu, Mword phys_reset_vector)
 {
-  if ((Platform::is_4210() && Platform::subrev() == 0)
-      || Platform::is_4412())
-    {
-      printf("AP bootup sysram\n");
+  unsigned long b = Mem_layout::Sysram_phys_base;
 
-      unsigned o = 0;
-      if (Platform::is_4412())
-        o = (Platform::running_ns() ? 0x2f01c : 0)
-            + cxx::int_value<Cpu_phys_id>(cpu) * 4;
+  if (Platform::running_ns())
+    b += Platform::is_4210() ? 0x1f01c : 0x2f01c;
+  else if (Platform::is_4210() && Platform::subrev() == 0x11)
+    b = Mem_layout::Pmu_phys_base + 0x814;
+  else if (Platform::is_4210() && Platform::subrev() == 0)
+    b += 0x5000;
 
-      set_one_vector(Mem_layout::Sysram_phys_base + o,
-                     phys_reset_vector);
-    }
-  else if (Platform::is_5250())
-    {
-      unsigned o = Platform::running_ns() ? 0x2f01c : 0;
-      set_one_vector(Mem_layout::Sysram_phys_base + o,
-                     phys_reset_vector);
-    }
-  else
-    {
-      printf("AP bootup inform\n");
-      set_one_vector(Mem_layout::Pmu_phys_base + 0x814,
-                     phys_reset_vector);
-    }
+  if (Platform::is_4412())
+    b += cxx::int_value<Cpu_phys_id>(cpu) * 4;
+
+  set_one_vector(b, phys_reset_vector);
 }
 
 

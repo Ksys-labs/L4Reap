@@ -69,7 +69,7 @@ int main(void)
   l4_touch_rw(alien_thread_stack, sizeof(alien_thread_stack));
 
   tag = l4_factory_create_thread(l4re_env()->factory, alien);
-  if (l4_msgtag_has_error(tag))
+  if (l4_error(tag))
     return 1;
 
   l4_debugger_set_object_name(alien, "alienth");
@@ -80,15 +80,20 @@ int main(void)
   l4_thread_control_bind((l4_utcb_t *)l4re_env()->first_free_utcb, L4RE_THIS_TASK_CAP);
   l4_thread_control_alien(1);
   tag = l4_thread_control_commit(alien);
-  if (l4_msgtag_has_error(tag))
+  if (l4_error(tag))
     return 2;
 
   tag = l4_thread_ex_regs(alien,
                           (l4_umword_t)alien_thread,
                           (l4_umword_t)alien_thread_stack + sizeof(alien_thread_stack),
                           0);
-  if (l4_msgtag_has_error(tag))
+  if (l4_error(tag))
     return 3;
+
+  l4_sched_param_t sp = l4_sched_param(1, 0);
+  tag = l4_scheduler_run_thread(l4re_env()->scheduler, alien, &sp);
+  if (l4_error(tag))
+    return 4;
 
 #ifdef MEASURE
   l4_calibrate_tsc(l4re_kip());

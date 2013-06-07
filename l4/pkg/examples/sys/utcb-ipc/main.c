@@ -77,7 +77,7 @@ int main(void)
     return 1;
 
   tag = l4_factory_create_thread(l4re_env()->factory, thread2_cap);
-  if (l4_msgtag_has_error(tag))
+  if (l4_error(tag))
     return 1;
 
   l4_thread_control_start();
@@ -86,14 +86,19 @@ int main(void)
   l4_thread_control_bind((l4_utcb_t *)l4re_env()->first_free_utcb,
                           L4RE_THIS_TASK_CAP);
   tag = l4_thread_control_commit(thread2_cap);
-  if (l4_msgtag_has_error(tag))
+  if (l4_error(tag))
     return 2;
 
   tag = l4_thread_ex_regs(thread2_cap,
                           (l4_umword_t)thread2,
                           (l4_umword_t)(stack2 + sizeof(stack2)), 0);
-  if (l4_msgtag_has_error(tag))
+  if (l4_error(tag))
     return 3;
+
+  l4_sched_param_t sp = l4_sched_param(1, 0);
+  tag = l4_scheduler_run_thread(l4re_env()->scheduler, thread2_cap, &sp);
+  if (l4_error(tag))
+    return 4;
 
   thread1();
 

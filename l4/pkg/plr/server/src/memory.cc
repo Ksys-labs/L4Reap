@@ -42,10 +42,16 @@ void Romain::Region_ops::unmap(Region_handler const *h, l4_addr_t vaddr,
 
 void Romain::Region_ops::free(Region_handler const *h, l4_addr_t start, unsigned long size)
 {
-	(void)h;
-	(void)start;
-	(void)size;
-	enter_kdebug("ops::free");
+	if ((h->flags() & L4Re::Rm::Reserved))
+		return;
+
+	if (h->flags() & L4Re::Rm::Pager)
+		return;
+
+	L4::Cap<L4Re::Dataspace> ds(h->client_cap_idx());
+	ds->clear(h->offset() + start, size);
+	
+	//enter_kdebug("ops::free");
 }
 
 
@@ -161,7 +167,7 @@ void *Romain::Region_map::attach_locally(void* addr, unsigned long size,
                                          unsigned flags, unsigned char align)
 {
 	long r; (void)addr;
-	Romain::Region_handler::Dataspace const *ds = &hdlr->memory(0);
+	Romain::Region_handler::Dataspace const *ds = &hdlr->local_memory(0);
 	L4Re::Dataspace::Stats dsstat;
 	(*ds)->info(&dsstat);
 
@@ -246,7 +252,7 @@ void *Romain::Region_map::attach_locally(void* addr, unsigned long size,
 		page_base = 0;
 		/*
 		 * XXX: If we copied the dataspace above, what happens to the
-		 *      original DS that was passed in? Shoudln't it be released?
+		 *      original DS that was passed in? Shouldn't it be released?
 		 *
 		 *      No. It might still be attached elsewhere. Perhaps decrement
 		 *      some refcnt? XXX check
@@ -280,7 +286,8 @@ void *Romain::Region_map::attach(void* addr, unsigned long size,
 {
 	void *ret = 0;
 
-	DEBUG() << std::hex << addr << " " << size << " " << (int)align;
+	MSG() << std::hex << addr << " " << size << " " << (int)align << " " << flags;
+	MSG() << "cap " << std::hex << hdlr.client_cap_idx();
 
 	/*
 	 * XXX: the only reason for this Region_handler to exist is to copy
@@ -295,14 +302,25 @@ void *Romain::Region_map::attach(void* addr, unsigned long size,
 	 * the remote address and can then during local attaching make sure
 	 * that the memory alignment of the local mapping matches the remote
 	 * alignment. This allows us to play mapping tricks later.
+	 * 
+	 * Note, we can only do this if the Search_addr flag is set, otherwise
+	 * we might hurt the client's expectations about the mem region.
 	 */
-	if ((size > L4_SUPERPAGESIZE) and (align < L4_LOG2_SUPERPAGESIZE)) {
+	if ((flags & L4Re::Rm::Search_addr) and 
+	    !(flags & L4Re::Rm::In_area) and
+	    (size > L4_SUPERPAGESIZE) and
+	    (align < L4_LOG2_SUPERPAGESIZE)) {
 		align = L4_LOG2_SUPERPAGESIZE;
 		size  = l4_round_size(size, L4_SUPERPAGESHIFT);
 	}
+	
 
 	ret = Base::attach(addr, size, _handler, flags, align);
-	DEBUG() << "Base::attach = " << std::hex << ret;
+	MSG() << "Base::attach = " << std::hex << ret << " hdlr.offs: " << _handler.offset();
+	if (ret == (void*)~0UL) {
+		INFO() << std::hex << addr << " " << size << " " << (int)align << " " << flags;
+		enter_kdebug("Attach error");
+	}
 
 	/*
 	 * The node is now present in the region map. This means we now need
@@ -338,17 +356,56 @@ void *Romain::Region_map::attach(void* addr, unsigned long size,
 
 
 
-#if 1
-int Romain::Region_map::detach(void* addr, unsigned long size, unsigned flags,
-                              L4Re::Util::Region* reg, Romain::Region_handler* h)
+int Romain::Region_map::detach(void* /* IN */ addr, unsigned long /* IN */ size,
+                               unsigned /* IN */ flags,
+                               L4Re::Util::Region* /* OUT */ reg,
+                               Romain::Region_handler* /* OUT */ h)
 {
-	MSG() << "addr " << std::hex << l4_addr_t(addr) << " " << size
-	      << " " << flags;
-	MSG() << "active instance: " << _active_instance;
-	//enter_kdebug("detach");
-	return -1;
+	/* First, do a lookup for the handler, because Base::Detach() will not always
+	 * return the handler node, but we need it for detach later.
+	 */
+	l4_addr_t srch = (l4_addr_t)addr;
+	Romain::Region_handler hd = Base::find(Region(srch, srch + size - 1))->second;
+	MSG() << "Client cap: " << std::hex << hd.client_cap_idx();
+	if (hd.client_cap_idx() == L4_INVALID_CAP) {
+		enter_kdebug("invalid cap!");
+	}
+
+	MSG() << std::hex << "Base::detach(" << (l4_addr_t)addr << " " << size << " " << flags << ")";
+	MSG() << std::hex << find((l4_addr_t)addr)->second.client_cap_idx();
+	int ret = Base::detach(addr, size, flags, reg, h);
+	MSG() << std::hex << "Base::detach(): " << ret << " r.start: " << reg->start() << " " << reg->size();
+
+	/*
+	 * Iterate over replicas and detach() the replicas' mappings within
+	 * the master AS.
+	 */
+	for (unsigned idx = 0; idx < hd.local_region_count(); ++idx) {
+		if (hd.local_region(idx).start() == 0) {
+			continue;
+		}
+
+		MSG() << "[" << std::hex
+			  << hd.local_region(idx).start() << " - "
+			  << hd.local_region(idx).end() << "] ==> "
+			  << "[" << reg->start() << " - "
+			  << reg->end() << "]";
+
+		L4::Cap<L4Re::Dataspace> memcap;
+		int r = L4Re::Env::env()->rm()->detach(hd.local_region(idx).start(),
+		                                       hd.local_region(idx).size(),
+											   &memcap, L4Re::This_task);
+		MSG() << "detached locally: " << r << " cap: " << std::hex << memcap.cap();
+
+		if (!hd.writable()) {
+			/* For read-only regions, we only need to detach once */
+			break;
+		}
+	}
+
+	return ret;
 }
-#endif
+
 
 bool Romain::Region_map::lazy_map_region(Romain::Region_map::Base::Node &n, unsigned inst, bool iswritepf)
 {
@@ -356,10 +413,10 @@ bool Romain::Region_map::lazy_map_region(Romain::Region_map::Base::Node &n, unsi
 	if (n->second.local_region(inst).start())
 		return false;
 
-	DEBUGf(Romain::Log::Memory) << "start " <<  n->second.local_region(inst).start();
-	DEBUGf(Romain::Log::Memory) << "replica without yet established mapping.";
-	DEBUGf(Romain::Log::Memory) << "ro: " << n->second.is_ro();
-	DEBUGf(Romain::Log::Memory) << "shared: " << (n->second.shared() ? "true" : "false");
+	MSG() << "start " <<  n->second.local_region(inst).start();
+	MSG() << "replica without yet established mapping.";
+	MSG() << "ro: " << n->second.is_ro();
+	MSG() << "shared: " << (n->second.shared() ? "true" : "false");
 
 	/*
 	 * As we found a node, we know there exists at least one replica
@@ -377,17 +434,17 @@ bool Romain::Region_map::lazy_map_region(Romain::Region_map::Base::Node &n, unsi
 	 * Case 1: region is read-only -> we share the mapping from
 	 *         the first node, because it was already established.
 	 */
-	
 	if (n->second.is_ro() or rh->shared()) {
 		/*
 		 * XXX: Why is setting local_region and memory split up?
 		 */
 		rh->set_local_region(inst, n->second.local_region(existing));
-		rh->memory(inst, n->second.memory(existing));
+		rh->local_memory(inst, n->second.local_memory(existing));
 	} else {
-			DEBUGf(Romain::Log::Memory) << "Copying existing mapping.";
+			MSG() << "Copying existing mapping.";
 			bool b = copy_existing_mapping(*rh, existing, inst, iswritepf);
 			_check(!b, "error creating rw copy");
 	}
 	return true;
 }
+

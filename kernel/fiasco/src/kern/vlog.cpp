@@ -160,6 +160,17 @@ Vlog::icu_bind_irq(Irq *irq_o, unsigned irqnum)
   return commit_result(0);
 }
 
+PUBLIC
+L4_msg_tag
+Vlog::icu_set_mode(Mword pin, Irq_chip::Mode)
+{
+  if (pin != 0)
+    return commit_result(-L4_err::EInval);
+
+  if (_irq)
+    _irq->switch_mode(true);
+  return commit_result(0);
+}
 
 PRIVATE inline NOEXPORT
 L4_msg_tag

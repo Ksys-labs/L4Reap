@@ -233,7 +233,9 @@ IMPLEMENTATION[arm && (armca8 || armca9)]:
 
 IMPLEMENT static inline
 void Proc::pause()
-{}
+{
+  asm("yield");
+}
 
 IMPLEMENT static inline
 void Proc::halt()

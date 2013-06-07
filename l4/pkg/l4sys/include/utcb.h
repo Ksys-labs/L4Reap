@@ -79,7 +79,14 @@ typedef struct l4_utcb_t l4_utcb_t;
  */
 typedef struct l4_msg_regs_t
 {
+#if defined(__STRICT_ANSI__) && (__STDC_VERSION__ < 201112L)
   l4_umword_t mr[L4_UTCB_GENERIC_DATA_SIZE]; /**< Message registers */
+#else
+  union {
+    l4_umword_t mr[L4_UTCB_GENERIC_DATA_SIZE]; /**< Message registers */
+    l4_uint64_t mr64[L4_UTCB_GENERIC_DATA_SIZE / (sizeof(l4_uint64_t)/sizeof(l4_umword_t))]; /**< Message registers 64bit alias*/
+  };
+#endif
 } l4_msg_regs_t;
 
 /**
@@ -292,6 +299,16 @@ l4_timeout_s l4_timeout_abs_u(l4_kernel_clock_t pint, int br,
 L4_INLINE
 l4_timeout_s l4_timeout_abs(l4_kernel_clock_t pint, int br) L4_NOTHROW;
 
+/**
+ * \brief Get index into 64bit message registers alias from native-sized index.
+ * \ingroup l4_timeout_api
+ *
+ * \param idx  Index to native-sized message register
+ * \return Index to 64bit message register alias
+ */
+L4_INLINE
+unsigned l4_utcb_mr64_idx(unsigned idx) L4_NOTHROW;
+
 /**************************************************************************
  * Implementations
  **************************************************************************/
@@ -361,6 +378,9 @@ l4_timeout_s l4_timeout_abs_u(l4_kernel_clock_t val, int pos,
 L4_INLINE
 l4_timeout_s l4_timeout_abs(l4_kernel_clock_t val, int pos) L4_NOTHROW
 { return l4_timeout_abs_u(val, pos, l4_utcb()); }
+
+L4_INLINE unsigned l4_utcb_mr64_idx(unsigned idx) L4_NOTHROW
+{ return idx / (sizeof(l4_uint64_t) / sizeof(l4_umword_t)); }
 
 __END_DECLS
 

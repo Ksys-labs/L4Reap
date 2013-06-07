@@ -18,6 +18,7 @@
 
 #include "observers.h"
 
+#include <l4/re/rm-sys.h>
 #include <l4/re/util/region_mapping_svr>
 #include <l4/sys/segment.h>
 #include <l4/sys/consts.h>
@@ -118,8 +119,7 @@ Romain::SyscallObserver::notify(Romain::App_instance *i,
 
 			case L4_PROTO_TASK:
 				if ((t->vcpu()->r()->dx & ~0xF) == L4RE_THIS_TASK_CAP) {
-					handle_task(i, t, a);
-					retval = Romain::Observer::Finished;
+					retval = handle_task(i, t, a);
 				} else {
 					nullhandler.proxy_syscall(i, t, tg, a);
 					retval = Romain::Observer::Replicatable;
@@ -154,7 +154,8 @@ Romain::SyscallObserver::notify(Romain::App_instance *i,
 
 					Romain::_the_instance_manager->show_stats();
 					
-					if (1) enter_kdebug("*#^");
+					if (0) enter_kdebug("*#^");
+					else l4_sleep_forever();
 
 					nullhandler.proxy_syscall(i, t, tg, a);
 					retval = Romain::Observer::Replicatable;
@@ -184,7 +185,9 @@ Romain::SyscallObserver::notify(Romain::App_instance *i,
 	} else if (t->vcpu()->r()->err == 0x152) { // INT $42
 		INFO() << "[" << std::hex << (unsigned)t->vcpu() <<  "] INT 42 ("
 			   << t->vcpu()->r()->ip << ")";
+		t->vcpu()->print_state();
 		t->vcpu()->r()->ip += 2;
+		Romain::Log::logFlags = Romain::Log::All;
 		retval = Romain::Observer::Replicatable;
 	} else {
 		t->vcpu()->print_state();
@@ -278,7 +281,7 @@ Romain::RegionManagingHandler::handle(Romain::App_instance* i,
 
 
 Romain::Observer::ObserverReturnVal
-Romain::ThreadHandler::handle(Romain::App_instance *,
+Romain::ThreadHandler::handle(Romain::App_instance *i,
                               Romain::App_thread* t,
                               Romain::Thread_group * tg,
                               Romain::App_model *am)
@@ -347,18 +350,25 @@ Romain::ThreadHandler::handle(Romain::App_instance *,
 }
 
 
-void Romain::SyscallObserver::handle_task(Romain::App_instance* i,
+Romain::Observer::ObserverReturnVal
+Romain::SyscallObserver::handle_task(Romain::App_instance* i,
                                           Romain::App_thread*   t,
                                           Romain::App_model*    a)
 {
 	l4_utcb_t   *utcb = reinterpret_cast<l4_utcb_t*>(t->remote_utcb());
 	l4_umword_t    op = l4_utcb_mr_u(utcb)->mr[0] & L4_THREAD_OPCODE_MASK;
+	Romain::Observer::ObserverReturnVal ret = Romain::Observer::Finished;
+
 	switch(op) {
 		case L4_TASK_UNMAP_OP:
-#if 0
-			MSGt(t) << "unmap";
-			i->unmap(l4_utcb_mr_u(utcb)->mr[2]);
-#endif
+			{
+				l4_fpage_t fp;
+				fp.raw = l4_utcb_mr_u(utcb)->mr[2];
+				MSGt(t) << "Task::unmap(p = " << std::hex
+				        << l4_fpage_page(fp) << ", sz = " << l4_fpage_size(fp) << ")";
+				i->vcpu_task()->unmap(fp, L4_FP_ALL_SPACES, utcb);
+			}
+			//t->vcpu()->r()->ax = 0;
 			break;
 		case L4_TASK_CAP_INFO_OP:
 			nullhandler.proxy_syscall(i,t,0,a);
@@ -371,6 +381,8 @@ void Romain::SyscallObserver::handle_task(Romain::App_instance* i,
 			enter_kdebug("unknown task op?");
 			break;
 	}
+
+	return ret;
 }
 
 

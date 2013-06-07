@@ -64,7 +64,7 @@ static Region __regs[300];
 
 /* management of conventional memory regions */
 static Region_list ram;
-static Region __ram[8];
+static Region __ram[16];
 
 #if defined(ARCH_x86) || defined(ARCH_amd64)
 static l4util_mb_vbe_mode_t __mb_vbe;
@@ -252,34 +252,36 @@ check_arg(l4util_mb_info_t *mbi, const char *arg)
  * Calculate the maximum memory limit in MB.
  *
  * The limit is the highes physical address where conventional RAM is allowed.
- *
- * If available the '-maxmem=xx' command line option is used.
- * If not then the memory is limited to 3 GB IA32 and unlimited on other
- * systems.
+ * The memory is limited to 3 GB IA32 and unlimited on other systems.
  */
 static
 unsigned long
-get_memory_limit(l4util_mb_info_t *mbi)
+get_memory_max_address()
 {
-  unsigned long arch_limit = ~0UL;
 #if defined(ARCH_x86)
   /* Limit memory, we cannot really handle more right now. In fact, the
    * problem is roottask. It maps as many superpages/pages as it gets.
    * After that, the remaining pages are mapped using l4sigma0_map_anypage()
    * with a receive window of L4_WHOLE_ADDRESS_SPACE. In response Sigma0
    * could deliver pages beyond the 3GB user space limit. */
-  arch_limit = 3024UL << 20;
+  return 3024UL << 20;
 #endif
 
+  return ~0UL;
+}
+
+/*
+ * If available the '-maxmem=xx' command line option is used.
+ */
+static
+unsigned long
+get_memory_max_size(l4util_mb_info_t *mbi)
+{
   /* maxmem= parameter? */
   if (char *c = check_arg(mbi, "-maxmem="))
-    {
-      unsigned long l = strtoul(c + 8, NULL, 10) << 20;
-      if (l < arch_limit)
-	return l;
-    }
+    return strtoul(c + 8, NULL, 10) << 20;
 
-  return arch_limit;
+  return ~0UL;
 }
 
 static int
@@ -616,7 +618,7 @@ add_elf_regions(l4util_mb_info_t *mbi, l4_umword_t module,
   l4_addr_t entry;
   int r;
   const char *error_msg;
-  l4util_mb_mod_t *mb_mod = (l4util_mb_mod_t*)mbi->mods_addr;
+  l4util_mb_mod_t *mb_mod = (l4util_mb_mod_t*)(unsigned long)mbi->mods_addr;
 
   assert(module < mbi->mods_count);
 
@@ -864,13 +866,13 @@ relocate_mbi(l4util_mb_info_t *src_mbi, unsigned long* start,
   /* copy command lines of modules */
   for (unsigned i = 0; i < dst_mbi->mods_count; i++)
     {
-      char *n = dup_cmdline(src_mbi, i, &p, (char const *)(mods[i].cmdline));
+      char *n = dup_cmdline(src_mbi, i, &p, (char const *)(unsigned long)mods[i].cmdline);
       if (n)
 	  mods[i].cmdline = (l4_addr_t) n;
     }
   *end = (l4_addr_t)p;
 
-  printf("  Relocated mbi to [%p-%p]\n", mbi_start, (void*)(*end));
+  printf("  Relocated mbi to [%p-%p]\n", mbi_start, (void *)(*end));
   regions.add(Region::n((unsigned long)mbi_start,
                         ((unsigned long)*end) + 0xfe,
                         ".Multiboot info", Region::Root),
@@ -1143,7 +1145,7 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
 
   regions.init(__regs, sizeof(__regs) / sizeof(__regs[0]), "regions");
   ram.init(__ram, sizeof(__ram) / sizeof(__ram[0]), "RAM",
-           get_memory_limit(mbi));
+           get_memory_max_size(mbi), get_memory_max_address());
 
 #ifdef ARCH_amd64
   // add the page-table on which we're running in 64bit mode
@@ -1279,7 +1281,7 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
   if (!mb_info)
     panic("could not copy multiboot info to memory below 4MB");
 
-  mb_mod = (l4util_mb_mod_t*)mb_info->mods_addr;
+  mb_mod = (l4util_mb_mod_t *)(unsigned long)mb_info->mods_addr;
 
   /* --- Shouldn't touch original Multiboot parameters after here. -- */
 

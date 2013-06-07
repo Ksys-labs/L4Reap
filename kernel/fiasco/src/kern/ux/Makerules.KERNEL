@@ -39,6 +39,7 @@ $(KERNEL):	kernel.ux.lds $(OBJ_KERNEL) $(MINILIBC) $(LIBK) $(KERNEL_EXTRA_LIBS) 
 		  if [ "$$preinit_array_start" != "$$preinit_array_end" ]; then \
 		    echo "preinit_array content appeared, check linker symbols"; \
 		  fi
+		$(call ADD_CONFIGFILE,$@)
 
 irq0.o:		irq0.c
 		$(COMP_MESSAGE)

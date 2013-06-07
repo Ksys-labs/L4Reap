@@ -20,6 +20,7 @@
 
 #include <cstdlib>
 #include <vector>
+#include <sstream>
 
 #include <l4/re/env>
 #include <l4/sys/kip>
@@ -182,7 +183,7 @@ namespace Romain
 			{
 				for (unsigned i = 0; i < o.local_region_count(); ++i) {
 					_local_regions[i] = o.local_region(i);
-					_mem[i]           = o.memory(i);
+					_mem[i]           = o.local_memory(i);
 				}
 			}
 
@@ -226,9 +227,10 @@ namespace Romain
 			}
 
 			//DS const &memory() const throw() { return _mem; }
-			DS const &   memory(unsigned idx = 0) const throw() { return _mem[idx]; }
-			void         memory(unsigned idx, DS const & m)     { _mem[idx] = m; }
+			l4_cap_idx_t memory() const throw()                 { return _cap; }
 			l4_cap_idx_t client_cap_idx() const throw()         { return _cap; }
+			DS const &   local_memory(unsigned idx) const throw()  { return _mem[idx]; }
+			void         local_memory(unsigned idx, DS const & m)  { _mem[idx] = m; }
 			l4_addr_t    offset() const throw()                 { return _offs; }
 			void         offset(l4_addr_t o)                    { _offs = o; }
 			l4_addr_t    is_ro() const throw()                  { return _flags & L4Re::Rm::Read_only; }
@@ -399,7 +401,7 @@ namespace Romain
 				memcpy((void*)a, (void*)r.local_region(orig_id).start(), size);
 
 				r.set_local_region(inst_id, Romain::Region(a, a+size-1));
-				r.memory(inst_id, mem);
+				r.local_memory(inst_id, mem);
 
 				return true;
 			}
@@ -412,7 +414,7 @@ namespace Romain
 			allocate_ds(L4::Cap<L4Re::Dataspace> *cap, unsigned size)
 			{
 				unsigned long flags = 0;
-				if (size >= L4_SUPERPAGESIZE) {
+				if (size >= (L4_SUPERPAGESIZE >> 2)) { // use super pages from 1 MB...
 					flags |= L4Re::Mem_alloc::Super_pages;
 					flags |= L4Re::Mem_alloc::Continuous;
 				}
@@ -509,6 +511,29 @@ namespace Romain
 			void *attach(void* addr, unsigned long size, Romain::Region_handler const &hdlr,
 			             unsigned flags = None, unsigned char align=L4_PAGESHIFT, bool shared = false);
 
+			l4_addr_t attach_area(l4_addr_t addr, unsigned long size, unsigned flags = None,
+			                      unsigned char align = L4_PAGESHIFT) throw()
+			{
+				DEBUG() << "attach_area(" << std::hex << addr << ", " << size << ", " << flags << ")";
+				return Base::attach_area(addr, size, flags, align);
+			}
+
+
+			bool detach_area(l4_addr_t addr) throw()
+			{
+				DEBUG() << "detach_area(" << std::hex << addr << ")";
+				return Base::detach_area(addr);
+			}
+
+			Base::Node find(Base::Key_type const& k) const throw()
+			{
+				Base::Node n = Base::find(k);
+				DEBUG() << GREEN << "find(" << std::hex << k.start() << "): " << NOCOLOR
+				        << "addr " << (n ? n->first.start() : 0xF00)
+				        << " memcap " << (n ? n->second.client_cap_idx() : 0xF00);
+				return n;
+			}
+
 			int detach(void* addr, unsigned long size, unsigned flags,
                        L4Re::Util::Region* reg, Romain::Region_handler* h);
 
@@ -525,6 +550,19 @@ namespace Romain
 						       (void*)i->second.local_region(from).start(), size);
 					}
 				}
+			}
+
+
+			static char const* print_mapping(Node n, l4_umword_t id)
+			{
+				std::stringstream s;
+				s << "[" << std::hex << n->second.local_region(id).start()
+				  << " - " << n->second.local_region(id).end() << "] ==> "
+				  << "[" << n->first.start() << " - " << n->first.end() << "]";
+				s << std::endl;
+				s << "   DS " << std::hex <<  n->second.local_memory(id).cap();
+
+				return s.str().c_str();
 			}
 	};
 
@@ -548,6 +586,7 @@ namespace Romain
 			}
 
 
-			static l4_umword_t find_res(L4::Cap<void> const &ds) { return ds.cap(); }
+			//static l4_umword_t find_res(L4::Cap<void> const &ds) { return ds.cap(); }
+			static l4_umword_t find_res(l4_cap_idx_t cap) { return cap; }
 	};
 }

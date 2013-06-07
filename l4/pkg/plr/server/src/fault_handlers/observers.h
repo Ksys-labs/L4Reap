@@ -104,7 +104,8 @@ namespace Romain
 		/*******************************************
 		 * Thread-related system calls
 		 *******************************************/
-		void handle_task(Romain::App_instance*, Romain::App_thread*, Romain::App_model*);
+		Romain::Observer::ObserverReturnVal
+			handle_task(Romain::App_instance*, Romain::App_thread*, Romain::App_model*);
 	};
 
 

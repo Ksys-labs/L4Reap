@@ -24,6 +24,7 @@ EXTRA_TARGET := \
   type_traits \
   type_list \
   bitfield \
+  unique_ptr \
   utils
 
 include $(L4DIR)/mk/include.mk

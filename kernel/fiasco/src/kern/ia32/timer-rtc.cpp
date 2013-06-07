@@ -1,6 +1,9 @@
-IMPLEMENTATION[{ia32,amd64}-rtc_timer]:
+INTERFACE [{ia32,amd64}-rtc_timer]:
 
 #include "irq_chip.h"
+
+IMPLEMENTATION[{ia32,amd64}-rtc_timer]:
+
 #include "rtc.h"
 #include "pit.h"
 
@@ -12,8 +15,8 @@ PUBLIC static inline
 unsigned Timer::irq() { return 8; }
 
 PUBLIC static inline NEEDS["irq_chip.h"]
-unsigned Timer::irq_mode()
-{ return Irq_base::Trigger_edge | Irq_base::Polarity_high; }
+Irq_chip::Mode Timer::irq_mode()
+{ return Irq_chip::Mode::F_raising_edge; }
 
 IMPLEMENT
 void

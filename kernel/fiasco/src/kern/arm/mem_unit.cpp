@@ -8,6 +8,7 @@ class Mem_unit : public Mmu< Mem_layout::Cache_flush_area >
 public:
   enum : Mword
   {
+    Asid_kernel  = 0UL,
     Asid_invalid = ~0UL
   };
 

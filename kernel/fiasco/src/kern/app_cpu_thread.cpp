@@ -33,7 +33,10 @@ Kernel_thread *
 App_cpu_thread::may_be_create(Cpu_number cpu, bool cpu_never_seen_before)
 {
   if (!cpu_never_seen_before)
-    return static_cast<Kernel_thread *>(kernel_context(cpu));
+    {
+      kernel_context(cpu)->reset_kernel_sp();
+      return static_cast<Kernel_thread *>(kernel_context(cpu));
+    }
 
   Kernel_thread *t = new (Ram_quota::root) App_cpu_thread;
   assert (t);

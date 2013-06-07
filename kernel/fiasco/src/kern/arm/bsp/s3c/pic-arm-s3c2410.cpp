@@ -87,7 +87,8 @@ class S3c_chip : public Irq_chip_gen, Mmio_register_block
   };
 
 public:
-  unsigned set_mode(Mword, unsigned) { return Irq_base::Trigger_level; }
+  int set_mode(Mword, Mode) { return 0; }
+  bool is_edge_triggered(Mword) const { return false; }
   void set_cpu(Mword, Cpu_number) {}
 };
 

@@ -25,6 +25,11 @@ Romain::PrintVCPUStateObserver::notify(Romain::App_instance *,
                                        Romain::App_model *)
 {
 	t->print_vcpu_state();
+	l4_utcb_t *utcb = reinterpret_cast<l4_utcb_t*>(t->remote_utcb());
+	l4_msg_regs_t *regs = l4_utcb_mr_u(utcb);
+	INFO() << "UTCB::MR " << std::hex << regs->mr[0] << " " << regs->mr[1] << " "
+	       << regs->mr[2] << " " << regs->mr[3];
+	
 	return Romain::Observer::Continue;
 }
 

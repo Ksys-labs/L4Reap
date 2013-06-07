@@ -90,24 +90,9 @@ typedef struct timespec __gthread_time_t;
 # ifndef __gthrw_pragma
 #  define __gthrw_pragma(pragma)
 # endif
-// by AW11     ---->
-# if __GNUC__ < 4
-#  error Unsupported GCC version >= 4.0 required
-# elif __GNUC__ > 4 || __GNUC_MINOR__ >= 2
-#  define __GXX_AW11_WEAK_ALIAS_LINKAGE static
-# else
-#  define __GXX_AW11_WEAK_ALIAS_LINKAGE extern
-# endif
-// end by AW11 <----
-# ifndef AW11_CHANGED_THIS // for gcc 4.1
-# define __gthrw2(name,name2,type) \
-  __GXX_AW11_WEAK_ALIAS_LINKAGE __typeof(type) name __attribute__ ((__weakref__(#name2))); \
-  __gthrw_pragma(weak type)
-# else
 # define __gthrw2(name,name2,type) \
   static __typeof(type) name __attribute__ ((__weakref__(#name2))); \
   __gthrw_pragma(weak type)
-# endif
 # define __gthrw_(name) __gthrw_ ## name
 #else
 # define __gthrw2(name,name2,type)

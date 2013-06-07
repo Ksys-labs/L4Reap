@@ -35,6 +35,7 @@ $(KERNEL):	kernel.ia32.lds boot_img.o $(CRT0) $(OBJ_KERNEL) $(JDB) $(LIBK) $(KER
 		$(VERBOSE)$(LD)	-m $(LD_EMULATION) -N -o $@ \
 		   -T $< -gc-sections $(filter-out $<,$+) \
 		   $(KERNEL_UNRES_SYMS)
+		$(call ADD_CONFIGFILE,$@)
 
 # '$(RM) main' should be removed later - Late 2012
 $(BOOT): $(KERNEL)

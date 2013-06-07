@@ -32,7 +32,7 @@ protected:
 
 private:
   // we do not support triggering modes
-  void switch_mode(unsigned) {}
+  void switch_mode(bool) {}
 };
 
 // ------------------------------------------------------------------------

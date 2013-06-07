@@ -1,9 +1,12 @@
 INTERFACE [arm]:
 
+#include "irq_chip.h"
+
 EXTENSION class Timer
 {
 public:
-  static unsigned irq_mode() { return 0; }
+  static Irq_chip::Mode irq_mode()
+  { return Irq_chip::Mode::F_raising_edge; }
 
 private:
   static inline void update_one_shot(Unsigned64 wakeup);

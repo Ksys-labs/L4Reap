@@ -86,7 +86,7 @@ class App_model : public Ldr::Base_app_model<Romain::App_stack>
 		                            unsigned flags, char const *what, l4_addr_t local_start = 0,
 		                            bool shared = false);
 		l4_addr_t    local_attach_ds(Const_dataspace ds, unsigned long size,
-		                             unsigned long offset) const;
+		                             unsigned long offset, l4_umword_t address_hint = 0) const;
 		void         local_detach_ds(l4_addr_t addr, unsigned long /*size*/) const;
 		int          prog_reserve_area(l4_addr_t *start, unsigned long size,
 		                               unsigned flags, unsigned char align);
@@ -106,8 +106,8 @@ class App_model : public Ldr::Base_app_model<Romain::App_stack>
 		void init_prog()
 		{
 			push_trampoline();
-			push_argv_strings();
 			push_env_strings();
+			push_argv_strings();
 		}
 
 		static Dataspace local_kip_ds()
@@ -153,18 +153,29 @@ class App_model : public Ldr::Base_app_model<Romain::App_stack>
 			_trampoline_remote = (l4_addr_t)_stack.relocate(_stack.ptr());
 		}
 
-		void push_env_strings() { /* nothing */ }
+		void push_env_strings()
+		{
+			char **p = environ;
+			while (*p) {
+				printf("ENV: %s\n", *p);
+				_remote_env[_env_count++] = _stack.push_str(*p, strlen(*p));
+				p++;
+			}
+		}
 
 
 		void push_envp()
 		{
 			_stack.push(0UL);
-			_stack.push(0UL);
+			for (unsigned i = 0; i < _env_count; ++i) {
+				_stack.push_local_ptr(_remote_env[i]);
+			}
 		}
 
 
 		void push_argv()
 		{
+			_stack.push(0UL);
 			for (unsigned i = _argc; i > 0; --i) {
 				_stack.push_local_ptr(_remote_argv[i-1]);
 			}
@@ -182,6 +193,8 @@ class App_model : public Ldr::Base_app_model<Romain::App_stack>
 		unsigned         _argc;            // app argc
 		char const     **_argv;            // app argv
 		char const     *_remote_argv[32];  // XXX
+		char const     *_remote_env[32];   // XXX
+		unsigned         _env_count;       //
 		Dataspace        _utcb_area;       // XXX: this is per thread!
 
 		/*
@@ -201,7 +214,7 @@ class App_model : public Ldr::Base_app_model<Romain::App_stack>
 	public:
 		App_model(char const *filename, unsigned argc, char const **argv)
 			: _binary_ds(Romain::App_model::open_file(filename)),
-			  _argc(argc), _argv(argv),
+			  _argc(argc), _argv(argv), _env_count(0),
 		      _trampoline_local(0), _trampoline_remote(0),
 		      _lockinfo_local(0), _lockinfo_remote(0)
 		{
@@ -214,6 +227,7 @@ class App_model : public Ldr::Base_app_model<Romain::App_stack>
 			prog_info()->kip            = 0xdeadbeef;
 
 			memset(_remote_argv, 0, sizeof(_remote_argv));
+			memset(_remote_env, 0, sizeof(_remote_env));
 		}
 
 		Const_dataspace binary()      const { return _binary_ds; }

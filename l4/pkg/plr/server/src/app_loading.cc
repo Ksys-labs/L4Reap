@@ -38,7 +38,8 @@ Romain::App_model::Const_dataspace Romain::App_model::open_file(char const *name
 
 l4_addr_t Romain::App_model::local_attach_ds(Romain::App_model::Const_dataspace ds,
                                              unsigned long size,
-                                             unsigned long offset) const
+                                             unsigned long offset,
+                                             l4_umword_t address_hint) const
 {
 	Romain::Rm_guard r(rm(), 0); // we always init stuff for instance 0,
 	// rest is paged in lazily
@@ -62,6 +63,9 @@ l4_addr_t Romain::App_model::local_attach_ds(Romain::App_model::Const_dataspace 
 	}
 	Romain::Region_handler handler(ds, L4_INVALID_CAP, offset, 0,
 	                            Romain::Region(0, 0));
+	if (address_hint != 0) {
+		handler.alignToAddressAndSize(address_hint, size);
+	}
 	l4_addr_t ret = (l4_addr_t)rm()->attach_locally((void*)0, size, &handler, flags);
 	return ret;
 }
@@ -97,7 +101,8 @@ Romain::App_model::Dataspace Romain::App_model::alloc_app_stack()
 	      << std::hex << (void*)_stack.ptr();
 #endif
 	Romain::App_model::Dataspace ds = this->alloc_ds(_stack.stack_size());
-	char *addr = reinterpret_cast<char*>(this->local_attach_ds(ds, _stack.stack_size(), 0));
+	char *addr = reinterpret_cast<char*>(this->local_attach_ds(ds, _stack.stack_size(),
+															   0, _stack.target_addr()));
 	MSG() << "attached app stack: " << (void*)addr;
 	_local_stack_address = l4_addr_t(addr);
 

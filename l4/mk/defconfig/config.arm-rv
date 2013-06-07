@@ -40,6 +40,7 @@ CONFIG_PLATFORM_TYPE_rv=y
 # CONFIG_PLATFORM_TYPE_rv_vexpress is not set
 # CONFIG_PLATFORM_TYPE_rv_vexpress_a15 is not set
 # CONFIG_PLATFORM_TYPE_tegra2 is not set
+# CONFIG_PLATFORM_TYPE_tegra3 is not set
 # CONFIG_PLATFORM_TYPE_custom is not set
 CONFIG_PLATFORM_TYPE="rv"
 # CONFIG_USE_DROPS_STDDIR is not set

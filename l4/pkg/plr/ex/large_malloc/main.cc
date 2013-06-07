@@ -17,7 +17,10 @@
 #include <errno.h>
 
 #include <l4/util/util.h>
-#include <l4/re/env.h>
+#include <l4/re/env>
+#include <l4/re/mem_alloc>
+#include <l4/re/rm>
+#include <l4/re/util/cap_alloc>
 #include <l4/sys/kdebug.h>
 
 #include "log"
@@ -31,7 +34,9 @@ static inline long long US(struct timeval& tv)
 	return tv.tv_sec * 1000000 + tv.tv_usec;
 }
 
-int main(void)
+static void
+__attribute__((used))
+malloc_test()
 {
 	l4_umword_t sizes[NUM_SIZES] = {
 		      1024 * 1024, // 1 MB
@@ -65,7 +70,55 @@ int main(void)
 		       US(ttouch)  - US(tmalloc),
 		       US(tfree)   - US(ttouch));
 	}
+}
 
-	enter_kdebug("I am done.");
+
+static void rm_test()
+{
+	unsigned size = 400 * 1024 * 1024; // 800 MB
+	unsigned flags = 0; //L4Re::Mem_alloc::Super_pages | L4Re::Mem_alloc::Continuous;
+
+	printf("Start RM test. %lx\n", flags);
+
+	L4::Cap<L4Re::Dataspace> dscap = L4Re::Util::cap_alloc.alloc<L4Re::Dataspace>();
+	L4::Cap<L4Re::Dataspace> dscap2;
+	printf("DS: %lx\n", dscap.cap());
+	int error = L4Re::Env::env()->mem_alloc()->alloc(size, dscap, flags);
+	if (error) {
+		enter_kdebug("alloc fail");
+	}
+
+	l4_addr_t a = 0;
+	error = L4Re::Env::env()->rm()->attach(&a, size, L4Re::Rm::Search_addr, dscap, 0);
+	printf("Attached to %p\n", (void*)a);
+
+	l4_touch_rw((void*)a, size);
+
+	//L4Re::Env::env()->rm()->detach(a, &dscap2);
+	//L4Re::Env::env()->mem_alloc()->free(dscap);
+
+	printf("End RM test.\n");
+}
+
+
+int main(int argc, char **argv)
+{
+	int max_rounds = 2;
+	struct timeval start, stop;
+	if (argc > 1) {
+		max_rounds = strtol(argv[1], 0, 0);
+	}
+
+	l4_sleep(2000);
+
+	gettimeofday(&start, 0);
+	for (unsigned i = 0; i < max_rounds; ++i) {
+		//malloc_test();
+		rm_test();
+	}
+	gettimeofday(&stop, 0);
+	printf("Difference: %lld µs\n", US(stop) - US(start));
+
+
 	return 0;
 }

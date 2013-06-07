@@ -176,7 +176,7 @@ Thread_object::sys_vcpu_resume(L4_msg_tag const &tag, Utcb *utcb)
   Vcpu_state *vcpu = vcpu_state().access(true);
 
   L4_obj_ref user_task = vcpu->user_task;
-  if (user_task.valid())
+  if (user_task.valid() && user_task.op() == 0)
     {
       L4_fpage::Rights task_rights = L4_fpage::Rights(0);
       Task *task = Kobject::dcast<Task*>(s->lookup_local(user_task.cap(),
@@ -188,7 +188,7 @@ Thread_object::sys_vcpu_resume(L4_msg_tag const &tag, Utcb *utcb)
       if (task != vcpu_user_space())
         vcpu_set_user_space(task);
 
-      vcpu->user_task = L4_obj_ref();
+      reinterpret_cast<Mword &>(vcpu->user_task) |= L4_obj_ref::Ipc_send;
     }
   else if (user_task.op() == L4_obj_ref::Ipc_reply)
     vcpu_set_user_space(0);

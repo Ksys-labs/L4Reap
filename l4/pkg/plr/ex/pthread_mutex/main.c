@@ -26,8 +26,8 @@ pthread_mutex_t mtx;
 
 #define NUM_THREADS 2
 
-static const unsigned print_iterations = 1000;
-static const unsigned inc_iterations   = 10000 / NUM_THREADS;
+static const unsigned print_iterations = 100;
+static const unsigned inc_iterations   = 1000 / NUM_THREADS;
 
 static
 void *thread(void *data)

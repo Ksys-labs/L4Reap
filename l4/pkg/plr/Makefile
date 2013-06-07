@@ -8,8 +8,9 @@ L4DIR	?= $(PKGDIR)/../..
 
 SYSTEMS = x86-l4f
 
-TARGET = include server lib ex
+TARGET = include server lib ex tools
 
 ex : lib server
+tools : ex
 
 include $(L4DIR)/mk/subdir.mk

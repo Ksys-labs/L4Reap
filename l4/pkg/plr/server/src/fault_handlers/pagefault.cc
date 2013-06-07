@@ -24,6 +24,7 @@
 
 #include <l4/sys/kdebug.h>
 #include <l4/util/bitops.h>
+#include <algorithm>
 
 extern l4_addr_t __libc_l4_gettime;
 
@@ -82,10 +83,8 @@ l4_umword_t Romain::PageFaultObserver::fit_alignment(Romain::Region const* local
 		}
 	}
 
-	return align;
-
-	/* XXX: Use this if you want to test the single-page-mapping version. */
-	//return L4_PAGESHIFT;
+	// XXX: tweak here if you want < 4MB mappings
+	return std::min(align, 22UL);
 }
 
 Romain::Observer::ObserverReturnVal
@@ -124,12 +123,7 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 		/*
 		 * Lazily establish region handlers for replicas
 		 */
-		MSGt(t) << "[" << std::hex
-		        << n->second.local_region(i->id()).start() << " - "
-		        << n->second.local_region(i->id()).end() << "] ==> "
-		        << "[" << n->first.start() << " - "
-		        << n->first.end() << "]";
-		MSGt(t) << "   DS " << std::hex <<  n->second.memory(i->id()).cap();
+		MSGt(t) << Romain::Region_map::print_mapping(n, i->id());
 
 		if (write_pf && (always_readonly() ||
 		                (n->second.writable() == Romain::Region_handler::Read_only_emulate_write))) {
@@ -158,6 +152,7 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 			l4_addr_t offset_in_region          = l4_trunc_page(pfa - remote->start());
 			l4_addr_t remotebase                = remote->start() + offset_in_region;
 			unsigned pageflags                  = rh->is_ro() ? L4_FPAGE_RO : L4_FPAGE_RW;
+			l4_umword_t last_align = 0;
 
 			for (l4_umword_t instID = 0;
 			     instID < Romain::_the_instance_manager->instance_count();
@@ -166,6 +161,9 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 				a->rm()->lazy_map_region(n, instID, write_pf);
 
 				Romain::Region const * localregion  = &rh->local_region(instID);
+
+				MSGt(t) << Romain::Region_map::print_mapping(n, instID);
+				MSGt(t) << "rh.alignment() = " << std::dec << rh->alignment();
 				/*
 				 * We try to map the largest possible flexpage to reduce the
 				 * total number of mappings.
@@ -195,6 +193,16 @@ Romain::PageFaultObserver::notify(Romain::App_instance *i, Romain::App_thread *t
 					align = rh->alignment();
 				}
 				MSGt(t) << "fitting align " << align;
+
+				if (instID > 0) {
+					if (align != last_align) {
+						ERROR() << "Mapping with diverging alignments!";
+						ERROR() << Romain::Region_map::print_mapping(n, instID);
+						ERROR() << "align: " << align << " but last was " << last_align;
+						enter_kdebug("Align!");
+					}
+				}
+				last_align = align;
 
 				/* Calculate the map base addresses for the given alignment */
 				l4_addr_t localbase = localregion->start() + offset_in_region;

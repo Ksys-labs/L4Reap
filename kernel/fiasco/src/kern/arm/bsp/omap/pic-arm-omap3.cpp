@@ -57,7 +57,8 @@ private:
     INTCPS_ILRm_base         = 0x100,
   };
 public:
-  unsigned set_mode(Mword, unsigned) { return Irq_base::Trigger_level; }
+  int set_mode(Mword, Mode) { return 0; }
+  bool is_edge_triggered(Mword) const { return false; }
   void set_cpu(Mword, Cpu_number) {}
 };
 

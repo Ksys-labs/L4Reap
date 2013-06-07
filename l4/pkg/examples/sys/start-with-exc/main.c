@@ -62,19 +62,19 @@ int main(void)
   l4_exc_regs_t *e = l4_utcb_exc_u(u);
   l4_msgtag_t tag;
   int err;
-  extern char _start[], _end[], _etext[];
+  extern char _start[], _end[], _sdata[];
 
   if (l4_is_invalid_cap(t1))
     return 1;
 
   /* Prevent pagefaults of our new thread because we do not want to
    * implement a pager as well. */
-  l4_touch_ro(_start, _end - _start + 1);
-  l4_touch_rw(_etext, _end - _etext);
+  l4_touch_ro(_start, _sdata - _start + 1);
+  l4_touch_rw(_sdata, _end - _sdata);
 
   /* Create the thread using our default factory */
   tag = l4_factory_create_thread(l4re_env()->factory, t1);
-  if (l4_msgtag_has_error(tag))
+  if (l4_error(tag))
     return 1;
 
   /* Setup the thread by setting the pager and task. */
@@ -84,7 +84,7 @@ int main(void)
   l4_thread_control_bind((l4_utcb_t *)l4re_env()->first_free_utcb,
                           L4RE_THIS_TASK_CAP);
   tag = l4_thread_control_commit(t1);
-  if (l4_msgtag_has_error(tag))
+  if (l4_error(tag))
     return 2;
 
   /* Start the thread by finally setting instruction and stack pointer */
@@ -92,8 +92,14 @@ int main(void)
                           (l4_umword_t)thread,
                           (l4_umword_t)thread_stack + sizeof(thread_stack),
                           L4_THREAD_EX_REGS_TRIGGER_EXCEPTION);
-  if (l4_msgtag_has_error(tag))
+  if (l4_error(tag))
     return 3;
+
+  l4_sched_param_t sp = l4_sched_param(1, 0);
+  tag = l4_scheduler_run_thread(l4re_env()->scheduler, t1, &sp);
+  if (l4_error(tag))
+    return 4;
+
 
   /* Receive initial exception from just started thread */
   tag = l4_ipc_receive(t1, u, L4_IPC_NEVER);

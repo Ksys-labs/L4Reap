@@ -1,33 +1,34 @@
-# Example configuration for io
+-- Example configuration for io
 
-# Configure 2 platform device to be known to io
-hw-root
+-- Configure two platform devices to be known to io
+Io.hw_add_devices
 {
-  FOODEVICE => new Device()
+  FOODEVICE = Io.Hw.Device
   {
-    .hid = "FOODEVICE";
-    new-res Irq(17);
-    new-res Mmio(0x6f000000 .. 0x6f007fff);
-  }
+    hid = "FOODEVICE";
+    Io.Res.irq(17);
+    Io.Res.mmio(0x6f000000, 0x6f007fff);
+  },
 
-  BARDEVICE => new Device()
+  BARDEVICE = Io.Hw.Device
   {
-    .hid = "BARDEVICE";
-    new-res Irq(19);
-    new-res Irq(20);
-    new-res Mmio(0x6f100000 .. 0x6f100fff);
+    hid = "BARDEVICE";
+    Io.Res.irq(19);
+    Io.Res.irq(20);
+    Io.Res.mmio(0x6f100000, 0x6f100fff);
   }
 }
 
-# Create a virtual bus for a client and give access to FOODEVICE
-client1 => new System_bus()
-{
-  dev => wrap(hw-root.FOODEVICE);
-}
 
-# Create a virtual bus for another client and give it access to
-# BARDEVICE
-client2 => new System_bus()
+Io.add_vbusses
 {
-  dev => wrap(hw-root.BARDEVICE);
+-- Create a virtual bus for a client and give access to FOODEVICE
+  client1 = Vi.System_bus(function ()
+    dev = wrap(hw:match("FOODEVICE"));
+  end),
+
+-- Create a virtual bus for another client and give it access to BARDEVICE
+  client2 = Vi.System_bus(function ()
+    dev = wrap(hw:match("BARDEVICE"));
+  end)
 }

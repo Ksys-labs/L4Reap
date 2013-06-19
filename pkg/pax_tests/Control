@@ -1,0 +1,3 @@
+Provides: pax_tests
+Requires: libc libpthread
+Maintainer: tarasikov@ksyslabs.org

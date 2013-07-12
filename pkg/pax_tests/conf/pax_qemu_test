@@ -1,0 +1,80 @@
+#!/usr/bin/expect -f
+
+# \brief Script for checking the result of a pax test on L4Re
+# \author Alexander Tarasikov <tarasikov@ksyslabs.org>
+# \author Norman Feske [get_cmd_arg routine]
+# \date 2013-07-128
+#
+# Usage: pax_tests --test_name <test name> --iso <test iso> --log <log file>
+
+
+##
+# Return command-line argument value
+#
+# If a argument name is specified multiple times, a
+# list of argument values is returned.
+#
+proc get_cmd_arg { arg_name default_value } {
+	global argv
+
+	# find argument name in argv list
+	set arg_idx_list [lsearch -all $argv $arg_name]
+
+	if {[llength $arg_idx_list] == 0} { return $default_value }
+
+	set result {}
+	foreach arg_idx $arg_idx_list {
+		set next_idx [expr $arg_idx + 1]
+
+		# stop if argv ends with the argument name
+		if {$next_idx >= [llength $argv]} continue
+
+		# return list element following the argument name
+		lappend result [lindex $argv $next_idx]
+	}
+
+	# if argument occurred only once, return its value
+	if {[llength $result] == 1} { return [lindex $result 0] }
+
+	# if argument occurred multiple times, contain list of arguments
+	return $result
+}
+
+set iso [get_cmd_arg --iso "./build_l4re/images/pax_tests.iso"]
+set fout_log [open [get_cmd_arg --log "pax_log"] "RDWR APPEND"]
+set test_name [get_cmd_arg --test_name "unspecified"]
+set timeout 60
+
+if {$test_name == "unspecified"} {
+	puts $fout_log "test name unspecified"
+	exit -1
+}
+
+spawn qemu-system-x86_64 -serial mon:stdio -nographic -cdrom $iso
+
+puts $fout_log "\nstarting test $test_name"
+expect {
+	"pax test started: $test_name" {
+		puts $fout_log "started $test_name"
+		exp_continue
+	} "Vulnerable" {
+		puts $fout_log "Vulnerable"
+		exit 0
+	} "page fault" {
+		puts $fout_log "Killed"
+		exit 0
+	} "Unimplemented:" {
+		puts $fout_log "Error: some routine is not implemented, please review";
+		exit -1;
+	} "$test_name exited with:" {
+		puts $fout_log "Unknown status, exited";
+		exit -1;
+	} eof {
+		puts $fout_log "Error: Qemu died";
+		exit -1
+	} timeout {
+		puts $fout_log "Error: Test timed out";
+		exit -1;
+	}
+}
+exit

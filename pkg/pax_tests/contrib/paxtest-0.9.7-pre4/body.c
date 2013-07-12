@@ -28,6 +28,10 @@ static void *test_thread(void *p)
 
 int main( int argc, char *argv[] )
 {
+	/* L4Re hack: call the test directly avoiding POSIX routines */
+	doit();
+	exit(0);
+
 	int status = 0;
 	char *mode;
 	/* This defaults to 1 as a safety mechanism. It is better to fail in

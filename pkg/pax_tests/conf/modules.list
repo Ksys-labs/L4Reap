@@ -67,10 +67,10 @@ module pax_execbss
 module pax_execdata
 module pax_execheap
 module pax_execstack
+module pax_mprotanon
+module pax_mprotbss
+module pax_mprotdata
+module pax_mprotheap
 module pax_mprotstack
 module pax_rettofunc1
-module pax_rettofunc1x
 module pax_rettofunc2
-module pax_shlibbss
-
-

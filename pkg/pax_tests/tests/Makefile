@@ -2,27 +2,27 @@ PKGDIR ?= ../
 L4DIR ?= $(PKGDIR)/../../
 
 PAX_FILES = anonmap \
+	execbss \
 	execdata \
+	execheap \
 	execstack \
+	mprotanon \
+	mprotbss \
+	mprotdata \
+	mprotheap \
 	mprotstack \
 	rettofunc1 \
-	rettofunc1x \
-	rettofunc2 \
-	shlibbss
-	
-#	execbss \
-#	execheap \
-#	getamap \
+	rettofunc2
+
+# these are needed by rand* tests. TODO: use L4Re loader
+#PAX_STANDALONE = getamap \
 #	getheap \
 #	getmain \
 #	getshlib \
-#	getstack \
-#	mprotanon \
-#	mprotbss \
-#	mprotdata \
-#	mprotheap \
-#	mprotshbss \
-#	mprotshdata \
+#	getstack
+
+#	mprotdata
+#	mprotshbss
 #	randamap \
 #	randbody \
 #	randheap1 \
@@ -32,12 +32,13 @@ PAX_FILES = anonmap \
 #	randstack1 \
 #	randstack2 \
 #	rettofunc2x \
-#	shlibtest \
+#	shlibbss \
 #	shlibdata \
+#	shlibtest \
 #	shlibtest2 \
 #	writetext
 
-TARGET=$(patsubst %,pax_%,$(PAX_FILES))
+TARGET=$(patsubst %,pax_%,$(PAX_FILES) $(PAX_STANDALONE))
 
 LIBS = $(GCCLIB) -lpthread
 MODE = shared
@@ -47,8 +48,7 @@ LDFLAGS = --no-undefined
 DEFINES = -DRUNDIR=""
 
 $(foreach target,$(PAX_FILES),$(eval SRC_C_pax_$(target)=$(target).c body.c))
-SRC_C_pax_getstack=getstack.c
-SRC_C_pax_getshlib=getshlib.c
+#$(foreach target,$(PAX_STANDALONE),$(eval SRC_C_pax_$(target)=$(target).c))
 
 vpath %.c $(PKGDIR)/contrib/paxtest-0.9.7-pre4/
 include $(L4DIR)/mk/prog.mk

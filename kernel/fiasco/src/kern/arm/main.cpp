@@ -141,12 +141,13 @@ int boot_ap_cpu()
 	Proc::halt();
     }
 
-  Per_cpu_data::run_ctors(_cpu);
-  Cpu &cpu = Cpu::cpus.cpu(_cpu);
-  cpu.init();
+  Per_cpu_data::run_ctors(_cpu, !cpu_is_new);
 
-  Pic::init_ap(_cpu);
-  Thread::init_per_cpu(_cpu);
+  Cpu &cpu = Cpu::cpus.cpu(_cpu);
+  cpu.init(!cpu_is_new, false);
+
+  Pic::init_ap(_cpu, !cpu_is_new);
+  Thread::init_per_cpu(_cpu, !cpu_is_new);
   Platform_control::init(_cpu);
   Ipi::init(_cpu);
   Timer::init(_cpu);
@@ -155,12 +156,17 @@ int boot_ap_cpu()
   // create kernel thread
   Kernel_thread *kernel = App_cpu_thread::may_be_create(_cpu, cpu_is_new);
 
-  // switch to stack of kernel thread and continue thread init
-  asm volatile
-    ("	mov sp,%0	        \n"	// switch stack
-     "	mov r0,%1	        \n"	// push "this" pointer
-     "	bl call_ap_bootstrap    \n"
-     :
-     :	"r" (kernel->init_stack()), "r" (kernel));
+  void *sp = kernel->init_stack();
+    {
+      register Mword r0 __asm__("r0") = reinterpret_cast<Mword>(kernel);
+      register Mword r1 __asm__("r1") = !cpu_is_new;
+
+      // switch to stack of kernel thread and continue thread init
+      asm volatile
+        ("mov sp, %0             \n"  // switch stack
+         "bl  call_ap_bootstrap  \n"
+         :
+         : "r" (sp), "r" (r0), "r" (r1));
+    }
   return 0;
 }

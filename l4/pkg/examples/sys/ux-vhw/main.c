@@ -36,6 +36,12 @@ int main(void)
       return 1;
     }
 
+  if (!l4util_kip_kernel_is_ux(kip))
+    {
+      printf("This example is for Fiasco-UX only.\n");
+      return 1;
+    }
+
   vhw = l4_vhw_get(kip);
 
   printf("kip at %p, vhw at %p\n", kip, vhw);

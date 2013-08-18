@@ -21,7 +21,7 @@ public:
   struct Fpu_regs
   {
     Mword fpexc, fpscr;
-    Mword state[32 * 4]; // 4*32 bytes for each FP-reg
+    Mword state[64];
   };
 
   struct Fpsid
@@ -45,6 +45,7 @@ public:
 
 private:
   Fpsid _fpsid;
+  static bool save_32r;
 };
 
 // ------------------------------------------------------------------------
@@ -102,6 +103,8 @@ IMPLEMENTATION [arm && fpu]:
 #include "processor.h"
 #include "static_assert.h"
 #include "trap_state.h"
+
+bool Fpu::save_32r;
 
 PUBLIC static inline
 Mword
@@ -225,18 +228,11 @@ Fpu::emulate_insns(Mword opcode, Trap_state *ts)
   return true;
 }
 
-
-
-IMPLEMENT
+PRIVATE static
 void
-Fpu::init(Cpu_number cpu)
+Fpu::show(Cpu_number cpu)
 {
-  copro_enable();
-
-  const Fpsid s(fpsid_read());
-
-  fpu.cpu(cpu)._fpsid = s;
-
+  const Fpsid s = fpu.cpu(cpu)._fpsid;
   unsigned arch = s.arch_version();
   printf("FPU%d: Arch: %s(%x), Part: %s(%x), r: %x, v: %x, i: %x, t: %s, p: %s\n",
          cxx::int_value<Cpu_number>(cpu),
@@ -252,15 +248,30 @@ Fpu::init(Cpu_number cpu)
          (int)s.rev(), (int)s.variant(), (int)s.implementer(),
          (int)s.hw_sw() ? "soft" : "hard",
          (int)s.precision() ? "sngl" : "dbl/sngl");
+}
+
+
+IMPLEMENT
+void
+Fpu::init(Cpu_number cpu, bool resume)
+{
+  copro_enable();
+
+  fpu.cpu(cpu)._fpsid = Fpsid(fpsid_read());
+  if (cpu == Cpu_number::boot_cpu())
+    save_32r = (mvfr0() & 0xf) == 2;
+
+  if (!resume)
+    show(cpu);
 
   disable();
 
   fpu.cpu(cpu).set_owner(0);
 }
 
-IMPLEMENT inline NEEDS ["fpu_state.h", "mem.h", "static_assert.h", <cstring>]
+IMPLEMENT inline NEEDS ["fpu_state.h", "mem.h", "static_assert.h"]
 void
-Fpu::init_state (Fpu_state *s)
+Fpu::init_state(Fpu_state *s)
 {
   Fpu_regs *fpu_regs = reinterpret_cast<Fpu_regs *>(s->state_buffer());
   static_assert(!(sizeof (*fpu_regs) % sizeof(Mword)),
@@ -268,15 +279,38 @@ Fpu::init_state (Fpu_state *s)
   Mem::memset_mwords(fpu_regs, 0, sizeof (*fpu_regs) / sizeof(Mword));
 }
 
+PRIVATE static inline
+void
+Fpu::save_fpu_regs(Fpu_regs *r)
+{
+  Mword tmp;
+  asm volatile("stc p11, cr0, [%0], #128     \n"
+               "cmp    %1, #0                \n"
+               "stcnel p11, cr0, [%0], #128  \n"
+               : "=r" (tmp) : "0" (r->state), "r" (save_32r));
+}
+
+PRIVATE static inline
+void
+Fpu::restore_fpu_regs(Fpu_regs *r)
+{
+  Mword tmp;
+  asm volatile("ldc    p11, cr0, [%0], #128 \n"
+               "cmp    %1, #0               \n"
+               "ldcnel p11, cr0, [%0], #128 \n"
+               : "=r" (tmp) : "0" (r->state), "r" (save_32r));
+}
+
 IMPLEMENT
 void
 Fpu::save_state(Fpu_state *s)
 {
-  assert(s->state_buffer());
   Fpu_regs *fpu_regs = reinterpret_cast<Fpu_regs *>(s->state_buffer());
 
-  asm volatile ("stc p11, cr0, [%0], #32*4     \n"
-                : : "r" (fpu_regs->state));
+  assert(fpu_regs);
+
+  save_fpu_regs(fpu_regs);
+
   asm volatile ("mrc p10, 7, %0, cr8,  cr0, 0  \n"
                 "mrc p10, 7, %1, cr1,  cr0, 0  \n"
                 : "=r" (fpu_regs->fpexc),
@@ -287,24 +321,17 @@ IMPLEMENT
 void
 Fpu::restore_state(Fpu_state *s)
 {
-  assert (s->state_buffer());
   Fpu_regs *fpu_regs = reinterpret_cast<Fpu_regs *>(s->state_buffer());
 
-  asm volatile ("ldc p11, cr0, [%0], #32*4     \n"
-                : : "r" (fpu_regs->state));
+  assert(fpu_regs);
+
+  restore_fpu_regs(fpu_regs);
+
   asm volatile ("mcr p10, 7, %0, cr8,  cr0, 0  \n"
                 "mcr p10, 7, %1, cr1,  cr0, 0  \n"
                 :
                 : "r" (fpu_regs->fpexc | FPEXC_EN),
                   "r" (fpu_regs->fpscr));
-
-#if 0
-  asm volatile("mcr p10, 7, %2, cr9,  cr0, 0  \n"
-               "mcr p10, 7, %3, cr10, cr0, 0  \n"
-               :
-               : "r" (fpu_regs->fpinst),
-                 "r" (fpu_regs->fpinst2));
-#endif
 }
 
 IMPLEMENT inline

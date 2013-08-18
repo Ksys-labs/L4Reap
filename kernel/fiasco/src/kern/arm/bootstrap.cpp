@@ -8,6 +8,8 @@ INTERFACE [arm]:
 IMPLEMENTATION [arm]:
 
 #include "cpu.h"
+#include "kmem_space.h"
+
 
 extern char kernel_page_directory[];
 
@@ -166,11 +168,7 @@ inline Phys_addr init_paging(void *const page_dir)
 //---------------------------------------------------------------------------
 IMPLEMENTATION [arm]:
 
-#include "kmem_space.h"
-
-
 namespace Bootstrap {
-
 
 inline Phys_addr map_page_size_phys() { return Phys_addr(1) << map_page_order(); }
 inline Virt_addr map_page_size() { return Virt_addr(1) << map_page_order(); }
@@ -184,6 +182,35 @@ map_memory(void volatile *pd, Virt_addr va, Phys_addr pa,
     = pt_entry(pa, cache, local);
 }
 
+static void
+create_initial_mappings(void *const page_dir)
+{
+  typedef Bootstrap::Phys_addr Phys_addr;
+  typedef Bootstrap::Virt_addr Virt_addr;
+
+  Virt_addr va;
+  Phys_addr pa;
+
+  // map sdram linear from 0xf0000000
+  for (va = Virt_addr(Mem_layout::Map_base), pa = Phys_addr(Mem_layout::Sdram_phys_base);
+       va < Virt_addr(Mem_layout::Map_base + (4 << 20));
+       va += Bootstrap::map_page_size(), pa += Bootstrap::map_page_size_phys())
+    Bootstrap::map_memory(page_dir, va, pa, true, false);
+
+  // map sdram 1:1
+  for (va = Virt_addr(Mem_layout::Sdram_phys_base);
+       va < Virt_addr(Mem_layout::Sdram_phys_base + (4 << 20));
+       va += Bootstrap::map_page_size())
+    Bootstrap::map_memory(page_dir, va, Phys_addr(cxx::int_value<Virt_addr>(va)), true, true);
+}
+
+static void
+add_initial_pmem()
+{
+  // The first 4MB of phys memory are always mapped to Map_base
+  Mem_layout::add_pmem(Mem_layout::Sdram_phys_base, Mem_layout::Map_base,
+                       4 << 20);
+}
 }
 
 asm
@@ -217,28 +244,12 @@ extern "C" void _start_kernel(void) __attribute__((long_call));
 
 extern "C" void bootstrap_main()
 {
-  typedef Bootstrap::Phys_addr Phys_addr;
-  typedef Bootstrap::Virt_addr Virt_addr;
-  typedef Bootstrap::Order Order;
-
   void *const page_dir = kernel_page_directory + Bootstrap::Virt_ofs;
 
-  Unsigned32 tbbr = cxx::int_value<Phys_addr>(Bootstrap::init_paging(page_dir))
+  Unsigned32 tbbr = cxx::int_value<Bootstrap::Phys_addr>(Bootstrap::init_paging(page_dir))
                     | Page::Ttbr_bits;
 
-  Virt_addr va;
-  Phys_addr pa;
-  // map sdram linear from 0xf0000000
-  for (va = Virt_addr(Mem_layout::Map_base), pa = Phys_addr(Mem_layout::Sdram_phys_base);
-       va < Virt_addr(Mem_layout::Map_base + (4 << 20));
-       va += Bootstrap::map_page_size(), pa += Bootstrap::map_page_size_phys())
-    Bootstrap::map_memory(page_dir, va, pa, true, false);
-
-  // map sdram 1:1
-  for (va = Virt_addr(Mem_layout::Sdram_phys_base);
-       va < Virt_addr(Mem_layout::Sdram_phys_base + (4 << 20));
-       va += Bootstrap::map_page_size())
-    Bootstrap::map_memory(page_dir, va, Phys_addr(cxx::int_value<Virt_addr>(va)), true, true);
+  Bootstrap::create_initial_mappings(page_dir);
 
   unsigned domains = 0x55555555; // client for all domains
   unsigned control = Config::Cache_enabled
@@ -264,9 +275,7 @@ extern "C" void bootstrap_main()
                : : [control] "r" (control));
   Mem::isb();
 
-  // The first 4MB of phys memory are always mapped to Map_base
-  Mem_layout::add_pmem(Mem_layout::Sdram_phys_base, Mem_layout::Map_base,
-                       4 << 20);
+  Bootstrap::add_initial_pmem();
 
   _start_kernel();
 

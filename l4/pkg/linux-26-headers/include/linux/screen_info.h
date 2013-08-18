@@ -14,7 +14,8 @@ struct screen_info {
 	__u16 orig_video_page;	/* 0x04 */
 	__u8  orig_video_mode;	/* 0x06 */
 	__u8  orig_video_cols;	/* 0x07 */
-	__u16 unused2;		/* 0x08 */
+	__u8  flags;		/* 0x08 */
+	__u8  unused2;		/* 0x09 */
 	__u16 orig_video_ega_bx;/* 0x0a */
 	__u16 unused3;		/* 0x0c */
 	__u8  orig_video_lines;	/* 0x0e */
@@ -65,17 +66,9 @@ struct screen_info {
 
 #define VIDEO_TYPE_EFI		0x70	/* EFI graphic mode		*/
 
-#ifdef __KERNEL__
-extern struct screen_info screen_info;
+#define VIDEO_FLAGS_NOCURSOR	(1 << 0) /* The video mode has no cursor set */
 
-#define ORIG_X			(screen_info.orig_x)
-#define ORIG_Y			(screen_info.orig_y)
-#define ORIG_VIDEO_MODE		(screen_info.orig_video_mode)
-#define ORIG_VIDEO_COLS 	(screen_info.orig_video_cols)
-#define ORIG_VIDEO_EGA_BX	(screen_info.orig_video_ega_bx)
-#define ORIG_VIDEO_LINES	(screen_info.orig_video_lines)
-#define ORIG_VIDEO_ISVGA	(screen_info.orig_video_isVGA)
-#define ORIG_VIDEO_POINTS       (screen_info.orig_video_points)
-#endif /* __KERNEL__ */
+#define VIDEO_CAPABILITY_SKIP_QUIRKS	(1 << 0)
+
 
 #endif /* _SCREEN_INFO_H */

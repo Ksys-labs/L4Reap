@@ -112,7 +112,7 @@ Fpu::init_state(Fpu_state *s)
 
 IMPLEMENT
 void
-Fpu::init(Cpu_number cpu)
+Fpu::init(Cpu_number cpu, bool resume)
 {
   // Mark FPU busy, so that first FPU operation will yield an exception
   disable();
@@ -124,9 +124,10 @@ Fpu::init(Cpu_number cpu)
 
   init_disable();
 
-  printf("FPU%d: %s%s\n", cxx::int_value<Cpu_number>(cpu),
-         Cpu::cpus.cpu(cpu).features() & FEAT_SSE  ? "SSE "  : "",
-	 Cpu::cpus.cpu(cpu).ext_features() & FEATX_AVX ? "AVX "  : "");
+  if (cpu == Cpu_number::boot_cpu() && !resume)
+    printf("FPU%d: %s%s\n", cxx::int_value<Cpu_number>(cpu),
+           Cpu::cpus.cpu(cpu).features() & FEAT_SSE  ? "SSE "  : "",
+           Cpu::cpus.cpu(cpu).ext_features() & FEATX_AVX ? "AVX "  : "");
 
   unsigned cpu_align = 0, cpu_size  = 0;
 

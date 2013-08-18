@@ -155,9 +155,6 @@ struct nw_info_struct {
 	__u8 nameLen;
 	__u8 entryName[256];
 	/* libncp may depend on there being nothing after entryName */
-#ifdef __KERNEL__
-	struct nw_nfs_info nfs;
-#endif
 } __attribute__((packed));
 
 /* modify mask - use with MODIFY_DOS_INFO structure */

@@ -1,14 +1,16 @@
-#ifndef __LINUX_IP_NETFILTER_H
-#define __LINUX_IP_NETFILTER_H
-
 /* IPv4-specific defines for netfilter. 
  * (C)1998 Rusty Russell -- This code is GPL.
  */
+#ifndef __LINUX_IP_NETFILTER_H
+#define __LINUX_IP_NETFILTER_H
+
 
 #include <linux/netfilter.h>
 
 /* only for userspace compatibility */
-#ifndef __KERNEL__
+
+#include <limits.h> /* for INT_MIN, INT_MAX */
+
 /* IP Cache bits. */
 /* Src IP address. */
 #define NFC_IP_SRC		0x0001
@@ -49,7 +51,6 @@
 /* Packets about to hit the wire. */
 #define NF_IP_POST_ROUTING	4
 #define NF_IP_NUMHOOKS		5
-#endif /* ! __KERNEL__ */
 
 enum nf_ip_hook_priorities {
 	NF_IP_PRI_FIRST = INT_MIN,
@@ -63,6 +64,7 @@ enum nf_ip_hook_priorities {
 	NF_IP_PRI_SECURITY = 50,
 	NF_IP_PRI_NAT_SRC = 100,
 	NF_IP_PRI_SELINUX_LAST = 225,
+	NF_IP_PRI_CONNTRACK_HELPER = 300,
 	NF_IP_PRI_CONNTRACK_CONFIRM = INT_MAX,
 	NF_IP_PRI_LAST = INT_MAX,
 };
@@ -73,11 +75,5 @@ enum nf_ip_hook_priorities {
 /* 2.4 firewalling went 64 through 67. */
 #define SO_ORIGINAL_DST 80
 
-#ifdef __KERNEL__
-extern int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type);
-extern int ip_xfrm_me_harder(struct sk_buff *skb);
-extern __sum16 nf_ip_checksum(struct sk_buff *skb, unsigned int hook,
-				   unsigned int dataoff, u_int8_t protocol);
-#endif /*__KERNEL__*/
 
-#endif /*__LINUX_IP_NETFILTER_H*/
+#endif /* __LINUX_IP_NETFILTER_H */

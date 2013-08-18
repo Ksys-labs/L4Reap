@@ -1,5 +1,8 @@
-#ifndef __X86_KVM_PARA_H
-#define __X86_KVM_PARA_H
+#ifndef _ASM_X86_KVM_PARA_H
+#define _ASM_X86_KVM_PARA_H
+
+#include <linux/types.h>
+#include <asm/hyperv.h>
 
 /* This CPUID returns the signature 'KVMKVMKVM' in ebx, ecx, and edx.  It
  * should be used to determine that a VM is running under KVM.
@@ -13,11 +16,45 @@
 #define KVM_FEATURE_CLOCKSOURCE		0
 #define KVM_FEATURE_NOP_IO_DELAY	1
 #define KVM_FEATURE_MMU_OP		2
+/* This indicates that the new set of kvmclock msrs
+ * are available. The use of 0x11 and 0x12 is deprecated
+ */
+#define KVM_FEATURE_CLOCKSOURCE2        3
+#define KVM_FEATURE_ASYNC_PF		4
+#define KVM_FEATURE_STEAL_TIME		5
+#define KVM_FEATURE_PV_EOI		6
+
+/* The last 8 bits are used to indicate how to interpret the flags field
+ * in pvclock structure. If no bits are set, all flags are ignored.
+ */
+#define KVM_FEATURE_CLOCKSOURCE_STABLE_BIT	24
 
 #define MSR_KVM_WALL_CLOCK  0x11
 #define MSR_KVM_SYSTEM_TIME 0x12
 
+#define KVM_MSR_ENABLED 1
+/* Custom MSRs falls in the range 0x4b564d00-0x4b564dff */
+#define MSR_KVM_WALL_CLOCK_NEW  0x4b564d00
+#define MSR_KVM_SYSTEM_TIME_NEW 0x4b564d01
+#define MSR_KVM_ASYNC_PF_EN 0x4b564d02
+#define MSR_KVM_STEAL_TIME  0x4b564d03
+#define MSR_KVM_PV_EOI_EN      0x4b564d04
+
+struct kvm_steal_time {
+	__u64 steal;
+	__u32 version;
+	__u32 flags;
+	__u32 pad[12];
+};
+
+#define KVM_STEAL_ALIGNMENT_BITS 5
+#define KVM_STEAL_VALID_BITS ((-1ULL << (KVM_STEAL_ALIGNMENT_BITS + 1)))
+#define KVM_STEAL_RESERVED_MASK (((1 << KVM_STEAL_ALIGNMENT_BITS) - 1 ) << 1)
+
 #define KVM_MAX_MMU_OP_BATCH           32
+
+#define KVM_ASYNC_PF_ENABLED			(1 << 0)
+#define KVM_ASYNC_PF_SEND_ALWAYS		(1 << 1)
 
 /* Operations for KVM_HC_MMU_OP */
 #define KVM_MMU_OP_WRITE_PTE            1
@@ -45,103 +82,19 @@ struct kvm_mmu_op_release_pt {
 	__u64 pt_phys;
 };
 
-#ifdef __KERNEL__
-#include <asm/processor.h>
+#define KVM_PV_REASON_PAGE_NOT_PRESENT 1
+#define KVM_PV_REASON_PAGE_READY 2
 
-extern void kvmclock_init(void);
+struct kvm_vcpu_pv_apf_data {
+	__u32 reason;
+	__u8 pad[60];
+	__u32 enabled;
+};
+
+#define KVM_PV_EOI_BIT 0
+#define KVM_PV_EOI_MASK (0x1 << KVM_PV_EOI_BIT)
+#define KVM_PV_EOI_ENABLED KVM_PV_EOI_MASK
+#define KVM_PV_EOI_DISABLED 0x0
 
 
-/* This instruction is vmcall.  On non-VT architectures, it will generate a
- * trap that we will then rewrite to the appropriate instruction.
- */
-#define KVM_HYPERCALL ".byte 0x0f,0x01,0xc1"
-
-/* For KVM hypercalls, a three-byte sequence of either the vmrun or the vmmrun
- * instruction.  The hypervisor may replace it with something else but only the
- * instructions are guaranteed to be supported.
- *
- * Up to four arguments may be passed in rbx, rcx, rdx, and rsi respectively.
- * The hypercall number should be placed in rax and the return value will be
- * placed in rax.  No other registers will be clobbered unless explicited
- * noted by the particular hypercall.
- */
-
-static inline long kvm_hypercall0(unsigned int nr)
-{
-	long ret;
-	asm volatile(KVM_HYPERCALL
-		     : "=a"(ret)
-		     : "a"(nr)
-		     : "memory");
-	return ret;
-}
-
-static inline long kvm_hypercall1(unsigned int nr, unsigned long p1)
-{
-	long ret;
-	asm volatile(KVM_HYPERCALL
-		     : "=a"(ret)
-		     : "a"(nr), "b"(p1)
-		     : "memory");
-	return ret;
-}
-
-static inline long kvm_hypercall2(unsigned int nr, unsigned long p1,
-				  unsigned long p2)
-{
-	long ret;
-	asm volatile(KVM_HYPERCALL
-		     : "=a"(ret)
-		     : "a"(nr), "b"(p1), "c"(p2)
-		     : "memory");
-	return ret;
-}
-
-static inline long kvm_hypercall3(unsigned int nr, unsigned long p1,
-				  unsigned long p2, unsigned long p3)
-{
-	long ret;
-	asm volatile(KVM_HYPERCALL
-		     : "=a"(ret)
-		     : "a"(nr), "b"(p1), "c"(p2), "d"(p3)
-		     : "memory");
-	return ret;
-}
-
-static inline long kvm_hypercall4(unsigned int nr, unsigned long p1,
-				  unsigned long p2, unsigned long p3,
-				  unsigned long p4)
-{
-	long ret;
-	asm volatile(KVM_HYPERCALL
-		     : "=a"(ret)
-		     : "a"(nr), "b"(p1), "c"(p2), "d"(p3), "S"(p4)
-		     : "memory");
-	return ret;
-}
-
-static inline int kvm_para_available(void)
-{
-	unsigned int eax, ebx, ecx, edx;
-	char signature[13];
-
-	cpuid(KVM_CPUID_SIGNATURE, &eax, &ebx, &ecx, &edx);
-	memcpy(signature + 0, &ebx, 4);
-	memcpy(signature + 4, &ecx, 4);
-	memcpy(signature + 8, &edx, 4);
-	signature[12] = 0;
-
-	if (strcmp(signature, "KVMKVMKVM") == 0)
-		return 1;
-
-	return 0;
-}
-
-static inline unsigned int kvm_arch_para_features(void)
-{
-	return cpuid_eax(KVM_CPUID_FEATURES);
-}
-
-#endif
-
-#endif
+#endif /* _ASM_X86_KVM_PARA_H */

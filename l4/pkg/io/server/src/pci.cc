@@ -368,13 +368,13 @@ Pci_dev::discover_legacy_ide_resources()
     {
       _host->add_resource(new Resource(io_flags, 0x1f0, 0x1f7));
       _host->add_resource(new Resource(io_flags, 0x3f6, 0x3f6));
-      _host->add_resource(new Resource(Resource::Irq_res | Resource::Irq_edge, 14, 14));
+      _host->add_resource(new Resource(Resource::Irq_res | Resource::Irq_type_raising_edge, 14, 14));
     }
   if (cls_rev >> 16 == 0x101 && !(cls_rev & 0x400))
     {
       _host->add_resource(new Resource(io_flags, 0x170, 0x177));
       _host->add_resource(new Resource(io_flags, 0x376, 0x376));
-      _host->add_resource(new Resource(Resource::Irq_res | Resource::Irq_edge, 15, 15));
+      _host->add_resource(new Resource(Resource::Irq_res | Resource::Irq_type_raising_edge, 15, 15));
     }
 }
 

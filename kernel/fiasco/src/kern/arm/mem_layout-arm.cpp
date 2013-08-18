@@ -29,7 +29,7 @@ INTERFACE [arm]:
 EXTENSION class Mem_layout
 {
 public:
-  enum Virt_layout : Address {
+  enum Virt_layout_kern : Address {
     Utcb_addr            = User_max - 0x10000,
     Service_page         = 0xeac00000,
     Tbuf_status_page     = Service_page + 0x5000,
@@ -42,6 +42,8 @@ public:
     Cache_flush_area     = 0xef000000,
     Cache_flush_area_end = 0xef100000,
     Map_base             = 0xf0000000,
+    Pmem_start           = 0xf0400000,
+    Pmem_end             = 0xf5000000,
     Map_end              = 0xf5000000,
     Caps_start           = 0xf5000000,
     Caps_end             = 0xfd000000,

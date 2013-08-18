@@ -634,6 +634,7 @@ report:
 	@echo
 	@echo "Archive information:"
 	@svn info || true
+	@git describe || true
 	@echo
 	@echo "CC       = $(CC) $(CCXX_FLAGS)"
 	@echo "CXX      = $(CXX) $(CCXX_FLAGS)"

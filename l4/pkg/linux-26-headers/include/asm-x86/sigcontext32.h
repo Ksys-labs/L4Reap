@@ -1,5 +1,7 @@
-#ifndef _SIGCONTEXT32_H
-#define _SIGCONTEXT32_H 1
+#ifndef _ASM_X86_SIGCONTEXT32_H
+#define _ASM_X86_SIGCONTEXT32_H
+
+#include <linux/types.h>
 
 /* signal context for 32bit programs. */
 
@@ -40,7 +42,11 @@ struct _fpstate_ia32 {
 	__u32	reserved;
 	struct _fpxreg	_fxsr_st[8];
 	struct _xmmreg	_xmm[8];	/* It's actually 16 */
-	__u32	padding[56];
+	__u32	padding[44];
+	union {
+		__u32 padding2[12];
+		struct _fpx_sw_bytes sw_reserved;
+	};
 };
 
 struct sigcontext_ia32 {
@@ -68,4 +74,4 @@ struct sigcontext_ia32 {
        unsigned int cr2;
 };
 
-#endif
+#endif /* _ASM_X86_SIGCONTEXT32_H */

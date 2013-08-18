@@ -404,17 +404,11 @@ Acpi_madt::find(Unsigned8 type, int idx) const
 // ------------------------------------------------------------------------
 IMPLEMENTATION [ia32,amd64]:
 
-IMPLEMENT
+PRIVATE static
 Acpi_rsdp const *
-Acpi_rsdp::locate()
+Acpi_rsdp::locate_in_region(Address start, Address end)
 {
-  enum
-  {
-    ACPI20_PC99_RSDP_START = 0x0e0000,
-    ACPI20_PC99_RSDP_END =   0x100000
-  };
-
-  for (Address p = ACPI20_PC99_RSDP_START; p < ACPI20_PC99_RSDP_END; p += 16)
+  for (Address p = start; p < end; p += 16)
     {
       Acpi_rsdp const* r = (Acpi_rsdp const *)p;
       if (r->signature[0] == 'R' &&
@@ -428,6 +422,31 @@ Acpi_rsdp::locate()
           r->checksum_ok())
 	return r;
     }
+
+  return 0;
+}
+
+IMPLEMENT
+Acpi_rsdp const *
+Acpi_rsdp::locate()
+{
+  enum
+  {
+    ACPI20_PC99_RSDP_START = 0x0e0000,
+    ACPI20_PC99_RSDP_END   = 0x100000,
+
+    BDA_EBDA_SEGMENT       = 0x00040E,
+  };
+
+  Acpi_rsdp const* r;
+
+  if ((r = locate_in_region(ACPI20_PC99_RSDP_START,
+				 ACPI20_PC99_RSDP_END)))
+    return r;
+
+  Address ebda = *(Unsigned16 *)BDA_EBDA_SEGMENT << 4;
+  if ((r = locate_in_region(ebda, ebda + 1024)))
+    return r;
 
   return 0;
 }

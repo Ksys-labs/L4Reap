@@ -11,7 +11,7 @@ class Page
 //-------------------------------------------------------------------------------------
 INTERFACE [arm && !arm_lpae]:
 
-class Pte_ptr
+class K_pte_ptr
 {
 public:
   typedef Mword Entry;
@@ -20,8 +20,8 @@ public:
     Super_level    = 0,
   };
 
-  Pte_ptr() = default;
-  Pte_ptr(void *p, unsigned char level) : pte((Mword*)p), level(level) {}
+  K_pte_ptr() = default;
+  K_pte_ptr(void *p, unsigned char level) : pte((Mword*)p), level(level) {}
 
   bool is_valid() const { return *pte & 3; }
   void clear() { *pte = 0; }
@@ -71,7 +71,7 @@ EXTENSION class Page
 //-----------------------------------------------------------------------------
 INTERFACE [arm && arm_lpae]:
 
-class Pte_ptr
+class K_pte_ptr
 {
 public:
   typedef Unsigned64 Entry;
@@ -81,8 +81,8 @@ public:
     Super_level    = 1,
   };
 
-  Pte_ptr() = default;
-  Pte_ptr(void *p, unsigned char level) : pte((Unsigned64*)p), level(level) {}
+  K_pte_ptr() = default;
+  K_pte_ptr(void *p, unsigned char level) : pte((Unsigned64*)p), level(level) {}
 
   bool is_valid() const { return *pte & 1; }
   void clear() { *pte = 0; }
@@ -129,7 +129,7 @@ IMPLEMENTATION [arm && arm_lpae]:
 
 PUBLIC inline
 unsigned char
-Pte_ptr::page_order() const
+K_pte_ptr::page_order() const
 { return Pdir::page_order_for_level(level); }
 
 
@@ -163,7 +163,7 @@ public:
   };
 };
 
-EXTENSION class Pte_ptr
+EXTENSION class K_pte_ptr
 {
   // we have virtually tagged caches so need a cache flush before enabling
   // a page table
@@ -298,12 +298,12 @@ IMPLEMENTATION [arm && armv5]:
 
 PUBLIC static inline
 bool
-Pte_ptr::need_cache_write_back(bool current_pt)
+K_pte_ptr::need_cache_write_back(bool current_pt)
 { return current_pt; }
 
 PUBLIC inline
 void
-Pte_ptr::write_back_if(bool current_pt, Mword /*asid*/ = 0)
+K_pte_ptr::write_back_if(bool current_pt, Mword /*asid*/ = 0)
 {
   if (current_pt)
     Mem_unit::clean_dcache(pte);
@@ -311,7 +311,7 @@ Pte_ptr::write_back_if(bool current_pt, Mword /*asid*/ = 0)
 
 PUBLIC static inline
 void
-Pte_ptr::write_back(void *start, void *end)
+K_pte_ptr::write_back(void *start, void *end)
 { Mem_unit::clean_dcache(start, end); }
 
 //---------------------------------------------------------------------------
@@ -319,12 +319,12 @@ IMPLEMENTATION [arm && (armv6 || armca8)]:
 
 PUBLIC static inline
 bool
-Pte_ptr::need_cache_write_back(bool)
+K_pte_ptr::need_cache_write_back(bool)
 { return true; }
 
 PUBLIC inline
 void
-Pte_ptr::write_back_if(bool, Mword asid = Mem_unit::Asid_invalid)
+K_pte_ptr::write_back_if(bool, Mword asid = Mem_unit::Asid_invalid)
 {
   Mem_unit::clean_dcache(pte);
   if (asid != Mem_unit::Asid_invalid)
@@ -333,7 +333,7 @@ Pte_ptr::write_back_if(bool, Mword asid = Mem_unit::Asid_invalid)
 
 PUBLIC static inline
 void
-Pte_ptr::write_back(void *start, void *end)
+K_pte_ptr::write_back(void *start, void *end)
 { Mem_unit::clean_dcache(start, end); }
 
 //---------------------------------------------------------------------------
@@ -341,12 +341,12 @@ IMPLEMENTATION [arm && armca9]:
 
 PUBLIC static inline
 bool
-Pte_ptr::need_cache_write_back(bool)
+K_pte_ptr::need_cache_write_back(bool)
 { return false; }
 
 PUBLIC inline
 void
-Pte_ptr::write_back_if(bool, Mword asid = Mem_unit::Asid_invalid)
+K_pte_ptr::write_back_if(bool, Mword asid = Mem_unit::Asid_invalid)
 {
   if (asid != Mem_unit::Asid_invalid)
     Mem_unit::tlb_flush(asid);
@@ -354,7 +354,7 @@ Pte_ptr::write_back_if(bool, Mword asid = Mem_unit::Asid_invalid)
 
 PUBLIC static inline
 void
-Pte_ptr::write_back(void *, void *)
+K_pte_ptr::write_back(void *, void *)
 {}
 
 //---------------------------------------------------------------------------
@@ -365,8 +365,8 @@ Mword PF::is_alignment_error(Mword error)
 { return (error & 0xf0000d) == 0x400001; }
 
 PRIVATE inline
-Pte_ptr::Entry
-Pte_ptr::_attribs_mask() const
+K_pte_ptr::Entry
+K_pte_ptr::_attribs_mask() const
 {
   if (level == 0)
     return ~Entry(0x00000c0c);
@@ -376,7 +376,7 @@ Pte_ptr::_attribs_mask() const
 
 PRIVATE inline
 Mword
-Pte_ptr::_attribs(Page::Attr attr) const
+K_pte_ptr::_attribs(Page::Attr attr) const
 {
   static const unsigned short perms[] = {
       0x1 << 10, // 0000: none, hmmm
@@ -401,7 +401,6 @@ Pte_ptr::_attribs(Page::Attr attr) const
   };
 
   typedef Page::Type T;
-  typedef Page::Kern K;
   Mword r = 0;
   if (attr.type == T::Normal())   r |= Page::CACHEABLE;
   if (attr.type == T::Buffered()) r |= Page::BUFFERED;
@@ -419,7 +418,7 @@ Pte_ptr::_attribs(Page::Attr attr) const
 
 PUBLIC inline
 Page::Attr
-Pte_ptr::attribs() const
+K_pte_ptr::attribs() const
 {
   auto r = access_once(pte);
   auto c = r & 0xc;
@@ -448,18 +447,18 @@ Pte_ptr::attribs() const
   return Page::Attr(rights, type);
 }
 
-PUBLIC inline NEEDS[Pte_ptr::_attribs, Pte_ptr::_attribs_mask]
+PUBLIC inline NEEDS[K_pte_ptr::_attribs, K_pte_ptr::_attribs_mask]
 void
-Pte_ptr::set_attribs(Page::Attr attr)
+K_pte_ptr::set_attribs(Page::Attr attr)
 {
   Mword p = access_once(pte);
   p = (p & _attribs_mask()) | _attribs(attr);
   write_now(pte, p);
 }
 
-PUBLIC inline NEEDS[Pte_ptr::_attribs]
+PUBLIC inline NEEDS[K_pte_ptr::_attribs]
 void
-Pte_ptr::create_page(Phys_mem_addr addr, Page::Attr attr)
+K_pte_ptr::create_page(Phys_mem_addr addr, Page::Attr attr)
 {
   Mword p = 2 | _attribs(attr) | cxx::int_value<Phys_mem_addr>(addr);
   write_now(pte, p);
@@ -467,7 +466,7 @@ Pte_ptr::create_page(Phys_mem_addr addr, Page::Attr attr)
 
 PUBLIC inline
 bool
-Pte_ptr::add_attribs(Page::Attr attr)
+K_pte_ptr::add_attribs(Page::Attr attr)
 {
   typedef L4_fpage::Rights R;
 
@@ -486,12 +485,12 @@ Pte_ptr::add_attribs(Page::Attr attr)
 
 PUBLIC inline
 Page::Rights
-Pte_ptr::access_flags() const
+K_pte_ptr::access_flags() const
 { return Page::Rights(0); }
 
 PUBLIC inline
 void
-Pte_ptr::del_rights(L4_fpage::Rights r)
+K_pte_ptr::del_rights(L4_fpage::Rights r)
 {
   if (!(r & L4_fpage::Rights::W()))
     return;
@@ -509,8 +508,8 @@ Pte_ptr::del_rights(L4_fpage::Rights r)
 IMPLEMENTATION [arm && !arm_lpae && (armv6 || armv7)]:
 
 PRIVATE inline
-Pte_ptr::Entry
-Pte_ptr::_attribs_mask() const
+K_pte_ptr::Entry
+K_pte_ptr::_attribs_mask() const
 {
   if (level == 0)
     return ~Entry(0x0000881c);
@@ -520,7 +519,7 @@ Pte_ptr::_attribs_mask() const
 
 PRIVATE inline
 Mword
-Pte_ptr::_attribs(Page::Attr attr) const
+K_pte_ptr::_attribs(Page::Attr attr) const
 {
   typedef L4_fpage::Rights R;
   typedef Page::Type T;
@@ -558,7 +557,7 @@ Pte_ptr::_attribs(Page::Attr attr) const
 
 PUBLIC inline
 Page::Attr
-Pte_ptr::attribs() const
+K_pte_ptr::attribs() const
 {
   typedef L4_fpage::Rights R;
   typedef Page::Type T;
@@ -599,9 +598,9 @@ Pte_ptr::attribs() const
   return Page::Attr(rights, type, k);
 }
 
-PUBLIC inline NEEDS[Pte_ptr::_attribs]
+PUBLIC inline NEEDS[K_pte_ptr::_attribs]
 void
-Pte_ptr::create_page(Phys_mem_addr addr, Page::Attr attr)
+K_pte_ptr::create_page(Phys_mem_addr addr, Page::Attr attr)
 {
   Mword p = 2 | _attribs(attr) | cxx::int_value<Phys_mem_addr>(addr);
   if (level == 0)
@@ -614,7 +613,7 @@ Pte_ptr::create_page(Phys_mem_addr addr, Page::Attr attr)
 
 PUBLIC inline
 bool
-Pte_ptr::add_attribs(Page::Attr attr)
+K_pte_ptr::add_attribs(Page::Attr attr)
 {
   typedef L4_fpage::Rights R;
   Mword n_attr = 0;
@@ -649,12 +648,12 @@ Pte_ptr::add_attribs(Page::Attr attr)
 
 PUBLIC inline
 Page::Rights
-Pte_ptr::access_flags() const
+K_pte_ptr::access_flags() const
 { return Page::Rights(0); }
 
 PUBLIC inline
 void
-Pte_ptr::del_rights(L4_fpage::Rights r)
+K_pte_ptr::del_rights(L4_fpage::Rights r)
 {
   Mword n_attr = 0;
   if (r & L4_fpage::Rights::W())
@@ -686,16 +685,16 @@ Pte_ptr::del_rights(L4_fpage::Rights r)
 
 
 //---------------------------------------------------------------------------
-IMPLEMENTATION [arm && arm_lpae && (armv6 || armv7)]:
+IMPLEMENTATION [arm && arm_lpae && armv7]:
 
 PRIVATE inline
-Pte_ptr::Entry
-Pte_ptr::_attribs_mask() const
+K_pte_ptr::Entry
+K_pte_ptr::_attribs_mask() const
 { return ~Entry(0x00400000000008dc); }
 
 PRIVATE inline
-Pte_ptr::Entry
-Pte_ptr::_attribs(Page::Attr attr) const
+K_pte_ptr::Entry
+K_pte_ptr::_attribs(Page::Attr attr) const
 {
   typedef L4_fpage::Rights R;
   typedef Page::Type T;
@@ -723,7 +722,7 @@ Pte_ptr::_attribs(Page::Attr attr) const
 
 PUBLIC inline
 Page::Attr
-Pte_ptr::attribs() const
+K_pte_ptr::attribs() const
 {
   typedef L4_fpage::Rights R;
   typedef Page::Type T;
@@ -756,9 +755,9 @@ Pte_ptr::attribs() const
   return Page::Attr(rights, type, k);
 }
 
-PUBLIC inline NEEDS[Pte_ptr::_attribs]
+PUBLIC inline NEEDS[K_pte_ptr::_attribs]
 void
-Pte_ptr::create_page(Phys_mem_addr addr, Page::Attr attr)
+K_pte_ptr::create_page(Phys_mem_addr addr, Page::Attr attr)
 {
   Entry p = 0x400 | _attribs(attr) | cxx::int_value<Phys_mem_addr>(addr);
   if (level == Pdir::Depth)
@@ -771,7 +770,7 @@ Pte_ptr::create_page(Phys_mem_addr addr, Page::Attr attr)
 
 PUBLIC inline
 bool
-Pte_ptr::add_attribs(Page::Attr attr)
+K_pte_ptr::add_attribs(Page::Attr attr)
 {
   typedef L4_fpage::Rights R;
 
@@ -798,12 +797,12 @@ Pte_ptr::add_attribs(Page::Attr attr)
 
 PUBLIC inline
 Page::Rights
-Pte_ptr::access_flags() const
+K_pte_ptr::access_flags() const
 { return Page::Rights(0); }
 
 PUBLIC inline
 void
-Pte_ptr::del_rights(L4_fpage::Rights r)
+K_pte_ptr::del_rights(L4_fpage::Rights r)
 {
   Entry n_attr = 0;
   if (r & L4_fpage::Rights::W())
@@ -822,6 +821,11 @@ Pte_ptr::del_rights(L4_fpage::Rights r)
       write_now(pte, p);
     }
 }
+
+//---------------------------------------------------------------------------
+INTERFACE [arm]:
+
+typedef K_pte_ptr Pte_ptr;
 
 
 
@@ -843,9 +847,9 @@ Mword PF::is_alignment_error(Mword error)
 //---------------------------------------------------------------------------
 IMPLEMENTATION [arm && (armv6 || armv7)]:
 
-PUBLIC inline NEEDS[Pte_ptr::_attribs, Pte_ptr::_attribs_mask]
+PUBLIC inline NEEDS[K_pte_ptr::_attribs, K_pte_ptr::_attribs_mask]
 void
-Pte_ptr::set_attribs(Page::Attr attr)
+K_pte_ptr::set_attribs(Page::Attr attr)
 {
   Entry p = access_once(pte);
   p = (p & _attribs_mask()) | _attribs(attr);
@@ -881,20 +885,23 @@ Mword PF::is_usermode_error( Mword error )
   return (error & 0x00010000/*PF_USERMODE*/);
 }
 
-IMPLEMENT inline
-Mword PF::is_read_error( Mword error )
-{
-  return !(error & (1UL << 11));
-}
 
-IMPLEMENT inline
+IMPLEMENT inline NEEDS[PF::is_read_error]
 Mword PF::addr_to_msgword0( Address pfa, Mword error )
 {
-  Mword a = pfa & ~3;
+  Mword a = pfa & ~7;
   if(is_translation_error( error ))
     a |= 1;
   if(!is_read_error(error))
     a |= 2;
+  if (!(error & 0x00400000))
+    a |= 4;
   return a;
+}
+
+IMPLEMENT inline
+Mword PF::is_read_error( Mword error )
+{
+  return !(error & (1UL << 11));
 }
 

@@ -16,14 +16,15 @@
 
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+    MA 02110-1301 USA.
 */
 
 #ifndef _LINUX_I2C_DEV_H
 #define _LINUX_I2C_DEV_H
 
 #include <linux/types.h>
-#include <linux/compiler.h>
+
 
 /* /dev/i2c-X ioctl commands.  The ioctl's parameter is always an
  * unsigned long, except for:
@@ -33,7 +34,7 @@
  */
 #define I2C_RETRIES	0x0701	/* number of times a device address should
 				   be polled when not acknowledging */
-#define I2C_TIMEOUT	0x0702	/* set timeout in jiffies - call with int */
+#define I2C_TIMEOUT	0x0702	/* set timeout in units of 10 ms */
 
 /* NOTE: Slave address is 7 or 10 bits, but 10-bit addresses
  * are NOT supported! (due to code brokenness)
@@ -56,19 +57,16 @@ struct i2c_smbus_ioctl_data {
 	__u8 read_write;
 	__u8 command;
 	__u32 size;
-	union i2c_smbus_data __user *data;
+	union i2c_smbus_data *data;
 };
 
 /* This is the structure as used in the I2C_RDWR ioctl call */
 struct i2c_rdwr_ioctl_data {
-	struct i2c_msg __user *msgs;	/* pointers to i2c_msgs */
+	struct i2c_msg *msgs;	/* pointers to i2c_msgs */
 	__u32 nmsgs;			/* number of i2c_msgs */
 };
 
 #define  I2C_RDRW_IOCTL_MAX_MSGS	42
 
-#ifdef __KERNEL__
-#define I2C_MAJOR	89		/* Device major number		*/
-#endif
 
 #endif /* _LINUX_I2C_DEV_H */

@@ -96,7 +96,7 @@ Scheduler::sys_run(L4_fpage::Rights, Syscall_frame *f, Utcb const *utcb)
 
   Thread::Migration info;
 
-  Cpu_number const t_cpu = thread->cpu();
+  Cpu_number const t_cpu = thread->home_cpu();
 
   if (Cpu::online(t_cpu) && sched_param->cpus.contains(t_cpu))
     info.cpu = t_cpu;

@@ -1,68 +1,6 @@
 #ifndef _LINUX_HDREG_H
 #define _LINUX_HDREG_H
 
-#ifdef __KERNEL__
-#include <linux/ata.h>
-
-/*
- * This file contains some defines for the AT-hd-controller.
- * Various sources.
- */
-
-/* ide.c has its own port definitions in "ide.h" */
-
-#define HD_IRQ		14
-
-/* Hd controller regs. Ref: IBM AT Bios-listing */
-#define HD_DATA		0x1f0		/* _CTL when writing */
-#define HD_ERROR	0x1f1		/* see err-bits */
-#define HD_NSECTOR	0x1f2		/* nr of sectors to read/write */
-#define HD_SECTOR	0x1f3		/* starting sector */
-#define HD_LCYL		0x1f4		/* starting cylinder */
-#define HD_HCYL		0x1f5		/* high byte of starting cyl */
-#define HD_CURRENT	0x1f6		/* 101dhhhh , d=drive, hhhh=head */
-#define HD_STATUS	0x1f7		/* see status-bits */
-#define HD_FEATURE	HD_ERROR	/* same io address, read=error, write=feature */
-#define HD_PRECOMP	HD_FEATURE	/* obsolete use of this port - predates IDE */
-#define HD_COMMAND	HD_STATUS	/* same io address, read=status, write=cmd */
-
-#define HD_CMD		0x3f6		/* used for resets */
-#define HD_ALTSTATUS	0x3f6		/* same as HD_STATUS but doesn't clear irq */
-
-/* remainder is shared between hd.c, ide.c, ide-cd.c, and the hdparm utility */
-
-/* Bits of HD_STATUS */
-#define ERR_STAT		0x01
-#define INDEX_STAT		0x02
-#define ECC_STAT		0x04	/* Corrected error */
-#define DRQ_STAT		0x08
-#define SEEK_STAT		0x10
-#define SRV_STAT		0x10
-#define WRERR_STAT		0x20
-#define READY_STAT		0x40
-#define BUSY_STAT		0x80
-
-/* Bits for HD_ERROR */
-#define MARK_ERR		0x01	/* Bad address mark */
-#define ILI_ERR			0x01	/* Illegal Length Indication (ATAPI) */
-#define TRK0_ERR		0x02	/* couldn't find track 0 */
-#define EOM_ERR			0x02	/* End Of Media (ATAPI) */
-#define ABRT_ERR		0x04	/* Command aborted */
-#define MCR_ERR			0x08	/* media change request */
-#define ID_ERR			0x10	/* ID field not found */
-#define MC_ERR			0x20	/* media changed */
-#define ECC_ERR			0x40	/* Uncorrectable ECC error */
-#define BBD_ERR			0x80	/* pre-EIDE meaning:  block marked bad */
-#define ICRC_ERR		0x80	/* new meaning:  CRC error during transfer */
-#define LFS_ERR			0xf0	/* Last Failed Sense (ATAPI) */
-
-/* Bits of HD_NSECTOR */
-#define CD			0x01
-#define IO			0x02
-#define REL			0x04
-#define TAG_MASK		0xf8
-#endif /* __KERNEL__ */
-
 #include <linux/types.h>
 
 /*
@@ -74,12 +12,10 @@
 #define HDIO_DRIVE_TASK_HDR_SIZE	(8 * sizeof(__u8))
 
 #define IDE_DRIVE_TASK_NO_DATA		0
-#ifndef __KERNEL__
 #define IDE_DRIVE_TASK_INVALID		-1
 #define IDE_DRIVE_TASK_SET_XFER		1
 #define IDE_DRIVE_TASK_IN		2
 #define IDE_DRIVE_TASK_OUT		3
-#endif
 #define IDE_DRIVE_TASK_RAW_WRITE	4
 
 /*
@@ -87,13 +23,11 @@
  */
 #define IDE_TASKFILE_STD_IN_FLAGS	0xFE
 #define IDE_HOB_STD_IN_FLAGS		0x3C
-#ifndef __KERNEL__
 #define IDE_TASKFILE_STD_OUT_FLAGS	0xFE
 #define IDE_HOB_STD_OUT_FLAGS		0x3C
 
 typedef unsigned char task_ioreg_t;
 typedef unsigned long sata_ioreg_t;
-#endif
 
 typedef union ide_reg_valid_s {
 	unsigned all				: 16;
@@ -142,7 +76,6 @@ struct hd_drive_cmd_hdr {
 	__u8 sector_count;
 };
 
-#ifndef __KERNEL__
 typedef struct hd_drive_task_hdr {
 	__u8 data;
 	__u8 feature;
@@ -164,7 +97,6 @@ typedef struct hd_drive_hob_hdr {
 	__u8 device_head;
 	__u8 control;
 } hob_struct_t;
-#endif
 
 #define TASKFILE_NO_DATA		0x0000
 
@@ -180,7 +112,6 @@ typedef struct hd_drive_hob_hdr {
 #define TASKFILE_IN_DMAQ		0x0080
 #define TASKFILE_OUT_DMAQ		0x0100
 
-#ifndef __KERNEL__
 #define TASKFILE_P_IN			0x0200
 #define TASKFILE_P_OUT			0x0400
 #define TASKFILE_P_IN_DMA		0x0800
@@ -189,7 +120,6 @@ typedef struct hd_drive_hob_hdr {
 #define TASKFILE_P_OUT_DMAQ		0x4000
 #define TASKFILE_48			0x8000
 #define TASKFILE_INVALID		0x7fff
-#endif
 
 /* ATA/ATAPI Commands pre T13 Spec */
 #define WIN_NOP				0x00
@@ -422,10 +352,8 @@ struct hd_geometry {
 #define HDIO_SET_NOWERR		0x0325	/* change ignore-write-error flag */
 #define HDIO_SET_DMA		0x0326	/* change use-dma flag */
 #define HDIO_SET_PIO_MODE	0x0327	/* reconfig interface to new speed */
-#ifndef __KERNEL__
 #define HDIO_SCAN_HWIF		0x0328	/* register and (re)scan interface */
 #define HDIO_UNREGISTER_HWIF	0x032a  /* unregister interface */
-#endif
 #define HDIO_SET_NICE		0x0329	/* set nice flags */
 #define HDIO_SET_WCACHE		0x032b	/* change write cache enable-disable */
 #define HDIO_SET_ACOUSTIC	0x032c	/* change acoustic behavior */
@@ -511,7 +439,6 @@ struct hd_driveid {
 	unsigned short	words69_70[2];	/* reserved words 69-70
 					 * future command overlap and queuing
 					 */
-	/* HDIO_GET_IDENTITY currently returns only words 0 through 70 */
 	unsigned short	words71_74[4];	/* reserved words 71-74
 					 * for IDENTIFY PACKET DEVICE command
 					 */
@@ -709,9 +636,7 @@ struct hd_driveid {
 #define IDE_NICE_DSC_OVERLAP	(0)	/* per the DSC overlap protocol */
 #define IDE_NICE_ATAPI_OVERLAP	(1)	/* not supported yet */
 #define IDE_NICE_1		(3)	/* when probably won't affect us much */
-#ifndef __KERNEL__
 #define IDE_NICE_0		(2)	/* when sure that it won't affect us */
 #define IDE_NICE_2		(4)	/* when we know it's on our expense */
-#endif
 
 #endif	/* _LINUX_HDREG_H */

@@ -124,7 +124,7 @@ int FIASCO_FASTCALL boot_ap_cpu()
       while (1)
 	Proc::halt();
     }
-  Per_cpu_data::run_ctors(_cpu);
+  Per_cpu_data::run_ctors(_cpu, !cpu_is_new);
   Cpu &cpu = Cpu::cpus.cpu(_cpu);
 
   Kmem::init_cpu(cpu);
@@ -150,6 +150,6 @@ int FIASCO_FASTCALL boot_ap_cpu()
   // create kernel thread
   Kernel_thread *kernel = App_cpu_thread::may_be_create(_cpu, cpu_is_new);
 
-  main_switch_ap_cpu_stack(kernel);
+  main_switch_ap_cpu_stack(kernel, !cpu_is_new);
   return 0;
 }

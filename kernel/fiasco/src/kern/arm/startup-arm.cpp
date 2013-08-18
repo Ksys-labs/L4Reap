@@ -48,18 +48,18 @@ Startup::stage2()
   // Initialize cpu-local data management and run constructors for CPU 0
   Per_cpu_data::init_ctors();
   Per_cpu_data_alloc::alloc(boot_cpu);
-  Per_cpu_data::run_ctors(boot_cpu);
+  Per_cpu_data::run_ctors(boot_cpu, false);
 
   Kmem_space::init();
   Kernel_task::init();
   Mem_space::kernel_space(Kernel_task::kernel_task());
   Pic::init();
-  Thread::init_per_cpu(boot_cpu);
+  Thread::init_per_cpu(boot_cpu, false);
 
   Cpu::init_mmu();
-  Cpu::cpus.cpu(boot_cpu).init(true);
+  Cpu::cpus.cpu(boot_cpu).init(false, true);
   Platform_control::init(boot_cpu);
-  Fpu::init(boot_cpu);
+  Fpu::init(boot_cpu, false);
   Ipi::init(boot_cpu);
   Timer::init(boot_cpu);
   Kern_lib_page::init();

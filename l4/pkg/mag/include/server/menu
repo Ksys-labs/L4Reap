@@ -179,7 +179,6 @@ Menu<C>::calc_geometry(Area const &max_size)
   Area fs(min_width(), 0); //2 * menu_border());
   bool cf = _current == _content->end();
   int cp = 0;
-  typedef typename Content::Iterator Iter;
   for (Const_iterator e = _content->begin(); e != _content->end(); ++e)
     {
       int w = _font()->str_w(e->label()) + 2 * menu_border();

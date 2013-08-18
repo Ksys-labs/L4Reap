@@ -159,7 +159,7 @@ public:
     Rcu_item *item;
     void *cb;
     unsigned char event;
-    unsigned print(int max, char *buf) const;
+    void print(String_buffer *buf) const;
   };
 
   enum Rcu_events
@@ -174,14 +174,15 @@ public:
 IMPLEMENTATION [debug]:
 
 #include "logdefs.h"
+#include "string_buffer.h"
 
 IMPLEMENT
-unsigned
-Rcu::Log_rcu::print(int max, char *buf) const
+void
+Rcu::Log_rcu::print(String_buffer *buf) const
 {
   char const *events[] = { "call", "process"};
-  return snprintf(buf, max, "rcu-%s (cpu=%u) item=%p", events[event],
-                  cxx::int_value<Cpu_number>(cpu), item);
+  buf->printf("rcu-%s (cpu=%u) item=%p", events[event],
+              cxx::int_value<Cpu_number>(cpu), item);
 }
 
 
@@ -217,7 +218,7 @@ Rcu_timeout::expired()
 
 
 Rcu_glbl Rcu::_rcu INIT_PRIORITY(EARLY_INIT_PRIO);
-DEFINE_PER_CPU Per_cpu<Rcu_data> Rcu::_rcu_data(true);
+DEFINE_PER_CPU Per_cpu<Rcu_data> Rcu::_rcu_data(Per_cpu_data::Cpu_num);
 DEFINE_PER_CPU static Per_cpu<Rcu_timeout> _rcu_timeout;
 
 PUBLIC

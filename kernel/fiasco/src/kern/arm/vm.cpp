@@ -94,7 +94,7 @@ public:
     Mword pending_events;
     Mword r0;
     Mword r1;
-    unsigned print(int maxlen, char *buf) const;
+    void print(String_buffer *buf) const;
  };
 };
 
@@ -259,6 +259,7 @@ Vm::get_fpu()
 IMPLEMENTATION [debug && arm_em_tz]:
 
 #include "jdb.h"
+#include "string_buffer.h"
 
 PRIVATE
 Mword
@@ -302,19 +303,19 @@ Vm::dump_vm_state()
 }
 
 PUBLIC
-int
-Vm::show_short(char *buf, int max)
+void
+Vm::show_short(String_buffer *buf)
 {
-  return snprintf(buf, max, " utcb:%lx pc:%lx ", (Mword)state_for_dbg, (Mword)jdb_get(&state_for_dbg->pc));
+  buf->printf(" utcb:%lx pc:%lx ", (Mword)state_for_dbg, (Mword)jdb_get(&state_for_dbg->pc));
 }
 
 IMPLEMENT
-unsigned
-Vm::Vm_log::print(int maxlen, char *buf) const
+void
+Vm::Vm_log::print(String_buffer *buf) const
 {
-  return snprintf(buf, maxlen, "%s: pc:%08lx/%03lx psr:%lx er:%lx r0:%lx r1:%lx",
-                               is_entry ? "entry" : "exit ",
-                               pc, pending_events, cpsr, exit_reason, r0, r1);
+  buf->printf("%s: pc:%08lx/%03lx psr:%lx er:%lx r0:%lx r1:%lx",
+              is_entry ? "entry" : "exit ",
+              pc, pending_events, cpsr, exit_reason, r0, r1);
 }
 
 PUBLIC static inline

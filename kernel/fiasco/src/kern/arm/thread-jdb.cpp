@@ -119,6 +119,9 @@ Thread::call_nested_trap_handler(Trap_state *ts)
   if (m != Kernel_task::kernel_task())
     m->make_current();
 
+  if (!ntr)
+    handle_global_requests();
+
   return ret;
 }
 

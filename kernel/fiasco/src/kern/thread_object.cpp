@@ -102,7 +102,8 @@ void
 Thread_object::destroy(Kobject ***rl)
 {
   Kobject::destroy(rl);
-  check_kdb(kill());
+  if (!is_invalid(false))
+    check_kdb(kill());
   assert_kdb(_magic == magic);
 }
 
@@ -519,7 +520,7 @@ Thread_object::ex_regs(Address ip, Address sp,
                 Address *o_ip = 0, Address *o_sp = 0, Mword *o_flags = 0,
                 Mword ops = 0)
 {
-  if (state(false) == Thread_invalid || !space())
+  if (!space())
     return false;
 
   if (current() == this)
@@ -588,12 +589,12 @@ Thread_object::ex_regs(Utcb *utcb)
 }
 
 PRIVATE static
-unsigned
+Context::Drq::Result
 Thread_object::handle_remote_ex_regs(Drq *, Context *self, void *p)
 {
   Remote_syscall *params = reinterpret_cast<Remote_syscall*>(p);
   params->result = nonull_static_cast<Thread_object*>(self)->ex_regs(params->thread->utcb().access());
-  return params->result.proto() == 0 ? Drq::Need_resched : 0;
+  return params->result.proto() == 0 ? Drq::need_resched() : Drq::done();
 }
 
 PRIVATE inline NOEXPORT
@@ -622,7 +623,7 @@ Thread_object::sys_thread_switch(L4_msg_tag const &/*tag*/, Utcb *utcb)
   if (curr == this)
     return commit_result(0);
 
-  if (current_cpu() != cpu())
+  if (current_cpu() != home_cpu())
     return commit_result(0);
 
 #ifdef FIXME
@@ -631,7 +632,7 @@ Thread_object::sys_thread_switch(L4_msg_tag const &/*tag*/, Utcb *utcb)
 
   if (curr != this && (state() & Thread_ready_mask))
     {
-      curr->switch_exec_schedule_locked (this, Not_Helping);
+      curr->schedule_if(curr->switch_exec_locked(this, Not_Helping));
       reinterpret_cast<Utcb::Time_val*>(utcb->values)->t = 0; // Assume timeslice was used up
       return commit_result(0, Utcb::Time_val::Words);
     }
@@ -655,17 +656,17 @@ Thread_object::sys_thread_switch(L4_msg_tag const &/*tag*/, Utcb *utcb)
 // -------------------------------------------------------------------
 // Gather statistics information about thread execution
 
-PRIVATE
-unsigned
+PRIVATE inline NOEXPORT
+Context::Drq::Result
 Thread_object::sys_thread_stats_remote(void *data)
 {
   update_consumed_time();
   *(Clock::Time *)data = consumed_time();
-  return 0;
+  return Drq::done();
 }
 
 PRIVATE static
-unsigned
+Context::Drq::Result FIASCO_FLATTEN
 Thread_object::handle_sys_thread_stats_remote(Drq *, Context *self, void *data)
 {
   return nonull_static_cast<Thread_object*>(self)->sys_thread_stats_remote(data);
@@ -677,7 +678,7 @@ Thread_object::sys_thread_stats(L4_msg_tag const &/*tag*/, Utcb *utcb)
 {
   Clock::Time value;
 
-  if (cpu() != current_cpu())
+  if (home_cpu() != current_cpu())
     drq(handle_sys_thread_stats_remote, &value, 0, Drq::Any_ctxt);
   else
     {

@@ -49,7 +49,7 @@ static int check_cpus(void)
 
   cpu_map = cs.map;
 
-  printf("Found %ld CPUs.\n", cpu_nrs);
+  printf("%ld maximal supported CPUs.\n", cpu_nrs);
   if (cpu_nrs >= L4_MWORD_BITS)
     {
       printf("Will only handle %ld CPUs.\n", cpu_nrs);

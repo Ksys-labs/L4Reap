@@ -8,6 +8,7 @@ IMPLEMENTATION [arm]:
 #include "mem_layout.h"
 #include "mem_unit.h"
 #include "static_init.h"
+#include "timer_tick.h"
 #include "watchdog.h"
 #include "cxx/cxx_int"
 
@@ -23,6 +24,8 @@ Jdb::save_disable_irqs(Cpu_number cpu)
   jdb_irq_state.cpu(cpu) = Proc::cli_save();
   if (cpu == Cpu_number::boot_cpu())
     Watchdog::disable();
+
+  Timer_tick::disable(cpu);
 }
 
 // restore interrupts after leaving the kernel debugger
@@ -32,6 +35,7 @@ Jdb::restore_irqs(Cpu_number cpu)
 {
   if (cpu == Cpu_number::boot_cpu())
     Watchdog::enable();
+  Timer_tick::enable(cpu);
   Proc::sti_restore(jdb_irq_state.cpu(cpu));
 }
 
@@ -68,13 +72,12 @@ bool
 Jdb::handle_debug_traps(Cpu_number cpu)
 {
   Jdb_entry_frame *ef = entry_frame.cpu(cpu);
+  error_buffer.cpu(cpu).clear();
 
   if (ef->error_code == 0x00e00000)
-    snprintf(error_buffer.cpu(cpu), sizeof(error_buffer.cpu(Cpu_number::first())), "%s",
-             (char const *)ef->r[0]);
+    error_buffer.cpu(cpu).printf("%s",(char const *)ef->r[0]);
   else if (ef->debug_ipi())
-    snprintf(error_buffer.cpu(cpu), sizeof(error_buffer.cpu(Cpu_number::first())),
-             "IPI ENTRY");
+    error_buffer.cpu(cpu).printf("IPI ENTRY");
 
   return true;
 }
@@ -166,8 +169,8 @@ Jdb::access_mem_task(Address virt, Space * task)
   if (addr == (Address)-1)
     {
       Mem_unit::flush_vdcache();
-      auto pte = static_cast<Mem_space*>(Kernel_task::kernel_task())
-        ->_dir->walk(Virt_addr(Mem_layout::Jdb_tmp_map_area), Pdir::Super_level);
+      auto pte = Kmem_space::kdir()
+        ->walk(Virt_addr(Mem_layout::Jdb_tmp_map_area), Pdir::Super_level);
 
       if (!pte.is_valid() || pte.page_addr() != cxx::mask_lsb(phys, pte.page_order()))
         {
@@ -176,7 +179,7 @@ Jdb::access_mem_task(Address virt, Space * task)
           pte.write_back_if(true, Mem_unit::Asid_kernel);
         }
 
-      Mem_unit::tlb_flush();
+      Mem_unit::kernel_tlb_flush();
 
       addr = Mem_layout::Jdb_tmp_map_area + (phys & (Config::SUPERPAGE_SIZE - 1));
     }
@@ -266,21 +269,18 @@ Jdb::leave_getchar()
 
 PUBLIC static
 void
-Jdb::write_tsc_s(Signed64 tsc, char *buf, int maxlen, bool sign)
+Jdb::write_tsc_s(String_buffer *buf, Signed64 tsc, bool sign)
 {
   if (sign)
-    {
-      *buf++ = (tsc < 0) ? '-' : (tsc == 0) ? ' ' : '+';
-      maxlen--;
-    }
-  snprintf(buf, maxlen, "%lld c", tsc);
+    buf->printf("%c", (tsc < 0) ? '-' : (tsc == 0) ? ' ' : '+');
+  buf->printf("%lld c", tsc);
 }
 
 PUBLIC static
 void
-Jdb::write_tsc(Signed64 tsc, char *buf, int maxlen, bool sign)
+Jdb::write_tsc(String_buffer *buf, Signed64 tsc, bool sign)
 {
-  write_tsc_s(tsc, buf, maxlen, sign);
+  write_tsc_s(buf, tsc, sign);
 }
 
 //----------------------------------------------------------------------------

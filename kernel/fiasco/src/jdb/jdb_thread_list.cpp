@@ -640,7 +640,12 @@ Jdb_thread_list::list_threads_show_thread(Thread *t)
 
   Jdb_kobject::print_uid(t, 5);
 
-  printf(" %-3u ", cxx::int_value<Cpu_number>(t->cpu()));
+  printf(" %3u", cxx::int_value<Cpu_number>(t->home_cpu()));
+
+  if (t->home_cpu() != t->get_current_cpu())
+    printf(":%-3u ", cxx::int_value<Cpu_number>(t->get_current_cpu()));
+  else
+    printf("     ");
 
   print_thread_name(t);
 
@@ -721,7 +726,7 @@ static void
 Jdb_thread_list::show_header()
 {
   Jdb::cursor();
-  printf("%s   id cpu name             pr     sp  wait    to%s state\033[m\033[K",
+  printf("%s   id  cpu    name             pr     sp  wait    to%s state\033[m\033[K",
          Jdb::esc_emph, Config::Stack_depth ? "  stack" : "");
 }
 
@@ -737,7 +742,7 @@ Jdb_thread_list::list_threads(Thread *t_start, char pr)
       auto g = lock_guard(cpu_lock);
       // enqueue current, which may not be in the ready list due to lazy queueing
       if (!t_current->in_ready_list())
-        Sched_context::rq.cpu(t_current->cpu()).ready_enqueue(t_current->sched());
+        Sched_context::rq.cpu(t_current->home_cpu()).ready_enqueue(t_current->sched());
     }
 
   Jdb::clear_screen();

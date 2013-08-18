@@ -276,7 +276,7 @@ Thread::invoke_arch(L4_msg_tag tag, Utcb *utcb)
             }
 
           if (this == current_thread())
-            switch_gdt_user_entries(this);
+            load_gdt_user_entries();
 
           return Kobject_iface::commit_result((utcb->values[1] << 3) + Gdt::gdt_user_entry1 + 3);
         }
@@ -317,7 +317,10 @@ Thread::call_nested_trap_handler(Trap_state *ts)
   } p;
 
   if (!ntr)
-    p.stack = dbg_stack.cpu(log_cpu).stack_top;
+    {
+      LOG_MSG(current(), "===== enter jdb =====");
+      p.stack = dbg_stack.cpu(log_cpu).stack_top;
+    }
   else
     p.stack = 0;
 
@@ -358,6 +361,9 @@ Thread::call_nested_trap_handler(Trap_state *ts)
        [p]       "S" (&p),
        [ntr]     "D" (&ntr)
      : "memory");
+
+  if (!ntr)
+    handle_global_requests();
 
   return ret == 0 ? 0 : -1;
 }

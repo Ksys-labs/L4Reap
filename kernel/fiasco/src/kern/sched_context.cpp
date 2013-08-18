@@ -162,22 +162,22 @@ public:
   signed long left;
   unsigned long quantum;
 
-  unsigned print(int max, char *buf) const;
+  void print(String_buffer *buf) const;
 } __attribute__((packed));
 
 
 IMPLEMENTATION [debug]:
 
 #include "kobject_dbg.h"
+#include "string_buffer.h"
 
 // sched
-IMPLEMENT unsigned
-Tb_entry_sched::print(int maxlen, char *buf) const
+IMPLEMENT void
+Tb_entry_sched::print(String_buffer *buf) const
 {
   Mword t = Kobject_dbg::pointer_to_id(owner);
 
-  return snprintf(buf, maxlen,
-              "(ts %s) owner:%lx id:%2x, prio:%2x, left:%6ld/%-6lu",
+  buf->printf("(ts %s) owner:%lx id:%2x, prio:%2x, left:%6ld/%-6lu",
               mode == 0 ? "save" :
               mode == 1 ? "load" :
               mode == 2 ? "invl" : "????",

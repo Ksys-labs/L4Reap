@@ -59,9 +59,7 @@ struct acct
 	comp_t		ac_majflt;		/* Major Pagefaults */
 	comp_t		ac_swaps;		/* Number of Swaps */
 /* m68k had no padding here. */
-#if !defined(CONFIG_M68K) || !defined(__KERNEL__)
 	__u16		ac_ahz;			/* AHZ */
-#endif
 	__u32		ac_exitcode;		/* Exitcode */
 	char		ac_comm[ACCT_COMM + 1];	/* Command Name */
 	__u8		ac_etime_hi;		/* Elapsed Time MSB */
@@ -81,11 +79,7 @@ struct acct_v3
 	__u32		ac_pid;			/* Process ID */
 	__u32		ac_ppid;		/* Parent Process ID */
 	__u32		ac_btime;		/* Process Creation Time */
-#ifdef __KERNEL__
-	__u32		ac_etime;		/* Elapsed Time */
-#else
 	float		ac_etime;		/* Elapsed Time */
-#endif
 	comp_t		ac_utime;		/* User Time */
 	comp_t		ac_stime;		/* System Time */
 	comp_t		ac_mem;			/* Average Memory Usage */
@@ -107,107 +101,16 @@ struct acct_v3
 #define ACORE		0x08	/* ... dumped core */
 #define AXSIG		0x10	/* ... was killed by a signal */
 
-#ifdef __BIG_ENDIAN
+#if defined(__BYTE_ORDER) ? __BYTE_ORDER == __BIG_ENDIAN : defined(__BIG_ENDIAN)
 #define ACCT_BYTEORDER	0x80	/* accounting file is big endian */
-#else
+#elif defined(__BYTE_ORDER) ? __BYTE_ORDER == __LITTLE_ENDIAN : defined(__LITTLE_ENDIAN)
 #define ACCT_BYTEORDER	0x00	/* accounting file is little endian */
+#else
+#error unspecified endianness
 #endif
 
-#ifdef __KERNEL__
-
-
-#ifdef CONFIG_BSD_PROCESS_ACCT
-struct vfsmount;
-struct super_block;
-struct pacct_struct;
-struct pid_namespace;
-extern void acct_auto_close_mnt(struct vfsmount *m);
-extern void acct_auto_close(struct super_block *sb);
-extern void acct_init_pacct(struct pacct_struct *pacct);
-extern void acct_collect(long exitcode, int group_dead);
-extern void acct_process(void);
-extern void acct_exit_ns(struct pid_namespace *);
-#else
-#define acct_auto_close_mnt(x)	do { } while (0)
-#define acct_auto_close(x)	do { } while (0)
-#define acct_init_pacct(x)	do { } while (0)
-#define acct_collect(x,y)	do { } while (0)
-#define acct_process()		do { } while (0)
-#define acct_exit_ns(ns)	do { } while (0)
-#endif
-
-/*
- * ACCT_VERSION numbers as yet defined:
- * 0: old format (until 2.6.7) with 16 bit uid/gid
- * 1: extended variant (binary compatible on M68K)
- * 2: extended variant (binary compatible on everything except M68K)
- * 3: new binary incompatible format (64 bytes)
- * 4: new binary incompatible format (128 bytes)
- * 5: new binary incompatible format (128 bytes, second half)
- *
- */
-
-#ifdef CONFIG_BSD_PROCESS_ACCT_V3
-#define ACCT_VERSION	3
-#define AHZ		100
-typedef struct acct_v3 acct_t;
-#else
-#ifdef CONFIG_M68K
-#define ACCT_VERSION	1
-#else
-#define ACCT_VERSION	2
-#endif
-#define AHZ		(USER_HZ)
-typedef struct acct acct_t;
-#endif
-
-#else
 #define ACCT_VERSION	2
 #define AHZ		(HZ)
-#endif	/* __KERNEL */
 
-#ifdef __KERNEL__
-#include <linux/jiffies.h>
-/*
- * Yet another set of HZ to *HZ helper functions.
- * See <linux/jiffies.h> for the original.
- */
 
-static inline u32 jiffies_to_AHZ(unsigned long x)
-{
-#if (TICK_NSEC % (NSEC_PER_SEC / AHZ)) == 0
-# if HZ < AHZ
-	return x * (AHZ / HZ);
-# else
-	return x / (HZ / AHZ);
-# endif
-#else
-        u64 tmp = (u64)x * TICK_NSEC;
-        do_div(tmp, (NSEC_PER_SEC / AHZ));
-        return (long)tmp;
-#endif
-}
-
-static inline u64 nsec_to_AHZ(u64 x)
-{
-#if (NSEC_PER_SEC % AHZ) == 0
-	do_div(x, (NSEC_PER_SEC / AHZ));
-#elif (AHZ % 512) == 0
-	x *= AHZ/512;
-	do_div(x, (NSEC_PER_SEC / 512));
-#else
-	/*
-         * max relative error 5.7e-8 (1.8s per year) for AHZ <= 1024,
-         * overflow after 64.99 years.
-         * exact for AHZ=60, 72, 90, 120, 144, 180, 300, 600, 900, ...
-         */
-	x *= 9;
-	do_div(x, (unsigned long)((9ull * NSEC_PER_SEC + (AHZ/2))
-	                          / AHZ));
-#endif
-	return x;
-}
-
-#endif  /* __KERNEL */
-
-#endif	/* _LINUX_ACCT_H */
+#endif /* _LINUX_ACCT_H */

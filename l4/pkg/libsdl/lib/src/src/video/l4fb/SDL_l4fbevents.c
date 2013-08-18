@@ -121,7 +121,7 @@ void L4FB_InitOSKeymap(_THIS) {
 }
 
 
-
+L4_CV
 static void event_callback(l4re_event_t *e, void *data) {
 	long code;
 	Uint8 state;

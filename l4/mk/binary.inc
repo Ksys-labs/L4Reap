@@ -503,6 +503,15 @@ vpath %-server.c $(IDL_PATH)
 vpath %-server.cc $(IDL_PATH)
 endif
 
+# adjust obj path in case an absolute path name is given,
+# for that to work we also need to explicitly list .o to .source relations
+# arg: 1 - file path
+gen_obj_path = $(foreach f,$(1),$(if $(filter /%,$(f)),$(OBJ_BASE)$(patsubst $(SRC_BASE)/%,/%,$(f)),$(f)))
+
+# check for absolute paths
+# arg: 1 - list of paths
+check_path = $(foreach f,$(1),$(if $(filter /%,$(f)),$(error Given paths must be relative.),$(f)))
+
 # convert list of c++ files names to .o files
 # arg: 1 - list of files
 #      2 - infix between the basename and the .o
@@ -519,15 +528,16 @@ convert_f_to_o_file = $(foreach e,$(FORTRAN_FILE_EXTENSIONS),$(patsubst %$e,%$(2
 # arg: 1 - target
 #      2 - infix between the basename and the .o
 #      3 - additional infix before .o in case of .cc files
-targetobjs_gen = $(SRC_C:.c=$(2).o) $(SRC_S:.S=$(2).o)                  \
-                 $(call convert_cc_to_o_file,$(SRC_CC),$(2)$(3))        \
-                 $(call convert_f_to_o_file,$(SRC_F),$(2)$(3))          \
-                 $(foreach inter, $(OSYSTEM) $(1) $(1)_$(OSYSTEM),	\
-                     $(SRC_C_$(inter):.c=$(2).o)			\
-                     $(SRC_S_$(inter):.S=$(2).o)			\
-                     $(call convert_cc_to_o_file,$(SRC_CC_$(inter)),$(2)$(3)) \
-                     $(call convert_f_to_o_file,$(SRC_F_$(inter)),$(2)$(3))) \
-                 $(patsubst %.c,%$(2).o,$(call IDL_SRC_Cfn,$(1)))
+targetobjs_gen = $(call check_path,                                            \
+		        $(SRC_C:.c=$(2).o) $(SRC_S:.S=$(2).o)                  \
+                        $(call convert_cc_to_o_file,$(SRC_CC),$(2)$(3))        \
+                        $(call convert_f_to_o_file,$(SRC_F),$(2)$(3))          \
+                        $(foreach inter, $(OSYSTEM) $(1) $(1)_$(OSYSTEM),      \
+                            $(SRC_C_$(inter):.c=$(2).o)	                       \
+                            $(SRC_S_$(inter):.S=$(2).o)	                       \
+                            $(call convert_cc_to_o_file,$(SRC_CC_$(inter)),$(2)$(3)) \
+                            $(call convert_f_to_o_file,$(SRC_F_$(inter)),$(2)$(3)))  \
+                        $(patsubst %.c,%$(2).o,$(call IDL_SRC_Cfn,$(1))))
 
 # a helper function to generate the object-files for a given target
 # arg: 1 - target

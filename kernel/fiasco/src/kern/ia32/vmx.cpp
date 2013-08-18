@@ -253,6 +253,7 @@ public:
     PRB2_virtualize_apic = 0,
     PRB2_enable_ept      = 1,
     PRB2_enable_vpid     = 5,
+    PRB2_unrestricted    = 7,
   };
 };
 
@@ -312,7 +313,7 @@ IMPLEMENTATION[vmx]:
 #include "idt.h"
 #include "warn.h"
 
-DEFINE_PER_CPU_LATE Per_cpu<Vmx> Vmx::cpus(true);
+DEFINE_PER_CPU_LATE Per_cpu<Vmx> Vmx::cpus(Per_cpu_data::Cpu_num);
 
 PUBLIC
 void
@@ -379,22 +380,26 @@ Vmx_info::init()
       procbased_ctls2.enforce(Vmx::PRB2_enable_vpid, false);
 
       // EPT only in conjunction with unrestricted guest !!!
-      if (procbased_ctls2.allowed(Vmx::PRB2_enable_ept)
-          && procbased_ctls2.allowed(7))
+      if (procbased_ctls2.allowed(Vmx::PRB2_enable_ept))
         {
           ept = true;
           procbased_ctls2.enforce(Vmx::PRB2_enable_ept, true);
 
-          // unrestricted guest allows PE and PG to be 0
-          cr0_defs.relax(0);  // PE
-          cr0_defs.relax(31); // PG
-          procbased_ctls2.enforce(7);
+          if (procbased_ctls2.allowed(Vmx::PRB2_unrestricted))
+            {
+              // unrestricted guest allows PE and PG to be 0
+              cr0_defs.relax(0);  // PE
+              cr0_defs.relax(31); // PG
+              procbased_ctls2.enforce(Vmx::PRB2_unrestricted);
+            }
+          else
+            {
+              assert (not cr0_defs.allowed(0, false));
+              assert (not cr0_defs.allowed(31, false));
+            }
         }
       else
-        { // disallow EPT and unrestricted guest otherwise
-          procbased_ctls2.enforce(Vmx::PRB2_enable_ept, false);
-          procbased_ctls2.enforce(7, false);
-        }
+        assert (not procbased_ctls2.allowed(Vmx::PRB2_unrestricted));
     }
   else
     procbased_ctls2 = 0;

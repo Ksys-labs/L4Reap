@@ -1,3 +1,4 @@
+// vim:se ft=asms:
 #pragma once
 
 #include "globalconfig.h"

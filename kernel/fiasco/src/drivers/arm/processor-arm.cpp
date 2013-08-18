@@ -75,7 +75,8 @@ void Proc::stack_pointer(Mword sp)
 IMPLEMENT static inline
 Mword Proc::program_counter()
 {
-  register Mword pc asm ("pc");
+  Mword pc;
+  asm ("mov %0, pc" : "=r" (pc));
   return pc;
 }
 
@@ -91,7 +92,7 @@ void Proc::cli()
                : "memory");
 }
 
-IMPLEMENT static inline
+IMPLEMENT static inline ALWAYS_INLINE
 void Proc::sti()
 {
   Mword v;
@@ -103,7 +104,7 @@ void Proc::sti()
                : "memory");
 }
 
-IMPLEMENT static inline
+IMPLEMENT static inline ALWAYS_INLINE
 Proc::Status Proc::cli_save()
 {
   Status ret;
@@ -125,7 +126,7 @@ Proc::Status Proc::interrupts()
   return !(ret & Sti_mask);
 }
 
-IMPLEMENT static inline
+IMPLEMENT static inline ALWAYS_INLINE
 void Proc::sti_restore(Status st)
 {
   if (!(st & Sti_mask))

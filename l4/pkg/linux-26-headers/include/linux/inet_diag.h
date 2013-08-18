@@ -1,5 +1,7 @@
 #ifndef _INET_DIAG_H_
-#define _INET_DIAG_H_ 1
+#define _INET_DIAG_H_
+
+#include <linux/types.h>
 
 /* Just some random number */
 #define TCPDIAG_GETSOCK 18
@@ -30,6 +32,15 @@ struct inet_diag_req {
 
 	__u32	idiag_states;		/* States to dump */
 	__u32	idiag_dbs;		/* Tables to dump (NI) */
+};
+
+struct inet_diag_req_v2 {
+	__u8	sdiag_family;
+	__u8	sdiag_protocol;
+	__u8	idiag_ext;
+	__u8	pad;
+	__u32	idiag_states;
+	struct inet_diag_sockid id;
 };
 
 enum {
@@ -95,9 +106,13 @@ enum {
 	INET_DIAG_INFO,
 	INET_DIAG_VEGASINFO,
 	INET_DIAG_CONG,
+	INET_DIAG_TOS,
+	INET_DIAG_TCLASS,
+	INET_DIAG_SKMEMINFO,
+	INET_DIAG_SHUTDOWN,
 };
 
-#define INET_DIAG_MAX INET_DIAG_CONG
+#define INET_DIAG_MAX INET_DIAG_SHUTDOWN
 
 
 /* INET_DIAG_MEM */
@@ -118,21 +133,5 @@ struct tcpvegas_info {
 	__u32	tcpv_minrtt;
 };
 
-#ifdef __KERNEL__
-struct sock;
-struct inet_hashinfo;
-
-struct inet_diag_handler {
-	struct inet_hashinfo    *idiag_hashinfo;
-	void			(*idiag_get_info)(struct sock *sk,
-						  struct inet_diag_msg *r,
-						  void *info);
-	__u16                   idiag_info_size;
-	__u16                   idiag_type;
-};
-
-extern int  inet_diag_register(const struct inet_diag_handler *handler);
-extern void inet_diag_unregister(const struct inet_diag_handler *handler);
-#endif /* __KERNEL__ */
 
 #endif /* _INET_DIAG_H_ */

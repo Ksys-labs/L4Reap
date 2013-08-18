@@ -279,11 +279,10 @@ Jdb_list_timeouts::list_timeouts_show_timeout(Timeout *t)
     putstr("   over     ");
   else
     {
-      char time_str[12];
-      Jdb::write_ll_ns(timeout * 1000, time_str,
-                       11 < sizeof(time_str) - 1 ? 11 : sizeof(time_str) - 1,
-                       false);
-      putstr(time_str);
+      String_buf<12> time_str;
+      Jdb::write_ll_ns(&time_str, timeout * 1000, false);
+      time_str.terminate();
+      putstr(time_str.begin());
     }
 
   Jdb_kobject_name *nx = 0;

@@ -12,6 +12,8 @@
 #ifndef _LINUX_SELINUX_NETLINK_H
 #define _LINUX_SELINUX_NETLINK_H
 
+#include <linux/types.h>
+
 /* Message types. */
 #define SELNL_MSG_BASE 0x10
 enum {
@@ -20,12 +22,10 @@ enum {
 	SELNL_MSG_MAX
 };
 
-#ifndef __KERNEL__
 /* Multicast groups - backwards compatiblility for userspace */
 #define SELNL_GRP_NONE		0x00000000
 #define SELNL_GRP_AVC		0x00000001	/* AVC notifications */
 #define SELNL_GRP_ALL		0xffffffff
-#endif
 
 enum selinux_nlgroups {
 	SELNLGRP_NONE,
@@ -38,11 +38,11 @@ enum selinux_nlgroups {
 
 /* Message structures */
 struct selnl_msg_setenforce {
-	int32_t		val;
+	__s32		val;
 };
 
 struct selnl_msg_policyload {
-	u_int32_t	seqno;
+	__u32	seqno;
 };
 
 #endif /* _LINUX_SELINUX_NETLINK_H */

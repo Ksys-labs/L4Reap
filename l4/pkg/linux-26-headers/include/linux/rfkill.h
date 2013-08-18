@@ -1,155 +1,107 @@
-#ifndef __RFKILL_H
-#define __RFKILL_H
-
 /*
  * Copyright (C) 2006 - 2007 Ivo van Doorn
  * Copyright (C) 2007 Dmitry Torokhov
+ * Copyright 2009 Johannes Berg <johannes@sipsolutions.net>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the
- * Free Software Foundation, Inc.,
- * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#ifndef __RFKILL_H
+#define __RFKILL_H
+
 
 #include <linux/types.h>
-#include <linux/kernel.h>
-#include <linux/list.h>
-#include <linux/mutex.h>
-#include <linux/device.h>
-#include <linux/leds.h>
+
+/* define userspace visible states */
+#define RFKILL_STATE_SOFT_BLOCKED	0
+#define RFKILL_STATE_UNBLOCKED		1
+#define RFKILL_STATE_HARD_BLOCKED	2
 
 /**
  * enum rfkill_type - type of rfkill switch.
- * RFKILL_TYPE_WLAN: switch is on a 802.11 wireless network device.
- * RFKILL_TYPE_BLUETOOTH: switch is on a bluetooth device.
- * RFKILL_TYPE_UWB: switch is on a ultra wideband device.
- * RFKILL_TYPE_WIMAX: switch is on a WiMAX device.
- * RFKILL_TYPE_WWAN: switch is on a wireless WAN device.
+ *
+ * @RFKILL_TYPE_ALL: toggles all switches (requests only - not a switch type)
+ * @RFKILL_TYPE_WLAN: switch is on a 802.11 wireless network device.
+ * @RFKILL_TYPE_BLUETOOTH: switch is on a bluetooth device.
+ * @RFKILL_TYPE_UWB: switch is on a ultra wideband device.
+ * @RFKILL_TYPE_WIMAX: switch is on a WiMAX device.
+ * @RFKILL_TYPE_WWAN: switch is on a wireless WAN device.
+ * @RFKILL_TYPE_GPS: switch is on a GPS device.
+ * @RFKILL_TYPE_FM: switch is on a FM radio device.
+ * @NUM_RFKILL_TYPES: number of defined rfkill types
  */
 enum rfkill_type {
-	RFKILL_TYPE_WLAN ,
+	RFKILL_TYPE_ALL = 0,
+	RFKILL_TYPE_WLAN,
 	RFKILL_TYPE_BLUETOOTH,
 	RFKILL_TYPE_UWB,
 	RFKILL_TYPE_WIMAX,
 	RFKILL_TYPE_WWAN,
-	RFKILL_TYPE_MAX,
+	RFKILL_TYPE_GPS,
+	RFKILL_TYPE_FM,
+	NUM_RFKILL_TYPES,
 };
 
-enum rfkill_state {
-	RFKILL_STATE_SOFT_BLOCKED = 0,	/* Radio output blocked */
-	RFKILL_STATE_UNBLOCKED    = 1,	/* Radio output allowed */
-	RFKILL_STATE_HARD_BLOCKED = 2,	/* Output blocked, non-overrideable */
+/**
+ * enum rfkill_operation - operation types
+ * @RFKILL_OP_ADD: a device was added
+ * @RFKILL_OP_DEL: a device was removed
+ * @RFKILL_OP_CHANGE: a device's state changed -- userspace changes one device
+ * @RFKILL_OP_CHANGE_ALL: userspace changes all devices (of a type, or all)
+ */
+enum rfkill_operation {
+	RFKILL_OP_ADD = 0,
+	RFKILL_OP_DEL,
+	RFKILL_OP_CHANGE,
+	RFKILL_OP_CHANGE_ALL,
 };
+
+/**
+ * struct rfkill_event - events for userspace on /dev/rfkill
+ * @idx: index of dev rfkill
+ * @type: type of the rfkill struct
+ * @op: operation code
+ * @hard: hard state (0/1)
+ * @soft: soft state (0/1)
+ *
+ * Structure used for userspace communication on /dev/rfkill,
+ * used for events from the kernel and control to the kernel.
+ */
+struct rfkill_event {
+	__u32 idx;
+	__u8  type;
+	__u8  op;
+	__u8  soft, hard;
+} __attribute__((packed));
 
 /*
- * These are DEPRECATED, drivers using them should be verified to
- * comply with the rfkill usage guidelines in Documentation/rfkill.txt
- * and then converted to use the new names for rfkill_state
- */
-#define RFKILL_STATE_OFF RFKILL_STATE_SOFT_BLOCKED
-#define RFKILL_STATE_ON  RFKILL_STATE_UNBLOCKED
-
-/**
- * struct rfkill - rfkill control structure.
- * @name: Name of the switch.
- * @type: Radio type which the button controls, the value stored
- *	here should be a value from enum rfkill_type.
- * @state: State of the switch, "UNBLOCKED" means radio can operate.
- * @user_claim_unsupported: Whether the hardware supports exclusive
- *	RF-kill control by userspace. Set this before registering.
- * @user_claim: Set when the switch is controlled exlusively by userspace.
- * @mutex: Guards switch state transitions.  It serializes callbacks
- *	and also protects the state.
- * @data: Pointer to the RF button drivers private data which will be
- *	passed along when toggling radio state.
- * @toggle_radio(): Mandatory handler to control state of the radio.
- *	only RFKILL_STATE_SOFT_BLOCKED and RFKILL_STATE_UNBLOCKED are
- *	valid parameters.
- * @get_state(): handler to read current radio state from hardware,
- *      may be called from atomic context, should return 0 on success.
- *      Either this handler OR judicious use of rfkill_force_state() is
- *      MANDATORY for any driver capable of RFKILL_STATE_HARD_BLOCKED.
- * @led_trigger: A LED trigger for this button's LED.
- * @dev: Device structure integrating the switch into device tree.
- * @node: Used to place switch into list of all switches known to the
- *	the system.
+ * We are planning to be backward and forward compatible with changes
+ * to the event struct, by adding new, optional, members at the end.
+ * When reading an event (whether the kernel from userspace or vice
+ * versa) we need to accept anything that's at least as large as the
+ * version 1 event size, but might be able to accept other sizes in
+ * the future.
  *
- * This structure represents a RF switch located on a network device.
+ * One exception is the kernel -- we already have two event sizes in
+ * that we've made the 'hard' member optional since our only option
+ * is to ignore it anyway.
  */
-struct rfkill {
-	const char *name;
-	enum rfkill_type type;
+#define RFKILL_EVENT_SIZE_V1	8
 
-	bool user_claim_unsupported;
-	bool user_claim;
+/* ioctl for turning off rfkill-input (if present) */
+#define RFKILL_IOC_MAGIC	'R'
+#define RFKILL_IOC_NOINPUT	1
+#define RFKILL_IOCTL_NOINPUT	_IO(RFKILL_IOC_MAGIC, RFKILL_IOC_NOINPUT)
 
-	/* the mutex serializes callbacks and also protects
-	 * the state */
-	struct mutex mutex;
-	enum rfkill_state state;
-	void *data;
-	int (*toggle_radio)(void *data, enum rfkill_state state);
-	int (*get_state)(void *data, enum rfkill_state *state);
+/* and that's all userspace gets */
 
-#ifdef CONFIG_RFKILL_LEDS
-	struct led_trigger led_trigger;
-#endif
-
-	struct device dev;
-	struct list_head node;
-};
-#define to_rfkill(d)	container_of(d, struct rfkill, dev)
-
-struct rfkill *rfkill_allocate(struct device *parent, enum rfkill_type type);
-void rfkill_free(struct rfkill *rfkill);
-int rfkill_register(struct rfkill *rfkill);
-void rfkill_unregister(struct rfkill *rfkill);
-
-int rfkill_force_state(struct rfkill *rfkill, enum rfkill_state state);
-
-/**
- * rfkill_state_complement - return complementar state
- * @state: state to return the complement of
- *
- * Returns RFKILL_STATE_SOFT_BLOCKED if @state is RFKILL_STATE_UNBLOCKED,
- * returns RFKILL_STATE_UNBLOCKED otherwise.
- */
-static inline enum rfkill_state rfkill_state_complement(enum rfkill_state state)
-{
-	return (state == RFKILL_STATE_UNBLOCKED) ?
-		RFKILL_STATE_SOFT_BLOCKED : RFKILL_STATE_UNBLOCKED;
-}
-
-/**
- * rfkill_get_led_name - Get the LED trigger name for the button's LED.
- * This function might return a NULL pointer if registering of the
- * LED trigger failed.
- * Use this as "default_trigger" for the LED.
- */
-static inline char *rfkill_get_led_name(struct rfkill *rfkill)
-{
-#ifdef CONFIG_RFKILL_LEDS
-	return (char *)(rfkill->led_trigger.name);
-#else
-	return NULL;
-#endif
-}
-
-/* rfkill notification chain */
-#define RFKILL_STATE_CHANGED		0x0001	/* state of a normal rfkill
-						   switch has changed */
-
-int register_rfkill_notifier(struct notifier_block *nb);
-int unregister_rfkill_notifier(struct notifier_block *nb);
-
-#endif /* RFKILL_H */
+#endif /* __RFKILL_H */

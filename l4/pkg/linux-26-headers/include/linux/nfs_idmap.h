@@ -37,6 +37,8 @@
 #ifndef NFS_IDMAP_H
 #define NFS_IDMAP_H
 
+#include <linux/types.h>
+
 /* XXX from bits/utmp.h  */
 #define IDMAP_NAMESZ  128
 
@@ -59,20 +61,5 @@ struct idmap_msg {
 	__u8  im_status;
 };
 
-#ifdef __KERNEL__
-
-/* Forward declaration to make this header independent of others */
-struct nfs_client;
-
-int nfs_idmap_new(struct nfs_client *);
-void nfs_idmap_delete(struct nfs_client *);
-
-int nfs_map_name_to_uid(struct nfs_client *, const char *, size_t, __u32 *);
-int nfs_map_group_to_gid(struct nfs_client *, const char *, size_t, __u32 *);
-int nfs_map_uid_to_name(struct nfs_client *, __u32, char *);
-int nfs_map_gid_to_group(struct nfs_client *, __u32, char *);
-
-extern unsigned int nfs_idmap_cache_timeout;
-#endif /* __KERNEL__ */
 
 #endif /* NFS_IDMAP_H */

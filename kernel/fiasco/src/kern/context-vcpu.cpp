@@ -145,28 +145,33 @@ EXTENSION class Context
 IMPLEMENTATION [debug]:
 
 #include "kobject_dbg.h"
+#include "string_buffer.h"
 
 IMPLEMENT
-unsigned
-Context::Vcpu_log::print(int maxlen, char *buf) const
+void
+Context::Vcpu_log::print(String_buffer *buf) const
 {
   switch (type)
     {
     case 0:
     case 4:
-      return snprintf(buf, maxlen, "%sret pc=%lx sp=%lx state=%lx task=D:%lx",
-	  type == 4 ? "f" : "", ip, sp, state, space);
+      buf->printf("%sret pc=%lx sp=%lx state=%lx task=D:%lx",
+                  type == 4 ? "f" : "", ip, sp, state, space);
+      break;
     case 1:
-      return snprintf(buf, maxlen, "ipc from D:%lx task=D:%lx sp=%lx",
-	  Kobject_dbg::pointer_to_id((Kobject*)ip), state, sp);
+      buf->printf("ipc from D:%lx task=D:%lx sp=%lx",
+                  Kobject_dbg::pointer_to_id((Kobject*)ip), state, sp);
+      break;
     case 2:
-      return snprintf(buf, maxlen, "exc #%x err=%lx pc=%lx sp=%lx state=%lx task=D:%lx",
-	  (unsigned)trap, err, ip, sp, state, space);
+      buf->printf("exc #%x err=%lx pc=%lx sp=%lx state=%lx task=D:%lx",
+                  (unsigned)trap, err, ip, sp, state, space);
+      break;
     case 3:
-      return snprintf(buf, maxlen, "pf  pc=%lx pfa=%lx state=%lx task=D:%lx",
-	  ip, sp, state, space);
+      buf->printf("pf  pc=%lx pfa=%lx state=%lx task=D:%lx", ip, sp, state, space);
+      break;
     default:
-      return snprintf(buf, maxlen, "unknown");
+      buf->printf("vcpu: unknown");
+      break;
     }
 }
 

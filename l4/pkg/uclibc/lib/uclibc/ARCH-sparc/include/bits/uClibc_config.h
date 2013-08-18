@@ -64,6 +64,15 @@
 #undef __CONFIG_CYRIXIII__
 #undef __CONFIG_NEHEMIAH__
 #define __TARGET_SUBARCH__ ""
+#ifdef __sparc_v7__
+#define __CONFIG_SPARC_V7__
+#endif
+#ifdef __sparc_v8__
+#define __CONFIG_SPARC_V8__
+#endif
+#ifdef __sparc_v9__
+#define __CONFIG_SPARC_V9__
+#endif
 
 /* Using ELF file format */
 #define __ARCH_LITTLE_ENDIAN__ 1

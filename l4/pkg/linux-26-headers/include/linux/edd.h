@@ -30,6 +30,8 @@
 #ifndef _LINUX_EDD_H
 #define _LINUX_EDD_H
 
+#include <linux/types.h>
+
 #define EDDNR 0x1e9		/* addr of number of edd_info structs at EDDBUF
 				   in boot_params - treat this as 1 byte  */
 #define EDDBUF	0xd00		/* addr of edd_info structs in boot_params */
@@ -184,9 +186,6 @@ struct edd {
 	unsigned char edd_info_nr;
 };
 
-#ifdef __KERNEL__
-extern struct edd edd;
-#endif /* __KERNEL__ */
 #endif				/*!__ASSEMBLY__ */
 
-#endif				/* _LINUX_EDD_H */
+#endif /* _LINUX_EDD_H */

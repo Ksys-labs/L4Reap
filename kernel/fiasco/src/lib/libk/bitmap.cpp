@@ -208,7 +208,7 @@ class Bitmap : public Bitmap_base< (BITS > sizeof(unsigned long) * 8), BITS >
 {
 public:
   Bitmap() {}
-  Bitmap(Bitmap const &o)
+  Bitmap(Bitmap const &o) : Bitmap_base< (BITS > sizeof(unsigned long) * 8), BITS >()
   { this->_copy(o); }
 
   Bitmap &operator = (Bitmap const &o)

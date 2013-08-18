@@ -117,18 +117,12 @@ Mem_space::has_superpages()
 }
 
 
-PUBLIC static inline NEEDS["mem_unit.h"]
+PUBLIC inline NEEDS["mem_unit.h"]
 void
 Mem_space::tlb_flush(bool = false)
 {
-  Mem_unit::tlb_flush();
-}
-
-PUBLIC static inline
-void
-Mem_space::tlb_flush_spaces(bool, Mem_space *, Mem_space *)
-{
-  tlb_flush();
+  if (_current.current() == this)
+    Mem_unit::tlb_flush();
 }
 
 

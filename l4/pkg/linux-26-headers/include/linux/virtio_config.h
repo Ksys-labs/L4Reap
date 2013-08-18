@@ -1,7 +1,30 @@
 #ifndef _LINUX_VIRTIO_CONFIG_H
 #define _LINUX_VIRTIO_CONFIG_H
 /* This header, excluding the #ifdef __KERNEL__ part, is BSD licensed so
- * anyone can use the definitions to implement compatible drivers/servers. */
+ * anyone can use the definitions to implement compatible drivers/servers.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of IBM nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL IBM OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE. */
 
 /* Virtio devices use a standardized configuration space to define their
  * features and pass configuration information, but each implementation can
@@ -28,103 +51,4 @@
  * suppressed them? */
 #define VIRTIO_F_NOTIFY_ON_EMPTY	24
 
-#ifdef __KERNEL__
-#include <linux/virtio.h>
-
-/**
- * virtio_config_ops - operations for configuring a virtio device
- * @get: read the value of a configuration field
- *	vdev: the virtio_device
- *	offset: the offset of the configuration field
- *	buf: the buffer to write the field value into.
- *	len: the length of the buffer
- * @set: write the value of a configuration field
- *	vdev: the virtio_device
- *	offset: the offset of the configuration field
- *	buf: the buffer to read the field value from.
- *	len: the length of the buffer
- * @get_status: read the status byte
- *	vdev: the virtio_device
- *	Returns the status byte
- * @set_status: write the status byte
- *	vdev: the virtio_device
- *	status: the new status byte
- * @reset: reset the device
- *	vdev: the virtio device
- *	After this, status and feature negotiation must be done again
- * @find_vq: find a virtqueue and instantiate it.
- *	vdev: the virtio_device
- *	index: the 0-based virtqueue number in case there's more than one.
- *	callback: the virqtueue callback
- *	Returns the new virtqueue or ERR_PTR() (eg. -ENOENT).
- * @del_vq: free a virtqueue found by find_vq().
- * @get_features: get the array of feature bits for this device.
- *	vdev: the virtio_device
- *	Returns the first 32 feature bits (all we currently need).
- * @finalize_features: confirm what device features we'll be using.
- *	vdev: the virtio_device
- *	This gives the final feature bits for the device: it can change
- *	the dev->feature bits if it wants.
- */
-struct virtio_config_ops
-{
-	void (*get)(struct virtio_device *vdev, unsigned offset,
-		    void *buf, unsigned len);
-	void (*set)(struct virtio_device *vdev, unsigned offset,
-		    const void *buf, unsigned len);
-	u8 (*get_status)(struct virtio_device *vdev);
-	void (*set_status)(struct virtio_device *vdev, u8 status);
-	void (*reset)(struct virtio_device *vdev);
-	struct virtqueue *(*find_vq)(struct virtio_device *vdev,
-				     unsigned index,
-				     void (*callback)(struct virtqueue *));
-	void (*del_vq)(struct virtqueue *vq);
-	u32 (*get_features)(struct virtio_device *vdev);
-	void (*finalize_features)(struct virtio_device *vdev);
-};
-
-/* If driver didn't advertise the feature, it will never appear. */
-void virtio_check_driver_offered_feature(const struct virtio_device *vdev,
-					 unsigned int fbit);
-
-/**
- * virtio_has_feature - helper to determine if this device has this feature.
- * @vdev: the device
- * @fbit: the feature bit
- */
-static inline bool virtio_has_feature(const struct virtio_device *vdev,
-				      unsigned int fbit)
-{
-	/* Did you forget to fix assumptions on max features? */
-	if (__builtin_constant_p(fbit))
-		BUILD_BUG_ON(fbit >= 32);
-
-	virtio_check_driver_offered_feature(vdev, fbit);
-	return test_bit(fbit, vdev->features);
-}
-
-/**
- * virtio_config_val - look for a feature and get a virtio config entry.
- * @vdev: the virtio device
- * @fbit: the feature bit
- * @offset: the type to search for.
- * @val: a pointer to the value to fill in.
- *
- * The return value is -ENOENT if the feature doesn't exist.  Otherwise
- * the config value is copied into whatever is pointed to by v. */
-#define virtio_config_val(vdev, fbit, offset, v) \
-	virtio_config_buf((vdev), (fbit), (offset), (v), sizeof(*v))
-
-static inline int virtio_config_buf(struct virtio_device *vdev,
-				    unsigned int fbit,
-				    unsigned int offset,
-				    void *buf, unsigned len)
-{
-	if (!virtio_has_feature(vdev, fbit))
-		return -ENOENT;
-
-	vdev->config->get(vdev, offset, buf, len);
-	return 0;
-}
-#endif /* __KERNEL__ */
 #endif /* _LINUX_VIRTIO_CONFIG_H */

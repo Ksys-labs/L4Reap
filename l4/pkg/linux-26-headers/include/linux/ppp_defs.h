@@ -1,41 +1,13 @@
 /*
  * ppp_defs.h - PPP definitions.
  *
- * Copyright (c) 1994 The Australian National University.
- * All rights reserved.
+ * Copyright 1994-2000 Paul Mackerras.
  *
- * Permission to use, copy, modify, and distribute this software and its
- * documentation is hereby granted, provided that the above copyright
- * notice appears in all copies.  This software is provided without any
- * warranty, express or implied. The Australian National University
- * makes no representations about the suitability of this software for
- * any purpose.
- *
- * IN NO EVENT SHALL THE AUSTRALIAN NATIONAL UNIVERSITY BE LIABLE TO ANY
- * PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
- * ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
- * THE AUSTRALIAN NATIONAL UNIVERSITY HAVE BEEN ADVISED OF THE POSSIBILITY
- * OF SUCH DAMAGE.
- *
- * THE AUSTRALIAN NATIONAL UNIVERSITY SPECIFICALLY DISCLAIMS ANY WARRANTIES,
- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
- * AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
- * ON AN "AS IS" BASIS, AND THE AUSTRALIAN NATIONAL UNIVERSITY HAS NO
- * OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
- * OR MODIFICATIONS.
+ *  This program is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License
+ *  version 2 as published by the Free Software Foundation.
  */
-
-/*
- *  ==FILEVERSION 20000114==
- *
- *  NOTE TO MAINTAINERS:
- *     If you modify this file at all, please set the above date.
- *     ppp_defs.h is shipped with a PPP distribution as well as with the kernel;
- *     if everyone increases the FILEVERSION number above, then scripts
- *     can do the right thing when deciding whether to install a new ppp_defs.h
- *     file.  Don't change the format of that line otherwise, so the
- *     installation script can recognize it.
- */
+#include <linux/types.h>
 
 #ifndef _PPP_DEFS_H_
 #define _PPP_DEFS_H_
@@ -94,10 +66,6 @@
 #define PPP_INITFCS	0xffff	/* Initial FCS value */
 #define PPP_GOODFCS	0xf0b8	/* Good final FCS value */
 
-#ifdef __KERNEL__
-#include <linux/crc-ccitt.h>
-#define PPP_FCS(fcs, c) crc_ccitt_byte(fcs, c)
-#endif
 
 /*
  * Extended asyncmap - allows any character to be escaped.
@@ -175,8 +143,8 @@ struct ppp_comp_stats {
  * the last NP packet was sent or received.
  */
 struct ppp_idle {
-    time_t xmit_idle;		/* time since last NP packet sent */
-    time_t recv_idle;		/* time since last NP packet received */
+    __kernel_time_t xmit_idle;	/* time since last NP packet sent */
+    __kernel_time_t recv_idle;	/* time since last NP packet received */
 };
 
 #endif /* _PPP_DEFS_H_ */

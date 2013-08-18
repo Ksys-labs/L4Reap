@@ -10,7 +10,7 @@ TARGET          = $(shell (cd $(INCSRC_DIR) && find . -type f -not -name 'Make*'
 
 LIBSUPC_H            := exception new typeinfo cxxabi.h
 LIBSUPC_H-4.6_PLUS-  := exception_defines.h cxxabi-forced.h
-LIBSUPC_H-4.6_PLUS-y := bits/exception_defines.h bits/cxxabi_forced.h bits/hash_bytes.h
+LIBSUPC_H-4.6_PLUS-y := bits/exception_defines.h bits/cxxabi_forced.h cxxabi_forced.h bits/hash_bytes.h
 LIBSUPC_H-4.7_PLUS-y += bits/atomic_lockfree_defines.h
 
 ALLOCATOR_H        := config/allocator/new_allocator_base.h
@@ -56,7 +56,7 @@ install_config_header = $(call install_header, $(1), bits/$(strip $(2)))
 
 cpu_header = $(word 1,$(wildcard $(SRCDIR_X)/$(CPU_H_arch)/$(strip $(1)) $(SRCDIR_X)/$(CPU_H_generic)/$(strip $(1))))
 
-install_cpu_header = $(VERBOSE)$(if $(call cpu_header,$(1)),$(LN) -sf $(call cpu_header,$(1)) $(INSTALL_INCDIR_X)/bits/$(strip $(1)))
+install_cpu_header = $(VERBOSE)$(if $(call cpu_header,$(1)),$(LN) -sf $(call cpu_header,$(1)) $(INSTALL_INCDIR_X)/bits/$(strip $(notdir $(1))))
 
 LIBSUPC_H += $(foreach V,$(STDCXX_AVAILABLE_VERSIONS),$(LIBSUPC_H-$(V)_PLUS-$(STDCXX_CONTRIB_VERSION_$(V)_PLUS)))
 
@@ -87,6 +87,7 @@ all:: $(INSTALL_INCDIR_X) $(LIBSUPC_HI) $(STDCXX_CSTD_HEADERS_ABS)
 	$(call install_cpu_header, atomic_word.h)
 	$(call install_cpu_header, cpu_defines.h)
 	$(call install_cpu_header, cxxabi_tweaks.h)
+	$(call install_cpu_header, opt/bits/opt_random.h)
 	$(VERBOSE)$(foreach H,$(CTYPE_HEADERS), $(call install_header_x, $(H), bits/$(notdir $(H))); )
 	$(VERBOSE)$(call install_config_header, $(TIME_MEMBERS_H),  time_members.h)
 	$(VERBOSE)$(call install_config_header, $(MESSAGES_MEMBERS_H),  messages_members.h)

@@ -12,6 +12,16 @@ Kernel_irq_pin::unbind()
 int
 Kernel_irq_pin::bind(L4::Cap<L4::Irq> irq, unsigned mode)
 {
+  if (mode != L4_IRQ_F_NONE)
+    {
+      //printf(" IRQ[%x]: mode=%x ... ", n, mode);
+      int err = l4_error(system_icu()->icu->set_mode(_idx, mode));
+      //printf("result=%d\n", err);
+
+      if (err < 0)
+        return err;
+    }
+
   int err = l4_error(system_icu()->icu->bind(_idx, irq));
 
   // allow sharing if IRQ must be acknowledged via the IRQ object 
@@ -20,10 +30,6 @@ Kernel_irq_pin::bind(L4::Cap<L4::Irq> irq, unsigned mode)
 
   if (err < 0)
     return err;
-
-  // printf(" IRQ[%x]: mode=%x ... ", n, mode);
-  err = l4_error(system_icu()->icu->set_mode(_idx, mode));
-  // printf("result=%d\n", err);
 
   return err;
 }

@@ -56,20 +56,5 @@ struct sonet_stats {
 #define SONET_FRSENSE_SIZE 6		/* C1[3],H1[3] (0xff for unknown) */
 
 
-#ifdef __KERNEL__
 
-#include <asm/atomic.h>
-
-struct k_sonet_stats {
-#define __HANDLE_ITEM(i) atomic_t i
-	__SONET_ITEMS
-#undef __HANDLE_ITEM
-};
-
-extern void sonet_copy_stats(struct k_sonet_stats *from,struct sonet_stats *to);
-extern void sonet_subtract_stats(struct k_sonet_stats *from,
-    struct sonet_stats *to);
-
-#endif
-
-#endif
+#endif /* LINUX_SONET_H */

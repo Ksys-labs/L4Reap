@@ -49,8 +49,9 @@ Jdb_sender_list::show_sender_list(Prio_list *t, int printlines)
       Prio_list::S_list::Iterator s = Prio_list::S_list::iter(*p);
       do
         {
-          Thread *ts = static_cast<Thread *>(Sender::cast(*s));
-          printf("%s %lx", *s == *p ? "" : ",", ts->dbg_info()->dbg_id());
+          Kobject_dbg::Iterator ts = Kobject_dbg::pointer_to_obj(*s);
+          printf("%s %lx", *s == *p ? "" : ",",
+                 ts != Kobject_dbg::end() ? ts->dbg_id() : ~0UL);
           ++s;
         } while (*s != *p);
       puts("");

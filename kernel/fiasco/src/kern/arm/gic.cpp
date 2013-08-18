@@ -107,35 +107,57 @@ void Gic::softint_bcast(unsigned m)
 
 PRIVATE
 void
-Gic::cpu_init()
+Gic::cpu_init(bool resume)
 {
+  Mword sec_irqs;
+
+  if (Config_tz_sec)
+    sec_irqs = 0x00000f00;
+
   Io::write<Mword>(0, _cpu_base + CPU_CTRL);
 
-  Io::write<Mword>(0xffffffff, _dist_base + DIST_ENABLE_CLEAR);
-  if (Config_tz_sec)
+  if (!resume)
     {
-      Io::write<Mword>(0x00000f00, _dist_base + DIST_ENABLE_SET);
-      Io::write<Mword>(0xfffff0ff, _dist_base + GICD_IGROUPR);
+      // do not touch the distrubutor on cpu resume
+      Io::write<Mword>(0xffffffff, _dist_base + DIST_ENABLE_CLEAR);
+      if (Config_tz_sec)
+        {
+          Io::write<Mword>(0x00000f00, _dist_base + DIST_ENABLE_SET);
+          Io::write<Mword>(~sec_irqs, _dist_base + GICD_IGROUPR);
+        }
+      else
+        {
+          Io::write<Mword>(0x0000001e, _dist_base + DIST_ENABLE_SET);
+          Io::write<Mword>(0, _dist_base + GICD_IGROUPR);
+        }
+
+      Io::write<Mword>(0xffffffff, _dist_base + DIST_CLR_PENDING);
+
+      Io::write<Mword>(0xffffffff, _dist_base + 0x380); // clear active
+      Io::write<Mword>(0xffffffff, _dist_base + 0xf10); // sgi pending clear
+      Io::write<Mword>(0xffffffff, _dist_base + 0xf14); // sgi pending clear
+      Io::write<Mword>(0xffffffff, _dist_base + 0xf18); // sgi pending clear
+      Io::write<Mword>(0xffffffff, _dist_base + 0xf1c); // sgi pending clear
+
+      for (unsigned g = 0; g < 32; g += 4)
+        {
+          Mword v = 0;
+          if (Config_tz_sec)
+            {
+              unsigned b = (sec_irqs >> g) & 0xf;
+
+              for (int i = 0; i < 4; ++i)
+                if (b & (1 << i))
+                  v |= 0x40 << (i * 8);
+                else
+                  v |= 0xa0 << (i * 8);
+            }
+          else
+            v = 0xa0a0a0a0;
+
+          Io::write<Mword>(v, _dist_base + DIST_PRI + g);
+        }
     }
-  else
-    {
-      Io::write<Mword>(0x0000001e, _dist_base + DIST_ENABLE_SET);
-      Io::write<Mword>(0, _dist_base + GICD_IGROUPR);
-    }
-
-  Io::write<Mword>(0xffffffff, _dist_base + DIST_CLR_PENDING);
-
-  Io::write<Mword>(0xffffffff, _dist_base + 0x380); // clear active
-  Io::write<Mword>(0xffffffff, _dist_base + 0xf10); // sgi pending clear
-  Io::write<Mword>(0xffffffff, _dist_base + 0xf14); // sgi pending clear
-  Io::write<Mword>(0xffffffff, _dist_base + 0xf18); // sgi pending clear
-  Io::write<Mword>(0xffffffff, _dist_base + 0xf1c); // sgi pending clear
-
-  for (unsigned i = 0; i < 32; i += 4)
-    Io::write<Mword>(0xa0a0a0a0, _dist_base + DIST_PRI + i);
-
-  if (Config_tz_sec)
-    Io::write<Mword>(0x40404040, _dist_base + DIST_PRI + 8);
 
   Io::write<Mword>(CPU_CTRL_ENABLE | (Config_tz_sec ? CPU_CTRL_USE_FIQ_FOR_SEC : 0), _cpu_base + CPU_CTRL);
   Io::write<Mword>(0xf0, _cpu_base + CPU_PRIMASK);
@@ -143,9 +165,9 @@ Gic::cpu_init()
 
 PUBLIC
 void
-Gic::init_ap()
+Gic::init_ap(bool resume)
 {
-  cpu_init();
+  cpu_init(resume);
 }
 
 PUBLIC
@@ -154,7 +176,7 @@ Gic::init(bool primary_gic, int nr_irqs_override = -1)
 {
   if (!primary_gic)
     {
-      cpu_init();
+      cpu_init(false);
       return 0;
     }
 
@@ -204,7 +226,7 @@ Gic::init(bool primary_gic, int nr_irqs_override = -1)
       Io::write<Mword>(0xf0, _dist_base + MXC_TZIC_PRIOMASK);
     }
   else
-    cpu_init();
+    cpu_init(false);
 
   return num;
 }
@@ -315,31 +337,35 @@ Gic::cascade_hit(Irq_base *_self, Upstream_irq const *u)
 }
 
 //-------------------------------------------------------------------
+IMPLEMENTATION [arm && !arm_em_tz]:
+
+PUBLIC
+bool
+Gic::alloc(Irq_base *irq, Mword pin)
+{
+  // allow local irqs to be allocated on each CPU
+  return (pin < 32 && irq->chip() == this && irq->pin() == pin) || Irq_chip_gen::alloc(irq, pin);
+}
+
+//-------------------------------------------------------------------
 IMPLEMENTATION [arm && arm_em_tz]:
 
 PUBLIC
 bool
 Gic::alloc(Irq_base *irq, Mword pin)
 {
-  if (Irq_chip_gen::alloc(irq, pin))
+  if ((pin < 32 && irq->chip() == this && irq->pin() == pin) || Irq_chip_gen::alloc(irq, pin))
     {
       printf("GIC: Switching IRQ %ld to secure\n", pin);
 
       unsigned shift = (pin & 3) * 8;
 
-      if (pin < 32)
-        {
-          assert(((Io::read<Mword>(_dist_base + GICD_IGROUPR) >> pin) & 1) == 0);
-          assert(((Io::read<Mword>(_dist_base + DIST_PRI + (pin & ~3)) >> shift) & 0xff) == 0x40);
-        }
-      else
-        {
-          Io::clear<Mword>(1UL << (pin & 0x1f),
-                           _dist_base + GICD_IGROUPR + (pin & ~0x1f) / 8);
+      Io::clear<Mword>(1UL << (pin & 0x1f),
+                       _dist_base + GICD_IGROUPR + (pin & ~0x1f) / 8);
 
-          Io::modify<Mword>(0x40 << shift, 0xff << shift,
-                            _dist_base + DIST_PRI + (pin & ~3));
-        }
+      Io::modify<Mword>(0x40 << shift, 0xff << shift,
+                        _dist_base + DIST_PRI + (pin & ~3));
+
       return true;
     }
   return false;

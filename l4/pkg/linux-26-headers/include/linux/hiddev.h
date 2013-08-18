@@ -1,12 +1,8 @@
-#ifndef _HIDDEV_H
-#define _HIDDEV_H
-
 /*
  *  Copyright (c) 1999-2000 Vojtech Pavlik
  *
  *  Sponsored by SuSE
  */
-
 /*
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +22,12 @@
  * e-mail - mail your message to <vojtech@suse.cz>, or by paper mail:
  * Vojtech Pavlik, Ucitelska 1576, Prague 8, 182 00 Czech Republic
  */
+#ifndef _HIDDEV_H
+#define _HIDDEV_H
+
+
+
+#include <linux/types.h>
 
 /*
  * The event structure itself
@@ -182,57 +184,29 @@ struct hiddev_usage_ref_multi {
 /* To traverse the input report descriptor info for a HID device, perform the 
  * following:
  *
- *  rinfo.report_type = HID_REPORT_TYPE_INPUT;
- *  rinfo.report_id = HID_REPORT_ID_FIRST;
- *  ret = ioctl(fd, HIDIOCGREPORTINFO, &rinfo);
+ * rinfo.report_type = HID_REPORT_TYPE_INPUT;
+ * rinfo.report_id = HID_REPORT_ID_FIRST;
+ * ret = ioctl(fd, HIDIOCGREPORTINFO, &rinfo);
  *
- *  while (ret >= 0) {
- *      for (i = 0; i < rinfo.num_fields; i++) { 
- *	    finfo.report_type = rinfo.report_type;
- *          finfo.report_id = rinfo.report_id;
- *          finfo.field_index = i;
- *          ioctl(fd, HIDIOCGFIELDINFO, &finfo);
- *          for (j = 0; j < finfo.maxusage; j++) {
- *              uref.field_index = i;
- *		uref.usage_index = j;
- *		ioctl(fd, HIDIOCGUCODE, &uref);
- *		ioctl(fd, HIDIOCGUSAGE, &uref);
- *          }
- *	}
- *	rinfo.report_id |= HID_REPORT_ID_NEXT;
- *	ret = ioctl(fd, HIDIOCGREPORTINFO, &rinfo);
- *  }
+ * while (ret >= 0) {
+ * 	for (i = 0; i < rinfo.num_fields; i++) {
+ * 		finfo.report_type = rinfo.report_type;
+ * 		finfo.report_id = rinfo.report_id;
+ * 		finfo.field_index = i;
+ * 		ioctl(fd, HIDIOCGFIELDINFO, &finfo);
+ * 		for (j = 0; j < finfo.maxusage; j++) {
+ * 			uref.report_type = rinfo.report_type;
+ * 			uref.report_id = rinfo.report_id;
+ * 			uref.field_index = i;
+ * 			uref.usage_index = j;
+ * 			ioctl(fd, HIDIOCGUCODE, &uref);
+ * 			ioctl(fd, HIDIOCGUSAGE, &uref);
+ * 		}
+ * 	}
+ * 	rinfo.report_id |= HID_REPORT_ID_NEXT;
+ * 	ret = ioctl(fd, HIDIOCGREPORTINFO, &rinfo);
+ * }
  */
 
 
-#ifdef __KERNEL__
-
-/*
- * In-kernel definitions.
- */
-
-struct hid_device;
-struct hid_usage;
-struct hid_field;
-struct hid_report;
-
-#ifdef CONFIG_USB_HIDDEV
-int hiddev_connect(struct hid_device *);
-void hiddev_disconnect(struct hid_device *);
-void hiddev_hid_event(struct hid_device *hid, struct hid_field *field,
-		      struct hid_usage *usage, __s32 value);
-void hiddev_report_event(struct hid_device *hid, struct hid_report *report);
-int __init hiddev_init(void);
-void hiddev_exit(void);
-#else
-static inline int hiddev_connect(struct hid_device *hid) { return -1; }
-static inline void hiddev_disconnect(struct hid_device *hid) { }
-static inline void hiddev_hid_event(struct hid_device *hid, struct hid_field *field,
-		      struct hid_usage *usage, __s32 value) { }
-static inline void hiddev_report_event(struct hid_device *hid, struct hid_report *report) { }
-static inline int hiddev_init(void) { return 0; }
-static inline void hiddev_exit(void) { }
-#endif
-
-#endif
-#endif
+#endif /* _HIDDEV_H */

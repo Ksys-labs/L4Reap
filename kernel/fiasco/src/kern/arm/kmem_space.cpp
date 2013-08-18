@@ -3,15 +3,17 @@ INTERFACE [arm]:
 #include "paging.h"
 #include "mem_layout.h"
 
+typedef Pdir Kpdir;
+
 class Kmem_space : public Mem_layout
 {
 public:
   static void init();
   static void init_hw();
-  static Pdir *kdir();
+  static Kpdir *kdir();
 
 private:
-  static Pdir *_kdir;
+  static Kpdir *_kdir;
 };
 
 //---------------------------------------------------------------------------
@@ -27,7 +29,7 @@ IMPLEMENTATION [arm]:
 #include <cstdio>
 
 IMPLEMENT inline
-Pdir *Kmem_space::kdir()
+Kpdir *Kmem_space::kdir()
 { return _kdir; }
 
 // initialze the kernel space (page table)
@@ -50,13 +52,13 @@ char kernel_page_directory[0x4000] __attribute__((aligned(0x4000), section(".bss
 //----------------------------------------------------------------------------------
 IMPLEMENTATION[arm && !arm_lpae]:
 
-Pdir *Kmem_space::_kdir = (Pdir*)&kernel_page_directory;
+Kpdir *Kmem_space::_kdir = (Kpdir*)&kernel_page_directory;
 
 //----------------------------------------------------------------------------------
 IMPLEMENTATION[arm && arm_lpae]:
 
 Unsigned64 kernel_lpae_dir[4] __attribute__((aligned(4*sizeof(Unsigned64))));
-Pdir *Kmem_space::_kdir = (Pdir*)&kernel_lpae_dir;
+Kpdir *Kmem_space::_kdir = (Kpdir*)&kernel_lpae_dir;
 
 
 

@@ -28,10 +28,15 @@ Thread::invoke_arch(L4_msg_tag tag, Utcb *utcb)
 {
   switch (utcb->values[0] & Opcode_mask)
     {
-    case Op_set_fs_amd64:
+    case Op_set_segment_base_amd64:
       if (tag.words() < 2)
 	return commit_result(-L4_err::EInval);
-      _fs_base = utcb->values[1];
+      switch (utcb->values[0] >> 16)
+        {
+        case 0:  _fs_base = utcb->values[1]; break;
+        case 1:  _gs_base = utcb->values[1]; break;
+        default: return commit_result(-L4_err::EInval);
+        }
       if (current() == this)
         load_segments();
       return Kobject_iface::commit_result(0);
@@ -250,6 +255,9 @@ Thread::call_nested_trap_handler(Trap_state *ts)
        [stack] "r" (stack),
        [handler] "m" (nested_trap_handler)
      : "rdx", "rcx", "r8", "r9", "memory");
+
+  if (!ntr)
+    handle_global_requests();
 
   return ret == 0 ? 0 : -1;
 }

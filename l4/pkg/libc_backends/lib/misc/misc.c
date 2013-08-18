@@ -448,3 +448,10 @@ int shmdt(const void *shmaddr)
   errno = ENOSYS;
   return -1;
 }
+
+int getrusage(int who, struct rusage* usage)
+{
+	(void)who; (void)usage;
+	errno = EINVAL;
+	return -1;
+}

@@ -10,8 +10,9 @@
 #ifndef __LINUX_IF_ADDRLABEL_H
 #define __LINUX_IF_ADDRLABEL_H
 
-struct ifaddrlblmsg
-{
+#include <linux/types.h>
+
+struct ifaddrlblmsg {
 	__u8		ifal_family;		/* Address family */
 	__u8		__ifal_reserved;	/* Reserved */
 	__u8		ifal_prefixlen;		/* Prefix length */
@@ -20,8 +21,7 @@ struct ifaddrlblmsg
 	__u32		ifal_seq;		/* sequence number */
 };
 
-enum
-{
+enum {
 	IFAL_ADDRESS = 1,
 	IFAL_LABEL = 2,
 	__IFAL_MAX

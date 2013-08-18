@@ -65,7 +65,7 @@ public:
 private:
   static char  _search_str[40];
   static char  _filter_str[40];
-  static char  _buffer_str[512];
+  static String_buf<512> _buffer_str;
   static Mword _status_type;
   static Mword _absy;
   static Mword _nr_cur;
@@ -107,7 +107,7 @@ private:
 
 char  Jdb_tbuf_show::_search_str[40];
 char  Jdb_tbuf_show::_filter_str[40];
-char  Jdb_tbuf_show::_buffer_str[512];
+String_buf<512> Jdb_tbuf_show::_buffer_str;
 Mword Jdb_tbuf_show::_status_type;
 Mword Jdb_tbuf_show::_absy;
 Mword Jdb_tbuf_show::_nr_cur;
@@ -409,6 +409,7 @@ Jdb_tbuf_show::show_events(Mword n, Mword ref, Mword count, Unsigned8 mode,
       Unsigned32 kclock, upmc1, upmc2;
 
       Kconsole::console()->getchar_chance();
+      _buffer_str.reset();
 
       if (!Jdb_tbuf::event(n, &number, &kclock, &utsc, &upmc1, &upmc2))
 	break;
@@ -416,7 +417,7 @@ Jdb_tbuf_show::show_events(Mword n, Mword ref, Mword count, Unsigned8 mode,
       if (long_output)
 	{
 	  char s[3];
-	  Jdb_tbuf_output::print_entry(n, _buffer_str, sizeof(_buffer_str));
+	  Jdb_tbuf_output::print_entry(&_buffer_str, n);
 
 	  if (!Jdb_tbuf::diff_tsc(n, &dtsc))
 	    dtsc = 0;
@@ -438,81 +439,83 @@ Jdb_tbuf_show::show_events(Mword n, Mword ref, Mword count, Unsigned8 mode,
 		  }
 	    }
 
-	  char s_tsc_dc[13], s_tsc_ds[15], s_tsc_sc[13], s_tsc_ss[15];
-	  Jdb::write_ll_dec(dtsc, s_tsc_dc, sizeof(s_tsc_dc), false);
-	  Jdb::write_tsc_s (dtsc, s_tsc_ds, sizeof(s_tsc_ds), false);
-	  Jdb::write_ll_dec(utsc, s_tsc_sc, sizeof(s_tsc_sc), false);
-	  Jdb::write_tsc_s (utsc, s_tsc_ss, sizeof(s_tsc_ss), false);
+          String_buf<13> s_tsc_dc;
+          String_buf<15> s_tsc_ds;
+          String_buf<13> s_tsc_sc;
+          String_buf<15> s_tsc_ss;
+	  Jdb::write_ll_dec(&s_tsc_dc, dtsc, false); s_tsc_dc.terminate();
+	  Jdb::write_tsc_s (&s_tsc_ds, dtsc, false); s_tsc_ds.terminate();
+	  Jdb::write_ll_dec(&s_tsc_sc, utsc, false); s_tsc_sc.terminate();
+	  Jdb::write_tsc_s (&s_tsc_ss, utsc, false); s_tsc_ss.terminate();
 
 	  printf("%-3s%10lu.  %120.120s %13.13s (%14.14s)  %13.13s (%14.14s) kclk=%d\n",
-		 s, number, _buffer_str+y_offset, s_tsc_dc, s_tsc_ds, s_tsc_sc, s_tsc_ss, kclock);
+	         s, number, _buffer_str.begin()+y_offset, s_tsc_dc.begin(), s_tsc_ds.begin(),
+                 s_tsc_sc.begin(), s_tsc_ss.begin(), kclock);
 	}
       else
 	{
-	  char s[13];
-	  Jdb_tbuf_output::print_entry(n, _buffer_str, sizeof(_buffer_str));
+	  String_buf<13> s;
+	  Jdb_tbuf_output::print_entry(&_buffer_str, n);
 	  switch (mode)
 	    {
 	    case Index_mode:
-	      snprintf(s, sizeof(s), "%12lu", number);
+              s.printf("%12lu", number);
 	      break;
 	    case Tsc_delta_mode:
 	      if (!Jdb_tbuf::diff_tsc(n, &dtsc))
 		dtsc = 0;
 	      switch (time_mode)
 		{
-		case 0: Jdb::write_ll_hex(dtsc, s, sizeof(s), false); break;
-		case 1: Jdb::write_tsc   (dtsc, s, sizeof(s), false); break;
-		case 2: Jdb::write_ll_dec(dtsc, s, sizeof(s), false); break;
+		case 0: Jdb::write_ll_hex(&s, dtsc, false); break;
+		case 1: Jdb::write_tsc   (&s, dtsc, false); break;
+		case 2: Jdb::write_ll_dec(&s, dtsc, false); break;
 		}
 	      break;
 	    case Tsc_ref_mode:
 	      dtsc = (n == ref) ? 0 : utsc - ref_tsc;
 	      switch (time_mode)
 		{
-		case 0: Jdb::write_ll_hex(dtsc, s, sizeof(s), true); break;
-		case 1: Jdb::write_tsc   (dtsc, s, sizeof(s), true); break;
-		case 2: Jdb::write_ll_dec(dtsc, s, sizeof(s), true); break;
+		case 0: Jdb::write_ll_hex(&s, dtsc, true); break;
+		case 1: Jdb::write_tsc   (&s, dtsc, true); break;
+		case 2: Jdb::write_ll_dec(&s, dtsc, true); break;
 		}
 	      break;
 	    case Tsc_start_mode:
 	      dtsc = utsc;
 	      switch (time_mode)
 		{
-		case 0: Jdb::write_ll_hex(dtsc, s, sizeof(s), true); break;
-		case 1: Jdb::write_tsc   (dtsc, s, sizeof(s), false); break;
-		case 2: Jdb::write_ll_dec(dtsc, s, sizeof(s), true); break;
+		case 0: Jdb::write_ll_hex(&s, dtsc, true); break;
+		case 1: Jdb::write_tsc   (&s, dtsc, false); break;
+		case 2: Jdb::write_ll_dec(&s, dtsc, true); break;
 		}
 	      break;
 	    case Kclock_ref_mode:
 	      if (kclock == ref_kclock)
-		snprintf(s, sizeof(s), "%12u", 0);
+		s.printf("%12u", 0);
 	      else
 		{
 		  if (time_mode != 1)
-		    Jdb::write_ll_hex((Unsigned64)kclock-ref_kclock,
-			              s, sizeof(s), true);
+		    Jdb::write_ll_hex(&s, (Unsigned64)kclock-ref_kclock, true);
 		  else
-  		    snprintf(s, sizeof(s), "%+12d", kclock-ref_kclock);
+  		    s.printf("%+12d", kclock-ref_kclock);
 		}
 	      break;
 	    case Kclock_start_mode:
-	      snprintf(s, sizeof(s), time_mode != 1 ? "%012x" : "%12u", 
-		       kclock);
+	      s.printf(time_mode != 1 ? "%012x" : "%12u", kclock);
 	      break;
 	    case Pmc1_delta_mode:
 	    case Pmc2_delta_mode:
 	      if (!Jdb_tbuf::diff_pmc(n, (mode-Pmc1_delta_mode), &dpmc))
 		dpmc = 0;
-	      Jdb::write_ll_dec((Signed64)dpmc, s, sizeof(s), false);
+	      Jdb::write_ll_dec(&s, (Signed64)dpmc, false);
 	      break;
 	    case Pmc1_ref_mode:
 	      dpmc = (n == ref) ? 0 : upmc1 - ref_pmc1;
-	      Jdb::write_ll_dec((Signed64)dpmc, s, sizeof(s), true);
+	      Jdb::write_ll_dec(&s, (Signed64)dpmc, true);
 	      break;
 	    case Pmc2_ref_mode:
 	      dpmc = (n == ref) ? 0 : upmc2 - ref_pmc2;
-	      Jdb::write_ll_dec((Signed64)dpmc, s, sizeof(s), true);
+	      Jdb::write_ll_dec(&s, (Signed64)dpmc, true);
 	      break;
 	    }
 
@@ -530,7 +533,7 @@ Jdb_tbuf_show::show_events(Mword n, Mword ref, Mword count, Unsigned8 mode,
 	    }
 	  printf("%s%-*.*s %12s\033[m%s",
 	         c, Jdb_screen::width()-13, (int)Jdb_screen::width()-13,
-		 _buffer_str+y_offset, s, count != 1 ? "\n" : "");
+		 _buffer_str.begin() + y_offset, s.begin(), count != 1 ? "\n" : "");
 	}
        n++;
     }
@@ -554,7 +557,8 @@ Jdb_tbuf_show::search(Mword start, Mword entries, const char *str,
 
   for (Mword n=direction==1 ? start-1 : start+1; ; (direction==1) ? n-- : n++)
     {
-      static char buffer[120];
+      static String_buf<256> buffer;
+      buffer.reset();
 
       // don't cycle through entries more than once
       // (should not happen due to the following check)
@@ -571,7 +575,7 @@ Jdb_tbuf_show::search(Mword start, Mword entries, const char *str,
       if (!Jdb_tbuf::event_valid(n))
 	n = (direction==1) ? entries-1 : 0;
 
-      Jdb_tbuf_output::print_entry(n, buffer, sizeof(buffer));
+      Jdb_tbuf_output::print_entry(&buffer, n);
 
       // progress bar
       if ((n & 0x7f) == 0)
@@ -582,12 +586,12 @@ Jdb_tbuf_show::search(Mword start, Mword entries, const char *str,
 	  progress &= 3;
 	}
 
-      if (Jdb_regex::avail() && Jdb_regex::find(buffer, 0, 0))
+      if (Jdb_regex::avail() && Jdb_regex::find(buffer.begin(), 0, 0))
 	{
 	  found = n;
 	  break;
 	}
-      else if (strstr(buffer, str))
+      else if (strstr(buffer.begin(), str))
 	{
 	  found = n;
 	  break;

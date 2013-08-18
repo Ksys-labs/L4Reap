@@ -55,7 +55,7 @@
 #define HAVE_CTYPE_H 1
 #define HAVE_MATH_H 1
 /* #undef HAVE_ICONV_H */
-/* #undef HAVE_SIGNAL_H */
+#undef HAVE_SIGNAL_H
 
 #define HAVE_MALLOC 1
 #define HAVE_CALLOC 1
@@ -104,7 +104,7 @@
 #define HAVE_SNPRINTF 1
 #define HAVE_VSNPRINTF 1
 #define HAVE_ICONV 1
-#define HAVE_SIGACTION 1
+/* #undef HAVE_SIGACTION */
 #define HAVE_SETJMP 1
 #define HAVE_NANOSLEEP 1
 /* #undef HAVE_CLOCK_GETTIME */

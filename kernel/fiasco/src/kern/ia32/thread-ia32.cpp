@@ -62,7 +62,7 @@ Thread::Thread()
   _exc_handler(Thread_ptr::Invalid),
   _del_observer(0)
 {
-  assert (state(false) == Thread_invalid);
+  assert (state(false) == 0);
 
   inc_ref();
   _space.space(Kernel_task::kernel_task());
@@ -184,7 +184,7 @@ Thread::handle_slow_trap(Trap_state *ts)
 
   if (EXPECT_FALSE(ts->_trapno == 0xee)) //debug IPI
     {
-      Ipi::eoi(Ipi::Debug, cpu());
+      Ipi::eoi(Ipi::Debug, current_cpu());
       goto generic_debug;
     }
 
@@ -330,10 +330,11 @@ thread_page_fault(Address pfa, Mword error_code, Address ip, Mword flags,
     return false;
 #endif
 
+  Thread *t = current_thread();
   // Pagefault in user mode or interrupts were enabled
   if (PF::is_usermode_error(error_code))
     {
-      if (current_thread()->vcpu_pagefault(pfa, error_code, ip))
+      if (t->vcpu_pagefault(pfa, error_code, ip))
         return 1;
 
       Proc::sti();
@@ -369,7 +370,10 @@ thread_page_fault(Address pfa, Mword error_code, Address ip, Mword flags,
 	}
     }
 
-  return current_thread()->handle_page_fault(pfa, error_code, ip, regs);
+  if (t->vcpu_pagefault(pfa, error_code, ip))
+    return 1;
+
+  return t->handle_page_fault(pfa, error_code, ip, regs);
 }
 
 /** The catch-all trap entry point.  Called by assembly code when a 
@@ -481,7 +485,7 @@ PROTECTED inline
 void
 Thread::vcpu_resume_user_arch()
 {
-  switch_gdt_user_entries(this);
+  load_gdt_user_entries();
 }
 
 //----------------------------------------------------------------------------

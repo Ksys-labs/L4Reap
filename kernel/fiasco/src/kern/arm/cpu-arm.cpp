@@ -11,7 +11,7 @@ EXTENSION
 class Cpu
 {
 public:
-  void init(bool is_boot_cpu = false);
+  void init(bool resume, bool is_boot_cpu);
 
   static void early_init();
 
@@ -42,6 +42,7 @@ public:
     Copro_dbg_model_v7            = 4,
   };
 
+  bool has_generic_timer() const { return (_cpu_id._pfr[1] & 0xf000) == 0x1000; }
   unsigned copro_dbg_model() const { return _cpu_id._dfr0 & 0xf; }
 
 private:
@@ -306,7 +307,7 @@ IMPLEMENTATION [arm]:
 #include "processor.h"
 #include "ram_quota.h"
 
-DEFINE_PER_CPU_P(0) Per_cpu<Cpu> Cpu::cpus(true);
+DEFINE_PER_CPU_P(0) Per_cpu<Cpu> Cpu::cpus(Per_cpu_data::Cpu_num);
 Cpu *Cpu::_boot_cpu;
 
 PUBLIC static inline
@@ -388,10 +389,10 @@ void Cpu::init_mmu()
       Pdir::Depth, true,
       Kmem_alloc::q_allocator(Ram_quota::root));
 
-  pte.create_page(Phys_mem_addr((unsigned long)&ivt_start), Page::Attr(Page::Rights::RWX(),
-        Page::Type::Normal(), Page::Kern::Global()));
-  pte.write_back_if(true);
-  Mem_unit::tlb_flush();
+  pte.create_page(Phys_mem_addr((unsigned long)&ivt_start),
+                  Page::Attr(Page::Rights::RWX(),
+                  Page::Type::Normal(), Page::Kern::Global()));
+  pte.write_back_if(true, Mem_unit::Asid_kernel);
 }
 
 PUBLIC inline
@@ -401,7 +402,7 @@ Cpu::phys_id() const
 
 IMPLEMENT
 void
-Cpu::init(bool is_boot_cpu)
+Cpu::init(bool, bool is_boot_cpu)
 {
   if (is_boot_cpu)
     {
@@ -463,25 +464,26 @@ IMPLEMENTATION [arm && armv6plus]:
 
 PRIVATE static inline
 void
-Cpu::set_actrl(Mword bit_mask)
+Cpu::modify_actrl(Mword set_mask, Mword clear_mask)
 {
   Mword t;
-  asm volatile("mrc p15, 0, %0, c1, c0, 1 \n\t"
-               "orr %0, %0, %1            \n\t"
-               "mcr p15, 0, %0, c1, c0, 1 \n\t"
-               : "=r"(t) : "r" (bit_mask));
+  asm volatile("mrc p15, 0, %[reg], c1, c0, 1 \n\t"
+               "bic %[reg], %[reg], %[clr]    \n\t"
+               "orr %[reg], %[reg], %[set]    \n\t"
+               "mcr p15, 0, %[reg], c1, c0, 1 \n\t"
+               : [reg] "=r" (t)
+               : [set] "r" (set_mask), [clr] "r" (clear_mask));
 }
 
-PRIVATE static inline
+PRIVATE static inline NEEDS[Cpu::modify_actrl]
+void
+Cpu::set_actrl(Mword bit_mask)
+{ modify_actrl(bit_mask, 0); }
+
+PRIVATE static inline NEEDS[Cpu::modify_actrl]
 void
 Cpu::clear_actrl(Mword bit_mask)
-{
-  Mword t;
-  asm volatile("mrc p15, 0, %0, c1, c0, 1 \n\t"
-               "bic %0, %1                \n\t"
-               "mcr p15, 0, %0, c1, c0, 1 \n\t"
-               : "=r"(t) : "r" (bit_mask));
-}
+{ modify_actrl(0, bit_mask); }
 
 IMPLEMENT
 void

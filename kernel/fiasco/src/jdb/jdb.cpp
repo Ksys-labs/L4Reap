@@ -1,9 +1,11 @@
 INTERFACE:
 
 #include "l4_types.h"
+#include "cpu_mask.h"
 #include "jdb_core.h"
 #include "jdb_handler_queue.h"
 #include "per_cpu_data.h"
+#include "string_buffer.h"
 
 class Context;
 class Thread;
@@ -36,7 +38,7 @@ private:
   static char hide_statline;
   static char last_cmd;
   static char next_cmd;
-  static Per_cpu<char[81]> error_buffer;
+  static Per_cpu<String_buf<81> > error_buffer;
   static bool was_input_error;
 
   static Thread  *current_active;
@@ -99,7 +101,7 @@ KIP_KERNEL_FEATURE("jdb");
 Jdb_handler_queue Jdb::jdb_enter;
 Jdb_handler_queue Jdb::jdb_leave;
 
-DEFINE_PER_CPU Per_cpu<char[81]> Jdb::error_buffer;
+DEFINE_PER_CPU Per_cpu<String_buf<81> > Jdb::error_buffer;
 char Jdb::next_cmd;			// next global command to execute
 char Jdb::last_cmd;
 
@@ -631,28 +633,25 @@ void Jdb::cursor_end_of_screen()
 //-------- pretty print functions ------------------------------
 PUBLIC static
 void
-Jdb::write_ll_ns(Signed64 ns, char *buf, int maxlen, bool sign)
+Jdb::write_ll_ns(String_buffer *buf, Signed64 ns, bool sign)
 {
   Unsigned64 uns = (ns < 0) ? -ns : ns;
 
   if (uns >= 3600000000000000ULL)
     {
-      snprintf(buf, maxlen, ">999 h ");
+      buf->printf(">999 h ");
       return;
     }
 
-  if (maxlen && sign)
-    {
-      *buf++ = (ns < 0) ? '-' : (ns == 0) ? ' ' : '+';
-      maxlen--;
-    }
+  if (sign)
+    buf->printf("%c", (ns < 0) ? '-' : (ns == 0) ? ' ' : '+');
 
   if (uns >= 60000000000000ULL)
     {
       // 1000min...999h
       Mword _h  = uns / 3600000000000ULL;
       Mword _m  = (uns % 3600000000000ULL) / 60000000000ULL;
-      snprintf(buf, maxlen, "%3lu:%02lu h  ", _h, _m);
+      buf->printf("%3lu:%02lu h  ", _h, _m);
       return;
     }
 
@@ -661,7 +660,7 @@ Jdb::write_ll_ns(Signed64 ns, char *buf, int maxlen, bool sign)
       // 1000s...999min
       Mword _m  = uns / 60000000000ULL;
       Mword _s  = (uns % 60000000000ULL) / 1000ULL;
-      snprintf(buf, maxlen, "%3lu:%02lu M  ", _m, _s);
+      buf->printf("%3lu:%02lu M  ", _m, _s);
       return;
     }
 
@@ -670,7 +669,7 @@ Jdb::write_ll_ns(Signed64 ns, char *buf, int maxlen, bool sign)
       // 1...1000s
       Mword _s  = uns / 1000000000ULL;
       Mword _ms = (uns % 1000000000ULL) / 1000000ULL;
-      snprintf(buf, maxlen, "%3lu.%03lu s ", _s, _ms);
+      buf->printf("%3lu.%03lu s ", _s, _ms);
       return;
     }
 
@@ -679,20 +678,20 @@ Jdb::write_ll_ns(Signed64 ns, char *buf, int maxlen, bool sign)
       // 1...1000ms
       Mword _ms = uns / 1000000UL;
       Mword _us = (uns % 1000000UL) / 1000UL;
-      snprintf(buf, maxlen, "%3lu.%03lu ms", _ms, _us);
+      buf->printf("%3lu.%03lu ms", _ms, _us);
       return;
     }
 
   if (uns == 0)
     {
-      snprintf(buf, maxlen, "  0       ");
+      buf->printf("  0       ");
       return;
     }
 
   Console* gzip = Kconsole::console()->find_console(Console::GZIP);
   Mword _us = uns / 1000UL;
   Mword _ns = uns % 1000UL;
-  snprintf(buf, maxlen, "%3lu.%03lu %c ", _us, _ns,
+  buf->printf("%3lu.%03lu %c ", _us, _ns,
            gzip && gzip->state() & Console::OUTENABLED
              ? '\265' 
              : Config::char_micro);
@@ -700,37 +699,60 @@ Jdb::write_ll_ns(Signed64 ns, char *buf, int maxlen, bool sign)
 
 PUBLIC static
 void
-Jdb::write_ll_hex(Signed64 x, char *buf, int maxlen, bool sign)
+Jdb::write_ll_hex(String_buffer *buf, Signed64 x, bool sign)
 {
   // display 40 bits
   Unsigned64 xu = (x < 0) ? -x : x;
 
   if (sign)
-    snprintf(buf, maxlen, "%s%03lx" L4_PTR_FMT,
-			  (x < 0) ? "-" : (x == 0) ? " " : "+",
-			  (Mword)((xu >> 32) & 0xfff), (Mword)xu);
+    buf->printf("%s%03lx" L4_PTR_FMT,
+                (x < 0) ? "-" : (x == 0) ? " " : "+",
+                (Mword)((xu >> 32) & 0xfff), (Mword)xu);
   else
-    snprintf(buf, maxlen, "%04lx" L4_PTR_FMT,
-			  (Mword)((xu >> 32) & 0xffff), (Mword)xu);
+    buf->printf("%04lx" L4_PTR_FMT, (Mword)((xu >> 32) & 0xffff), (Mword)xu);
 }
 
 PUBLIC static
 void
-Jdb::write_ll_dec(Signed64 x, char *buf, int maxlen, bool sign)
+Jdb::write_ll_dec(String_buffer *buf, Signed64 x, bool sign)
 {
   Unsigned64 xu = (x < 0) ? -x : x;
 
   // display no more than 11 digits
   if (xu >= 100000000000ULL)
     {
-      snprintf(buf, maxlen, "%12s", ">= 10^11");
+      buf->printf("%12s", ">= 10^11");
       return;
     }
 
   if (sign && x != 0)
-    snprintf(buf, maxlen, "%+12lld", x);
+    buf->printf("%+12lld", x);
   else
-    snprintf(buf, maxlen, "%12llu", xu);
+    buf->printf("%12llu", xu);
+}
+
+PUBLIC static
+void
+Jdb::cpu_mask_print(Cpu_mask &m)
+{
+  Cpu_number start = Cpu_number::nil();
+  bool first = true;
+  for (Cpu_number i = Cpu_number::first(); i < Config::max_num_cpus(); ++i)
+    {
+      if (m.get(i) && start == Cpu_number::nil())
+        start = i;
+
+      bool last = i + Cpu_number(1) == Config::max_num_cpus();
+      if (start != Cpu_number::nil() && (!m.get(i) || last))
+        {
+          printf("%s%d", first ? "" : ",", cxx::int_value<Cpu_number>(start));
+          first = false;
+          if (i - Cpu_number(!last) > start)
+            printf("-%d", cxx::int_value<Cpu_number>(i) - !(last && m.get(i)));
+
+          start = Cpu_number::nil();
+        }
+    }
 }
 
 PUBLIC static inline
@@ -1066,8 +1088,7 @@ Jdb::enter_jdb(Jdb_entry_frame *e, Cpu_number cpu)
 
   hide_statline = false;
 
-  // clear error message
-  *error_buffer.cpu(cpu) = '\0';
+  error_buffer.cpu(cpu).clear();
 
   really_break = foreach_cpu(&handle_debug_traps, false);
 
@@ -1083,8 +1104,6 @@ Jdb::enter_jdb(Jdb_entry_frame *e, Cpu_number cpu)
       // determine current task/thread from stack pointer
       update_prompt();
 
-      LOG_MSG(current_active, "=== enter jdb ===");
-
       do
 	{
 	  screen_scroll(1, Jdb_screen::height());
@@ -1099,17 +1118,31 @@ Jdb::enter_jdb(Jdb_entry_frame *e, Cpu_number cpu)
 	                 "read-only data has changed!\n",
 	             Jdb_screen::width()-11,
 	             Jdb_screen::Line);
+
+              Cpu_mask cpus_in_jdb;
+              int cpu_cnt = 0;
 	      for (Cpu_number i = Cpu_number::first(); i < Config::max_num_cpus(); ++i)
 		if (Cpu::online(i))
 		  {
 		    if (running.cpu(i))
-		      printf("    CPU%2u [" L4_PTR_FMT "]: %s\n",
-                             cxx::int_value<Cpu_number>(i),
-		             entry_frame.cpu(i)->ip(), error_buffer.cpu(i));
+                      {
+                        ++cpu_cnt;
+                        cpus_in_jdb.set(i);
+                        if (!entry_frame.cpu(i)->debug_ipi())
+                          printf("    CPU%2u [" L4_PTR_FMT "]: %s\n",
+                                 cxx::int_value<Cpu_number>(i),
+                                 entry_frame.cpu(i)->ip(), error_buffer.cpu(i).begin());
+                      }
 		    else
 		      printf("    CPU%2u: is not in JDB (not responding)\n",
                              cxx::int_value<Cpu_number>(i));
 		  }
+              if (!cpus_in_jdb.empty() && cpu_cnt > 1)
+                {
+                  printf("    CPU(s) ");
+                  cpu_mask_print(cpus_in_jdb);
+                  printf(" entered JDB\n");
+                }
 	      hide_statline = true;
 	    }
 

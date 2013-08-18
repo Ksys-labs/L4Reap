@@ -2,8 +2,7 @@
 #define _LINUX_RESOURCE_H
 
 #include <linux/time.h>
-
-struct task_struct;
+#include <linux/types.h>
 
 /*
  * Resource control/accounting header file for linux
@@ -45,6 +44,13 @@ struct rlimit {
 	unsigned long	rlim_max;
 };
 
+#define RLIM64_INFINITY		(~0ULL)
+
+struct rlimit64 {
+	__u64 rlim_cur;
+	__u64 rlim_max;
+};
+
 #define	PRIO_MIN	(-20)
 #define	PRIO_MAX	20
 
@@ -59,10 +65,10 @@ struct rlimit {
 #define _STK_LIM	(8*1024*1024)
 
 /*
- * GPG wants 32kB of mlocked memory, to make sure pass phrases
+ * GPG2 wants 64kB of mlocked memory, to make sure pass phrases
  * and other sensitive information are never written to disk.
  */
-#define MLOCK_LIMIT	(8 * PAGE_SIZE)
+#define MLOCK_LIMIT	((PAGE_SIZE > 64*1024) ? PAGE_SIZE : 64*1024)
 
 /*
  * Due to binary compatibility, the actual resource numbers
@@ -70,6 +76,5 @@ struct rlimit {
  */
 #include <asm/resource.h>
 
-int getrusage(struct task_struct *p, int who, struct rusage __user *ru);
 
-#endif
+#endif /* _LINUX_RESOURCE_H */

@@ -374,7 +374,7 @@ Bool syscall_is_threadexregs(SyscallArgs *args, l4_msg_regs_t *mr, l4_msgtag_t t
 Bool syscall_is_setgdt(l4_msg_regs_t *mr, l4_msgtag_t tag)
 {
     return (l4_msgtag_label(tag) == L4_PROTO_THREAD)
-        && (mr->mr[0] == L4_THREAD_GDT_X86_OP);
+        && (mr->mr[0] == L4_THREAD_X86_GDT_OP);
 }
 
 

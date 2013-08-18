@@ -1,5 +1,7 @@
 INTERFACE:
 
+#include "string_buffer.h"
+
 class Jdb_list
 {
 public:
@@ -7,7 +9,7 @@ public:
   virtual void next_mode() {}
   virtual void next_sort() {}
   virtual void *get_head() const = 0;
-  virtual int show_item(char *buffer, int max, void *item) const = 0;
+  virtual void show_item(String_buffer *buffer, void *item) const = 0;
   virtual char const *show_head() const = 0;
   virtual int seek(int cnt, void **item) = 0;
   virtual bool enter_item(void * /*item*/) const { return true; }
@@ -156,19 +158,16 @@ PUBLIC
 void
 Jdb_list::show_line(void *i)
 {
-  static char buffer[256];
+  static String_buf<256> buffer;
+  buffer.clear();
   Kconsole::console()->getchar_chance();
-  int pos = 0;
   void *p = i;
   while ((p = parent(p)))
-    {
-      buffer[pos] = ' ';
-      ++pos;
-    }
+    buffer.append(' ');
 
-  pos += show_item(buffer + pos, sizeof(buffer) - pos, i);
+  show_item(&buffer, i);
   if (i)
-    printf("%.*s\033[K\n", min((int)Jdb_screen::width(), pos), buffer);
+    printf("%.*s\033[K\n", min((int)Jdb_screen::width(), buffer.length()), buffer.begin());
 }
 
 // show complete page using show callback function

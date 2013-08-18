@@ -31,6 +31,7 @@ class Sched_context;
 class Syscall_frame;
 class Trap_state;
 class Tb_entry_formatter;
+class String_buffer;
 
 struct Tb_log_table_entry
 {
@@ -101,7 +102,7 @@ static_assert(sizeof(Tb_entry_union) == Tb_entry::Tb_entry_size,
 
 struct Tb_entry_empty : public Tb_entry
 {
-  unsigned print(int, char *) const { return 0; }
+  void print(String_buffer *) const {}
 };
 
 class Tb_entry_formatter
@@ -109,7 +110,7 @@ class Tb_entry_formatter
 public:
   typedef Tb_entry::Group_order Group_order;
 
-  virtual unsigned print(Tb_entry const *e, int max, char *buf) const = 0;
+  virtual void print(String_buffer *, Tb_entry const *e) const = 0;
   virtual Group_order has_partner(Tb_entry const *e) const = 0;
   virtual Group_order is_pair(Tb_entry const *e, Tb_entry const *n) const = 0;
   virtual Mword partner(Tb_entry const *e) const = 0;
@@ -134,8 +135,8 @@ public:
   typedef T const *Const_ptr;
   typedef T *Ptr;
 
-  unsigned print(Tb_entry const *e, int max, char *buf) const
-  { return static_cast<Const_ptr>(e)->print(max, buf); }
+  void print(String_buffer *buf, Tb_entry const *e) const
+  { static_cast<Const_ptr>(e)->print(buf); }
 
   Group_order has_partner(Tb_entry const *e) const
   { return static_cast<Const_ptr>(e)->has_partner(); }
@@ -171,7 +172,7 @@ private:
   L4_timeout_pair _timeout;	///< timeout
 public:
   Tb_entry_ipc() : _timeout(0) {}
-  unsigned print(int max, char *buf) const;
+  void print(String_buffer *buf) const;
 };
 
 /** logged ipc result. */
@@ -186,7 +187,7 @@ private:
   Unsigned8	_have_snd;	///< ipc had send part
   Unsigned8	_is_np;		///< next period bit set
 public:
-  unsigned print(int max, char *buf) const;
+  void print(String_buffer *buf) const;
 };
 
 /** logged ipc for user level tracing with Vampir. */
@@ -200,7 +201,7 @@ private:
   Unsigned8	_snd_desc;
   Unsigned8	_rcv_desc;
 public:
-  unsigned print(int max, char *buf) const;
+  void print(String_buffer *buf) const;
 };
 
 #if 0
@@ -223,7 +224,7 @@ private:
   Mword	_error;		///< pagefault error code
   Space	*_space;
 public:
-  unsigned print(int max, char *buf) const;
+  void print(String_buffer *buf) const;
 };
 
 /** pagefault result. */
@@ -234,7 +235,7 @@ private:
   L4_error	_err;
   L4_error	_ret;
 public:
-  unsigned print(int max, char *buf) const;
+  void print(String_buffer *buf) const;
 };
 
 
@@ -275,7 +276,7 @@ private:
   Mword	_value;		///< value at address
   int		_mode;		///< breakpoint mode
 public:
-  unsigned print(int max, char *buf) const;
+  void print(String_buffer *buf) const;
 };
 
 /** logged binary kernel event. */

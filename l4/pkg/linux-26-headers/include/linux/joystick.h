@@ -1,12 +1,8 @@
-#ifndef _LINUX_JOYSTICK_H
-#define _LINUX_JOYSTICK_H
-
 /*
  *  Copyright (C) 1996-2000 Vojtech Pavlik
  *
  *  Sponsored by SuSE
  */
-
 /*
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,8 +22,12 @@
  * e-mail - mail your message to <vojtech@suse.cz>, or by paper mail:
  * Vojtech Pavlik, Ucitelska 1576, Prague 8, 182 00 Czech Republic
  */
+#ifndef _LINUX_JOYSTICK_H
+#define _LINUX_JOYSTICK_H
 
-#include <asm/types.h>
+
+
+#include <linux/types.h>
 #include <linux/input.h>
 
 /*
@@ -64,8 +64,8 @@ struct js_event {
 #define JSIOCSCORR		_IOW('j', 0x21, struct js_corr)			/* set correction values */
 #define JSIOCGCORR		_IOR('j', 0x22, struct js_corr)			/* get correction values */
 
-#define JSIOCSAXMAP		_IOW('j', 0x31, __u8[ABS_MAX + 1])		/* set axis mapping */
-#define JSIOCGAXMAP		_IOR('j', 0x32, __u8[ABS_MAX + 1])		/* get axis mapping */
+#define JSIOCSAXMAP		_IOW('j', 0x31, __u8[ABS_CNT])			/* set axis mapping */
+#define JSIOCGAXMAP		_IOR('j', 0x32, __u8[ABS_CNT])			/* get axis mapping */
 #define JSIOCSBTNMAP		_IOW('j', 0x33, __u16[KEY_MAX - BTN_MISC + 1])	/* set button mapping */
 #define JSIOCGBTNMAP		_IOR('j', 0x34, __u16[KEY_MAX - BTN_MISC + 1])	/* get button mapping */
 
@@ -132,14 +132,5 @@ struct JS_DATA_SAVE_TYPE_64 {
 	struct JS_DATA_TYPE JS_CORR;
 };
 
-#ifdef __KERNEL__
-#if BITS_PER_LONG == 64
-#define JS_DATA_SAVE_TYPE JS_DATA_SAVE_TYPE_64
-#elif BITS_PER_LONG == 32
-#define JS_DATA_SAVE_TYPE JS_DATA_SAVE_TYPE_32
-#else
-#error Unexpected BITS_PER_LONG
-#endif
-#endif
 
 #endif /* _LINUX_JOYSTICK_H */

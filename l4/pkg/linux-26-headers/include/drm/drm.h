@@ -37,34 +37,26 @@
 #define _DRM_H_
 
 #if defined(__linux__)
-#if defined(__KERNEL__)
-#endif
-#include <asm/ioctl.h>		/* For _IO* macros */
-#define DRM_IOCTL_NR(n)		_IOC_NR(n)
-#define DRM_IOC_VOID		_IOC_NONE
-#define DRM_IOC_READ		_IOC_READ
-#define DRM_IOC_WRITE		_IOC_WRITE
-#define DRM_IOC_READWRITE	_IOC_READ|_IOC_WRITE
-#define DRM_IOC(dir, group, nr, size) _IOC(dir, group, nr, size)
-#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
-#if defined(__FreeBSD__) && defined(IN_MODULE)
-/* Prevent name collision when including sys/ioccom.h */
-#undef ioctl
-#include <sys/ioccom.h>
-#define ioctl(a,b,c)		xf86ioctl(a,b,c)
-#else
-#include <sys/ioccom.h>
-#endif				/* __FreeBSD__ && xf86ioctl */
-#define DRM_IOCTL_NR(n)		((n) & 0xff)
-#define DRM_IOC_VOID		IOC_VOID
-#define DRM_IOC_READ		IOC_OUT
-#define DRM_IOC_WRITE		IOC_IN
-#define DRM_IOC_READWRITE	IOC_INOUT
-#define DRM_IOC(dir, group, nr, size) _IOC(dir, group, nr, size)
-#endif
 
-#define DRM_MAJOR       226
-#define DRM_MAX_MINOR   15
+#include <linux/types.h>
+#include <asm/ioctl.h>
+typedef unsigned int drm_handle_t;
+
+#else /* One of the BSDs */
+
+#include <sys/ioccom.h>
+#include <sys/types.h>
+typedef int8_t   __s8;
+typedef uint8_t  __u8;
+typedef int16_t  __s16;
+typedef uint16_t __u16;
+typedef int32_t  __s32;
+typedef uint32_t __u32;
+typedef int64_t  __s64;
+typedef uint64_t __u64;
+typedef unsigned long drm_handle_t;
+
+#endif
 
 #define DRM_NAME	"drm"	  /**< Name in kernel, /dev, and /proc */
 #define DRM_MIN_ORDER	5	  /**< At least 2^5 bytes = 32 bytes */
@@ -77,7 +69,6 @@
 #define _DRM_LOCK_IS_CONT(lock)	   ((lock) & _DRM_LOCK_CONT)
 #define _DRM_LOCKING_CONTEXT(lock) ((lock) & ~(_DRM_LOCK_HELD|_DRM_LOCK_CONT))
 
-typedef unsigned int drm_handle_t;
 typedef unsigned int drm_context_t;
 typedef unsigned int drm_drawable_t;
 typedef unsigned int drm_magic_t;
@@ -139,11 +130,11 @@ struct drm_version {
 	int version_minor;	  /**< Minor version */
 	int version_patchlevel;	  /**< Patch level */
 	size_t name_len;	  /**< Length of name buffer */
-	char __user *name;	  /**< Name of driver */
+	char *name;	  /**< Name of driver */
 	size_t date_len;	  /**< Length of date buffer */
-	char __user *date;	  /**< User-space buffer to hold date */
+	char *date;	  /**< User-space buffer to hold date */
 	size_t desc_len;	  /**< Length of desc buffer */
-	char __user *desc;	  /**< User-space buffer to hold desc */
+	char *desc;	  /**< User-space buffer to hold desc */
 };
 
 /**
@@ -153,12 +144,12 @@ struct drm_version {
  */
 struct drm_unique {
 	size_t unique_len;	  /**< Length of unique */
-	char __user *unique;	  /**< Unique name for driver instantiation */
+	char *unique;	  /**< Unique name for driver instantiation */
 };
 
 struct drm_list {
 	int count;		  /**< Length of user-space structures */
-	struct drm_version __user *version;
+	struct drm_version *version;
 };
 
 struct drm_block {
@@ -190,6 +181,7 @@ enum drm_map_type {
 	_DRM_AGP = 3,		  /**< AGP/GART */
 	_DRM_SCATTER_GATHER = 4,  /**< Scatter/gather memory for PCI DMA */
 	_DRM_CONSISTENT = 5,	  /**< Consistent memory for PCI DMA */
+	_DRM_GEM = 6,		  /**< GEM object */
 };
 
 /**
@@ -353,7 +345,7 @@ struct drm_buf_desc {
  */
 struct drm_buf_info {
 	int count;		/**< Entries in list */
-	struct drm_buf_desc __user *list;
+	struct drm_buf_desc *list;
 };
 
 /**
@@ -361,7 +353,7 @@ struct drm_buf_info {
  */
 struct drm_buf_free {
 	int count;
-	int __user *list;
+	int *list;
 };
 
 /**
@@ -373,7 +365,7 @@ struct drm_buf_pub {
 	int idx;		       /**< Index into the master buffer list */
 	int total;		       /**< Buffer size */
 	int used;		       /**< Amount of buffer in use (for DMA) */
-	void __user *address;	       /**< Address of buffer */
+	void *address;	       /**< Address of buffer */
 };
 
 /**
@@ -381,8 +373,8 @@ struct drm_buf_pub {
  */
 struct drm_buf_map {
 	int count;		/**< Length of the buffer list */
-	void __user *virtual;		/**< Mmap'd area in user-virtual */
-	struct drm_buf_pub __user *list;	/**< Buffer information */
+	void *virtual;		/**< Mmap'd area in user-virtual */
+	struct drm_buf_pub *list;	/**< Buffer information */
 };
 
 /**
@@ -395,13 +387,13 @@ struct drm_buf_map {
 struct drm_dma {
 	int context;			  /**< Context handle */
 	int send_count;			  /**< Number of buffers to send */
-	int __user *send_indices;	  /**< List of handles to buffers */
-	int __user *send_sizes;		  /**< Lengths of data to send */
+	int *send_indices;	  /**< List of handles to buffers */
+	int *send_sizes;		  /**< Lengths of data to send */
 	enum drm_dma_flags flags;	  /**< Flags */
 	int request_count;		  /**< Number of buffers requested */
 	int request_size;		  /**< Desired size for buffers */
-	int __user *request_indices;	  /**< Buffer information */
-	int __user *request_sizes;
+	int *request_indices;	  /**< Buffer information */
+	int *request_sizes;
 	int granted_count;		  /**< Number of buffers granted */
 };
 
@@ -425,7 +417,7 @@ struct drm_ctx {
  */
 struct drm_ctx_res {
 	int count;
-	struct drm_ctx __user *contexts;
+	struct drm_ctx *contexts;
 };
 
 /**
@@ -471,14 +463,19 @@ struct drm_irq_busid {
 enum drm_vblank_seq_type {
 	_DRM_VBLANK_ABSOLUTE = 0x0,	/**< Wait for specific vblank sequence number */
 	_DRM_VBLANK_RELATIVE = 0x1,	/**< Wait for given number of vblanks */
+	/* bits 1-6 are reserved for high crtcs */
+	_DRM_VBLANK_HIGH_CRTC_MASK = 0x0000003e,
+	_DRM_VBLANK_EVENT = 0x4000000,   /**< Send event instead of blocking */
+	_DRM_VBLANK_FLIP = 0x8000000,   /**< Scheduled buffer swap should flip */
 	_DRM_VBLANK_NEXTONMISS = 0x10000000,	/**< If missed, wait for next vblank */
 	_DRM_VBLANK_SECONDARY = 0x20000000,	/**< Secondary display controller */
-	_DRM_VBLANK_SIGNAL = 0x40000000	/**< Send signal instead of blocking */
+	_DRM_VBLANK_SIGNAL = 0x40000000	/**< Send signal instead of blocking, unsupported */
 };
+#define _DRM_VBLANK_HIGH_CRTC_SHIFT 1
 
 #define _DRM_VBLANK_TYPES_MASK (_DRM_VBLANK_ABSOLUTE | _DRM_VBLANK_RELATIVE)
-#define _DRM_VBLANK_FLAGS_MASK (_DRM_VBLANK_SIGNAL | _DRM_VBLANK_SECONDARY | \
-				_DRM_VBLANK_NEXTONMISS)
+#define _DRM_VBLANK_FLAGS_MASK (_DRM_VBLANK_EVENT | _DRM_VBLANK_SIGNAL | \
+				_DRM_VBLANK_SECONDARY | _DRM_VBLANK_NEXTONMISS)
 
 struct drm_wait_vblank_request {
 	enum drm_vblank_seq_type type;
@@ -501,6 +498,19 @@ struct drm_wait_vblank_reply {
 union drm_wait_vblank {
 	struct drm_wait_vblank_request request;
 	struct drm_wait_vblank_reply reply;
+};
+
+#define _DRM_PRE_MODESET 1
+#define _DRM_POST_MODESET 2
+
+/**
+ * DRM_IOCTL_MODESET_CTL ioctl argument type
+ *
+ * \sa drmModesetCtl().
+ */
+struct drm_modeset_ctl {
+	__u32 crtc;
+	__u32 cmd;
 };
 
 /**
@@ -573,6 +583,53 @@ struct drm_set_version {
 	int drm_dd_minor;
 };
 
+/** DRM_IOCTL_GEM_CLOSE ioctl argument type */
+struct drm_gem_close {
+	/** Handle of the object to be closed. */
+	__u32 handle;
+	__u32 pad;
+};
+
+/** DRM_IOCTL_GEM_FLINK ioctl argument type */
+struct drm_gem_flink {
+	/** Handle for the object being named */
+	__u32 handle;
+
+	/** Returned global name */
+	__u32 name;
+};
+
+/** DRM_IOCTL_GEM_OPEN ioctl argument type */
+struct drm_gem_open {
+	/** Name of object being opened */
+	__u32 name;
+
+	/** Returned handle for the object */
+	__u32 handle;
+
+	/** Returned size of the object */
+	__u64 size;
+};
+
+/** DRM_IOCTL_GET_CAP ioctl argument type */
+struct drm_get_cap {
+	__u64 capability;
+	__u64 value;
+};
+
+#define DRM_CLOEXEC O_CLOEXEC
+struct drm_prime_handle {
+	__u32 handle;
+
+	/** Flags.. only applicable for handle->fd */
+	__u32 flags;
+
+	/** Returned dmabuf file descriptor */
+	__s32 fd;
+};
+
+#include <drm/drm_mode.h>
+
 #define DRM_IOCTL_BASE			'd'
 #define DRM_IO(nr)			_IO(DRM_IOCTL_BASE,nr)
 #define DRM_IOR(nr,type)		_IOR(DRM_IOCTL_BASE,nr,type)
@@ -587,6 +644,11 @@ struct drm_set_version {
 #define DRM_IOCTL_GET_CLIENT            DRM_IOWR(0x05, struct drm_client)
 #define DRM_IOCTL_GET_STATS             DRM_IOR( 0x06, struct drm_stats)
 #define DRM_IOCTL_SET_VERSION		DRM_IOWR(0x07, struct drm_set_version)
+#define DRM_IOCTL_MODESET_CTL           DRM_IOW(0x08, struct drm_modeset_ctl)
+#define DRM_IOCTL_GEM_CLOSE		DRM_IOW (0x09, struct drm_gem_close)
+#define DRM_IOCTL_GEM_FLINK		DRM_IOWR(0x0a, struct drm_gem_flink)
+#define DRM_IOCTL_GEM_OPEN		DRM_IOWR(0x0b, struct drm_gem_open)
+#define DRM_IOCTL_GET_CAP		DRM_IOWR(0x0c, struct drm_get_cap)
 
 #define DRM_IOCTL_SET_UNIQUE		DRM_IOW( 0x10, struct drm_unique)
 #define DRM_IOCTL_AUTH_MAGIC		DRM_IOW( 0x11, struct drm_auth)
@@ -605,6 +667,9 @@ struct drm_set_version {
 #define DRM_IOCTL_SET_SAREA_CTX		DRM_IOW( 0x1c, struct drm_ctx_priv_map)
 #define DRM_IOCTL_GET_SAREA_CTX 	DRM_IOWR(0x1d, struct drm_ctx_priv_map)
 
+#define DRM_IOCTL_SET_MASTER            DRM_IO(0x1e)
+#define DRM_IOCTL_DROP_MASTER           DRM_IO(0x1f)
+
 #define DRM_IOCTL_ADD_CTX		DRM_IOWR(0x20, struct drm_ctx)
 #define DRM_IOCTL_RM_CTX		DRM_IOWR(0x21, struct drm_ctx)
 #define DRM_IOCTL_MOD_CTX		DRM_IOW( 0x22, struct drm_ctx)
@@ -618,6 +683,9 @@ struct drm_set_version {
 #define DRM_IOCTL_LOCK			DRM_IOW( 0x2a, struct drm_lock)
 #define DRM_IOCTL_UNLOCK		DRM_IOW( 0x2b, struct drm_lock)
 #define DRM_IOCTL_FINISH		DRM_IOW( 0x2c, struct drm_lock)
+
+#define DRM_IOCTL_PRIME_HANDLE_TO_FD    DRM_IOWR(0x2d, struct drm_prime_handle)
+#define DRM_IOCTL_PRIME_FD_TO_HANDLE    DRM_IOWR(0x2e, struct drm_prime_handle)
 
 #define DRM_IOCTL_AGP_ACQUIRE		DRM_IO(  0x30)
 #define DRM_IOCTL_AGP_RELEASE		DRM_IO(  0x31)
@@ -635,6 +703,36 @@ struct drm_set_version {
 
 #define DRM_IOCTL_UPDATE_DRAW		DRM_IOW(0x3f, struct drm_update_draw)
 
+#define DRM_IOCTL_MODE_GETRESOURCES	DRM_IOWR(0xA0, struct drm_mode_card_res)
+#define DRM_IOCTL_MODE_GETCRTC		DRM_IOWR(0xA1, struct drm_mode_crtc)
+#define DRM_IOCTL_MODE_SETCRTC		DRM_IOWR(0xA2, struct drm_mode_crtc)
+#define DRM_IOCTL_MODE_CURSOR		DRM_IOWR(0xA3, struct drm_mode_cursor)
+#define DRM_IOCTL_MODE_GETGAMMA		DRM_IOWR(0xA4, struct drm_mode_crtc_lut)
+#define DRM_IOCTL_MODE_SETGAMMA		DRM_IOWR(0xA5, struct drm_mode_crtc_lut)
+#define DRM_IOCTL_MODE_GETENCODER	DRM_IOWR(0xA6, struct drm_mode_get_encoder)
+#define DRM_IOCTL_MODE_GETCONNECTOR	DRM_IOWR(0xA7, struct drm_mode_get_connector)
+#define DRM_IOCTL_MODE_ATTACHMODE	DRM_IOWR(0xA8, struct drm_mode_mode_cmd)
+#define DRM_IOCTL_MODE_DETACHMODE	DRM_IOWR(0xA9, struct drm_mode_mode_cmd)
+
+#define DRM_IOCTL_MODE_GETPROPERTY	DRM_IOWR(0xAA, struct drm_mode_get_property)
+#define DRM_IOCTL_MODE_SETPROPERTY	DRM_IOWR(0xAB, struct drm_mode_connector_set_property)
+#define DRM_IOCTL_MODE_GETPROPBLOB	DRM_IOWR(0xAC, struct drm_mode_get_blob)
+#define DRM_IOCTL_MODE_GETFB		DRM_IOWR(0xAD, struct drm_mode_fb_cmd)
+#define DRM_IOCTL_MODE_ADDFB		DRM_IOWR(0xAE, struct drm_mode_fb_cmd)
+#define DRM_IOCTL_MODE_RMFB		DRM_IOWR(0xAF, unsigned int)
+#define DRM_IOCTL_MODE_PAGE_FLIP	DRM_IOWR(0xB0, struct drm_mode_crtc_page_flip)
+#define DRM_IOCTL_MODE_DIRTYFB		DRM_IOWR(0xB1, struct drm_mode_fb_dirty_cmd)
+
+#define DRM_IOCTL_MODE_CREATE_DUMB DRM_IOWR(0xB2, struct drm_mode_create_dumb)
+#define DRM_IOCTL_MODE_MAP_DUMB    DRM_IOWR(0xB3, struct drm_mode_map_dumb)
+#define DRM_IOCTL_MODE_DESTROY_DUMB    DRM_IOWR(0xB4, struct drm_mode_destroy_dumb)
+#define DRM_IOCTL_MODE_GETPLANERESOURCES DRM_IOWR(0xB5, struct drm_mode_get_plane_res)
+#define DRM_IOCTL_MODE_GETPLANE	DRM_IOWR(0xB6, struct drm_mode_get_plane)
+#define DRM_IOCTL_MODE_SETPLANE	DRM_IOWR(0xB7, struct drm_mode_set_plane)
+#define DRM_IOCTL_MODE_ADDFB2		DRM_IOWR(0xB8, struct drm_mode_fb_cmd2)
+#define DRM_IOCTL_MODE_OBJ_GETPROPERTIES	DRM_IOWR(0xB9, struct drm_mode_obj_get_properties)
+#define DRM_IOCTL_MODE_OBJ_SETPROPERTY	DRM_IOWR(0xBA, struct drm_mode_obj_set_property)
+
 /**
  * Device specific ioctls should only be in their respective headers
  * The device specific ioctl range is from 0x40 to 0x99.
@@ -646,8 +744,46 @@ struct drm_set_version {
 #define DRM_COMMAND_BASE                0x40
 #define DRM_COMMAND_END			0xA0
 
+/**
+ * Header for events written back to userspace on the drm fd.  The
+ * type defines the type of event, the length specifies the total
+ * length of the event (including the header), and user_data is
+ * typically a 64 bit value passed with the ioctl that triggered the
+ * event.  A read on the drm fd will always only return complete
+ * events, that is, if for example the read buffer is 100 bytes, and
+ * there are two 64 byte events pending, only one will be returned.
+ *
+ * Event types 0 - 0x7fffffff are generic drm events, 0x80000000 and
+ * up are chipset specific.
+ */
+struct drm_event {
+	__u32 type;
+	__u32 length;
+};
+
+#define DRM_EVENT_VBLANK 0x01
+#define DRM_EVENT_FLIP_COMPLETE 0x02
+
+struct drm_event_vblank {
+	struct drm_event base;
+	__u64 user_data;
+	__u32 tv_sec;
+	__u32 tv_usec;
+	__u32 sequence;
+	__u32 reserved;
+};
+
+#define DRM_CAP_DUMB_BUFFER 0x1
+#define DRM_CAP_VBLANK_HIGH_CRTC 0x2
+#define DRM_CAP_DUMB_PREFERRED_DEPTH 0x3
+#define DRM_CAP_DUMB_PREFER_SHADOW 0x4
+#define DRM_CAP_PRIME 0x5
+#define DRM_CAP_TIMESTAMP_MONOTONIC 0x6
+
+#define DRM_PRIME_CAP_IMPORT 0x1
+#define DRM_PRIME_CAP_EXPORT 0x2
+
 /* typedef area */
-#ifndef __KERNEL__
 typedef struct drm_clip_rect drm_clip_rect_t;
 typedef struct drm_drawable_info drm_drawable_info_t;
 typedef struct drm_tex_region drm_tex_region_t;
@@ -689,6 +825,5 @@ typedef struct drm_agp_binding drm_agp_binding_t;
 typedef struct drm_agp_info drm_agp_info_t;
 typedef struct drm_scatter_gather drm_scatter_gather_t;
 typedef struct drm_set_version drm_set_version_t;
-#endif
 
 #endif

@@ -24,7 +24,7 @@
 #ifndef _DVBOSD_H_
 #define _DVBOSD_H_
 
-#include <linux/compiler.h>
+
 
 typedef enum {
   // All functions return -2 on "not open"
@@ -104,7 +104,7 @@ typedef struct osd_cmd_s {
 	int x1;
 	int y1;
 	int color;
-	void __user *data;
+	void *data;
 } osd_cmd_t;
 
 /* OSD_OpenRaw: set 'color' to desired window type */

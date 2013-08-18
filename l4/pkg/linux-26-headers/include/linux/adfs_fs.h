@@ -40,37 +40,5 @@ struct adfs_discrecord {
 #define ADFS_DR_SIZE		 60
 #define ADFS_DR_SIZE_BITS	(ADFS_DR_SIZE << 3)
 
-#ifdef __KERNEL__
-#include <linux/adfs_fs_i.h>
-#include <linux/adfs_fs_sb.h>
-/*
- * Calculate the boot block checksum on an ADFS drive.  Note that this will
- * appear to be correct if the sector contains all zeros, so also check that
- * the disk size is non-zero!!!
- */
-static inline int adfs_checkbblk(unsigned char *ptr)
-{
-	unsigned int result = 0;
-	unsigned char *p = ptr + 511;
 
-	do {
-	        result = (result & 0xff) + (result >> 8);
-        	result = result + *--p;
-	} while (p != ptr);
-
-	return (result & 0xff) != ptr[511];
-}
-
-static inline struct adfs_sb_info *ADFS_SB(struct super_block *sb)
-{
-	return sb->s_fs_info;
-}
-
-static inline struct adfs_inode_info *ADFS_I(struct inode *inode)
-{
-	return container_of(inode, struct adfs_inode_info, vfs_inode);
-}
-
-#endif
-
-#endif
+#endif /* _ADFS_FS_H */

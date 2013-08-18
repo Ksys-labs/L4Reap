@@ -71,15 +71,12 @@ Name_space::alloc_dynamic_entry(Names::Name const &name, unsigned flags)
   if (e)
     return e;
 
-  free(na);
-
   return 0;
 }
 
 void
 Name_space::free_dynamic_entry(Names::Entry *n)
 {
-  free(const_cast<char*>(n->name().start()));
   assert (!n->next_link());
   delete static_cast<Moe::Entry*>(n);
 }

@@ -43,14 +43,14 @@ public:
   int add_filter(cxx::String const &tag, cxx::String const &)
   {
     if (tag != "pins")
-      return -ENODEV;
-    return -EINVAL;
+      return -L4_ENODEV;
+    return -L4_EINVAL;
   }
 
   int add_filter(cxx::String const &tag, unsigned long long val)
   {
     if (tag != "pins")
-      return -ENODEV;
+      return -L4_ENODEV;
     _mask |= (1UL << val);
     return 0;
   }
@@ -58,7 +58,7 @@ public:
   int add_filter(cxx::String const &tag, unsigned long long s, unsigned long long e)
   {
     if (tag != "pins")
-      return -ENODEV;
+      return -L4_ENODEV;
     _mask |= ~(~0UL << (e - s + 1)) << s;
     return 0;
   }
@@ -97,16 +97,16 @@ private:
   void check(unsigned pin)
   {
     if (pin > 31)
-      throw -ERANGE;
+      throw -L4_ERANGE;
 
     if (!((1UL << pin) & _mask))
-      throw -ERANGE;
+      throw -L4_ERANGE;
   }
 
   void check_mask(unsigned mask)
   {
     if (mask & ~_mask)
-      throw -ERANGE;
+      throw -L4_ERANGE;
   }
 };
 

@@ -24,11 +24,10 @@
 #define _LINUX_ROUTE_H
 
 #include <linux/if.h>
-#include <linux/compiler.h>
+
 
 /* This structure gets passed by the SIOCADDRT and SIOCDELRT calls. */
-struct rtentry 
-{
+struct rtentry {
 	unsigned long	rt_pad1;
 	struct sockaddr	rt_dst;		/* target address		*/
 	struct sockaddr	rt_gateway;	/* gateway addr (RTF_GATEWAY)	*/
@@ -38,11 +37,9 @@ struct rtentry
 	unsigned long	rt_pad3;
 	void		*rt_pad4;
 	short		rt_metric;	/* +1 for binary compatibility!	*/
-	char __user	*rt_dev;	/* forcing the device at add	*/
+	char *rt_dev;	/* forcing the device at add	*/
 	unsigned long	rt_mtu;		/* per route MTU/Window 	*/
-#ifndef __KERNEL__
 #define rt_mss	rt_mtu			/* Compatibility :-(            */
-#endif
 	unsigned long	rt_window;	/* Window clamping 		*/
 	unsigned short	rt_irtt;	/* Initial RTT			*/
 };

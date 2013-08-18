@@ -1,6 +1,7 @@
 #ifndef _LINUX_ICMPV6_H
 #define _LINUX_ICMPV6_H
 
+#include <linux/types.h>
 #include <asm/byteorder.h>
 
 struct icmp6hdr {
@@ -40,16 +41,18 @@ struct icmp6hdr {
                 struct icmpv6_nd_ra {
 			__u8		hop_limit;
 #if defined(__LITTLE_ENDIAN_BITFIELD)
-			__u8		reserved:4,
+			__u8		reserved:3,
 					router_pref:2,
+					home_agent:1,
 					other:1,
 					managed:1;
 
 #elif defined(__BIG_ENDIAN_BITFIELD)
 			__u8		managed:1,
 					other:1,
+					home_agent:1,
 					router_pref:2,
-					reserved:4;
+					reserved:3;
 #else
 #error	"Please fix <asm/byteorder.h>"
 #endif
@@ -75,14 +78,6 @@ struct icmp6hdr {
 #define icmp6_router_pref	icmp6_dataun.u_nd_ra.router_pref
 };
 
-#ifdef __KERNEL__
-#include <linux/skbuff.h>
-
-static inline struct icmp6hdr *icmp6_hdr(const struct sk_buff *skb)
-{
-	return (struct icmp6hdr *)skb_transport_header(skb);
-}
-#endif
 
 #define ICMPV6_ROUTER_PREF_LOW		0x3
 #define ICMPV6_ROUTER_PREF_MEDIUM	0x0
@@ -165,32 +160,5 @@ struct icmp6_filter {
 
 #define MLD2_ALL_MCR_INIT { { { 0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,0x16 } } }
 
-#ifdef __KERNEL__
 
-#include <linux/netdevice.h>
-#include <linux/skbuff.h>
-
-
-extern void				icmpv6_send(struct sk_buff *skb,
-						    int type, int code,
-						    __u32 info, 
-						    struct net_device *dev);
-
-extern int				icmpv6_init(void);
-extern int				icmpv6_err_convert(int type, int code,
-							   int *err);
-extern void				icmpv6_cleanup(void);
-extern void				icmpv6_param_prob(struct sk_buff *skb,
-							  int code, int pos);
-
-struct flowi;
-struct in6_addr;
-extern void				icmpv6_flow_init(struct sock *sk,
-							 struct flowi *fl,
-							 u8 type,
-							 const struct in6_addr *saddr,
-							 const struct in6_addr *daddr,
-							 int oif);
-#endif
-
-#endif
+#endif /* _LINUX_ICMPV6_H */

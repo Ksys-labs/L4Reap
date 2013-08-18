@@ -223,8 +223,8 @@ bool Irq_router_rs::request(Resource *parent, Device *pdev,
 
   child->del_flags(Resource::F_relative);
   child->start(pd->int_map(i));
-  child->del_flags(Resource::Irq_info_base * 3);
-  child->add_flags(Resource::Irq_level | Resource::Irq_low);
+  child->del_flags(Resource::Irq_type_mask);
+  child->add_flags(Resource::Irq_type_level_low);
 
   child->parent(parent);
 

@@ -2,6 +2,7 @@ INTERFACE[ia32,amd64,ux]:
 
 #include "initcalls.h"
 #include "l4_types.h"
+#include "string_buffer.h"
 
 class Thread;
 class Task;
@@ -346,15 +347,14 @@ Breakpoint::restricted(Thread *t)
 
 PUBLIC
 int
-Breakpoint::test_break(Thread *t, char *errbuf, size_t bufsize)
+Breakpoint::test_break(String_buffer *buf, Thread *t)
 {
   if (restricted(t))
     return 0;
 
   Space *task = t->space();
 
-  snprintf(errbuf, bufsize, "break on %s at " L4_PTR_FMT,
-           mode_names[mode], addr);
+  buf->printf("break on %s at " L4_PTR_FMT, mode_names[mode], addr);
   if (mode==WRITE || mode==ACCESS)
     {
       // If it's a write or access (read) breakpoint, we look at the
@@ -362,9 +362,6 @@ Breakpoint::test_break(Thread *t, char *errbuf, size_t bufsize)
       // not need to look if the page is present because the x86 CPU
       // enters the debug exception immediately _after_ the memory
       // access was performed.
-      size_t size = strlen(errbuf);
-      errbuf  += size;
-      bufsize -= size;
       Mword val = 0;
       if (len > sizeof(Mword))
 	return 0;
@@ -372,7 +369,7 @@ Breakpoint::test_break(Thread *t, char *errbuf, size_t bufsize)
       if (Jdb::peek_task(addr, task, &val, len) != 0)
 	return 0;
 
-      snprintf(errbuf, bufsize, " [%08lx]", val);
+      buf->printf(" [%08lx]", val);
     }
   return 1;
 }
@@ -491,7 +488,7 @@ Jdb_bp::first_unused()
 // Return 1 if a breakpoint hits
 PUBLIC static
 int
-Jdb_bp::test_break(Mword dr6, char *errbuf, size_t bufsize)
+Jdb_bp::test_break(String_buffer *buf, Mword dr6)
 {
   Thread *t = Jdb::get_thread(Cpu_number::boot_cpu());
   Jdb_entry_frame *e = Jdb::get_entry_frame(Cpu_number::boot_cpu());
@@ -501,7 +498,7 @@ Jdb_bp::test_break(Mword dr6, char *errbuf, size_t bufsize)
       {
 	if (bps[i].break_at_instruction())
       	  e->flags(e->flags() | EFLAGS_RF);
-	if (bps[i].test_break(t, errbuf, bufsize))
+	if (bps[i].test_break(buf, t))
 	  return 1;
       }
 

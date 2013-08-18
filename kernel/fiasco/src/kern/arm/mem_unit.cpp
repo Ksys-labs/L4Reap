@@ -16,6 +16,8 @@ public:
   static void dtlb_flush(void *va);
   static void tlb_flush(unsigned long asid);
   static void tlb_flush(void *va, unsigned long asid);
+
+  static void kernel_tlb_flush();
 };
 
 //---------------------------------------------------------------------------
@@ -34,6 +36,10 @@ void Mem_unit::dtlb_flush(void *va)
   asm volatile("mcr p15, 0, %0, c8, c6, 1" // DTLBIMVA
                : : "r" ((unsigned long)va & 0xfffff000) : "memory");
 }
+
+IMPLEMENT_DEFAULT inline NEEDS[Mem_unit::tlb_flush]
+void Mem_unit::kernel_tlb_flush()
+{ tlb_flush(); }
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [arm && armv5]:

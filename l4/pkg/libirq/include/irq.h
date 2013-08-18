@@ -46,14 +46,14 @@ l4irq_attach(int irqnum);
  * \ingroup l4irq_api_irq
  *
  * \param  irqnum          IRQ number to request
- * \param  flow_type       Interrupt type, \see L4_irq_flow_type
+ * \param  mode            Interrupt type, \see L4_irq_mode
  * \return Pointer to l4irq_t structure, 0 on error
  *
  * This l4irq_attach has to be called in the same thread as
  * l4irq_wait and caller has to be a pthread thread.
  */
 L4_CV l4irq_t *
-l4irq_attach_ft(int irqnum, unsigned flow_type);
+l4irq_attach_ft(int irqnum, unsigned mode);
 
 /**
  * \brief Attach/connect to IRQ.
@@ -74,14 +74,14 @@ l4irq_attach_thread(int irqnum, l4_cap_idx_t to_thread);
  *
  * \param  irqnum          IRQ number to request
  * \param  to_thread       Attach IRQ to this specified thread.
- * \param  flow_type       Interrupt type, \see L4_irq_flow_type
+ * \param  mode            Interrupt type, \see L4_irq_mode
  * \return Pointer to l4irq_t structure, 0 on error
  *
  * The pointer to the IRQ structure is used as a label in the IRQ object.
  */
 L4_CV l4irq_t *
 l4irq_attach_thread_ft(int irqnum, l4_cap_idx_t to_thread,
-                       unsigned flow_type);
+                       unsigned mode);
 
 /**
  * \brief Wait for specified IRQ.
@@ -157,13 +157,13 @@ l4irq_detach(l4irq_t *irq);
  * \param isr_handler     Handler routine that is called when an interrupt triggers
  * \param isr_data        Pointer given as argument to isr_handler
  * \param irq_thread_prio L4 thread priority of the ISR handler. Give -1 for same priority as creator.
- * \param flow_type       Interrupt type, \see L4_irq_flow_type
+ * \param mode            Interrupt type, \see L4_irq_mode
  *
  * \return Pointer to l4irq_t structure, 0 on error
  */
 L4_CV l4irq_t *
 l4irq_request(int irqnum, void (*isr_handler)(void *), void *isr_data,
-              int irq_thread_prio, unsigned flow_type);
+              int irq_thread_prio, unsigned mode);
 
 /**
  * \brief Release asynchronous ISR handler and free resources.
@@ -203,14 +203,14 @@ l4irq_attach_cap(l4_cap_idx_t irqcap);
  * \ingroup l4irq_api_irq_cap
  *
  * \param  irqcap          IRQ capability
- * \param  flow_type       Interrupt type, \see L4_irq_flow_type
+ * \param  mode            Interrupt type, \see L4_irq_mode
  * \return Pointer to l4irq_t structure, 0 on error
  *
  * This l4irq_attach has to be called in the same thread as
  * l4irq_wait and caller has to be a pthread thread.
  */
 L4_CV l4irq_t *
-l4irq_attach_cap_ft(l4_cap_idx_t irqcap, unsigned flow_type);
+l4irq_attach_cap_ft(l4_cap_idx_t irqcap, unsigned mode);
 
 /**
  * \brief Attach/connect to IRQ.
@@ -231,14 +231,14 @@ l4irq_attach_thread_cap(l4_cap_idx_t irqcap, l4_cap_idx_t to_thread);
  *
  * \param  irqcap          IRQ capability
  * \param  to_thread       Attach IRQ to this thread.
- * \param  flow_type       Interrupt type, \see L4_irq_flow_type
+ * \param  mode            Interrupt type, \see L4_irq_mode
  * \return Pointer to l4irq_t structure, 0 on error
  *
  * The pointer to the IRQ structure is used as a label in the IRQ object.
  */
 L4_CV l4irq_t *
 l4irq_attach_thread_cap_ft(l4_cap_idx_t irqcap, l4_cap_idx_t to_thread,
-                           unsigned flow_type);
+                           unsigned mode);
 
 /***********************************************************************/
 /**
@@ -257,13 +257,13 @@ l4irq_attach_thread_cap_ft(l4_cap_idx_t irqcap, l4_cap_idx_t to_thread,
  * \param isr_handler     Handler routine that is called when an interrupt triggers
  * \param isr_data        Pointer given as argument to isr_handler
  * \param irq_thread_prio L4 thread priority of the ISR handler. Give -1 for same priority as creator.
- * \param flow_type       Interrupt type, \see L4_irq_flow_type
+ * \param mode            Interrupt type, \see L4_irq_mode
  *
  * \return Pointer to l4irq_t structure, 0 on error
  */
 L4_CV l4irq_t *
 l4irq_request_cap(l4_cap_idx_t irqcap,
                   void (*isr_handler)(void *), void *isr_data,
-                  int irq_thread_prio, unsigned flow_type);
+                  int irq_thread_prio, unsigned mode);
 
 __END_DECLS

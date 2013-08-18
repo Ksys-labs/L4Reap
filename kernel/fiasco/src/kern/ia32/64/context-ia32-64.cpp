@@ -67,5 +67,5 @@ Context::store_segments()
 
 PROTECTED inline
 void
-Context::switch_gdt_user_entries(Context *)
+Context::load_gdt_user_entries(Context * /*old*/ = 0)
 {}

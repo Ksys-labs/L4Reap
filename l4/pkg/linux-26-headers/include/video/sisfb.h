@@ -21,8 +21,8 @@
 #ifndef _LINUX_SISFB_H_
 #define _LINUX_SISFB_H_
 
+#include <linux/types.h>
 #include <asm/ioctl.h>
-#include <asm/types.h>
 
 /**********************************************/
 /*                   PUBLIC                   */
@@ -151,7 +151,7 @@ struct sisfb_cmd {
 	__u32  sisfb_result[4];
 };
 
-/* Addtional IOCTLs for communication sisfb <> X driver                */
+/* Additional IOCTLs for communication sisfb <> X driver                */
 /* If changing this, vgatypes.h must also be changed (for X driver)    */
 
 /* ioctl for identifying and giving some info (esp. memory heap start) */
@@ -205,20 +205,5 @@ struct sis_memreq {
 /*         (for IN-KERNEL usage only)         */
 /**********************************************/
 
-#ifdef __KERNEL__
 
-#include <linux/pci.h>
-
-#define	UNKNOWN_VGA  0
-#define	SIS_300_VGA  1
-#define	SIS_315_VGA  2
-
-#define SISFB_HAVE_MALLOC_NEW
-extern void sis_malloc(struct sis_memreq *req);
-extern void sis_malloc_new(struct pci_dev *pdev, struct sis_memreq *req);
-
-extern void sis_free(u32 base);
-extern void sis_free_new(struct pci_dev *pdev, u32 base);
-#endif
-
-#endif
+#endif /* _LINUX_SISFB_H_ */

@@ -564,8 +564,14 @@ fiq_entry:
 
 8:
 	sub	r12, lr, #4
+#ifdef CONFIG_ARM_1176
+	mov	r11, #(fiq_b_vector - exception_vector)
+	orr	r11, #0xff000000
+	orr	r11, #0x00ff0000
+#else
 	movw	r11, #(fiq_b_vector - exception_vector)
 	movt	r11, #0xffff
+#endif
 	cmp	r12, r11
 	subge	r12, r12, r11
 	lsrge	r12, #1
@@ -874,7 +880,12 @@ GEN_DEBUGGER_ENTRIES
 .endm
 
 .macro SWITCH_TO_NONSECURE_MODE reg
+#ifdef CONFIG_ARM_1176
+	mov	\reg, #0x100
+	orr	\reg, #0x02d
+#else
 	movw	\reg, #0x12d
+#endif
 	mcr	p15, 0, \reg, c1, c1, 0
 	ISB_OP	\reg
 .endm

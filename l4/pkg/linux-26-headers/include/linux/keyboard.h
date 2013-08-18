@@ -22,24 +22,6 @@
 	may increase the number of keymaps beyond MAX_NR_OF_USER_KEYMAPS. */
 #define MAX_NR_OF_USER_KEYMAPS 256 	/* should be at least 7 */
 
-#ifdef __KERNEL__
-struct notifier_block;
-extern const int NR_TYPES;
-extern const int max_vals[];
-extern unsigned short *key_maps[MAX_NR_KEYMAPS];
-extern unsigned short plain_map[NR_KEYS];
-
-struct keyboard_notifier_param {
-	struct vc_data *vc;	/* VC on which the keyboard press was done */
-	int down;		/* Pressure of the key? */
-	int shift;		/* Current shift mask */
-	int ledstate;		/* Current led state */
-	unsigned int value;	/* keycode, unicode value or keysym */
-};
-
-extern int register_keyboard_notifier(struct notifier_block *nb);
-extern int unregister_keyboard_notifier(struct notifier_block *nb);
-#endif
 
 #define MAX_NR_FUNC	256	/* max nr of strings assigned to keys */
 
@@ -56,6 +38,7 @@ extern int unregister_keyboard_notifier(struct notifier_block *nb);
 #define KT_ASCII	9
 #define KT_LOCK		10
 #define KT_SLOCK	12
+#define KT_DEAD2	13
 #define KT_BRL		14
 
 #define K(t,v)		(((t)<<8)|(v))
@@ -457,4 +440,4 @@ extern int unregister_keyboard_notifier(struct notifier_block *nb);
 #define NR_BRL		11
 
 #define MAX_DIACR	256
-#endif
+#endif /* __LINUX_KEYBOARD_H */

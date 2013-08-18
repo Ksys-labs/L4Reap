@@ -67,7 +67,7 @@ IMPLEMENTATION[svm]:
 #include "warn.h"
 #include <cstring>
 
-DEFINE_PER_CPU Per_cpu<Svm> Svm::cpus(true);
+DEFINE_PER_CPU Per_cpu<Svm> Svm::cpus(Per_cpu_data::Cpu_num);
 
 PUBLIC
 Svm::Svm(Cpu_number cpu)

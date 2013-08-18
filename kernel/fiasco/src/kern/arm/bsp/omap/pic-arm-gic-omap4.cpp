@@ -35,7 +35,7 @@ void Pic::restore_all(Status)
 IMPLEMENTATION [arm && mp && pic_gic && omap4]:
 
 PUBLIC static
-void Pic::init_ap(Cpu_number)
+void Pic::init_ap(Cpu_number, bool resume)
 {
-  gic->init_ap();
+  gic->init_ap(resume);
 }

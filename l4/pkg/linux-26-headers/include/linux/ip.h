@@ -104,19 +104,6 @@ struct iphdr {
 	/*The options start here. */
 };
 
-#ifdef __KERNEL__
-#include <linux/skbuff.h>
-
-static inline struct iphdr *ip_hdr(const struct sk_buff *skb)
-{
-	return (struct iphdr *)skb_network_header(skb);
-}
-
-static inline struct iphdr *ipip_hdr(const struct sk_buff *skb)
-{
-	return (struct iphdr *)skb_transport_header(skb);
-}
-#endif
 
 struct ip_auth_hdr {
 	__u8  nexthdr;
@@ -146,4 +133,4 @@ struct ip_beet_phdr {
 	__u8 reserved;
 };
 
-#endif	/* _LINUX_IP_H */
+#endif /* _LINUX_IP_H */

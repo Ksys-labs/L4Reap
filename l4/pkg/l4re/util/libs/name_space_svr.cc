@@ -164,7 +164,7 @@ Name_space::query(L4::Ipc::Iostream &ios, char *buffer, size_t max_len)
       if (n->obj()->is_rw())     flags |= L4_FPAGE_RX;
       if (n->obj()->is_strong()) flags |= L4_FPAGE_RW;
 
-      ios << L4::Ipc::Snd_fpage(n->obj()->cap().fpage(flags));
+      ios << L4::Ipc::Snd_fpage(n->obj()->cap(), flags );
       _dbg.printf(" result = %lx flgs=%x strg=%d\n",
                   result, flags, (int)n->obj()->is_strong());
       return result;

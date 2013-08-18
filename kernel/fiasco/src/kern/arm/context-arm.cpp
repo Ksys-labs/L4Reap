@@ -119,6 +119,7 @@ void Context::switchin_context(Context *from)
 {
   assert_kdb (this == current());
   assert_kdb (state() & Thread_ready_mask);
+  from->handle_lock_holder_preemption();
 
   // switch to our page directory if nessecary
   vcpu_aware_space()->switchin_context(from->vcpu_aware_space());
@@ -139,7 +140,7 @@ IMPLEMENTATION [armv6plus]:
 
 PROTECTED inline void Context::arch_setup_utcb_ptr()
 {
-  _tpidruro = reinterpret_cast<Mword>(utcb().usr().get());
+  _tpidrurw = _tpidruro = reinterpret_cast<Mword>(utcb().usr().get());
 }
 
 IMPLEMENT inline

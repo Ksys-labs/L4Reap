@@ -58,7 +58,6 @@ static void extract_rgba(const unsigned char *_src, int w, int h,
     typename PTx::Pixel *dst_pixel, unsigned char *dst_alpha)
 {
   using namespace Mag_gfx;
-  typedef typename PTx::Pixel PT;
   typedef typename PTx::Color Color;
 
   Rgba32::Pixel const *src = reinterpret_cast<Rgba32::Pixel const*>(_src);

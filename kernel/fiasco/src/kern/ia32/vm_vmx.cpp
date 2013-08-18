@@ -35,7 +35,6 @@ IMPLEMENTATION [vmx]:
 #include "context.h"
 #include "mem_space.h"
 #include "fpu.h"
-#include "ref_ptr.h"
 #include "thread.h" // XXX: circular dep, move this out here!
 #include "thread_state.h" // XXX: circular dep, move this out here!
 #include "virt.h"
@@ -205,6 +204,11 @@ Vm_vmx::load_vm_memory(void *src)
     }
 }
 
+PUBLIC inline
+void
+Vm_vmx::store_vm_memory(void *)
+{}
+
 PRIVATE template<typename X>
 void
 Vm_vmx_t<X>::load_guest_state(Cpu_number cpu, void *src)
@@ -313,9 +317,9 @@ Vm_vmx_t<X>::load_guest_state(Cpu_number cpu, void *src)
 }
 
 
-PROTECTED
+PROTECTED template<typename X>
 void
-Vm_vmx_b::store_guest_state(Cpu_number cpu, void *dest)
+Vm_vmx_t<X>::store_guest_state(Cpu_number cpu, void *dest)
 {
   // read 16-bit fields
   store(0x800, 0x80e, dest);
@@ -349,7 +353,7 @@ Vm_vmx_b::store_guest_state(Cpu_number cpu, void *dest)
 
   // read natural-width fields
   store(0x6800, dest);
-  // skip cr3
+  static_cast<X*>(this)->store_vm_memory(dest);
   store(0x6804, 0x6822, dest);
 }
 
@@ -443,9 +447,6 @@ Vm_vmx_t<X>::do_resume_vcpu(Context *ctxt, Vcpu_state *vcpu, void *vmcs_s)
       return commit_result(-L4_err::EInval);
     }
 #endif
-
-  // increment our refcount, and drop it at the end automatically
-  Ref_ptr<Vm_vmx_b> pin_myself(this);
 
   // set volatile host state
   Vmx::vmwrite<Mword>(Vmx::F_host_cr0, Cpu::get_cr0());

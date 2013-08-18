@@ -55,7 +55,7 @@ struct ipc_perm
  * See architecture code for ugly details..
  */
 struct ipc_kludge {
-	struct msgbuf __user *msgp;
+	struct msgbuf *msgp;
 	long msgtyp;
 };
 
@@ -77,29 +77,5 @@ struct ipc_kludge {
 
 #define IPCCALL(version,op)	((version)<<16 | (op))
 
-#ifdef __KERNEL__
-
-#include <linux/kref.h>
-#include <linux/spinlock.h>
-
-#define IPCMNI 32768  /* <= MAX_INT limit for ipc arrays (including sysctl changes) */
-
-/* used by in-kernel data structures */
-struct kern_ipc_perm
-{
-	spinlock_t	lock;
-	int		deleted;
-	int		id;
-	key_t		key;
-	uid_t		uid;
-	gid_t		gid;
-	uid_t		cuid;
-	gid_t		cgid;
-	mode_t		mode; 
-	unsigned long	seq;
-	void		*security;
-};
-
-#endif /* __KERNEL__ */
 
 #endif /* _LINUX_IPC_H */

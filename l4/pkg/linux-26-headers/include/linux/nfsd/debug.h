@@ -36,13 +36,5 @@
 #define NFSDDBG_NOCHANGE	0xFFFF
 
 
-#ifdef __KERNEL__
-# undef ifdebug
-# ifdef NFSD_DEBUG
-#  define ifdebug(flag)		if (nfsd_debug & NFSDDBG_##flag)
-# else
-#  define ifdebug(flag)		if (0)
-# endif
-#endif /* __KERNEL__ */
 
 #endif /* LINUX_NFSD_DEBUG_H */

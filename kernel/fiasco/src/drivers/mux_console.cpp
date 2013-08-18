@@ -26,13 +26,16 @@ private:
   int     _next_getchar;
   int     _items;
   Console *_cons[SIZE];
+  Unsigned64 _ignore_input_until;
 };
 
 
 IMPLEMENTATION:
 
 #include <cstdio>
+#include "kip.h"
 #include "processor.h"
+#include "string.h"
 
 PUBLIC
 Mux_console::Mux_console()
@@ -50,10 +53,70 @@ Mux_console::write(char const *str, size_t len)
   return len;
 }
 
+PUBLIC
+void
+Mux_console::set_ignore_input()
+{
+  _ignore_input_until = ~0ULL;
+}
+
+PUBLIC
+void
+Mux_console::set_ignore_input(Unsigned64 delta)
+{
+  _ignore_input_until = Kip::k()->clock + delta;
+}
+
+PRIVATE
+int
+Mux_console::check_input_ignore()
+{
+  if (_ignore_input_until)
+    {
+      if (Kip::k()->clock > _ignore_input_until)
+        _ignore_input_until = 0;
+      else
+        {
+          static unsigned releasepos;
+          const char *releasestring = "input";
+
+          // when we ignore input we read everything which comes in even if
+          // input on a console is disabled
+          for (int i = 0; i < _items; ++i)
+            if (_cons[i])
+              {
+                int r;
+                while ((r = _cons[i]->getchar(false)) != -1)
+                  {
+                    if (releasestring[releasepos] == r)
+                      {
+                        releasepos++;
+                        if (releasepos == strlen(releasestring))
+                          {
+                            printf("\nJDB: Input activated.\n");
+                            _ignore_input_until = 0;
+                            releasepos = 0;
+                            return 0;
+                          }
+                      }
+                    else
+                      releasepos = 0;
+                  }
+              }
+          return 1;
+        }
+    }
+
+  return 0;
+}
+
 IMPLEMENT
 int
 Mux_console::getchar(bool blocking)
 {
+  if (check_input_ignore())
+    return -1;
+
   if (_next_getchar != -1)
     {
       int c = _next_getchar;
@@ -64,13 +127,18 @@ Mux_console::getchar(bool blocking)
   int ret = -1;
   do
     {
+      int conscnt = 0;
       for (int i = 0; i < _items; ++i)
         if (_cons[i] && (_cons[i]->state() & INENABLED))
           {
             ret = _cons[i]->getchar(false);
             if (ret != -1)
               return ret;
+            ++conscnt;
           }
+
+      if (!conscnt)
+        break;
 
       if (blocking)
 	Proc::pause();

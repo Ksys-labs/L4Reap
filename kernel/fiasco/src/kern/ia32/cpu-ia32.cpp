@@ -308,7 +308,7 @@ IMPLEMENTATION[ia32,amd64,ux]:
 #include "panic.h"
 #include "processor.h"
 
-DEFINE_PER_CPU_P(0) Per_cpu<Cpu> Cpu::cpus(true);
+DEFINE_PER_CPU_P(0) Per_cpu<Cpu> Cpu::cpus(Per_cpu_data::Cpu_num);
 Cpu *Cpu::_boot_cpu;
 
 

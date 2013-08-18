@@ -1,4 +1,4 @@
-INTERFACE [noncont_mem]:
+INTERFACE:
 
 #include <config.h>
 
@@ -17,7 +17,8 @@ private:
 };
 
 
-IMPLEMENTATION [noncont_mem]:
+//------------------------------------------------------------------------
+IMPLEMENTATION:
 
 #include <config.h>
 #include <cstdio>
@@ -38,6 +39,7 @@ Mem_layout::pmem_to_phys(void const *addr)
 {
   return pmem_to_phys(Address(addr));
 }
+
 unsigned short Mem_layout::__ph_to_pm[1<<(32-Config::SUPERPAGE_SHIFT)];
 
 IMPLEMENT inline NEEDS[<config.h>]
@@ -66,5 +68,3 @@ Mem_layout::add_pmem(Address phys, Address virt, unsigned long size)
       virt += Config::SUPERPAGE_SIZE;
     }
 }
-
-

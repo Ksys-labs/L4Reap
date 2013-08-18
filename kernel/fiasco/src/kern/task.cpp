@@ -388,7 +388,7 @@ Task::sys_map(L4_fpage::Rights rights, Syscall_frame *f, Utcb *utcb)
   L4_fpage sfp(utcb->values[2]);
   sfp.mask_rights(mask);
 
-  ::Reap_list rl;
+  Kobject::Reap_list rl;
   L4_error ret;
 
     {
@@ -423,7 +423,7 @@ PRIVATE inline NOEXPORT
 L4_msg_tag
 Task::sys_unmap(Syscall_frame *f, Utcb *utcb)
 {
-  ::Reap_list rl;
+  Kobject::Reap_list rl;
   unsigned words = f->tag().words();
 
   LOG_TRACE("Task unmap", "unm", ::current(), Log_unmap,
@@ -593,7 +593,7 @@ private:
     Mword id;
     Mword mask;
     Mword fpage;
-    unsigned print(int max, char *buf) const;
+    void print(String_buffer *buf) const;
   } __attribute__((packed));
 
 };
@@ -601,13 +601,15 @@ private:
 // ---------------------------------------------------------------------------
 IMPLEMENTATION [debug]:
 
+#include "string_buffer.h"
+
 IMPLEMENT
-unsigned
-Task::Log_unmap::print(int max, char *buf) const
+void
+Task::Log_unmap::print(String_buffer *buf) const
 {
   L4_fpage fp(fpage);
-  return snprintf(buf, max, "task=[U:%lx] mask=%lx fpage=[%u/%u]%lx",
-                  id, mask, (unsigned)fp.order(), (unsigned)fp.type(), fpage);
+  buf->printf("task=[U:%lx] mask=%lx fpage=[%u/%u]%lx",
+              id, mask, (unsigned)fp.order(), (unsigned)fp.type(), fpage);
 }
 
 // ---------------------------------------------------------------------------

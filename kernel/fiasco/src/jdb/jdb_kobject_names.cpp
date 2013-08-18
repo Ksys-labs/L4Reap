@@ -131,16 +131,14 @@ public:
 };
 
 PUBLIC
-int
-Jdb_name_hdl::show_kobject_short(char *buf, int max, Kobject_common *o)
+void
+Jdb_name_hdl::show_kobject_short(String_buffer *buf, Kobject_common *o)
 {
   Jdb_kobject_name *ex
     = Jdb_kobject_extension::find_extension<Jdb_kobject_name>(o);
 
   if (ex)
-    return snprintf(buf, max, " {%-*.*s}", ex->max_len(), ex->max_len(), ex->name());
-
-  return 0;
+    buf->printf(" {%-*.*s}", ex->max_len(), ex->max_len(), ex->name());
 }
 
 PUBLIC

@@ -36,14 +36,14 @@
 
 /* Available audio drivers */
 static AudioBootStrap *bootstrap[] = {
-#if SDL_AUDIO_DRIVER_BSD
-	&BSD_AUDIO_bootstrap,
-#endif
 #if SDL_AUDIO_DRIVER_PULSE
 	&PULSE_bootstrap,
 #endif
 #if SDL_AUDIO_DRIVER_ALSA
 	&ALSA_bootstrap,
+#endif
+#if SDL_AUDIO_DRIVER_BSD
+	&BSD_AUDIO_bootstrap,
 #endif
 #if SDL_AUDIO_DRIVER_OSS
 	&DSP_bootstrap,
@@ -699,3 +699,11 @@ void SDL_CalculateAudioSpec(SDL_AudioSpec *spec)
 	spec->size *= spec->channels;
 	spec->size *= spec->samples;
 }
+
+void SDL_Audio_SetCaption(const char *caption)
+{
+	if ((current_audio) && (current_audio->SetCaption)) {
+		current_audio->SetCaption(current_audio, caption);
+	}
+}
+

@@ -68,6 +68,9 @@ Platform_control::power_up_core(Cpu_phys_id)
 //--------------------------------------------------------------------------
 IMPLEMENTATION [arm && exynos]:
 
+#include <cassert>
+#include "kmem.h"
+
 Static_object<Platform_control::Pmu> Platform_control::pmu;
 
 IMPLEMENT
@@ -92,6 +95,8 @@ Platform_control::init(Cpu_number cpu)
 IMPLEMENTATION [arm && exynos && mp]:
 
 #include "ipi.h"
+#include "lock_guard.h"
+#include "mem_unit.h"
 #include "outer_cache.h"
 #include "platform.h"
 #include "poll_timeout_kclock.h"

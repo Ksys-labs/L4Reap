@@ -18,7 +18,7 @@ sub get_command_and_cmdline($)
   $full =~ s/"/\\"/g;
 
   if (length($full) > $arglen) {
-    print "$line: \"$full\" too long...\n";
+    print "$.: \"$full\" too long...\n";
     exit 1;
   }
 
@@ -29,6 +29,44 @@ sub error($)
 {
   print STDERR shift;
   exit(1);
+}
+
+sub handle_line($)
+{
+  my $r = shift;
+
+  if ($r =~ /^((perl|glob|shell):\s+)/)
+    {
+      substr $r, 0, length($1), "";
+
+      if ($2 eq 'perl')
+        {
+          my @m = eval $r;
+          die "perl: ".$@ if $@;
+          return @m;
+        }
+      elsif ($2 eq 'shell')
+        {
+          my @m = split /\n/, `$r`;
+          error "$mod_file:$.: Shell command failed\n" if $?;
+          return @m;
+        }
+      elsif ($2 eq 'glob')
+        {
+          return ( glob $r );
+        }
+      else
+        {
+          die "should not happen";
+        }
+    }
+
+  return ( $r );
+}
+
+sub handle_line_first($)
+{
+  return (handle_line(shift))[0];
 }
 
 # extract an entry with modules from a modules.list file
@@ -47,19 +85,18 @@ sub get_module_entry($$)
     $mods[2] = { command => 'Makefile', cmdline => 'Makefile', type => 'bin'};
 
     return (
+      bootstrap => { command => 'bootstrap',
+                     cmdline => 'bootstrap' },
       mods    => [ @mods ],
       modaddr => 0x200000,
     );
   }
-
-  open(M, $mod_file) || error "Cannot open $mod_file!: $!\n";
 
   # preseed first 3 modules
   $mods[0] = { command => 'fiasco',   cmdline => 'fiasco',   type => 'bin'};
   $mods[1] = { command => 'sigma0',   cmdline => 'sigma0',   type => 'bin'};
   $mods[2] = { command => 'roottask', cmdline => 'moe',      type => 'bin'};
 
-  my $line = 0;
   my $process_mode = undef;
   my $found_entry = 0;
   my $global = 1;
@@ -69,141 +106,187 @@ sub get_module_entry($$)
   my $bootstrap_cmdline = "bootstrap";
   my $linux_initrd;
   my $is_mode_linux;
-  while (<M>) {
-    $line++;
-    chomp;
-    s/#.*$//;
-    s/^\s*//;
-    next if /^$/;
 
-    if (/^modaddr\s+(\S+)/) {
-      $modaddr_global = $1 if  $global;
-      $modaddr_title  = $1 if !$global;
-      next;
+  my @fs_fds;
+  my @fs_filenames;
+  my @mod_files_for_include;
+  my $fd;
+
+  push @mod_files_for_include, $mod_file;
+
+  while (1) {
+
+    if (@mod_files_for_include) {
+
+      my $f = shift @mod_files_for_include;
+
+      if (grep(/^$f$/, @fs_filenames))
+        {
+          print STDERR "$mod_file:$.: Warning: $f already included, skipping.\n";
+          next;
+        }
+
+      push @fs_filenames, $mod_file;
+      push @fs_fds, $fd;
+
+      undef $fd;
+      $mod_file = $f;
+      open($fd, $mod_file) || error "Cannot open '$mod_file': $!\n";
     }
 
-    my ($type, $remaining) = split /\s+/, $_, 2;
-    $type = lc($type);
+    while (<$fd>) {
+      chomp;
+      s/#.*$//;
+      s/^\s*//;
+      next if /^$/;
 
-    $type = 'bin'   if $type eq 'module';
-
-    if ($type =~ /^(entry|title)$/) {
-      if (lc($entry_to_pick) eq lc($remaining)) {
-        $process_mode = 'entry';
-        $found_entry = 1;
-      } else {
-	$process_mode = undef;
+      if (/^modaddr\s+(\S+)/) {
+        $modaddr_global = $1 if  $global;
+        $modaddr_title  = $1 if !$global;
+        next;
       }
-      $global = 0;
-      next;
-    } elsif ($type eq 'searchpath') {
-      push @internal_searchpaths, $remaining;
-      next;
-    } elsif ($type eq 'group') {
-      $process_mode = 'group';
-      $current_group_name = (split /\s+/, $remaining)[0];
-      next;
-    } elsif ($type eq 'default-bootstrap') {
-      my ($file, $full) = get_command_and_cmdline($remaining);
-      $bootstrap_command = $file;
-      $bootstrap_cmdline = $full;
-      next;
-    } elsif ($type eq 'default-kernel') {
-      my ($file, $full) = get_command_and_cmdline($remaining);
-      $mods[0]{command}  = $file;
-      $mods[0]{cmdline}  = $full;
-      next;
-    } elsif ($type eq 'default-sigma0') {
-      my ($file, $full) = get_command_and_cmdline($remaining);
-      $mods[1]{command}  = $file;
-      $mods[1]{cmdline}  = $full;
-      next;
-    } elsif ($type eq 'default-roottask') {
-      my ($file, $full) = get_command_and_cmdline($remaining);
-      $mods[2]{command}  = $file;
-      $mods[2]{cmdline}  = $full;
-      next;
-    }
 
-    next unless $process_mode;
+      my ($type, $remaining) = split /\s+/, $_, 2;
+      $type = lc($type);
 
-    my @valid_types = ( 'bin', 'data', 'bin-nostrip', 'data-nostrip',
-	                'bootstrap', 'roottask', 'kernel', 'sigma0',
-                        'module-perl', 'module-shell', 'module-glob',
-			'module-group', 'moe', 'initrd', 'set');
-    error "$mod_file:$line: Invalid type \"$type\"\n"
-      unless grep(/^$type$/, @valid_types);
+      $type = 'bin'   if $type eq 'module';
 
-    @m = ( $remaining );
-
-    if ($type eq 'set') {
-      my ($varname, $value) = split /\s+/, $remaining, 2;
-      $is_mode_linux = 1 if $varname eq 'mode' and lc($value) eq 'linux';
-    }
-
-    if ($type eq 'module-perl') {
-      @m = eval $remaining;
-      die $@ if $@;
-      $type = 'bin';
-    } elsif ($type eq 'module-shell') {
-      @m = split /\n/, `$remaining`;
-      error "$mod_file:$line: Shell command failed\n" if $?;
-      $type = 'bin';
-    } elsif ($type eq 'module-glob') {
-      @m = glob $remaining;
-      $type = 'bin';
-    } elsif ($type eq 'module-group') {
-      @m = ();
-      foreach (split /\s+/, $remaining) {
-	error "$mod_file:$line: Unknown group '$_'\n" unless defined $groups{$_};
-        push @m, @{$groups{$_}};
-      }
-      $type = 'bin';
-    } elsif ($type eq 'moe') {
-      $mods[2]{command}  = 'moe';
-      $mods[2]{cmdline}  = "moe rom/$remaining";
-      $type = 'bin';
-      @m = ($remaining);
-    }
-    next if not defined $m[0] or $m[0] eq '';
-
-    if ($process_mode eq 'entry') {
-      foreach my $m (@m) {
-
-        my ($file, $full) = get_command_and_cmdline($m);
-
-	# special cases
-	if ($type eq 'bootstrap') {
-	  $bootstrap_command = $file;
-	  $bootstrap_cmdline = $full;
-	} elsif ($type =~ /(rmgr|roottask)/i) {
-	  $mods[2]{command}  = $file;
-	  $mods[2]{cmdline}  = $full;
-	} elsif ($type eq 'kernel') {
-	  $mods[0]{command}  = $file;
-	  $mods[0]{cmdline}  = $full;
-	} elsif ($type eq 'sigma0') {
-	  $mods[1]{command}  = $file;
-	  $mods[1]{cmdline}  = $full;
-        } elsif ($type eq 'initrd') {
-          $linux_initrd      = $file;
-          $is_mode_linux     = 1;
+      if ($type =~ /^(entry|title)$/) {
+        ($remaining) = handle_line($remaining);
+        if (lc($entry_to_pick) eq lc($remaining)) {
+          $process_mode = 'entry';
+          $found_entry = 1;
         } else {
-	  push @mods, {
-			type    => $type,
-			command => $file,
-			cmdline => $full,
-		      };
-	}
+          $process_mode = undef;
+        }
+        $global = 0;
+        next;
       }
-    } elsif ($process_mode eq 'group') {
-      push @{$groups{$current_group_name}}, @m;
-    } else {
-      error "$mod_file:$line: Invalid mode '$process_mode'\n";
+
+      if ($type eq 'searchpath') {
+        push @internal_searchpaths, handle_line($remaining);
+        next;
+      } elsif ($type eq 'group') {
+        $process_mode = 'group';
+        $current_group_name = (split /\s+/, handle_line_first($remaining))[0];
+        next;
+      } elsif ($type eq 'default-bootstrap') {
+        my ($file, $full) = get_command_and_cmdline(handle_line_first($remaining));
+        $bootstrap_command = $file;
+        $bootstrap_cmdline = $full;
+        next;
+      } elsif ($type eq 'default-kernel') {
+        my ($file, $full) = get_command_and_cmdline(handle_line_first($remaining));
+        $mods[0]{command}  = $file;
+        $mods[0]{cmdline}  = $full;
+        next;
+      } elsif ($type eq 'default-sigma0') {
+        my ($file, $full) = get_command_and_cmdline(handle_line_first($remaining));
+        $mods[1]{command}  = $file;
+        $mods[1]{cmdline}  = $full;
+        next;
+      } elsif ($type eq 'default-roottask') {
+        my ($file, $full) = get_command_and_cmdline(handle_line_first($remaining));
+        $mods[2]{command}  = $file;
+        $mods[2]{cmdline}  = $full;
+        next;
+      } elsif ($type eq 'include') {
+        my @f = handle_line($remaining);
+        foreach my $f (@f)
+          {
+            my $abs;
+            if ($f =~ /^\//)
+              {
+                $abs = $f;
+              }
+            else
+              {
+                my @tmp = split /\/+/, $mod_file;
+                $tmp[@tmp - 1] = $f;
+                $abs = join('/', @tmp);
+              }
+            unshift @mod_files_for_include, glob $abs;
+          }
+
+        last;
+      }
+
+      next unless $process_mode;
+
+      my @params = handle_line($remaining);
+
+      my @valid_types = ( 'bin', 'data', 'bin-nostrip', 'data-nostrip',
+                          'bootstrap', 'roottask', 'kernel', 'sigma0',
+                          'module-group', 'moe', 'initrd', 'set');
+      error "$mod_file:$.: Invalid type \"$type\"\n"
+        unless grep(/^$type$/, @valid_types);
+
+      if ($type eq 'set') {
+        my ($varname, $value) = split /\s+/, $params[0], 2;
+        $is_mode_linux = 1 if $varname eq 'mode' and lc($value) eq 'linux';
+      }
+
+      if ($type eq 'module-group') {
+        my @m = ();
+        foreach (split /\s+/, join(' ', @params)) {
+          error "$mod_file:$.: Unknown group '$_'\n" unless defined $groups{$_};
+          push @m, @{$groups{$_}};
+        }
+        @params = @m;
+        $type = 'bin';
+      } elsif ($type eq 'moe') {
+        $mods[2]{command}  = 'moe';
+        $mods[2]{cmdline}  = "moe rom/$params[0]";
+        $type = 'bin';
+        @m = ($params[0]);
+      }
+      next if not defined $params[0] or $params[0] eq '';
+
+      if ($process_mode eq 'entry') {
+        foreach my $m (@params) {
+
+          my ($file, $full) = get_command_and_cmdline($m);
+
+          # special cases
+          if ($type eq 'bootstrap') {
+            $bootstrap_command = $file;
+            $bootstrap_cmdline = $full;
+          } elsif ($type =~ /(rmgr|roottask)/i) {
+            $mods[2]{command}  = $file;
+            $mods[2]{cmdline}  = $full;
+          } elsif ($type eq 'kernel') {
+            $mods[0]{command}  = $file;
+            $mods[0]{cmdline}  = $full;
+          } elsif ($type eq 'sigma0') {
+            $mods[1]{command}  = $file;
+            $mods[1]{cmdline}  = $full;
+          } elsif ($type eq 'initrd') {
+            $linux_initrd      = $file;
+            $is_mode_linux     = 1;
+          } else {
+            push @mods, {
+                          type    => $type,
+                          command => $file,
+                          cmdline => $full,
+                        };
+          }
+        }
+      } elsif ($process_mode eq 'group') {
+        push @{$groups{$current_group_name}}, @params;
+      } else {
+        error "$mod_file:$.: Invalid mode '$process_mode'\n";
+      }
+    }
+
+    unless (defined $_) {
+      close $fd;
+
+      $fd       = pop @fs_fds;
+      $mod_file = pop @fs_filenames;
+
+      last unless defined $fd;
     }
   }
-
-  close M;
 
   error "$mod_file: Unknown entry \"$entry_to_pick\"!\n" unless $found_entry;
   error "$mod_file: 'modaddr' not set\n" unless $modaddr_title || $modaddr_global;

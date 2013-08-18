@@ -50,6 +50,24 @@ builddir:
 	@echo "done."
 endif
 
+ifneq ($(strip $(O)),)
+builddir:
+	@if [ ! -e "$(O)" ]; then			\
+	  echo "build directory does not exist: '$(O)'";\
+		exit 1;					\
+	fi
+	@$(call buildmakefile,$(O))
+	@$(MAKE) -C $(O)
+
+%:
+	@if [ ! -e "$(O)" ]; then			\
+	  echo "build directory does not exist: '$(O)'";\
+		exit 1;					\
+	fi
+	@$(call buildmakefile,$(O))
+	@$(MAKE) -C $(O) $@
+endif
+
 ifneq ($(strip $(T)),)
 this:
 	set -e;							      \
@@ -143,43 +161,88 @@ list:
 	@echo "Templates:"
 	@echo $(TEST_TEMPLATES)
 
+RANDBUILDMAXTIME   = $(shell $$((2 * 3600)))
+RANDBUILDONERUN    = 50
+RANDBUILDDIRS      = $(foreach idx,$(shell seq $(RANDBUILDONERUN)),$(RANDBUILDDIR)/b-$(idx))
+RANDBUILDAGAINDIRS = $(wildcard $(RANDBUILDDIR)/failed-*)
+
+.PHONY: $(RANDBUILDAGAINDIRS)
+
 randcheck:
-	$(RM) -r $(RANDBUILDDIR);                                     \
-	$(call buildmakefile,$(RANDBUILDDIR)/b);                      \
-	while true; do                                                \
-		$(RM) $(RANDBUILDDIR)/b/globalconfig.out;             \
-		$(MAKE) -C $(RANDBUILDDIR)/b randconfig;              \
-		fn=$$(cat $(RANDBUILDDIR)/b/globalconfig.out          \
-		      | grep -e "^CONFIG_" | sort | sha1sum           \
-		      | cut -f1 -d\   );                              \
-		if [ -e "ok-$$fn" -o -e "failed-$$fn" ]; then         \
-		  echo "Configuration $$fn already checked."          \
-		  continue;                                           \
-		fi;                                                   \
-		if $(MAKE) -C $(RANDBUILDDIR)/b -j$(PL); then         \
-			cp $(RANDBUILDDIR)/b/globalconfig.out         \
-			  $(RANDBUILDDIR)/ok-$$fn;                    \
-		else                                                  \
-			[ -n "$$STOP_ON_ERROR" ] && exit 1;           \
-			cp -a $(RANDBUILDDIR)/b                       \
-			      $(RANDBUILDDIR)/failed-$$fn;            \
-		fi;                                                   \
-	done
+	$(RM) -r $(RANDBUILDDIR)
+	$(call buildmakefile,$(RANDBUILDDIR)/build-templ);
+	starttime=$$(date +%s);                                              \
+	if [ -z "$$RANDBUILDTIME" ]; then d=0; else d=$$RANDBUILDTIME; fi;   \
+	while [ "$$d" = 0                                         \
+	        -o $$(date +%s) -lt $$(($$starttime + $$d)) ]; do \
+	  $(MAKE) dobuildrandparallel SHELL=bash;                            \
+	  if [ $$(ls $(RANDBUILDDIR) | grep -c failed-)                      \
+	       -gt $$(($(RANDBUILDONERUN) / 2)) ];                           \
+	  then break; fi;                                                    \
+	done;                                                                \
+	echo "$$(ls $(RANDBUILDDIR) | grep -c failed-) directories"          \
+	     "failed to build.";                                             \
+	echo "Build time: $$((($$(date +%s) - $$starttime) / 60)) minutes."
+
+
+randchecktimed:
+	@$(MAKE) randcheck RANDBUILDTIME=$(RANDBUILDMAXTIME)
+
+dobuildrandparallel: $(RANDBUILDDIRS)
+
+define rand_build_a_dir
+	$(MAKE) -C $(1) 2>&1 | tee -a $(1)/build.log;           \
+	if [ $${PIPESTATUS[0]} = 0 ]; then                      \
+	  cp $(1)/globalconfig.out $(RANDBUILDDIR)/ok-$(2);     \
+	  rm -r $(1);                                           \
+	elif [ -n "$(3)" ]; then                                \
+	  [ -n "$$STOP_ON_ERROR" ] && exit 1;                   \
+	  mv $(1) $(RANDBUILDDIR)/failed-$(2);                  \
+	fi
+endef
+
+$(RANDBUILDDIRS):
+	cp -a $(RANDBUILDDIR)/build-templ $@
+	until                                                 \
+	  $(MAKE) -C $@ randconfig | tee -a $@/build.log;     \
+	  $(MAKE) -C $@ oldconfig  | tee -a $@/build.log;     \
+	do [ $${PIPESTATUS[0]} != 0 ]; done
+	+fn=$$(cat $@/globalconfig.out                        \
+	      | grep -e "^CONFIG_" | sort | sha1sum           \
+	      | cut -f1 -d\   );                              \
+	if [ -e "ok-$$fn" -o -e "failed-$$fn" ]; then         \
+	  echo "Configuration $$fn already checked."          \
+	  continue;                                           \
+	fi;                                                   \
+	$(call rand_build_a_dir,$@,$$fn,1)
+
+$(RANDBUILDAGAINDIRS):
+	+$(call rand_build_a_dir,$@,$(patsubst $(RANDBUILDDIR)/failed-%,%,$@))
 
 randcheckstop:
 	$(MAKE) STOP_ON_ERROR=1 randcheck
 
+randcheckagain_bash: $(RANDBUILDAGAINDIRS)
+
 randcheckagain:
-	for f in $(RANDBUILDDIR)/failed-*; do                         \
-		if $(MAKE) -C $$f -j$(PL); then                       \
-			$(RM) -rf $$f;                                \
-		else                                                  \
-			[ -n "$$STOP_ON_ERROR" ] && exit 1;           \
-		fi                                                    \
-	done
+	$(MAKE) randcheckagain_bash SHELL=bash
+	@echo "Processed $(words $(RANDBUILDAGAINDIRS)) build directories."
+	@echo "$$(ls -d $(RANDBUILDDIR)/failed-* | wc -l) directories remain to fail."
 
 randcheckagainstop:
 	$(MAKE) STOP_ON_ERROR=1 randcheckagain
+
+randcheckstat:
+	@find $(RANDBUILDDIR) -name 'ok-*' | tool/configstat
+	@echo "Building: $$(ls $(RANDBUILDDIR) | grep -c b-)    " \
+	      "Ok: $$(ls $(RANDBUILDDIR) | grep -c ok-)    "      \
+	      "Failed: $$(ls $(RANDBUILDDIR) | grep -c failed-)"
+
+randcheckstatloop:
+	@while true; do \
+	  $(MAKE) --no-print-directory randcheckstat; \
+	  sleep 5; \
+	done
 
 help:
 	@echo
@@ -210,4 +273,5 @@ help:
 
 .PHONY:	man install clean cleanall fiasco.builddir.create fiasco \
 	l4check checkall config oldconfig menuconfig nconfig xconfig \
-	randcheck randcheckstop help
+	randcheck randcheckstop randcheckagain_bash randcheckstat \
+	randcheckstatloop help

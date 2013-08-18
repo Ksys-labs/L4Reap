@@ -94,7 +94,7 @@ function hid(...)
   loader:startv({
     caps = hid_caps,
     log = {"hid", "m"},
-    scheduler = L4.Env.mem_alloc:create(L4.Proto.Scheduler, 0x80, 0x70)
+    scheduler = L4.Env.user_factory:create(L4.Proto.Scheduler, 0x80, 0x70)
   }, "rom/vmlinuzusbv", "init=none", "showpfexc=0", "mem=12M",
      "l4x_cpus=4", "l4ser.vkey_enable=1", "console=ttyLv0", ...);
 
@@ -130,7 +130,7 @@ function gui(svc_caps, fb, ...)
   loader:start({
     caps = gui_caps,
     log = { "gui", "yellow" },
-    scheduler =  L4.Env.mem_alloc:create(L4.Proto.Scheduler, 0x78, 0x70)
+    scheduler =  L4.Env.user_factory:create(L4.Proto.Scheduler, 0x78, 0x70)
   },
   "rom/mag " .. input_drv .." client_fb mag_client", ...);
 

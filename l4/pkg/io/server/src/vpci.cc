@@ -138,8 +138,8 @@ Pci_proxy_dev::irq_enable(Irq_info *irq)
       if (res->type() == Resource::Irq_res)
 	{
 	  irq->irq = res->start();
-	  irq->trigger = !(res->flags() & Resource::Irq_info_base);
-	  irq->polarity = !!(res->flags() & (Resource::Irq_info_base * 2));
+          irq->trigger = !res->irq_is_level_triggered();
+	  irq->polarity = res->irq_is_low_polarity();
 	  d_printf(DBG_DEBUG, "Enable IRQ: %d %x %x\n", irq->irq, irq->trigger, irq->polarity);
 	  if (dlevel(DBG_DEBUG2))
 	    dump();

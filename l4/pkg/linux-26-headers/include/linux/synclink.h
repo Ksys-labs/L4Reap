@@ -13,6 +13,8 @@
 #define _SYNCLINK_H_
 #define SYNCLINK_H_VERSION 3.6
 
+#include <linux/types.h>
+
 #define BIT0	0x0001
 #define BIT1	0x0002
 #define BIT2	0x0004
@@ -123,6 +125,8 @@
 #define MGSL_MODE_MONOSYNC	3
 #define MGSL_MODE_BISYNC	4
 #define MGSL_MODE_RAW		6
+#define MGSL_MODE_BASE_CLOCK    7
+#define MGSL_MODE_XSYNC         8
 
 #define MGSL_BUS_TYPE_ISA	1
 #define MGSL_BUS_TYPE_EISA	2
@@ -287,29 +291,10 @@ struct gpio_desc {
 #define MGSL_IOCSGPIO		_IOW(MGSL_MAGIC_IOC,16,struct gpio_desc)
 #define MGSL_IOCGGPIO		_IOR(MGSL_MAGIC_IOC,17,struct gpio_desc)
 #define MGSL_IOCWAITGPIO	_IOWR(MGSL_MAGIC_IOC,18,struct gpio_desc)
+#define MGSL_IOCSXSYNC		_IO(MGSL_MAGIC_IOC, 19)
+#define MGSL_IOCGXSYNC		_IO(MGSL_MAGIC_IOC, 20)
+#define MGSL_IOCSXCTRL		_IO(MGSL_MAGIC_IOC, 21)
+#define MGSL_IOCGXCTRL		_IO(MGSL_MAGIC_IOC, 22)
 
-#ifdef __KERNEL__
-/* provide 32 bit ioctl compatibility on 64 bit systems */
-#ifdef CONFIG_COMPAT
-#include <linux/compat.h>
-struct MGSL_PARAMS32 {
-	compat_ulong_t	mode;
-	unsigned char	loopback;
-	unsigned short	flags;
-	unsigned char	encoding;
-	compat_ulong_t	clock_speed;
-	unsigned char	addr_filter;
-	unsigned short	crc_type;
-	unsigned char	preamble_length;
-	unsigned char	preamble;
-	compat_ulong_t	data_rate;
-	unsigned char	data_bits;
-	unsigned char	stop_bits;
-	unsigned char	parity;
-};
-#define MGSL_IOCSPARAMS32 _IOW(MGSL_MAGIC_IOC,0,struct MGSL_PARAMS32)
-#define MGSL_IOCGPARAMS32 _IOR(MGSL_MAGIC_IOC,1,struct MGSL_PARAMS32)
-#endif
-#endif
 
 #endif /* _SYNCLINK_H_ */

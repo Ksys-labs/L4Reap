@@ -206,13 +206,15 @@ globalconfig.h: globalconfig.out
 	+$(kconfig_call) silentoldconfig
 
 config: $(KCONFIG_FILE)
-	+$(kconfig_call) menuconfig silentoldconfig
+	+$(kconfig_call) menuconfig
+	+$(kconfig_call) silentoldconfig
 
 textconfig: $(KCONFIG_FILE)
 	+$(kconfig_call) config silentoldconfig
 
 menuconfig oldconfig xconfig gconfig nconfig randconfig allyesconfig allnoconfig: $(KCONFIG_FILE)
-	+$(kconfig_call) $@ silentoldconfig
+	+$(kconfig_call) $@
+	+$(kconfig_call) silentoldconfig
 
 listnewconfig oldnoconfig savedefconfig: $(KCONFIG_FILE)
 	+$(kconfig_call) $@

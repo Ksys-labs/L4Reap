@@ -128,7 +128,7 @@ Namespace::register_obj(char const *name, L4::Cap<void> const &o,
   io << L4::Opcode(L4Re::Namespace_::Register)
      << flags << L4::Ipc::Buf_cp_out<char const>(name, strlen(name));
   if (o.is_valid())
-    io << L4::Ipc::Snd_fpage(o.fpage(L4_FPAGE_RWX & flags));
+    io << L4::Ipc::Snd_fpage(o, L4_FPAGE_RWX & flags) ;
   l4_msgtag_t res = io.call(cap(), L4Re::Protocol::Namespace);
   return l4_error(res);
 }

@@ -15,9 +15,6 @@
  **  The kernel will then return -ENOTDIR to any application using
  **  the old binary interface.
  **
- **  For new interfaces unless you really need a binary number
- **  please use CTL_UNNUMBERED.
- **
  ****************************************************************
  ****************************************************************
  */
@@ -27,9 +24,8 @@
 
 #include <linux/kernel.h>
 #include <linux/types.h>
-#include <linux/compiler.h>
 
-struct file;
+
 struct completion;
 
 #define CTL_MAXNAME 10		/* how many path components do we allow in a
@@ -38,11 +34,11 @@ struct completion;
 				   member of a struct __sysctl_args to have? */
 
 struct __sysctl_args {
-	int __user *name;
+	int *name;
 	int nlen;
-	void __user *oldval;
-	size_t __user *oldlenp;
-	void __user *newval;
+	void *oldval;
+	size_t *oldlenp;
+	void *newval;
 	size_t newlen;
 	unsigned long __unused[4];
 };
@@ -50,12 +46,6 @@ struct __sysctl_args {
 /* Define sysctl names first */
 
 /* Top-level names: */
-
-/* For internal pattern-matching use only: */
-#ifdef __KERNEL__
-#define CTL_NONE	0
-#define CTL_UNNUMBERED	CTL_NONE	/* sysctl without a binary number */
-#endif
 
 enum
 {
@@ -99,8 +89,8 @@ enum
 	KERN_VERSION=4,		/* string: compile time info */
 	KERN_SECUREMASK=5,	/* struct: maximum rights mask */
 	KERN_PROF=6,		/* table: profiling information */
-	KERN_NODENAME=7,
-	KERN_DOMAINNAME=8,
+	KERN_NODENAME=7,	/* string: hostname */
+	KERN_DOMAINNAME=8,	/* string: domainname */
 
 	KERN_PANIC=15,		/* int: panic timeout */
 	KERN_REALROOTDEV=16,	/* real root device to mount after initrd */
@@ -112,8 +102,8 @@ enum
 	KERN_PPC_HTABRECLAIM=25, /* turn htab reclaimation on/off on PPC */
 	KERN_PPC_ZEROPAGED=26,	/* turn idle page zeroing on/off on PPC */
 	KERN_PPC_POWERSAVE_NAP=27, /* use nap mode for power saving */
-	KERN_MODPROBE=28,
-	KERN_SG_BIG_BUFF=29,
+	KERN_MODPROBE=28,	/* string: modprobe path */
+	KERN_SG_BIG_BUFF=29,	/* int: sg driver reserved buffer size */
 	KERN_ACCT=30,		/* BSD process accounting parameters */
 	KERN_PPC_L2CR=31,	/* l2cr register on PPC */
 
@@ -160,7 +150,7 @@ enum
 	KERN_ACPI_VIDEO_FLAGS=71, /* int: flags for setting up video after ACPI sleep */
 	KERN_IA64_UNALIGNED=72, /* int: ia64 unaligned userland trap enable */
 	KERN_COMPAT_LOG=73,	/* int: print compat layer  messages */
-	KERN_MAX_LOCK_DEPTH=74,
+	KERN_MAX_LOCK_DEPTH=74, /* int: rtmutex's maximum lock depth */
 	KERN_NMI_WATCHDOG=75, /* int: enable/disable nmi watchdog */
 	KERN_PANIC_ON_NMI=76, /* int: whether we will panic on an unrecovered */
 };
@@ -445,7 +435,7 @@ enum {
 	NET_IPV4_ROUTE_MAX_SIZE=5,
 	NET_IPV4_ROUTE_GC_MIN_INTERVAL=6,
 	NET_IPV4_ROUTE_GC_TIMEOUT=7,
-	NET_IPV4_ROUTE_GC_INTERVAL=8,
+	NET_IPV4_ROUTE_GC_INTERVAL=8, /* obsolete since 2.6.38 */
 	NET_IPV4_ROUTE_REDIRECT_LOAD=9,
 	NET_IPV4_ROUTE_REDIRECT_NUMBER=10,
 	NET_IPV4_ROUTE_REDIRECT_SILENCE=11,
@@ -490,7 +480,7 @@ enum
 	NET_IPV4_CONF_ARP_IGNORE=19,
 	NET_IPV4_CONF_PROMOTE_SECONDARIES=20,
 	NET_IPV4_CONF_ARP_ACCEPT=21,
-	__NET_IPV4_CONF_MAX
+	NET_IPV4_CONF_ARP_NOTIFY=22,
 };
 
 /* /proc/sys/net/ipv4/netfilter */
@@ -606,7 +596,6 @@ enum {
 	NET_NEIGH_GC_THRESH3=16,
 	NET_NEIGH_RETRANS_TIME_MS=17,
 	NET_NEIGH_REACHABLE_TIME_MS=18,
-	__NET_NEIGH_MAX
 };
 
 /* /proc/sys/net/dccp */
@@ -939,173 +928,5 @@ enum
 	ABI_FAKE_UTSNAME=6,	/* fake target utsname information */
 };
 
-#ifdef __KERNEL__
-#include <linux/list.h>
-
-/* For the /proc/sys support */
-struct ctl_table;
-struct nsproxy;
-struct ctl_table_root;
-
-struct ctl_table_set {
-	struct list_head list;
-	struct ctl_table_set *parent;
-	int (*is_seen)(struct ctl_table_set *);
-};
-
-extern void setup_sysctl_set(struct ctl_table_set *p,
-	struct ctl_table_set *parent,
-	int (*is_seen)(struct ctl_table_set *));
-
-struct ctl_table_header;
-
-extern void sysctl_head_get(struct ctl_table_header *);
-extern void sysctl_head_put(struct ctl_table_header *);
-extern int sysctl_is_seen(struct ctl_table_header *);
-extern struct ctl_table_header *sysctl_head_grab(struct ctl_table_header *);
-extern struct ctl_table_header *sysctl_head_next(struct ctl_table_header *prev);
-extern struct ctl_table_header *__sysctl_head_next(struct nsproxy *namespaces,
-						struct ctl_table_header *prev);
-extern void sysctl_head_finish(struct ctl_table_header *prev);
-extern int sysctl_perm(struct ctl_table_root *root,
-		struct ctl_table *table, int op);
-
-typedef struct ctl_table ctl_table;
-
-typedef int ctl_handler (struct ctl_table *table, int __user *name, int nlen,
-			 void __user *oldval, size_t __user *oldlenp,
-			 void __user *newval, size_t newlen);
-
-typedef int proc_handler (struct ctl_table *ctl, int write, struct file * filp,
-			  void __user *buffer, size_t *lenp, loff_t *ppos);
-
-extern int proc_dostring(struct ctl_table *, int, struct file *,
-			 void __user *, size_t *, loff_t *);
-extern int proc_dointvec(struct ctl_table *, int, struct file *,
-			 void __user *, size_t *, loff_t *);
-extern int proc_dointvec_minmax(struct ctl_table *, int, struct file *,
-				void __user *, size_t *, loff_t *);
-extern int proc_dointvec_jiffies(struct ctl_table *, int, struct file *,
-				 void __user *, size_t *, loff_t *);
-extern int proc_dointvec_userhz_jiffies(struct ctl_table *, int, struct file *,
-					void __user *, size_t *, loff_t *);
-extern int proc_dointvec_ms_jiffies(struct ctl_table *, int, struct file *,
-				    void __user *, size_t *, loff_t *);
-extern int proc_doulongvec_minmax(struct ctl_table *, int, struct file *,
-				  void __user *, size_t *, loff_t *);
-extern int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int,
-				      struct file *, void __user *, size_t *, loff_t *);
-
-extern int do_sysctl (int __user *name, int nlen,
-		      void __user *oldval, size_t __user *oldlenp,
-		      void __user *newval, size_t newlen);
-
-extern ctl_handler sysctl_data;
-extern ctl_handler sysctl_string;
-extern ctl_handler sysctl_intvec;
-extern ctl_handler sysctl_jiffies;
-extern ctl_handler sysctl_ms_jiffies;
-
-
-/*
- * Register a set of sysctl names by calling register_sysctl_table
- * with an initialised array of struct ctl_table's.  An entry with zero
- * ctl_name and NULL procname terminates the table.  table->de will be
- * set up by the registration and need not be initialised in advance.
- *
- * sysctl names can be mirrored automatically under /proc/sys.  The
- * procname supplied controls /proc naming.
- *
- * The table's mode will be honoured both for sys_sysctl(2) and
- * proc-fs access.
- *
- * Leaf nodes in the sysctl tree will be represented by a single file
- * under /proc; non-leaf nodes will be represented by directories.  A
- * null procname disables /proc mirroring at this node.
- *
- * sysctl entries with a zero ctl_name will not be available through
- * the binary sysctl interface.
- *
- * sysctl(2) can automatically manage read and write requests through
- * the sysctl table.  The data and maxlen fields of the ctl_table
- * struct enable minimal validation of the values being written to be
- * performed, and the mode field allows minimal authentication.
- * 
- * More sophisticated management can be enabled by the provision of a
- * strategy routine with the table entry.  This will be called before
- * any automatic read or write of the data is performed.
- * 
- * The strategy routine may return:
- * <0: Error occurred (error is passed to user process)
- * 0:  OK - proceed with automatic read or write.
- * >0: OK - read or write has been done by the strategy routine, so 
- *     return immediately.
- * 
- * There must be a proc_handler routine for any terminal nodes
- * mirrored under /proc/sys (non-terminals are handled by a built-in
- * directory handler).  Several default handlers are available to
- * cover common cases.
- */
-
-/* A sysctl table is an array of struct ctl_table: */
-struct ctl_table 
-{
-	int ctl_name;			/* Binary ID */
-	const char *procname;		/* Text ID for /proc/sys, or zero */
-	void *data;
-	int maxlen;
-	mode_t mode;
-	struct ctl_table *child;
-	struct ctl_table *parent;	/* Automatically set */
-	proc_handler *proc_handler;	/* Callback for text formatting */
-	ctl_handler *strategy;		/* Callback function for all r/w */
-	void *extra1;
-	void *extra2;
-};
-
-struct ctl_table_root {
-	struct list_head root_list;
-	struct ctl_table_set default_set;
-	struct ctl_table_set *(*lookup)(struct ctl_table_root *root,
-					   struct nsproxy *namespaces);
-	int (*permissions)(struct ctl_table_root *root,
-			struct nsproxy *namespaces, struct ctl_table *table);
-};
-
-/* struct ctl_table_header is used to maintain dynamic lists of
-   struct ctl_table trees. */
-struct ctl_table_header
-{
-	struct ctl_table *ctl_table;
-	struct list_head ctl_entry;
-	int used;
-	int count;
-	struct completion *unregistering;
-	struct ctl_table *ctl_table_arg;
-	struct ctl_table_root *root;
-	struct ctl_table_set *set;
-	struct ctl_table *attached_by;
-	struct ctl_table *attached_to;
-	struct ctl_table_header *parent;
-};
-
-/* struct ctl_path describes where in the hierarchy a table is added */
-struct ctl_path {
-	const char *procname;
-	int ctl_name;
-};
-
-void register_sysctl_root(struct ctl_table_root *root);
-struct ctl_table_header *__register_sysctl_paths(
-	struct ctl_table_root *root, struct nsproxy *namespaces,
-	const struct ctl_path *path, struct ctl_table *table);
-struct ctl_table_header *register_sysctl_table(struct ctl_table * table);
-struct ctl_table_header *register_sysctl_paths(const struct ctl_path *path,
-						struct ctl_table *table);
-
-void unregister_sysctl_table(struct ctl_table_header * table);
-int sysctl_check_table(struct nsproxy *namespaces, struct ctl_table *table);
-
-#endif /* __KERNEL__ */
 
 #endif /* _LINUX_SYSCTL_H */

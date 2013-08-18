@@ -114,7 +114,6 @@ template <typename PT, typename DT>
 void Refracted_icon<PT, DT>::scratch(int jitter)
 {
   typedef typename PT::Color Color;
-  typedef typename PT::Pixel Pixel;
   Color ref_color = _fg[0];
   for (int j = 0; j < _distmap_h; j++) for (int i = 0; i < _distmap_w; i++)
     {

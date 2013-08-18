@@ -7,11 +7,14 @@ IMPLEMENTATION [log]:
 #include "types.h"
 #include "cpu_lock.h"
 
+extern "C" void sys_ipc_wrapper(void);
+extern "C" void sys_ipc_log_wrapper(void);
+
 
 /** IPC logging.
     called from interrupt gate.
  */
-extern "C" void sys_ipc_log_wrapper(void)
+IMPLEMENT void FIASCO_FLATTEN sys_ipc_log_wrapper()
 {
   Thread *curr = current_thread();
   Entry_frame   *regs      = reinterpret_cast<Entry_frame*>(curr->regs());
@@ -99,7 +102,12 @@ skip_ipc_res_log:
 
 /** IPC tracing.
  */
-extern "C" void sys_ipc_trace_wrapper(void)
+extern "C" void sys_ipc_trace_wrapper(void);
+extern "C" void sys_ipc_wrapper();
+
+
+
+IMPLEMENT void FIASCO_FLATTEN sys_ipc_trace_wrapper()
 {
   Thread *curr = current_thread();
   Entry_frame *ef      = nonull_static_cast<Entry_frame*>(curr->regs());

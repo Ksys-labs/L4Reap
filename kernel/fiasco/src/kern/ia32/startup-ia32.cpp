@@ -62,7 +62,7 @@ Startup::stage2()
   // Initialize cpu-local data management and run constructors for CPU 0
   Per_cpu_data::init_ctors();
   Per_cpu_data_alloc::alloc(Cpu_number::boot_cpu());
-  Per_cpu_data::run_ctors(Cpu_number::boot_cpu());
+  Per_cpu_data::run_ctors(Cpu_number::boot_cpu(), false);
 
   // set frequency in KIP to that of the boot CPU
   Kip_init::init_freq(Cpu::cpus.cpu(Cpu_number::boot_cpu()));
@@ -85,7 +85,7 @@ Startup::stage2()
   Kmem::init_cpu(Cpu::cpus.cpu(Cpu_number::boot_cpu()));
   Utcb_init::init();
   Idt::init();
-  Fpu::init(Cpu_number::boot_cpu());
+  Fpu::init(Cpu_number::boot_cpu(), false);
   Apic::init();
   Apic::apic.cpu(Cpu_number::boot_cpu()).construct();
   Ipi::init(Cpu_number::boot_cpu());

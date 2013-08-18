@@ -3,19 +3,6 @@
 /* this file defines the construction of the kernel's virtual address
    space */
 
-_tcbs_1            = 0xd0000000;	/* assumption: 256MB-aligned */
-/*_unused1_1         = _mappings_end_1;	/* assumption: 4MB-aligned */
-_unused2_1         = 0xea400000;	/* assumption: 4MB-aligned */
-_unused3_1         = 0xea800000;	/* assumption: 4MB-aligned */
-_service           = 0xeac00000;	/* assumption: 4MB-aligned */
-/* 0xeb000000 - 0xef800000 unused */
-_kstatic1_1        = 0xef800000;	/* assumption: 4MB-aligned */
-_iobitmap_1        = 0xefc00000;	/* assumption: 4MB-aligned */
-_unused4_io_1      = 0xefc80000;        /* assumption: 2nd level field in 
-				           page table for IO bitmap */
-_physmem_1         = 0x0000000;	        /* assumption: 256MB-aligned */
-_kernel_phys_start = _physmem_1;
-_kernel_phys_end   = 0xffffffff;
 
 
 virt_address       = 0xf0000000;

@@ -19,13 +19,13 @@ IMPLEMENTATION[ia32]:
 
 PROTECTED inline NEEDS ["cpu.h", "gdt.h"]
 void
-Context::switch_gdt_user_entries(Context *to)
+Context::load_gdt_user_entries(Context * /*old*/ = 0)
 {
-  Gdt &gdt = *Cpu::cpus.cpu(to->cpu()).get_gdt();
+  Gdt &gdt = *Cpu::cpus.current().get_gdt();
   for (unsigned i = 0; i < Gdt_user_entries; ++i)
-    gdt[(Gdt::gdt_user_entry1 / 8) + i] = to->_gdt_user_entries[i];
+    gdt[(Gdt::gdt_user_entry1 / 8) + i] = _gdt_user_entries[i];
 
-  gdt[Gdt::gdt_utcb/8] = to->_gdt_user_entries[Gdt_user_entries];
+  gdt[Gdt::gdt_utcb/8] = _gdt_user_entries[Gdt_user_entries];
 }
 
 PROTECTED inline
@@ -53,7 +53,7 @@ Context::switch_cpu(Context *t)
 
   store_segments();
 
-  switch_gdt_user_entries(t);
+  t->load_gdt_user_entries(this);
 
   asm volatile
     (

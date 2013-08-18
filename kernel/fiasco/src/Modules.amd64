@@ -1,4 +1,5 @@
 # -*- makefile -*-
+# vi:se ft=make:
 
 include $(srcdir)/Modules.generic
 

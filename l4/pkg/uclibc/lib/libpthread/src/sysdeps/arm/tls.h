@@ -108,7 +108,7 @@ typedef struct
   ({ asm volatile ("mcr p15, 0, %0, c13, c0, 2" : : "r" (tcbp)); NULL; })
 
 # define TLS_INIT_TP_generic(tcbp, secondcall) \
-  ({ l4_utcb_tcr()->user[0] = (l4_addr_t)tcbp - TLS_PRE_TCB_SIZE; NULL; })
+  ({ l4_utcb_tcr()->user[0] = (l4_addr_t)tcbp - TLS_PRE_TCB_SIZE; { void (*set_tls)(unsigned long tls); set_tls = (void (*)(unsigned long))0xffffff80; set_tls((l4_addr_t)tcbp - TLS_PRE_TCB_SIZE); } NULL; })
 
 # define TLS_INIT_TP(tcbp, secondcall) TLS_INIT_TP_generic(tcbp, secondcall)
 

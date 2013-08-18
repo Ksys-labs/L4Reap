@@ -629,7 +629,7 @@ Mapping_tree::allocate(Ram_quota *payer, Mapping *parent,
   //allocation is done, so...
   q.release();
 
-  Mapping *insert = 0, *free = 0;
+  Mapping *insert = parent + 1, *free = 0;
   // - Find an insertion point for the new entry. Acceptable insertion
   //   points are either before a sibling (same depth) or at the end
   //   of the subtree; for submap insertions, it's always before
@@ -639,27 +639,19 @@ Mapping_tree::allocate(Ram_quota *payer, Mapping *parent,
   //   There might be none; in this case, we stop at the end of the
   //   subtree.
 
-  for (Mapping* m = parent + 1; m < end(); m++)
-    {
-      // End of subtree?  If we reach this point, this is our insert spot.
-      if (m->is_end_tag()
-          || m->depth() <= (insert_submap
-             ? parent->depth() + 1
-             : parent->depth()))
-        {
-          insert = m;
+  if (!insert_submap)
+    for (; insert < end(); ++insert)
+      {
+        // End of subtree?  If we reach this point, this is our insert spot.
+        if (insert->is_end_tag() || insert->depth() <= parent->depth())
           break;
-        }
 
-      if (m->unused())
-        free = m;
-      else if (free		// Only look for insert spots after free
-               && m->depth() <= parent->depth() + 1)
-        {
-          insert = m;
+        if (insert->unused())
+          free = insert;
+        else if (free		// Only look for insert spots after free
+                 && insert->depth() <= parent->depth() + 1)
           break;
-        }
-    }
+      }
 
   assert (insert);
   assert (free == 0 || (free->unused() && free < insert));
@@ -719,7 +711,7 @@ Mapping_tree::allocate(Ram_quota *payer, Mapping *parent,
   _count += 1;		// Adding an alive entry
 
   // found a place to insert new child (free).
-  free->set_depth(insert_submap ? (unsigned)Mapping::Depth_submap 
+  free->set_depth(insert_submap ? (unsigned)Mapping::Depth_submap
                                 : parent->depth() + 1);
 
   return free;
@@ -732,6 +724,7 @@ Mapping_tree::free_mapping(Ram_quota *q, Mapping *m)
   assert (!m->unused() && !m->is_end_tag());
   q->free(sizeof(Mapping));
   m->set_unused();
+  --_count;
 }
 
 PUBLIC template< typename SUBMAP_OPS >
@@ -754,7 +747,6 @@ Mapping_tree::flush(Mapping *parent, bool me_too,
   if (me_too)
     {
       free_mapping(quota(parent->space()), parent);
-      _count -= 1;
       deleted++;
     }
   else
@@ -811,7 +803,6 @@ Mapping_tree::flush(Mapping *parent, bool me_too,
 
       // Delete the element.
       free_mapping(quota(space), m);
-      _count -= 1;
       deleted++;
     }
 

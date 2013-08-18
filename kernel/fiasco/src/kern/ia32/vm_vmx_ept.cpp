@@ -345,18 +345,25 @@ Vm_vmx_ept::load_vm_memory(void *src)
   Vmx::vmwrite(0x201a, _ept_phys | 6 | (3 << 3));
 }
 
+PUBLIC inline
+void
+Vm_vmx_ept::store_vm_memory(void *dest)
+{
+  store(0x6802, dest);
+}
+
 PUBLIC static
 void
 Vm_vmx_ept::init()
 {
-#if 0
+
   printf("VMX: init page sizes\n");
   if (!Vmx::cpus.cpu(Cpu_number::boot_cpu()).vmx_enabled())
     return;
-#endif
+
   add_page_size(Mem_space::Page_order(12));
-//  add_page_size(Mem_space::Page_order(21));
-//  add_page_size(Mem_space::Page_order(30));
+  add_page_size(Mem_space::Page_order(21));
+  add_page_size(Mem_space::Page_order(30));
 }
 
 STATIC_INITIALIZE(Vm_vmx_ept);

@@ -35,49 +35,5 @@
 #define	LINUX_REBOOT_CMD_KEXEC		0x45584543
 
 
-#ifdef __KERNEL__
-
-#include <linux/notifier.h>
-
-extern int register_reboot_notifier(struct notifier_block *);
-extern int unregister_reboot_notifier(struct notifier_block *);
-
-
-/*
- * Architecture-specific implementations of sys_reboot commands.
- */
-
-extern void machine_restart(char *cmd);
-extern void machine_halt(void);
-extern void machine_power_off(void);
-
-extern void machine_shutdown(void);
-struct pt_regs;
-extern void machine_crash_shutdown(struct pt_regs *);
-
-/* 
- * Architecture independent implemenations of sys_reboot commands.
- */
-
-extern void kernel_restart_prepare(char *cmd);
-extern void kernel_restart(char *cmd);
-extern void kernel_halt(void);
-extern void kernel_power_off(void);
-
-void ctrl_alt_del(void);
-
-#define POWEROFF_CMD_PATH_LEN	256
-extern char poweroff_cmd[POWEROFF_CMD_PATH_LEN];
-
-extern int orderly_poweroff(bool force);
-
-/*
- * Emergency restart, callable from an interrupt handler.
- */
-
-extern void emergency_restart(void);
-#include <asm/emergency-restart.h>
-
-#endif
 
 #endif /* _LINUX_REBOOT_H */

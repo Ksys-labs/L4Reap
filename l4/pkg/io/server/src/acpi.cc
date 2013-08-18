@@ -84,10 +84,10 @@ Acpi_pci_irq_router_rs::request(Resource *parent, Device *,
 
   child->del_flags(Resource::F_relative);
   child->start(irq->irq);
-  child->del_flags(Resource::Irq_info_base * 3);
-  unsigned flags = 0;
-  flags |= (!irq->trigger) * Resource::Irq_info_base;
-  flags |= (!!irq->polarity) * Resource::Irq_info_base * 2;
+  child->del_flags(Resource::Irq_type_mask);
+  unsigned flags = Resource::Irq_type_base;
+  flags |= (!irq->trigger) * Resource::Irq_type_base * L4_IRQ_F_LEVEL;
+  flags |= (!!irq->polarity) * Resource::Irq_type_base * L4_IRQ_F_NEG;
   child->add_flags(flags);
 
   child->parent(parent);
@@ -379,18 +379,18 @@ Acpi_res_discover::discover_crs(Hw::Device *host)
 	  return;
 
 	case ACPI_RESOURCE_TYPE_IRQ:
-	  flags = Resource::Irq_res;
-	  flags |= (!d->Irq.Triggering) * Resource::Irq_info_base;
-	  flags |= (!!d->Irq.Polarity) * Resource::Irq_info_base * 2;
+	  flags = Resource::Irq_res | Resource::Irq_type_base;
+	  flags |= (!d->Irq.Triggering) * Resource::Irq_type_base * L4_IRQ_F_LEVEL;
+	  flags |= (!!d->Irq.Polarity) * Resource::Irq_type_base * L4_IRQ_F_NEG;
 	  for (unsigned c = 0; c < d->Irq.InterruptCount; ++c)
 	    host->add_resource(new Resource(flags, d->Irq.Interrupts[c],
 		                                d->Irq.Interrupts[c]));
 	  break;
 
 	case ACPI_RESOURCE_TYPE_EXTENDED_IRQ:
-	  flags = Resource::Irq_res;
-	  flags |= (!d->ExtendedIrq.Triggering) * Resource::Irq_info_base;
-	  flags |= (!!d->ExtendedIrq.Polarity) * Resource::Irq_info_base * 2;
+	  flags = Resource::Irq_res | Resource::Irq_type_base;
+	  flags |= (!d->ExtendedIrq.Triggering) * Resource::Irq_type_base * L4_IRQ_F_LEVEL;
+	  flags |= (!!d->ExtendedIrq.Polarity) * Resource::Irq_type_base * L4_IRQ_F_NEG;
 	  if (d->ExtendedIrq.ResourceSource.StringPtr)
 	    {
 	      d_printf(DBG_DEBUG2, "hoo indirect IRQ resource found src=%s idx=%d\n",

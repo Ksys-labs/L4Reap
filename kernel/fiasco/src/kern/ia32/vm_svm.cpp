@@ -35,7 +35,7 @@ protected:
   struct Log_vm_svm_exit : public Tb_entry
   {
     Mword exitcode, exitinfo1, exitinfo2, rip;
-    unsigned print(int max, char *buf) const;
+    void print(String_buffer *buf) const;
   };
 
 };
@@ -46,7 +46,6 @@ IMPLEMENTATION [svm]:
 #include "context.h"
 #include "mem_space.h"
 #include "fpu.h"
-#include "ref_ptr.h"
 #include "svm.h"
 #include "thread.h" // XXX: circular dep, move this out here!
 #include "thread_state.h" // XXX: circular dep, move this out here!
@@ -459,9 +458,6 @@ Vm_svm::do_resume_vcpu(Context *ctxt, Vcpu_state *vcpu, Vmcb *vmcb_s)
     }
 #endif
 
-  // increment our refcount, and drop it at the end automatically
-  Ref_ptr<Vm_svm> pin_myself(this);
-
   // sanitize VMCB
 
   orig_cr3  = vmcb_s->state_save_area.cr3;
@@ -723,10 +719,12 @@ Vm_svm::resume_vcpu(Context *ctxt, Vcpu_state *vcpu, bool user_mode)
 // ------------------------------------------------------------------------
 IMPLEMENTATION [svm && debug]:
 
+#include "string_buffer.h"
+
 IMPLEMENT
-unsigned
-Vm_svm::Log_vm_svm_exit::print(int max, char *buf) const
+void
+Vm_svm::Log_vm_svm_exit::print(String_buffer *buf) const
 {
-  return snprintf(buf, max, "ec=%lx ei1=%08lx ei2=%08lx rip=%08lx",
-                  exitcode, exitinfo1, exitinfo2, rip);
+  buf->printf("ec=%lx ei1=%08lx ei2=%08lx rip=%08lx",
+              exitcode, exitinfo1, exitinfo2, rip);
 }

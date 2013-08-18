@@ -118,8 +118,8 @@ Kernel_thread::init_workload()
   check (s0_b_gate);
   check (map(s0_b_gate, boot_task, boot_task, C_pager, 0));
 
-  set_cpu_of(sigma0_thread, Cpu_number::boot_cpu());
-  set_cpu_of(boot_thread, Cpu_number::boot_cpu());
+  sigma0_thread->set_home_cpu(Cpu_number::boot_cpu());
+  boot_thread->set_home_cpu(Cpu_number::boot_cpu());
 
   sigma0_thread->activate();
   check (obj_map(sigma0, C_factory, 1, boot_task, C_factory, 0).error() == 0);

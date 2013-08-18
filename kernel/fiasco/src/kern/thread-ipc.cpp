@@ -10,13 +10,13 @@ protected:
     Mword pfa;
     Cap_index cap_idx;
     Mword err;
-    unsigned print(int max, char *buf) const;
+    void print(String_buffer *buf) const;
   };
 
   struct Log_exc_invalid : public Tb_entry
   {
     Cap_index cap_idx;
-    unsigned print(int max, char *buf) const;
+    void print(String_buffer *buf) const;
   };
 };
 
@@ -171,7 +171,7 @@ Thread::ipc_send_msg(Receiver *recv)
     // same as in Receiver::prepare_receive_dirty_2
     state_add |= Thread_receive_wait;
 
-  if (cpu() == current_cpu())
+  if (home_cpu() == current_cpu())
     {
       state_change_dirty(~state_del, state_add);
       auto &rq = Sched_context::rq.current();
@@ -226,17 +226,6 @@ Thread::handle_page_fault_pager(Thread_ptr const &_pager,
                                 Address pfa, Mword error_code,
                                 L4_msg_tag::Protocol protocol)
 {
-#ifndef NDEBUG
-  // do not handle user space page faults from kernel mode if we're
-  // already handling a request
-  if (EXPECT_FALSE(!PF::is_usermode_error(error_code)
-		   && thread_lock()->test() == Thread_lock::Locked))
-    {
-      kdb_ke("Fiasco BUG: page fault, under lock");
-      panic("page fault in locked operation");
-    }
-#endif
-
   if (EXPECT_FALSE((state() & Thread_alien)))
     return false;
 
@@ -360,7 +349,7 @@ void Thread::goto_sleep(L4_timeout const &t, Sender *sender, Utcb *utcb)
       if (EXPECT_TRUE((tval > sysclock)))
 	{
 	  set_timeout(&timeout);
-	  timeout.set(tval, cpu(true));
+	  timeout.set(tval, current_cpu());
 	}
       else // timeout already hit
 	state_change_dirty(~Thread_ipc_mask, Thread_ready | Thread_timeout);
@@ -479,7 +468,7 @@ Thread::do_ipc(L4_msg_tag const &tag, bool have_send, Thread *partner,
 
       set_ipc_send_rights(rights);
 
-      if (EXPECT_FALSE(partner->cpu() != current_cpu()) ||
+      if (EXPECT_FALSE(partner->home_cpu() != current_cpu()) ||
 	  ((result = handshake_receiver(partner, t.snd)) == Failed
 	   && partner->drq_pending()))
 	{
@@ -554,7 +543,7 @@ Thread::do_ipc(L4_msg_tag const &tag, bool have_send, Thread *partner,
 
   if (activate_partner)
     {
-      if (partner->cpu() == current_cpu())
+      if (partner->home_cpu() == current_cpu())
 	{
           auto &rq = Sched_context::rq.current();
 	  Sched_context *cs = rq.current_sched();
@@ -975,7 +964,7 @@ Thread::transfer_msg_items(L4_msg_tag const &tag, Thread* snd, Utcb *snd_utcb,
 		      return false;
 		    }
 
-		  auto c_lock = lock_guard(cpu_lock);
+		  auto c_lock = lock_guard<Lock_guard_inverse_policy>(cpu_lock);
 		  err = fpage_map(snd->space(), sfp,
 		      rcv->space(), L4_fpage(buf->d), item->b, &rl);
 		}
@@ -1019,7 +1008,7 @@ Thread::abort_send(L4_error const &e, Thread *partner)
   set_timeout(0);
   Abort_state abt = Abt_ipc_done;
 
-  if (partner->cpu() == current_cpu())
+  if (partner->home_cpu() == current_cpu())
     {
       if (in_sender_list())
 	{
@@ -1072,7 +1061,7 @@ Thread::do_send_wait(Thread *partner, L4_timeout snd_t)
 	return abort_send(L4_error::Timeout, partner);
 
       set_timeout(&timeout);
-      timeout.set(tval, cpu());
+      timeout.set(tval, current_cpu());
     }
 
   register Mword ipc_state;
@@ -1152,13 +1141,13 @@ Thread::remote_ipc_send(Context *src, Ipc_remote_request *rq)
 }
 
 PRIVATE static
-unsigned
+Context::Drq::Result
 Thread::handle_remote_ipc_send(Drq *src, Context *, void *_rq)
 {
   Ipc_remote_request *rq = (Ipc_remote_request*)_rq;
   bool r = nonull_static_cast<Thread*>(src->context())->remote_ipc_send(src->context(), rq);
   //LOG_MSG_3VAL(src, "rse<", current_cpu(), (Mword)src, r);
-  return r ? Drq::Need_resched : 0;
+  return r ? Drq::need_resched() : Drq::done();
 }
 
 /**
@@ -1194,7 +1183,7 @@ Thread::remote_handshake_receiver(L4_msg_tag const &tag, Thread *partner,
 }
 
 PRIVATE static
-unsigned
+Context::Drq::Result
 Thread::remote_prepare_receive(Drq *src, Context *, void *arg)
 {
   Context *c = src->context();
@@ -1204,30 +1193,32 @@ Thread::remote_prepare_receive(Drq *src, Context *, void *arg)
   // No atomic switch to receive state if we are queued, or the IPC must be done by
   // the sender's CPU
   if (EXPECT_FALSE(rq->result == Queued || rq->result == Ok))
-    return 0;
+    return Drq::done();
 
   c->state_del(Thread_ipc_mask);
   if (EXPECT_FALSE((rq->result & Failed) || !rq->have_rcv))
-    return 0;
+    return Drq::done();
 
   c->state_add_dirty(Thread_receive_wait);
-  return 0;
+  return Drq::done();
 }
 
 //---------------------------------------------------------------------------
 IMPLEMENTATION [debug]:
 
+#include "string_buffer.h"
+
 IMPLEMENT
-unsigned
-Thread::Log_pf_invalid::print(int max, char *buf) const
+void
+Thread::Log_pf_invalid::print(String_buffer *buf) const
 {
-  return snprintf(buf, max, "InvCap C:%lx pfa=%lx err=%lx",
-                  cxx::int_value<Cap_index>(cap_idx), pfa, err);
+  buf->printf("InvCap C:%lx pfa=%lx err=%lx",
+              cxx::int_value<Cap_index>(cap_idx), pfa, err);
 }
 
 IMPLEMENT
-unsigned
-Thread::Log_exc_invalid::print(int max, char *buf) const
+void
+Thread::Log_exc_invalid::print(String_buffer *buf) const
 {
-  return snprintf(buf, max, "InvCap C:%lx", cxx::int_value<Cap_index>(cap_idx));
+  buf->printf("InvCap C:%lx", cxx::int_value<Cap_index>(cap_idx));
 }

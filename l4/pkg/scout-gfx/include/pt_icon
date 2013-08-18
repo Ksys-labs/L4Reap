@@ -484,7 +484,6 @@ void
 Icon<PT>::draw(Canvas *c, Point const &p)
 {
   typedef typename PT::Pixel Pixel;
-  typedef typename PT::Color Color;
 
   if (!_d)
     return;

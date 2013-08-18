@@ -64,15 +64,7 @@ private:
   public:
     enum Irq_type
     {
-      S_irq_type_level = Resource::Irq_level,
-      S_irq_type_edge  = Resource::Irq_edge,
-      S_irq_type_high  = Resource::Irq_high,
-      S_irq_type_low   = Resource::Irq_low,
-      S_irq_type_both  = Resource::Irq_both,
-      S_irq_type_mode_mask = S_irq_type_level | S_irq_type_edge
-                             | S_irq_type_both,
-      S_irq_type_polarity_mask = S_irq_type_high | S_irq_type_low,
-      S_irq_type_mask  = S_irq_type_mode_mask | S_irq_type_polarity_mask,
+      S_irq_type_mask  = Resource::Irq_type_mask,
     };
 
     enum

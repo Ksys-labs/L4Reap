@@ -47,7 +47,7 @@ startup_system2()
   // Initialize cpu-local data management and run constructors for CPU 0
   Per_cpu_data::init_ctors();
   Per_cpu_data_alloc::alloc(Cpu_number::boot_cpu());
-  Per_cpu_data::run_ctors(Cpu_number::boot_cpu());
+  Per_cpu_data::run_ctors(Cpu_number::boot_cpu(), false);
 
   Mem_space::init_page_sizes();
   Kmem::init_mmu(*Cpu::boot_cpu());
@@ -65,7 +65,7 @@ startup_system2()
   Irq_chip_ia32_pic::init();
   Ipi::init(Cpu_number::boot_cpu());
   Idt::init();
-  Fpu::init(Cpu_number::boot_cpu());
+  Fpu::init(Cpu_number::boot_cpu(), false);
   Timer::init(Cpu_number::boot_cpu());
   Fb::init();
   Net::init();

@@ -71,14 +71,21 @@ public:
     F_width_64bit   = 0x010000,
     F_relative      = 0x040000,
 
-    Irq_info_base   = 0x100000,
-    Irq_info_factor = Irq_info_base / 2,
-    Irq_level       = L4_IRQ_F_LEVEL * Irq_info_factor, //0x000000,
-    Irq_edge        = L4_IRQ_F_EDGE  * Irq_info_factor, //0x100000,
-    Irq_high        = L4_IRQ_F_POS   * Irq_info_factor, //0x000000,
-    Irq_low         = L4_IRQ_F_NEG   * Irq_info_factor, //0x200000,
-    Irq_both        = L4_IRQ_F_BOTH  * Irq_info_factor, //0x400000,
+    Irq_type_base         = 0x100000,
+    Irq_type_mask         = L4_IRQ_F_MASK       * Irq_type_base,
+    Irq_type_none         = L4_IRQ_F_NONE       * Irq_type_base,
+    Irq_type_level_high   = L4_IRQ_F_LEVEL_HIGH * Irq_type_base,
+    Irq_type_level_low    = L4_IRQ_F_LEVEL_LOW  * Irq_type_base,
+    Irq_type_raising_edge = L4_IRQ_F_POS_EDGE   * Irq_type_base,
+    Irq_type_falling_edge = L4_IRQ_F_NEG_EDGE   * Irq_type_base,
+    Irq_type_both_edges   = L4_IRQ_F_BOTH_EDGE  * Irq_type_base,
   };
+
+  bool irq_is_level_triggered() const
+  { return (_f & Irq_type_mask) & (L4_IRQ_F_LEVEL * Irq_type_base); }
+
+  bool irq_is_low_polarity() const
+  { return (_f & Irq_type_mask) & (L4_IRQ_F_NEG   * Irq_type_base); }
 
   explicit Resource(unsigned long flags = 0)
   : _f(flags | F_fixed_size), _p(0), _s(0), _e(0), _a(0) {}

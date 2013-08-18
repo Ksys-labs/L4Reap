@@ -55,23 +55,28 @@ enum L4_icu_flags
 
 
 /**
- * \brief Interrupt flow types.
+ * \brief Interrupt attributes.
  * \ingroup l4_irq_api
  */
-enum L4_irq_flow_type
+enum L4_irq_mode
 {
-  L4_IRQ_F_NONE       = 0,     /**< None */
-  L4_IRQ_F_LEVEL      = 0x2,   /**< Level triggered */
-  L4_IRQ_F_EDGE       = 0x0,   /**< Edge triggered */
-  L4_IRQ_F_POS        = 0x0,   /**< Positive trigger */
-  L4_IRQ_F_NEG        = 0x4,   /**< Negative trigger */
-  L4_IRQ_F_BOTH       = 0x8,   /**< Both edges trigger */
-  L4_IRQ_F_LEVEL_HIGH = 0x3,   /**< Level high trigger */
-  L4_IRQ_F_LEVEL_LOW  = 0x7,   /**< Level low trigger */
-  L4_IRQ_F_POS_EDGE   = 0x1,   /**< Positive edge trigger */
-  L4_IRQ_F_NEG_EDGE   = 0x5,   /**< Negative edge trigger */
-  L4_IRQ_F_BOTH_EDGE  = 0x9,   /**< Both edges trigger */
-  L4_IRQ_F_MASK       = 0xf,   /**< Mask */
+  /** Flow types */
+  L4_IRQ_F_NONE         = 0,     /**< None */
+  L4_IRQ_F_LEVEL        = 0x2,   /**< Level triggered */
+  L4_IRQ_F_EDGE         = 0x0,   /**< Edge triggered */
+  L4_IRQ_F_POS          = 0x0,   /**< Positive trigger */
+  L4_IRQ_F_NEG          = 0x4,   /**< Negative trigger */
+  L4_IRQ_F_BOTH         = 0x8,   /**< Both edges trigger */
+  L4_IRQ_F_LEVEL_HIGH   = 0x3,   /**< Level high trigger */
+  L4_IRQ_F_LEVEL_LOW    = 0x7,   /**< Level low trigger */
+  L4_IRQ_F_POS_EDGE     = 0x1,   /**< Positive edge trigger */
+  L4_IRQ_F_NEG_EDGE     = 0x5,   /**< Negative edge trigger */
+  L4_IRQ_F_BOTH_EDGE    = 0x9,   /**< Both edges trigger */
+  L4_IRQ_F_MASK         = 0xf,   /**< Mask */
+
+  /** Wakeup source? */
+  L4_IRQ_F_SET_WAKEUP   = 0x10,  /**< Use irq as wakeup source */
+  L4_IRQ_F_CLEAR_WAKEUP = 0x20,  /**< Do not use irq as wakeup source */
 };
 
 
@@ -209,7 +214,7 @@ l4_icu_unbind_u(l4_cap_idx_t icu, unsigned irqnum, l4_cap_idx_t irq,
  *
  * \param  icu     ICU to use.
  * \param  irqnum  IRQ vector at the ICU.
- * \param  mode    Mode, see L4_irq_flow_type.
+ * \param  mode    Mode, see L4_irq_mode.
  * \return Syscall return tag
  *
  * \ingroup l4_icu_api

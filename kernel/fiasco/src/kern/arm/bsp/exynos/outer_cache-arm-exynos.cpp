@@ -7,12 +7,6 @@ IMPLEMENT
 Mword
 Outer_cache::platform_init(Mword auxc)
 {
-  // power control
-  enum {
-    Standby_mode_enable       = 1 << 0,
-    Dynamic_clk_gating_enable = 1 << 1,
-  };
-
   unsigned tag_lat = 0x110;
   unsigned data_lat = Platform::is_4210() ? 0x110 : 0x120;
   unsigned prefctrl = 0x30000007;
@@ -37,12 +31,14 @@ Outer_cache::platform_init(Mword auxc)
 
       l2cxx0->write<Mword>(prefctrl, 0xf60);
 
-      l2cxx0->write<Mword>(Standby_mode_enable | Dynamic_clk_gating_enable,
+      l2cxx0->write<Mword>(L2cxx0::Pwr_ctrl_standby_mode_en
+                           | L2cxx0::Pwr_ctrl_dynamic_clk_gating_en,
                            0xf80);
     }
   else
     Exynos_smc::l2cache_setup(tag_lat, data_lat, prefctrl,
-                              Standby_mode_enable | Dynamic_clk_gating_enable,
+                              L2cxx0::Pwr_ctrl_standby_mode_en
+                              | L2cxx0::Pwr_ctrl_dynamic_clk_gating_en,
                               auxc_bits, auxc_mask);
 
   return (auxc & auxc_mask) | auxc_bits;

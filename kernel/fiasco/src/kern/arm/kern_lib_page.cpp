@@ -90,6 +90,7 @@ IMPLEMENTATION [arm && armv6plus]:
 
 asm (
     ".p2align(12)                        \n"
+    ".global kern_lib_start              \n" // need this for mem_space.cpp
     "kern_lib_start:                     \n"
 
     // no restart through kernel entry code

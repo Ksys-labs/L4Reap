@@ -5,8 +5,5 @@
 #define LTALK_MTU		600
 #define LTALK_ALEN		1
 
-#ifdef __KERNEL__
-extern struct net_device *alloc_ltalkdev(int sizeof_priv);
-#endif
 
-#endif
+#endif /* __LINUX_LTALK_H */

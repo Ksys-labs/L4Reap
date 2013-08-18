@@ -5,7 +5,7 @@ class Trap_state;
 EXTENSION class Thread
 {
 public:
-  static void init_per_cpu(Cpu_number cpu);
+  static void init_per_cpu(Cpu_number cpu, bool resume);
 private:
   bool _in_exception;
 
@@ -80,7 +80,7 @@ Thread::fast_return_to_user(Mword ip, Mword sp, Vcpu_state *arg)
 
 IMPLEMENT_DEFAULT inline
 void
-Thread::init_per_cpu(Cpu_number)
+Thread::init_per_cpu(Cpu_number, bool)
 {}
 
 
@@ -102,7 +102,7 @@ Thread::user_invoke()
   Mem::memset_mwords(&ts->r[0], 0, sizeof(ts->r) / sizeof(ts->r[0]));
 
   if (current()->space()->is_sigma0())
-    ts->r[0] = Mem_space::kernel_space()->virt_to_phys((Address)Kip::k());
+    ts->r[0] = Kmem_space::kdir()->virt_to_phys((Address)Kip::k());
 
   ts->psr |= Proc::Status_always_mask;
 
@@ -179,13 +179,6 @@ extern "C" {
   Mword pagefault_entry(const Mword pfa, Mword error_code,
                         const Mword pc, Return_frame *ret_frame)
   {
-#if 0 // Double PF detect
-    static unsigned long last_pfa = ~0UL;
-    LOG_MSG_3VAL(current(),"PF", pfa, error_code, pc);
-    if (last_pfa == pfa || pfa == 0)
-      kdb_ke("DBF");
-    last_pfa = pfa;
-#endif
     if (EXPECT_FALSE(PF::is_alignment_error(error_code)))
       {
 	printf("KERNEL%d: alignment error at %08lx (PC: %08lx, SP: %08lx, FSR: %lx, PSR: %lx)\n",
@@ -203,6 +196,13 @@ extern "C" {
 	  return 1;
 	t->state_del(Thread_cancel);
         Proc::sti();
+
+        // PFs in the kern_lib_page are always write PFs due to rollbacks and
+        // insn decoding
+        if (EXPECT_FALSE((pc & Kmem::Kern_lib_base) == Kmem::Kern_lib_base))
+          error_code |= (1UL << 11);
+
+        return t->handle_page_fault(pfa, error_code, pc, ret_frame);
       }
     // or interrupts were enabled
     else if (!(ret_frame->psr & Proc::Status_preempt_disabled))
@@ -234,7 +234,6 @@ extern "C" {
 
 	    kdb_ke ("page fault in cli mode");
 	  }
-
       }
 
     // cache operations we carry out for user space might cause PFs, we just
@@ -245,10 +244,8 @@ extern "C" {
         return 1;
       }
 
-    // PFs in the kern_lib_page are always write PFs due to rollbacks and
-    // insn decoding
-    if (EXPECT_FALSE((pc & Kmem::Kern_lib_base) == Kmem::Kern_lib_base))
-      error_code |= (1UL << 11);
+    if (t->vcpu_pagefault(pfa, error_code, pc))
+      return 1;
 
     return t->handle_page_fault(pfa, error_code, pc, ret_frame);
   }
@@ -280,14 +277,14 @@ extern "C" {
 
 	if (ts->psr & Proc::Status_thumb)
 	  {
-	    Unsigned16 v = *(Unsigned16 *)(ts->pc - 2);
+	    Unsigned16 v = Thread::peek_user((Unsigned16 *)(ts->pc - 2));
 	    if ((v >> 11) <= 0x1c)
 	      goto undef_insn;
 
-	    opcode = (v << 16) | *(Unsigned16 *)ts->pc;
+	    opcode = (v << 16) | Thread::peek_user((Unsigned16 *)ts->pc);
 	  }
 	else
-	  opcode = *(Unsigned32 *)(ts->pc - 4);
+	  opcode = Thread::peek_user((Unsigned32 *)(ts->pc - 4));
 
         if (ts->psr & Proc::Status_thumb)
           {
@@ -328,6 +325,7 @@ undef_insn:
 
 };
 
+
 IMPLEMENT inline
 bool
 Thread::pagein_tcb_request(Return_frame *regs)
@@ -358,7 +356,7 @@ IMPLEMENTATION [arm]:
     @param id user-visible thread ID of the sender
     @param init_prio initial priority
     @param mcp thread's maximum controlled priority
-    @post state() != Thread_invalid
+    @post state() != 0
  */
 IMPLEMENT
 Thread::Thread()
@@ -367,7 +365,7 @@ Thread::Thread()
     _exc_handler(Thread_ptr::Invalid),
     _del_observer(0)
 {
-  assert (state(false) == Thread_invalid);
+  assert (state(false) == 0);
 
   inc_ref();
   _space.space(Kernel_task::kernel_task());
@@ -613,6 +611,9 @@ Thread::condition_valid(Unsigned32 insn, Unsigned32 psr)
 
   return (v[insn >> 28] >> (psr >> 28)) & 1;
 }
+
+PUBLIC static inline template<typename T>
+T Thread::peek_user(T const *adr) { return *adr; }
 
 // ------------------------------------------------------------------------
 IMPLEMENTATION [arm && armv6plus]:

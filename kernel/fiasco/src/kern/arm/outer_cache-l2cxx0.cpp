@@ -45,6 +45,12 @@ private:
       DEBUG_CONTROL_REGISTER         = 0xf40,
     };
 
+    enum
+    {
+      Pwr_ctrl_standby_mode_en       = 1 << 0,
+      Pwr_ctrl_dynamic_clk_gating_en = 1 << 1,
+    };
+
     Spin_lock<> _lock;
 
     explicit L2cxx0(Address virt) : Mmio_register_block(virt) {}
@@ -86,7 +92,6 @@ IMPLEMENTATION [arm && outer_cache_l2cxx0]:
 
 Static_object<Outer_cache::L2cxx0> Outer_cache::l2cxx0;
 
-//Spin_lock<> Outer_cache::_lock;
 bool Outer_cache::need_sync;
 unsigned Outer_cache::waymask;
 

@@ -59,7 +59,7 @@ static l4irq_t *release(l4irq_t *i, unsigned what)
 
 static l4irq_t *
 alloc_and_get_irq(enum l4irq_type type, int irqnum, l4_cap_idx_t given_cap,
-                  L4::Icu::Flow_type ft)
+                  L4::Icu::Mode mode)
 {
   l4irq_t *irq = (l4irq_t *)malloc(sizeof(*irq));
 
@@ -81,17 +81,17 @@ alloc_and_get_irq(enum l4irq_type type, int irqnum, l4_cap_idx_t given_cap,
 
       L4::Cap<L4::Icu> icu(l4io_request_icu());
 
-      long ret = l4_error(icu->bind(irqnum, irq->cap));
+      int ret = l4_error(icu->set_mode(irqnum, mode));
+      if (ret < 0)
+        return release(irq, 2);
+
+      ret = l4_error(icu->bind(irqnum, irq->cap));
       if (ret < 0)
 	return release(irq, 2);
       if (ret == 1)
 	irq->eoi_cap = icu;
       else
 	irq->eoi_cap = irq->cap;
-
-      ret = l4_error(icu->set_mode(irqnum, ft));
-      if (ret < 0)
-        printf("setting mode/flow-type failed\n");
     }
   else
     {
@@ -105,9 +105,7 @@ alloc_and_get_irq(enum l4irq_type type, int irqnum, l4_cap_idx_t given_cap,
 static inline long
 attach_to_irq(l4irq_t *irq, l4_cap_idx_t t)
 {
-  l4_msgtag_t res = l4_irq_attach(irq->cap.cap(),
-                                  (l4_umword_t)irq, t);
-  return l4_error(res);
+  return l4_error(l4_irq_attach(irq->cap.cap(), (l4_umword_t)irq << 2, t));
 }
 
 static void *
@@ -133,12 +131,12 @@ isr_loop(void *data)
 static l4irq_t *
 do_l4irq_request(enum l4irq_type type, int irqnum, l4_cap_idx_t given_cap,
                  void (*isr_handler)(void *), void *isr_data,
-                 int irq_thread_prio, unsigned flow_type)
+                 int irq_thread_prio, unsigned mode)
 {
   l4irq_t *irq;
 
   if (!(irq = alloc_and_get_irq(type, irqnum, given_cap,
-                                (L4::Icu::Flow_type)flow_type)))
+                                (L4::Icu::Mode)mode)))
     return NULL;
 
   irq->isr_func  = (void *(*)(void *))isr_handler;
@@ -165,21 +163,21 @@ do_l4irq_request(enum l4irq_type type, int irqnum, l4_cap_idx_t given_cap,
 
 l4irq_t *
 l4irq_request(int irqnum, void (*isr_handler)(void *), void *isr_data,
-              int irq_thread_prio, unsigned flow_type)
+              int irq_thread_prio, unsigned mode)
 {
   return do_l4irq_request(IRQ_TYPE_L4IO, irqnum, L4_INVALID_CAP,
                           isr_handler, isr_data,
-                          irq_thread_prio, flow_type);
+                          irq_thread_prio, mode);
 }
 
 l4irq_t *
 l4irq_request_cap(l4_cap_idx_t irqcap,
                   void (*isr_handler)(void *), void *isr_data,
-                  int irq_thread_prio, unsigned flow_type)
+                  int irq_thread_prio, unsigned mode)
 {
   return do_l4irq_request(IRQ_TYPE_GIVEN, -1, irqcap,
                           isr_handler, isr_data,
-                          irq_thread_prio, flow_type);
+                          irq_thread_prio, mode);
 }
 
 long
@@ -249,15 +247,18 @@ l4irq_unmask(l4irq_t *irq)
 long
 l4irq_unmask_and_wait_any(l4irq_t *unmask_irq, l4irq_t **ret_irq)
 {
-  l4_msgtag_t res = l4_irq_wait(unmask_irq->cap.cap(), (l4_umword_t *)ret_irq,
-                                L4_IPC_NEVER);
+  l4_umword_t label;
+  l4_msgtag_t res = l4_irq_wait(unmask_irq->cap.cap(), &label, L4_IPC_NEVER);
+  *ret_irq = (l4irq_t *)(label >> 2);
   return l4_ipc_error(res, l4_utcb());
 }
 
 long
 l4irq_wait_any(l4irq_t **irq)
 {
-  l4_msgtag_t res = l4_ipc_wait(l4_utcb(), (l4_umword_t *)irq, L4_IPC_NEVER);
+  l4_umword_t label;
+  l4_msgtag_t res = l4_ipc_wait(l4_utcb(), &label, L4_IPC_NEVER);
+  *irq = (l4irq_t *)(label >> 2);
   return l4_ipc_error(res, l4_utcb());
 }
 

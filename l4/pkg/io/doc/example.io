@@ -23,12 +23,12 @@ Io.hw_add_devices
 Io.add_vbusses
 {
 -- Create a virtual bus for a client and give access to FOODEVICE
-  client1 = Vi.System_bus(function ()
+  client1 = Io.Vi.System_bus(function ()
     dev = wrap(hw:match("FOODEVICE"));
   end),
 
 -- Create a virtual bus for another client and give it access to BARDEVICE
-  client2 = Vi.System_bus(function ()
+  client2 = Io.Vi.System_bus(function ()
     dev = wrap(hw:match("BARDEVICE"));
   end)
 }

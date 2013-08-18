@@ -1,6 +1,8 @@
 #ifndef _NFNETLINK_COMPAT_H
 #define _NFNETLINK_COMPAT_H
-#ifndef __KERNEL__
+
+#include <linux/types.h>
+
 /* Old nfnetlink macros for userspace */
 
 /* nfnetlink groups: Up to 32 maximum */
@@ -18,10 +20,9 @@
  * ! nfnetlink use the same attributes methods. - J. Schulist.
  */
 
-struct nfattr
-{
-	u_int16_t nfa_len;
-	u_int16_t nfa_type;	/* we use 15 bits for the type, and the highest
+struct nfattr {
+	__u16 nfa_len;
+	__u16 nfa_type;	/* we use 15 bits for the type, and the highest
 				 * bit to indicate whether the payload is nested */
 };
 
@@ -57,5 +58,4 @@ struct nfattr
         + NLMSG_ALIGN(sizeof(struct nfgenmsg))))
 #define NFM_PAYLOAD(n)  NLMSG_PAYLOAD(n, sizeof(struct nfgenmsg))
 
-#endif /* ! __KERNEL__ */
 #endif /* _NFNETLINK_COMPAT_H */

@@ -201,12 +201,6 @@ Mem_space::virt_to_phys(Address virt) const
   return dir()->virt_to_phys(virt);
 }
 
-PUBLIC inline NEEDS [Mem_space::virt_to_phys]
-Address
-Mem_space::pmem_to_phys(Address virt) const
-{
-  return virt_to_phys(virt);
-}
 
 /** Simple page-table lookup.  This method is similar to Mem_space's 
     lookup().  The difference is that this version handles 
@@ -320,21 +314,10 @@ Mem_space::initialize()
     return false;
 
   _dir->clear(Pte_ptr::need_cache_write_back(false));
-  _dir_phys = Phys_mem_addr(kernel_space()->virt_to_phys((Address)_dir));
+  _dir_phys = Phys_mem_addr(Kmem_space::kdir()->virt_to_phys((Address)_dir));
 
   q.release();
   return true;
-}
-
-PROTECTED inline
-void
-Mem_space::sync_kernel()
-{
-  _dir->sync(Virt_addr(Mem_layout::User_max), kernel_space()->_dir,
-             Virt_addr(Mem_layout::User_max),
-             Virt_size(-Mem_layout::User_max), Pdir::Super_level,
-             Pte_ptr::need_cache_write_back(this == _current.current()),
-             Kmem_alloc::q_allocator(_quota));
 }
 
 PUBLIC
@@ -343,7 +326,7 @@ Mem_space::Mem_space(Ram_quota *q, Dir_type* pdir)
 {
   asid(Mem_unit::Asid_invalid);
   _current.cpu(Cpu_number::boot_cpu()) = this;
-  _dir_phys = Phys_mem_addr(virt_to_phys((Address)_dir));
+  _dir_phys = Phys_mem_addr(Kmem_space::kdir()->virt_to_phys((Address)_dir));
 }
 
 PUBLIC static inline
@@ -359,6 +342,27 @@ Mem_space::init_page_sizes()
 {
   add_page_size(Page_order(Config::PAGE_SHIFT));
   add_page_size(Page_order(20)); // 1MB
+}
+
+//----------------------------------------------------------------------------
+IMPLEMENTATION [arm]:
+
+PROTECTED inline
+void
+Mem_space::sync_kernel()
+{
+  _dir->sync(Virt_addr(Mem_layout::User_max), kernel_space()->_dir,
+             Virt_addr(Mem_layout::User_max),
+             Virt_size(-Mem_layout::User_max), Pdir::Super_level,
+             Pte_ptr::need_cache_write_back(this == _current.current()),
+             Kmem_alloc::q_allocator(_quota));
+}
+
+PUBLIC inline NEEDS [Mem_space::virt_to_phys]
+Address
+Mem_space::pmem_to_phys(Address virt) const
+{
+  return virt_to_phys(virt);
 }
 
 //----------------------------------------------------------------------------
@@ -590,9 +594,11 @@ Mem_space::init_page_sizes()
 {
   add_page_size(Page_order(Config::PAGE_SHIFT));
   add_page_size(Page_order(21)); // 2MB
-  if (0)
-    add_page_size(Page_order(30)); // 1GB
+  add_page_size(Page_order(30)); // 1GB
 }
+
+//----------------------------------------------------------------------------
+IMPLEMENTATION [armv7 && arm_lpae]:
 
 IMPLEMENT inline
 void

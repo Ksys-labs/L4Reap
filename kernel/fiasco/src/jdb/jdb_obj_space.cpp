@@ -89,7 +89,8 @@ PUBLIC
 void
 Jdb_obj_space::print_statline(unsigned long row, unsigned long col)
 {
-  static char buf[128];
+  static String_buf<128> buf;
+  buf.clear();
   unsigned rights;
 
   Kobject_iface *o = item(index(row,col), &rights);
@@ -100,9 +101,9 @@ Jdb_obj_space::print_statline(unsigned long row, unsigned long col)
       return;
     }
 
-  unsigned len = Jdb_kobject::obj_description(buf, sizeof(buf), true, o->dbg_info());
+  Jdb_kobject::obj_description(&buf, true, o->dbg_info());
   Jdb::printf_statline("objs", "<Space>=mode",
-		       "%lx: %-*s", cxx::int_value<Cap_index>(index(row,col)), len, buf);
+		       "%lx: %-*s", cxx::int_value<Cap_index>(index(row,col)), buf.length(), buf.begin());
 }
 
 PUBLIC

@@ -37,4 +37,4 @@ struct user_desc {
 #define MODIFY_LDT_CONTENTS_CODE	2
 
 #endif /* !__ASSEMBLY__ */
-#endif
+#endif /* _ASM_X86_LDT_H */

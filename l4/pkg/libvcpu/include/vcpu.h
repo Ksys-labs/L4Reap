@@ -296,6 +296,8 @@ l4vcpu_irq_restore(l4_vcpu_state_t *vcpu, l4vcpu_irq_state_t s,
 {
   if (s & L4_VCPU_F_IRQ)
     l4vcpu_irq_enable(vcpu, utcb, do_event_work_cb, setup_ipc);
+  else if (vcpu->state & L4_VCPU_F_IRQ)
+    l4vcpu_irq_disable(vcpu);
 }
 
 L4_CV L4_INLINE

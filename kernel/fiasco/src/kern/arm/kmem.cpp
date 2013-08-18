@@ -15,6 +15,7 @@ public:
 //---------------------------------------------------------------------------
 IMPLEMENTATION [arm]:
 
+#include "config.h"
 #include "mem_unit.h"
 #include "kmem_space.h"
 #include "paging.h"

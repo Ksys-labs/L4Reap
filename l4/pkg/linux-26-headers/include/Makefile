@@ -6,6 +6,8 @@ PC_FILENAME         = linux-26-headers
 SUFFIX_amd64       := x86
 SUFFIX_x86         := x86
 SUFFIX_arm         := arm
+SUFFIX_ppc32       := powerpc
+SUFFIX_sparc       := sparc
 
 include $(L4DIR)/mk/include.mk
 

@@ -51,7 +51,12 @@ define SRC_libc/sysdeps/linux_sparc__with_soft_fp
 endef
 
 ifeq ($(GCCIS_sparc_leon),)
-  SRC_libc/sysdeps/linux_sparc := $(SRC_libc/sysdeps/linux_sparc__with_soft_fp)
+  define SRC_libc/sysdeps/linux_sparc
+    udiv
+    umul
+    urem
+  endef
+  SRC_libc/sysdeps/linux_sparc += $(SRC_libc/sysdeps/linux_sparc__with_soft_fp)
 endif
 
 define SRC_libc/termios

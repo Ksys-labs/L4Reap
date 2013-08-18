@@ -334,11 +334,11 @@ Romain::ThreadHandler::handle(Romain::App_instance *i,
 		case L4_THREAD_VCPU_CONTROL_EXT_OP:
 			enter_kdebug("THREAD: vcpu control ext");
 			break;
-		case L4_THREAD_GDT_X86_OP:
+		case L4_THREAD_X86_GDT_OP:
 			group->gdt(t, utcb);
 			break;
-		case L4_THREAD_SET_FS_AMD64_OP:
-			enter_kdebug("THREAD: set fs amd64");
+		case L4_THREAD_AMD64_SET_SEGMENT_BASE_OP:
+			enter_kdebug("THREAD: set segment base amd64");
 			break;
 		default:
 			ERROR() << "unknown thread op: " << std::hex << op;

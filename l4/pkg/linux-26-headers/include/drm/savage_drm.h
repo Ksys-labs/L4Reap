@@ -29,7 +29,7 @@
 #ifndef __SAVAGE_SAREA_DEFINES__
 #define __SAVAGE_SAREA_DEFINES__
 
-/* 2 heaps (1 for card, 1 for agp), each divided into upto 128
+/* 2 heaps (1 for card, 1 for agp), each divided into up to 128
  * regions, subject to a minimum region size of (1<<16) == 64k.
  *
  * Clients may subdivide regions internally, but when sharing between
@@ -63,10 +63,10 @@ typedef struct _drm_savage_sarea {
 #define DRM_SAVAGE_BCI_EVENT_EMIT	0x02
 #define DRM_SAVAGE_BCI_EVENT_WAIT	0x03
 
-#define DRM_IOCTL_SAVAGE_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_SAVAGE_BCI_INIT, drm_savage_init_t)
-#define DRM_IOCTL_SAVAGE_CMDBUF		DRM_IOW( DRM_COMMAND_BASE + DRM_SAVAGE_BCI_CMDBUF, drm_savage_cmdbuf_t)
-#define DRM_IOCTL_SAVAGE_EVENT_EMIT	DRM_IOWR(DRM_COMMAND_BASE + DRM_SAVAGE_BCI_EVENT_EMIT, drm_savage_event_emit_t)
-#define DRM_IOCTL_SAVAGE_EVENT_WAIT	DRM_IOW( DRM_COMMAND_BASE + DRM_SAVAGE_BCI_EVENT_WAIT, drm_savage_event_wait_t)
+#define DRM_IOCTL_SAVAGE_BCI_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_SAVAGE_BCI_INIT, drm_savage_init_t)
+#define DRM_IOCTL_SAVAGE_BCI_CMDBUF		DRM_IOW( DRM_COMMAND_BASE + DRM_SAVAGE_BCI_CMDBUF, drm_savage_cmdbuf_t)
+#define DRM_IOCTL_SAVAGE_BCI_EVENT_EMIT	DRM_IOWR(DRM_COMMAND_BASE + DRM_SAVAGE_BCI_EVENT_EMIT, drm_savage_event_emit_t)
+#define DRM_IOCTL_SAVAGE_BCI_EVENT_WAIT	DRM_IOW( DRM_COMMAND_BASE + DRM_SAVAGE_BCI_EVENT_WAIT, drm_savage_event_wait_t)
 
 #define SAVAGE_DMA_PCI	1
 #define SAVAGE_DMA_AGP	3
@@ -103,17 +103,17 @@ typedef struct drm_savage_init {
 typedef union drm_savage_cmd_header drm_savage_cmd_header_t;
 typedef struct drm_savage_cmdbuf {
 	/* command buffer in client's address space */
-	drm_savage_cmd_header_t __user *cmd_addr;
+	drm_savage_cmd_header_t *cmd_addr;
 	unsigned int size;	/* size of the command buffer in 64bit units */
 
 	unsigned int dma_idx;	/* DMA buffer index to use */
 	int discard;		/* discard DMA buffer when done */
 	/* vertex buffer in client's address space */
-	unsigned int __user *vb_addr;
+	unsigned int *vb_addr;
 	unsigned int vb_size;	/* size of client vertex buffer in bytes */
 	unsigned int vb_stride;	/* stride of vertices in 32bit words */
 	/* boxes in client's address space */
-	struct drm_clip_rect __user *box_addr;
+	struct drm_clip_rect *box_addr;
 	unsigned int nbox;	/* number of clipping boxes */
 } drm_savage_cmdbuf_t;
 

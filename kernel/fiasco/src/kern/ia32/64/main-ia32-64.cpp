@@ -64,7 +64,7 @@ IMPLEMENTATION[amd64 && mp]:
 #include "kernel_thread.h"
 
 void
-main_switch_ap_cpu_stack(Kernel_thread *kernel)
+main_switch_ap_cpu_stack(Kernel_thread *kernel, bool resume)
 {
   Mword dummy;
 
@@ -73,5 +73,5 @@ main_switch_ap_cpu_stack(Kernel_thread *kernel)
     ("	mov %[rsp], %%rsp	\n\t"	// switch stack
      "	call call_ap_bootstrap	\n\t"	// bootstrap kernel thread
      :  "=a" (dummy), "=c" (dummy), "=d" (dummy)
-     :	"D"(kernel), [rsp]"r" (kernel->init_stack()));
+     :	"D"(kernel), "S"(resume), [rsp]"r" (kernel->init_stack()));
 }

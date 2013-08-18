@@ -21,7 +21,7 @@
  *    query vendor-specific element types
  *
  *    accessing elements works by specifing type and unit of the element.
- *    for eample, storage elements are addressed with type = CHET_ST and
+ *    for example, storage elements are addressed with type = CHET_ST and
  *    unit = 0 .. cp_nslots-1
  *
  */
@@ -96,7 +96,7 @@ struct changer_position {
  */
 struct changer_element_status {
 	int             ces_type;
-	unsigned char   __user *ces_data;
+	unsigned char   *ces_data;
 };
 #define CESTATUS_FULL     0x01 /* full */
 #define CESTATUS_IMPEXP   0x02	/* media was imported (inserted by sysop) */

@@ -552,9 +552,9 @@ void Pic::init()
 }
 
 PUBLIC static
-void Pic::init_ap(Cpu_number)
+void Pic::init_ap(Cpu_number, bool resume)
 {
-  gic->init_ap();
+  gic->init_ap(resume);
 }
 
 // ------------------------------------------------------------------------
@@ -756,36 +756,42 @@ DEFINE_PER_CPU static Per_cpu<Static_object<Check_irq0> > _check_irq0;
 
 
 PUBLIC static
-void Pic::init_ap(Cpu_number cpu)
+void Pic::init_ap(Cpu_number cpu, bool resume)
 {
-  if (Platform::is_4412())
+  if (!resume)
     {
-      assert(cpu > Cpu_number(0));
-      assert(cpu < Cpu_number(4));
+      if (Platform::is_4412())
+        {
+          assert(cpu > Cpu_number(0));
+          assert(cpu < Cpu_number(4));
 
-      unsigned phys_cpu = cxx::int_value<Cpu_phys_id>(Cpu::cpus.cpu(cpu).phys_id());
-      gic.cpu(cpu).construct(
-          Kmem::mmio_remap(Mem_layout::Gic_cpu_ext_cpu0_phys_base + phys_cpu * 0x4000),
-          Kmem::mmio_remap(Mem_layout::Gic_dist_ext_cpu0_phys_base + phys_cpu * 0x4000),
-          gic.cpu(Cpu_number(0)));
+          unsigned phys_cpu = cxx::int_value<Cpu_phys_id>(Cpu::cpus.cpu(cpu).phys_id());
+          gic.cpu(cpu).construct(
+              Kmem::mmio_remap(Mem_layout::Gic_cpu_ext_cpu0_phys_base + phys_cpu * 0x4000),
+              Kmem::mmio_remap(Mem_layout::Gic_dist_ext_cpu0_phys_base + phys_cpu * 0x4000),
+              gic.cpu(Cpu_number(0)));
+        }
+      else
+        {
+          assert (cpu == Cpu_number(1));
+          assert (Cpu::cpus.cpu(cpu).phys_id() == Cpu_phys_id(1));
+
+          gic.cpu(cpu).construct(Kmem::mmio_remap(Mem_layout::Gic_cpu_ext_cpu1_phys_base),
+                                 Kmem::mmio_remap(Mem_layout::Gic_dist_ext_cpu1_phys_base),
+                                 gic.cpu(Cpu_number(0)));
+        }
     }
-  else
+
+  gic.cpu(cpu)->init_ap(resume);
+
+
+  if (!resume)
     {
-      assert (cpu == Cpu_number(1));
-      assert (Cpu::cpus.cpu(cpu).phys_id() == Cpu_phys_id(1));
-
-      gic.cpu(cpu).construct(Kmem::mmio_remap(Mem_layout::Gic_cpu_ext_cpu1_phys_base),
-                             Kmem::mmio_remap(Mem_layout::Gic_dist_ext_cpu1_phys_base),
-                             gic.cpu(Cpu_number(0)));
+      // This is a debug facility as we've been seeing IRQ0
+      // happening under (non-usual) high load
+      _check_irq0.cpu(cpu).construct();
+      gic.cpu(cpu)->alloc(_check_irq0.cpu(cpu), 0);
     }
-
-  gic.cpu(cpu)->init_ap();
-
-
-  // This is a debug facility as we've been seeing IRQ0
-  // happening under (non-usual) high load
-  _check_irq0.cpu(cpu).construct();
-  gic.cpu(cpu)->alloc(_check_irq0.cpu(cpu), 0);
 }
 
 
@@ -936,9 +942,9 @@ Pic::reinit(Cpu_number)
 }
 
 PUBLIC static
-void Pic::init_ap(Cpu_number)
+void Pic::init_ap(Cpu_number, bool resume)
 {
-  gic->init_ap();
+  gic->init_ap(resume);
 }
 
 //---------------------------------------------------------------------------

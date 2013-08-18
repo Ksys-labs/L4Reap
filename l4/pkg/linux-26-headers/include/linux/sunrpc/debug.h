@@ -26,51 +26,6 @@
 #define RPCDBG_CACHE		0x0800
 #define RPCDBG_ALL		0x7fff
 
-#ifdef __KERNEL__
-
-#include <linux/timer.h>
-#include <linux/workqueue.h>
-
-/*
- * Enable RPC debugging/profiling.
- */
-#ifdef CONFIG_SYSCTL
-#define  RPC_DEBUG
-#endif
-/* #define  RPC_PROFILE */
-
-/*
- * Debugging macros etc
- */
-#ifdef RPC_DEBUG
-extern unsigned int		rpc_debug;
-extern unsigned int		nfs_debug;
-extern unsigned int		nfsd_debug;
-extern unsigned int		nlm_debug;
-#endif
-
-#define dprintk(args...)	dfprintk(FACILITY, ## args)
-
-#undef ifdebug
-#ifdef RPC_DEBUG			
-# define ifdebug(fac)		if (unlikely(rpc_debug & RPCDBG_##fac))
-# define dfprintk(fac, args...)	do { ifdebug(fac) printk(args); } while(0)
-# define RPC_IFDEBUG(x)		x
-#else
-# define ifdebug(fac)		if (0)
-# define dfprintk(fac, args...)	do ; while (0)
-# define RPC_IFDEBUG(x)
-#endif
-
-/*
- * Sysctl interface for RPC debugging
- */
-#ifdef RPC_DEBUG
-void		rpc_register_sysctl(void);
-void		rpc_unregister_sysctl(void);
-#endif
-
-#endif /* __KERNEL__ */
 
 /*
  * Declarations for the sysctl debug interface, which allows to read or

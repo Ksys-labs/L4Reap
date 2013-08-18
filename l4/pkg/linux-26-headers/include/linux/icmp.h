@@ -15,7 +15,7 @@
  *		2 of the License, or (at your option) any later version.
  */
 #ifndef _LINUX_ICMP_H
-#define	_LINUX_ICMP_H
+#define _LINUX_ICMP_H
 
 #include <linux/types.h>
 
@@ -82,14 +82,6 @@ struct icmphdr {
   } un;
 };
 
-#ifdef __KERNEL__
-#include <linux/skbuff.h>
-
-static inline struct icmphdr *icmp_hdr(const struct sk_buff *skb)
-{
-	return (struct icmphdr *)skb_transport_header(skb);
-}
-#endif
 
 /*
  *	constants for (set|get)sockopt
@@ -102,4 +94,4 @@ struct icmp_filter {
 };
 
 
-#endif	/* _LINUX_ICMP_H */
+#endif /* _LINUX_ICMP_H */

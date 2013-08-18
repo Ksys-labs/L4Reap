@@ -1,4 +1,5 @@
 # -*- makefile -*-
+# vi:se ft=make:
 
 ###############################################################################
 
@@ -43,8 +44,6 @@ PREPROCESS_PARTS-$(CONFIG_SCHED_FIXED_PRIO)  += sched_fixed_prio
 PREPROCESS_PARTS-$(CONFIG_SCHED_WFQ)         += sched_wfq
 PREPROCESS_PARTS-$(CONFIG_SCHED_FP_WFQ)      += sched_fp_wfq
 PREPROCESS_PARTS-$(CONFIG_ARM_LPAE)          += arm_lpae
-PREPROCESS_PARTS-$(CONFIG_CPU_VIRT)                 += hyp
-PREPROCESS_PARTS-y$(CONFIG_CPU_VIRT)                += noncont_mem
 
 
 #
@@ -216,7 +215,7 @@ INTERFACES_JDB		:= jdb_handler_queue jdb_module jdb_pic            \
 			   jdb_ipc_gate jdb_obj_space jdb_log jdb_factory  \
 			   jdb_thread jdb_scheduler jdb_sender_list\
 			   jdb_perf jdb_vm jdb_regex jdb_disasm jdb_bp \
-			   jdb_tbuf_output jdb_tbuf_show \
+			   jdb_tbuf_output jdb_tbuf_show jdb_console_buffer \
                            jdb_idle_stats
 CXXSRC_JDB := tb_entry_output.cc
 

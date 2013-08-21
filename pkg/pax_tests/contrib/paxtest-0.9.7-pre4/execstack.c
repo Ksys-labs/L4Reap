@@ -13,7 +13,7 @@ const char testname[] = "Executable stack                         ";
 
 void doit( void )
 {
-	char buf[8192];
+	volatile char buf[8192];
 	fptr func;
 
 	/* Put a RETN instruction in the buffer */

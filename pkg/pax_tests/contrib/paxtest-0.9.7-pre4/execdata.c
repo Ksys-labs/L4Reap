@@ -11,7 +11,7 @@
 
 const char testname[] = "Executable data                          ";
 
-char buf = '\xc3';	/* RETN instruction */
+volatile char buf = '\xc3';	/* RETN instruction */
 
 void doit( void )
 {

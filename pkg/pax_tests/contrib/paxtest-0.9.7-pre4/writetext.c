@@ -24,8 +24,8 @@ static void sigsegv( int sig )
 
 void doit( void )
 {
-	char *buf;
-	char c;
+	volatile char *buf;
+	volatile char c;
 
 	buf = (char*)shlibtest;
 

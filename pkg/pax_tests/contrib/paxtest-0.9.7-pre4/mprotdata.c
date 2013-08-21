@@ -13,7 +13,7 @@
 
 const char testname[] = "Executable data (mprotect)               ";
 
-char buf = '\xc3';	/* RETN instruction */
+volatile char buf = '\xc3';	/* RETN instruction */
 
 void doit( void )
 {

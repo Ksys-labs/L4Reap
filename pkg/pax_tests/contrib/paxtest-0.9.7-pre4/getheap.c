@@ -10,7 +10,7 @@
 
 int main( int argc, char *argv[] )
 {
-	char *p;
+	volatile char *p;
 
 	p = malloc( 100 );
 	if( p == NULL ) {

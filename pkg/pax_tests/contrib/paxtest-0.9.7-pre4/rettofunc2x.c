@@ -19,7 +19,7 @@ fptr overflow[32] = {
 
 void doit( void )
 {
-	char buf[4];
+	volatile char buf[4];
 
 	memcpy( buf, overflow, sizeof( overflow ) );
 }

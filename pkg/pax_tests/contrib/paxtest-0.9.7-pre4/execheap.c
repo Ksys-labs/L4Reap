@@ -13,7 +13,7 @@ const char testname[] = "Executable heap                          ";
 
 void doit( void )
 {
-	char *buf;
+	volatile char *buf;
 	fptr func;
 
 	buf = malloc( 1 );

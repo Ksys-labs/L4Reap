@@ -15,7 +15,7 @@ const char testname[] = "Executable heap (mprotect)               ";
 
 void doit( void )
 {
-	char *buf;
+	volatile char *buf;
 	fptr func;
 
 	buf = malloc( 1 );

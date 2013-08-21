@@ -15,7 +15,7 @@ const char testname[] = "Executable stack (mprotect)              ";
 
 void doit( void )
 {
-	char buf;
+	volatile char buf;
 	fptr func;
 
 	/* Put a RETN instruction in the buffer */

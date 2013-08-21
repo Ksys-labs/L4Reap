@@ -42,9 +42,13 @@
 # - default-sigma0: set default sigma0 including arguments
 # - default-roottask: set default roottask including arguments
 
-modaddr 0x01100000
+modaddr 0x02000000
+
+default-kernel fiasco -serial_esc
+default-bootstrap bootstrap
 
 entry pax_tests
+kernel fiasco -serial_esc
 roottask moe rom/pax_tests.cfg
 module pax_tests.cfg
 module libpthread.so
@@ -67,6 +71,7 @@ module pax_execbss
 module pax_execdata
 module pax_execheap
 module pax_execstack
+module pax_execstack2
 module pax_mprotanon
 module pax_mprotbss
 module pax_mprotdata
@@ -74,3 +79,5 @@ module pax_mprotheap
 module pax_mprotstack
 module pax_rettofunc1
 module pax_rettofunc2
+
+

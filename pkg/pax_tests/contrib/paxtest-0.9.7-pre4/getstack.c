@@ -8,7 +8,7 @@
 #include <stdio.h>
 
 int main( int argc, char *argv[] ){
-	char a;
+	volatile char a;
 
 	printf( "%p\n", &a );
 

@@ -833,8 +833,9 @@ void  igep_init(void)
 	usb_musb_init(NULL);
 #if 0
 	igep_flash_init();
-	igep_leds_init();
 #endif
+	igep_leds_init();
+
 	/* Add twl4030 common data */
 	omap3_pmic_get_config(&twl4030_pdata, TWL_COMMON_PDATA_USB |
 			TWL_COMMON_PDATA_AUDIO | TWL_COMMON_PDATA_MADC,

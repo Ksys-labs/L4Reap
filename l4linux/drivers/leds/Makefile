@@ -59,3 +59,13 @@ obj-$(CONFIG_LEDS_TRIGGER_BACKLIGHT)	+= ledtrig-backlight.o
 obj-$(CONFIG_LEDS_TRIGGER_GPIO)		+= ledtrig-gpio.o
 obj-$(CONFIG_LEDS_TRIGGER_DEFAULT_ON)	+= ledtrig-default-on.o
 obj-$(CONFIG_LEDS_TRIGGER_TRANSIENT)	+= ledtrig-transient.o
+
+ifeq ($(CONFIG_L4_PLAT_OVERO), y)
+KBUILD_CPPFLAGS += -Iarch/l4/kernel/arch-arm/plat-omap/include
+KBUILD_CPPFLAGS += -Iarch/l4/kernel/arch-arm/mach-omap2/include
+endif
+
+ifeq ($(CONFIG_L4_PLAT_IGEP), y)
+KBUILD_CPPFLAGS += -Iarch/l4/kernel/arch-arm/plat-omap/include
+KBUILD_CPPFLAGS += -Iarch/l4/kernel/arch-arm/mach-omap2/include
+endif

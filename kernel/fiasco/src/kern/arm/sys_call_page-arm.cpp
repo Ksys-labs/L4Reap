@@ -40,13 +40,13 @@ Sys_call_page::set_utcb_get_code(Unsigned32 *sys_calls)
   sys_calls[offset++] = 0xe3a02010; // mov     r2, #0x10 -> set tls opcode
   sys_calls[offset++] = 0xe5842000; // str     r2, [r4]
   sys_calls[offset++] = 0xe3a03000; // mov     r3, #0
-  sys_calls[offset++] = 0xe30f2803; // movw    r2, #0xf803
-  sys_calls[offset++] = 0xe3a00002; // mov     r0, #2
-  sys_calls[offset++] = 0xe34f2fff; // movt    r2, #0xffff
-  sys_calls[offset++] = 0xe34f0ff4; // movt    r0, #0xfff4
+  sys_calls[offset++] = 0xe3e020fc; // mvn     r2, #252
+  sys_calls[offset++] = 0xe3c22c07; // bic     r2, r2, #1792
+  sys_calls[offset++] = 0xe59f0008; // ldr     r0, [pc, #8]
   sys_calls[offset++] = 0xe1a0e00f; // mov     lr, pc
   sys_calls[offset++] = 0xe3e0f00b; // mvn     pc, #11
   sys_calls[offset++] = 0xe8bd8010; // pop     {r4, pc}
+  sys_calls[offset++] = 0xfff40002; // .word   0xfff40002
 }
 
 //----------------------------------------------------------------------------

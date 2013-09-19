@@ -80,7 +80,7 @@ GENERATED_SUPP_FILES = @GENERATED_SUPP@
 # default.supp, as it is built from the base .supp files at compile-time.
 dist_noinst_DATA = $(SUPP_FILES)
 
-pkglib_DATA = default.supp
+pkgdata_DATA = default.supp
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = valgrind.pc

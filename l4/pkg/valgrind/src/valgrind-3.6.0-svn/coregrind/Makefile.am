@@ -515,10 +515,10 @@ endif
 #----------------------------------------------------------------------------
 # gdbserver xml target descriptions
 #----------------------------------------------------------------------------
-pkglib_DATA =
+pkgdata_DATA =
 
 if VGCONF_ARCHS_INCLUDE_ARM
-pkglib_DATA += 	m_gdbserver/arm-core-valgrind-s1.xml \
+pkgdata_DATA += 	m_gdbserver/arm-core-valgrind-s1.xml \
 		m_gdbserver/arm-core-valgrind-s2.xml \
 		m_gdbserver/arm-core.xml \
 		m_gdbserver/arm-vfpv3-valgrind-s1.xml \
@@ -529,25 +529,25 @@ pkglib_DATA += 	m_gdbserver/arm-core-valgrind-s1.xml \
 endif
 
 if VGCONF_ARCHS_INCLUDE_X86
-pkglib_DATA += 	m_gdbserver/32bit-core-valgrind-s1.xml \
+pkgdata_DATA += 	m_gdbserver/32bit-core-valgrind-s1.xml \
 		m_gdbserver/32bit-core-valgrind-s2.xml \
 		m_gdbserver/32bit-core.xml \
 		m_gdbserver/32bit-sse-valgrind-s1.xml \
 		m_gdbserver/32bit-sse-valgrind-s2.xml \
 		m_gdbserver/32bit-sse.xml
 if VGCONF_OS_IS_LINUX
-pkglib_DATA +=	m_gdbserver/32bit-linux-valgrind-s1.xml \
+pkgdata_DATA +=	m_gdbserver/32bit-linux-valgrind-s1.xml \
 		m_gdbserver/32bit-linux-valgrind-s2.xml \
 		m_gdbserver/32bit-linux.xml \
 		m_gdbserver/i386-linux-valgrind.xml
 endif
 if VGCONF_OS_IS_DARWIN
-pkglib_DATA +=	m_gdbserver/i386-coresse-valgrind.xml
+pkgdata_DATA +=	m_gdbserver/i386-coresse-valgrind.xml
 endif
 endif
 
 if VGCONF_ARCHS_INCLUDE_AMD64
-pkglib_DATA +=	m_gdbserver/64bit-core-valgrind-s1.xml \
+pkgdata_DATA +=	m_gdbserver/64bit-core-valgrind-s1.xml \
 		m_gdbserver/64bit-core-valgrind-s2.xml \
 		m_gdbserver/64bit-core.xml \
 		m_gdbserver/64bit-sse-valgrind-s1.xml \
@@ -555,18 +555,18 @@ pkglib_DATA +=	m_gdbserver/64bit-core-valgrind-s1.xml \
 		m_gdbserver/64bit-sse.xml
 
 if VGCONF_OS_IS_LINUX
-pkglib_DATA +=	m_gdbserver/64bit-linux-valgrind-s1.xml \
+pkgdata_DATA +=	m_gdbserver/64bit-linux-valgrind-s1.xml \
 		m_gdbserver/64bit-linux-valgrind-s2.xml \
 		m_gdbserver/64bit-linux.xml \
 		m_gdbserver/amd64-linux-valgrind.xml
 endif
 if VGCONF_OS_IS_DARWIN
-pkglib_DATA +=	m_gdbserver/amd64-coresse-valgrind.xml
+pkgdata_DATA +=	m_gdbserver/amd64-coresse-valgrind.xml
 endif
 endif
 
 if VGCONF_ARCHS_INCLUDE_PPC32
-pkglib_DATA +=	m_gdbserver/power-altivec-valgrind-s1.xml \
+pkgdata_DATA +=	m_gdbserver/power-altivec-valgrind-s1.xml \
 		m_gdbserver/power-altivec-valgrind-s2.xml \
 		m_gdbserver/power-altivec.xml \
 		m_gdbserver/power-core.xml \
@@ -581,7 +581,7 @@ pkglib_DATA +=	m_gdbserver/power-altivec-valgrind-s1.xml \
 endif
 
 if VGCONF_ARCHS_INCLUDE_PPC64
-pkglib_DATA +=	m_gdbserver/power64-core-valgrind-s1.xml \
+pkgdata_DATA +=	m_gdbserver/power64-core-valgrind-s1.xml \
 		m_gdbserver/power64-core-valgrind-s2.xml \
 		m_gdbserver/power64-core.xml \
 		m_gdbserver/power64-linux-valgrind-s1.xml \
@@ -590,7 +590,7 @@ pkglib_DATA +=	m_gdbserver/power64-core-valgrind-s1.xml \
 		m_gdbserver/powerpc-altivec64l-valgrind.xml \
 		m_gdbserver/powerpc-altivec64l.xml
 if ! VGCONF_ARCHS_INCLUDE_PPC32
-pkglib_DATA +=	m_gdbserver/power-altivec-valgrind-s1.xml \
+pkgdata_DATA +=	m_gdbserver/power-altivec-valgrind-s1.xml \
 		m_gdbserver/power-altivec-valgrind-s2.xml \
 		m_gdbserver/power-altivec.xml \
 		m_gdbserver/power-fpu-valgrind-s1.xml \
@@ -606,7 +606,7 @@ endif
 
 all-local: inplace-noinst_PROGRAMS inplace-noinst_DSYMS
 	mkdir -p $(inplacedir); \
-	for f in $(pkglib_DATA); do \
+	for f in $(pkgdata_DATA); do \
 	  rm -f $(inplacedir)/$$f; \
 	  ln -f -s ../$(subdir)/$$f $(inplacedir); \
 	done

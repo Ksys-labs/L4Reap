@@ -71,11 +71,14 @@ void unmap_stack_and_start()
 }
 
 L4Re_app_model::Dataspace
-L4Re_app_model::alloc_ds(unsigned long size) const
+L4Re_app_model::alloc_ds(unsigned long size, unsigned long flags) const
 {
   Dataspace mem = chkcap(Global::cap_alloc.alloc<L4Re::Dataspace>(),
       "ELF loader: could not allocate capability");
-  chksys(Global::allocator->alloc(size, mem, (Global::l4re_aux->ldr_flags & L4RE_AUX_LDR_FLAG_PINNED_SEGS) ? L4Re::Mem_alloc::Pinned :0 ), "loading writabel ELF segment");
+  if (Global::l4re_aux->ldr_flags & L4RE_AUX_LDR_FLAG_PINNED_SEGS) {
+  	flags |= L4Re::Mem_alloc::Pinned;
+  }
+  chksys(Global::allocator->alloc(size, mem, flags), "loading copied ELF segment");
   return mem;
 }
 

@@ -32,9 +32,9 @@ void Moe::Dataspace_annon::operator delete (void *m) throw()
 { alloc()->free((Moe::Dataspace_annon*)m); }
 
 
-Moe::Dataspace_annon::Dataspace_annon(unsigned long _size, bool w,
+Moe::Dataspace_annon::Dataspace_annon(unsigned long _size, unsigned flags,
                                       unsigned char page_shift)
-: Moe::Dataspace_cont(0, 0, w), _page_shift(page_shift)
+: Moe::Dataspace_cont(0, 0, flags), _page_shift(page_shift)
 {
   unsigned long r_size = (_size + page_size() - 1) & ~(page_size() -1);
   Quota_guard g(quota(), r_size);

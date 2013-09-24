@@ -20,6 +20,7 @@
 #include <cstdlib>
 
 #include "alloc.h"
+#include "dataspace.h"
 #include "dataspace_annon.h"
 #include "dataspace_noncont.h"
 #include "globals.h"
@@ -94,8 +95,13 @@ Allocator::alloc(unsigned long size, unsigned long flags, unsigned long align)
 {
   if (size == 0)
     throw L4::Bounds_error("stack too small");
-
+  
   //L4::cout << "A: \n";
+	
+  unsigned long ds_flags = Moe::Dataspace::Writable; 
+  if (flags & L4Re::Mem_alloc::Executable) {
+  	ds_flags |= Moe::Dataspace::Executable;
+  }
   Moe::Dataspace *mo;
   if (flags & L4Re::Mem_alloc::Continuous
       || flags & L4Re::Mem_alloc::Pinned)
@@ -105,10 +111,11 @@ Allocator::alloc(unsigned long size, unsigned long flags, unsigned long align)
       else
         align = cxx::max<unsigned long>(align, L4_PAGESHIFT);
 
-      mo = new (&_quota) Moe::Dataspace_annon(size, true, align);
+      mo = new (&_quota) Moe::Dataspace_annon(size, ds_flags, align);
     }
-  else
-    mo = Moe::Dataspace_noncont::create(&_quota, size);
+  else {
+    mo = Moe::Dataspace_noncont::create(&_quota, size, ds_flags);
+  }
 
   // L4::cout << "A: mo=" << mo << "\n";
 
@@ -265,15 +272,18 @@ Allocator::disp_factory(l4_umword_t r, L4::Ipc::Iostream &ios)
 	{
 	  L4::Ipc::Varg size, flags, align;
 	  ios >> size >> flags >> align;
-
+	
 	  if (!size.is_of_int())
 	    return -L4_EINVAL;
+	
+		unsigned long __size = size.value<l4_umword_t>();
+		unsigned long __flags = flags.is_of_int() ? flags.value<l4_umword_t>() : 0;
+		unsigned long __align = align.is_of_int() ? align.value<l4_umword_t>() : 0;
 
-	  // L4::cout << "MEM: alloc ... " << size.value<l4_umword_t>() << "; " << flags.value<l4_umword_t>() << "\n";
-	  cxx::Auto_ptr<Moe::Dataspace> mo(alloc(size.value<l4_umword_t>(),
-		flags.is_of_int() ? flags.value<l4_umword_t>() : 0,
-                align.is_of_int() ? align.value<l4_umword_t>() : 0));
+	    //L4::cout << "Alloc Dataspace Proto r=" << L4::hex << r << " size=" << L4::hex << __size << " flags=" << __flags << "\n"; 
 
+	  cxx::Auto_ptr<Moe::Dataspace> mo(alloc(__size, __flags, __align));
+	  
 	  // L4::cout << "MO=" << mo.get() << "\n";
 	  ko = object_pool.cap_alloc()->alloc(mo.get());
 	  ko->dec_refcnt(1);

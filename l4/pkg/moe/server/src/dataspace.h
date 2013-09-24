@@ -31,6 +31,7 @@ public:
   {
     Read_only   = L4Re::Dataspace::Map_ro,
     Writable    = L4Re::Dataspace::Map_rw,
+    Executable = L4Re::Dataspace::Map_exec,
     Cow_enabled = 0x100,
   };
 
@@ -42,9 +43,17 @@ public:
     Address(long error) throw() : offs(-1UL) { fpage.raw = error; }
 
     Address(l4_addr_t base, l4_addr_t size, Ds_rw rw = Read_only,
-            l4_addr_t offs = 0) throw()
-    : fpage(l4_fpage(base, size, rw ? L4_FPAGE_RWX : L4_FPAGE_RX)),
-      offs(offs) {}
+            l4_addr_t offs = 0, unsigned executable = 0) throw()
+    : 
+      offs(offs) {
+		if (executable) {
+			fpage = l4_fpage(base, size, rw ? L4_FPAGE_RWX : L4_FPAGE_RX);
+		}
+		else {
+			fpage = l4_fpage(base, size, rw ? L4_FPAGE_RW : L4_FPAGE_RO);
+		}
+
+	  }
 
     unsigned long bs() const throw() { return fpage.raw & ~((1 << 12)-1); }
     unsigned long sz() const throw() { return 1 << l4_fpage_size(fpage); }
@@ -79,6 +88,7 @@ public:
   virtual int pre_allocate(l4_addr_t offset, l4_size_t size, unsigned rights) = 0;
 
   unsigned long is_writable() const throw() { return _flags & Writable; }
+  unsigned long is_executable() const throw() { return _flags & Executable; }
   unsigned long can_cow() const throw() { return _flags & Cow_enabled; }
   unsigned long flags() const throw() { return _flags; }
   virtual ~Dataspace() {}

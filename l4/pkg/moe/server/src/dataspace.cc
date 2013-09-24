@@ -129,6 +129,9 @@ Moe::Dataspace::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
         if ((obj & L4_FPAGE_X) && is_writable())
           s.flags |= Writable;
 
+	if (is_executable())
+		s.flags |= Executable;
+
 	ios << s;
 	return L4_EOK;
       }

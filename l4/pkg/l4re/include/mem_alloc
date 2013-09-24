@@ -80,6 +80,7 @@ public:
     Continuous   = 0x01, ///< Allocate physically contiguous data space, if supported by the allocator
     Pinned       = 0x02, ///< Allocate pinned data space, if supported by the allocator
     Super_pages  = 0x04, ///< Allocate super pages, if supported by the allocator
+    Executable = 0x08, ///< Allocate executable pages, if supported by the allocator
   };
 
   /**

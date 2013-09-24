@@ -91,10 +91,28 @@ Dataspace_svr::map(l4_addr_t offs, l4_addr_t hot_spot, unsigned long flags,
     }
 
   l4_addr_t map_base = l4_trunc_size(adr, order);
-  //l4_addr_t map_offs = adr & ~(~0UL << order);
-
-  l4_fpage_t fpage = l4_fpage(map_base, order, flags && is_writable() ?  L4_FPAGE_RWX : L4_FPAGE_RX);
   
+  bool rw = (flags & Dataspace::Map_rw) && is_writable();
+  bool exec = (flags & Dataspace::Map_exec) && is_executable();
+  enum L4_fpage_rights __rights = L4_FPAGE_RO;
+  if (rw) {
+  	if (exec) {
+		__rights = L4_FPAGE_RWX;
+	}
+	else {
+		__rights = L4_FPAGE_RW;	
+	}
+  }
+  else {
+  	if (exec) {
+		__rights = L4_FPAGE_RX;
+	}
+	else {
+		__rights = L4_FPAGE_RO;
+	}
+  }
+
+  l4_fpage_t fpage = l4_fpage(map_base, order, __rights);
   memory = L4::Ipc::Snd_fpage(fpage, hot_spot, _map_flags, _cache_flags);
 
   return L4_EOK;
@@ -190,6 +208,7 @@ Dataspace_svr::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 	s.size = size();
 	// only return writable if really writable
 	s.flags = (rw_flags() & ~Writable) | (!(obj & 1) && is_writable());
+	if (is_executable()) s.flags |= Executable;
 	ios << s;
 	return L4_EOK;
       }

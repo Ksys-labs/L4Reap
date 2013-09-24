@@ -72,7 +72,7 @@ struct L4Re_app_model : public Ldr::Base_app_model<L4Re_stack>
 
   L4Re_app_model(L4::Cap<L4Re::Rm> rm, void *) : _rm(rm) {}
 
-  Dataspace alloc_ds(unsigned long size) const;
+  Dataspace alloc_ds(unsigned long size, unsigned long flags = 0) const;
 
   static Const_dataspace open_file(char const *name);
 

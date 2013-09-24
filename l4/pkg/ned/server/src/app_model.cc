@@ -17,12 +17,12 @@ using L4Re::chksys;
 using L4Re::chkcap;
 
 App_model::Dataspace
-App_model::alloc_ds(unsigned long size) const
+App_model::alloc_ds(unsigned long size, unsigned long flags) const
 {
   Dataspace mem = chkcap(L4Re::Util::cap_alloc.alloc<L4Re::Dataspace>(),
                          "allocate capability");
   L4::Cap<L4Re::Mem_alloc> _ma(prog_info()->mem_alloc.raw & L4_FPAGE_ADDR_MASK); 
-  chksys(_ma->alloc(size, mem.get()), "allocate writabel program segment");
+  chksys(_ma->alloc(size, mem.get(), flags), "allocate writabel program segment");
   return mem;
 }
 

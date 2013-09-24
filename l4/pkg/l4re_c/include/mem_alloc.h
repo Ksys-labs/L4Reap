@@ -43,6 +43,7 @@ enum l4re_ma_flags {
   L4RE_MA_CONTINUOUS  = 0x01,
   L4RE_MA_PINNED      = 0x02,
   L4RE_MA_SUPER_PAGES = 0x04,
+  L4RE_MA_EXECUTABLE  = 0x08,
 };
 
 

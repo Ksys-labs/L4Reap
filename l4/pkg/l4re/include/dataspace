@@ -84,6 +84,11 @@ public:
      * \brief Request writable mapping.
      */
     Map_rw = 1,
+
+    /**
+     * \brief Request executable mapping
+     */
+    Map_exec = 2,
   };
 
   /**

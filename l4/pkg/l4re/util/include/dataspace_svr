@@ -53,11 +53,12 @@ public:
 
   typedef Snd_fpage::Map_type Map_type;
   typedef Snd_fpage::Cacheopt Cache_type;
-  enum Rw_type {
+
+  enum Srv_access_type {
       Read_only = 0,
       Writable = 1,
+      Executable = 2,
   };
-
 
   Dataspace_svr() throw()
   : _ds_start(0), _ds_size(0), _map_flags(Snd_fpage::Map),
@@ -171,9 +172,11 @@ protected:
   unsigned long map_flags() const throw()
   { return _map_flags; }
   unsigned long rw_flags() const throw()
-  { return _rw_flags; }
+  { return _srv_access_flags; }
   unsigned long is_writable() const throw()
-  { return _rw_flags & Writable; }
+  { return _srv_access_flags & Writable; }
+  unsigned long is_executable() const throw()
+  { return _srv_access_flags & Executable; }
   unsigned long page_size() const throw()
   { return 1UL << page_shift(); }
   unsigned long round_size() const throw()
@@ -188,7 +191,7 @@ protected:
   l4_size_t _ds_size;
   Map_type _map_flags;
   Cache_type _cache_flags;
-  Rw_type  _rw_flags;
+  Srv_access_type  _srv_access_flags;
 };
 
 }}

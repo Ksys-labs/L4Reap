@@ -15,7 +15,7 @@ namespace Moe {
 class Dataspace_annon : public Dataspace_cont
 {
 public:
-  Dataspace_annon(unsigned long size, bool writable = true,
+  Dataspace_annon(unsigned long size, unsigned flags = Writable,
                   unsigned char page_shift = L4_PAGESHIFT);
   virtual ~Dataspace_annon();
 

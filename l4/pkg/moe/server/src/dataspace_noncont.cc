@@ -61,7 +61,7 @@ Moe::Dataspace_noncont::address(l4_addr_t offset,
   if (!is_writable())
     rw = Read_only;
 
-  if ((rw == Writable) && (p.flags() & Page_cow))
+  if ((rw & Writable) && (p.flags() & Page_cow))
     {
       if (Moe::Pages::ref_count(*p) == 1)
 	p.set(*p, p.flags() & ~Page_cow);
@@ -85,7 +85,7 @@ Moe::Dataspace_noncont::address(l4_addr_t offset,
       memset(*p, 0, page_size());
     }
 
-  return Address(l4_addr_t(*p), page_shift(), rw, offset & (page_size()-1));
+  return Address(l4_addr_t(*p), page_shift(), rw, offset & (page_size()-1), is_executable());
 }
 
 int
@@ -94,7 +94,7 @@ Moe::Dataspace_noncont::pre_allocate(l4_addr_t offset, l4_size_t size, unsigned 
   l4_size_t ps = page_size();
   for (; size >= ps; size -= ps, offset += ps)
     {
-      Address a = address(offset, rights & L4_CAP_FPAGE_W ? Writable : Read_only);
+      Address a = address(offset, rights & L4_CAP_FPAGE_W ? Writable : Read_only, is_executable());
       if (a.is_nil())
 	return a.error();
     }

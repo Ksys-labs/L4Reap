@@ -149,7 +149,7 @@ Moe::Boot_fs::init_stage2()
       Moe::Dataspace_static *rf;
       rf = new Moe::Dataspace_static((void*)(unsigned long)modules[mod].mod_start,
                                      end - modules[mod].mod_start,
-                                     Dataspace::Cow_enabled);
+                                     Dataspace::Cow_enabled | Dataspace::Executable | Dataspace::Writable);
       object = object_pool.cap_alloc()->alloc(rf);
       rom_ns.register_obj(name, Names::Obj(0, rf));
 

@@ -95,9 +95,9 @@ public:
 };
 
 Moe_app_model::Dataspace
-Moe_app_model::alloc_ds(unsigned long size) const
+Moe_app_model::alloc_ds(unsigned long size, unsigned long flags) const
 {
-  Dataspace mem =_task->allocator()->alloc(size);
+  Dataspace mem =_task->allocator()->alloc(size, flags);
   if (!mem)
     chksys(-L4_ENOMEM, "ELF loader could not allocate memory");
   return mem;

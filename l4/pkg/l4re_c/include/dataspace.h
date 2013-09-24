@@ -50,6 +50,7 @@ typedef struct {
 enum l4re_ds_map_flags {
   L4RE_DS_MAP_FLAG_RO = 0,
   L4RE_DS_MAP_FLAG_RW = 1,
+  L4RE_DS_MAP_FLAG_EXEC = 2,
 };
 
 /**

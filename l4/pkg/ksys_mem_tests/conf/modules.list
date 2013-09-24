@@ -1,0 +1,69 @@
+# vim:set ft=l4mods:
+# Module configuration file for single image mode
+#
+# kernel, sigma0 and moe are always loaded automatically
+#
+# add kernel command line arguments with
+#  kernel fiasco arguments...
+# the seconds argument here is the binary name
+#
+# add sigma command line arguments with
+#  sigma0 sigma0 arguments...
+# the second sigma0 is the binary name
+#
+# add roottask command line arguments with
+#  roottask moe arguments...
+# the second roottask is the binary name
+#
+# modaddr: address where modules start, relative to begin of RAM
+#   this statement is either global (before first entry statement)
+#   or per entry
+#
+# 'module' variants
+# - module file: add file
+# - module-glob /some/path/*.foo: add all file matching
+# - module-perl perl-code: Perl code returns array of files to include
+# - moe file.cfg: expands to
+#        roottask moe rom/file.cfg
+#        module file.cfg
+#
+# Define a module group:
+#  group oftenneedthose
+#  module one
+#  module two
+#  module ...
+#
+# Use a module group:
+#  entry someentry
+#  module-group oftenneedthose
+#
+# Set defaults:
+# - default-kernel: set default kernel including arguments
+# - default-sigma0: set default sigma0 including arguments
+# - default-roottask: set default roottask including arguments
+
+modaddr 0x02000000
+
+default-kernel fiasco -serial_esc
+default-bootstrap bootstrap
+
+entry map_rwx
+kernel fiasco -serial_esc
+roottask moe rom/map_rwx.cfg
+module map_rwx.cfg
+module libpthread.so
+module libld-l4.so
+module libdl.so
+module lib4re-util.so
+module libc_support_misc.so
+module libc_be_socket_noop.so
+module libc_be_l4refile.so
+module libc_be_l4re.so
+module libsupc++.so
+module libuc_c.so
+module lib4re.so
+module libl4util.so
+module libl4sys.so
+module l4re
+module ned
+module ksys_mem_map_rwx

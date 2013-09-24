@@ -1,0 +1,3 @@
+Provides: ksys_mem_tests
+Requires: stdlibs 
+Maintainer: tarasikov@ksyslabs.org

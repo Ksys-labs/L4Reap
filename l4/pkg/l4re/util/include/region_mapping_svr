@@ -214,6 +214,9 @@ int region_pf_handler(RM *rm, IOS &ios)
   register unsigned writable = addr & 2;
   addr = addr & ~3UL;
 
+  static l4_umword_t last_pfa = (l4_umword_t)(-1UL);
+  static l4_umword_t last_pc = (l4_umword_t)(-1UL);
+
   typename RM::Node n = rm->find(addr);
 
   if (!n || !n->second.memory())
@@ -234,6 +237,16 @@ int region_pf_handler(RM *rm, IOS &ios)
       ios << (l4_umword_t)~0;
       return L4_EOK;
     }
+  
+  if (last_pfa == addr && last_pc == pc) {
+  	Dbg(Dbg::Warn, "rm").printf("double page fault @%lx pc=%lx\n", addr, pc);
+
+	// generate exception
+	ios << (l4_umword_t)~0;
+	return L4_EOK;
+  }
+  last_pfa = addr;
+  last_pc = pc;
 
   typename RM::Region_handler::Ops::Map_result result;
   if (int err = n->second.map(addr, n->first, writable, &result))

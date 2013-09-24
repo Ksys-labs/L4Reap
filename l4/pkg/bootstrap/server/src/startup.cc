@@ -410,12 +410,42 @@ static void fill_mem(unsigned fill_value)
     }
 }
 
+
+static inline
+unsigned long mbi_mod_start(l4util_mb_info_t *mbi, int i)
+{ return (L4_MB_MOD_PTR(mbi->mods_addr))[i].mod_start; }
+
+
+static inline
+unsigned long mbi_mod_end(l4util_mb_info_t *mbi, int i)
+{ return (L4_MB_MOD_PTR(mbi->mods_addr))[i].mod_end; }
+
+
+static inline
+unsigned long mbi_mod_size(l4util_mb_info_t *mbi, int i)
+{ return mbi_mod_end(mbi, i) - mbi_mod_start(mbi, i); }
+
+
+/**
+ * Move module i in multiboot structure.
+ *
+ * The cmdline string may either be including the calling program
+ * (.../bootstrap -arg1 -arg2) or without (-arg1 -arg2) in the realmode
+ * case, there, we do not have a leading space
+ *
+ * return pointer after argument, NULL if not found
+ */
 static void
-move_module(l4util_mb_info_t *mbi, int i, Region *from, Region *to,
-            bool overlap_check)
+move_module(l4util_mb_info_t *mbi, int i, Region *to, bool overlap_check)
 {
-  unsigned long start = from->begin();
-  unsigned long size = from->end() - start + 1;
+  const unsigned long long mod_start = (L4_MB_MOD_PTR(mbi->mods_addr))[i].mod_start;
+  const unsigned long long mod_end   = (L4_MB_MOD_PTR(mbi->mods_addr))[i].mod_end;
+
+  unsigned long long start = mod_start;
+  unsigned long long size = mod_end - mod_start;
+
+  assert(start == mod_start);
+  assert(size  == mod_end - mod_start);
 
   if (Verbose_load)
     {
@@ -429,16 +459,16 @@ move_module(l4util_mb_info_t *mbi, int i, Region *from, Region *to,
       c[1] = c[1] < 32 ? '.' : c[1];
       c[2] = c[2] < 32 ? '.' : c[2];
       c[3] = c[3] < 32 ? '.' : c[3];
-      printf("  moving module %02d { %lx, %llx } (%s) -> { %llx - %llx } [%ld]\n",
-             i, start, from->end(), c, to->begin(), to->end(), size);
+      printf("  moving module %02d { %llx, %llx } (%s) -> { %llx - %llx } [%lld]\n",
+             i, start, start + size - 1, c, to->begin(), to->end(), size);
 
       for (int a = 0; a < 0x100; a += 4)
         printf("%08lx%s", *(unsigned long *)(start + a), (a % 32 == 28) ? "\n" : " ");
       printf("\n");
     }
   else
-    printf("  moving module %02d { %lx-%llx } -> { %llx-%llx } [%ld]\n",
-           i, start, from->end(), to->begin(), to->end(), size);
+    printf("  moving module %02d { %llx-%llx } -> { %llx-%llx } [%lld]\n",
+           i, start, start + size - 1, to->begin(), to->end(), size);
 
   if (!ram.contains(*to))
     panic("Panic: Would move outside of RAM");
@@ -461,21 +491,43 @@ move_module(l4util_mb_info_t *mbi, int i, Region *from, Region *to,
 
   (L4_MB_MOD_PTR(mbi->mods_addr))[i].mod_start = to->begin();
   (L4_MB_MOD_PTR(mbi->mods_addr))[i].mod_end   = to->end() + 1;
-  from->begin(to->begin());
-  from->end(to->end());
 }
 
-static inline
-unsigned long mbi_mod_start(l4util_mb_info_t *mbi, int i)
-{ return (L4_MB_MOD_PTR(mbi->mods_addr))[i].mod_start; }
 
-static inline
-unsigned long mbi_mod_end(l4util_mb_info_t *mbi, int i)
-{ return (L4_MB_MOD_PTR(mbi->mods_addr))[i].mod_end; }
+static void
+try_move_module(Region const& module_area, l4util_mb_info_t *mbi, unsigned i, unsigned long lastmoduleend, unsigned modaddr)
+{
+  unsigned long start = mbi_mod_start(mbi, i);
+  unsigned long end = mbi_mod_end(mbi, i);
+  unsigned long size = mbi_mod_size(mbi, i);
 
-static inline
-unsigned long mbi_mod_size(l4util_mb_info_t *mbi, int i)
-{ return mbi_mod_end(mbi, i) - mbi_mod_start(mbi, i); }
+  if (start == end)
+    return;
+
+  // this appears like special handling for fiasco, sigma0, and moe, but why?
+  //if (i < 3)
+  //  {
+  //    if (start < lastmoduleend)
+  //      {
+  //        Region to(lastmoduleend, lastmoduleend + (end - start) - 1);
+  //        if (module_area.contains(to))
+  //          {
+  //            move_module(mbi, i, &to, true);
+  //            lastmoduleend = l4_round_page(end - 1);
+  //          }
+  //      }
+  //    return;
+  //  }
+
+  if (start >= modaddr)
+    return;
+
+  unsigned long long to = regions.find_free(module_area, size, L4_PAGESHIFT);
+  assert(to);
+
+  Region m_to = Region(to, to + size - 1);
+  move_module(mbi, i, &m_to, true);
+}
 
 /**
  * Move modules to another address.
@@ -483,7 +535,7 @@ unsigned long mbi_mod_size(l4util_mb_info_t *mbi, int i)
  * Source and destination regions may overlap.
  */
 static void
-move_modules(l4util_mb_info_t *mbi, unsigned long modaddr)
+move_and_add_modules(l4util_mb_info_t *mbi, unsigned long modaddr)
 {
   printf("  Moving up to %d modules behind %lx\n", mbi->mods_count, modaddr);
 
@@ -508,75 +560,43 @@ move_modules(l4util_mb_info_t *mbi, unsigned long modaddr)
 
   for (unsigned i = 0; i < mbi->mods_count; ++i)
     {
-      unsigned long start = mbi_mod_start(mbi, i);
-      unsigned long end = mbi_mod_end(mbi, i);
-      unsigned long size = mbi_mod_size(mbi, i);
-
-      if (start == end)
-        continue;
-
-      Region from(start, end - 1);
-      Region *this_module = regions.find(from);
-      assert(this_module->begin() == from.begin()
-             && this_module->end() == from.end());
-
-      if (i < 3)
-        {
-          if (start < lastmoduleend)
-            {
-              Region to(lastmoduleend, lastmoduleend + (end - start) - 1);
-              if (module_area.contains(to))
-                {
-                  move_module(mbi, i, this_module, &to, true);
-                  lastmoduleend = l4_round_page(this_module->end());
-                }
-            }
-          continue;
-        }
-
-      if (start >= modaddr)
-        continue;
-
-      unsigned long long to = regions.find_free(module_area, size, L4_PAGESHIFT);
-      assert(to);
-
-      Region m_to = Region(to, to + size - 1);
-      move_module(mbi, i, this_module, &m_to, true);
+      try_move_module(module_area, mbi, i, lastmoduleend, modaddr);
+      regions.add(Region(mbi_mod_start(mbi, i), mbi_mod_end(mbi, i), ".Module", Region::Root));
     }
 
   // now everything is behind modaddr -> pull close to modaddr now
   // this is optional but avoids holes and gives more consecutive memory
 
-  if (0)
-    printf("  Compactifying\n");
+  //if (0)
+  //  printf("  Compactifying\n");
 
-  regions.sort();
-  unsigned long lastend = modaddr;
-  for (Region *i = regions.begin(); i < regions.end(); ++i)
-    {
-      if (i->begin() < modaddr)
-        continue;
+  //regions.sort();
+  //unsigned long lastend = modaddr;
+  //for (Region *i = regions.begin(); i < regions.end(); ++i)
+  //  {
+  //    if (i->begin() < modaddr)
+  //      continue;
 
-      // find in mbi
-      unsigned mi = 0;
-      for (; mi < mbi->mods_count; ++mi)
-        if (i->begin() == mbi_mod_start(mbi, mi))
-          break;
+  //    // find in mbi
+  //    unsigned mi = 0;
+  //    for (; mi < mbi->mods_count; ++mi)
+  //      if (i->begin() == mbi_mod_start(mbi, mi))
+  //        break;
 
-      if (mi < 3 || mbi->mods_count == mi)
-        continue;
+  //    if (mi < 3 || mbi->mods_count == mi)
+  //      continue;
 
-      unsigned long start = mbi_mod_start(mbi, mi);
-      unsigned long end = mbi_mod_end(mbi, mi);
+  //    unsigned long start = mbi_mod_start(mbi, mi);
+  //    unsigned long end = mbi_mod_end(mbi, mi);
 
-      if (start > lastend)
-        {
-          Region to(lastend, end - 1 - (start - lastend));
-          move_module(mbi, mi, i, &to, false);
-          end = i->end();
-        }
-      lastend = l4_round_page(end);
-    }
+  //    if (start > lastend)
+  //      {
+  //        Region to(lastend, end - 1 - (start - lastend));
+  //        move_module(mbi, mi, &to, false);
+  //        end = i->end();
+  //      }
+  //    lastend = l4_round_page(end);
+  //  }
 }
 
 
@@ -1252,11 +1272,12 @@ startup(l4util_mb_info_t *mbi, l4_umword_t flag,
   assert(mbi->mods_count >= 2);
   assert(mbi->mods_count <= MODS_MAX);
 
-  /* we're just a GRUB-booted kernel! */
-  add_boot_modules_region(mbi);
-
   if (_mod_addr)
-    move_modules(mbi, _mod_addr);
+    move_and_add_modules(mbi, _mod_addr);
+  else
+    /* we're just a GRUB-booted kernel! */
+    /* move_and_add_modules() will automatically add the modules to our Region_list */
+    add_boot_modules_region(mbi);
 
   if (const char *s = get_cmdline(mbi))
     {

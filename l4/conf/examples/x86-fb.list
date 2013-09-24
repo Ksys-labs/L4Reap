@@ -1,5 +1,5 @@
 
-modaddr 0x1100000
+modaddr 0x2000000
 
 entry x86-fb-example
 bootstrap bootstrap -serial

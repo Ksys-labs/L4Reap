@@ -42,7 +42,7 @@
 # - default-sigma0: set default sigma0 including arguments
 # - default-roottask: set default roottask including arguments
 
-modaddr 0x01100000
+modaddr 0x02000000
 
 default-kernel fiasco -serial_esc
 default-bootstrap bootstrap

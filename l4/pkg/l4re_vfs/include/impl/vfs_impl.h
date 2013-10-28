@@ -40,13 +40,14 @@
 //#define DEBUG_LOG(level, dbg...) do { if (level) dbg } while (0)
 
 #define DEBUG_LOG(level, dbg...) do { } while (0)
+#define OVAL(v) outstring(" "#v"="); outhex32((int)v);
 
 /**
  * If USE_BIG_ANON_DS is defined the implementation will use a really big
  * data space for backing anonymous memory. Otherwise each mmap call
  * with anonymous memory will allocate a separate data space.
  */
-#define USE_BIG_ANON_DS
+//#define USE_BIG_ANON_DS
 
 using L4Re::Rm;
 
@@ -162,9 +163,10 @@ private:
   l4_addr_t _annon_offset;
   L4::Cap<L4Re::Dataspace> _annon_ds;
 
-  int alloc_ds(unsigned long size, L4::Cap<L4Re::Dataspace> *ds);
+  int alloc_ds(unsigned long size, L4::Cap<L4Re::Dataspace> *ds,
+      unsigned long flags = 0);
   int alloc_anon_mem(l4_umword_t size, L4::Cap<L4Re::Dataspace> *ds,
-                     l4_addr_t *offset);
+                     l4_addr_t *offset, bool exec = true);
 };
 
 static inline bool strequal(char const *a, char const *b)
@@ -361,7 +363,7 @@ Vfs::munmap(void *start, size_t len) L4_NOTHROW
 }
 
 int
-Vfs::alloc_ds(unsigned long size, L4::Cap<L4Re::Dataspace> *ds)
+Vfs::alloc_ds(unsigned long size, L4::Cap<L4Re::Dataspace> *ds, unsigned long flags)
 {
   *ds = Vfs_config::cap_alloc.alloc<L4Re::Dataspace>();
 
@@ -369,7 +371,7 @@ Vfs::alloc_ds(unsigned long size, L4::Cap<L4Re::Dataspace> *ds)
     return -ENOMEM;
 
   int err;
-  if ((err = Vfs_config::allocator()->alloc(size, *ds)) < 0)
+  if ((err = Vfs_config::allocator()->alloc(size, *ds, flags)) < 0)
     return err;
 
   DEBUG_LOG(debug_mmap, {
@@ -385,8 +387,14 @@ Vfs::alloc_ds(unsigned long size, L4::Cap<L4Re::Dataspace> *ds)
 
 int
 Vfs::alloc_anon_mem(l4_umword_t size, L4::Cap<L4Re::Dataspace> *ds,
-                    l4_addr_t *offset)
+                    l4_addr_t *offset, bool exec)
 {
+DEBUG_LOG(debug_mmap, {
+	outstring("VFS alloc_anon_mem");
+	OVAL(size);
+	OVAL(ds);
+      outstring("\n");
+});
 #ifdef USE_BIG_ANON_DS
   if (!_annon_ds.is_valid() || _annon_offset + size >= _annon_size)
     {
@@ -394,7 +402,7 @@ Vfs::alloc_anon_mem(l4_umword_t size, L4::Cap<L4Re::Dataspace> *ds,
 	L4Re::Core::release_ds(_annon_ds);
 
       int err;
-      if ((err = alloc_ds(_annon_size, ds)) < 0)
+      if ((err = alloc_ds(_annon_size, ds, exec ? L4Re::Mem_alloc::Executable : 0)) < 0)
 	return err;
 
       _annon_offset = 0;
@@ -415,7 +423,7 @@ Vfs::alloc_anon_mem(l4_umword_t size, L4::Cap<L4Re::Dataspace> *ds,
   _annon_offset += size;
 #else
   int err;
-  if ((err = alloc_ds(size, ds)) < 0)
+  if ((err = alloc_ds(size, ds, exec ? L4Re::Mem_alloc::Executable : 0)) < 0)
     return err;
 
   if (_early_oom)
@@ -432,6 +440,16 @@ int
 Vfs::mmap2(void *start, size_t len, int prot, int flags, int fd, off_t _offset,
            void **resptr) L4_NOTHROW
 {
+DEBUG_LOG(debug_mmap, {
+	outstring("VFS mmap2");
+	OVAL(start);
+	OVAL(len);
+	OVAL(prot);
+	OVAL(flags);
+	OVAL(fd);
+	OVAL(_offset);
+      outstring("\n");
+});
   using namespace L4Re;
   off64_t offset = _offset << 12;
 
@@ -467,7 +485,7 @@ Vfs::mmap2(void *start, size_t len, int prot, int flags, int fd, off_t _offset,
     {
       rm_flags |= L4Re::Rm::Detach_free;
 
-      int err = alloc_anon_mem(size, &ds, &annon_offset);
+      int err = alloc_anon_mem(size, &ds, &annon_offset, (prot & PROT_EXEC) | (flags & MAP_EXECUTABLE));
       if (err)
 	return err;
 
@@ -610,6 +628,16 @@ int
 Vfs::mremap(void *old_addr, size_t old_size, size_t new_size, int flags,
             void **new_addr) L4_NOTHROW
 {
+DEBUG_LOG(debug_mmap, {
+	outstring("VFS mremap: ");
+	OVAL(old_addr);
+	OVAL(old_size);
+	OVAL(new_size);
+	OVAL(flags);
+	OVAL(new_addr);
+      outstring("\n");
+});
+
   using namespace L4Re;
 
   if (flags & MREMAP_FIXED && !(flags & MREMAP_MAYMOVE))
@@ -745,6 +773,13 @@ Vfs::mremap(void *old_addr, size_t old_size, size_t new_size, int flags,
 int
 Vfs::mprotect(const void *a, size_t sz, int prot) L4_NOTHROW
 {
+DEBUG_LOG(debug_mmap, {
+	outstring("VFS mprotect");
+	OVAL(a);
+	OVAL(sz);
+	OVAL(prot);
+      outstring("\n");
+});
   (void)a;
   (void)sz;
   return (prot & PROT_WRITE) ? -1 : 0;

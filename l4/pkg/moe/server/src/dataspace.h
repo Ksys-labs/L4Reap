@@ -47,10 +47,10 @@ public:
     : 
       offs(offs) {
 		if (executable) {
-			fpage = l4_fpage(base, size, rw ? L4_FPAGE_RWX : L4_FPAGE_RX);
+			fpage = l4_fpage(base, size, (rw & Writable) ? L4_FPAGE_RWX : L4_FPAGE_RX);
 		}
 		else {
-			fpage = l4_fpage(base, size, rw ? L4_FPAGE_RW : L4_FPAGE_RO);
+			fpage = l4_fpage(base, size, (rw & Writable) ? L4_FPAGE_RW : L4_FPAGE_RO);
 		}
 
 	  }

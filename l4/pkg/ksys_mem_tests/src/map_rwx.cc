@@ -57,21 +57,33 @@ int main() {
 
 	puts("+ksys_mem_tests");
 
-	/* 0x214000 */
 	buf = (volatile unsigned char*)alloc_mem(409600, MAP_RWX);
 	printf("allocated memory @%016x\n", buf);
 	fiasco_tbuf_log_3val("KSYS-MEM", (unsigned long)buf, 0, 0);
 
-	/* X86 RETN instruction */
+	#ifdef USE_ARM
+	/* ARM BX LR instruction */
+	((unsigned*)buf)[0] = 0xe12fff1e;
+	#else
+	/* X86 RETN opcode */
 	buf[0] = '\xc3';
+	#endif
 
+	printf("before exec %x %x %x %x\n", buf[0], buf[1], buf[2], buf[3]);
 	func = (fptr)buf;
 	func();
 	printf("buf %x %x %x %x\n", buf[0], buf[1], buf[2], buf[3]);
 
 	printf("Dataspace test done, trying stack exec\n");
-	/* X86 RETN instruction */
+
+	#ifdef USE_ARM
+	/* ARM BX LR instruction */
+	((unsigned*)buf_stack)[0] = 0xe12fff1e;
+	#else
+	/* X86 RETN opcode */
 	buf_stack[0] = '\xc3';
+	#endif
+
 	func = (fptr)buf_stack;
 	func();
 	printf("stack %x %x %x %x\n", buf_stack[0], buf_stack[1], buf_stack[2], buf_stack[3]);

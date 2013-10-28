@@ -6,11 +6,13 @@ PKG_FILES = \
 
 TARGET=$(patsubst %,ksys_mem_%,$(PKG_FILES))
 
-#XXX: fix dynamic linker in non-executable memory mode
-#MODE = shared
+MODE = shared
 WARNINGS = -Wno-unused
 LDFLAGS = --no-undefined
 DEFINES = -DRUNDIR=""
+
+CFLAGS_arm += -DUSE_ARM=1
+CXXFLAGS_arm += -DUSE_ARM=1
 
 $(foreach target,$(PKG_FILES),$(eval SRC_CC_ksys_mem_$(target)=$(target).cc))
 

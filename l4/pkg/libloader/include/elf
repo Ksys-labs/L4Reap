@@ -201,13 +201,14 @@ struct Phdr_load
 	bool w = (ph_flags & PF_W);
 	bool x = (ph_flags & PF_X);
 	bool need_copy = w || x || ph.memsz() > fsz || mm->all_segs_cow();
+
 	if (need_copy)
       {
         // copy section
 		unsigned long ma_flags = (x ? L4Re::Mem_alloc::Executable : 0);
         Dataspace mem = mm->alloc_ds(size, ma_flags);
         mm->prog_attach_ds(l4_addr_t(paddr), size, mem, 0,
-							r_flags | w ? 0 : L4Re::Rm::Read_only,
+							(r_flags &~ L4Re::Rm::Read_only) | (w ? 0 : L4Re::Rm::Read_only),
                            (w && x) ? "attaching rwx ELF segment"
 						   : x ? "attaching rx ELF segment"
 						   : "attaching rw ELF segment");

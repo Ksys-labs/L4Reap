@@ -234,22 +234,29 @@ static void lbtf_free_adapter(struct lbtf_private *priv)
 	lbtf_deb_leave(LBTF_DEB_MAIN);
 }
 
-static int lbtf_op_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
+static void lbtf_op_tx(struct ieee80211_hw *hw, struct sk_buff *skb)
 {
 	struct lbtf_private *priv = hw->priv;
+	unsigned long flags;
 
 	lbtf_deb_enter(LBTF_DEB_TX);
 
+	spin_lock_irqsave(&priv->driver_lock, flags);
+
 	priv->skb_to_tx = skb;
 	queue_work(lbtf_wq, &priv->tx_work);
-	/*
-	 * queue will be restarted when we receive transmission feedback if
-	 * there are no buffered multicast frames to send
+
+	priv->queue_awake = false;
+	priv->stop_time = jiffies;
+
+	/* Queue will be restarted when we receive transmission feedback
+	 * or when the time runs out.
 	 */
 	ieee80211_stop_queues(priv->hw);
 
+	spin_unlock_irqrestore(&priv->driver_lock, flags);
+
 	lbtf_deb_leave(LBTF_DEB_TX);
-	return NETDEV_TX_OK;
 }
 
 static void lbtf_tx_work(struct work_struct *work)
@@ -261,6 +268,7 @@ static void lbtf_tx_work(struct work_struct *work)
 	struct txpd *txpd;
 	struct sk_buff *skb = NULL;
 	int err;
+	unsigned long flags;
 
 	lbtf_deb_enter(LBTF_DEB_MACOPS | LBTF_DEB_TX);
 
@@ -272,19 +280,18 @@ static void lbtf_tx_work(struct work_struct *work)
 	lbtf_deb_tx("&(priv->bc_ps_buf): %p", &priv->bc_ps_buf);
 #endif
 
-	if (priv->vif &&
-		 (priv->vif->type == NL80211_IFTYPE_AP) &&
-		 (!skb_queue_empty(&priv->bc_ps_buf))) {
-		lbtf_deb_tx("bc_ps_buf");
-		skb = skb_dequeue(&priv->bc_ps_buf);
-	}
-	else if (priv->skb_to_tx) {
-		skb = priv->skb_to_tx;
-		priv->skb_to_tx = NULL;
-	} else {
+	spin_lock_irqsave(&priv->driver_lock, flags);
+
+	if (!priv->skb_to_tx) {
 		lbtf_deb_leave(LBTF_DEB_MACOPS | LBTF_DEB_TX);
+		spin_unlock_irqrestore(&priv->driver_lock, flags);
 		return;
 	}
+
+	skb = priv->skb_to_tx;
+	priv->skb_to_tx = NULL;
+
+	spin_unlock_irqrestore(&priv->driver_lock, flags);
 
 	len = skb->len;
 	info  = IEEE80211_SKB_CB(skb);
@@ -313,17 +320,45 @@ static void lbtf_tx_work(struct work_struct *work)
 	spin_lock_irq(&priv->driver_lock);
 	skb_queue_tail(&priv->tx_skb_buf, skb);
 	err = priv->hw_host_to_card(priv, MVMS_DAT, skb->data, skb->len);
-	spin_unlock_irq(&priv->driver_lock);
 	if (err) {
-		dev_kfree_skb_any(skb);
 		skb_dequeue_tail(&priv->tx_skb_buf);
+		ieee80211_free_txskb(priv->hw, skb);
 		pr_err("TX error: %d", err);
-	} else {
-		if (LBS_NUM_BUFFERS > skb_queue_len(&priv->tx_skb_buf))
-			ieee80211_wake_queues(priv->hw);
-		lbtf_deb_tx("TX success");
 	}
+	spin_unlock_irq(&priv->driver_lock);
+
 	lbtf_deb_leave(LBTF_DEB_MACOPS | LBTF_DEB_TX);
+}
+
+static int tx_timeout_thread(void *_priv)
+{
+	struct lbtf_private *priv = _priv;
+	unsigned long flags;
+	unsigned long timeout = msecs_to_jiffies(500);
+
+	while (!kthread_should_stop()) {
+		msleep(100);
+
+		spin_lock_irqsave(&priv->driver_lock, flags);
+
+		if (jiffies - priv->stop_time > timeout
+		    && !priv->queue_awake
+		    && !priv->skb_to_tx) {
+
+			printk(KERN_DEBUG "libertas_tf: tx feedback timed out\n");
+
+			priv->queue_awake = true;
+			ieee80211_wake_queues(priv->hw);
+
+			while (!skb_queue_empty(&priv->tx_skb_buf))
+				ieee80211_free_txskb(priv->hw,
+						skb_dequeue(&priv->tx_skb_buf));
+		}
+
+		spin_unlock_irqrestore(&priv->driver_lock, flags);
+	}
+
+	return 0;
 }
 
 static int lbtf_op_start(struct ieee80211_hw *hw)
@@ -331,6 +366,7 @@ static int lbtf_op_start(struct ieee80211_hw *hw)
 	struct lbtf_private *priv = hw->priv;
 	void *card = priv->card;
 	int ret = -1;
+	unsigned long flags;
 
 	lbtf_deb_enter(LBTF_DEB_MACOPS);
 
@@ -369,7 +405,10 @@ static int lbtf_op_start(struct ieee80211_hw *hw)
 
 	SET_IEEE80211_PERM_ADDR(hw, priv->current_addr);
 
+	spin_lock_irqsave(&priv->driver_lock, flags);
+	priv->queue_awake = true;
 	ieee80211_wake_queues(priv->hw);
+	spin_unlock_irqrestore(&priv->driver_lock, flags);
 
 	lbtf_deb_leave(LBTF_DEB_MACOPS);
 	return 0;
@@ -386,15 +425,15 @@ static void lbtf_op_stop(struct ieee80211_hw *hw)
 	struct lbtf_private *priv = hw->priv;
 	unsigned long flags;
 	struct sk_buff *skb;
-
 	struct cmd_ctrl_node *cmdnode;
 
 	lbtf_deb_enter(LBTF_DEB_MACOPS);
 
+	spin_lock_irqsave(&priv->driver_lock, flags);
+	priv->queue_awake = false;
 	ieee80211_stop_queues(hw);
 
 	/* Flush pending command nodes */
-	spin_lock_irqsave(&priv->driver_lock, flags);
 	list_for_each_entry(cmdnode, &priv->cmdpendingq, list) {
 		cmdnode->result = -ENOENT;
 		cmdnode->cmdwaitqwoken = 1;
@@ -826,6 +865,13 @@ struct lbtf_private *lbtf_add_card(void *card, struct device *dmdev, u8 mac_addr
 	if (ieee80211_register_hw(hw))
 		goto err_init_adapter;
 
+	priv->tx_timeout_thread = kthread_run(tx_timeout_thread, priv,
+					"lbtf_tx_timeout");
+	if (IS_ERR(priv->tx_timeout_thread)) {
+		printk(KERN_ERR "libertastf: couldn't create thread\n");
+		goto err_init_adapter;
+	}
+
 	goto done;
 
 err_init_adapter:
@@ -843,10 +889,17 @@ int lbtf_remove_card(struct lbtf_private *priv)
 {
 	struct sk_buff *skb = NULL;
 	struct ieee80211_hw *hw = priv->hw;
+	unsigned long flags;
 
 	lbtf_deb_enter(LBTF_DEB_MAIN);
 
+	spin_lock_irqsave(&priv->driver_lock, flags);
+	priv->queue_awake = false;
 	ieee80211_stop_queues(priv->hw);
+	spin_unlock_irqrestore(&priv->driver_lock, flags);
+
+	kthread_stop(priv->tx_timeout_thread);
+	priv->tx_timeout_thread = NULL;
 
 	while (!skb_queue_empty(&priv->tx_skb_buf)) {
 		skb = skb_dequeue(&priv->tx_skb_buf);
@@ -869,16 +922,18 @@ void lbtf_send_tx_feedback(struct lbtf_private *priv, u8 retrycnt, u8 fail)
 {
 	struct ieee80211_tx_info *info;
 	struct sk_buff *skb = NULL;
+	unsigned long flags;
+
 	lbtf_deb_enter(LBTF_DEB_MAIN);
 
-	if (!skb_queue_empty(&priv->tx_skb_buf)) {
+	spin_lock_irqsave(&priv->driver_lock, flags);
+	if (!skb_queue_empty(&priv->tx_skb_buf))
 		skb = skb_dequeue(&priv->tx_skb_buf);
-	}
-	
-	if(skb == 0) {
+	spin_unlock_irqrestore(&priv->driver_lock, flags);
+
+	if (skb == 0) {
 		lbtf_deb_stats("skb is null");
 	} else {
-
 		lbtf_deb_stats("skb is ok");
 
 		info = IEEE80211_SKB_CB(skb);
@@ -896,10 +951,10 @@ void lbtf_send_tx_feedback(struct lbtf_private *priv, u8 retrycnt, u8 fail)
 		ieee80211_tx_status_irqsafe(priv->hw, skb);
 	}
 
-	if (!priv->skb_to_tx && skb_queue_empty(&priv->bc_ps_buf))
-		ieee80211_wake_queues(priv->hw);
-	else
-		queue_work(lbtf_wq, &priv->tx_work);
+	spin_lock_irqsave(&priv->driver_lock, flags);
+	priv->queue_awake = true;
+	ieee80211_wake_queues(priv->hw);
+	spin_unlock_irqrestore(&priv->driver_lock, flags);
 
 	lbtf_deb_leave(LBTF_DEB_MAIN);
 }
@@ -963,19 +1018,6 @@ void lbtf_bcn_sent(struct lbtf_private *priv)
 	if ((*priv_vif)->type != NL80211_IFTYPE_AP &&
 		(*priv_vif)->type != NL80211_IFTYPE_MESH_POINT)
 		return;
-
-	if (skb_queue_empty(&priv->bc_ps_buf)) {
-		bool tx_buff_bc = 0;
-
-		while ((skb = ieee80211_get_buffered_bc(priv->hw, (*priv_vif)))) {
-			skb_queue_tail(&priv->bc_ps_buf, skb);
-			tx_buff_bc = 1;
-		}
-		if (tx_buff_bc) {
-			ieee80211_stop_queues(priv->hw);
-			queue_work(lbtf_wq, &priv->tx_work);
-		}
-	}
 
 	skb = ieee80211_beacon_get(priv->hw, (*priv_vif));
 

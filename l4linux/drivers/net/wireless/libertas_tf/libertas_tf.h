@@ -279,6 +279,9 @@ struct lbtf_private {
 	bool beacon_enable;
 	u16 beacon_int;
 
+	struct task_kthread *tx_timeout_thread;
+	bool queue_awake;
+	unsigned long stop_time;
 };
 
 /* 802.11-related definitions */

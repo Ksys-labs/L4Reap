@@ -1,0 +1,40 @@
+#! /bin/sh
+
+# some common path is the default
+DEFAULT_GCC_PATH_PREFIX=/opt/arm-2011.03/bin/arm-none-linux-gnueabi-
+
+GCC_PATH_PREFIX=${GCC_PATH_PREFIX:-$DEFAULT_GCC_PATH_PREFIX}
+
+bn=${0##*/}
+
+look_for_next()
+{
+  local IFS=:
+  for p in $PATH; do
+    if [ -x "$p/$bn" ]; then
+      if [ "$myself" != "$p/$bn" ]; then
+	echo "$p/$bn"
+	return
+      fi
+    fi
+  done
+}
+
+myself=$0
+[ "${myself#/}" = "$myself" ] && myself=$PWD/$myself
+
+prog=$(look_for_next)
+
+
+# if nothing found look up some common paths
+if [ -z "$prog" ]; then
+  p=$GCC_PATH_PREFIX${bn#arm-linux-} 
+  [ -x "$p" ] && prog=$p
+fi
+
+if [ -z "$prog" ]; then
+  echo "$0: No suitable compiler found."
+  exit 1
+fi
+
+$prog "$@"

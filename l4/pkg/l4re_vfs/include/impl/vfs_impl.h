@@ -559,6 +559,8 @@ DEBUG_LOG(debug_mmap, {
 
   if (!(flags & MAP_FIXED))  rm_flags |= Rm::Search_addr;
   if (!(prot & PROT_WRITE))  rm_flags |= Rm::Read_only;
+  if (flags & MAP_EXECUTABLE) rm_flags |= Rm::Executable;
+  if (prot & PROT_EXEC) rm_flags |= Rm::Executable;
 
   err = r->attach(&data, size, rm_flags, ds, offset);
 

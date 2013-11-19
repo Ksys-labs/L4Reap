@@ -42,13 +42,16 @@ enum l4re_rm_flags_t {
   L4RE_RM_NO_ALIAS     = 0x02, /**< \brief The region contains exclusive memory that is not mapped anywhere else */
   L4RE_RM_PAGER        = 0x04, /**< \brief Region has a pager */
   L4RE_RM_RESERVED     = 0x08, /**< \brief Region is reserved (blocked) */
-  L4RE_RM_REGION_FLAGS = 0x0f, /**< \brief Mask of all region flags */
+  L4RE_RM_EXECUTABLE   = 0x10, /**< \brief Region is executable */
+  L4RE_RM_REGION_FLAGS = 0x1f, /**< \brief Mask of all region flags */
 
+#if 0
   L4RE_RM_OVERMAP      = 0x10, /**< \brief Unmap memory already mapped in the region */
-  L4RE_RM_SEARCH_ADDR  = 0x20, /**< \brief Search for a suitable address range */
-  L4RE_RM_IN_AREA      = 0x40, /**< \brief Search only in area, or map into area */
-  L4RE_RM_EAGER_MAP    = 0x80, /**< \brief Eagerly map the attached data space in. */
-  L4RE_RM_ATTACH_FLAGS = 0xf0, /**< \brief Mask of all attach flags */
+#endif
+  L4RE_RM_SEARCH_ADDR  = 0x200, /**< \brief Search for a suitable address range */
+  L4RE_RM_IN_AREA      = 0x400, /**< \brief Search only in area, or map into area */
+  L4RE_RM_EAGER_MAP    = 0x800, /**< \brief Eagerly map the attached data space in. */
+  L4RE_RM_ATTACH_FLAGS = 0xf00, /**< \brief Mask of all attach flags */
 };
 
 

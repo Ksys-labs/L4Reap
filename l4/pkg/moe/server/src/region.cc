@@ -44,19 +44,32 @@ Region_map::Region_map()
 }
 
 int Region_ops::map(Region_handler const *h, l4_addr_t adr,
-                    L4Re::Util::Region const &r, bool writable,
+                    L4Re::Util::Region const &r, Region_handler::Map_flags map_flags,
                     L4::Ipc::Snd_fpage *result)
 {
   l4_addr_t offs = adr - r.start();
   offs = l4_trunc_page(offs);
-  Moe::Dataspace::Ds_rw rw = !h->is_ro() && writable
+
+  register bool writable = map_flags & Region_handler::RH_Writable;
+  register bool executable = map_flags & Region_handler::RH_Executable;
+  unsigned long ds_flags = (!h->is_ro() && writable) 
                              ? Moe::Dataspace::Writable
                              : Moe::Dataspace::Read_only;
+  if (map_flags & executable)
+    ds_flags |= Moe::Dataspace::Executable;
+
   if (h->is_ro() && writable)
     Dbg(Dbg::Warn).printf("WARNING: "
          "Writable mapping request on read-only region at %lx!\n",
          adr);
-  *result = L4::Ipc::Snd_fpage(h->memory()->address(offs + h->offset(), rw, adr,
+
+  if (!h->is_exec() && executable)
+    Dbg(Dbg::Warn).printf("WARNING: "
+         "Executable mapping request on NX region at %lx!\n",
+		 adr);
+
+  *result = L4::Ipc::Snd_fpage(h->memory()->address(offs + h->offset(),
+                          (Moe::Dataspace::Ds_rw)ds_flags, adr,
                           r.start(), r.end()).fp(), offs + r.start());
 
   return L4_EOK;
@@ -90,6 +103,9 @@ public:
 
     if (!*ds)
       return -L4_ENOENT;
+
+	if ((flags & L4Re::Rm::Executable) && !(*ds)->is_executable())
+      return -L4_EPERM;	
 
     if (flags & L4Re::Rm::Read_only)
       return L4_EOK;

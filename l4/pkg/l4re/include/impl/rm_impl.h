@@ -79,9 +79,9 @@ Rm::attach(l4_addr_t *start, unsigned long size, unsigned long flags,
 
   if (flags & Eager_map)
     {
-      unsigned long fl = (flags & Read_only)
-	? Dataspace::Map_ro
-	: Dataspace::Map_rw;
+      unsigned long fl = 0;
+	  fl |= ((flags & Read_only) ? Dataspace::Map_ro : Dataspace::Map_rw);
+	  fl |= ((flags & Executable) ? Dataspace::Map_exec : 0);
       err = mem->map_region(offs, fl, *start, *start + size);
     }
   return err;

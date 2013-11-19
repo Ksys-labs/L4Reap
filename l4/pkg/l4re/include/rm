@@ -91,18 +91,19 @@ public:
     Detach_free        = 0x02,
     Pager              = 0x04, ///< Region has a pager
     Reserved           = 0x08, ///< Region is reserved (blocked)
+    Executable         = 0x10, ///< Region is executable
 
-    Region_flags       = 0x0f, ///< Mask of all region flags
+    Region_flags       = 0x1f, ///< Mask of all region flags
   };
 
   /// Flags for attach operation.
   enum Attach_flags
   {
-    Search_addr        = 0x20, ///< Search for a suitable address range.
-    In_area            = 0x40, ///< Search only in area, or map into area.
-    Eager_map          = 0x80, ///< Eagerly map the attached data space in.
+    Search_addr        = 0x200, ///< Search for a suitable address range.
+    In_area            = 0x400, ///< Search only in area, or map into area.
+    Eager_map          = 0x800, ///< Eagerly map the attached data space in.
 
-    Attach_flags       = 0xf0, ///< Mask of all attach flags.
+    Attach_flags       = 0xf00, ///< Mask of all attach flags.
   };
 
   /// Flags for detach operation

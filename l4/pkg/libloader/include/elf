@@ -208,7 +208,10 @@ struct Phdr_load
 		unsigned long ma_flags = (x ? L4Re::Mem_alloc::Executable : 0);
         Dataspace mem = mm->alloc_ds(size, ma_flags);
         mm->prog_attach_ds(l4_addr_t(paddr), size, mem, 0,
-							(r_flags &~ L4Re::Rm::Read_only) | (w ? 0 : L4Re::Rm::Read_only),
+							(r_flags &~ L4Re::Rm::Read_only)
+							| (w ? 0 : L4Re::Rm::Read_only)
+							| (x ? L4Re::Rm::Executable : 0),
+
                            (w && x) ? "attaching rwx ELF segment"
 						   : x ? "attaching rx ELF segment"
 						   : "attaching rw ELF segment");

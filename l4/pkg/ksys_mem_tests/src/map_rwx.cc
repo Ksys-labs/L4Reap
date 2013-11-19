@@ -41,6 +41,7 @@ static void* alloc_mem(size_t size, enum our_mem_flags flags) {
 	if (L4Re::Env::env()->rm()->attach(&ptr, size,
 		L4Re::Rm::Search_addr | L4Re::Rm::Eager_map
 		| ((flags & MAP_W) ? 0 : L4Re::Rm::Read_only)
+		| ((flags & MAP_X) ? L4Re::Rm::Executable : 0)
 		,ds))
 	{
 		puts("failed to attach memory");

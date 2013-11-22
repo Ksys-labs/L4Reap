@@ -70,18 +70,18 @@ Region_map::init()
 
 int
 Region_ops::map(Region_handler const *h, l4_addr_t local_adr,
-                Region const &r, Region_handler::Map_flags map_flags, l4_umword_t *result)
+                Region const &r, bool writable, l4_umword_t *result)
 {
   *result = 0;
   if ((h->flags() & Rm::Reserved) || !h->memory().is_valid())
     return -L4_ENOENT;
 
-  bool writable = map_flags & Region_handler::RH_Writable;
   unsigned long ds_flags = writable 
   				 ? L4Re::Dataspace::Map_rw
   				 : L4Re::Dataspace::Map_ro;
-  if (map_flags & Region_handler::RH_Executable)
+  if (h->is_exec()) {
     ds_flags |= L4Re::Dataspace::Map_exec;
+  }
   
   if (h->flags() & Rm::Pager)
     {

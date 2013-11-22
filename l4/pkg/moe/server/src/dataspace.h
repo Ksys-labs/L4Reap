@@ -46,7 +46,7 @@ public:
             l4_addr_t offs = 0, unsigned executable = 0) throw()
     : 
       offs(offs) {
-		if (executable) {
+		if (executable && (rw & Executable)) {
 			fpage = l4_fpage(base, size, (rw & Writable) ? L4_FPAGE_RWX : L4_FPAGE_RX);
 		}
 		else {
@@ -110,7 +110,7 @@ public:
 
 public:
   int dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios);
-  int map(l4_addr_t offs, l4_addr_t spot, bool rw,
+  int map(l4_addr_t offs, l4_addr_t spot, Ds_rw map_flags,
           l4_addr_t min, l4_addr_t max, L4::Ipc::Snd_fpage &memory);
   int stats(L4Re::Dataspace::Stats &stats);
   //int copy_in(unsigned long dst_offs, Dataspace *src, unsigned long src_offs,

@@ -27,7 +27,7 @@
 using cxx::min;
 
 int
-Moe::Dataspace::map(l4_addr_t offs, l4_addr_t hot_spot, bool _rw,
+Moe::Dataspace::map(l4_addr_t offs, l4_addr_t hot_spot, Ds_rw map_flags,
                     l4_addr_t min, l4_addr_t max, L4::Ipc::Snd_fpage &memory)
 {
   memory = L4::Ipc::Snd_fpage();
@@ -44,8 +44,7 @@ Moe::Dataspace::map(l4_addr_t offs, l4_addr_t hot_spot, bool _rw,
       return -L4_ERANGE;
     }
 
-  Ds_rw rw = _rw ? Writable : Read_only;
-  Address adr = address(offs, rw, hot_spot, min, max);
+  Address adr = address(offs, map_flags, hot_spot, min, max);
   if (adr.is_nil())
     return -L4_EPERM;
 
@@ -88,6 +87,7 @@ Moe::Dataspace::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 	unsigned long flags;
 	L4::Ipc::Snd_fpage fp;
 	ios >> offset >> spot >> flags;
+	flags &= (Writable | Executable | Read_only);
 #if 0
 	L4::cout << "MAPrq: " << L4::hex << offset << ", " << spot << ", "
 	         << flags << "\n";
@@ -95,8 +95,10 @@ Moe::Dataspace::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 
 	if (read_only && (flags & Writable))
 	  return -L4_EPERM;
+	if (!is_executable() && (flags & Executable))
+	  return -L4_EPERM;
 
-	long int ret = map(offset, spot, flags & Writable, 0, ~0, fp);
+	long int ret = map(offset, spot, (Ds_rw)flags, 0, ~0, fp);
 #if 0
 	L4::cout << "MAP: " << L4::hex << reinterpret_cast<unsigned long *>(&fp)[0]
 	         << ", " << reinterpret_cast<unsigned long *>(&fp)[1]
@@ -126,8 +128,9 @@ Moe::Dataspace::dispatch(l4_umword_t obj, L4::Ipc::Iostream &ios)
 	s.size = size();
 	// only return writable if really writable
 	s.flags = flags() & ~Writable;
-        if ((obj & L4_FPAGE_X) && is_writable())
-          s.flags |= Writable;
+    
+	if ((obj & L4_FPAGE_X) && is_writable())
+       s.flags |= Writable;
 
 	if (is_executable())
 		s.flags |= Executable;

@@ -69,13 +69,6 @@ public:
   typedef OPS Ops;
   typedef typename OPS::Map_result Map_result;
 
-  typedef enum {
-    RH_Readonly = 0,
-    RH_Writable = 1,
-    RH_Executable = 2,
-    RH_RWX = RH_Writable | RH_Executable,
-  } Map_flags;
-
   Region_handler() throw() : _offs(0), _mem(), _flags() {}
   Region_handler(Dataspace const &mem, l4_cap_idx_t client_cap,
       l4_addr_t offset = 0, unsigned flags = 0) throw()
@@ -101,8 +94,8 @@ public:
   void take() const    { Ops::take(this); }
   void release() const { Ops::release(this); }
 
-  int map(l4_addr_t adr, Region const &r, Map_flags map_flags, Map_result *result) const
-  { return Ops::map(this, adr, r, map_flags, result); }
+  int map(l4_addr_t adr, Region const &r, bool writable, Map_result *result) const
+  { return Ops::map(this, adr, r, writable, result); }
 
 };
 

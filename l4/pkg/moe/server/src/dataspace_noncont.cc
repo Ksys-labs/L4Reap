@@ -94,7 +94,11 @@ Moe::Dataspace_noncont::pre_allocate(l4_addr_t offset, l4_size_t size, unsigned 
   l4_size_t ps = page_size();
   for (; size >= ps; size -= ps, offset += ps)
     {
-      Address a = address(offset, rights & L4_CAP_FPAGE_W ? Writable : Read_only, is_executable());
+	  unsigned long flags = rights & L4_CAP_FPAGE_W ? Writable : Read_only;
+	  if (is_executable()) {
+	  	flags |= Executable;
+	  }
+      Address a = address(offset, (Ds_rw)flags, is_executable());
       if (a.is_nil())
 	return a.error();
     }

@@ -49,8 +49,8 @@ default-bootstrap bootstrap
 
 entry map_rwx
 kernel fiasco -serial_esc
-roottask moe --init=rom/ksys_mem_map_rwx
-#roottask moe rom/map_rwx.cfg
+#roottask moe --init=rom/ksys_mem_map_rwx
+roottask moe rom/map_rwx.cfg
 module map_rwx.cfg
 module libpthread.so
 module libld-l4.so
